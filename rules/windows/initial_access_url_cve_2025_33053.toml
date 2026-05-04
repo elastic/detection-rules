@@ -2,12 +2,13 @@
 creation_date = "2025/06/11"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious Diagnostics Utility for Internet Explorer child process. This may indicate the successful exploitation of the vulnerability CVE-2025-33053.
+Identifies a suspicious Diagnostics Utility for Internet Explorer child process. This may indicate the successful
+exploitation of the vulnerability CVE-2025-33053.
 """
 from = "now-9m"
 index = [
@@ -46,8 +47,8 @@ note = """## Triage and analysis
 - Implement additional monitoring and alerting for similar suspicious activities involving explorer.exe to enhance detection capabilities and prevent recurrence.
 - Review and update endpoint security policies to restrict the execution of potentially malicious URL files."""
 references = [
-     "https://research.checkpoint.com/2025/stealth-falcon-zero-day/", 
-     "https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2025-33053",
+    "https://research.checkpoint.com/2025/stealth-falcon-zero-day/",
+    "https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2025-33053",
 ]
 risk_score = 73
 rule_id = "5e23495f-09e2-4484-8235-bdb150d698c9"
@@ -57,13 +58,13 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -84,12 +85,44 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.005"
+name = "Match Legitimate Resource Name or Location"
+reference = "https://attack.mitre.org/techniques/T1036/005/"
 
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1566.001"
 name = "Spearphishing Attachment"
@@ -100,43 +133,10 @@ id = "T1566.002"
 name = "Spearphishing Link"
 reference = "https://attack.mitre.org/techniques/T1566/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1036.005"
-name = "Match Legitimate Resource Name or Location"
-reference = "https://attack.mitre.org/techniques/T1036/005/"
-
-[[rule.threat.technique]]
-id = "T1218"
-name = "System Binary Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1218/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1203"
-name = "Exploitation for Client Execution"
-reference = "https://attack.mitre.org/techniques/T1203/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"

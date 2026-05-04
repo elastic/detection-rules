@@ -2,12 +2,14 @@
 creation_date = "2021/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies when an EC2 Route Table has been created. Route tables can be used by attackers to disrupt network traffic, reroute communications, or maintain persistence in a compromised environment. This is a New Terms rule that detects the first instance of this behavior by a user or role.
+Identifies when an EC2 Route Table has been created. Route tables can be used by attackers to disrupt network traffic,
+reroute communications, or maintain persistence in a compromised environment. This is a New Terms rule that detects the
+first instance of this behavior by a user or role.
 """
 false_positives = [
     """
@@ -72,6 +74,7 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -85,6 +88,32 @@ data_stream.dataset: "aws.cloudtrail"
     ) 
     and event.outcome: "success"
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.investigation_fields]
 field_names = [
@@ -100,38 +129,14 @@ field_names = [
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
+    "aws.cloudtrail.response_elements",
 ]
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1578"
-name = "Modify Cloud Compute Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1578/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1578.005"
-name = "Modify Cloud Compute Configurations"
-reference = "https://attack.mitre.org/techniques/T1578/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["cloud.account.id", "user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
 

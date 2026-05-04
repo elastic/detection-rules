@@ -2,7 +2,7 @@
 creation_date = "2024/12/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -84,12 +84,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:file and host.os.type:linux and event.type:creation and file.extension:ko and
 not (
@@ -107,58 +108,59 @@ not (
 )
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1547.006"
-name = "Kernel Modules and Extensions"
-reference = "https://attack.mitre.org/techniques/T1547/006/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.name", "file.name"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"
+
+

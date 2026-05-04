@@ -2,7 +2,7 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/12/22"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -13,10 +13,7 @@ may copy or move files to the "/boot" directory to modify the boot process, whic
 the system.
 """
 from = "now-9m"
-index = [
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-]
+index = ["logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Boot File Copy"
@@ -85,9 +82,11 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
 process.name in ("cp", "mv") and process.parent.executable != null and process.args like~ "/boot/*" and not (
@@ -122,9 +121,33 @@ process.name in ("cp", "mv") and process.parent.executable != null and process.a
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1542"
 name = "Pre-OS Boot"
@@ -140,33 +163,9 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

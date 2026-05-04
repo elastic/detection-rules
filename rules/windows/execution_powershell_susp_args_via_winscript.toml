@@ -2,7 +2,7 @@
 creation_date = "2024/09/09"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/20"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,7 @@ tags = [
     "Data Source: Microsoft Defender XDR",
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -99,18 +100,33 @@ process where host.os.type == "windows" and event.type == "start" and
     ?user.id == "S-1-5-18" and
     /* Don't apply the user.id exclusion to Sysmon for compatibility */
     not data_stream.dataset : ("windows.sysmon_operational", "windows.sysmon")
-  ) 
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
@@ -131,25 +147,10 @@ id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1218"
-name = "System Binary Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1218/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1218.005"
-name = "Mshta"
-reference = "https://attack.mitre.org/techniques/T1218/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

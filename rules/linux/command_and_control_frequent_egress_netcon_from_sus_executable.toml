@@ -2,7 +2,7 @@
 creation_date = "2025/02/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -88,9 +88,11 @@ tags = [
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-endpoint.events.network-* metadata _id, _index, _version
 | mv_expand event.action 
@@ -162,33 +164,34 @@ from logs-endpoint.events.network-* metadata _id, _index, _version
 | keep agent.id, host.name, process.executable, Esql.*
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
+
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1564"
-name = "Hide Artifacts"
-reference = "https://attack.mitre.org/techniques/T1564/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1564.001"
-name = "Hidden Files and Directories"
-reference = "https://attack.mitre.org/techniques/T1564/001/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

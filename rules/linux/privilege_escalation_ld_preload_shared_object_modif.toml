@@ -2,7 +2,7 @@
 creation_date = "2021/01/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -101,6 +101,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -111,63 +112,64 @@ not event.type:deletion and file.path:/etc/ld.so.preload and
 process.name:(* and not (oneagentinstallaction or passwd or wine))
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["host.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"
+
+

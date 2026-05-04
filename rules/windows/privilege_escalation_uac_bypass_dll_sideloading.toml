@@ -2,7 +2,7 @@
 creation_date = "2020/10/27"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -70,13 +70,13 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -90,6 +90,23 @@ file where host.os.type == "windows" and event.type : "change" and process.name 
 '''
 
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -119,19 +136,9 @@ name = "Bypass User Account Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
 
 
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-[[rule.threat.technique.subtechnique]]
-id = "T1574.001"
-name = "DLL"
-reference = "https://attack.mitre.org/techniques/T1574/001/"
-
-
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

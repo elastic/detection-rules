@@ -2,7 +2,7 @@
 creation_date = "2021/09/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -11,7 +11,7 @@ Detects when an AWS IAM SAML provider is updated, which manages federated authen
 identity providers (IdPs). Adversaries with administrative access may modify a SAML provider’s metadata or certificate
 to redirect authentication flows, enable unauthorized federation, or escalate privileges through identity trust
 manipulation. Because SAML providers underpin single sign-on (SSO) access for users and applications, unauthorized
-modifications may allow persistent or covert access even after credentials are revoked. Monitoring  "UpdateSAMLProvider"
+modifications may allow persistent or covert access even after credentials are revoked. Monitoring "UpdateSAMLProvider"
 API activity is critical to detect potential compromise of federated trust relationships.
 """
 false_positives = [
@@ -110,6 +110,7 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -125,39 +126,39 @@ data_stream.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1484"
 name = "Domain or Tenant Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1484.002"
 name = "Trust Modification"
 reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1484"
-name = "Domain or Tenant Policy Modification"
-reference = "https://attack.mitre.org/techniques/T1484/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1484.002"
-name = "Trust Modification"
-reference = "https://attack.mitre.org/techniques/T1484/002/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",

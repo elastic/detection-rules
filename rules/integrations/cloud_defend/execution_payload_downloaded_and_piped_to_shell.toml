@@ -4,14 +4,13 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when a payload is downloaded and piped to a shell inside a running container. This
-could indicate a threat actor downloaded a payload and executed it using a shell without the payload
-being stored on the filesystem.
+This rule detects when a payload is downloaded and piped to a shell inside a running container. This could indicate a
+threat actor downloaded a payload and executed it using a shell without the payload being stored on the filesystem.
 """
 from = "now-6m"
 index = ["logs-cloud_defend.process*"]
@@ -48,9 +47,7 @@ This rule detects an interactive session in a running Linux container where a do
 - Eradicate by deleting and redeploying the workload from a known-good image, rotating any secrets and tokens available to the container, and removing any unauthorized binaries, cron jobs, startup scripts, or modified entrypoints created by the shell session.  
 - Escalate to incident response immediately if the downloaded content contacted unknown/external infrastructure, spawned post-exploitation tooling (e.g., miners, scanners, reverse shells), or showed signs of host interaction such as access to the container runtime socket or host-mounted paths.  
 - Harden by restricting interactive exec access (RBAC/MFA/just-in-time), enforcing signed/approved images, applying network policies to limit outbound access, and adding runtime controls to block `curl|sh`/`wget|sh` patterns or require allowlisted internal artifact sources."""
-references = [
-    "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
-]
+references = ["https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware"]
 risk_score = 47
 rule_id = "a750bbcc-863f-41ef-9924-fd8224e23694"
 severity = "medium"
@@ -61,11 +58,12 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Command and Control",
-    "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 sequence by process.parent.entity_id, container.id with maxspan=1s
   [process where event.type == "start" and event.action == "exec" and process.name in ("curl", "wget")]
@@ -96,32 +94,16 @@ sequence by process.parent.entity_id, container.id with maxspan=1s
    )]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1059.006"
-name = "Python"
-reference = "https://attack.mitre.org/techniques/T1059/006/"
 
 [rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
@@ -132,15 +114,31 @@ id = "T1105"
 name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

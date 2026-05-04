@@ -2,7 +2,7 @@
 creation_date = "2026/04/03"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/03"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -16,8 +16,8 @@ system context on Windows. This rule correlates successful `StopInstances`, `Sta
 """
 false_positives = [
     """
-    Legitimate automation or administrators may change user data and restart instances during maintenance, image
-    baking, or configuration fixes. Review the caller identity, change tickets, and whether `user_agent.original` and
+    Legitimate automation or administrators may change user data and restart instances during maintenance, image baking,
+    or configuration fixes. Review the caller identity, change tickets, and whether `user_agent.original` and
     `source.ip` match known tooling and networks (the rule groups on both together with `user.name`).
     """,
 ]
@@ -93,6 +93,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -122,43 +123,43 @@ FROM logs-aws.cloudtrail-*
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
 
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.009"
 name = "Cloud API"
 reference = "https://attack.mitre.org/techniques/T1059/009/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1578"
-name = "Modify Cloud Compute Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1578/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [rule.investigation_fields]
 field_names = [
-  "Esql.event_action_unique_count",
-  "Esql.event_action_values",
-  "Esql.instance_id",
-  "user.name",
-  "cloud.account.id",
-  "user_agent.original",
-  "source.ip",
-  "Esql.time_bucket",
+    "Esql.event_action_unique_count",
+    "Esql.event_action_values",
+    "Esql.instance_id",
+    "user.name",
+    "cloud.account.id",
+    "user_agent.original",
+    "source.ip",
+    "Esql.time_bucket",
 ]
+

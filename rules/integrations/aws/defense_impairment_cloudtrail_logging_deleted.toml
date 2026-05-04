@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2020/05/26"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects deletion of an AWS CloudTrail trail via DeleteTrail API. Removing trails is a high-risk action that destroys an
+audit control plane and is frequently paired with other destructive or stealthy operations. Validate immediately and
+restore compliant logging.
+"""
+false_positives = [
+    """
+    Trail deletions may be made by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Trail deletions by unfamiliar users or hosts should be
+    investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CloudTrail Log Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS CloudTrail Log Deleted
+
+AWS CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. It logs API calls and related events, providing visibility into user activity. This rule identifies the deletion of an AWS log trail using the `DeleteTrail` API. Deleting a trail can eliminate visibility and is a strong indicator of defense evasion or sabotage.
+
+#### Possible investigation steps
+- **Actor & target**
+  - Identify `aws.cloudtrail.user_identity.arn`, `user_agent.original`, `source.ip`.
+  - Confirm which trail was deleted (name/ARN, multi-region/organization status) from `aws.cloudtrail.request_parameters`.
+- **Blast radius**
+  - Determine whether it was the only trail or if organization/multi-region coverage remains.
+  - Review preceding `StopLogging` or `UpdateTrail` and subsequent high-risk actions (IAM, S3, KMS, EC2 exports).
+- **Data preservation**
+  - Verify S3 destinations and CloudWatch log groups for retained historical logs and file integrity validation.
+
+### False positive analysis
+- **Planned deletion**: Validate with tickets and decommissioning plans; ensure replacement/alternate trails exist.
+
+### Response and remediation
+- Recreate or re-enable compliant multi-region (or organization) trails immediately.
+- Investigate the actor’s recent activity; rotate creds if compromise is suspected.
+- Validate destination bucket policies, CMK policies, and event selectors for all active trails.
+- Hardening: Restrict `cloudtrail:DeleteTrail` and enforce guardrails via AWS Config/SCPs; alert on future deletions.
+
+### Additional information
+- **[AWS IR Playbooks](https://github.com/aws-samples/aws-incident-response-playbooks/blob/c151b0dc091755fffd4d662a8f29e2f6794da52c/playbooks/)** 
+- **[AWS Customer Playbook Framework](https://github.com/aws-samples/aws-customer-playbook-framework/tree/a8c7b313636b406a375952ac00b2d68e89a991f2/docs)** 
+- **Security Best Practices:** [AWS Knowledge Center – Security Best Practices](https://aws.amazon.com/premiumsupport/knowledge-center/security-best-practices/).
+"""
+references = [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/APIReference/API_DeleteTrail.html",
+    "https://awscli.amazonaws.com/v2/documentation/api/latest/reference/cloudtrail/delete-trail.html",
+]
+risk_score = 47
+rule_id = "7024e2a0-315d-4334-bb1a-441c593e16ab"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Cloudtrail",
+    "Use Case: Log Auditing",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "cloudtrail.amazonaws.com"
+    and event.action: "DeleteTrail"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+[[rule.threat.technique.subtechnique]]
+id = "T1685.002"
+name = "Disable or Modify Cloud Log"
+reference = "https://attack.mitre.org/techniques/T1685/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+

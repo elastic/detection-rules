@@ -2,14 +2,13 @@
 creation_date = "2025/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects kernel seeking activity through several built-in Linux utilities. Attackers may use these utilities
-to search the Linux kernel for available symbols, functions, and other information that can be used to exploit the
-kernel.
+This rule detects kernel seeking activity through several built-in Linux utilities. Attackers may use these utilities to
+search the Linux kernel for available symbols, functions, and other information that can be used to exploit the kernel.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -84,12 +83,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 (process.parent.args like "/boot/*" or process.args like "/boot/*") and (
@@ -109,41 +109,41 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1014"
-name = "Rootkit"
-reference = "https://attack.mitre.org/techniques/T1014/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1005"
-name = "Data from Local System"
-reference = "https://attack.mitre.org/techniques/T1005/"
-
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"

@@ -2,9 +2,9 @@
 creation_date = "2025/04/11"
 integration = ["aws"]
 maturity = "production"
-min_stack_version = "9.2.0"
 min_stack_comments = "aws.cloudtrail.session_credential_from_console field introduced in AWS integration version 4.6.0"
-updated_date = "2026/04/10"
+min_stack_version = "9.2.0"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,8 @@ false_positives = [
     """
     Highly distributed environments (e.g., globally deployed automation or edge nodes) may cause a single IAM user to
     appear from multiple IPs. Review the geolocation, network context, and user agent patterns to rule out benign use.
-    This rule automatically excludes console login sessions, reducing false positives from legitimate console-based access across VPN or network changes.
+    This rule automatically excludes console login sessions, reducing false positives from legitimate console-based
+    access across VPN or network changes.
     """,
 ]
 from = "now-32m"
@@ -78,6 +79,7 @@ tags = [
     "Tactic: Initial Access",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -191,67 +193,66 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
 // this rule only alerts for "high" fidelity cases, to broaden the rule scope to include all activity
 // change the final condition to 
 // | where Esql.activity_type != "normal_activity" and Esql.event_provider_count_distinct > 1
-
 '''
-
-[rule.investigation_fields]
-field_names = [
-      "Esql.timestamp_first_seen",
-      "Esql.timestamp_last_seen",
-      "Esql.activity_type",
-      "Esql.activity_fidelity_score",
-      "Esql.event_count",
-      "Esql.aws_cloudtrail_user_identity_arn_values",
-      "Esql.aws_cloudtrail_user_identity_access_key_id_values",
-      "Esql.event_action_values",
-      "Esql.event_provider_values",
-      "Esql.source_ip_values",
-      "Esql.user_agent_original_values",
-      "Esql.source_ip_user_agent_pair_values",
-      "Esql.source_geo_city_name_values",
-      "Esql.source_ip_city_pair_values",
-      "Esql.source_network_org_name_values",
-      "Esql.source_ip_network_pair_values",
-      "Esql.source_ip_count_distinct",
-      "Esql.user_agent_original_count_distinct",
-      "Esql.source_geo_city_name_count_distinct",
-      "Esql.source_network_org_name_count_distinct",
-      "Esql.data_stream_namespace_values"
-]
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+[rule.investigation_fields]
+field_names = [
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+    "Esql.activity_type",
+    "Esql.activity_fidelity_score",
+    "Esql.event_count",
+    "Esql.aws_cloudtrail_user_identity_arn_values",
+    "Esql.aws_cloudtrail_user_identity_access_key_id_values",
+    "Esql.event_action_values",
+    "Esql.event_provider_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.source_ip_user_agent_pair_values",
+    "Esql.source_geo_city_name_values",
+    "Esql.source_ip_city_pair_values",
+    "Esql.source_network_org_name_values",
+    "Esql.source_ip_network_pair_values",
+    "Esql.source_ip_count_distinct",
+    "Esql.user_agent_original_count_distinct",
+    "Esql.source_geo_city_name_count_distinct",
+    "Esql.source_network_org_name_count_distinct",
+    "Esql.data_stream_namespace_values",
+]
 
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1078.004"
-name = "Cloud Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/004/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

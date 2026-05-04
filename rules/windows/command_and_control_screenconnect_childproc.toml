@@ -2,7 +2,7 @@
 creation_date = "2024/03/27"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -78,6 +78,7 @@ tags = [
     "Data Source: Microsoft Defender XDR",
     "Data Source: Windows Security Event Logs",
     "Data Source: Crowdstrike",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -107,30 +108,10 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
-
-[[rule.threat.technique]]
-id = "T1219"
-name = "Remote Access Tools"
-reference = "https://attack.mitre.org/techniques/T1219/"
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1218"
 name = "System Binary Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1218/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1218.005"
 name = "Mshta"
@@ -146,14 +127,31 @@ id = "T1218.011"
 name = "Rundll32"
 reference = "https://attack.mitre.org/techniques/T1218/011/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
 
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1047"
 name = "Windows Management Instrumentation"
@@ -163,7 +161,6 @@ reference = "https://attack.mitre.org/techniques/T1047/"
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
@@ -179,35 +176,37 @@ id = "T1059.005"
 name = "Visual Basic"
 reference = "https://attack.mitre.org/techniques/T1059/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
 reference = "https://attack.mitre.org/techniques/T1053/005/"
 
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+

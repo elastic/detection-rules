@@ -2,14 +2,14 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects when chmod or chown are used to add the execute permission to a file in a world-writeable directory,
-and inside of a container. Modifying file permissions to make a file executable could indicate malicious activity, as
-an attacker may attempt to run unauthorized or malicious code inside the container.
+and inside of a container. Modifying file permissions to make a file executable could indicate malicious activity, as an
+attacker may attempt to run unauthorized or malicious code inside the container.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -84,12 +84,14 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Execution",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
 process.entry_leader.entry_meta.type == "container" and process.name in ("chmod", "chown") and
@@ -97,61 +99,68 @@ process.args in ("4755", "755", "000", "777", "444", "+x") and
 process.args like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+[[rule.threat.technique.subtechnique]]
+id = "T1222.002"
+name = "Linux and Mac Permissions"
+reference = "https://attack.mitre.org/techniques/T1222/002/"
 
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1222"
-name = "File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1222.002"
-name = "Linux and Mac File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/002/"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1548"
-name = "Abuse Elevation Control Mechanism"
-reference = "https://attack.mitre.org/techniques/T1548/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.001"
-name = "Setuid and Setgid"
-reference = "https://attack.mitre.org/techniques/T1548/001/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

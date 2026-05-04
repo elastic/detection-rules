@@ -2,7 +2,7 @@
 creation_date = "2022/07/12"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [transform]
 [[transform.osquery]]
@@ -43,6 +43,7 @@ query = "SELECT * FROM users WHERE username = {{user.name}}"
 [[transform.osquery]]
 label = "Osquery - Investigate the Account Authentication Status"
 query = "SELECT * FROM logged_in_users WHERE user = {{user.name}}"
+
 
 [rule]
 author = ["Elastic"]
@@ -162,8 +163,10 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 type = "eql"
+
 query = '''
 sequence by process.entity_id with maxspan=1m
   [process where host.os.type == "linux" and event.type == "start" and process.name in ("cp", "rsync", "mv") and
@@ -175,38 +178,39 @@ sequence by process.entity_id with maxspan=1m
 [file where host.os.type == "linux" and event.action == "creation" and (file.extension == "so" or file.name like "*.so.*")]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.006"
 name = "Dynamic Linker Hijacking"
 reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.006"
+name = "Dynamic Linker Hijacking"
+reference = "https://attack.mitre.org/techniques/T1574/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1574"
-name = "Hijack Execution Flow"
-reference = "https://attack.mitre.org/techniques/T1574/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1574.006"
-name = "Dynamic Linker Hijacking"
-reference = "https://attack.mitre.org/techniques/T1574/006/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

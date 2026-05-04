@@ -4,20 +4,20 @@ integration = ["azure"]
 maturity = "production"
 min_stack_comments = "Use EA (Entity Analytics) fields"
 min_stack_version = "9.4.0"
-updated_date = "2026/04/01"
+updated_date = "2026/05/04"
 
 [rule]
 anomaly_threshold = 50
 author = ["Elastic"]
 description = """
-A machine learning job detected an unusual failure in an Azure Activity Logs message. These can be byproducts of attempted or
-successful persistence, privilege escalation, defense evasion, discovery, lateral movement, or collection.
+A machine learning job detected an unusual failure in an Azure Activity Logs message. These can be byproducts of
+attempted or successful persistence, privilege escalation, defense evasion, discovery, lateral movement, or collection.
 """
 false_positives = [
     """
-    Rare and unusual failures may indicate an impending service failure state. Rare and unusual user failure activity can
-    also be due to manual troubleshooting or reconfiguration attempts by insufficiently privileged users, bugs in cloud
-    automation scripts or workflows, or changes to IAM privileges.
+    Rare and unusual failures may indicate an impending service failure state. Rare and unusual user failure activity
+    can also be due to manual troubleshooting or reconfiguration attempts by insufficiently privileged users, bugs in
+    cloud automation scripts or workflows, or changes to IAM privileges.
     """,
 ]
 from = "now-2h"
@@ -55,6 +55,9 @@ This rule surfaces statistically rare Azure Activity Logs failures, pointing to 
 - Escalate to incident response immediately if rare failures are observed across multiple subscriptions or are followed by a successful privileged action (e.g., new Owner or User Access Administrator assignment, app consent grant, or resource lock removal) or originate from an unfamiliar geo/device, triggering tenant-wide containment.
 - Harden going forward by enforcing MFA and Conditional Access (including workload identity policies) for Resource Manager access, restricting service principals to least privilege with certificate-based credentials or workload identity federation, implementing deny assignments/resource locks for crown-jewel resources, and centralizing Activity Logs in SIEM with detections for discovery bursts and denied write attempts.
 """
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "c17ffbf9-595a-4c0b-a126-aacedb6dd179"
 setup = """## Setup
 
 This rule requires the installation of associated Machine Learning jobs, as well as data coming in from Azure Activity Logs.
@@ -74,9 +77,6 @@ The Azure Activity Logs integration allows you to collect logs and metrics from 
 - Click “Save and Continue”.
 - For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/reference/integrations/azure/activitylogs).
 """
-references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
-risk_score = 21
-rule_id = "c17ffbf9-595a-4c0b-a126-aacedb6dd179"
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -85,17 +85,25 @@ tags = [
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 type = "machine_learning"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1526"
 name = "Cloud Service Discovery"
@@ -106,22 +114,11 @@ id = "T1580"
 name = "Cloud Infrastructure Discovery"
 reference = "https://attack.mitre.org/techniques/T1580/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -129,7 +126,6 @@ framework = "MITRE ATT&CK"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -137,12 +133,11 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

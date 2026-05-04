@@ -2,7 +2,7 @@
 creation_date = "2026/02/09"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -23,8 +23,7 @@ false_positives = [
     Application migrations or reconfigurations that switch from certificate/secret authentication to federated
     credentials will appear as new behavior. Confirm with application owners.
     """,
-    """New workload identity federation configurations for legitimate automation will trigger on first use.
-    """
+    "New workload identity federation configurations for legitimate automation will trigger on first use.\n    ",
 ]
 from = "now-9m"
 index = ["logs-azure.signinlogs-*"]
@@ -87,9 +86,9 @@ tags = [
     "Data Source: Microsoft Entra ID Sign-In Logs",
     "Use Case: Identity and Access Audit",
     "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
+    "Tactic: Lateral Movement",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -106,59 +105,59 @@ data_stream.dataset: "azure.signinlogs"
     )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.001"
 name = "Additional Cloud Credentials"
 reference = "https://attack.mitre.org/techniques/T1098/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [rule.investigation_fields]
 field_names = [
     "azure.signinlogs.properties.service_principal_name",

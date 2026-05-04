@@ -1,0 +1,246 @@
+[metadata]
+creation_date = "2025/04/16"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[transform]
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the user"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Alerts associated with the host"
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Script block fragments for the same script"
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Process events for the PowerShell instance"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+description = ""
+label = "Child process activity from the PowerShell instance"
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects PowerShell scripts that use backtick-escaped characters inside `${}` variable expansion (multiple backticks
+between word characters) to reconstruct strings at runtime. Attackers use variable-expansion obfuscation to split
+keywords, hide commands, and evade static analysis and AMSI.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential PowerShell Obfuscation via Backtick-Escaped Variable Expansion"
+note = """## Triage and analysis
+
+### Investigating Potential PowerShell Obfuscation via Backtick-Escaped Variable Expansion
+
+#### Possible investigation steps
+
+- Did you reconstruct the complete alerting script block and confirm the escaped-variable pattern?
+  - Focus: alert-local `Esql.script_block_pattern_count`, `Esql.script_block_tmp`, `Esql.script_block_length`, and reconstructed `powershell.file.script_block_text`. $investigate_2
+  - Hint: query PowerShell Operational events from logs-windows.powershell_operational*, then reconstruct with `powershell.file.script_block_id` + `powershell.sequence` + `powershell.total` on the same `host.id`; confirm fragment count before judging intent.
+  - Implication: escalate when the complete block repeats ${} backtick expansion across command, variable, or string-building logic; lower suspicion when one isolated escaped token sits inside readable build or template code. Missing fragments keep the alert unresolved, not benign.
+
+- What execution-critical text appears when the backticks inside ${} are removed?
+  - Focus: reconstructed `powershell.file.script_block_text`, alert-local `Esql.script_block_tmp`, and the command, variable, or string tokens exposed by removing the backticks.
+  - Implication: escalate when escaped expansions hide cmdlets, invocation operators, download strings, encoded payloads, AMSI or logging bypass names, or variables that feed execution; lower suspicion when they only protect literal template placeholders and no decoded token changes execution.
+
+- Does the script origin and user-host context fit one bounded generation workflow?
+  - Focus: `file.path`, `file.name`, `user.id`, `host.name`, and `host.id`.
+  - Implication: escalate when `file.path` is absent for a long obfuscated block, the path is user-writable, temporary, or delivery-oriented, or the account-host pair does not fit script generation or deployment; lower suspicion only when origin, account, host, and decoded content match one recognized build, packaging, updater, or test workflow.
+
+- If process telemetry is available, how was the PowerShell instance launched?
+  - Focus: alert-preserved `process.pid`, plus recovered `process.executable`, `process.command_line`, `process.parent.executable`, and `process.parent.command_line`.
+  - Hint: recover the matching process via `host.id + process.pid`; around alert `@timestamp`, prefer the closest start event for that `host.id` if PID reuse creates multiple matches. $investigate_3
+  - Implication: escalate when the chain starts from a browser, document process, archive, remote tooling, scheduled task, non-PowerShell host process using System.Management.Automation, or encoded/in-memory command path that does not fit the script purpose; lower suspicion when executable, parent, and command line match the same recognized build, packaging, updater, or test workflow. Missing endpoint process telemetry keeps lineage unresolved, not benign.
+
+- Does the decoded content request a second execution stage?
+  - Focus: decoded execution, download, credential, policy, persistence, or payload-staging commands in `powershell.file.script_block_text`.
+  - Hint: after process recovery via `host.id + process.pid`, review child events where `process.parent.entity_id` equals the recovered PowerShell `process.entity_id`; use `host.id` plus `process.parent.pid` as a weaker tight-window fallback. $investigate_4
+  - Implication: escalate when hidden tokens feed execution operators, downloaded content, child processes, credential access, policy tampering, persistence, or payload staging; lower suspicion when decoded actions stay inside the same recognized generation or update task and no second execution path appears. Missing endpoint process telemetry leaves child-process correlation unresolved, not benign.
+
+- If local evidence remains suspicious or unresolved, does this escaped-variable pattern appear elsewhere?
+  - Focus: related alerts for `user.id` and `host.id` in the last 48 hours, decoded token fragments from `powershell.file.script_block_text`, and the same `file.path` when present.
+  - Hint: start with related alerts for the same `user.id`; if sparse, pivot to the same `host.id`. $investigate_0 $investigate_1
+  - Implication: broaden scope when the same escaped-variable technique or decoded execution strings appear on unrelated hosts, users, or source paths; keep local when recurrence stays inside the same confirmed workflow and local evidence is otherwise clean.
+
+- Escalate on strong unauthorized execution evidence from decoded tokens, fileless or unusual origin, launch chain, second-stage behavior, or repeated scope; close only when telemetry and any needed owner or change confirmation explain every suspicious token as one recognized build, packaging, updater, or test workflow; preserve and escalate when fragments, endpoint process telemetry, or workflow proof are missing for a suspicious script.
+
+### False positive analysis
+
+- Code generation, packaging, build, updater, bootstrap, or test harness workflows can emit backtick-escaped ${} sequences while producing PowerShell text. Confirm only when reconstructed `powershell.file.script_block_text` is limited to template, packaging, installer, updater, or test logic; `file.path` or its absence fits that source; any recovered launch chain supports the same tool; and `user.id` plus `host.id` match the same operating scope. If change records are unavailable, require the same file origin, decoded token family, and user-host scope across prior alerts from this rule.
+- Treat one benign-looking token as insufficient for closure. Do not close when decoded content contains execution, download, defense-evasion, credential, or persistence logic that the named workflow does not require.
+- Before creating an exception, anchor it to stable indexed fields such as `user.id`, `host.id`, and `file.path` or `file.name`, plus the stable decoded token family and recovered parent context when available. Do not use `Esql.script_block_pattern_count` or `Esql.script_block_tmp` in exceptions because they are alert-local summaries, not exception-safe fields.
+
+### Response and remediation
+
+- If confirmed benign, document the evidence that explained the alert first: reconstructed script intent, file origin or fileless source, `user.id`, `host.id`, and the recovered launch context when available. Then reverse any temporary containment and create a narrow exception only after the same workflow pattern is stable across prior alerts.
+- If suspicious but unconfirmed, preserve the alert, reconstructed `powershell.file.script_block_text`, `powershell.file.script_block_id`, ordered 4104 fragments, file origin, host-user scope, recovered launch context when available, and decoded indicators before containment. Apply reversible containment such as heightened monitoring or host isolation only if the host role can tolerate it, then escalate before deleting artifacts or resetting credentials.
+- If confirmed malicious, preserve the same script, source-event, process, and decoded-indicator evidence before destructive action. Isolate the host when the evidence shows unauthorized execution and host criticality allows it, record the recovered process identifier before termination, block confirmed malicious decoded indicators, and remove only the scripts, payloads, startup items, policy changes, or persistence artifacts identified during the investigation. Reset credentials only when the investigation shows account misuse beyond local script execution.
+- Post-incident hardening: retain PowerShell script-block logging, keep endpoint process telemetry sufficient for `host.id + process.pid` recovery, restrict recurring script generation to recognized signed tooling and service scopes, and document the confirmed benign workflow or malicious decoded token family for future triage.
+"""
+risk_score = 73
+rule_id = "d43f2b43-02a1-4219-8ce9-10929a32a618"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell_operational* metadata _id, _version, _index
+| where event.code == "4104"
+
+// Filter out smaller scripts that are unlikely to implement obfuscation using the patterns we are looking for
+| eval Esql.script_block_length = length(powershell.file.script_block_text)
+| where Esql.script_block_length > 500
+
+// replace the patterns we are looking for with the 🔥 emoji to enable counting them
+// The emoji is used because it's unlikely to appear in scripts and has a consistent character length of 1
+| eval Esql.script_block_tmp = replace(powershell.file.script_block_text, """\$\{(\w++`){2,}\w++\}""", "🔥")
+
+// count how many patterns were detected by calculating the number of 🔥 characters inserted
+| eval Esql.script_block_pattern_count = length(Esql.script_block_tmp) - length(replace(Esql.script_block_tmp, "🔥", ""))
+
+// keep the fields relevant to the query, although this is not needed as the alert is populated using _id
+| keep
+    Esql.script_block_pattern_count,
+    Esql.script_block_length,
+    Esql.script_block_tmp,
+    powershell.file.*,
+    file.path,
+    file.name,
+    process.pid,
+    powershell.sequence,
+    powershell.total,
+    _id,
+    _version,
+    _index,
+    host.name,
+    host.id,
+    agent.id,
+    user.id
+
+// Filter for scripts that match the pattern at least once
+| where Esql.script_block_pattern_count >= 1
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
+
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.name",
+    "host.name",
+    "host.id",
+    "process.pid",
+    "Esql.script_block_pattern_count",
+    "Esql.script_block_length",
+]
+

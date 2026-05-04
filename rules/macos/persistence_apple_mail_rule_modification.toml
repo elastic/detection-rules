@@ -2,14 +2,14 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects suspicious creation or modification of the Apple Mail SyncedRules plist file by a non-Mail application. 
-An adversary could establish persistence by creating or modifying an Apple Mail rule to point to a script file 
-on disk, which will execute when an email matching the trigger is received.
+Detects suspicious creation or modification of the Apple Mail SyncedRules plist file by a non-Mail application. An
+adversary could establish persistence by creating or modifying an Apple Mail rule to point to a script file on disk,
+which will execute when an email matching the trigger is received.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.file-*"]
@@ -47,9 +47,7 @@ This detects non-Apple Mail processes creating or modifying the SyncedRules.plis
 - Recover by re-enabling Mail with a clean ruleset, forcing credential/session resets for affected mail accounts, and monitoring for recurrence of `SyncedRules.plist` changes or rule-triggered execution when new mail arrives.  
 - Escalate to incident response immediately if the plist contains rules invoking `sh`, `osascript`, `python`, or a non-Apple executable path, if the modifying process is unsigned/untrusted, or if the referenced script shows network beacons or data access behavior.
 """
-references = [
-    "https://www.n00py.io/2016/10/using-email-for-persistence-on-os-x/"
-]
+references = ["https://www.n00py.io/2016/10/using-email-for-persistence-on-os-x/"]
 risk_score = 47
 rule_id = "d7b57cbd-de03-4c3b-8278-daa1ee4a6772"
 severity = "medium"
@@ -60,9 +58,11 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "macos" and event.type != "deletion" and
   file.name == "SyncedRules.plist" and
@@ -78,41 +78,41 @@ file where host.os.type == "macos" and event.type != "deletion" and
                                "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1647"
+name = "Plist File Modification"
+reference = "https://attack.mitre.org/techniques/T1647/"
 
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1546"
 name = "Event Triggered Execution"
 reference = "https://attack.mitre.org/techniques/T1546/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1204"
-name = "User Execution"
-reference = "https://attack.mitre.org/techniques/T1204/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1647"
-name = "Plist File Modification"
-reference = "https://attack.mitre.org/techniques/T1647/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

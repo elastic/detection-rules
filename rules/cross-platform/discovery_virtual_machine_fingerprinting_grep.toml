@@ -2,7 +2,7 @@
 creation_date = "2021/09/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -22,36 +22,6 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Virtual Machine Fingerprinting via Grep"
-references = ["https://objective-see.com/blog/blog_0x4F.html"]
-risk_score = 47
-rule_id = "c85eb82c-d2c8-485c-a36f-534f914b7663"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: macOS",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Discovery",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-process where event.type == "start" and
- process.name in ("grep", "egrep") and user.id != "0" and
- process.args : ("parallels*", "vmware*", "virtualbox*") and process.args : "Manufacturer*" and
- not process.parent.executable in ("/Applications/Docker.app/Contents/MacOS/Docker", "/usr/libexec/kcare/virt-what")
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -85,35 +55,66 @@ Virtual machine fingerprinting involves identifying virtualized environments by 
 - Restore the system from a known good backup if any unauthorized changes or malware are detected, ensuring that the backup is free from compromise.
 - Implement stricter access controls and monitoring for systems running virtual machines, including enhanced logging and alerting for similar reconnaissance activities.
 - Escalate the incident to the security operations team for further investigation and to determine if the activity is part of a larger attack campaign."""
+references = ["https://objective-see.com/blog/blog_0x4F.html"]
+risk_score = 47
+rule_id = "c85eb82c-d2c8-485c-a36f-534f914b7663"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+ process.name in ("grep", "egrep") and user.id != "0" and
+ process.args : ("parallels*", "vmware*", "virtualbox*") and process.args : "Manufacturer*" and
+ not process.parent.executable in ("/Applications/Docker.app/Contents/MacOS/Docker", "/usr/libexec/kcare/virt-what")
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1497"
+name = "Virtualization/Sandbox Evasion"
+reference = "https://attack.mitre.org/techniques/T1497/"
+[[rule.threat.technique.subtechnique]]
+id = "T1497.001"
+name = "System Checks"
+reference = "https://attack.mitre.org/techniques/T1497/001/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1082"
 name = "System Information Discovery"
 reference = "https://attack.mitre.org/techniques/T1082/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1497"
-name = "Virtualization/Sandbox Evasion"
-reference = "https://attack.mitre.org/techniques/T1497/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1497.001"
-name = "System Checks"
-reference = "https://attack.mitre.org/techniques/T1497/001/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

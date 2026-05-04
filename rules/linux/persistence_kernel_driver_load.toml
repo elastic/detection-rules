@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -17,46 +17,6 @@ index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Driver Load"
-risk_score = 21
-rule_id = "3e12a439-d002-4944-bc42-171c0dcb9b96"
-setup = """## Setup
-This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
-
-```
-Kibana -->
-Management -->
-Integrations -->
-Auditd Manager -->
-Add Auditd Manager
-```
-
-`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
-
-For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
-```
--a always,exit -F arch=b64 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
--a always,exit -F arch=b32 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
-```
-
-Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
-"""
-severity = "low"
-tags = [
-    "Data Source: Auditd Manager",
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
-    "Tactic: Defense Evasion",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
-auditd.data.syscall in ("init_module", "finit_module")
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -92,53 +52,92 @@ Kernel modules extend the functionality of the Linux kernel, allowing dynamic lo
 - Restore the system from a known good backup if the integrity of the system is in question and if the malicious activity cannot be fully remediated.
 - Implement stricter access controls and monitoring on kernel module loading activities to prevent unauthorized actions in the future. This may include restricting module loading to trusted users or processes.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+risk_score = 21
+rule_id = "3e12a439-d002-4944-bc42-171c0dcb9b96"
+setup = """## Setup
+This rule requires the use of the `auditd_manager` integration. `Auditd_manager` is a tool designed to simplify and enhance the management of the audit subsystem in Linux systems. It provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system. The following steps should be executed in order to install and deploy `auditd_manager` on a Linux system.
+
+```
+Kibana -->
+Management -->
+Integrations -->
+Auditd Manager -->
+Add Auditd Manager
+```
+
+`Auditd_manager` subscribes to the kernel and receives events as they occur without any additional configuration. However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
+
+For this detection rule to trigger, the following additional audit rules are required to be added to the integration:
+```
+-a always,exit -F arch=b64 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
+-a always,exit -F arch=b32 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
+```
+
+Add the newly installed `auditd manager` to an agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+"""
+severity = "low"
+tags = [
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+driver where host.os.type == "linux" and event.action == "loaded-kernel-module" and
+auditd.data.syscall in ("init_module", "finit_module")
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1547.006"
-name = "Kernel Modules and Extensions"
-reference = "https://attack.mitre.org/techniques/T1547/006/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
 reference = "https://attack.mitre.org/techniques/T1014/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1547.006"
 name = "Kernel Modules and Extensions"
 reference = "https://attack.mitre.org/techniques/T1547/006/"
 
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

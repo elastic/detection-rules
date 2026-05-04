@@ -2,13 +2,14 @@
 creation_date = "2025/01/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies file permission modification events on files located in common system binary paths. Adversaries may attempt to
-hide their payloads in the default Linux system directories, and modify the file permissions of these payloads prior to execution.
+This rule identifies file permission modification events on files located in common system binary paths. Adversaries may
+attempt to hide their payloads in the default Linux system directories, and modify the file permissions of these
+payloads prior to execution.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
@@ -85,9 +86,11 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "chmod" and
 process.args like (
@@ -113,51 +116,51 @@ process.args in ("4755", "755", "000", "777", "444", "+x") and not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+[[rule.threat.technique.subtechnique]]
+id = "T1222.002"
+name = "Linux and Mac Permissions"
+reference = "https://attack.mitre.org/techniques/T1222/002/"
 
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1222"
-name = "File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1222.002"
-name = "Linux and Mac File and Directory Permissions Modification"
-reference = "https://attack.mitre.org/techniques/T1222/002/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+

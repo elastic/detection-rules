@@ -2,16 +2,20 @@
 creation_date = "2021/05/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
 description = """
-Identifies a change to an AWS Security Group Configuration. A security group is like a virtual firewall, and modifying configurations may allow unauthorized access. Threat actors may abuse this to establish persistence, exfiltrate data, or pivot in an AWS environment.
+Identifies a change to an AWS Security Group Configuration. A security group is like a virtual firewall, and modifying
+configurations may allow unauthorized access. Threat actors may abuse this to establish persistence, exfiltrate data, or
+pivot in an AWS environment.
 """
 false_positives = [
     """
-    A security group may be created by a system or network administrator. Verify whether the user identity, user agent, and/or hostname should be making changes in your environment. Security group creations by unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    A security group may be created by a system or network administrator. Verify whether the user identity, user agent,
+    and/or hostname should be making changes in your environment. Security group creations by unfamiliar users or hosts
+    should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-6m"
@@ -79,7 +83,7 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Resources: Investigation Guide",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion"
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -97,73 +101,77 @@ data_stream.dataset: "aws.cloudtrail"
             (event.action: "ModifyInstanceAttribute" and aws.cloudtrail.flattened.request_parameters.groupSet.items.groupId:*))
 '''
 
-[rule.investigation_fields]
-field_names = [
-   "@timestamp",
-   "user.name",
-   "user_agent.original",
-   "source.ip",
-   "aws.cloudtrail.user_identity.arn",
-   "aws.cloudtrail.user_identity.type",
-   "aws.cloudtrail.user_identity.access_key_id",
-   "event.action",
-   "event.outcome",
-   "cloud.account.id",
-   "cloud.region",
-   "aws.cloudtrail.request_parameters"
-]
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
 
+
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+[[rule.threat.technique]]
+id = "T1686"
+name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1686/"
+[[rule.threat.technique.subtechnique]]
+id = "T1686.001"
+name = "Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1686/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1133"
 name = "External Remote Services"
 reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
 
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1562.007"
-name = "Disable or Modify Cloud Firewall"
-reference = "https://attack.mitre.org/techniques/T1562/007/"
-
-[[rule.threat.technique]]
-id = "T1578"
-name = "Modify Cloud Compute Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1578/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1578.005"
-name = "Modify Cloud Compute Configurations"
-reference = "https://attack.mitre.org/techniques/T1578/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1133"
-name = "External Remote Services"
-reference = "https://attack.mitre.org/techniques/T1133/"
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"

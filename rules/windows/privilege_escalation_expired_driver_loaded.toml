@@ -2,7 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -15,28 +15,6 @@ index = ["logs-endpoint.events.library-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Expired or Revoked Driver Loaded"
-references = [
-    "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN",
-]
-risk_score = 47
-rule_id = "d12bac54-ab2a-4159-933f-d7bcefa7b61d"
-severity = "medium"
-tags = [
-    "Domain: Endpoint",
-    "OS: Windows",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "eql"
-
-query = '''
-driver where host.os.type == "windows" and process.pid == 4 and
-  dll.code_signature.status : ("errorExpired", "errorRevoked")
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -71,45 +49,75 @@ In Windows environments, drivers facilitate communication between the OS and har
 - Apply the latest security patches and driver updates to close any vulnerabilities that may have been exploited.
 - Restore the system from a known good backup if any unauthorized changes or persistent threats are detected.
 - Escalate the incident to the security operations center (SOC) for further analysis and to determine if additional systems are affected."""
+references = [
+    "https://docs.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653559(v=vs.85)?redirectedfrom=MSDN",
+]
+risk_score = 47
+rule_id = "d12bac54-ab2a-4159-933f-d7bcefa7b61d"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+driver where host.os.type == "windows" and process.pid == 4 and
+  dll.code_signature.status : ("errorExpired", "errorRevoked")
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+[[rule.threat.technique.subtechnique]]
+id = "T1036.001"
+name = "Invalid Code Signature"
+reference = "https://attack.mitre.org/techniques/T1036/001/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.002"
+name = "Code Signing"
+reference = "https://attack.mitre.org/techniques/T1553/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1036"
-name = "Masquerading"
-reference = "https://attack.mitre.org/techniques/T1036/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1036.001"
-name = "Invalid Code Signature"
-reference = "https://attack.mitre.org/techniques/T1036/001/"
-
-[[rule.threat.technique]]
-id = "T1553"
-name = "Subvert Trust Controls"
-reference = "https://attack.mitre.org/techniques/T1553/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1553.002"
-name = "Code Signing"
-reference = "https://attack.mitre.org/techniques/T1553/002/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

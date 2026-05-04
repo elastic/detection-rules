@@ -2,7 +2,7 @@
 creation_date = "2020/07/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/11/18"
+updated_date = "2026/05/04"
 
 [rule]
 anomaly_threshold = 50
@@ -23,27 +23,6 @@ interval = "15m"
 license = "Elastic License v2"
 machine_learning_job_id = "rare_error_code"
 name = "Rare AWS Error Code"
-setup = """## Setup
-
-This rule requires the installation of associated Machine Learning jobs, as well as data coming in from AWS.
-
-### Anomaly Detection Setup
-
-Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
-
-### AWS Integration Setup
-The AWS integration allows you to collect logs and metrics from Amazon Web Services (AWS) with Elastic Agent.
-
-#### The following steps should be executed in order to add the Elastic Agent System integration "aws" to your system:
-- Go to the Kibana home page and click “Add integrations”.
-- In the query bar, search for “AWS” and select the integration to see more details about it.
-- Click “Add AWS”.
-- Configure the integration name and optionally add a description.
-- Review optional and advanced settings accordingly.
-- Add the newly installed “aws” to an existing or a new agent policy, and deploy the agent on your system from which aws log files are desirable.
-- Click “Save and Continue”.
-- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/aws).
-"""
 note = """## Triage and analysis
 
 ### Investigating Rare AWS Error Code
@@ -103,6 +82,27 @@ Detection alerts from this rule indicate a rare and unusual error code that was 
 references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
 risk_score = 21
 rule_id = "19de8096-e2b0-4bd8-80c9-34a820813fff"
+setup = """## Setup
+
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from AWS.
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### AWS Integration Setup
+The AWS integration allows you to collect logs and metrics from Amazon Web Services (AWS) with Elastic Agent.
+
+#### The following steps should be executed in order to add the Elastic Agent System integration "aws" to your system:
+- Go to the Kibana home page and click “Add integrations”.
+- In the query bar, search for “AWS” and select the integration to see more details about it.
+- Click “Add AWS”.
+- Configure the integration name and optionally add a description.
+- Review optional and advanced settings accordingly.
+- Add the newly installed “aws” to an existing or a new agent policy, and deploy the agent on your system from which aws log files are desirable.
+- Click “Save and Continue”.
+- For more details on the integration refer to the [helper guide](https://www.elastic.co/docs/current/integrations/aws).
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -111,17 +111,25 @@ tags = [
     "Rule Type: ML",
     "Rule Type: Machine Learning",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 type = "machine_learning"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1526"
 name = "Cloud Service Discovery"
@@ -132,22 +140,11 @@ id = "T1580"
 name = "Cloud Infrastructure Discovery"
 reference = "https://attack.mitre.org/techniques/T1580/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -155,7 +152,6 @@ framework = "MITRE ATT&CK"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -163,12 +159,11 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
 [rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 

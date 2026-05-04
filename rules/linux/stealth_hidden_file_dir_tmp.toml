@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2020/04/29"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Users can mark specific files as hidden simply by putting a "." as the first character in the file or folder name.
+Adversaries can use this to their advantage to hide files and folders on the system for persistence and defense evasion.
+This rule looks for hidden files or folders in common writable directories.
+"""
+false_positives = [
+    """
+    Certain tools may create hidden temporary files or directories upon installation or as part of their normal
+    behavior. These events can be filtered by the process arguments, username, or process name values.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+max_signals = 33
+name = "Creation of Hidden Files and Directories via CommandLine"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Creation of Hidden Files and Directories via CommandLine
+
+In Linux environments, files and directories prefixed with a dot (.) are hidden by default, a feature often exploited by adversaries to conceal malicious activities. Attackers may create hidden files in writable directories like /tmp to evade detection. The detection rule identifies suspicious processes creating such hidden files, excluding benign commands, to flag potential threats. This helps in uncovering stealthy persistence and defense evasion tactics.
+
+### Possible investigation steps
+
+- Review the process details to identify the command executed, focusing on the process.working_directory field to confirm if the hidden file was created in a common writable directory like /tmp, /var/tmp, or /dev/shm.
+- Examine the process.args field to determine the specific hidden file or directory name created, and assess if it matches known malicious patterns or naming conventions.
+- Check the process lineage by investigating the parent process to understand the context of how the hidden file creation was initiated and identify any potential malicious parent processes.
+- Investigate the user account associated with the process to determine if it is a legitimate user or potentially compromised, and review recent activities by this user for any anomalies.
+- Search for any additional hidden files or directories created around the same time or by the same process to identify further suspicious activities or artifacts.
+- Correlate this event with other security alerts or logs from the same host to identify any related suspicious activities or patterns that could indicate a broader attack or compromise.
+
+### False positive analysis
+
+- System maintenance scripts may create hidden files in directories like /tmp for temporary storage. Review these scripts and consider excluding them if they are verified as non-threatening.
+- Development tools and processes, such as version control systems or build scripts, might generate hidden files for configuration or state tracking. Identify these tools and add them to the exclusion list if they are part of regular operations.
+- Monitoring and logging tools may use hidden files to store temporary data or logs. Verify these tools and exclude them if they are essential for system monitoring.
+- User-specific applications or scripts might create hidden files for legitimate purposes. Conduct a review of user activities and exclude known benign applications to reduce noise.
+- Automated backup or synchronization services could generate hidden files as part of their operation. Confirm these services and exclude them if they are part of the expected environment setup.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity or lateral movement.
+- Terminate any suspicious processes identified by the detection rule that are creating hidden files in the specified directories.
+- Remove any hidden files or directories created by unauthorized processes in the /tmp, /var/tmp, and /dev/shm directories to eliminate potential persistence mechanisms.
+- Conduct a thorough review of system logs and process execution history to identify any additional indicators of compromise or related malicious activities.
+- Restore any affected files or system components from a known good backup to ensure system integrity.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems are affected.
+- Implement enhanced monitoring and alerting for similar activities to improve detection and response capabilities for future incidents."""
+risk_score = 21
+rule_id = "b9666521-4742-49ce-9ddc-b8e84c35acae"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+### Auditbeat Setup
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. For example, you can use Auditbeat to collect and centralize audit events from the Linux Audit Framework. You can also use Auditbeat to detect changes to critical files, like binaries and configuration files, and identify potential security policy violations.
+
+#### The following steps should be executed in order to add the Auditbeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setup-repositories.html).
+- To run Auditbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-docker.html).
+- To run Auditbeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/running-on-kubernetes.html).
+- For complete “Setup and Run Auditbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/auditbeat/current/setting-up-and-running.html).
+
+#### Custom Ingest Pipeline
+For versions <8.2, you need to add a custom ingest pipeline to populate `event.ingested` with @timestamp for non-elastic-agent indexes, like auditbeats/filebeat/winlogbeat etc. For more details to add a custom ingest pipeline refer to the [guide](https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+process.working_directory in ("/tmp", "/var/tmp", "/dev/shm") and
+process.args regex~ """\.[a-z0-9_\-][a-z0-9_\-\.]{1,254}""" and
+process.name like (
+  "touch", "tee", "cp", "mv", "install", "dd", "vi", "vim", "nano", "truncate", "sed", "awk", "curl", "wget",
+  "ftp", "scp", "rsync", "sftp", "tar", "unzip", "gunzip", "7z", "bzip2", "xz", "python*", "php*", "perl*",
+  "ruby*", "node*", "java", "printf", "echo", "cat", ".*"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.001"
+name = "Hidden Files and Directories"
+reference = "https://attack.mitre.org/techniques/T1564/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -2,7 +2,7 @@
 creation_date = "2025/07/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -71,6 +71,8 @@ tags = [
     "Data Source: Microsoft Entra ID Sign-In Logs",
     "Tactic: Initial Access",
     "Resources: Investigation Guide",
+    "Tactic: Lateral Movement",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -105,30 +107,24 @@ data_stream.dataset: azure.signinlogs and
     )
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "azure.correlation_id",
-    "azure.signinlogs.category",
-    "azure.signinlogs.identity",
-    "azure.signinlogs.properties.app_display_name",
-    "azure.signinlogs.properties.app_id",
-    "azure.signinlogs.properties.app_owner_tenant_id",
-    "azure.signinlogs.properties.authentication_requirement",
-    "azure.signinlogs.properties.client_credential_type",
-    "azure.signinlogs.properties.conditional_access_status",
-    "azure.signinlogs.properties.device_detail.operating_system",
-    "azure.signinlogs.properties.is_interactive",
-    "azure.signinlogs.properties.session_id",
-    "azure.signinlogs.properties.user_principal_name",
-    "azure.signinlogs.properties.user_type",
-    "azure.signinlogs.result_signature",
-    "azure.tenant_id",
-    "source.address",
-    "user.id"
-]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1684"
+name = "Social Engineering"
+reference = "https://attack.mitre.org/techniques/T1684/"
+[[rule.threat.technique.subtechnique]]
+id = "T1684.001"
+name = "Impersonation"
+reference = "https://attack.mitre.org/techniques/T1684/001/"
 
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -157,17 +153,35 @@ id = "T1550.001"
 name = "Application Access Token"
 reference = "https://attack.mitre.org/techniques/T1550/001/"
 
-[[rule.threat.technique]]
-id = "T1656"
-name = "Impersonation"
-reference = "https://attack.mitre.org/techniques/T1656/"
-
 
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.correlation_id",
+    "azure.signinlogs.category",
+    "azure.signinlogs.identity",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_owner_tenant_id",
+    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.client_credential_type",
+    "azure.signinlogs.properties.conditional_access_status",
+    "azure.signinlogs.properties.device_detail.operating_system",
+    "azure.signinlogs.properties.is_interactive",
+    "azure.signinlogs.properties.session_id",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.user_type",
+    "azure.signinlogs.result_signature",
+    "azure.tenant_id",
+    "source.address",
+    "user.id",
+]
 
 [rule.new_terms]
 field = "new_terms_fields"
@@ -175,3 +189,5 @@ value = ["azure.signinlogs.properties.user_principal_name", "azure.signinlogs.pr
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

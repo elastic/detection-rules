@@ -2,17 +2,16 @@
 creation_date = "2025/06/18"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects unusual request responses in Kubernetes audit logs through the use of the
-"new_terms" rule type. In production environments, default API requests are typically made by
-system components or trusted users, who are expected to have a consistent user agent and
-allowed response annotations. By monitoring for anomalies in the username and response
-annotations, this rule helps identify potential unauthorized access or misconfigurations
-in the Kubernetes environment.
+This rule detects unusual request responses in Kubernetes audit logs through the use of the "new_terms" rule type. In
+production environments, default API requests are typically made by system components or trusted users, who are expected
+to have a consistent user agent and allowed response annotations. By monitoring for anomalies in the username and
+response annotations, this rule helps identify potential unauthorized access or misconfigurations in the Kubernetes
+environment.
 """
 index = ["logs-kubernetes.audit_logs-*"]
 language = "kuery"
@@ -63,9 +62,11 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 data_stream.dataset:"kubernetes.audit_logs" and kubernetes.audit.stage:"ResponseComplete" and
 user_agent.original:(* and not (*kubernetes/$Format)) and
@@ -76,6 +77,19 @@ not (
 )
 '''
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -83,36 +97,28 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
 
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["kubernetes.audit.annotations.authorization_k8s_io/decision", "kubernetes.audit.user.username", "user_agent.original"]
-
+value = [
+    "kubernetes.audit.annotations.authorization_k8s_io/decision",
+    "kubernetes.audit.user.username",
+    "user_agent.original",
+]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"
+
+

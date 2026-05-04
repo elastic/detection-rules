@@ -2,14 +2,14 @@
 creation_date = "2025/01/07"
 integration = ["system"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies successful logins by system users that are uncommon to authenticate. These users
-have "nologin" set by default, and must be modified to allow SSH access. Adversaries may backdoor these users to
-gain unauthorized access to the system.
+This rule identifies successful logins by system users that are uncommon to authenticate. These users have "nologin" set
+by default, and must be modified to allow SSH access. Adversaries may backdoor these users to gain unauthorized access
+to the system.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-system.auth-*"]
@@ -83,12 +83,13 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Data Source: System",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:authentication and host.os.type:linux and event.action:("ssh_login" or "user_login") and
 user.name:(
@@ -98,73 +99,74 @@ user.name:(
 ) and event.outcome:success
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.002"
+name = "Hidden Users"
+reference = "https://attack.mitre.org/techniques/T1564/002/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1078.003"
 name = "Local Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/003/"
 
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.003"
+name = "Local Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/003/"
+
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.004"
 name = "SSH Authorized Keys"
 reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1564"
-name = "Hide Artifacts"
-reference = "https://attack.mitre.org/techniques/T1564/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1564.002"
-name = "Hidden Users"
-reference = "https://attack.mitre.org/techniques/T1564/002/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1078"
-name = "Valid Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1078.003"
-name = "Local Accounts"
-reference = "https://attack.mitre.org/techniques/T1078/003/"
-
-[rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["user.name", "host.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"
+
+

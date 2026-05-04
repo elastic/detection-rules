@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2020/11/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Timestomping is an anti-forensics technique which is used to modify the timestamps of a file, often to mimic files that
+are in the same folder.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "eql"
+license = "Elastic License v2"
+max_signals = 33
+name = "Timestomping using Touch Command"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Timestomping using Touch Command
+
+Timestomping is a technique used by adversaries to alter file timestamps, making malicious files blend with legitimate ones. The 'touch' command, prevalent in Linux and macOS, can modify access and modification times. Attackers exploit this to evade detection. The detection rule identifies suspicious 'touch' usage by non-root users, focusing on specific arguments and excluding benign processes, thus highlighting potential timestomping activities.
+
+### Possible investigation steps
+
+- Review the process details to identify the user who executed the 'touch' command, focusing on the user.id field to determine if the user is legitimate and authorized to perform such actions.
+- Examine the process.args field to understand the specific arguments used with the 'touch' command, particularly looking for the use of "-r", "-t", "-a*", or "-m*" which indicate potential timestomping activity.
+- Investigate the parent process of the 'touch' command by checking the process.parent.name field to determine if it was initiated by a suspicious or unexpected process, excluding known benign processes like "pmlogger_daily", "pmlogger_janitor", and "systemd".
+- Cross-reference the file paths and names involved in the 'touch' command with known system files and directories to assess if the files are legitimate or potentially malicious.
+- Check for any recent alerts or logs related to the same user or process to identify patterns or repeated attempts at timestomping or other suspicious activities.
+
+### False positive analysis
+
+- Non-root users running legitimate scripts or applications that use the touch command with similar arguments may trigger false positives. To mitigate this, identify and whitelist these specific scripts or applications by adding their paths to the exclusion list.
+- Automated system maintenance tasks that involve file timestamp modifications can be mistaken for malicious activity. Review and exclude known maintenance processes by adding them to the exclusion criteria, ensuring they do not match the suspicious argument patterns.
+- Development tools or environments that utilize the touch command for file management during build processes might be flagged. Analyze these tools and exclude their typical usage patterns by specifying their paths or parent processes in the exclusion list.
+- User-initiated file management activities, such as organizing or backing up files, can inadvertently match the rule's criteria. Educate users on the implications of using touch with specific arguments and consider excluding common user directories from the rule if they are frequently involved in such activities.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further malicious activity and potential lateral movement by the attacker.
+- Conduct a thorough review of the affected system's file system to identify and document any files with suspicious timestamp modifications, focusing on those altered by non-root users.
+- Restore any critical files with altered timestamps from known good backups to ensure data integrity and system reliability.
+- Revoke or reset credentials for any non-root users involved in the suspicious 'touch' command activity to prevent unauthorized access.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring on the affected system and similar environments to detect any further attempts at timestomping or related suspicious activities.
+- Review and update access controls and permissions to ensure that only authorized users have the ability to modify file timestamps, reducing the risk of future timestomping attempts."""
+risk_score = 47
+rule_id = "b0046934-486e-462f-9487-0d4cf9e429c6"
+setup = """## Setup
+
+If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
+events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
+Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
+`event.ingested` to @timestamp.
+For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Stealth",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action == "exec" and process.name == "touch" and
+process.parent.executable != null and process.args like (
+  "-t*", "-d*", "-a*", "-m*", "-r*", "--date=*", "--reference=*", "--time=*"
+) and not (
+  process.parent.executable in (
+    "/usr/local/bin/manage_omnimesh_logs", "/pro/bin/sys/install/packageUtils.sh", "/bin/dracut",
+    "/usr/libexec/postfix/aliasesdb", "pwsh-preview", "/usr/bin/dracut", "/usr/share/initramfs-tools/hooks/amd64_microcode",
+    "/usr/local/bin/start-mailserver.sh", "/usr/bin/ssm-agent-worker", "/bin/ssm-agent-worker", "/usr/local/cpanel/scripts/restartsrv_bind"
+  ) or
+  process.parent.executable like ("/opt/sw/tomcat/rc_scripts/*", "/tmp/newroot/var/lib/docker/overlay2/*", "/snap/*", "/opt/zeek/*") or
+  process.parent.name in (
+    "xargs", "find", "sudo", "make", "pmlogger_check", "pmlogger_daily", "pmlogger_janitor", "autoupdate", "pmlogctl",
+    "spyglass", "desktop-launch", "pmiectl", "systemd"
+  ) or
+  process.parent.args like (
+    "/home/*/scripts/auto_download_process.py", "/home/*/scripts/perl_python_eagu1p.py", "/var/lib/dpkg/info/*",
+    "bazel-out/k8-dbg/bin/dependencies/thirdparty/libjansson_foreign_cc/build_script.sh", "/usr/lib/portage/python*/ebuild.sh",
+    "/var/tmp/rpm-tmp.*", "/usr/lib/pcp/bin/pmlogger_janitor", "/usr/libexec/pcp/bin/pmlogger_janitor",
+    "/usr/libexec/pcp/bin/pmlogger_daily", "/usr/lib/pcp/bin/pmlogger_daily", "/opt/oracle.ExaWatcher/GetExaWatcherResults.sh"
+  ) or
+  process.args in (
+    "/usr/bin/coreutils", "--no-create", "/etc/opt/lumu/lumud.conf", "/opt/vuso*", "/opt/diff", "/etc/aliases.db", "/opt/cursor/cursor"
+  ) or
+  process.args like (
+    "--checkpoint=*", "/root/.config/envman/*", "/var/tmp/dracut*", "/var/tmp/portage*", "/snap/*", "/var/tmp/pmlogger_*/stamp", "/opt/ubki/*.jar",
+    "/usr/lib/go-*/bin/go", "/usr/lib/dracut/dracut-functions.sh", "/tmp/KSInstallAction.*/m/.patch/*"
+  ) or
+  process.command_line in ("/bin/touch -a /tmp/au_status", "touch -d 2 seconds ago /etc/postfix/main.cf") or
+  process.parent.command_line == "runc init" or
+  process.working_directory in ("/opt/libexec", "/opt/local/src/connectxx/build/src/mdp")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.006"
+name = "Timestomp"
+reference = "https://attack.mitre.org/techniques/T1070/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

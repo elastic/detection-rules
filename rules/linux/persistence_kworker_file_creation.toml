@@ -2,7 +2,7 @@
 creation_date = "2023/10/26"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [transform]
 [[transform.osquery]]
@@ -157,14 +157,15 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 file where host.os.type == "linux" and event.action in ("creation", "file_create_event") and
 process.name : "kworker*" and not (
@@ -178,22 +179,9 @@ process.name : "kworker*" and not (
 )
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1547"
-name = "Boot or Logon Autostart Execution"
-reference = "https://attack.mitre.org/techniques/T1547/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1014"
 name = "Rootkit"
@@ -203,13 +191,27 @@ reference = "https://attack.mitre.org/techniques/T1014/"
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1036.005"
 name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
-name = "Defense Evasion"
+name = "Stealth"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+

@@ -2,37 +2,20 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the use of curl by a macOS application binary to connect to a raw IP URI and download a second 
-stage payload. Threat actors often utilize a benign looking or legitimate application as a first stage 
-dropper. Curl is commonly used as it doesn't enforce Gatekeeper checks.
+Detects the use of curl by a macOS application binary to connect to a raw IP URI and download a second stage payload.
+Threat actors often utilize a benign looking or legitimate application as a first stage dropper. Curl is commonly used
+as it doesn't enforce Gatekeeper checks.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Curl from macOS Application"
-references = [
-    "https://objective-see.org/blog/blog_0x71.html#-vpn-trojan-covid",
-    "https://attack.mitre.org/techniques/T1105/"
-]
-risk_score = 73
-rule_id = "6da6f80f-fe41-4814-8010-453e6164bd40"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Command and Control",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide"
-]
-timestamp_override = "event.ingested"
-type = "eql"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -69,6 +52,25 @@ Trojanized macOS applications often use curl to download second-stage payloads f
 - Review other systems in the environment for the same trojanized application to determine the scope of potential compromise.
 - Investigate the delivery mechanism to understand how the trojanized application was installed and prevent future infections.
 """
+references = [
+    "https://objective-see.org/blog/blog_0x71.html#-vpn-trojan-covid",
+    "https://attack.mitre.org/techniques/T1105/",
+]
+risk_score = 73
+rule_id = "6da6f80f-fe41-4814-8010-453e6164bd40"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
 query = '''
 process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and 
   process.name in ("curl", "nscurl") and 
@@ -83,43 +85,44 @@ process where host.os.type == "macos" and event.type == "start" and event.action
                                                    "/Applications/Warp.app/Contents/MacOS/stable")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.001"
+name = "Gatekeeper Bypass"
+reference = "https://attack.mitre.org/techniques/T1553/001/"
 
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
+
 
 [[rule.threat.technique]]
 id = "T1105"
 name = "Ingress Tool Transfer"
 reference = "https://attack.mitre.org/techniques/T1105/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1553"
-name = "Subvert Trust Controls"
-reference = "https://attack.mitre.org/techniques/T1553/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1553.001"
-name = "Gatekeeper Bypass"
-reference = "https://attack.mitre.org/techniques/T1553/001/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

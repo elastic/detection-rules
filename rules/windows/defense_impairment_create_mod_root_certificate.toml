@@ -1,0 +1,184 @@
+[metadata]
+creation_date = "2021/02/01"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation or modification of a local trusted root certificate in Windows. The install of a malicious root
+certificate would allow an attacker the ability to masquerade malicious files as valid signed components from any entity
+(for example, Microsoft). It could also allow an attacker to decrypt SSL traffic.
+"""
+false_positives = ["Certain applications may install root certificates for the purpose of inspecting SSL traffic."]
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Creation or Modification of Root Certificate"
+note = """## Triage and analysis
+
+### Investigating Creation or Modification of Root Certificate
+
+Root certificates are the primary level of certifications that tell a browser that the communication is trusted and legitimate. This verification is based upon the identification of a certification authority. Windows adds several trusted root certificates so browsers can use them to communicate with websites.
+
+[Check out this post](https://www.thewindowsclub.com/what-are-root-certificates-windows) for more details on root certificates and the involved cryptography.
+
+This rule identifies the creation or modification of a root certificate by monitoring registry modifications. The installation of a malicious root certificate would allow an attacker the ability to masquerade malicious files as valid signed components from any entity (for example, Microsoft). It could also allow an attacker to decrypt SSL traffic.
+
+#### Possible investigation steps
+
+- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Investigate abnormal behaviors observed by the subject process such as network connections, other registry or file modifications, and any spawned child processes.
+- If one of the processes is suspicious, retrieve it and determine if it is malicious:
+  - Use a private sandboxed malware analysis system to perform analysis.
+    - Observe and collect information about the following activities:
+      - Attempts to contact external domains and addresses.
+      - File and registry access, modification, and creation activities.
+      - Service creation and launch activities.
+      - Scheduled task creation.
+  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
+    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
+
+### False positive analysis
+
+- This detection may be triggered by certain applications that install root certificates for the purpose of inspecting SSL traffic. Benign true positives (B-TPs) can be added as exceptions if necessary.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the involved host to prevent further post-compromise behavior.
+- If the triage identified malware, search the environment for additional compromised hosts.
+  - Implement temporary network rules, procedures, and segmentation to contain the malware.
+  - Stop suspicious processes.
+  - Immediately block the identified indicators of compromise (IoCs).
+  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
+- Remove the malicious certificate from the root certificate store.
+- Remove and block malicious artifacts identified during triage.
+- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
+- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
+"""
+references = [
+    "https://posts.specterops.io/code-signing-certificate-cloning-attacks-and-defenses-6f98657fc6ec",
+    "https://www.ired.team/offensive-security/persistence/t1130-install-root-certificate",
+]
+risk_score = 21
+rule_id = "203ab79b-239b-4aa5-8e54-fc50623ee8e4"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+    "Tactic: Defense Impairment",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and registry.value : "Blob" and
+  registry.path :
+    (
+      "HKLM\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "HKLM\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\Root\\Certificates\\*\\Blob",
+      "MACHINE\\Software\\Policies\\Microsoft\\SystemCertificates\\AuthRoot\\Certificates\\*\\Blob"
+    ) and
+  not process.executable : (
+          "?:\\Program Files (x86)\\*.exe",
+          "?:\\Program Files\\*.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\sra-pin.exe",
+          "?:\\ProgramData\\bomgar-*\\*\\bomgar-scc.exe",
+          "?:\\ProgramData\\CTES\\Ctes.exe",
+          "?:\\ProgramData\\CTES\\Components\\SNG\\AbtSngSvc.exe",
+          "?:\\ProgramData\\CTES\\Components\\SVC\\CtesHostSvc.exe",
+          "?:\\ProgramData\\Lenovo\\Vantage\\Addins\\LenovoHardwareScanAddin\\*\\LdeApi.Server.exe",
+          "?:\\ProgramData\\Logishrd\\LogiOptionsPlus\\Plugins\\64\\certmgr.exe",
+          "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\*.exe",
+          "?:\\ProgramData\\Quest\\KACE\\modules\\clientidentifier\\clientidentifier.exe",
+          "?:\\ProgramData\\Sophos\\AutoUpdate\\Cache\\sophos_autoupdate1.dir\\*.exe",
+          "?:\\ProgramData\\tychoncloud\\bin\\OVAL\\tvs.exe",
+          "?:\\Windows\\CCM\\CcmEval.exe",
+          "?:\\Windows\\CCM\\CcmExec.exe",
+          "?:\\Windows\\ccmsetup\\autoupgrade\\ccmsetup*.exe",
+          "?:\\Windows\\ccmsetup\\cache\\ccmsetup.exe",
+          "?:\\Windows\\ccmsetup\\ccmsetup.exe",
+          "?:\\Windows\\Cluster\\clussvc.exe",
+          "?:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+          "?:\\Windows\\Lenovo\\ImController\\PluginHost86\\Lenovo.Modern.ImController.PluginHost.Device.exe",
+          "?:\\Windows\\Lenovo\\ImController\\Service\\Lenovo.Modern.ImController.exe",
+          "?:\\Windows\\Sysmon.exe",
+          "?:\\Windows\\Sysmon64.exe",
+          "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\UUS\\amd64\\WaaSMedicAgent.exe",
+          "?:\\Windows\\UUS\\Packages\\Preview\\amd64\\MoUsoCoreWorker.exe",
+          "?:\\Windows\\WinSxS\\*.exe"
+  ) and
+  not
+  (
+    process.executable : (
+      "?:\\Windows\\System32\\*.exe",
+      "?:\\Windows\\SysWOW64\\*.exe"
+    ) and
+    not process.name : (
+        "rundll32.exe", "mshta.exe", "powershell.exe", "pwsh.exe", "cmd.exe", "expand.exe",
+        "regsvr32.exe", "cscript.exe", "wscript.exe", "wmiprvse.exe", "certutil.exe", "xcopy.exe"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.004"
+name = "Install Root Certificate"
+reference = "https://attack.mitre.org/techniques/T1553/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+

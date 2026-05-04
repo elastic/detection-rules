@@ -2,7 +2,7 @@
 creation_date = "2021/03/22"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +69,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Lateral Movement",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
@@ -77,6 +76,7 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -89,6 +89,18 @@ registry where host.os.type == "windows" and event.type == "change" and
 '''
 
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -106,16 +118,4 @@ reference = "https://attack.mitre.org/techniques/T1021/002/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1112"
-name = "Modify Registry"
-reference = "https://attack.mitre.org/techniques/T1112/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 

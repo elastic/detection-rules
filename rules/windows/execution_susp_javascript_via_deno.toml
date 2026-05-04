@@ -2,7 +2,7 @@
 creation_date = "2026/03/19"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -47,7 +47,7 @@ Deno is a legitimate JavaScript/TypeScript runtime. This rule fires when a Deno 
 """
 references = [
     "https://reliaquest.com/blog/threat-spotlight-casting-a-wider-net-clickfix-deno-and-leaknets-scaling-threat",
-    "https://deno.com/"
+    "https://deno.com/",
 ]
 risk_score = 73
 rule_id = "ff18d24b-2ba6-4691-a17f-75c4380d0965"
@@ -63,8 +63,9 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Microsoft Defender XDR",
     "Data Source: Crowdstrike",
-    "Data Source: Elastic Endgame", 
-    "Data Source: Windows Security Event Logs"
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -75,46 +76,46 @@ process where host.os.type == "windows" and event.type == "start" and
  process.command_line : ("*javascript*base64*", "*eval(*", "*http*", "*javascript*import*")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
 
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.007"
 name = "JavaScript"
 reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1027"
-name = "Obfuscated Files or Information"
-reference = "https://attack.mitre.org/techniques/T1027/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"

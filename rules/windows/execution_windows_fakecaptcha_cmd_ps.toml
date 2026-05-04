@@ -2,15 +2,15 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies potential fake CAPTCHA phishing attack based on PowerShell or Cmd argument values. Adversaries employ this
 technique via compromised websites with browser injects, posing either as fake CAPTCHAs to access the site or as a page
-loading error requiring a fix to display the page. The victim is instructed to copy and past a malicious command to
-the Windows Run dialog box.
+loading error requiring a fix to display the page. The victim is instructed to copy and past a malicious command to the
+Windows Run dialog box.
 """
 from = "now-9m"
 index = [
@@ -69,6 +69,7 @@ tags = [
     "Data Source: Microsoft Defender XDR",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Tactic: Stealth",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -84,12 +85,27 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
 
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Stealth"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
@@ -100,42 +116,24 @@ id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
 
+
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1204.004"
 name = "Malicious Copy and Paste"
 reference = "https://attack.mitre.org/techniques/T1204/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1218"
-name = "System Binary Proxy Execution"
-reference = "https://attack.mitre.org/techniques/T1218/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1218.005"
-name = "Mshta"
-reference = "https://attack.mitre.org/techniques/T1218/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1189"
 name = "Drive-by Compromise"
@@ -145,13 +143,15 @@ reference = "https://attack.mitre.org/techniques/T1189/"
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1566.001"
 name = "Spearphishing Attachment"
 reference = "https://attack.mitre.org/techniques/T1566/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+

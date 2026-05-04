@@ -2,16 +2,16 @@
 creation_date = "2025/02/18"
 integration = ["endpoint"]
 maturity = "production"
-min_stack_version = "9.4.0"
 min_stack_comments = "Use EA (Entity Analytics) fields"
-updated_date = "2026/04/01"
+min_stack_version = "9.4.0"
+updated_date = "2026/05/04"
 
 [rule]
 anomaly_threshold = 75
 author = ["Elastic"]
 description = """
-A machine learning job has detected a sudden drop in host based traffic. This can be due to a range of security issues, such as a compromised system,
-a failed service, or a network misconfiguration.
+A machine learning job has detected a sudden drop in host based traffic. This can be due to a range of security issues,
+such as a compromised system, a failed service, or a network misconfiguration.
 """
 false_positives = [
     """
@@ -23,42 +23,6 @@ interval = "5m"
 license = "Elastic License v2"
 machine_learning_job_id = "low_count_events_for_a_host_name_ea"
 name = "Decline in host-based traffic"
-setup = """## Setup
-
-This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
-- Elastic Defend
-
-### Anomaly Detection Setup
-
-Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
-
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration to your system:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
-"""
-references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
-risk_score = 21
-rule_id = "ad66db2e-1cc7-4a2c-8fa5-5f3895e44a18"
-severity = "low"
-tags = ["Use Case: Threat Detection", "Rule Type: ML", "Rule Type: Machine Learning", "Resources: Investigation Guide"]
-type = "machine_learning"
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -93,23 +57,62 @@ Host-based traffic monitoring is crucial for identifying anomalies in network ac
 - Restore any affected services from known good backups if service failure is confirmed as the cause.
 - Monitor network traffic for any signs of unusual activity or attempts to exploit the situation further.
 - Escalate the incident to the security operations team for a deeper forensic analysis and to determine if additional hosts are affected."""
+references = ["https://www.elastic.co/guide/en/security/current/prebuilt-ml-jobs.html"]
+risk_score = 21
+rule_id = "ad66db2e-1cc7-4a2c-8fa5-5f3895e44a18"
+setup = """## Setup
 
+This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
+- Elastic Defend
+
+### Anomaly Detection Setup
+
+Once the rule is enabled, the associated Machine Learning job will start automatically. You can view the Machine Learning job linked under the "Definition" panel of the detection rule. If the job does not start due to an error, the issue must be resolved for the job to commence successfully. For more details on setting up anomaly detection jobs, refer to the [helper guide](https://www.elastic.co/guide/en/kibana/current/xpack-ml-anomalies.html).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration to your system:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: ML",
+    "Rule Type: Machine Learning",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
+]
+type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
 
 [rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1489"
 name = "Service Stop"
@@ -120,7 +123,9 @@ id = "T1499"
 name = "Endpoint Denial of Service"
 reference = "https://attack.mitre.org/techniques/T1499/"
 
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+

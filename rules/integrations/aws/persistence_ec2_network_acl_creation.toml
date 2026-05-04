@@ -2,16 +2,19 @@
 creation_date = "2020/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of an AWS EC2 network access control list (ACL) or an entry in a network ACL with a specified rule number. Adversaries may exploit ACLs to establish persistence or exfiltrate data by creating permissive rules.
+Identifies the creation of an AWS EC2 network access control list (ACL) or an entry in a network ACL with a specified
+rule number. Adversaries may exploit ACLs to establish persistence or exfiltrate data by creating permissive rules.
 """
 false_positives = [
     """
-    Network ACL's may be created by a network administrator. Verify whether the user identity should be making changes in your environment. Network ACL creations by unfamiliar users should be investigated. If known behavior is causing false positives, it can be exempted from the rule.
+    Network ACL's may be created by a network administrator. Verify whether the user identity should be making changes
+    in your environment. Network ACL creations by unfamiliar users should be investigated. If known behavior is causing
+    false positives, it can be exempted from the rule.
     """,
 ]
 from = "now-6m"
@@ -70,8 +73,8 @@ tags = [
     "Data Source: AWS EC2",
     "Use Case: Network Security Monitoring",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
+    "Tactic: Defense Impairment",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -79,6 +82,52 @@ type = "query"
 query = '''
 data_stream.dataset:aws.cloudtrail and event.provider:ec2.amazonaws.com and event.action:(CreateNetworkAcl or CreateNetworkAclEntry) and event.outcome:success
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+
+[[rule.threat.technique]]
+id = "T1685"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1685/"
+
+[[rule.threat.technique]]
+id = "T1686"
+name = "Disable or Modify System Firewall"
+reference = "https://attack.mitre.org/techniques/T1686/"
+[[rule.threat.technique.subtechnique]]
+id = "T1686.001"
+name = "Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1686/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0112"
+name = "Defense Impairment"
+reference = "https://attack.mitre.org/tactics/TA0112/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.investigation_fields]
 field_names = [
@@ -94,46 +143,6 @@ field_names = [
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
-    "aws.cloudtrail.response_elements"
+    "aws.cloudtrail.response_elements",
 ]
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1133"
-name = "External Remote Services"
-reference = "https://attack.mitre.org/techniques/T1133/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1562.007"
-name = "Disable or Modify Cloud Firewall"
-reference = "https://attack.mitre.org/techniques/T1562/007/"
-
-[[rule.threat.technique]]
-id = "T1578"
-name = "Modify Cloud Compute Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1578/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1578.005"
-name = "Modify Cloud Compute Configurations"
-reference = "https://attack.mitre.org/techniques/T1578/005/"
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
