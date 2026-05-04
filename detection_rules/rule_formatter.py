@@ -144,7 +144,7 @@ def preserve_filter_value_formatting(data: Any) -> Any:
             if isinstance(value, dict | list):
                 preserve_filter_value_formatting(value)
 
-    return data
+    return data  # type: ignore[reportUnknownVariableType]
 
 
 class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgument]
