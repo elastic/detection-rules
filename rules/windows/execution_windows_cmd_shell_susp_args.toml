@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/09/06"
-integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/20"
 
 [rule]
 author = ["Elastic"]
@@ -12,12 +12,14 @@ is often observed during malware installation.
 """
 from = "now-9m"
 index = [
+    "logs-crowdstrike.fdr*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
     "logs-system.security*",
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "endgame-*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -37,7 +39,7 @@ The Windows Command Shell (cmd.exe) is a critical component for executing comman
 - Check the parent process of the cmd.exe execution to determine if it is a known benign process or if it is associated with potentially malicious activity, especially if the parent process is explorer.exe or other unusual executables.
 - Investigate the user account associated with the cmd.exe process to determine if the activity aligns with the user's typical behavior or if it appears anomalous.
 - Examine the network activity of the host to identify any unusual outbound connections or data transfers that may correlate with the suspicious command execution.
-- Cross-reference the alert with other security logs or alerts from tools like Sysmon, SentinelOne, or Microsoft Defender for Endpoint to gather additional context and corroborate findings.
+- Cross-reference the alert with other security logs or alerts from tools like Sysmon, SentinelOne, or Microsoft Defender XDR to gather additional context and corroborate findings.
 - Assess the risk score and severity of the alert to prioritize the investigation and determine if immediate response actions are necessary.
 
 ### False positive analysis
@@ -65,76 +67,93 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
+    "Resources: Investigation Guide",
     "Data Source: Windows Security Event Logs",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.name : "cmd.exe" and
- (
+  process.name : "cmd.exe" and
+  (
+    process.command_line : (
+        "*).Run(*", "*GetObject*", "* curl*regsvr32*", "*echo*wscript*", "*echo*ZONE.identifier*",
+        "*ActiveXObject*", "*dir /s /b *echo*", "*unescape(*",  "*findstr*TVNDRgAAAA*", "*findstr*passw*", "*start*\\\\*\\DavWWWRoot\\*",
+        "* explorer*%CD%*", "*%cd%\\*.js*", "*attrib*%CD%*", "*/?cMD<*", "*/AutoIt3ExecuteScript*..*", "*&cls&cls&cls&cls&cls&*",
+        "*&#*;&#*;&#*;&#*;*", "* &&s^eT*", "*& ChrW(*", "*&explorer /root*", "*start __ & __\\*", "*findstr /V /L *forfiles*",
+        "*=wscri& set *", "*http*!COmpUternaME!*", "*start *.pdf * start /min cmd.exe /c *\\\\*", "*pip install*System.Net.WebClient*",
+        "*Invoke-WebReques*Start-Process*", "*-command (Invoke-webrequest*", "*copy /b *\\\\* ping *-n*", "*echo*.ToCharArray*"
+    ) or
 
-  process.command_line : ("*).Run(*", "*GetObject*", "* curl*regsvr32*", "*echo*wscript*", "*echo*ZONE.identifier*",
-  "*ActiveXObject*", "*dir /s /b *echo*", "*unescape(*",  "*findstr*TVNDRgAAAA*", "*findstr*passw*", "*start*\\\\*\\DavWWWRoot\\*",
-  "* explorer*%CD%*", "*%cd%\\*.js*", "*attrib*%CD%*", "*/?cMD<*", "*/AutoIt3ExecuteScript*..*", "*&cls&cls&cls&cls&cls&*",
-  "*&#*;&#*;&#*;&#*;*", "* &&s^eT*", "*& ChrW(*", "*&explorer /root*", "*start __ & __\\*", "*findstr /V /L *forfiles*",
-  "*=wscri& set *", "*http*!COmpUternaME!*", "*start *.pdf * start /min cmd.exe /c *\\\\*", "*pip install*System.Net.WebClient*",
-  "*Invoke-WebReques*Start-Process*", "*-command (Invoke-webrequest*", "*copy /b *\\\\* ping *-n*", "*echo*.ToCharArray*") or
+    (process.args : "echo" and process.parent.name : ("wscript.exe", "mshta.exe")) or
+    
+    process.args : ("1>?:\\*.vbs", "1>?:\\*.js") or
 
-  (process.args : "echo" and process.parent.name : ("wscript.exe", "mshta.exe")) or
+    (process.args : "explorer.exe" and process.args : "type" and process.args : ">" and process.args : "start") or
 
-  process.args : ("1>?:\\*.vbs", "1>?:\\*.js") or
+    (
+      process.parent.name : "explorer.exe" and
+      process.command_line : (
+        "*&&S^eT *",
+        "*&& set *&& set *&& set *&& set *&& set *&& call*",
+        "**\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??*"
+      )
+    ) or
 
-  (process.args : "explorer.exe" and process.args : "type" and process.args : ">" and process.args : "start") or
-
-  (process.parent.name : "explorer.exe" and
-   process.command_line :
-           ("*&&S^eT *",
-            "*&& set *&& set *&& set *&& set *&& set *&& call*",
-            "**\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??\\u00??*")) or
-
-   (process.parent.name : "explorer.exe" and process.args : "copy" and process.args : "&&" and process.args : "\\\\*@*\\*")
+    (process.parent.name : "explorer.exe" and process.args : "copy" and process.args : "&&" and process.args : "\\\\*@*\\*")
   ) and
 
   /* false positives */
   not (process.args : "%TEMP%\\Spiceworks\\*" and process.parent.name : "wmiprvse.exe") and
-  not process.parent.executable :
-                ("?:\\Perl64\\bin\\perl.exe",
-                 "?:\\Program Files\\nodejs\\node.exe",
-                 "?:\\Program Files\\HP\\RS\\pgsql\\bin\\pg_dumpall.exe",
-                 "?:\\Program Files (x86)\\PRTG Network Monitor\\64 bit\\PRTG Server.exe",
-                 "?:\\Program Files (x86)\\Spiceworks\\bin\\spiceworks-finder.exe",
-                 "?:\\Program Files (x86)\\Zuercher Suite\\production\\leds\\leds.exe",
-                 "?:\\Program Files\\Tripwire\\Agent\\Plugins\\twexec\\twexec.exe",
-                 "D:\\Agents\\?\\_work\\_tasks\\*\\SonarScanner.MSBuild.exe",
-                 "?:\\Program Files\\Microsoft VS Code\\Code.exe",
-                 "?:\\programmiweb\\NetBeans-*\\netbeans\\bin\\netbeans64.exe",
-                 "?:\\Program Files (x86)\\Public Safety Suite Professional\\production\\leds\\leds.exe",
-                 "?:\\Program Files (x86)\\Tier2Tickets\\button_gui.exe",
-                 "?:\\Program Files\\NetBeans-*\\netbeans\\bin\\netbeans*.exe",
-                 "?:\\Program Files (x86)\\Public Safety Suite Professional\\production\\leds\\leds.exe",
-                 "?:\\Program Files (x86)\\Tier2Tickets\\button_gui.exe",
-                 "?:\\Program Files (x86)\\Helpdesk Button\\button_gui.exe",
-                 "?:\\VTSPortable\\VTS\\jre\\bin\\javaw.exe",
-                 "?:\\Program Files\\Bot Framework Composer\\Bot Framework Composer.exe",
-                 "?:\\Program Files\\KMSYS Worldwide\\eQuate\\*\\SessionMgr.exe",
-                 "?:\\Program Files (x86)\\Craneware\\Pricing Analyzer\\Craneware.Pricing.Shell.exe",
-                 "?:\\Program Files (x86)\\jumpcloud-agent-app\\jumpcloud-agent-app.exe",
-                 "?:\\Program Files\\PostgreSQL\\*\\bin\\pg_dumpall.exe",
-                 "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
+  not ?process.parent.executable : (
+        "?:\\Perl64\\bin\\perl.exe",
+        "?:\\Program Files\\nodejs\\node.exe",
+        "?:\\Program Files\\HP\\RS\\pgsql\\bin\\pg_dumpall.exe",
+        "?:\\Program Files (x86)\\PRTG Network Monitor\\64 bit\\PRTG Server.exe",
+        "?:\\Program Files (x86)\\Spiceworks\\bin\\spiceworks-finder.exe",
+        "?:\\Program Files (x86)\\Zuercher Suite\\production\\leds\\leds.exe",
+        "?:\\Program Files\\Tripwire\\Agent\\Plugins\\twexec\\twexec.exe",
+        "D:\\Agents\\?\\_work\\_tasks\\*\\SonarScanner.MSBuild.exe",
+        "?:\\Program Files\\Microsoft VS Code\\Code.exe",
+        "?:\\programmiweb\\NetBeans-*\\netbeans\\bin\\netbeans64.exe",
+        "?:\\Program Files (x86)\\Public Safety Suite Professional\\production\\leds\\leds.exe",
+        "?:\\Program Files (x86)\\Tier2Tickets\\button_gui.exe",
+        "?:\\Program Files\\NetBeans-*\\netbeans\\bin\\netbeans*.exe",
+        "?:\\Program Files (x86)\\Public Safety Suite Professional\\production\\leds\\leds.exe",
+        "?:\\Program Files (x86)\\Tier2Tickets\\button_gui.exe",
+        "?:\\Program Files (x86)\\Helpdesk Button\\button_gui.exe",
+        "?:\\VTSPortable\\VTS\\jre\\bin\\javaw.exe",
+        "?:\\Program Files\\Bot Framework Composer\\Bot Framework Composer.exe",
+        "?:\\Program Files\\KMSYS Worldwide\\eQuate\\*\\SessionMgr.exe",
+        "?:\\Program Files (x86)\\Craneware\\Pricing Analyzer\\Craneware.Pricing.Shell.exe",
+        "?:\\Program Files (x86)\\jumpcloud-agent-app\\jumpcloud-agent-app.exe",
+        "?:\\Program Files\\PostgreSQL\\*\\bin\\pg_dumpall.exe",
+        "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
+  not (
+        /* Crowdstrike doesn't populate process.parent.executable */
+        data_stream.dataset == "crowdstrike.fdr" and
+        process.parent.name : (
+          "perl.exe", "node.exe", "pg_dumpall.exe", "PRTG Server.exe", "spiceworks-finder.exe", "leds.exe", "twexec.exe",
+          "SonarScanner.MSBuild.exe", "Code.exe", "netbeans64.exe", "javaw.exe", "Bot Framework Composer.exe", "SessionMgr.exe",
+          "Craneware.Pricing.Shell.exe", "jumpcloud-agent-app.exe", "vimrun.exe"
+        )
+      ) and
   not (process.args :  "?:\\Program Files\\Citrix\\Secure Access Client\\nsauto.exe" and process.parent.name : "userinit.exe") and
-  not process.args :
-            ("?:\\Program Files (x86)\\PCMatic\\PCPitstopScheduleService.exe",
-             "?:\\Program Files (x86)\\AllesTechnologyAgent\\*",
-             "https://auth.axis.com/oauth2/oauth-authorize*") and
-  not process.command_line :
-               ("\"cmd\" /c %NETBEANS_MAVEN_COMMAND_LINE%",
-                "?:\\Windows\\system32\\cmd.exe /q /d /s /c \"npm.cmd ^\"install^\" ^\"--no-bin-links^\" ^\"--production^\"\"") and
+  not process.args : (
+        "?:\\Program Files (x86)\\PCMatic\\PCPitstopScheduleService.exe",
+        "?:\\Program Files (x86)\\AllesTechnologyAgent\\*",
+        "https://auth.axis.com/oauth2/oauth-authorize*"
+  ) and
+  not process.command_line : (
+    "\"cmd\" /c %NETBEANS_MAVEN_COMMAND_LINE%",
+    "?:\\Windows\\system32\\cmd.exe /q /d /s /c \"npm.cmd ^\"install^\" ^\"--no-bin-links^\" ^\"--production^\"\""
+  ) and
   not (process.name : "cmd.exe" and process.args : "%TEMP%\\Spiceworks\\*" and process.args : "http*/dataloader/persist_netstat_data") and
   not (process.args == "echo" and process.args == "GEQ" and process.args == "1073741824")
 '''
@@ -142,19 +161,59 @@ process where host.os.type == "windows" and event.type == "start" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.010"
+name = "Regsvr32"
+reference = "https://attack.mitre.org/techniques/T1218/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

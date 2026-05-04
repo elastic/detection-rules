@@ -1,4 +1,11 @@
 {
+  "auditbeat-*": {
+    "auditd.data.addr": "keyword",
+    "auditd.data.grantors": "keyword",
+    "auditd.data.syscall": "keyword",
+    "auditd.data.terminal": "keyword",
+    "auditd.result": "keyword"
+  },
   "endgame-*": {
     "endgame": {
       "metadata": {
@@ -8,6 +15,9 @@
     }
   },
   "winlogbeat-*": {
+    "problemchild.prediction": "long",
+    "problemchild.prediction_probability": "long",
+    "blocklist_label": "long",
     "winlog": {
       "event_data": {
         "AccessList": "keyword",
@@ -17,6 +27,7 @@
         "AllowedToDelegateTo": "keyword",
         "AttributeLDAPDisplayName": "keyword",
         "AttributeValue": "keyword",
+        "AuditPolicyChangesDescription": "keyword",
         "CallerProcessName": "keyword",
         "CallTrace": "keyword",
         "ClientProcessId": "keyword",
@@ -43,7 +54,7 @@
         "TargetLogonId": "keyword",
         "TargetProcessGUID": "keyword",
         "TargetSid": "keyword",
-      	"SchemaFriendlyName": "keyword",
+        "SchemaFriendlyName": "keyword",
         "Resource": "keyword",
         "RpcCallClientLocality": "keyword",
         "PrivilegeList": "keyword",
@@ -57,7 +68,9 @@
         "Status": "keyword",
         "EnabledPrivilegeList": "keyword",
         "Operation": "keyword",
-        "OperationType": "keyword"
+        "OperationType": "keyword",
+        "NewUACList": "keyword",
+        "SubCategory": "keyword"
       }
     },
     "winlog.logon.type": "keyword",
@@ -106,7 +119,9 @@
     "kubernetes.audit.impersonatedUser.username": "keyword",
     "kubernetes.audit.annotations.authorization_k8s_io/decision": "keyword",
     "kubernetes.audit.annotations.authorization_k8s_io/reason": "keyword",
-    "kubernetes.audit.user.groups": "text",
+    "kubernetes.audit.userAgent": "keyword",
+    "kubernetes.audit.user.extra.authentication.kubernetes.io/pod-name": "keyword",
+    "kubernetes.audit.user.groups": "keyword",
     "kubernetes.audit.requestObject.spec.containers.securityContext.privileged": "boolean",
     "kubernetes.audit.requestObject.spec.containers.securityContext.allowPrivilegeEscalation": "boolean",
     "kubernetes.audit.requestObject.spec.securityContext.runAsUser": "long",
@@ -123,7 +138,7 @@
     "kubernetes.audit.requestObject.spec.serviceAccountName": "keyword",
     "kubernetes.audit.responseStatus.reason": "keyword",
     "kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add": "keyword",
-    "kubernetes.audit.requestObject.spec.containers.image": "text"
+    "kubernetes.audit.requestObject.spec.containers.image": "keyword"
   },
   ".alerts-security.*": {
     "signal.rule.name": "keyword",
@@ -131,7 +146,25 @@
     "signal.rule.threat.tactic.name": "keyword",
     "kibana.alert.rule.threat.tactic.id": "keyword",
     "kibana.alert.workflow_status": "keyword",
-    "kibana.alert.rule.rule_id": "keyword"
+    "kibana.alert.rule.rule_id": "keyword",
+    "kibana.alert.rule.name": "keyword",
+    "kibana.alert.risk_score": "long",
+    "kibana.alert.rule.type": "keyword",
+    "kibana.alert.rule.threat.tactic.name": "keyword",
+    "kibana.alert.rule.threat.technique.name": "keyword",
+    "kibana.alert.rule.threat.technique.id": "keyword",
+    "kibana.alert.severity": "keyword",
+    "job_id": "keyword",
+    "influencers.influencer_field_name": "keyword",
+    "influencers.influencer_field_values": "keyword"
+  },
+  "logs-github.audit-*": {
+    "github.branch": "keyword",
+    "github.overridden_codes": "keyword",
+    "github.reasons.code": "keyword",
+    "github.reasons.message": "text",
+    "github.repository_public": "boolean",
+    "github.previous_visibility": "keyword"
   },
   "logs-google_workspace*": {
     "gsuite.admin": "keyword",
@@ -155,28 +188,19 @@
     "auditd.data.a3": "keyword"
   },
   "logs-aws.cloudtrail-*": {
-    "aws.cloudtrail.flattened.request_parameters.cidrIp": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.fromPort": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.roleArn": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.roleName": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.policyArn": "keyword",
+    "aws.cloudtrail.flattened.request_parameters.ipPermissions.items.ipRanges.items.cidrIp": "keyword",
+    "aws.cloudtrail.flattened.request_parameters.ipPermissions.items.fromPort": "keyword",
     "aws.cloudtrail.flattened.request_parameters.serialNumber": "keyword",
     "aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm": "keyword",
-    "aws.cloudtrail.flattened.additional_eventdata.SSEApplied": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.bucketName": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.key": "keyword",
     "aws.cloudtrail.flattened.request_parameters.includeDeprecated": "keyword",
     "aws.cloudtrail.flattened.request_parameters.withDecryption": "boolean",
     "aws.cloudtrail.flattened.request_parameters.instanceId": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.dryRun": "boolean",
-    "aws.cloudtrail.flattened.request_parameters.clientToken": "keyword",
-    "aws.cloudtrail.flattened.response_elements.s3BucketName": "keyword",
-    "aws.cloudtrail.flattened.response_elements.tableArn": "keyword",
     "aws.cloudtrail.flattened.request_parameters.attribute": "keyword",
     "aws.cloudtrail.flattened.request_parameters.reason": "keyword",
     "aws.cloudtrail.flattened.request_parameters.omitted": "keyword",
-    "aws.cloudtrail.flattened.request_parameters.ownersSet.items.owner": "keyword",
-    "aws.cloudtrail.flattened.response_elements.documentDescription.documentType": "keyword"
+    "aws.cloudtrail.flattened.response_elements.documentDescription.documentType": "keyword",
+    "aws.cloudtrail.flattened.request_parameters.groupSet.items.groupId": "keyword",
+    "aws.cloudtrail.flattened.request_parameters.protocol": "keyword"
   },
   "logs-azure.signinlogs-*": {
     "azure.signinlogs.properties.conditional_access_audiences.application_id": "keyword",
@@ -184,27 +208,83 @@
     "azure.auditlogs.properties.target_resources.0.display_name": "keyword",
     "azure.signinlogs.properties.authentication_details.authentication_method": "keyword",
     "azure.signinlogs.properties.authentication_processing_details": "keyword",
-    "azure.signinlogs.properties.token_protection_status_details.sign_in_session_status": "keyword"
+    "azure.signinlogs.properties.token_protection_status_details.sign_in_session_status": "keyword",
+    "azure.signinlogs.properties.session_id": "keyword",
+    "azure.signinlogs.properties.mfa_detail.auth_method": "keyword",
+    "azure.signinlogs.properties.client_credential_type": "keyword",
+    "azure.signinlogs.properties.app_owner_tenant_id": "keyword",
+    "azure.signinlogs.properties.resource_owner_tenant_id": "keyword",
+    "azure.signinlogs.properties.tenant_id": "keyword"
   },
   "logs-azure.activitylogs-*": {
     "azure.activitylogs.properties.authentication_protocol": "keyword",
     "azure.activitylogs.properties.appId": "keyword",
     "azure.activitylogs.properties.resourceDisplayName": "keyword",
-    "azure.activitylogs.properties.appDisplayName": "keyword"
+    "azure.activitylogs.properties.appDisplayName": "keyword",
+    "azure.activitylogs.properties.requestbody.properties.roleDefinitionId": "keyword",
+    "azure.activitylogs.properties.responseBody": "keyword",
+    "azure.activitylogs.properties.status_code": "keyword",
+    "azure.activitylogs.identity.claims.appid": "keyword"
   },
   "logs-azure.graphactivitylogs-*": {
     "azure.graphactivitylogs.properties.c_idtyp": "keyword",
     "azure.graphactivitylogs.properties.user_principal_object_id": "keyword",
-    "azure.graphactivitylogs.properties.requestUri": "keyword"
+    "azure.graphactivitylogs.properties.requestUri": "keyword",
+    "azure.graphactivitylogs.properties.c_sid": "keyword"
+  },
+  "logs-azure.auditlogs-*": {
+    "azure.auditlogs.properties.target_resources.0.display_name": "keyword",
+    "azure.auditlogs.properties.target_resources.0.id": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.5.new_value": "keyword",
+    "azure.auditlogs.properties.additional_details.value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.0.old_value": "keyword",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name": "keyword"
+  },
+  "logs-azure.platformlogs-*": {
+    "azure.platformlogs.identity.claim.upn": "keyword",
+    "azure.platformlogs.properties.id": "keyword",
+    "azure.platformlogs.identity.claim.appid": "keyword",
+    "azure.platformlogs.identity.type": "keyword",
+    "azure.platformlogs.properties.userAgentHeader": "keyword",
+    "azure.platformlogs.statusCode": "keyword",
+    "azure.platformlogs.properties.accountName": "keyword"
   },
    "logs-o365.audit-*": {
+     "o365.audit.ExtendedProperties.RequestType": "keyword",
      "o365.audit.ExtendedProperties.ResultStatusDetail": "keyword",
      "o365.audit.OperationProperties.Name": "keyword",
      "o365.audit.OperationProperties.Value": "keyword",
-     "o365.audit.OperationCount": "long"
+     "o365.audit.OperationCount": "long",
+     "o365.audit.AppAccessContext.AADSessionId": "keyword",
+     "o365.audit.SearchQueryText": "keyword",
+     "o365.audit.AffectedItems.Subject": "keyword",
+     "o365.audit.IsManagedDevice": "boolean"
   },
   "logs-okta*": {
     "okta.debug_context.debug_data.flattened.requestedScopes": "keyword",
-    "okta.debug_context.debug_data.flattened.grantType": "keyword"
+    "okta.debug_context.debug_data.flattened.grantType": "keyword",
+    "okta.debug_context.debug_data.flattened.privilegeGranted": "keyword"
+  },
+  "logs-network_traffic.http*": {
+    "data_stream.dataset": "keyword",
+    "url.path": "keyword",
+    "http.request.referrer": "keyword",
+    "http.request.headers.content-type": "keyword",
+    "network.direction": "keyword",
+    "http.request.method": "keyword",
+    "request": "keyword",
+    "http.request.body.bytes": "long",
+    "http.request.body.content": "keyword",
+    "http.response.headers.server": "keyword"
+  },
+  "metrics-*": {
+    "system.process.cpu.total.norm.pct": "double",
+    "system.cpu.total.norm.pct": "double"
   }
 }

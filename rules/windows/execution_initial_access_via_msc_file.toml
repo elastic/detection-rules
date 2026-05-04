@@ -2,7 +2,7 @@
 creation_date = "2024/05/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -60,7 +60,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
@@ -68,34 +68,62 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.executable : "?:\\Windows\\System32\\mmc.exe" and endswith~(process.parent.args, ".msc") and
- not process.parent.args : ("?:\\Windows\\System32\\*.msc", "?:\\Windows\\SysWOW64\\*.msc", "?:\\Program files\\*.msc", "?:\\Program Files (x86)\\*.msc")
+  process.parent.executable : "?:\\Windows\\System32\\mmc.exe" and endswith~(process.parent.args, ".msc") and
+  not (
+    process.parent.args : (
+      "?:\\Windows\\System32\\*.msc",
+      "?:\\Windows\\SysWOW64\\*.msc",
+      "?:\\Program files\\*.msc",
+      "?:\\Program Files (x86)\\*.msc"
+    ) or
+    (
+      process.executable : "?:\\Windows\\System32\\mmc.exe" and
+      process.command_line : "\"C:\\WINDOWS\\system32\\mmc.exe\" \"C:\\Windows\\System32\\gpme.msc\" /s /gpobject:\"LDAP://*"
+    ) or
+    (
+      process.executable : (
+        "?:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        "?:\\Program Files\\Mozilla Firefox\\firefox.exe",
+        "?:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "?:\\Program Files\\internet explorer\\iexplore.exe"
+      ) and
+      process.args : "http*://go.microsoft.com/fwlink/*"
+    ) or
+    process.executable : (
+      "?:\\Windows\\System32\\vmconnect.exe",
+      "?:\\Windows\\System32\\WerFault.exe",
+      "?:\\Windows\\System32\\wermgr.exe"
+    )
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1204"
 name = "User Execution"
 reference = "https://attack.mitre.org/techniques/T1204/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1204.002"
 name = "Malicious File"
 reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1566"
 name = "Phishing"
 reference = "https://attack.mitre.org/techniques/T1566/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1566.001"
 name = "Spearphishing Attachment"
@@ -106,10 +134,25 @@ id = "T1566.002"
 name = "Spearphishing Link"
 reference = "https://attack.mitre.org/techniques/T1566/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.014"
+name = "MMC"
+reference = "https://attack.mitre.org/techniques/T1218/014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

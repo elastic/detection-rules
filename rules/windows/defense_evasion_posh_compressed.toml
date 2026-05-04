@@ -2,125 +2,22 @@
 creation_date = "2021/10/19"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the use of .NET functionality for decompression and base64 decoding combined in PowerShell scripts, which
-malware and security tools heavily use to deobfuscate payloads and load them directly in memory to bypass defenses.
+Identifies PowerShell script block content that combines Base64 decoding with .NET decompression (Deflate/GZip).
+Attackers use this pattern to deobfuscate and reconstruct payloads in memory to evade defenses.
 """
-false_positives = ["Legitimate PowerShell Scripts which makes use of compression and encoding."]
+false_positives = ["Legitimate PowerShell scripts that reconstruct to a confirmed benign installer, updater, or administrative workflow for the same user and host scope."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Suspicious Payload Encoded and Compressed"
-note = """## Triage and analysis
-
-### Investigating PowerShell Suspicious Payload Encoded and Compressed
-
-PowerShell is one of the main tools system administrators use for automation, report routines, and other tasks. This makes it available for use in various environments, and creates an attractive way for attackers to execute code.
-
-Attackers can embed compressed and encoded payloads in scripts to load directly into the memory without touching the disk. This strategy can circumvent string and file-based security protections.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Examine the script content that triggered the detection; look for suspicious DLL imports, collection or exfiltration capabilities, suspicious functions, encoded or compressed data, and other potentially malicious characteristics.
-- Investigate the script execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Examine file or network events from the involved PowerShell process for suspicious behavior.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Evaluate whether the user needs to use PowerShell to complete tasks.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the script using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately outside engineering or IT business units. As long as the analyst did not identify malware or suspicious activity related to the user or host, this alert can be dismissed.
-
-### Related rules
-
-- PowerShell PSReflect Script - 56f2e9b5-4803-4e44-a0a4-a52dc79d57fe
-- Potential Process Injection via PowerShell - 2e29e96a-b67c-455a-afe4-de6183431d0d
-- Suspicious .NET Reflection via PowerShell - e26f042e-c590-4e82-8e05-41e81bd822ad
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, Intune, or similar software.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "81fe9dc6-a2d7-4192-a2d8-eed98afc766a"
-setup = """## Setup
-
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -135,6 +32,7 @@ type = "query"
 
 query = '''
 event.category:process and host.os.type:windows and
+  powershell.file.script_block_entropy_bits >= 4.5 and
   powershell.file.script_block_text : (
     (
       "System.IO.Compression.DeflateStream" or
@@ -147,6 +45,57 @@ event.category:process and host.os.type:windows and
   not user.id : "S-1-5-18"
 '''
 
+note = """## Triage and analysis
+
+### Investigating PowerShell Suspicious Payload Encoded and Compressed
+
+#### Possible investigation steps
+
+- After reconstructing all fragments, does the script block decode, decompress, and run a second stage?
+  - Why: split 4104 events can hide the payload boundary or execution call.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and reconstructed `powershell.file.script_block_text` on `host.id`. $investigate_0
+  - Hint: collect same-`powershell.file.script_block_id` fragments on `host.id`, order by `powershell.sequence`, and verify count against `powershell.total` before interpreting code.
+  - Implication: escalate or keep suspicious when the full block decodes Base64, decompresses it with a .NET compression stream, then invokes the result; lower suspicion only when reconstructed content is inert static data, configuration, or installer resource with no execution path.
+
+- Was the script file-backed or fileless, and does the origin fit the user and host?
+  - Focus: origin first: `file.path` or absence, `file.name`, and `user.id` plus `host.id` for workflow scope. For file-backed scripts, compare same-origin script block events on the host. $investigate_1
+  - Implication: escalate when `file.path` is absent or points to user-writable, temporary, mounted, or delivery-oriented locations inconsistent with the user and host; lower suspicion when the same path or fileless pattern belongs to a stable packaging, deployment, or updater workflow for the same `user.id` and `host.id`.
+
+- If endpoint process telemetry is available, how was the PowerShell instance launched?
+  - Why: script block events preserve code but not the command line or parent that explains delivery.
+  - Focus: recover the matching process via `host.id + process.pid`; then interpret `process.command_line` and `process.parent.command_line`. $investigate_2
+  - Hint: start around `@timestamp`; expand if no start event appears because PowerShell may predate script-block logging.
+  - Implication: escalate when the launch chain starts from a browser, document process, scheduled task, remote-management tool, or user-writable script path that does not fit the user; lower suspicion only when command line and parent align with the exact benign packaging, deployment, or updater workflow. Missing endpoint process telemetry leaves launch context unresolved; continue with content, origin, decoded indicators, and scope.
+
+- What payload behavior is exposed by the reconstructed or decoded content?
+  - Focus: reconstructed `powershell.file.script_block_text` after Base64 and Deflate/GZip expansion, execution sinks, embedded indicators, and same-PID file plus network/DNS events for writes or retrieval. $investigate_3 $investigate_4
+  - Implication: escalate when decoded content reaches Invoke-Expression, reflection, assembly load, payload writes, remote retrieval, or another encoded/compressed layer; lower suspicion when decoded content stays inert with no execution sink, staging write, or retrieval path. Missing network/DNS telemetry is unresolved, not benign.
+
+- If local evidence remains suspicious or incomplete, does the same wrapper or decoded indicator change scope?
+  - Focus: distinctive strings from `powershell.file.script_block_text`, recurring `file.path` or `file.name`, and related alerts for the same `user.id`. $investigate_5
+  - Hint: if the user view is quiet or identity is incomplete, check related alerts for the same `host.id`. $investigate_6
+  - Implication: broaden scope when the same Base64-plus-compression wrapper, decoded indicator, or file origin appears on unrelated hosts or accounts; keep scope local when confined to one exact benign automation cohort, but do not close solely because recurrence is absent.
+
+- Escalate when reconstruction, origin, launch context, decoded behavior, or scope points to staged execution. Close only when full reconstruction and same-host evidence prove one exact benign workflow, using records only when telemetry cannot prove legitimacy. If evidence is incomplete, preserve script fragments, decoded indicators, and recovered process evidence and escalate.
+
+### False positive analysis
+
+- Software deployment and vendor updater scripts can legitimately embed Base64-compressed resources in PowerShell. Confirm only when reconstructed `powershell.file.script_block_text` is installer, updater, or administrative resource logic; `file.path` or stable fileless origin fits that workflow; and `user.id` plus `host.id` match scope. When endpoint process telemetry exists, recover through `host.id + process.pid` before using `process.command_line` or `process.parent.executable` as corroboration. Use records or inventories only when telemetry cannot prove it.
+- Before creating an exception, validate that the telemetry-confirmed benign workflow is stable across prior alerts for the same scope. Anchor to `user.id`, `host.id`, stable `file.path` or stable fileless origin, and distinctive reconstructed script structure. Do not suppress on `powershell.file.script_block_entropy_bits`, `file.name`, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the evidence that explained the alert: reconstructed script purpose, validated `file.path` or stable fileless origin, `user.id`, `host.id`, and any recovered launch context. Create a narrow exception only after the same benign pattern recurs consistently.
+- If suspicious but unconfirmed, preserve evidence first: the original and reconstructed `powershell.file.script_block_text`, all fragments grouped by `powershell.file.script_block_id`, decoded strings or indicators, `file.path` evidence, `user.id`, `host.id`, and recovered process context when available. Apply reversible containment such as heightened monitoring, temporary destination blocking for decoded indicators, or host isolation only if the host role can tolerate it, then escalate before deleting artifacts or resetting accounts.
+- If confirmed malicious, preserve the same script, decoded indicator, origin, host, user, and recovered process evidence before destructive actions. Isolate the host if its role allows it, record the malicious PowerShell process context before termination when available, block confirmed malicious decoded domains, IPs, URLs, hashes, or payload paths, and review related hosts and users for the same indicators before removing scripts, binaries, scheduled tasks, registry persistence, or policy changes tied to the decoded payload. Reset credentials only when investigation shows account misuse or credential access beyond local execution.
+- Post-incident hardening: retain PowerShell script-block logging and endpoint process telemetry needed for `host.id + process.pid` recovery, restrict PowerShell execution to trusted administrative paths where feasible, and document the confirmed benign workflow or malicious artifact set for future triage.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 
 [[rule.filters]]
 
@@ -155,38 +104,157 @@ negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\Downloads\\\\*"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "powershell.file.script_block_entropy_bits",
+    "file.path",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Script block events for the same file path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.015"
+name = "Compression"
+reference = "https://attack.mitre.org/techniques/T1027/015/"
 
 [[rule.threat.technique]]
 id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

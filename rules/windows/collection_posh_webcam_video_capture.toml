@@ -2,13 +2,13 @@
 creation_date = "2023/07/18"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/01/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell scripts that can be used to record webcam video. Attackers can capture this information to extort or
-spy on victims.
+Detects PowerShell script block content that references webcam capture APIs or video capture device objects.
+Attackers use webcam recording to surveil victims or collect sensitive footage for extortion.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-windows.powershell*"]
@@ -22,33 +22,66 @@ note = """## Triage and analysis
 
 ### Investigating PowerShell Script with Webcam Video Capture Capabilities
 
-PowerShell, a powerful scripting language in Windows, can interface with system components like webcams for legitimate tasks such as video conferencing. However, adversaries exploit this by crafting scripts to covertly record video, infringing on privacy. The detection rule identifies suspicious script patterns and API calls linked to webcam access, flagging potential misuse for further investigation.
+This alert indicates PowerShell script block content on a Windows host that references webcam or video capture components. The matched content may represent device enumeration, frame handling, or capture routines used to record from an attached camera. Because webcam collection has privacy and regulatory impact, prioritize confirming intent, scope, and whether any recordings were produced or transferred.
 
-### Possible investigation steps
+#### Key alert fields to review
 
-- Review the PowerShell script block text associated with the alert to identify any suspicious patterns or API calls, such as "NewFrameEventHandler" or "VideoCaptureDevice".
-- Check the process execution details, including the parent process, to determine how the PowerShell script was initiated and if it was part of a legitimate application or task.
-- Investigate the user account under which the PowerShell script was executed to assess if the account has a history of suspicious activity or if it has been compromised.
-- Examine the host's recent activity logs for any other unusual behavior or alerts that might correlate with the webcam access attempt, such as unauthorized access attempts or data exfiltration.
-- Verify if the host has any legitimate applications that might use webcam access, and cross-reference with the script's behavior to rule out false positives.
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_length`: Script block length (size) context.
+
+#### Possible investigation steps
+
+- Analyze the script content in `powershell.file.script_block_text` to understand its functionality:
+  - Identify references to webcam or video capture APIs, classes, or methods (for example, `VideoCaptureDevice`, `NewFrameEventHandler`, `DirectX.Capture.Filters`, `VideoCompressors`, or calls to `avicap32.dll` functions).
+  - Look for logic that initializes the camera, configures capture settings, handles frame events, and starts/stops recording.
+  - Note any output handling, such as saving recordings to disk or preparing data for transmission.
+- Reconstruct the complete script when content is split across multiple events:
+  - Group by `powershell.file.script_block_id` and order by `powershell.sequence` through `powershell.total`.
+  - Preserve the reconstructed content as an investigation artifact and note `powershell.file.script_block_length` for context (very large blocks may contain additional functionality beyond capture).
+- Identify likely collection intent and potential artifacts by inspecting the script content:
+  - Look for device enumeration and selection logic (for example, listing available devices, choosing a specific camera, or referencing device indices).
+  - Look for capture start/stop logic, timers, or loops that control duration and frequency.
+  - Look for references to output locations, file names, or post-processing steps (encoding, compression, or transformation of captured frames).
+  - Look for indications of onward handling of recordings (archiving, encryption, or transfer).
+- Determine script origin and reuse:
+  - If `file.path` and `file.name` are present, treat the script as file-backed content and assess whether the location in `file.directory` is expected for the user and host.
+  - Pivot on `file.path` or `file.name` to identify additional script block events that reference the same file, and whether the same content appears on other hosts.
+- Establish user and host context:
+  - Validate whether `user.name` and `user.domain` align with expected webcam usage on `host.name` (for example, support, QA, or multimedia testing roles) and whether the timing is consistent with normal activity.
+  - Pivot on `host.id` and `user.id` in a narrow time window around `@timestamp` to identify related PowerShell script blocks that suggest staging, repeated attempts, or follow-on activity.
+- Correlate with adjacent telemetry in your environment to confirm execution and impact:
+  - Process telemetry: determine how PowerShell was launched (interactive use vs. launched by another program) and whether the activity was isolated or part of a broader execution chain.
+  - File telemetry: identify creation or modification of video artifacts and any additional scripts written or fetched around the alert time.
+  - Network telemetry: identify outbound connections that could support remote tasking or transfer of captured content.
+  - Authentication telemetry: verify whether the user context was local, remote, or recently authenticated in an unusual way during the alert window.
 
 ### False positive analysis
 
-- Legitimate video conferencing applications may trigger the detection rule due to their use of similar API calls and script patterns. Users can create exceptions for known and trusted applications by whitelisting their process names or script signatures.
-- Security testing tools that simulate webcam access for vulnerability assessments might be flagged. To handle this, users should exclude these tools from monitoring during scheduled testing periods.
-- System diagnostics or maintenance scripts that access webcam components for hardware checks can be mistaken for malicious activity. Users should document and exclude these scripts if they are part of routine system operations.
-- Educational or training software that uses webcam access for interactive sessions may be incorrectly identified. Users can mitigate this by adding these applications to an allowlist after verifying their legitimacy.
-- Custom scripts developed in-house for specific business needs that involve webcam access should be reviewed and, if deemed safe, excluded from the detection rule to prevent unnecessary alerts.
+- Benign camera diagnostics or hardware validation scripts may reference capture devices, frame handlers, and compressor lists without performing unauthorized recording.
+- Development and testing environments may include sample or proof-of-concept code that imports or references capture libraries during troubleshooting or application development.
+- Enterprise imaging, kiosk build, or A/V workstation provisioning workflows may temporarily stage scripts that validate camera availability and driver functionality.
 
 ### Response and remediation
 
-- Immediately isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate any suspicious PowerShell processes identified by the detection rule to stop ongoing webcam recording activities.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious scripts or software.
-- Review and revoke any unauthorized access permissions or credentials that may have been compromised during the incident.
-- Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious script.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for PowerShell activities across the network to detect and respond to similar threats more effectively in the future."""
+- If activity is unexpected or violates policy, treat as a potential privacy-impacting collection incident:
+  - Escalate according to your incident response and privacy handling procedures.
+  - Preserve the full script content (reconstructed if needed) and record key identifiers: `@timestamp`, `host.name`, `host.id`, `user.name`, `user.id`, and any `file.path`/`file.name` present.
+- Contain potential ongoing collection:
+  - Isolate the affected host using standard endpoint response controls.
+  - Restrict the suspected user account and investigate for additional malicious activity associated with `user.id` and `host.id` during the same period.
+  - If appropriate for your environment, temporarily restrict access to the camera device on the affected host until legitimacy is confirmed.
+- Eradicate and recover:
+  - Remove or quarantine unauthorized scripts referenced by `file.path`/`file.name` and any related artifacts identified during triage.
+  - If recordings were created, locate and secure them as evidence, and assess whether any transfer occurred.
+  - Reset credentials for impacted accounts if compromise is suspected and review for additional access paths.
+- Post-incident actions:
+  - Increase monitoring for similar PowerShell script block content on the scoped hosts and accounts to detect recurrence.
+  - Review endpoint hardening and least-privilege controls for camera access and script execution where feasible.
+"""
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/lib/modules/powershell/collection/WebcamRecorder.py",
 ]
@@ -56,21 +89,8 @@ risk_score = 47
 rule_id = "eb44611f-62a8-4036-a5ef-587098be6c43"
 setup = """## Setup
 
-The 'PowerShell Script Block Logging' logging policy must be enabled.
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Administrative Templates >
-Windows PowerShell >
-Turn on PowerShell Script Block Logging (Enable)
-```
-
-Steps to implement the logging policy via registry:
-
-```
-reg add "hklm\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1
-```
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
 """
 severity = "medium"
 tags = [
@@ -132,3 +152,21 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]

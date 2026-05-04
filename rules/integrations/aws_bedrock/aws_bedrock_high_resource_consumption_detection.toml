@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/05/04"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -80,15 +81,37 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| keep user.id, gen_ai.usage.prompt_tokens, gen_ai.usage.completion_tokens
-| stats max_tokens = max(gen_ai.usage.prompt_tokens),
-         total_requests = count(*),
-         avg_response_size = avg(gen_ai.usage.completion_tokens)
-  by user.id
-// tokens count depends on specific LLM, as is related to how embeddings are generated.
-| where max_tokens > 5000 and total_requests > 10 and avg_response_size > 500
-| eval risk_factor = (max_tokens / 1000) * total_requests * (avg_response_size / 500)
-| where risk_factor > 10
-| sort risk_factor desc
+
+// keep token usage data
+| keep
+  user.id,
+  gen_ai.usage.prompt_tokens,
+  gen_ai.usage.completion_tokens
+
+// Aggregate usage metrics
+| stats
+    Esql.ml_usage_prompt_tokens_max = max(gen_ai.usage.prompt_tokens),
+    Esql.ml_invocations_total_count = count(*),
+    Esql.ml_usage_completion_tokens_avg = avg(gen_ai.usage.completion_tokens)
+  by
+    user.id
+
+// Filter for suspicious usage patterns
+| where
+  Esql.ml_usage_prompt_tokens_max > 5000
+  and Esql.ml_invocations_total_count > 10
+  and Esql.ml_usage_completion_tokens_avg > 500
+
+// Calculate a custom risk factor
+| eval Esql.ml_risk_score =
+    (Esql.ml_usage_prompt_tokens_max / 1000) *
+    Esql.ml_invocations_total_count *
+    (Esql.ml_usage_completion_tokens_avg / 500)
+
+// Filter on risk score
+| where Esql.ml_risk_score > 10
+
+// sort high risk users to top
+| sort Esql.ml_risk_score desc
 '''
 

@@ -16,6 +16,7 @@ from lark.visitors import Interpreter
 
 from kql.errors import KqlParseError
 from .ast import *  # noqa: F403
+from .utils import check_whitespace, collect_token_positions
 
 
 STRING_FIELDS = ("keyword", "text")
@@ -337,6 +338,28 @@ class KqlParser(BaseKqlParser):
         self.assert_lower_token(*tree.child_tokens)
         return NotValue(self.visit(tree.children[-1]))
 
+    def list_of_values(self, tree):
+        if len(tree.children) == 2:
+            # optional_not value
+            opt_not_tree, value_tree = tree.children
+            not_count = self.visit(opt_not_tree)
+            value = self.visit(value_tree)
+            for _ in range(not_count):
+                value = NotValue(value)
+            return value
+        else:
+            # "(" or_list_of_values ")"
+            return self.visit(tree.children[1])
+
+    def optional_not(self, tree):
+        count = 0
+        for child in tree.children:
+            if hasattr(child, "type") and child.type == "NOT":
+                count += 1
+            else:
+                count += self.visit(child)
+        return count
+
     def literal(self, tree):
         return self.unescape_literal(tree.children[0])
 
@@ -352,9 +375,11 @@ class KqlParser(BaseKqlParser):
         token = tree.children[0]
         value = self.unescape_literal(token)
 
-        if token.type == "UNQUOTED_LITERAL" and "*" in token.value:
+        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in token.value):
             field_type = self.get_field_type(field_name)
-            if len(value.replace("*", "")) == 0:
+
+            if len(token.value.replace("*", "").strip()) == 0:
                 return Exists()
 
             if field_type is not None and field_type not in ("keyword", "wildcard"):
@@ -362,6 +387,12 @@ class KqlParser(BaseKqlParser):
                                  field=field_name, type=field_type)
 
             return Wildcard(token.value)
+
+        # For quoted strings, treat as literal values (wildcards in quotes are literal in Kibana)
+        # This bypasses Value.from_python's wildcard conversion for quoted strings
+        if token.type == "QUOTED_STRING":
+            value = self.convert_value(field_name, value, tree)
+            return String(eql.utils.to_unicode(value)) if eql.utils.is_string(value) else Value.from_python(value)
 
         # try to convert the value to the appropriate type
         # example: 1 -> "1" if the field is actually keyword
@@ -376,7 +407,13 @@ def lark_parse(text):
     walker = BaseKqlParser(text)
 
     try:
-        return lark_parser.parse(text)
+        tree = lark_parser.parse(text)
+
+        # Check for whitespace around "and" and "or" tokens
+        lines = text.split('\n')
+        check_whitespace(collect_token_positions(tree, ["and", "or"]), lines)
+
+        return tree
     except UnexpectedEOF:
         raise KqlParseError("Unexpected EOF", len(walker.lines), len(walker.lines[-1].strip()), walker.lines[-1])
     except LarkError as exc:

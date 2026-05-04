@@ -6,16 +6,15 @@
 """Definitions for packages destined for the registry."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
-from .definitions import ConditionSemVer, SemVer
-from ..mixins import MarshmallowDataclassMixin
+from detection_rules.mixins import MarshmallowDataclassMixin
+from detection_rules.schemas.definitions import ConditionSemVer, SemVer
 
 
 @dataclass
 class ConditionElastic:
     subscription: str
-    capabilities: Optional[List[str]]
+    capabilities: list[str] | None
 
 
 @dataclass
@@ -35,26 +34,26 @@ class Icon:
 class RegistryPackageManifestBase(MarshmallowDataclassMixin):
     """Base class for registry packages."""
 
-    categories: List[str]
+    categories: list[str]
     description: str
     format_version: SemVer
-    icons: List[Icon]
+    icons: list[Icon]
     name: str
-    owner: Dict[str, str]
+    owner: dict[str, str]
     title: str
     type: str
     version: SemVer
 
-    internal: Optional[bool]
-    policy_templates: Optional[List[str]]
-    screenshots: Optional[List[str]]
+    internal: bool | None
+    policy_templates: list[str] | None
+    screenshots: list[str] | None
 
 
 @dataclass
 class RegistryPackageManifestV1(RegistryPackageManifestBase):
     """Registry packages using elastic-package v1."""
 
-    conditions: Dict[str, ConditionSemVer]
+    conditions: dict[str, ConditionSemVer]
     license: str
     release: str
 
@@ -64,4 +63,4 @@ class RegistryPackageManifestV3(RegistryPackageManifestBase):
     """Registry packages using elastic-package v3."""
 
     conditions: Condition
-    source: Dict[str, str]
+    source: dict[str, str]

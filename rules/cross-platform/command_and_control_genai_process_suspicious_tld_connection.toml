@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2025/12/04"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when GenAI tools connect to domains using suspicious TLDs commonly abused for malware C2 infrastructure. TLDs
+like .top, .xyz, .ml, .cf, .onion are frequently used in phishing and malware campaigns. Legitimate GenAI services use
+well-established domains (.com, .ai, .io), so connections to suspicious TLDs may indicate compromised tools, malicious
+plugins, or AI-generated code connecting to attacker infrastructure.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*", "winlogbeat-*", "logs-windows.sysmon_operational-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI Process Connection to Suspicious Top Level Domain"
+note = """## Triage and analysis
+
+### Investigating GenAI Process Connection to Suspicious Top Level Domain
+
+This rule detects GenAI tools connecting to domains with TLDs commonly abused by malware. The suspicious TLD filter makes this a high-signal rule with low expected volume.
+
+### Possible investigation steps
+
+- Review the GenAI process command line to identify which tool is running and verify if it's an expected/authorized tool.
+- Examine the network connection details (destination IP, port, protocol) to understand the nature of the communication.
+- Check the process execution chain to identify the full attack path and initial entry point.
+- Investigate the user account associated with the GenAI process to determine if this activity is expected for that user.
+- Review network traffic patterns to identify data exfiltration or command and control communications.
+- Check for other alerts or suspicious activity on the same host around the same time.
+- Verify if the GenAI tool is from a trusted source and if it's authorized for use in your environment.
+- Confirm whether the suspicious domain is used by package registries, CDN mirrors, or AI plugin repos.
+- Check if the GenAI tool attempted follow-up actions such as downloading scripts, connecting to IPs directly, or loading remote models.
+- Inspect whether the domain matches prompt-redirections, malicious AI plugins, or compromised package dependencies.
+
+### False positive analysis
+
+- Legitimate GenAI tools may occasionally connect to domains using suspicious TLDs if they're legitimate services.
+- Package managers (npx, pnpm, yarn, bunx) may connect to package registries or CDNs that use suspicious TLDs. Review and exclude known legitimate package registries if needed.
+- Some third-party AI plugin ecosystems (VSCode AI plugins, Cursor extensions) may download assets from unusual TLDs; verify allowlists.
+
+### Response and remediation
+
+- Terminate the GenAI process and any spawned child processes to stop the malicious activity.
+- Review and revoke any API keys, tokens, or credentials that may have been exposed or used by the GenAI tool.
+- Block the identified suspicious domains at the network level.
+- Investigate the GenAI tool configuration to identify how it was configured and what it was authorized to access.
+- Update security policies to restrict or monitor GenAI tool usage in the environment, especially for network communications.
+- Add detection for secondary indicators (reverse shells, encoded C2 traffic, odd user-agent strings).
+"""
+references = [
+    "https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains",
+    "https://atlas.mitre.org/techniques/AML.T0086",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+]
+risk_score = 47
+rule_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+    "Mitre Atlas: T0086",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type in ("macos", "windows") and
+
+  // GenAI processes
+  process.name in (
+    "ollama.exe", "ollama", "Ollama",
+    "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+    "lmstudio.exe", "lmstudio", "LM Studio",
+    "claude.exe", "claude", "Claude",
+    "cursor.exe", "cursor", "Cursor",
+    "copilot.exe", "copilot", "Copilot",
+    "codex.exe", "codex",
+    "Jan", "jan.exe", "jan",
+    "gpt4all.exe", "gpt4all", "GPT4All",
+    "gemini-cli.exe", "gemini-cli",
+    "genaiscript.exe", "genaiscript",
+    "grok.exe", "grok",
+    "qwen.exe", "qwen",
+    "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+    "llama-server", "llama-cli",
+    "deno.exe", "deno",
+    "npx", "pnpm", "yarn", "bunx"
+  ) and
+
+  // Suspicious TLDs 
+  (
+    // Windows DNS events
+    (host.os.type == "windows" and dns.question.name != null and
+     dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""") or
+
+    // macOS network events
+    (host.os.type == "macos" and destination.domain != null and
+     destination.domain regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""")
+
+    // Linux DNS events
+    // Revist when available
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

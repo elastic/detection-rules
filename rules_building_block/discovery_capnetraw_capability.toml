@@ -1,9 +1,8 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2024/01/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2024/12/24"
 
 [rule]
 author = ["Elastic"]
@@ -16,8 +15,9 @@ types and contents. The CAP_NET_RAW capability allows the process to bind to any
 namespaces, which allows network traffic sniffing by a non root user. The rule identifies previously unknown processes
 executing with CAP_NET_RAW capabilities through the use of the new terms rule type.
 """
-from = "now-9m"
+from = "now-119m"
 index = ["logs-endpoint.events.*"]
+interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
 name = "Network Traffic Capture via CAP_NET_RAW"
@@ -66,14 +66,13 @@ event.category:"process" and host.os.type:"linux" and event.type:"start" and eve
 not user.id:"0"
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1040"
 name = "Network Sniffing"
 reference = "https://attack.mitre.org/techniques/T1040/"
-
 
 [rule.threat.tactic]
 id = "TA0007"
@@ -83,8 +82,7 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["process.executable"]
+
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
-
-
+value = "now-5d"

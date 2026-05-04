@@ -2,7 +2,7 @@
 creation_date = "2022/07/20"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -106,28 +106,26 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "creation" and file.extension == "so" and file.name : ".*.so" and
-not process.name in ("dockerd", "azcopy", "podman")
+file where host.os.type == "linux" and event.type == "creation" and
+(file.extension == "so" or file.name like "*.so.*") and file.name : ".*.so" and
+not process.name in ("dockerd", "azcopy", "podman", "opencode") and not file.name like "._*"
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

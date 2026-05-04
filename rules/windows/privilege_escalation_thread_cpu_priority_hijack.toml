@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2025/09/25"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2025/11/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to use the SeIncreaseBasePriorityPrivilege privilege by an unusual process. This could be related to
+hijack execution flow of a process via threats priority manipulation.
+"""
+from = "now-9m"
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious SeIncreaseBasePriorityPrivilege Use"
+note = """## Triage and analysis
+
+### Investigating Suspicious SeIncreaseBasePriorityPrivilege Use
+
+SeIncreaseBasePriorityPrivilege allows to increase the priority of processes running on the system so that the CPU scheduler allows them to pre-empt other lower priority processes when the higher priority process has something to do.
+
+### Possible investigation steps
+
+- Review the process.executable reputation and it's execution chain.
+- Investiguate if the SubjectUserName is expected to perform this action.
+- Correlate the event with other security alerts or logs to identify any patterns or additional suspicious activities that might suggest a broader attack campaign.
+- Check the agent health status and verify if there is any tampering with endpoint security processes.
+
+### False positive analysis
+
+- Administrative tasks involving legitimate CPU scheduling priority changes.
+
+### Response and remediation
+
+- Immediately isolate the affected machine from the network to prevent further unauthorized access or lateral movement within the domain.
+- Terminate the processes involved in the execution chain.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
+references = [
+    "https://github.com/Octoberfest7/ThreadCPUAssignment_POC/tree/main",
+    "https://x.com/sixtyvividtails/status/1970721197617717483",
+    "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4674"
+]
+risk_score = 73
+rule_id = "6fa0f15b-1926-419b-8de2-fce1429797ba"
+setup = """## Setup
+
+Ensure advanced audit policies for Windows are enabled, specifically:
+Audit Sensitive Privilege Use [Event ID 4674](https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4674) (An operation was attempted on a privileged object.)
+
+```
+Computer Configuration >
+Policies >
+Windows Settings >
+Security Settings >
+Advanced Audit Policies Configuration >
+Audit Policies >
+Privilege Use >
+Audit Sensitive Privilege Use (Success)
+```
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Windows Security Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category:iam and host.os.type:"windows" and event.code:"4674" and
+winlog.event_data.PrivilegeList:"SeIncreaseBasePriorityPrivilege" and event.outcome:"success" and
+winlog.event_data.AccessMask:"512" and not winlog.event_data.SubjectUserSid:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

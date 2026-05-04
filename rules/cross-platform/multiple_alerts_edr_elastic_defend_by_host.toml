@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2025/11/19"
+maturity = "production"
+updated_date = "2025/11/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule uses alert data to determine when multiple alerts from Elastic Defend involving the same host are triggered.
+Analysts can use this to prioritize triage and response, as these hosts are more likely to be compromised.
+"""
+from = "now-60m"
+interval = "30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple Elastic Defend Alerts by Agent"
+risk_score = 73
+rule_id = "ab25369e-ea5e-46f1-9cd5-478a0a4a131a"
+severity = "high"
+tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide", "Data Source: Elastic Defend"]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.alerts-* metadata _id
+| eval target_time_window = DATE_TRUNC(24 hours, @timestamp)
+| where event.code in ("malicious_file", "memory_signature", "shellcode_thread", "behavior") and
+        agent.id is not null and not rule.name in ("Multi.EICAR.Not-a-virus")
+| stats Esql.alerts_count = COUNT(*),
+        Esql.event_code_distinct_count = count_distinct(event.code),
+        Esql.rule_name_distinct_count = COUNT_DISTINCT(rule.name),
+        Esql.file_hash_distinct_count = COUNT_DISTINCT(file.hash.sha256),
+        Esql.process_name_distinct_count = COUNT_DISTINCT(process.entity_id),
+        Esql.event_code_values = VALUES(event.code),
+        Esql.rule_name_values = VALUES(rule.name),
+        Esql.message_values = VALUES(message),
+        Esql.file_path_values = VALUES(file.path),
+        Esql.dll_path_values = VALUES(dll.path),
+        Esql.process_executable_values = VALUES(process.executable),
+        Esql.process_parent_executable_values = VALUES(process.parent.executable),
+        Esql.process_command_line_values = VALUES(process.command_line),
+        Esql.process_hash_sha256_values = VALUES(process.hash.sha256),
+        Esql.file_hash_sha256_values = VALUES(file.hash.sha256),
+        Esql.dll_hash_sha256_values = VALUES(dll.hash.sha256) by agent.id
+| where (Esql.event_code_distinct_count >= 2 or Esql.rule_name_distinct_count >= 3 or Esql.file_hash_distinct_count >= 2)
+| keep agent.id,
+       Esql.alerts_count,
+       Esql.event_code_distinct_count,
+       Esql.rule_name_distinct_count,
+       Esql.message_values,
+       Esql.event_code_values,
+       Esql.rule_name_values,
+       Esql.process_executable_values,
+       Esql.process_parent_executable_values,
+       Esql.process_command_line_values,
+       Esql.file_path_values,
+       Esql.dll_path_values,
+       Esql.process_hash_sha256_values,
+       Esql.file_hash_sha256_values,
+       Esql.dll_hash_sha256_values
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Multiple Elastic Defend Alerts by Agent
+
+Endpoint security technologies monitor and analyze activities on devices to detect malicious behavior. Adversaries exploit these systems by deploying malware that triggers specific signatures across multiple hosts, indicating a coordinated attack. The detection rule identifies such threats by analyzing alert data for specific malware signatures across several hosts, flagging potential widespread infections for prioritized investigation.
+
+### Possible investigation steps
+
+- Review the alert details to identify the specific host involved and the different ATT&CK tactics that triggered the alerts.
+- Examine the timeline of the alerts to understand the sequence of events and determine if there is a pattern or progression in the tactics used.
+- Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
+- Investigate any known vulnerabilities or misconfigurations on the host that could have been exploited by the adversary.
+- Check for any indicators of compromise (IOCs) associated with the alerts, such as suspicious IP addresses, domains, or file hashes, and search for these across the network.
+- Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
+
+### False positive analysis
+
+- Alerts from routine administrative tasks may trigger multiple tactics. Review and exclude known benign activities such as scheduled software updates or system maintenance.
+- Security tools running on the host might generate alerts across different tactics. Identify and exclude alerts from trusted security applications to reduce noise.
+- Automated scripts or batch processes can mimic adversarial behavior. Analyze and whitelist these processes if they are verified as non-threatening.
+- Frequent alerts from development or testing environments can be misleading. Consider excluding these environments from the rule or applying a different risk score.
+- User behavior anomalies, such as accessing multiple systems or applications, might trigger alerts. Implement user behavior baselines to differentiate between normal and suspicious activities.
+
+### Response and remediation
+
+- Isolate the affected host from the network immediately to prevent further lateral movement by the adversary.
+- Conduct a thorough forensic analysis of the host to identify the specific vulnerabilities exploited and gather evidence of the attack phases involved.
+- Remove any identified malicious software or unauthorized access tools from the host, ensuring all persistence mechanisms are eradicated.
+- Apply security patches and updates to the host to address any exploited vulnerabilities and prevent similar attacks.
+- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
+- Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
+- Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""
+references = ["https://github.com/elastic/protections-artifacts/tree/main/yara/rules"]

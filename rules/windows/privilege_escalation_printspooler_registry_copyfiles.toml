@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/26"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,14 @@ Exploitation involves chaining multiple primitives to load an arbitrary DLL into
 SYSTEM.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.registry-*", "endgame-*", "logs-windows.sysmon_operational-*", "winlogbeat-*"]
+index = [
+    "logs-endpoint.events.registry-*",
+    "endgame-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler Point and Print DLL"
@@ -68,36 +75,51 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender XDR",
 ]
 type = "eql"
 
 query = '''
 sequence by host.id with maxspan=30s
 [registry where host.os.type == "windows" and
- registry.path : (
-    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory",
-    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory"
-    ) and
- registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
+   registry.value : "SpoolDirectory" and
+   registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory" and
+   registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4"]
 [registry where host.os.type == "windows" and
- registry.path : (
-    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module",
-    "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module"
-    ) and
- registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
+   registry.value : "Module" and
+   registry.path : "*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module" and
+   registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

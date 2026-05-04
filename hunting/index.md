@@ -121,7 +121,7 @@ Here are the queries currently available:
 - [Multiple Application SSO Authentication from the Same Source](./okta/docs/defense_evasion_multiple_application_sso_authentication_repeat_source.md) (ES|QL)
 - [OAuth Access Token Granted for Public Client App from Multiple Client Addresses](./okta/docs/defense_evasion_multiple_client_sources_reported_for_oauth_access_tokens_granted.md) (ES|QL)
 - [Password Spraying from Repeat Source](./okta/docs/initial_access_password_spraying_from_repeat_source.md) (ES|QL)
-- [Rapid MFA Deny Push Notifications (MFA Bombing)](./okta/docs/credential_access_mfa_bombing_push_notications.md) (ES|QL)
+- [Rapid MFA Deny Push Notifications (MFA Bombing)](./okta/docs/credential_access_mfa_bombing_push_notifications.md) (ES|QL)
 - [Rapid Reset Password Requests for Different Users](./okta/docs/credential_access_rapid_reset_password_requests_for_different_users.md) (ES|QL)
 - [Rare Occurrence of Domain with User Authentication Events](./okta/docs/persistence_rare_domain_with_user_authentication.md) (ES|QL)
 - [Rare Occurrence of OAuth Access Token Granted to Public Client App](./okta/docs/defense_evasion_rare_oauth_access_token_granted_by_application.md) (ES|QL)
@@ -130,7 +130,7 @@ Here are the queries currently available:
 
 ## windows
 - [DLL Hijack via Masquerading as Microsoft Native Libraries](./windows/docs/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.md) (ES|QL)
-- [DNS Queries via LOLBins with Low Occurence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurence_frequency.md) (ES|QL)
+- [DNS Queries via LOLBins with Low Occurrence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
 - [Excessive RDP Network Activity by Host and User](./windows/docs/excessive_rdp_network_activity_by_source_host_and_user.md) (ES|QL)
 - [Excessive SMB Network Activity by Process ID](./windows/docs/excessive_smb_network_activity_by_process_id.md) (ES|QL)

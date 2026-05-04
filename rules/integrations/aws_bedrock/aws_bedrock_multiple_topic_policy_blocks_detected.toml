@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/11/20"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -79,11 +80,29 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| MV_EXPAND gen_ai.policy.name
-| where gen_ai.policy.action == "BLOCKED" and gen_ai.compliance.violation_detected == "true" and gen_ai.policy.name == "topic_policy"
+
+// Expand multi-value policy name field
+| mv_expand gen_ai.policy.name
+| mv_expand gen_ai.policy.action
+
+// Filter for blocked topic policy violations
+| where
+  gen_ai.policy.action == "BLOCKED"
+  and gen_ai.compliance.violation_detected == "true"
+  and gen_ai.policy.name == "topic_policy"
+
+// keep only user info
 | keep user.id
-| stats denied_topics = count() by user.id
-| where denied_topics > 5
-| sort denied_topics desc
+
+// count how many times each user triggered a blocked topic policy
+| stats
+    Esql.ml_policy_blocked_topic_count = count()
+  by user.id
+
+// Filter for excessive violations
+| where Esql.ml_policy_blocked_topic_count > 5
+
+// sort highest to lowest
+| sort Esql.ml_policy_blocked_topic_count desc
 '''
 

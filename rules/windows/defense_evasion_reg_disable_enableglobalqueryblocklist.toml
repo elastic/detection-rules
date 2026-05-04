@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/05/31"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -20,6 +20,7 @@ index = [
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
     "endgame-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -73,16 +74,17 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type == "change" and
+registry where host.os.type == "windows" and event.type == "change" and registry.data.strings != null and
 (
   (registry.value : "EnableGlobalQueryBlockList" and registry.data.strings : ("0", "0x00000000")) or
   (registry.value : "GlobalQueryBlockList" and not registry.data.strings : "wpad")
@@ -92,31 +94,36 @@ registry where host.os.type == "windows" and event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1557"
 name = "Adversary-in-the-Middle"
 reference = "https://attack.mitre.org/techniques/T1557/"
 
-
 [rule.threat.tactic]
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
-

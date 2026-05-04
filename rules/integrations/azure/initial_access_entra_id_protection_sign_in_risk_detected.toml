@@ -3,7 +3,7 @@ creation_date = "2025/04/29"
 integration = ["azure"]
 maturity = "production"
 promotion = true
-updated_date = "2025/05/02"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["filebeat-*", "logs-azure.identity_protection-*"]
+index = ["logs-azure.identity_protection-*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 1000
@@ -93,9 +93,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "azure.identity_protection" and
+data_stream.dataset: "azure.identity_protection" and
     event.action: "User Risk Detection" and
-    azure.identityprotection.properties.activity: "signin"
+    azure.identityprotection.properties.activity: "signin" and
+    not azure.identityprotection.properties.risk_state: (
+        "remediated" or "dismissed" or "confirmedSafe"
+    )
 '''
 
 

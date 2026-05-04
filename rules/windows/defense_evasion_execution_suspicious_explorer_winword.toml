@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/09/03"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/04/16"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,8 @@ index = [
     "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -37,7 +39,7 @@ DLL side-loading exploits the DLL search order to load malicious code into trust
 - Investigate the process execution path to determine if it deviates from the standard paths listed in the query, such as "?:\\Windows\\explorer.exe" or "?:\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE".
 - Examine the process creation history and parent process to identify any unusual or suspicious parent-child relationships that might indicate malicious activity.
 - Check for any recent file modifications or creations in the directory from which the process was executed, which could suggest the presence of a malicious DLL.
-- Correlate the event with other security logs or alerts from data sources like Elastic Endgame, Elastic Defend, Sysmon, or Microsoft Defender for Endpoint to gather additional context and identify potential patterns of malicious behavior.
+- Correlate the event with other security logs or alerts from data sources like Elastic Endgame, Elastic Defend, Sysmon, or Microsoft Defender XDR to gather additional context and identify potential patterns of malicious behavior.
 - Assess the risk and impact of the event by considering the risk score and severity level provided, and determine if immediate containment or further investigation is necessary.
 
 ### False positive analysis
@@ -57,17 +59,9 @@ DLL side-loading exploits the DLL search order to load malicious code into trust
 - Update and patch all software on the affected system, focusing on the trusted Microsoft programs identified in the alert, to mitigate vulnerabilities exploited by DLL side-loading.
 - Monitor the network for any signs of lateral movement or additional compromised systems, using the indicators of compromise identified during the investigation.
 - Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems or data have been affected."""
-risk_score = 73
+risk_score = 47
 rule_id = "1160dcdb-0a0a-4a79-91d8-9b84616edebd"
-setup = """## Setup
-
-If enabling an EQL rule on a non-elastic-agent index (such as beats) for versions <8.2,
-events will not define `event.ingested` and default fallback for EQL rules was not added until version 8.2.
-Hence for this rule to work effectively, users will need to add a custom ingest pipeline to populate
-`event.ingested` to @timestamp.
-For more details on adding a custom ingest pipeline refer - https://www.elastic.co/guide/en/fleet/current/data-streams-pipeline-tutorial.html
-"""
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
@@ -77,24 +71,53 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.pe.original_file_name in ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") and 
-  not process.executable : ("?:\\Windows\\explorer.exe", 
-                            "?:\\Windows\\SysWOW64\\explorer.exe",
-                            "?:\\Program Files\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-                            "?:\\Program Files (x86)\\Microsoft Office\\root\\Office*\\WINWORD.EXE", 
-                            "?:\\Windows\\System32\\Dism.exe", 
-                            "?:\\Windows\\SysWOW64\\Dism.exe",  
-                            "?:\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
-                            "?:\\Windows\\System32\\inetsrv\\w3wp.exe", 
-                            "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe")
+  (
+    process.name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE") or
+    ?process.pe.original_file_name : ("WinWord.exe", "EXPLORER.EXE", "w3wp.exe", "DISM.EXE")
+  ) and
+  not process.executable : (
+          "\\\\?\\Volume{????????-????-????-????-????????????}\\Windows\\System32\\inetsrv\\w3wp.exe",
+          "?:\\PROGRA~?\\MICROS~?\\Office??\\winword.exe",
+          "?:\\Program Files\\Microsoft Office\\*\\winword.exe",
+          "?:\\Program Files\\Microsoft Office ??\\*\\winword.exe",
+          "?:\\Program Files\\WindowsApps\\Microsoft.Office.Desktop.*\\Office??\\winword.exe",
+          "?:\\Program Files (x86)\\Microsoft Office\\*\\winword.exe",
+          "?:\\Program Files (x86)\\Windows Kits\\*Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
+          "?:\\Windows\\explorer.exe",
+          "?:\\Windows\\System32\\Dism.exe",
+          "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
+          "?:\\Windows\\SysWOW64\\Dism.exe",
+          "?:\\Windows\\SysWOW64\\explorer.exe",
+          "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe"
+  ) and
+  /* Crowdstrike specific exclusion as it uses NT Object paths */
+  not
+  (
+    data_stream.dataset == "crowdstrike.fdr" and
+    process.executable : (
+        "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Office\\*\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files\\Microsoft Office ??\\*\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files\\WindowsApps\\Microsoft.Office.Desktop.*\\Office??\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\Microsoft Office\\*\\winword.exe",
+        "\\Device\\HarddiskVolume*\\Program Files (x86)\\Windows Kits\\10\\Assessment and Deployment Kit\\Deployment Tools\\amd64\\DISM\\dism.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\explorer.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\Dism.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\System32\\inetsrv\\w3wp.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\Dism.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\explorer.exe",
+        "\\Device\\HarddiskVolume*\\Windows\\SysWOW64\\inetsrv\\w3wp.exe"
+    )
+  )
 '''
 
 
@@ -110,9 +133,9 @@ id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 [[rule.threat.technique.subtechnique]]
-id = "T1574.002"
-name = "DLL Side-Loading"
-reference = "https://attack.mitre.org/techniques/T1574/002/"
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
 
 
 

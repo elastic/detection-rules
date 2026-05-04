@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2021/06/05"
+integration = ["aws"]
+maturity = "deprecated"
+updated_date = "2026/01/16"
+deprecation_date = "2026/01/16"
+
+[rule]
+author = ["Elastic", "Austin Songer"]
+description = """
+Identifies the deletion of an Amazon Relational Database Service (RDS) Security group. Modern RDS deployments run in a
+VPC and use standard EC2 security groups instead. This rule should be retained only for historical log analysis on
+legacy CloudTrail data. We recommend relying on "AWS EC2 Security Group Configuration Change" rule for network-control
+changes impacting RDS in VPC-based deployments.
+"""
+false_positives = [
+    """
+    An RDS security group deletion may be done by a system or network administrator. Verify whether the user identity,
+    user agent, and/or hostname should be making changes in your environment. Security group deletions by unfamiliar
+    users or hosts should be investigated. If known behavior is causing false positives, it can be exempted from the
+    rule.
+    """,
+]
+from = "now-60m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - AWS RDS Security Group Deletion"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - AWS RDS Security Group Deletion
+
+Amazon RDS Security Groups control access to RDS instances, acting as a virtual firewall. Adversaries may delete these groups to disrupt database access or cover their tracks. The detection rule monitors AWS CloudTrail logs for successful deletion events of RDS Security Groups, signaling potential unauthorized activity. This helps security analysts quickly identify and respond to suspicious deletions.
+
+### Possible investigation steps
+
+- Review the AWS CloudTrail logs to confirm the event details, focusing on the event.provider:rds.amazonaws.com and event.action:DeleteDBSecurityGroup fields to ensure the deletion event is accurately captured.
+- Identify the user or role associated with the event by examining the user identity information in the CloudTrail logs to determine if the action was performed by an authorized entity.
+- Check the event time and correlate it with other security events or alerts to identify any suspicious activity patterns or sequences that might indicate a broader attack.
+- Investigate the context of the deletion by reviewing recent changes or activities in the AWS account, such as modifications to IAM policies or unusual login attempts, to assess if the deletion is part of a larger unauthorized access attempt.
+- Contact the relevant database or cloud infrastructure team to verify if the deletion was intentional and authorized, ensuring that it aligns with any ongoing maintenance or decommissioning activities.
+
+### False positive analysis
+
+- Routine maintenance activities by authorized personnel may trigger the rule. To manage this, create exceptions for known maintenance windows or specific user accounts that regularly perform these tasks.
+- Automated scripts or tools used for infrastructure management might delete security groups as part of their normal operation. Identify these scripts and exclude their actions from triggering alerts by using specific identifiers or tags.
+- Changes in security group configurations during scheduled updates or migrations can result in deletions. Document these events and adjust the detection rule to ignore deletions during these planned activities.
+- Testing environments often involve frequent creation and deletion of resources, including security groups. Exclude these environments from monitoring by using environment-specific tags or identifiers.
+
+### Response and remediation
+
+- Immediately isolate the affected RDS instance by modifying its security group settings to restrict all inbound and outbound traffic, preventing further unauthorized access.
+- Review AWS CloudTrail logs to identify the source of the deletion request, including the IAM user or role involved, and assess whether the credentials have been compromised.
+- Recreate the deleted RDS Security Group with the appropriate rules and reassign it to the affected RDS instance to restore normal operations.
+- Conduct a thorough audit of IAM permissions to ensure that only authorized personnel have the ability to delete RDS Security Groups, and revoke any unnecessary permissions.
+- Implement multi-factor authentication (MFA) for all IAM users with permissions to modify RDS Security Groups to enhance security and prevent unauthorized changes.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or data have been affected.
+- Update incident response plans and security policies based on the findings to prevent similar incidents in the future and improve overall cloud security posture.
+
+## Setup
+
+The AWS Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+references = ["https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_DeleteDBSecurityGroup.html"]
+risk_score = 21
+rule_id = "863cdf31-7fd3-41cf-a185-681237ea277b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS RDS",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:aws.cloudtrail and event.provider:rds.amazonaws.com and event.action:DeleteDBSecurityGroup and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

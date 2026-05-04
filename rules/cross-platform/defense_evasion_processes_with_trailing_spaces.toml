@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2023/08/24"
+integration = ["endpoint", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/01/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identify instances where adversaries include trailing space characters to mimic regular files, disguising their activity
+to evade default file handling mechanisms.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.*", "endgame-*", "auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Processes with Trailing Spaces"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Processes with Trailing Spaces
+
+This rule detects execution of binaries whose names end with a space, a Unix-style masquerade that makes a malicious tool visually indistinguishable from a legitimate one and evades default file handling. An attacker pattern is a trojanized clone of ssh, curl, or ps with a trailing space placed in a user-writable PATH directory, then invoked by cron, shell scripts, or launch agents to harvest credentials or stage payloads while blending in.
+
+### Possible investigation steps
+
+- Confirm the binary's presence and trailing space on disk using commands that reveal whitespace (ls -b, find -print0, stat), and compare inode, size, permissions, and mtime against the non-spaced counterpart in the same directory.
+- Correlate the event with parent process, effective user, environment (PATH, IFS, aliases), and working directory to determine whether PATH hijacking or script misresolution is being exploited.
+- Hash the suspicious executable, check code signing and compiler metadata where applicable, and pivot in threat intel and internal repositories to identify known implants or unauthorized builds.
+- Enumerate all directories in PATH for lookalike binaries with whitespace or Unicode homographs, review recent file creations and chmod/chown activity in those paths, and identify the account and host that introduced them.
+- Investigate follow-on activity from the same process tree, including network connections, credential access attempts, file writes, and persistence artifacts such as cron entries or macOS LaunchAgents, to determine scope and containment actions.
+
+### False positive analysis
+
+- A legitimate wrapper or init script may use exec -a or setproctitle to set a custom argv[0] with a trailing space for labeling or formatting, causing process.name to end with a space even though the underlying binary is trusted.
+- Build or maintenance scripts that fail to trim variables can create and run an executable or symlink whose name includes a trailing space (e.g., when an optional suffix is empty), producing benign events that match this detection.
+
+### Response and remediation
+
+- Terminate the spaced-name process and its parent, stop any cron job or macOS LaunchAgent invoking the spaced executable (e.g., "ssh "), and isolate the host if it initiated outbound connections or prompted for credentials.
+- Find and remove or quarantine all executables and symlinks whose filenames end with a space in PATH directories such as ~/bin, /tmp, and project bin paths, using rm -- with exact quoting or null-delimited tools to avoid clobbering the legitimate counterpart.
+- Remove persistence and PATH hijacks by deleting cron entries and LaunchAgents referencing the spaced name, restoring PATH for affected users and services to a vetted list, and resetting file ownership and permissions on altered directories.
+- Reinstall or restore the legitimate binary from trusted packages or gold images, verify checksums and code signing, update scripts to use absolute paths and trimmed variables, and rotate credentials if the lookalike was a trojan of ssh, curl, or ps.
+- Escalate to incident response if the spaced executable resides in system directories (/bin, /usr/bin, /usr/local/bin), runs as root or via sudo, repeatedly respawns after removal, or opens external network connections.
+- Harden by enabling file integrity monitoring for filenames with trailing whitespace or Unicode confusables, removing user-writable directories from global PATH and enforcing write protections, configuring cron/launchd with sanitized PATH, and applying noexec or sticky-bit policies on shared temp directories.
+"""
+risk_score = 21
+rule_id = "0c093569-dff9-42b6-87b1-0242d9f7d9b4"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action in ("exec", "exec_event", "executed", "process_started") and
+process.name : "* "
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1036.006"
+name = "Space after Filename"
+reference = "https://attack.mitre.org/techniques/T1036/006/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

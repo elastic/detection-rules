@@ -2,7 +2,7 @@
 creation_date = "2024/04/14"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2025/06/17"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,6 @@ gather sensitive data from the instance such as hardcoded credentials or to iden
 a New Terms rule that identifies the first time an IAM user or role requests the user data for a specific EC2 instance.
 """
 from = "now-6m"
-interval = "5m"
 index = ["filebeat-*", "logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -84,14 +83,17 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "ec2.amazonaws.com"
     and event.action: "DescribeInstanceAttribute"
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.attribute: "userData"
     and not aws.cloudtrail.user_identity.invoked_by: (
         "AWS Internal" or
-        "cloudformation.amazonaws.com"
+        "cloudformation.amazonaws.com" or 
+        "aidevops.amazonaws.com" or 
+        "elasticmapreduce.amazonaws.com" or 
+        "aiops.amazonaws.com"
     )
 '''
 
@@ -144,9 +146,9 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.name", "aws.cloudtrail.flattened.request_parameters.instanceId"]
+value = ["cloud.account.id", "user.name", "aws.cloudtrail.flattened.request_parameters.instanceId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
 
 

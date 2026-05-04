@@ -2,7 +2,9 @@
 creation_date = "2020/03/25"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_version = "9.4.0"
+min_stack_comments = "Use EA (Entity Analytics) fields"
+updated_date = "2026/04/01"
 
 [rule]
 anomaly_threshold = 50
@@ -20,7 +22,7 @@ false_positives = [
 from = "now-45m"
 interval = "15m"
 license = "Elastic License v2"
-machine_learning_job_id = ["v3_windows_anomalous_script"]
+machine_learning_job_id = ["v3_windows_anomalous_script_ea"]
 name = "Suspicious Powershell Script"
 note = """## Triage and analysis
 
@@ -120,19 +122,36 @@ tags = [
 type = "machine_learning"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

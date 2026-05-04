@@ -2,20 +2,21 @@
 creation_date = "2025/03/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/12"
+updated_date = "2025/12/19"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when an unusual interactive process is launched inside a container. Interactive processes are typically
-run in the foreground and require user input, which is unusual behavior for a containerized environment. This activity
-could indicate an attacker attempting to gain access to the container environment or perform malicious actions.
+This rule detects when an interactive shell process is launched via an unusual parent processes inside a container.
+Interactive processes are typically run in the foreground and require user input, which is unusual behavior for a
+containerized environment. This activity could indicate an attacker attempting to gain access to the container
+environment or perform malicious actions.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Unusual Interactive Process Launched in a Container"
+name = "Interactive Shell Launched via Unusual Parent Process in a Container"
 risk_score = 47
 rule_id = "7020ff25-76d7-4a7d-b95b-266cf27d70e8"
 setup = """## Setup
@@ -57,7 +58,12 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
-process.entry_leader.entry_meta.type:container and process.interactive:true
+process.entry_leader.entry_meta.type:container and process.interactive:true and
+process.name:(sh or bash or dash or tcsh or csh or zsh or ksh or fish) and
+not (
+  process.parent.name:(dpkg or runc or tini or frontend or elastic-agent or agentbeat or dpkg-query or ansible-playbook or gpgv or apt or apt-get) or
+  process.parent.command_line:"runc init"
+)
 '''
 
 [[rule.threat]]
@@ -80,8 +86,8 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.name"]
+value = ["process.parent.name"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"

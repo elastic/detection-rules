@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/02/21"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,7 @@ base64 encoding to obfuscate data and pipe it to an interpreter to execute malic
 be used to evade detection by host- or network-based security controls.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Base64 Decoded Payload Piped to Interpreter"
@@ -52,7 +52,7 @@ Base64 encoding is a method to encode binary data into ASCII text, often used fo
 - Implement enhanced monitoring and logging for base64 decoding activities and interpreter executions to detect similar threats in the future.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if broader organizational impacts exist.
 """
-risk_score = 47
+risk_score = 73
 rule_id = "5bdad1d5-5001-4a13-ae99-fa8619500f1a"
 setup = """## Setup
 
@@ -79,21 +79,22 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 """
-severity = "medium"
+severity = "high"
 tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Defense Evasion",
+  "Tactic: Execution",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+  "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 sequence by host.id, process.parent.entity_id with maxspan=3s
-  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and (
     (process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and process.command_line like~ "*-*d*") or
     (process.name == "openssl" and process.args == "enc" and process.args in ("-d", "-base64", "-a")) or
     (process.name like "python*" and
@@ -103,53 +104,77 @@ sequence by host.id, process.parent.entity_id with maxspan=3s
     (process.name like "perl*" and process.command_line like~ "*decode_base64*") or
     (process.name like "ruby*" and process.args == "-e" and process.command_line like~ "*Base64.decode64*")
   )]
- [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name like~ (
+ [process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and process.name like~ (
     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*"
- )]
+  ) and
+  not (
+    ?process.parent.command_line in (
+      "bash ./run_tests.sh unit-integration",
+      "/bin/sh /var/lib/dpkg/info/nmap-common.postinst configure",
+      "bash -c base64 -d <<< Zm9yIHN2YyBpbiBxZW11LWt2bSBvdnMtdnN3aXRjaGQgbGlidmlydGQgdmlydGxvY2tkIHBhY2VtYWtlciBwY3NkOyBkbyBzeXN0ZW1jdGwgaXMtYWN0aXZlICRzdmM7IGRvbmU= | bash -l"
+    ) or
+    process.command_line == "/usr/bin/perl /usr/bin/shasum -a 256" or
+    ?process.working_directory like (
+      "/usr/local/zeek", "/opt/zeek", "/var/lib/docker/overlay2/*/opt/zeek", "/usr/local/zeek_old_install",
+      "/var/lib/docker/overlay2/*/usr/local/zeek", "/proc/self/fd/*/usr/local/zeek"
+    ) or
+    (?process.parent.name == "zsh" and ?process.parent.command_line like "*extendedglob*") or
+    (process.name like "python*" and ?process.parent.name == "python*") or
+    process.args like "/tmp/apt-key-gpghome*"
+  )]
 '''
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
-    [[rule.threat.technique]]
-    name = "Obfuscated Files or Information"
-    id = "T1027"
-    reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
 
-    [[rule.threat.technique]]
-    name = "Deobfuscate/Decode Files or Information"
-    id = "T1140"
-    reference = "https://attack.mitre.org/techniques/T1140/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.011"
+name = "Lua"
+reference = "https://attack.mitre.org/techniques/T1059/011/"
 
-  [rule.threat.tactic]
-  name = "Execution"
-  id = "TA0002"
-  reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
 
-    [[rule.threat.technique]]
-    id = "T1059"
-    name = "Command and Scripting Interpreter"
-    reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
 
-      [[rule.threat.technique.subtechnique]]
-      name = "Unix Shell"
-      id = "T1059.004"
-      reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-    [[rule.threat.technique]]
-    name = "User Execution"
-    id = "T1204"
-    reference = "https://attack.mitre.org/techniques/T1204/"
-
-      [[rule.threat.technique.subtechnique]]
-      name = "Malicious File"
-      id = "T1204.002"
-      reference = "https://attack.mitre.org/techniques/T1204/002/"
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

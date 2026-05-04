@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2022/07/22"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,14 @@ opened in write mode. Threat actors will commonly utilize this to prevent tamper
 files or any system files they have modified for purposes of persistence (e.g .ssh, /etc/passwd, etc.).
 """
 from = "now-9m"
-index = ["auditbeat-*", "endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 max_signals = 33
@@ -103,38 +110,44 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.parent.executable != null and
-process.executable : "/usr/bin/chattr" and process.args : ("-*i*", "+*i*") and not (
-  process.parent.executable: ("/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd") or
-  process.parent.name in (
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+?process.parent.executable != null and
+process.name == "chattr" and process.args : ("-*i*", "+*i*") and
+not (
+  ?process.parent.executable: (
+    "/lib/systemd/systemd", "/usr/local/uems_agent/bin/*", "/usr/lib/systemd/systemd", "/usr/local/emps/sbin/php-fpm",
+    "/usr/local/emps/bin/php"
+  ) or
+  ?process.parent.name in (
     "systemd", "cf-agent", "ntpdate", "xargs", "px", "preinst", "auth", "cf-agent", "dcservice", "dcagentupgrader",
     "sudo", "ephemeral-disk-warning"
-  )
+  ) or
+  process.args like "/opt/ai-bolit/*"
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1222"
 name = "File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1222.002"
 name = "Linux and Mac File and Directory Permissions Modification"
 reference = "https://attack.mitre.org/techniques/T1222/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

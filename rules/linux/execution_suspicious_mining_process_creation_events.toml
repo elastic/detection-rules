@@ -2,7 +2,7 @@
 creation_date = "2023/02/08"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -90,28 +90,64 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "creation" and event.action : ("creation", "file_create_event") and
-file.name : ("aliyun.service", "moneroocean_miner.service", "c3pool_miner.service", "pnsd.service", "apache4.service", "pastebin.service", "xvf.service")
+file where host.os.type == "linux" and event.type == "creation" and event.action in ("creation", "file_create_event") and (
+  (
+    file.name like~ (
+      "moneroocean_miner.service", "c3pool_miner.service", "pnsd.service", "apache4.service", "pastebin.service", "xvf.service"
+    )
+  ) or
+  (
+    process.executable like "/usr/local/share/aliyun-assist/*/aliyun-service" and file.name like~ "aliyun.service"
+  )
+)
 '''
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

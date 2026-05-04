@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2025/02/25"
+integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -77,12 +78,23 @@ type = "esql"
 
 query = '''
 from logs-azure_openai.logs-*
-// truncate the timestamp to a 1-minute window
-| eval target_time_window = DATE_TRUNC(1 minutes, @timestamp)
+| eval
+    Esql.time_window_date_trunc = date_trunc(1 minutes, @timestamp)
 | where azure.open_ai.operation_name == "ChatCompletions_Create"
-| keep azure.open_ai.properties.request_length, azure.resource.name, cloud.account.id,target_time_window
-| stats count = count(), avg_request_size = avg(azure.open_ai.properties.request_length) by target_time_window, azure.resource.name
-| where count >= 10 and avg_request_size >= 5000
-| sort count desc
+| keep
+    azure.open_ai.properties.request_length,
+    azure.resource.name,
+    cloud.account.id,
+    Esql.time_window_date_trunc
+| stats
+    Esql.event_count = count(*),
+    Esql.azure_open_ai_properties_request_length_avg = avg(azure.open_ai.properties.request_length)
+  by
+    Esql.time_window_date_trunc,
+    azure.resource.name
+| where
+    Esql.event_count >= 10 and
+    Esql.azure_open_ai_properties_request_length_avg >= 5000
+| sort Esql.event_count desc
 '''
 

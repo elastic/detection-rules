@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/15"
-integration = ["endpoint", "windows", "m365_defender"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2026/04/07"
 
 [transform]
 [[transform.osquery]]
@@ -44,6 +44,7 @@ index = [
     "logs-windows.sysmon_operational-*",
     "endgame-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -105,17 +106,18 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
-    "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.type == "start" and length(process.name) > 0 and
- length(process.name) == 5 and length(process.pe.original_file_name) > 5
+process where host.os.type == "windows" and event.type == "start" and 
+ process.name regex~ """[a-z0-9]\.exe""" and process.pe.original_file_name != null
 '''
 
 

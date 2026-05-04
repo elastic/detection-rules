@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2025/12/17"
 
 [rule]
 author = ["Elastic"]
@@ -58,43 +58,17 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
-file where host.os.type == "linux" and event.type == "change" and event.action == "rename" and process.name != null and
+file where host.os.type == "linux" and event.action in ("rename", "creation") and process.name in ("cp", "mv") and
 file.Ext.original.path : (
   "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*"
 ) and not (
-  process.executable in (
-    "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
-    "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
-    "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
-    "/bin/pacman", "/usr/bin/pacman", "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk",
-    "/usr/local/sbin/apk", "/usr/bin/apt", "/usr/sbin/pacman", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet",
-    "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/chef-client", "/bin/chef-client",
-    "/bin/autossl_check", "/usr/bin/autossl_check", "/proc/self/exe", "/dev/fd/*",  "/usr/bin/pamac-daemon",
-    "/bin/pamac-daemon", "/usr/lib/snapd/snapd", "/usr/local/bin/dockerd", "/usr/libexec/netplan/generate",
-    "/usr/bin/update-alternatives", "/bin/update-alternatives", "/usr/sbin/update-alternatives",
-    "/sbin/update-alternatives", "/usr/bin/pip3", "/bin/pip3", "/usr/local/bin/pip3", "/usr/local/bin/node",
-    "/bin/node", "/usr/bin/node", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/pip", "/bin/pip",
-    "/usr/local/bin/pip", "/usr/libexec/platform-python", "/usr/bin/platform-python", "/bin/platform-python",
-    "/usr/lib/systemd/systemd", "/usr/sbin/sshd", "/sbin/sshd", "/usr/local/sbin/sshd", "/usr/sbin/crond", "/sbin/crond",
-    "/usr/local/sbin/crond", "/usr/sbin/gdm"
-  ) or
-  process.name like (
-    "python*", "packagekitd", "systemd", "ln", "platform-python", "dnf_install", "runc", "apt-get", "ssm-agent-worker",
-    "convert-usrmerge", "updatenow.static-cpanelsync", "apk", "exe", "php", "containerd-shim-runc-v2", "dpkg", "sed",
-    "platform-python*", "gedit", "crond", "sshd", "ruby", "sudo", "chainctl", "update-alternatives", "pip*", "microdnf",
-    "rsync", "convert2rhel", "convert-usr-merge"
-  ) or
   file.Ext.original.path : (
     "/bin/*.tmp", "/usr/bin/*.tmp", "/usr/local/bin/*.tmp", "/sbin/*.tmp", "/usr/sbin/*.tmp", "/usr/local/sbin/*.tmp"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
   file.Ext.original.extension == "dpkg-new" or
-  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*") or
-  process.executable == null or
-  (process.name == "sed" and file.name : "sed*") or
-  (process.name == "perl" and file.name : "e2scrub_all.tmp*")
+  process.executable : ("/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/tmp/newroot/*")
 )
 '''
 note = """## Triage and analysis

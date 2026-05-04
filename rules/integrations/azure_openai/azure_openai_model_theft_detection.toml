@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2025/02/25"
+integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -74,10 +75,26 @@ type = "esql"
 
 query = '''
 from logs-azure_openai.logs-*
-| where azure.open_ai.operation_name == "ListKey" and azure.open_ai.category == "Audit"
-| KEEP @timestamp, azure.open_ai.operation_name , azure.open_ai.category, azure.resource.group, azure.resource.name, azure.open_ai.properties.response_length
-| stats count = count(), max_data_transferred = max(azure.open_ai.properties.response_length) by azure.resource.group , azure.resource.name
-| where count >= 100 or max_data_transferred >= 1000000
-| sort count desc
+| where
+    azure.open_ai.operation_name == "ListKey" and
+    azure.open_ai.category == "Audit"
+| keep
+    @timestamp,
+    azure.open_ai.operation_name,
+    azure.open_ai.category,
+    azure.resource.group,
+    azure.resource.name,
+    azure.open_ai.properties.response_length
+| stats
+    Esql.event_count = count(*),
+    Esql.azure_open_ai_properties_response_length_max = max(azure.open_ai.properties.response_length)
+  by
+    azure.resource.group,
+    azure.resource.name
+| where
+    Esql.event_count >= 100 or
+    Esql.azure_open_ai_properties_response_length_max >= 1000000
+| sort
+    Esql.event_count desc
 '''
 

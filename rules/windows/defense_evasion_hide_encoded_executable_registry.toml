@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/11/25"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -18,16 +18,17 @@ index = [
     "logs-sentinel_one_cloud_funnel.*",
     "winlogbeat-*",
     "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Encoded Executable Stored in the Registry"
+name = "Deprecated - Encoded Executable Stored in the Registry"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Encoded Executable Stored in the Registry
+### Investigating Deprecated - Encoded Executable Stored in the Registry
 
 Windows Registry is a hierarchical database storing low-level settings for the OS and applications. Adversaries exploit it to hide encoded executables, evading detection by avoiding direct disk storage. The detection rule identifies suspicious registry modifications, specifically targeting encoded patterns indicative of hidden executables, thus flagging potential defense evasion tactics.
 
@@ -37,7 +38,7 @@ Windows Registry is a hierarchical database storing low-level settings for the O
 - Analyze the encoded data string "TVqQAAMAAAAEAAAA*" to determine if it corresponds to a known malicious executable or pattern.
 - Check the modification timestamp to correlate with any other suspicious activities or events on the system around the same time.
 - Investigate the process or user account responsible for the registry modification to assess if it is associated with legitimate activity or known threats.
-- Cross-reference the alert with other data sources such as Sysmon, Microsoft Defender for Endpoint, or SentinelOne for additional context or corroborating evidence of malicious behavior.
+- Cross-reference the alert with other data sources such as Sysmon, Microsoft Defender XDR, or SentinelOne for additional context or corroborating evidence of malicious behavior.
 - Evaluate the system's network activity and connections during the time of the registry modification to identify any potential command and control communications or data exfiltration attempts.
 
 ### False positive analysis
@@ -68,7 +69,8 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -83,6 +85,17 @@ registry where host.os.type == "windows" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.013"
+name = "Encrypted/Encoded File"
+reference = "https://attack.mitre.org/techniques/T1027/013/"
+
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
@@ -93,9 +106,7 @@ id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

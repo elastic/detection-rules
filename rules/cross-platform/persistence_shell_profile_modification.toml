@@ -2,7 +2,7 @@
 creation_date = "2021/01/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2025/12/16"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ triggered by a user’s shell.
 """
 false_positives = ["Changes to the Shell Profile tend to be noisy, a tuning per your environment will be required."]
 from = "now-9m"
-index = ["logs-endpoint.events.*", "auditbeat-*"]
+index = ["logs-endpoint.events.file-*", "auditbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Bash Shell Profile Modification"
@@ -35,20 +35,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:file and event.type:change and
+event.category:file and host.os.type:(linux or macos) and event.type:change and not event.action:("rename" or "extended_attributes_delete") and
+  file.name:(".bash_profile" or ".profile" or ".bashrc" or ".zshenv" or ".zshrc") and file.path:(/home/* or /Users/*) and 
   process.name:(* and not (sudo or vim or zsh or env or nano or bash or Terminal or xpcproxy or login or cat or cp or
   launchctl or java or dnf or tailwatchd or ldconfig or yum or semodule or cpanellogd or dockerd or authselect or chmod or
   dnf-automatic or git or dpkg or platform-python)) and
-  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/* or /opt/saltstack/salt/bin/*) and
-  file.path:(/private/etc/rc.local or
-             /etc/rc.local or
-             /home/*/.profile or
-             /home/*/.profile1 or
-             /home/*/.bash_profile or
-             /home/*/.bash_profile1 or
-             /home/*/.bashrc or
-             /Users/*/.bash_profile or
-             /Users/*/.zshenv)
+  not process.executable:(/Applications/* or /private/var/folders/* or /usr/local/* or /opt/saltstack/salt/bin/*)
 '''
 note = """## Triage and analysis
 

@@ -1,0 +1,187 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2024/08/26"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2025/12/04"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies when a single AWS resource is making `DescribeInstances` API calls in more than 10 regions within a 30-second
+window. This could indicate a potential threat actor attempting to discover the AWS infrastructure across multiple
+regions using compromised credentials or a compromised instance. Adversaries may use this information to identify
+potential targets for further exploitation or to gain a better understanding of the target's infrastructure.
+"""
+false_positives = [
+    """
+    Legitimate use of the `DescribeInstances` API call by an AWS resource that requires information about instances in
+    multiple regions.
+    """,
+    "Scheduled tasks or scripts that require information about instances in multiple regions.",
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EC2 Multi-Region DescribeInstances API Calls"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Multi-Region DescribeInstances API Calls
+
+This rule flags when the `DescribeInstances` API is executed across multiple AWS regions within a short timeframe. While benign in some cases (e.g., asset inventory, legitimate multi-region management), this pattern can indicate a reconnaissance phase in which an adversary enumerates EC2 instances in all regions to identify potential targets across the environment.
+
+Because the signal can generate significant noise in dynamic or large AWS environments, this rule should be treated as a Building Block Rule (BBR), not a stand-alone alert requiring immediate incident response. Instead, it is best used for hunting, enrichment, correlation, and escalation when combined with other signals.
+
+### How to use this rule (hunting & correlation guide)
+
+This rule is most effective when paired with other detection rules or data sources. Use it to answer questions such as:
+
+- Did a newly created or unknown principal call `DescribeInstances` across many regions? Pair this with a new terms or first-time principal rule (e.g., `GetCallerIdentity`, `AssumeRole`, or `aws.cloudtrail.user_identity.session_context.session_issuer.arn`).  
+- Was the same principal also observed making other discovery or enumeration calls (e.g., `DescribeSnapshots`, `DescribeVolumes`, `DescribeImages`, `DescribeSecurityGroups`) in a short timeframe?  
+- Did the multi-region calls precede or coincide with higher-risk actions such as:  
+  - Snapshot creation or shared snapshot modifications (`CreateSnapshot`, `ModifySnapshotAttribute`)  
+  - AMI export/copy operations (`ExportImage`, `CopyImage`)  
+  - Access key creation, role assumption, or IAM permission changes  
+  - Unexpected S3 bucket or data transfer activity (e.g., large data egress, new S3 bucket writes)  
+- Did the activity span regions normally unused or outside the organization's typical operational footprint?
+
+#### Possible investigation steps:
+
+- **Review the principal and session trace**:  
+  - Identify `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.access_key_id`, and determine whether the principal is known, recently onboarded, or unusual (e.g., a service role used in rare cases).  
+  - Examine `user_agent.original` and `source.ip` for anomalies (e.g., new CLI/SDK versions, IAM roles from unexpected hosts, geolocation outside expected range).
+
+- **Evaluate region distribution and timing**:  
+  - Inspect the regions contacted by `DescribeInstances` within the alert window. Are some regions rarely used in your org?  
+  - Look at the timeline: did the calls occur in rapid succession or spread out? A burst suggests automated reconnaissance rather than manual usage.
+
+- **Correlate with other detection signals & data access patterns**:  
+  - Query for other CloudTrail events by the same principal in the ±30 minutes window: enumeration APIs (`Describe*`), snapshot/AMI events, `CopySnapshot`, `ExportImage`, `StartInstances`, etc.  
+  - Cross-validate with SIEM or data egress logs: did large volumes of data leave the environment after the enumeration?  
+  - Review IAM activity for privilege elevation, new access keys, or role chaining that could support the enumeration action.
+
+- **Assess intent and operational context**:  
+  - Determine whether the enumeration aligns with known asset-inventory or management tasks (Recurring scans, DevOps automation, IT health checks).  
+  - If this principal is known for asset management, verify the timing, region list, and audit logs for existing tickets/change-records.  
+  - If the activity is unexpected, low legitimacy, or tied to other suspicious events, escalate.
+
+### False positive analysis:
+
+Because many organizations have legitimate multi-region cloud operations, this rule may generate false positives. Common benign scenarios include:
+
+- DevOps or cloud-ops automation that inventories EC2 instances across all regions (for cost, compliance, or multi-region deployment verification).  
+- Large-scale migrations or disaster-recovery tests that touch many regions in a short time.  
+- Security or audit team enumeration of the environment (e.g., internal red-team, internal asset scanning).  
+- Cross-account management tools in AWS Organizations that routinely query multiple regions.
+
+To manage these, consider:  
+- Whitelisting known automation roles/principals (with caution).  
+- Tagging and excluding known “inventory scan” sessions (based on user agent, IP range, timing).  
+- Using this rule only as a correlation trigger and not as a direct alert.
+
+### Response and escalation:
+
+Because this rule is a BBR, its detection alone does not usually warrant full incident response. Instead:
+
+- **Document the finding** in your hunt log, noting principal, regions, timestamp, and correlation flags (other events).  
+- If correlation reveals additional suspicious activity (e.g., snapshot share, data export, IAM privilege change) escalate to full incident response.  
+- If the enumeration is determined benign (e.g., approved internal scan), add context (ticket number, owner, justification) and suppress/annotate this principal in future hunts for a defined interval.  
+- Update your detection playbooks to reflect this rule’s role as a recon-indicator, and train analysts to use it as a pivot point.
+
+### Additional information
+
+For further information on AWS `DescribeInstances` permissions and best practices, refer to the [AWS DescribeInstances API documentation](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html).
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html",
+]
+risk_score = 21
+rule_id = "393ef120-63d1-11ef-8e38-f661ea17fbce"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS EC2",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+
+// filter for DescribeInstances API calls
+| where event.dataset == "aws.cloudtrail"
+  and event.provider == "ec2.amazonaws.com"
+  and event.action == "DescribeInstances"
+
+// truncate the timestamp to a 30-second window
+| eval Esql.time_window_date_trunc = date_trunc(30 seconds, @timestamp)
+
+// keep only the relevant raw fields
+| keep 
+    Esql.time_window_date_trunc, 
+    aws.cloudtrail.user_identity.arn, 
+    cloud.region, 
+    cloud.account.id,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.user_identity.type,
+    user_agent.original,
+    source.as.organization.name,
+    source.ip,
+    @timestamp,
+    data_stream.namespace    
+
+// count the number of unique regions and total API calls within the 30-second window
+| stats
+    Esql.cloud_region_count_distinct = count_distinct(cloud.region),
+    Esql.event_count = count(*),
+    Esql.event_timestamp_values = VALUES(@timestamp),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+  by Esql.time_window_date_trunc, aws.cloudtrail.user_identity.arn
+
+// filter for resources making DescribeInstances API calls in more than 10 regions within the 30-second window
+| where Esql.cloud_region_count_distinct >= 10 and Esql.event_count >= 10
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.cloud_region_count_distinct",
+    "Esql.event_count",
+    "Esql.event_timestamp_values",
+    "aws.cloudtrail.user_identity.arn",
+    "Esql.aws_cloudtrail_user_identity_type_values",
+    "Esql.aws_cloudtrail_user_identity_access_key_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.cloud_account_id_values",
+    "Esql.cloud_region_values",
+    "Esql.data_stream_namespace_values"
+]
+

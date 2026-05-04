@@ -2,7 +2,7 @@
 creation_date = "2024/08/28"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -96,7 +96,6 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start") and
 process.name in ("update-ca-trust", "update-ca-certificates") and not (
@@ -105,26 +104,31 @@ process.name in ("update-ca-trust", "update-ca-certificates") and not (
     "ipa-client-install", "su", "platform-python", "python*", "kesl", "execd", "systemd", "flock"
   ) or
   process.parent.args like "/var/tmp/rpm*" or
-  (process.parent.name in ("sh", "bash", "zsh") and process.args == "-e")
+  (process.parent.name in ("sh", "bash", "zsh") and process.args == "-e") or
+  process.parent.executable in (
+    "/app/update-cert-trust.sh", "/opt/puppetlabs/puppet/bin/puppet", "/opt/puppetlabs/puppet/bin/ruby",
+    "/start-haproxy", "/usr/bin/entrypoint.sh", "/usr/bin/crun"
+  ) or
+  process.parent.args like (
+    "/entrypoint.sh", "/entrypoint", "./bootstrap-RHEL*", "lib/apk/exec/ca-certificates-*trigger"
+  ) or
+  ?process.working_directory == "/var/lib/rancher"
 )
 '''
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1553"
 name = "Subvert Trust Controls"
 reference = "https://attack.mitre.org/techniques/T1553/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1553.004"
 name = "Install Root Certificate"
 reference = "https://attack.mitre.org/techniques/T1553/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

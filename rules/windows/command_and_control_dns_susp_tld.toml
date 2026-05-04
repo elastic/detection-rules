@@ -1,0 +1,229 @@
+[metadata]
+creation_date = "2025/08/20"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/03/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies DNS queries to commonly abused Top Level Domains by common LOLBINs or executables running from world writable
+directories or unsigned binaries. This behavior matches on common malware C2 abusing less formal domain names.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-endpoint.events.network-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Activity to a Suspicious Top Level Domain"
+references = ["https://www.cybercrimeinfocenter.org/top-20-tlds-by-malicious-phishing-domains"]
+risk_score = 73
+rule_id = "e516bf56-d51b-43e8-91ec-9e276331f433"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where host.os.type == "windows" and dns.question.name != null and
+ (
+  process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
+                  "bitsadmin.exe", "InstallUtil.exe", "python.exe", "regsvr32.exe", "dllhost.exe", "node.exe", "curl.exe",
+                  "java.exe", "javaw.exe", "*.pif", "*.com", "*.scr") or
+  (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
+  ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
+  ?process.executable : (
+    "?:\\Users\\Public\\*.exe", "?:\\ProgramData\\*.exe", "?:\\Users\\*\\Downloads\\*.exe",
+    "\\Device\\HarddiskVolume*\\Users\\Public\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\Downloads\\*.exe"
+  )
+ ) and
+dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host|zone)""" and
+
+not process.executable : (
+    "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
+    "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
+)
+'''
+
+note = """## Triage and analysis
+
+### Investigating Network Activity to a Suspicious Top Level Domain
+
+#### Possible investigation steps
+
+- Does the alert-local DNS result and domain shape fit the process role?
+  - Focus: the alert's `event.action`, `dns.question.name`, `dns.Ext.status`, and `dns.resolved_ip`; use "lookup_result" for resolved IPs and "lookup_requested" for failed or request-only lookups.
+  - Implication: concern rises when the name is algorithmic, newly introduced for that tool, or resolves to unrelated external infrastructure; weaker when the lookup fails immediately or the domain matches a known vendor pattern for that process, but a failed lookup alone does not clear the process. `.onion` lookups signal Tor hidden-service resolution -- treat these as elevated concern and look for Tor binaries or proxy configuration.
+
+- Is the alerting binary the expected tool in the expected install context?
+  - Focus: `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.pe.original_file_name`.
+  - Implication: more concerning when the binary is unsigned, renamed, user-writable, or inconsistent with its usual signer. Identity alone does not clear the DNS behavior.
+
+- Does the command line and launch chain fit a legitimate workflow?
+  - Focus: `process.command_line`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: more concerning if a document, script, or unexpected launcher started the process, or if the arguments look staged or evasive.
+
+- Does the same process resolve the domain and then communicate with the returned infrastructure?
+  - Why: a suspicious DNS lookup carries more weight when the same process reuses the returned IPs for follow-on connections or transfer behavior in the same window.
+  - Focus: process-scoped "lookup_result" and connection events on the same `host.id`, using `dns.resolved_ip` to bridge `dns.question.name` to `destination.ip`; treat `destination.as.organization.name` as ownership context rather than a verdict. $investigate_2
+  - Hint: if the transform returns no results, broaden to host-scoped network events around the alert time.
+  - Implication: escalate when the same process repeatedly resolves the domain, connects to the returned IPs, or shows suspicious transfer patterns; lower suspicion when activity is limited to a one-off lookup with no matching connection behavior. Missing follow-on network telemetry is unresolved, not benign.
+
+- Do file events or child processes from the same process chain show download-and-execute or artifact staging?
+  - Focus: same-host file and process activity around the alert time, scoped to the alert's `process.entity_id`, with attention to `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse of a written path.
+  - Hint: if file coverage is missing, keep the artifact review bounded to the same host, lineage, and alert window rather than treating the lookup as harmless.
+  - Implication: staging risk rises when the chain writes scripts, archives, or executables to user-writable paths and later runs them.
+
+- Does the same process chain pivot to direct-IP traffic, lookalike domains, or TLD rotation that this rule would miss?
+  - Why: attackers often keep the same process chain but swap to a nearby domain, a different abusive TLD, or direct-IP egress after the first lookup.
+  - Focus: reuse the process-scoped network results from the prior step to look for direct `destination.ip` connections with no preceding DNS, sibling `dns.question.name` values under different TLDs, or repeated reuse of the same `dns.resolved_ip` across multiple domains. $investigate_2
+  - Implication: escalate when the process shifts from the flagged lookup to direct-IP traffic, nearby domain variants, or fast domain and TLD rotation on the same infrastructure; lower suspicion when surrounding DNS stays limited to one recognized vendor domain family with no adjacent variant traffic.
+
+- If the local DNS, process, or artifact evidence stays suspicious or unresolved, does related alert history show this DNS pattern is isolated or part of broader compromise?
+  - Focus: related alerts for the same `host.id` and `user.id` in the last 48 hours to test whether the same lineage, domain family, or follow-on activity recurs on the asset or follows the user across hosts.
+    - $investigate_0
+    - $investigate_1
+  - Implication: broaden scope when the host or user view shows repeated suspicious lineage, related delivery or persistence alerts, or reuse of the same infrastructure on other assets; keep scope narrow when the pattern stays confined to one recognized workflow with no contradictory evidence.
+
+- Escalate when DNS fit, process context, follow-on communication, artifacts, or variant traffic point to unauthorized C2 or delivery; close only when all evidence aligns with a recognized benign workflow; if mixed or incomplete, preserve and escalate.
+
+### False positive analysis
+
+- Software distribution, developer tooling, or security-testing workflows can legitimately query less common TLDs. Confirm by matching the same `process.executable`, `process.code_signature.subject_name`, `dns.question.name` family, and `host.id` across prior alerts or against workflow records.
+- Before creating an exception, build on `process.executable`, `process.code_signature.subject_name`, the `dns.question.name` family, and `host.id` or `user.id`. Avoid exceptions on the TLD alone, `process.name` alone, or `host.id` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the `process.executable`, `process.code_signature.subject_name`, `process.parent.command_line`, `dns.question.name` family, and bounded `host.id` or `user.id` scope that proved the workflow. Create an exception only if that same pattern recurs consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, first preserve `dns.question.name`, `dns.resolved_ip`, connected `destination.ip` values, the alert's `process.entity_id`, `process.command_line`, `process.parent.command_line`, and any staged `file.path` values. Then apply reversible containment such as temporary DNS or egress blocks for the observed infrastructure or heightened monitoring on `host.id`. Escalate to host isolation only if the preserved evidence shows likely follow-on communication or staging and the asset role can tolerate stronger containment.
+- If confirmed malicious, document the alert's `process.entity_id`, `process.command_line`, `process.parent.command_line`, written `file.path` artifacts, and connected `dns.question.name` or `destination.ip` infrastructure before initiating response actions. Prefer endpoint isolation as the first containment step; if direct endpoint response is unavailable, escalate with the preserved artifact set to the team that can isolate the host. Block the confirmed malicious domains and direct-IP destinations before terminating processes or deleting files.
+- After containment, review other `host.id` and `user.id` alerts for the same `dns.question.name`, `destination.ip`, or `process.executable` pattern before deleting artifacts or restoring access. Then eradicate staged binaries, scripts, and any persistence or proxy changes identified during the file or variant review, and remediate the entry path that allowed the suspicious process to run. If the same suspicious window includes credential, admin-tool, or remote-session alerts, review those sessions for follow-on misuse and reset exposed credentials when the evidence supports compromise.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 3 - Network Connection](https://ela.st/sysmon-event-3-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.name",
+    "process.executable",
+    "process.entity_id",
+    "process.pid",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "dns.question.name",
+    "dns.resolved_ip",
+    "event.action",
+]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the alerting process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1127"
+name = "Trusted Developer Utilities Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1127/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1127.001"
+name = "MSBuild"
+reference = "https://attack.mitre.org/techniques/T1127/001/"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

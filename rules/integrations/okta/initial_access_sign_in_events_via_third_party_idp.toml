@@ -2,16 +2,18 @@
 creation_date = "2023/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/15"
-min_stack_version = "8.15.0"
-min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
-description = "Detects sign-in events where authentication is carried out via a third-party Identity Provider (IdP)."
-from = "now-30m"
-index = ["filebeat-*", "logs-okta*"]
-interval = "15m"
+description = """
+Detects sign-in events where authentication is carried out via a third-party Identity Provider (IdP) that has not been
+seen before. Adversaries may add an unauthorized IdP to an Okta tenant to gain persistent access. This rule uses New
+Terms detection to only alert when a previously unseen IdP is used for authentication, reducing noise from legitimate
+federated identity providers while highlighting potentially rogue IdP additions.
+"""
+from = "now-9m"
+index = ["logs-okta.system-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Okta Sign-In Events via Third-Party IdP"
@@ -66,36 +68,75 @@ references = [
 risk_score = 47
 rule_id = "1ceb05c4-7d25-11ee-9562-f661ea17fbcd"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Tactic: Initial Access", "Data Source: Okta", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Identity",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Data Source: Okta",
+    "Resources: Investigation Guide",
+
+]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-event.dataset:okta.system and okta.debug_context.debug_data.request_uri:/oauth2/v1/authorize/callback and
-    (not okta.authentication_context.issuer.id:Okta and event.action:(user.authentication.auth_via_IDP
-        or user.authentication.auth_via_inbound_SAML
-        or user.authentication.auth_via_mfa
-        or user.authentication.auth_via_social)
-        or event.action:user.session.start) or
-    (event.action:user.authentication.auth_via_IDP and okta.outcome.result:FAILURE
-        and okta.outcome.reason:("A SAML assert with the same ID has already been processed by Okta for a previous request"
-            or "Unable to match transformed username"
-            or "Unable to resolve IdP endpoint"
-            or "Unable to validate SAML Response"
-            or "Unable to validate incoming SAML Assertion"))
+data_stream.dataset: "okta.system"
+    and okta.authentication_context.issuer.id: (* and not "Okta")
+    and (
+        event.action: (
+            "user.authentication.auth_via_IDP"
+            or "user.authentication.auth_via_inbound_SAML"
+            or "user.authentication.auth_via_social"
+        )
+        or (
+            event.action: "user.authentication.auth_via_IDP"
+            and okta.outcome.result: "FAILURE"
+            and okta.outcome.reason: (
+                "A SAML assert with the same ID has already been processed by Okta for a previous request"
+                or "Unable to match transformed username"
+                or "Unable to resolve IdP endpoint"
+                or "Unable to validate SAML Response"
+                or "Unable to validate incoming SAML Assertion"
+            )
+        )
+    )
 '''
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["okta.authentication_context.issuer.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1199"
 name = "Trusted Relationship"
 reference = "https://attack.mitre.org/techniques/T1199/"
-
 
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

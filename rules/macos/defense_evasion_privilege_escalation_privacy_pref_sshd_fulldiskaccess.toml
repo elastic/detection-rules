@@ -2,7 +2,7 @@
 creation_date = "2020/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/18"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -63,8 +63,8 @@ query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and
  process.name == "scp" and
  process.args like~ "StrictHostKeyChecking=no" and
- process.command_line : ("scp *localhost:/*", "scp *127.0.0.1:/*") and
- not process.args : "vagrant@*127.0.0.1*"
+ process.command_line like~ ("*scp *localhost:/*", "*scp *127.0.0.?:/*") and
+ not process.command_line like~ "*vagrant@*127.0.0.1*"
 '''
 note = """## Triage and analysis
 
@@ -105,26 +105,39 @@ Secure Copy Protocol (SCP) is used for secure file transfers over SSH. On macOS,
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1005"
+name = "Data from Local System"
+reference = "https://attack.mitre.org/techniques/T1005/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

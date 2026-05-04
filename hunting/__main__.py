@@ -8,9 +8,10 @@ import textwrap
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import click
-from tabulate import tabulate
+from tabulate import tabulate  # type: ignore[reportMissingModuleSource]
 
 from detection_rules.misc import parse_user_config
 
@@ -18,30 +19,27 @@ from .definitions import HUNTING_DIR
 from .markdown import MarkdownGenerator
 from .run import QueryRunner
 from .search import QueryIndex
-from .utils import (filter_elasticsearch_params, get_hunt_path, load_all_toml,
-                    load_toml, update_index_yml)
+from .utils import filter_elasticsearch_params, get_hunt_path, load_all_toml, load_toml, update_index_yml
 
 
 @click.group()
-def hunting():
+def hunting() -> None:
     """Commands for managing hunting queries and converting TOML to Markdown."""
-    pass
 
 
-@hunting.command('generate-markdown')
-@click.argument('path', required=False)
-def generate_markdown(path: Path = None):
+@hunting.command("generate-markdown")
+@click.argument("path", required=False, type=Path)
+def generate_markdown(path: Path | None = None) -> None:
     """Convert TOML hunting queries to Markdown format."""
     markdown_generator = MarkdownGenerator(HUNTING_DIR)
 
     if path:
-        path = Path(path)
-        if path.is_file() and path.suffix == '.toml':
+        if path.is_file() and path.suffix == ".toml":
             click.echo(f"Generating Markdown for single file: {path}")
             markdown_generator.process_file(path)
         elif (HUNTING_DIR / path).is_dir():
             click.echo(f"Generating Markdown for folder: {path}")
-            markdown_generator.process_folder(path)
+            markdown_generator.process_folder(str(path))
         else:
             raise ValueError(f"Invalid path provided: {path}")
     else:
@@ -52,8 +50,8 @@ def generate_markdown(path: Path = None):
     markdown_generator.update_index_md()
 
 
-@hunting.command('refresh-index')
-def refresh_index():
+@hunting.command("refresh-index")
+def refresh_index() -> None:
     """Refresh the index.yml file from TOML files and then refresh the index.md file."""
     click.echo("Refreshing the index.yml and index.md files.")
     update_index_yml(HUNTING_DIR)
@@ -62,13 +60,13 @@ def refresh_index():
     click.echo("Index refresh complete.")
 
 
-@hunting.command('search')
-@click.option('--tactic', type=str, default=None, help="Search by MITRE tactic ID (e.g., TA0001)")
-@click.option('--technique', type=str, default=None, help="Search by MITRE technique ID (e.g., T1078)")
-@click.option('--sub-technique', type=str, default=None, help="Search by MITRE sub-technique ID (e.g., T1078.001)")
-@click.option('--data-source', type=str, default=None, help="Filter by data_source like 'aws', 'macos', or 'linux'")
-@click.option('--keyword', type=str, default=None, help="Search by keyword in name, description, and notes")
-def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str, keyword: str):
+@hunting.command("search")
+@click.option("--tactic", type=str, default=None, help="Search by MITRE tactic ID (e.g., TA0001)")
+@click.option("--technique", type=str, default=None, help="Search by MITRE technique ID (e.g., T1078)")
+@click.option("--sub-technique", type=str, default=None, help="Search by MITRE sub-technique ID (e.g., T1078.001)")
+@click.option("--data-source", type=str, default=None, help="Filter by data_source like 'aws', 'macos', or 'linux'")
+@click.option("--keyword", type=str, default=None, help="Search by keyword in name, description, and notes")
+def search_queries(tactic: str, technique: str, sub_technique: str, data_source: str, keyword: str) -> None:
     """Search for queries based on MITRE tactic, technique, sub-technique, or data_source."""
 
     if not any([tactic, technique, sub_technique, data_source, keyword]):
@@ -90,13 +88,13 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
         click.secho(f"\nFound {len(results)} matching queries:\n", fg="green", bold=True)
 
         # Prepare the data for tabulate
-        table_data = []
+        table_data: list[str | Any] = []
         for result in results:
             # Customize output to include technique, data_source, and UUID
-            data_source_str = result['data_source']
-            mitre_str = ", ".join(result['mitre'])
-            uuid = result['uuid']
-            table_data.append([result['name'], uuid, result['path'], data_source_str, mitre_str])
+            data_source_str = result["data_source"]
+            mitre_str = ", ".join(result["mitre"])
+            uuid = result["uuid"]
+            table_data.append([result["name"], uuid, result["path"], data_source_str, mitre_str])
 
         # Output results using tabulate
         table_headers = ["Name", "UUID", "Location", "Data Source", "MITRE"]
@@ -106,13 +104,18 @@ def search_queries(tactic: str, technique: str, sub_technique: str, data_source:
         click.secho("No matching queries found.", fg="red", bold=True)
 
 
-@hunting.command('view-hunt')
-@click.option('--uuid', type=str, help="View a specific hunt by UUID.")
-@click.option('--path', type=str, help="View a specific hunt by file path.")
-@click.option('--format', 'output_format', default='toml', type=click.Choice(['toml', 'json'], case_sensitive=False),
-              help="Output format (toml or json).")
-@click.option('--query-only', is_flag=True, help="Only display the query content.")
-def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
+@hunting.command("view-hunt")
+@click.option("--uuid", type=str, help="View a specific hunt by UUID.")
+@click.option("--path", type=str, help="View a specific hunt by file path.")
+@click.option(
+    "--format",
+    "output_format",
+    default="toml",
+    type=click.Choice(["toml", "json"], case_sensitive=False),
+    help="Output format (toml or json).",
+)
+@click.option("--query-only", is_flag=True, help="Only display the query content.")
+def view_hunt(uuid: str, path: str, output_format: str, query_only: bool) -> None:
     """View a specific hunt by UUID or file path in the specified format (TOML or JSON)."""
 
     # Get the hunt path or error message
@@ -120,6 +123,9 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
 
     if error_message:
         raise click.ClickException(error_message)
+
+    if not hunt_path:
+        raise ValueError("No hunt path found")
 
     # Load the TOML data
     hunt = load_toml(hunt_path)
@@ -134,18 +140,21 @@ def view_hunt(uuid: str, path: str, output_format: str, query_only: bool):
         return
 
     # Output the hunt in the requested format
-    if output_format == 'toml':
+    if output_format == "toml":
         click.echo(hunt_path.read_text())
-    elif output_format == 'json':
+    elif output_format == "json":
         hunt_dict = asdict(hunt)
         click.echo(json.dumps(hunt_dict, indent=4))
 
 
-@hunting.command('hunt-summary')
-@click.option('--breakdown', type=click.Choice(['platform', 'integration', 'language'],
-                                               case_sensitive=False), default='platform',
-              help="Specify how to break down the summary: 'platform', 'integration', or 'language'.")
-def hunt_summary(breakdown: str):
+@hunting.command("hunt-summary")
+@click.option(
+    "--breakdown",
+    type=click.Choice(["platform", "integration", "language"], case_sensitive=False),
+    default="platform",
+    help="Specify how to break down the summary: 'platform', 'integration', or 'language'.",
+)
+def hunt_summary(breakdown: str) -> None:
     """
     Generate a summary of hunt queries, broken down by platform, integration, or language.
     """
@@ -155,9 +164,9 @@ def hunt_summary(breakdown: str):
     all_hunts = load_all_toml(HUNTING_DIR)
 
     # Use Counter for more concise counting
-    platform_counter = Counter()
-    integration_counter = Counter()
-    language_counter = Counter()
+    platform_counter: Counter[str] = Counter()
+    integration_counter: Counter[str] = Counter()
+    language_counter: Counter[str] = Counter()
 
     for hunt, path in all_hunts:
         # Get the platform based on the folder name
@@ -168,29 +177,31 @@ def hunt_summary(breakdown: str):
         integration_counter.update(hunt.integration)
 
         # Count languages, renaming 'SQL' to 'OSQuery'
-        languages = ['OSQuery' if lang == 'SQL' else lang for lang in hunt.language]
+        languages = ["OSQuery" if lang == "SQL" else lang for lang in hunt.language]
         language_counter.update(languages)
 
     # Prepare and display the table based on the selected breakdown
-    if breakdown == 'platform':
+    if breakdown == "platform":
         table_data = [[platform, count] for platform, count in platform_counter.items()]
         table_headers = ["Platform (Folder)", "Hunt Count"]
-    elif breakdown == 'integration':
+    elif breakdown == "integration":
         table_data = [[integration, count] for integration, count in integration_counter.items()]
         table_headers = ["Integration", "Hunt Count"]
-    elif breakdown == 'language':
+    elif breakdown == "language":
         table_data = [[language, count] for language, count in language_counter.items()]
         table_headers = ["Language", "Hunt Count"]
+    else:
+        raise ValueError(f"Unsupported breakdown value: {breakdown}")
 
     click.echo(tabulate(table_data, headers=table_headers, tablefmt="fancy_grid"))
 
 
-@hunting.command('run-query')
-@click.option('--uuid', help="The UUID of the hunting query to run.")
-@click.option('--file-path', help="The file path of the hunting query to run.")
-@click.option('--all', 'run_all', is_flag=True, help="Run all eligible queries in the file.")
-@click.option('--wait-time', 'wait_time', default=180, help="Time to wait for query completion.")
-def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
+@hunting.command("run-query")
+@click.option("--uuid", help="The UUID of the hunting query to run.")
+@click.option("--file-path", help="The file path of the hunting query to run.")
+@click.option("--all", "run_all", is_flag=True, help="Run all eligible queries in the file.")
+@click.option("--wait-time", "wait_time", default=180, help="Time to wait for query completion.")
+def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int) -> None:
     """Run a hunting query by UUID or file path. Only ES|QL queries are supported."""
 
     # Get the hunt path or error message
@@ -199,6 +210,9 @@ def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
     if error_message:
         click.echo(error_message)
         return
+
+    if not hunt_path:
+        raise ValueError("No hunt path found")
 
     # Load the user configuration
     config = parse_user_config()
@@ -234,7 +248,7 @@ def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
     click.secho("Available queries:", fg="blue", bold=True)
     for i, query in eligible_queries.items():
         click.secho(f"\nQuery {i + 1}:", fg="green", bold=True)
-        click.echo(query_runner._format_query(query))
+        click.echo(query_runner.format_query(query))
         click.secho("\n" + "-" * 120, fg="yellow")
 
     # Handle query selection
@@ -244,8 +258,7 @@ def run_query(uuid: str, file_path: str, run_all: bool, wait_time: int):
             if query_number - 1 in eligible_queries:
                 selected_query = eligible_queries[query_number - 1]
                 break
-            else:
-                click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
+            click.secho(f"Invalid query number: {query_number}. Please try again.", fg="yellow")
         except ValueError:
             click.secho("Please enter a valid number.", fg="yellow")
 

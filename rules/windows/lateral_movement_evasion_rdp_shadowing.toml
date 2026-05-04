@@ -2,7 +2,7 @@
 creation_date = "2021/04/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -40,7 +40,7 @@ Remote Desktop Shadowing allows administrators to view or control active RDP ses
 - Check for any instances of "mstsc.exe" being executed with the "/shadow:*" argument, as this could signify an attempt to shadow an RDP session.
 - Correlate the identified processes and registry changes with user activity logs to determine if the actions were authorized or expected as part of legitimate administrative tasks.
 - Analyze network logs for any unusual remote connections or lateral movement patterns that coincide with the timing of the detected shadowing activity.
-- Consult endpoint security solutions like Microsoft Defender for Endpoint or SentinelOne for additional context or alerts related to the same host or user account involved in the shadowing activity.
+- Consult endpoint security solutions like Microsoft Defender XDR or SentinelOne for additional context or alerts related to the same host or user account involved in the shadowing activity.
 
 ### False positive analysis
 
@@ -59,7 +59,7 @@ Remote Desktop Shadowing allows administrators to view or control active RDP ses
 - Implement enhanced monitoring and logging for RDP activities across the network to detect and respond to similar threats more quickly in the future.
 - Review and update RDP access policies and configurations to ensure they align with best practices, such as enforcing multi-factor authentication and limiting RDP access to only necessary users and systems."""
 references = [
-    "https://bitsadm.in/blog/spying-on-users-using-rdp-shadowing",
+    "https://blog.bitsadmin.com/spying-on-users-using-rdp-shadowing",
     "https://swarm.ptsecurity.com/remote-desktop-services-shadowing/",
 ]
 risk_score = 73
@@ -73,7 +73,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
@@ -86,12 +86,13 @@ query = '''
 
 any where host.os.type == "windows" and
 (
-  (event.category == "registry" and
-     registry.path : (
-      "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
-      "\\REGISTRY\\MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow",
-      "MACHINE\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
-    )
+  (event.category == "registry" and event.type == "change" and
+    registry.value : "Shadow" and
+    registry.path : (
+      "*\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow"
+    ) and
+    registry.data.strings : ("1", "0x00000001", "2", "0x00000002", "3", "0x00000003", "4", "0x00000004")
+
   ) or
   (event.category == "process" and event.type == "start" and
      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
@@ -103,19 +104,41 @@ any where host.os.type == "windows" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1021"
 name = "Remote Services"
 reference = "https://attack.mitre.org/techniques/T1021/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1021.001"
 name = "Remote Desktop Protocol"
 reference = "https://attack.mitre.org/techniques/T1021/001/"
 
+[[rule.threat.technique]]
+id = "T1563"
+name = "Remote Service Session Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1563.002"
+name = "RDP Hijacking"
+reference = "https://attack.mitre.org/techniques/T1563/002/"
 
 [rule.threat.tactic]
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1113"
+name = "Screen Capture"
+reference = "https://attack.mitre.org/techniques/T1113/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

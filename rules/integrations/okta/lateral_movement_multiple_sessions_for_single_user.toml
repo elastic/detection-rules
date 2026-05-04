@@ -2,9 +2,7 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2025/01/15"
-min_stack_version = "8.15.0"
-min_stack_comments = "Breaking change at 8.15.0 for the Okta Integration."
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -70,12 +68,17 @@ references = [
 risk_score = 47
 rule_id = "621e92b6-7e54-11ee-bdc0-f661ea17fbcd"
 severity = "medium"
-tags = ["Use Case: Identity and Access Audit", "Data Source: Okta", "Tactic: Lateral Movement", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Identity and Access Audit",
+    "Data Source: Okta",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-event.dataset:okta.system
+data_stream.dataset:okta.system
     and okta.event_type:user.session.start
     and okta.authentication_context.external_session_id:*
     and not (okta.actor.id: okta* or okta.actor.display_name: okta*)
@@ -84,16 +87,16 @@ event.dataset:okta.system
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1550"
 name = "Use Alternate Authentication Material"
 reference = "https://attack.mitre.org/techniques/T1550/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1550.004"
 name = "Web Session Cookie"
 reference = "https://attack.mitre.org/techniques/T1550/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0008"

@@ -2,7 +2,7 @@
 creation_date = "2020/08/14"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -22,13 +22,13 @@ index = [
 ]
 language = "kuery"
 license = "Elastic License v2"
-name = "Suspicious PrintSpooler Service Executable File Creation"
+name = "Deprecated - Suspicious PrintSpooler Service Executable File Creation"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Suspicious PrintSpooler Service Executable File Creation
+### Investigating Deprecated - Suspicious PrintSpooler Service Executable File Creation
 
 The Print Spooler service in Windows manages print jobs, but vulnerabilities like CVE-2020-1048 can be exploited for privilege escalation. Adversaries may create malicious DLL files executed by the spooler to gain elevated privileges. The detection rule identifies such threats by monitoring file creation events linked to the spooler process, focusing on DLL files, which are common vectors for exploitation.
 
@@ -73,7 +73,7 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
@@ -87,72 +87,82 @@ event.category : "file" and host.os.type : "windows" and event.type : "creation"
 
 
 [[rule.filters]]
-
 [rule.filters.meta]
 negate = false
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Windows\\\\Sys?????\\\\*"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Windows\\\\Sys?????\\\\PrintConfig.dll"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
-value = "?:\\Windows\\Sys?????\\u005lrs.dll"
-[[rule.filters]]
+value = "?:\\\\Windows\\\\Sys?????\\\\x5lrs.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
-value = "?:\\Windows\\system32\\spool\\DRIVERS\\u0064\\\\*.dll"
-[[rule.filters]]
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\x64\\\\*.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Windows\\\\system32\\\\spool\\\\DRIVERS\\\\W32X86\\\\*.dll"
-[[rule.filters]]
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
-value = "?:\\Windows\\system32\\spool\\PRTPROCS\\u0064\\\\*.dll"
-[[rule.filters]]
+value = "?:\\\\Windows\\\\system32\\\\spool\\\\PRTPROCS\\\\x64\\\\*.dll"
 
+[[rule.filters]]
 [rule.filters.meta]
 negate = true
 [rule.filters.query.wildcard."file.path"]
 case_insensitive = true
 value = "?:\\\\Windows\\\\system32\\\\spool\\\\{????????-????-????-????-????????????}\\\\*.dll"
+
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "file.path"]
+value = ["host.id", "file.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-5d"
 
 

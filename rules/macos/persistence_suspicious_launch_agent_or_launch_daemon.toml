@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/01/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/01/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a launch agent or daemon property list file containing abnormal or suspicious 
+values. An adversary may establish persistence by installing a new launch agent or daemon which executes 
+at login. This rule looks for plist files created in LaunchAgents/LaunchDaemons directories with paths 
+commonly used by malware.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Persistence via Suspicious Launch Agent or Launch Daemon"
+references = [
+    "https://medium.com/red-teaming-with-a-blue-team-mentality/a-brief-look-at-macos-detections-and-post-infection-analysis-b0ede7ecfeb9",
+    "https://objective-see.org/blog",
+    "https://www.elastic.co/security-labs/DPRK-strikes-using-a-new-variant-of-rustbucket"
+]
+risk_score = 73
+rule_id = "62ba8542-1246-4647-9b84-98aa1bc0760a"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Persistence via Suspicious Launch Agent or Launch Daemon
+
+LaunchAgents and LaunchDaemons are the standard macOS mechanisms for starting programs automatically at user login or system boot. While essential for legitimate software, these persistence mechanisms are heavily abused by malware including RustBucket (DPRK), Shlayer, and CloudMensis. This detection rule identifies plist file creation in LaunchAgent/LaunchDaemon directories when performed by suspicious processes including scripts executing from temporary directories, unsigned binaries, or scripting interpreters like Python and osascript.
+
+### Possible investigation steps
+
+- Examine the file.path to identify the specific plist file created and its location (user vs system LaunchAgent/LaunchDaemon directory).
+- Read the plist contents using plutil or defaults to identify the Program or ProgramArguments configured for execution.
+- Analyze the process.executable to understand what created the plist file and assess whether execution from that location (temp directory, hidden folder) is suspicious.
+- Check the process.name and process.code_signature fields to determine if the creating process was a scripting interpreter or unsigned binary.
+- Locate the binary or script referenced in the plist and calculate its hash for threat intelligence lookups.
+- Review the parent process chain to trace back to the initial execution vector that led to plist creation.
+- Correlate with other file and process events to identify additional malware components that may have been deployed simultaneously.
+
+### False positive analysis
+
+- Legitimate software installers may create LaunchAgents/LaunchDaemons during setup, but typically from signed installer processes rather than scripts in temp directories.
+- Development and testing environments may use scripting languages to create launch items. Verify with development teams if such activities are expected.
+- Several legitimate signing IDs are already excluded including vim, JetBrains Toolbox, and Sublime Text.
+- System utilities like cfprefsd may modify plist files during normal operations and are excluded.
+- Enterprise deployment tools may use scripts to configure launch items. Document and exclude approved deployment processes.
+
+### Response and remediation
+
+- Immediately unload the suspicious LaunchAgent or LaunchDaemon using launchctl unload with the plist path.
+- Remove the malicious plist file from the LaunchAgent or LaunchDaemon directory.
+- Locate and remove the executable or script referenced in the plist's Program or ProgramArguments keys.
+- Check for other persistence mechanisms that may have been deployed by the same threat actor.
+- Review system logs for evidence of the persistence mechanism executing and what actions it performed.
+- If the detection matches patterns of known malware families (RustBucket, Shlayer), perform comprehensive IOC searches and threat hunting.
+- Reset any credentials that may have been accessed while the malicious process was running.
+- Monitor for recreation of similar plist files to detect persistent access or ongoing compromise.
+"""
+query = '''
+file where host.os.type == "macos" and event.type != "deletion" and 
+  file.extension == "plist" and
+  file.path like ("/Library/LaunchAgents/*", "/Library/LaunchDaemons/*", 
+                  "/Users/*/Library/LaunchAgents/*", "/System/Library/LaunchAgents/*",
+                  "/System/Library/LaunchDaemons/*") and
+  (process.executable like ("/private/tmp/*", "/private/var/root/Library/*", "/var/tmp/*", 
+                            "/tmp/*", "/var/folders/*", "/Users/Shared/*", "/var/root/*",
+                            "/Library/WebServer/*", "/Library/Graphics/*", "/Library/Fonts/*") or
+   process.name like~ ("python*", "osascript", "bash", "zsh", "sh", "curl", "nscurl", "wget", "java")) and
+  not process.executable like ("/System/*", "/Library/PrivilegedHelperTools/*") and
+  not (process.code_signature.signing_id in ("com.apple.vim", "com.apple.cat", "com.apple.cfprefsd",
+                                            "com.jetbrains.toolbox", "com.apple.pico", "com.apple.shove",
+                                            "com.sublimetext.4", "com.apple.ditto") and process.code_signature.trusted == true)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  name = "Boot or Logon Autostart Execution"
+  id = "T1547"
+  reference = "https://attack.mitre.org/techniques/T1547/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Plist Modification"
+    id = "T1547.011"
+    reference = "https://attack.mitre.org/techniques/T1547/011/"
+
+  [[rule.threat.technique]]
+  name = "Create or Modify System Process"
+  id = "T1543"
+  reference = "https://attack.mitre.org/techniques/T1543/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Agent"
+    id = "T1543.001"
+    reference = "https://attack.mitre.org/techniques/T1543/001/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Launch Daemon"
+    id = "T1543.004"
+    reference = "https://attack.mitre.org/techniques/T1543/004/"

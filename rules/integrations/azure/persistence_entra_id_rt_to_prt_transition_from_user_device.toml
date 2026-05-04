@@ -2,13 +2,13 @@
 creation_date = "2025/06/24"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2025/06/24"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies when a user signs in with a refresh token using the Microsoft Authentication Broker (MAB) client, followed by
-a Primary Refresh Token (PRT) sign-in from the same device within 1 hour. This pattern may indicate that an attacker has
+a Primary Refresh Token (PRT) sign-in from the same device within 1 hour from an unmanaged device. This pattern may indicate that an attacker has
 successfully registered a device using ROADtx and transitioned from short-term token access to long-term persistent
 access via PRTs. Excluding access to the Device Registration Service (DRS) ensures the PRT is being used beyond
 registration, often to access Microsoft 365 resources like Outlook or SharePoint.
@@ -18,12 +18,12 @@ index = ["filebeat-*", "logs-azure.signinlogs-*"]
 interval = "30m"
 language = "eql"
 license = "Elastic License v2"
-name = "Entra ID RT to PRT Transition from Same User and Device"
+name = "Entra ID OAuth PRT Issuance to Non-Managed Device Detected"
 note = """## Triage and analysis
 
-### Investigating Entra ID RT to PRT Transition from Same User and Device
+### Investigating Entra ID OAuth PRT Issuance to Non-Managed Device Detected
 
-This rule identifies a sequence where a Microsoft Entra ID user signs in using a refresh token issued to the Microsoft Authentication Broker (MAB), followed by a sign-in using a Primary Refresh Token (PRT) from the same device. This behavior is uncommon for normal user activity and strongly suggests adversarial behavior, particularly when paired with OAuth phishing and device registration tools like ROADtx. The use of PRT shortly after a refresh token sign-in typically indicates the attacker has obtained device trust and is now using the PRT to impersonate a fully compliant user+device pair.
+This rule identifies a sequence where a Microsoft Entra ID authenticates using a refresh token issued to the Microsoft Authentication Broker (MAB), followed by an authentication using a Primary Refresh Token (PRT) from the same unmanaged device. This behavior is uncommon for normal user activity and strongly suggests adversarial behavior, particularly when paired with OAuth phishing and device registration tools like ROADtx. The use of PRT shortly after a refresh token sign-in typically indicates the attacker has registered a virtual device and is now using the PRT to impersonate a registered user+device pair. The device in question is still marked as unmanaged, indicating it is not compliant with organizational policies and managed by Intune or other MDM solutions.
 
 ### Possible investigation steps
 - Identify the user principal and device from `azure.signinlogs.properties.user_principal_name` and `azure.signinlogs.properties.device_detail.device_id`.
@@ -69,7 +69,7 @@ type = "eql"
 query = '''
 sequence by azure.signinlogs.properties.user_id, azure.signinlogs.properties.device_detail.device_id with maxspan=1h
   [authentication where
-    event.dataset == "azure.signinlogs" and
+    data_stream.dataset == "azure.signinlogs" and
     azure.signinlogs.category == "NonInteractiveUserSignInLogs" and
     azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e" and
     azure.signinlogs.properties.incoming_token_type == "refreshToken" and
@@ -80,10 +80,15 @@ sequence by azure.signinlogs.properties.user_id, azure.signinlogs.properties.dev
     azure.signinlogs.result_signature == "SUCCESS"
   ]
   [authentication where
-    event.dataset == "azure.signinlogs" and
+    data_stream.dataset == "azure.signinlogs" and
     azure.signinlogs.properties.incoming_token_type == "primaryRefreshToken" and
     azure.signinlogs.properties.resource_display_name != "Device Registration Service" and
-    azure.signinlogs.result_signature == "SUCCESS"
+    azure.signinlogs.result_signature == "SUCCESS" and
+    azure.signinlogs.properties.device_detail.is_managed != true
+    and not (
+        azure.signinlogs.properties.app_display_name == "Windows Sign In" or
+        user_agent.original == "Windows-AzureAD-Authentication-Provider/1.0"
+    )
   ]
 '''
 
@@ -105,31 +110,45 @@ field_names = [
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -138,3 +157,20 @@ id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

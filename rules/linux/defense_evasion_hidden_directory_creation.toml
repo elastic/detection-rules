@@ -2,7 +2,7 @@
 creation_date = "2024/11/01"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/12/18"
 
 [rule]
 author = ["Elastic"]
@@ -98,39 +98,40 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
-
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start", "exec_event") and
 process.name == "mkdir" and process.parent.executable like (
   "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/var/run/*", "/root/*", "/boot/*", "/var/www/html/*", "/opt/.*"
-) and process.args like (".*", "/*/.*") and process.args_count <= 3 and not (
-  process.parent.executable like ("/tmp/newroot/*", "/run/containerd/*") or
+) and process.args like (".*", "/*/.*") and process.args_count <= 3 and
+not (
   process.command_line like ("mkdir -p .", "mkdir ./*") or
-  process.args == "/root/.ssh" or
+  process.args like ("/root/.ssh", "/home/*/.ssh", "/root/.cache/install4j") or
   process.parent.executable like (
-    "/tmp/pear/temp/*", "/var/tmp/buildah*", "/tmp/python-build.*", "/tmp/cliphist-wofi-img", "/tmp/snap.rootfs_*"
-  )
+    "/tmp/pear/temp/*", "/var/tmp/buildah*", "/tmp/python-build.*", "/tmp/cliphist-wofi-img", "/tmp/snap.rootfs_*",
+    "/root/.acme.sh/acme.sh", "/tmp/buildpacks/*go/bin/test-compile", "/tmp/newroot/*", "/run/containerd/*"
+  ) or
+  process.parent.name in ("libtool", "jpenable", "configure")
 )
 '''
 
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1564.001"
 name = "Hidden Files and Directories"
 reference = "https://attack.mitre.org/techniques/T1564/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 
@@ -138,4 +139,3 @@ framework = "MITRE ATT&CK"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

@@ -1,12 +1,12 @@
 [metadata]
 creation_date = "2024/09/09"
-integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender"]
+integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/20"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe.\n"
+description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe."
 from = "now-9m"
 index = [
     "logs-m365_defender.event-*",
@@ -15,6 +15,8 @@ index = [
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -61,28 +63,54 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
+    "Resources: Investigation Guide",
     "Data Source: Windows Security Event Logs",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
-    "Data Source: Microsoft Defender for Endpoint",
-    "Resources: Investigation Guide",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "windows" and event.action == "start" and
-  process.name : ("powershell.exe", "pwsh.exe", "cmd.exe") and
-  process.parent.name : ("wscript.exe", "mshta.exe") and ?process.parent.args : "?:\\Users\\*"
+process where host.os.type == "windows" and event.type == "start" and
+  process.command_line != null and
+  (
+    process.name : ("powershell.exe", "pwsh.exe", "powershell_ise.exe", "cmd.exe") or
+    ?process.pe.original_file_name : ("powershell.exe", "pwsh.dll", "powershell_ise.exe", "Cmd.Exe")
+  ) and
+  process.parent.name : ("wscript.exe", "mshta.exe") and
+  not (
+    process.args : (
+      "C:\\Program Files\\Intel\\SUR\\QUEENCREEK\\x64\\task.bat",
+      "\"C:\\Program Files\\Intel\\SUR\\QUEENCREEK\\x64\\task.bat\""
+    ) or
+    process.command_line : (
+      "\"C:\\Windows\\system32\\cmd.exe\" /c auditpol.exe /set /SUBCATEGORY:*",
+      "\"C:\\Windows\\system32\\cmd.exe\" /c auditpol.exe /get*",
+      "\"C:\\Windows\\system32\\cmd.exe\" /c exit\""
+    ) or
+    (process.args == "-File" and process.args == "-ExecutionPolicy")
+  )
+  and 
+  not (
+    ?user.id == "S-1-5-18" and
+    /* Don't apply the user.id exclusion to Sysmon for compatibility */
+    not data_stream.dataset : ("windows.sysmon_operational", "windows.sysmon")
+  ) 
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1059.001"
 name = "PowerShell"
@@ -98,10 +126,30 @@ id = "T1059.005"
 name = "Visual Basic"
 reference = "https://attack.mitre.org/techniques/T1059/005/"
 
-
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

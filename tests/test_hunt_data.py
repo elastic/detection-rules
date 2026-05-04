@@ -4,11 +4,12 @@
 # 2.0.
 
 """Test for hunt toml files."""
+
 import unittest
 
 from hunting.definitions import HUNTING_DIR
 from hunting.markdown import load_toml
-from hunting.utils import load_index_file, load_all_toml
+from hunting.utils import load_all_toml, load_index_file
 
 
 class TestHunt(unittest.TestCase):
@@ -33,9 +34,7 @@ class TestHunt(unittest.TestCase):
         config = load_toml(example_toml)
         self.assertEqual(config.author, "Elastic")
         self.assertEqual(config.integration, "aws_bedrock.invocation")
-        self.assertEqual(
-            config.name, "Denial of Service or Resource Exhaustion Attacks Detection"
-        )
+        self.assertEqual(config.name, "Denial of Service or Resource Exhaustion Attacks Detection")
         self.assertEqual(config.language, "ES|QL")
 
     def test_load_toml_files(self):
@@ -53,9 +52,7 @@ class TestHunt(unittest.TestCase):
     def test_markdown_existence(self):
         """Ensure each TOML file has a corresponding Markdown file in the docs directory."""
         for toml_file in HUNTING_DIR.rglob("*.toml"):
-            expected_markdown_path = (
-                toml_file.parent.parent / "docs" / toml_file.with_suffix(".md").name
-            )
+            expected_markdown_path = toml_file.parent.parent / "docs" / toml_file.with_suffix(".md").name
 
             self.assertTrue(
                 expected_markdown_path.exists(),
@@ -65,9 +62,7 @@ class TestHunt(unittest.TestCase):
     def test_toml_existence(self):
         """Ensure each Markdown file has a corresponding TOML file in the queries directory."""
         for markdown_file in HUNTING_DIR.rglob("*/docs/*.md"):
-            expected_toml_path = (
-                markdown_file.parent.parent / "queries" / markdown_file.with_suffix(".toml").name
-            )
+            expected_toml_path = markdown_file.parent.parent / "queries" / markdown_file.with_suffix(".toml").name
 
             self.assertTrue(
                 expected_toml_path.exists(),
@@ -85,17 +80,19 @@ class TestHuntIndex(unittest.TestCase):
 
     def test_mitre_techniques_present(self):
         """Ensure each query has at least one MITRE technique."""
-        for folder, queries in self.hunting_index.items():
+        for queries in self.hunting_index.values():
             for query_uuid, query_data in queries.items():
-                self.assertTrue(query_data.get('mitre'),
-                                f"No MITRE techniques found for query: {query_data.get('name', query_uuid)}")
+                self.assertTrue(
+                    query_data.get("mitre"),
+                    f"No MITRE techniques found for query: {query_data.get('name', query_uuid)}",
+                )
 
     def test_valid_structure(self):
         """Ensure each query entry has a valid structure."""
-        required_fields = ['name', 'path', 'mitre']
+        required_fields = ["name", "path", "mitre"]
 
-        for folder, queries in self.hunting_index.items():
-            for query_uuid, query_data in queries.items():
+        for queries in self.hunting_index.values():
+            for query_data in queries.values():
                 for field in required_fields:
                     self.assertIn(field, query_data, f"Missing field '{field}' in query: {query_data}")
 
@@ -105,14 +102,11 @@ class TestHuntIndex(unittest.TestCase):
         all_toml_data = load_all_toml(HUNTING_DIR)
         uuids = [hunt.uuid for hunt, path in all_toml_data]
 
-        for folder, queries in self.hunting_index.items():
-            for query_uuid in queries:
-                if query_uuid not in uuids:
-                    missing_index_entries.append(query_uuid)
+        for queries in self.hunting_index.values():
+            missing_index_entries.extend([query_uuid for query_uuid in queries if query_uuid not in uuids])
 
         self.assertFalse(
-            missing_index_entries,
-            f"Missing index entries for the following queries: {missing_index_entries}"
+            missing_index_entries, f"Missing index entries for the following queries: {missing_index_entries}"
         )
 
 

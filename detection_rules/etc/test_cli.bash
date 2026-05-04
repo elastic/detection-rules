@@ -25,6 +25,9 @@ rm -rf tmp-export
 echo "Updating rule data schemas"
 python -m detection_rules dev schemas update-rule-data
 
+echo "Generate Beats schemas"
+GITHUB_TOKEN="foo" python -m detection_rules dev schemas generate --schema beats
+
 echo "Validating rule: execution_github_new_event_action_for_pat.toml"
 python -m detection_rules validate-rule rules_building_block/execution_github_new_event_action_for_pat.toml
 

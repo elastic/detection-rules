@@ -15,7 +15,7 @@
 ## Query
 
 ```sql
-from logs-system.security-default-*
+from logs-system.security-*
 | where  @timestamp > now() - 7 day
 | where host.os.family == "windows" and event.code == "4698" and event.action == "scheduled-task-created"
  /* parsing unstructured data from winlog message to extract a scheduled task Exec command */

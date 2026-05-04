@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/08/04"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/05/05"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -11,7 +11,7 @@ Identifies suspicious child processes of communications apps, which can indicate
 communication app or the exploitation of a vulnerability on the application causing it to execute code.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
+index = ["logs-endpoint.events.process-*", "logs-sentinel_one_cloud_funnel.*", "endgame-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Communication App Child Process"
@@ -26,29 +26,43 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Data Source: SentinelOne",
+    "Data Source: Elastic Endgame",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : (
+    "slack.exe", "CiscoCollabHost.exe", "WebexHost.exe", "Teams.exe",
+    "Discord.exe", "Whatsapp.exe", "Zoom.exe", "thunderbird.exe"
+  ) and
+  not process.executable : (
+              "?:\\Program Files\\*.exe", 
+              "?:\\Program Files (x86)\\*.exe", 
+              "?:\\Windows\\System32\\WerFault.exe", 
+              "?:\\Windows\\SysWOW64\\WerFault.exe"
+  ) and
+
+  /* Common Signed Browser Processes */
+  not (
+    process.executable : (
+        "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+        "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
+        "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
+        "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
+    ) and process.code_signature.trusted == true
+  ) and
   (
     /* Slack */
     (process.parent.name : "slack.exe" and not
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
             "?:\\Users\\*\\AppData\\Roaming\\Zoom\\bin*\\Zoom.exe",
             "?:\\Windows\\System32\\rundll32.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Windows\\System32\\notepad.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
-            "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
+            "?:\\Windows\\System32\\notepad.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -67,24 +81,11 @@ process where host.os.type == "windows" and event.type == "start" and
     /* WebEx */
     (process.parent.name : ("CiscoCollabHost.exe", "WebexHost.exe") and not
       (
-        (
-          process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Users\\*\\AppData\\Local\\Programs\\Opera\\opera.exe"
-          ) and process.code_signature.trusted == true
-        ) or
-        (
-          process.code_signature.subject_name : (
-            "Cisco Systems, Inc.",
-            "Cisco WebEx LLC",
-            "Cisco Systems Inc."
-          ) and process.code_signature.trusted == true
-        )
+        process.code_signature.subject_name : (
+          "Cisco Systems, Inc.",
+          "Cisco WebEx LLC",
+          "Cisco Systems Inc."
+        ) and process.code_signature.trusted == true
       )
     ) or
 
@@ -93,13 +94,8 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\BrowserCore\\BrowserCore.exe",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe"
+            "?:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -119,13 +115,8 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
             "?:\\Windows\\System32\\reg.exe",
-            "?:\\Windows\\SysWOW64\\reg.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe"
+            "?:\\Windows\\SysWOW64\\reg.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -155,10 +146,6 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
             "?:\\Windows\\System32\\reg.exe",
             "?:\\Windows\\SysWOW64\\reg.exe"
           ) and process.code_signature.trusted == true
@@ -181,18 +168,13 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
-            "?:\\Users\\*\\AppData\\Local\\Island\\Island\\Application\\Island.exe",
-            "?:\\Users\\*\\AppData\\Local\\Mozilla Firefox\\firefox.exe",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe"
+            "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
           ) and process.code_signature.trusted == true
         ) or
         (
           process.code_signature.subject_name : (
-            "Zoom Video Communications, Inc."
+            "Zoom Video Communications, Inc.",
+            "Zoom Communications, Inc."
           ) and process.code_signature.trusted == true
         )
       )
@@ -203,11 +185,8 @@ process where host.os.type == "windows" and event.type == "start" and
       (
         (
           process.executable : (
-            "?:\\Program Files\\*",
-            "?:\\Program Files (x86)\\*",
-            "?:\\Windows\\System32\\WerFault.exe",
-            "?:\\Windows\\SysWOW64\\WerFault.exe",
-            "?:\\Windows\\splwow64.exe"
+            "?:\\Windows\\splwow64.exe", 
+            "?:\\Windows\\System32\\spool\\drivers\\x64\\3\\*.EXE"
           ) and process.code_signature.trusted == true
         ) or
         (
@@ -258,10 +237,12 @@ Communication apps like Slack, WebEx, and Teams are integral to modern workflows
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1036.001"
 name = "Invalid Code Signature"
@@ -272,27 +253,38 @@ id = "T1036.005"
 name = "Match Legitimate Resource Name or Location"
 reference = "https://attack.mitre.org/techniques/T1036/005/"
 
-
 [[rule.threat.technique]]
 id = "T1055"
 name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1554"
 name = "Compromise Host Software Binary"
 reference = "https://attack.mitre.org/techniques/T1554/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

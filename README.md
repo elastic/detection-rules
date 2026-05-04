@@ -84,8 +84,8 @@ Note: The `kibana` and `kql` packages are not available on PyPI and must be inst
 ```console
 
 # Install from the repository
-pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kibana
-pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=kql
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kibana
+pip3 install git+https://github.com/elastic/detection-rules.git#subdirectory=lib/kql
 
 # Or locally for development
 pip3 install lib/kibana lib/kql
@@ -162,4 +162,4 @@ Occasionally, we may want to import rules from another repository that already h
 - This repository includes new and updated rules that have not been released yet. To see the latest set of rules released with the stack, see the [Prebuilt rule reference](https://www.elastic.co/guide/en/security/current/prebuilt-rules-downloadable-updates.html).
 - If you’d like to report a false positive or other type of bug, please create a GitHub issue and check if there's an existing one first.
 - Need help with Detection Rules? Post an issue or ask away in our [Security Discuss Forum](https://discuss.elastic.co/c/security/) or the **#security-detection-rules** channel within [Slack workspace](https://www.elastic.co/blog/join-our-elastic-stack-workspace-on-slack).
-- For DaC specific cases, pleases see our [support and scope documentation](docs-dev/detections-as-code.md#support-and-scope) for more information. 
+- For DaC specific cases, please see our [support and scope documentation](docs-dev/detections-as-code.md#support-and-scope) for more information.

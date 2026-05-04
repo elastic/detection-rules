@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["endpoint", "windows"]
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/30"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,7 @@ index = [
     "logs-endpoint.events.process-*",
     "logs-endpoint.events.network-*",
     "logs-windows.sysmon_operational-*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -58,6 +59,7 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
+    "Data Source: SentinelOne",
 ]
 type = "eql"
 
@@ -93,14 +95,28 @@ sequence by process.entity_id
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1127"
 name = "Trusted Developer Utilities Proxy Execution"
 reference = "https://attack.mitre.org/techniques/T1127/"
 
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.003"
+name = "CMSTP"
+reference = "https://attack.mitre.org/techniques/T1218/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.008"
+name = "Odbcconf"
+reference = "https://attack.mitre.org/techniques/T1218/008/"
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

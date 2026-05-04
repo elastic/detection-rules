@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2024/05/05"
+integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2025/11/10"
 
 [rule]
 author = ["Elastic"]
@@ -80,16 +81,42 @@ type = "esql"
 
 query = '''
 from logs-aws_bedrock.invocation-*
-| MV_EXPAND gen_ai.compliance.violation_code
-| MV_EXPAND gen_ai.policy.confidence
-| MV_EXPAND gen_ai.policy.name
-| where gen_ai.policy.action == "BLOCKED" and gen_ai.policy.name == "content_policy" and gen_ai.policy.confidence LIKE "HIGH" and gen_ai.compliance.violation_code IN ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
-| keep user.id, gen_ai.compliance.violation_code
-| stats block_count_per_violation = count() by user.id, gen_ai.compliance.violation_code
-| SORT block_count_per_violation DESC
-| keep user.id, gen_ai.compliance.violation_code, block_count_per_violation
-| STATS violation_count = SUM(block_count_per_violation) by user.id
-| WHERE violation_count > 5
-| SORT violation_count DESC
+
+// Expand multi-value fields
+| mv_expand gen_ai.compliance.violation_code
+| mv_expand gen_ai.policy.confidence
+| mv_expand gen_ai.policy.name
+| mv_expand gen_ai.policy.action
+
+// Filter for high-confidence content policy blocks with targeted violations
+| where
+  gen_ai.policy.action == "BLOCKED"
+  and gen_ai.policy.name == "content_policy"
+  and gen_ai.policy.confidence like "HIGH"
+  and gen_ai.compliance.violation_code in ("HATE", "MISCONDUCT", "SEXUAL", "INSULTS", "PROMPT_ATTACK", "VIOLENCE")
+
+// keep ECS + compliance fields
+| keep
+  user.id,
+  gen_ai.compliance.violation_code
+
+// count blocked violations per user per violation type
+| stats
+    Esql.ml_policy_blocked_violation_count = count()
+  by
+    user.id,
+    gen_ai.compliance.violation_code
+
+// Aggregate all violation types per user
+| stats
+    Esql.ml_policy_blocked_violation_total_count = sum(Esql.ml_policy_blocked_violation_count)
+  by
+    user.id
+
+// Filter for users with more than 5 total violations
+| where Esql.ml_policy_blocked_violation_total_count > 5
+
+// sort by violation volume
+| sort Esql.ml_policy_blocked_violation_total_count desc
 '''
 

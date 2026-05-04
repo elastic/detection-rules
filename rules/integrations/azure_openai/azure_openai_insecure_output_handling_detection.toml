@@ -1,7 +1,8 @@
 [metadata]
 creation_date = "2025/02/25"
+integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2025/04/07"
+updated_date = "2025/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -72,10 +73,22 @@ type = "esql"
 
 query = '''
 from logs-azure_openai.logs-*
-| where azure.open_ai.properties.response_length == 0 and azure.open_ai.result_signature == "200" and azure.open_ai.operation_name == "ChatCompletions_Create"
-| keep azure.open_ai.properties.request_length, azure.open_ai.result_signature, cloud.account.id, azure.resource.name
-| stats count = count() by azure.resource.name
-| where count >= 10
-| sort count desc
+| where
+    azure.open_ai.properties.response_length == 0 and
+    azure.open_ai.result_signature == "200" and
+    azure.open_ai.operation_name == "ChatCompletions_Create"
+| keep
+    azure.open_ai.properties.request_length,
+    azure.open_ai.result_signature,
+    cloud.account.id,
+    azure.resource.name
+| stats
+    Esql.event_count = count(*)
+  by
+    azure.resource.name
+| where
+    Esql.event_count >= 10
+| sort
+    Esql.event_count desc
 '''
 

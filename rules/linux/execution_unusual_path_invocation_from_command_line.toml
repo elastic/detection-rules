@@ -2,7 +2,7 @@
 creation_date = "2023/06/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/24"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -59,7 +59,19 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and
 process.name:(bash or csh or dash or fish or ksh or sh or tcsh or zsh) and process.args:-c and
-process.command_line:(*PATH=* and not sh*/run/motd.dynamic.new)
+process.command_line:*PATH=* and
+not (
+  process.command_line:(*_PATH=* or *PYTHONPATH=* or sh*/run/motd.dynamic.new) or
+  process.parent.executable:(
+    "/opt/puppetlabs/puppet/bin/puppet" or /var/lib/docker/overlay2/* or /vz/root/*/dovecot or
+    "/usr/libexec/dovecot/auth" or /home/*/.local/share/containers/* or /vz/root/*/dovecot/auth or
+    "/usr/local/bin/ansible-playbook" or "/opt/puppetlabs/puppet/bin/ruby" or /tmp/CVU_19_resource_*/exectask or
+    "/opt/ds_agent/ds_agent" or "/usr/lib/systemd/systemd" or "/opt/TrendMicro/vls_agent/vls_agent" or
+    "/opt/Tanium/TaniumClient/TaniumCX"
+  ) or
+  process.parent.command_line:"runc init" or
+  process.parent.name:(gmake or sshd or sudo or make or ninja or ninja-build or steam or sshd-session)
+)
 '''
 note = """## Triage and analysis
 
@@ -123,15 +135,24 @@ id = "T1564"
 name = "Hide Artifacts"
 reference = "https://attack.mitre.org/techniques/T1564/"
 
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1574.007"
+name = "Path Interception by PATH Environment Variable"
+reference = "https://attack.mitre.org/techniques/T1574/007/"
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.parent.executable"]
+value = ["process.parent.name"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"

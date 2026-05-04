@@ -2,7 +2,7 @@
 creation_date = "2022/11/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/03/24"
 
 [rule]
 author = ["Elastic"]
@@ -90,7 +90,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.code:"5136" and winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and
+event.code:"5136" and host.os.type:"windows" and winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and
   winlog.event_data.OperationType:"%%14674" and
   not winlog.event_data.SubjectUserSid : "S-1-5-18"
 '''
@@ -98,14 +98,18 @@ event.code:"5136" and winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCr
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
 reference = "https://attack.mitre.org/techniques/T1068/"
 
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

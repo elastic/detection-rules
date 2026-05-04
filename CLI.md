@@ -25,9 +25,11 @@ Currently supported arguments:
 * elasticsearch_url
 * kibana_url
 * cloud_id
-* *_user (kibana and es)
-* *_password (kibana and es)
+* es_user 
+* es_password
 * api_key
+
+Authenticating to Kibana is only available using api_key.
 
 #### Using environment variables
 
@@ -44,8 +46,18 @@ Using the environment variable `DR_BYPASS_TAGS_VALIDATION` will bypass the Detec
 
 Using the environment variable `DR_BYPASS_TIMELINE_TEMPLATE_VALIDATION` will bypass the timeline template id and title validation for rules. 
 
+Using the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION` will bypass local validation that ES|QL rules include a `keep` command and that non-aggregate queries list `_id`, `_version`, and `_index` in `keep` (other ES|QL checks are unchanged).
+
+Using the environment variable `DR_BYPASS_ESQL_METADATA_VALIDATION` will bypass local validation that non-aggregate ES|QL queries use `FROM ... METADATA _id, _version, _index` or an aggregate `STATS ... BY` pattern (other ES|QL checks are unchanged).
+
+In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of the above at load time. Alternatively, set any of the top-level booleans `bypass_note_validation_and_parse`, `bypass_bbr_lookback_validation`, `bypass_tags_validation`, `bypass_timeline_template_validation`, `bypass_esql_keep_validation`, or `bypass_esql_metadata_validation` to `true` (see comments in `detection_rules/etc/_config.yaml`).
+
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
+
+Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
+
+Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
 
 ## Importing rules into the repo
 
@@ -104,6 +116,7 @@ Options:
   -snv, --strip-none-values       Strip None values from the rule
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 ```
 
@@ -154,8 +167,8 @@ Options:
   -h, --help                Show this message and exit.
 
 Commands:
-  export-rules   Export custom rules from Kibana.
-  import-rules   Import custom rules into Kibana.
+  export-rules   Export rules from Kibana.
+  import-rules   Import rules into Kibana.
   search-alerts  Search detection engine alerts with KQL.
   upload-rule    [Deprecated] Upload a list of rule .toml files to Kibana.
 ```
@@ -242,7 +255,7 @@ Options:
 
 Usage: detection_rules kibana import-rules [OPTIONS]
 
-  Import custom rules into Kibana.
+  Import rules into Kibana.
 
 Options:
   -f, --rule-file FILE
@@ -400,21 +413,25 @@ python -m detection_rules kibana import-rules -d test-export-rules -o
 Toml formatted rule files can also be imported into Kibana through Kibana security app via a consolidated ndjson file
 which is exported from detection rules.
 
+For this command, **`-d` / `--directory`** selects **input**: directories to load rules from (same as other multi-collection commands). **`--outfile` / `-o`** is the **NDJSON output path** when you are not using YAML mode. **`--save-yaml-dir` / `-syd`** writes **per-rule (and related) YAML files** into that directory instead of producing a single NDJSON file; when `-syd` is set, `-o` is unused.
+
+Default NDJSON path when `-o` is omitted: `exports/<timestamp>.ndjson` under the detection-rules repository root.
+
 ```console
 Usage: detection_rules export-rules-from-repo [OPTIONS]
 
   Export rule(s) and exception(s) into an importable ndjson file.
 
 Options:
-  -f, --rule-file FILE
-  -d, --directory DIRECTORY       Recursively load rules from a directory
-  -id, --rule-id TEXT
+  -f, --rule-file FILE            Rule file(s) to load (repeatable)
+  -d, --directory DIRECTORY      Recursively load rules from a directory (repeatable)
+  -id, --rule-id TEXT             Load prebuilt rules matching these IDs (repeatable)
   -nt, --no-tactic-filename       Allow rule filenames without tactic prefix. Use this if rules have been exported with this flag.
-  -o, --outfile PATH              Name of file for exported rules
-  -r, --replace-id                Replace rule IDs with new IDs before export
-  --stack-version [7.8|7.9|7.10|7.11|7.12|7.13|7.14|7.15|7.16|8.0|8.1|8.2|8.3|8.4|8.5|8.6|8.7|8.8|8.9|8.10|8.11|8.12|8.13|8.14|8.15|8.16|8.17|8.18|9.0]
-                                  Downgrade a rule version to be compatible with older instances of Kibana
-  -s, --skip-unsupported          If `--stack-version` is passed, skip rule types which are unsupported (an error will be raised otherwise)
+  -o, --outfile PATH              NDJSON file path for exported rules (ignored if --save-yaml-dir is set)
+  -syd, --save-yaml-dir PATH      Export individual YAML files into this directory instead of NDJSON
+  -r, --replace-id                Replace rule IDs with new UUIDs before export
+  --stack-version [7.8|...|9.0]   Downgrade rule payloads for older Kibana (see `export-rules-from-repo --help` for full list)
+  -s, --skip-unsupported          With `--stack-version`, skip unsupported rule types instead of erroring
   --include-metadata              Add metadata to the exported rules
   -ac, --include-action-connectors
                                   Include Action Connectors in export
@@ -484,30 +501,34 @@ Options:
 
 Usage: detection_rules kibana export-rules [OPTIONS]
 
-  Export custom rules from Kibana.
+  Export rules from Kibana.
 
 Options:
-  -d, --directory PATH            Directory to export rules to  [required]
+  -d, --directory PATH            Directory to write exported rules to  [required]
   -acd, --action-connectors-directory PATH
-                                  Directory to export action connectors to
+                                  Directory to export action connectors to (defaults from rules config if omitted)
   -ed, --exceptions-directory PATH
-                                  Directory to export exceptions to
+                                  Directory to export exceptions to (defaults from rules config if omitted)
   -da, --default-author TEXT      Default author for rules missing one
-  -r, --rule-id TEXT              Optional Rule IDs to restrict export to
-  -rn, --rule-name TEXT           Optional Rule name to restrict export to (KQL, case-insensitive, supports wildcards)
+  -r, --rule-id TEXT              Optional rule ID(s) to restrict export to (repeatable)
+  -rn, --rule-name TEXT           Optional rule name filter (KQL, case-insensitive, wildcards); mutually exclusive with `--rule-id`
   -ac, --export-action-connectors
                                   Include action connectors in export
   -e, --export-exceptions         Include exceptions in export
   -s, --skip-errors               Skip errors when exporting rules
+  -sy, --save-as-yaml             Write rules (and exported exceptions/connectors when requested) as YAML under `--directory` instead of TOML
   -sv, --strip-version            Strip the version fields from all rules
   -nt, --no-tactic-filename       Exclude tactic prefix in exported filenames for rules. Use same flag for import-rules to prevent warnings and disable its unit test.
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -cro, --custom-rules-only       Only export custom rules
   -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
+  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
   -h, --help                      Show this message and exit.
 
 ```
+
+**Note:** `kibana export-rules` **`--directory` / `-d`** is the **output** directory only. It is unrelated to **`export-rules-from-repo`**, where **`-d`** means **input** rule directories.
 
 Example of a rule exporting, with errors skipped
 

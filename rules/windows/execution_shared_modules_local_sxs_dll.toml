@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/10/28"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/04/07"
 
 [rule]
 author = ["Elastic"]
@@ -19,6 +19,7 @@ index = [
     "endgame-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -39,28 +40,51 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and file.extension : "dll" and file.path : "C:\\*\\*.exe.local\\*.dll"
+file where host.os.type == "windows" and file.extension : "dll" and
+  file.path : (
+    "C:\\*\\*.exe.local\\*.dll",
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\*\\*.exe.local\\*.dll"
+  )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1129"
 name = "Shared Modules"
 reference = "https://attack.mitre.org/techniques/T1129/"
-
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,0 +1,60 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2025/10/13"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2025/10/13"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the deletion of Azure Recovery Services resources. Azure Recovery Services vaults contain data for copies of
+VMs, workloads, servers, and other resources regarding Infrastructure as a Service (IaaS). Adversaries may delete these
+recovery services to impact backup capabilities during stable operations or to inhibit disaster recovery services during
+ransom-based attacks or operational disruptions.
+"""
+from = "now-9m"
+index = ["logs-azure.activitylogs-*", "filebeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Recovery Services Resource Deleted"
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2023/07/25/storm-0501-ransomware-attacks-expanding-to-hybrid-cloud-environments/",
+]
+risk_score = 47
+rule_id = "b8c3e5d0-8a1a-11ef-9b4a-f661ea17fbce"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Storage",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset:azure.activitylogs and
+    azure.activitylogs.operation_name:MICROSOFT.RECOVERYSERVICES/*/DELETE and
+    event.outcome:(Success or success)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
