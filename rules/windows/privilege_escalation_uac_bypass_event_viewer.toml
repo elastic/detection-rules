@@ -81,20 +81,20 @@ note = """## Triage and analysis
   - Implication: escalate when Office, browser, archive, scripting, RMM, or remote/noninteractive activity launched Event Viewer; lower suspicion only when launcher and session also support controlled testing or helper behavior. Routine Event Viewer use should open Microsoft Management Console, not an arbitrary child.
 
 - Is there corroborating current-user mscfile hijack evidence when process evidence stays suspicious?
-  - Focus: if registry telemetry exists, review current-user mscfile shell-open command content, creator/deleter process, and timing; HKCU may render as HKEY_USERS\\<user SID>\\Software\\Classes\\mscfile\\shell\\open\\command. $investigate_1
+  - Focus: if registry telemetry exists, review current-user mscfile shell-open command content, creator/deleter process, and timing; HKCU may render as HKEY_USERS\\<user SID>\\Software\\Classes\\mscfile\\shell\\open\\command.
   - Hint: use this as corroboration, not as a prerequisite for escalation. Missing registry telemetry is unresolved, not benign; absence of the key after the alert can mean cleanup.
   - Implication: escalate or raise confidence when the value points to the alert child, a script interpreter, a temp/user path, or was created or removed around the alert; lower suspicion only when artifact evidence fits the same confirmed test or helper behavior already supported by process evidence.
 
 - What did the elevated child do next?
-  - Focus: child process events where `process.parent.entity_id` matches `process.entity_id`; review executable, command line, and integrity level. $investigate_2
+  - Focus: child process events where `process.parent.entity_id` matches `process.entity_id`; review executable, command line, and integrity level. $investigate_1
   - Hint: prefer entity-ID matches; if only PID matches are available, keep them tightly anchored to `@timestamp`.
   - Implication: escalate when the elevated child spawns shells, discovery, credential tools, droppers, installers, persistence helpers, or network-capable tooling; do not close on absent follow-on children when the original command, lineage, or mscfile evidence remains suspicious.
 
 - Does the same Event Viewer payload pattern recur beyond this host?
   - Range: run only when local process, command, artifact, or lineage evidence remains suspicious or unresolved.
   - Focus: `process.hash.sha256`, stable command-line fragments, and `process.executable`, scoped by host and user.
+    - $investigate_2
     - $investigate_3
-    - $investigate_4
   - Implication: broaden when the same payload or Event Viewer child pattern appears for unrelated hosts or users; keep locally scoped when recurrence is limited to the same confirmed test cohort and no contradictory local evidence remains.
 
 - Based on the evidence gathered, what disposition is supported?
@@ -168,19 +168,6 @@ providers = [
     { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
     { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
     { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
-
-[[transform.investigate]]
-label = "Current-user mscfile registry events"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "registry.path", queryType = "phrase", value = "*\\Software\\Classes\\mscfile\\shell\\open\\command*", valueType = "string" }
   ]
 ]
 relativeFrom = "now-1h"

@@ -74,17 +74,17 @@ note = """## Triage and analysis
   - Implication: escalate when reg.exe, rundll32.exe, a scripting host, a user-writable binary, or an unexpected interactive user wrote the values; lower concern when writer identity, parentage, and service context match the same confirmed driver deployment.
 
 - What DLL path did Module name, and was it staged?
-  - Focus: recovered Module `registry.data.strings`; if file telemetry exists, exact-path `file.path`, `file.Ext.original.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier`. Missing file telemetry leaves staging unresolved, not benign. $investigate_0
+  - Focus: recovered Module `registry.data.strings`; if file telemetry exists, exact-path `file.path`, `file.Ext.original.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier`. Missing file telemetry leaves staging unresolved, not benign.
   - Implication: escalate when the path names a newly written, renamed, internet-marked, or script-staged DLL in the spool drivers tree; lower concern when the exact path is a stable signed printer-driver package tied to the recovered printer object and writer workflow.
 
 - Did Print Spooler or print isolation consume the module?
   - Why: CVE-2020-1030 abuse becomes higher impact when the CopyFiles\\Payload\\Module value is loaded or spooler restart behavior forces the changed configuration into effect.
-  - Focus: in library or process telemetry, check spoolsv.exe or PrintIsolationHost.exe loading the recovered path with `dll.path`, `dll.hash.sha256`, `dll.code_signature.subject_name`, and `dll.code_signature.trusted`. $investigate_2
+  - Focus: in library or process telemetry, check spoolsv.exe or PrintIsolationHost.exe loading the recovered path with `dll.path`, `dll.hash.sha256`, `dll.code_signature.subject_name`, and `dll.code_signature.trusted`. $investigate_1
   - Hint: pivot on the recovered Module path because the sequence alert may not preserve that value; spooler termination or restart around the writes can be a force-load clue.
   - Implication: escalate immediately when spooler loads the recovered DLL, restarts unexpectedly, or shows abnormal child activity soon after the writes; absent load telemetry does not clear a matching registry chain.
 
 - If suspicious or unresolved, does the pattern appear beyond this alert?
-  - Focus: related alerts for `host.id`, then exact matches for recovered `registry.data.strings`, printer `registry.path`, or `dll.hash.sha256` across other hosts when available. $investigate_1
+  - Focus: related alerts for `host.id`, then exact matches for recovered `registry.data.strings`, printer `registry.path`, or `dll.hash.sha256` across other hosts when available. $investigate_0
   - Implication: broaden response when the same module path, DLL hash, printer-object pattern, or spooler-abuse alert appears on unrelated hosts; keep scope local when the pattern stays confined to the same confirmed driver workflow.
 
 - What disposition do registry chain, writer, payload, spooler, and scope evidence support?
@@ -129,19 +129,6 @@ field_names = [
 ]
 
 [transform]
-
-[[transform.investigate]]
-label = "File events in the spool driver staging path"
-description = ""
-providers = [
-  [
-    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
-    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "file.path", queryType = "phrase", value = "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*", valueType = "string" }
-  ]
-]
-relativeFrom = "now-1h"
-relativeTo = "now"
 
 [[transform.investigate]]
 label = "Alerts associated with the host"
