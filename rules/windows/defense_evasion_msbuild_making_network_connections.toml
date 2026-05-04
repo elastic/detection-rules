@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/04/30"
 
 [transform]
 [[transform.osquery]]
@@ -130,10 +130,6 @@ sequence by process.entity_id with maxspan=30s
   /* Exclude domains that are known to be benign */
   [network where host.os.type == "windows" and
     event.action: ("connection_attempted", "lookup_requested") and
-    (
-      process.pe.original_file_name: "MSBuild.exe" or
-      process.name: "MSBuild.exe"
-    ) and
     not user.id == "S-1-5-18" and
     not cidrmatch(destination.ip, "127.0.0.1", "::1") and
     not dns.question.name : (
