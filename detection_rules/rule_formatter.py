@@ -155,7 +155,7 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
 
         if multiline:
             if raw:
-                return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
+                return "".join([TRIPLE_DQ] + initial_newline + [json.dumps(line.strip("\n"))[1:-1] + "\n" for line in lines] + [TRIPLE_DQ])
             return "\n".join([TRIPLE_SQ] + [json.dumps(line)[1:-1] for line in lines] + [TRIPLE_SQ])
         if raw:
             return f"'{lines[0]:s}'"
