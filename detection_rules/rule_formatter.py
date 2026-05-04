@@ -107,14 +107,14 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
     def preserve_descendant_values(target: Any) -> None:
         """Preserve any string value fields under query DSL nodes."""
         if isinstance(target, dict):
-            for key, value in target.items():
+            for key, value in target.items():  # type: ignore[reportUnknownVariableType]
                 if key == "value" and isinstance(value, str):
                     target[key] = NonformattedField(value)
                 elif isinstance(value, dict | list):
                     preserve_descendant_values(value)
 
         if isinstance(target, list):
-            for value in target:
+            for value in target:  # type: ignore[reportUnknownVariableType]
                 preserve_descendant_values(value)
 
     def apply_preservation(target: OrderedDict[str, Any], keys: list[str]) -> None:
