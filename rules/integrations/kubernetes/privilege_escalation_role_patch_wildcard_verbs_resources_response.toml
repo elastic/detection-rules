@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/04/27"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/04/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Flags an existing Role or ClusterRole being changed (patch or update) so the effective rules become cluster-admin-like:
+wildcard on every API resource and wildcard on every verb. That is usually a deliberate privilege expansion, not a typo.
+RequestResponse audit and the response body are required so the detection reads the merged role after apply; loopback
+source IPs are ignored.
+"""
+false_positives = [
+    """
+    Platform installers, GitOps controllers, and emergency break-glass roles sometimes ship or widen wildcard
+    ClusterRoles; correlate with change records and narrow by user or service account when baselined.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Kubernetes RBAC Wildcard Elevation on Existing Role"
+note = """## Triage and analysis
+
+### Investigating Kubernetes RBAC Wildcard Elevation on Existing Role
+
+Someone patched or updated a Role or ClusterRole so the stored rules grant star verbs and star resources—near
+cluster-admin breadth on that scope. Confirm the actor (user, group, impersonation), client, and non-loopback source
+IP; then see who can bind that role.
+
+### Possible investigation steps
+
+- Diff the role YAML before and after; list RoleBindings and ClusterRoleBindings that reference it and which subjects
+  gained the widened access.
+- In the same window, check secret reads, exec, and further RBAC changes from the same identity.
+
+### False positive analysis
+
+- Approved GitOps or vendor upgrades sometimes widen a known ClusterRole; allowlist stable automation when documented.
+
+### Response and remediation
+
+- Revert the role, drop unexpected bindings, rotate credentials for the actor, and block future wildcard RBAC outside
+  governed pipelines (policy-as-code, PR-only RBAC).
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/006/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+]
+risk_score = 73
+rule_id = "c8f4a2e1-9b3d-4c7e-8f2a-1d0e5b6c7a89"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-kubernetes.audit_logs-* metadata _id, _index, _version
+| where
+  kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
+  kubernetes.audit.verb in ("update", "patch") and
+  `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+  kubernetes.audit.level == "RequestResponse" and
+  kubernetes.audit.stage == "ResponseComplete" and
+  kubernetes.audit.sourceIPs is not null and
+  not kubernetes.audit.sourceIPs in ("::1", "127.0.0.1") and
+  KQL(""" kubernetes.audit.responseObject.rules.verbs:"*" and kubernetes.audit.responseObject.rules.resources:"*" """)
+| keep user.name, user_agent.original, event.action, source.ip, kubernetes.audit.verb, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, kubernetes.audit.user.username, kubernetes.audit.user.groups, `kubernetes.audit.annotations.authorization_k8s_io/decision`, event.original, _id, _version, _index, data_stream.namespace
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
