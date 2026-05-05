@@ -260,7 +260,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
                 v = [preserve_formatting_for_fields(action, preserved_fields) for action in v] if v is not None else []
 
             if k == "filters":
-                # explicitly preserve formatting for value field in filters
+                # explicitly preserve formatting for value field and query subfields in filters
                 preserved_fields = ["meta.value", "query"]
                 v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
 
