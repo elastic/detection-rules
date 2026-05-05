@@ -392,6 +392,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     type: definitions.RuleType
 
     actions: list[dict[str, Any]] | None = None
+    response_actions: list[dict[str, Any]] | None = None
     building_block_type: definitions.BuildingBlockType | None = None
     enabled: bool | None = None
     exceptions_list: list[dict[str, str]] | None = None
@@ -483,9 +484,199 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 
         return obj
 
+    @staticmethod
+    def _validate_response_action_unknown_fields(
+        path: str, value: dict[str, Any], expected_fields: set[str], errors: list[str]
+    ) -> None:
+        unknown_fields = sorted(set(value) - expected_fields)
+        if unknown_fields:
+            errors.append(f"{path} contains unknown field(s): {', '.join(unknown_fields)}")
+
+    @classmethod
+    def _validate_osquery_ecs_mapping(cls, path: str, value: Any, errors: list[str]) -> None:
+        if not isinstance(value, dict):
+            errors.append(f"{path} must be an object")
+            return
+
+        ecs_mapping = typing.cast("dict[str, Any]", value)
+        for mapping_name, mapping_value in ecs_mapping.items():
+            mapping_path = f"{path}.{mapping_name}"
+            if not isinstance(mapping_value, dict):
+                errors.append(f"{mapping_path} must be an object")
+                continue
+
+            typed_mapping_value = typing.cast("dict[str, Any]", mapping_value)
+            cls._validate_response_action_unknown_fields(mapping_path, typed_mapping_value, {"field", "value"}, errors)
+
+            field_value = typed_mapping_value.get("field")
+            if field_value is not None and not isinstance(field_value, str):
+                errors.append(f"{mapping_path}.field must be a string")
+
+            static_value = typed_mapping_value.get("value")
+            if static_value is None:
+                continue
+            if isinstance(static_value, str):
+                continue
+            if isinstance(static_value, list):
+                typed_static_value = typing.cast("list[Any]", static_value)
+                if all(isinstance(item, str) for item in typed_static_value):
+                    continue
+            errors.append(f"{mapping_path}.value must be a string or array of strings")
+
+    @staticmethod
+    def _validate_osquery_timeout(path: str, timeout: Any, errors: list[str]) -> None:
+        is_number = isinstance(timeout, (int, float)) and not isinstance(timeout, bool)
+        if not is_number:
+            errors.append(f"{path}.timeout must be a number")
+        elif not definitions.OSQUERY_TIMEOUT_MIN <= timeout <= definitions.OSQUERY_TIMEOUT_MAX:
+            errors.append(
+                f"{path}.timeout must be between {definitions.OSQUERY_TIMEOUT_MIN} "
+                f"and {definitions.OSQUERY_TIMEOUT_MAX}"
+            )
+
+    @classmethod
+    def _validate_osquery_query(cls, query_path: str, query: dict[str, Any], errors: list[str]) -> None:
+        cls._validate_response_action_unknown_fields(query_path, query, definitions.OSQUERY_QUERY_FIELDS, errors)
+
+        for required_field in ("id", "query"):
+            if required_field not in query:
+                errors.append(f"{query_path}.{required_field} is required")
+            elif not isinstance(query[required_field], str):
+                errors.append(f"{query_path}.{required_field} must be a string")
+
+        for optional_field in ("platform", "version"):
+            value = query.get(optional_field)
+            if value is not None and not isinstance(value, str):
+                errors.append(f"{query_path}.{optional_field} must be a string")
+
+        for optional_field in ("removed", "snapshot"):
+            value = query.get(optional_field)
+            if value is not None and not isinstance(value, bool):
+                errors.append(f"{query_path}.{optional_field} must be a boolean")
+
+        query_ecs_mapping = query.get("ecs_mapping")
+        if query_ecs_mapping is not None:
+            cls._validate_osquery_ecs_mapping(f"{query_path}.ecs_mapping", query_ecs_mapping, errors)
+
+    @classmethod
+    def _validate_osquery_queries(cls, path: str, queries: Any, errors: list[str]) -> None:
+        if not isinstance(queries, list):
+            errors.append(f"{path}.queries must be an array")
+            return
+
+        typed_queries = typing.cast("list[Any]", queries)
+        for query_idx, query in enumerate(typed_queries):
+            query_path = f"{path}.queries[{query_idx}]"
+            if not isinstance(query, dict):
+                errors.append(f"{query_path} must be an object")
+                continue
+            cls._validate_osquery_query(query_path, typing.cast("dict[str, Any]", query), errors)
+
+    @classmethod
+    def _validate_osquery_params(cls, path: str, params: dict[str, Any], errors: list[str]) -> None:
+        cls._validate_response_action_unknown_fields(path, params, definitions.OSQUERY_PARAM_FIELDS, errors)
+
+        for field_name in ("pack_id", "query", "saved_query_id"):
+            value = params.get(field_name)
+            if value is not None and not isinstance(value, str):
+                errors.append(f"{path}.{field_name} must be a string")
+
+        timeout = params.get("timeout")
+        if timeout is not None:
+            cls._validate_osquery_timeout(path, timeout, errors)
+
+        ecs_mapping = params.get("ecs_mapping")
+        if ecs_mapping is not None:
+            cls._validate_osquery_ecs_mapping(f"{path}.ecs_mapping", ecs_mapping, errors)
+
+        queries = params.get("queries")
+        if queries is not None:
+            cls._validate_osquery_queries(path, queries, errors)
+
+    @classmethod
+    def _validate_endpoint_params(cls, path: str, params: dict[str, Any], errors: list[str]) -> None:
+        cls._validate_response_action_unknown_fields(path, params, {"command", "comment", "config"}, errors)
+
+        command = params.get("command")
+        if command not in definitions.ENDPOINT_ACTION_COMMANDS:
+            errors.append(f"{path}.command must be one of: {', '.join(sorted(definitions.ENDPOINT_ACTION_COMMANDS))}")
+            return
+
+        comment = params.get("comment")
+        if comment is not None and not isinstance(comment, str):
+            errors.append(f"{path}.comment must be a string")
+
+        config = params.get("config")
+        if command == "isolate":
+            if config is not None:
+                errors.append(f"{path}.config is only supported for kill-process and suspend-process")
+            return
+
+        if command in definitions.ENDPOINT_PROCESS_COMMANDS:
+            if not isinstance(config, dict):
+                errors.append(f"{path}.config is required and must be an object")
+                return
+
+            typed_config = typing.cast("dict[str, Any]", config)
+            cls._validate_response_action_unknown_fields(f"{path}.config", typed_config, {"field", "overwrite"}, errors)
+
+            if "field" not in typed_config:
+                errors.append(f"{path}.config.field is required")
+            elif not isinstance(typed_config["field"], str):
+                errors.append(f"{path}.config.field must be a string")
+
+            overwrite = typed_config.get("overwrite")
+            if overwrite is not None and not isinstance(overwrite, bool):
+                errors.append(f"{path}.config.overwrite must be a boolean")
+
+    @classmethod
+    def _validate_response_actions(cls, response_actions: Any) -> None:
+        """Validate response action payloads against Kibana's create rule API schema."""
+        if response_actions is None:
+            return
+
+        errors: list[str] = []
+        if not isinstance(response_actions, list):
+            raise ValidationError({"response_actions": ["response_actions must be an array"]})
+
+        typed_response_actions = typing.cast("list[Any]", response_actions)
+        for idx, response_action in enumerate(typed_response_actions):
+            path = f"response_actions[{idx}]"
+            if not isinstance(response_action, dict):
+                errors.append(f"{path} must be an object")
+                continue
+
+            typed_response_action = typing.cast("dict[str, Any]", response_action)
+            cls._validate_response_action_unknown_fields(
+                path, typed_response_action, definitions.RESPONSE_ACTION_FIELDS, errors
+            )
+
+            action_type_id = typed_response_action.get("action_type_id")
+            if action_type_id not in definitions.RESPONSE_ACTION_TYPES:
+                errors.append(
+                    f"{path}.action_type_id must be one of: {', '.join(sorted(definitions.RESPONSE_ACTION_TYPES))}"
+                )
+                continue
+
+            params = typed_response_action.get("params")
+            if not isinstance(params, dict):
+                errors.append(f"{path}.params is required and must be an object")
+                continue
+
+            typed_params = typing.cast("dict[str, Any]", params)
+            if action_type_id == ".osquery":
+                cls._validate_osquery_params(f"{path}.params", typed_params, errors)
+            elif action_type_id == ".endpoint":
+                cls._validate_endpoint_params(f"{path}.params", typed_params, errors)
+
+        if errors:
+            raise ValidationError({"response_actions": errors})
+
     @validates_schema
     def validates_data(self, data: dict[str, Any], **_: Any) -> None:
         """Validate fields and data for marshmallow schemas."""
+
+        BaseRuleData._validate_response_actions(data.get("response_actions"))
 
         # Validate version and revision fields not supplied.
         disallowed_fields = [field for field in ["version", "revision"] if data.get(field) is not None]

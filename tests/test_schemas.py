@@ -254,6 +254,63 @@ class TestSchemas(unittest.TestCase):
                     process where process.pid == "some string field"
             """)
 
+    def test_response_actions_validation(self):
+        base_fields = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-endpoint.events.*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "process.name:test.query",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+
+        def build_rule(response_actions):
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+            }
+            data = base_fields.copy()
+            data["response_actions"] = response_actions
+            return TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+        response_actions = [
+            {
+                "action_type_id": ".osquery",
+                "params": {
+                    "query": "select * from processes;",
+                    "timeout": 120,
+                    "ecs_mapping": {"process.pid": {"field": "pid"}},
+                    "queries": [{"id": "processes", "query": "select * from processes;"}],
+                },
+            },
+            {"action_type_id": ".endpoint", "params": {"command": "isolate", "comment": "isolate host"}},
+            {
+                "action_type_id": ".endpoint",
+                "params": {
+                    "command": "kill-process",
+                    "comment": "kill process",
+                    "config": {"field": "", "overwrite": True},
+                },
+            },
+        ]
+        contents = build_rule(response_actions)
+        self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
+
+        with self.assertRaisesRegex(ValidationError, "action_type_id"):
+            build_rule([{"action_type_id": ".email", "params": {}}])
+
+        with self.assertRaisesRegex(ValidationError, "params.config"):
+            build_rule([{"action_type_id": ".endpoint", "params": {"command": "suspend-process"}}])
+
+        with self.assertRaisesRegex(ValidationError, "timeout"):
+            build_rule([{"action_type_id": ".osquery", "params": {"timeout": 30}}])
+
 
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
