@@ -154,9 +154,12 @@ class RuleTomlEncoder(toml.TomlEncoder):  # type: ignore[reportMissingTypeArgume
         raw = (multiline or (DQ in v and SQ not in v)) and TRIPLE_DQ not in v
 
         if multiline:
-            if raw:
-                return "".join([TRIPLE_DQ, *initial_newline, *lines, TRIPLE_DQ])
-            return "\n".join([TRIPLE_SQ] + [json.dumps(line)[1:-1] for line in lines] + [TRIPLE_SQ])
+            # Triple-double-quoted basic strings allow literal newlines and literal ``"``
+            # (as long as ``"""`` doesn't appear, which is guarded above via ``TRIPLE_DQ not in v``),
+            # but backslashes must be escaped so that e.g. ``Hello\:World`` is serialized as
+            # ``Hello\\:World`` -- otherwise ``\:`` is an invalid TOML escape sequence (issue #5182).
+            escaped_lines = [line.replace("\\", "\\\\") for line in lines]
+            return "".join([TRIPLE_DQ, *initial_newline, *escaped_lines, TRIPLE_DQ])
         if raw:
             return f"'{lines[0]:s}'"
         # In the toml library there is a magic replace for \\\\x -> u00 that we wish to avoid until #4979 is resolved
