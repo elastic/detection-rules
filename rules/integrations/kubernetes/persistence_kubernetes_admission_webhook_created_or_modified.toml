@@ -35,16 +35,40 @@ MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by ident
 
 ### Possible investigation steps
 
-- Retrieve the full webhook object from the audit event (or via `kubectl get -o yaml`) and review the webhook rules,
-  failurePolicy, and the service/URL destination to identify injection or exfiltration paths.
-- Validate the actor identity, source IP, and user agent against expected GitOps controllers or admin workstations.
-- Correlate with workload changes after the webhook update (unexpected sidecars, new env vars, or blocked deployments).
+- Confirm the webhook resource and operation:
+  - `kubernetes.audit.objectRef.resource` and `kubernetes.audit.verb`
+  - `kubernetes.audit.objectRef.name` (the webhook configuration name)
+- Attribute the actor and access path:
+  - `user.name` / `kubernetes.audit.user.username` (human vs service account vs node identity)
+  - `source.ip` / `kubernetes.audit.sourceIPs` and `user_agent.original` / `kubernetes.audit.userAgent`
+  - In cloud-managed clusters, map the identity to IAM/Entra principal data present in `kubernetes.audit.user.extra.*`.
+- Extract the webhook destination and review for external exfiltration:
+  - `kubernetes.audit.requestObject.webhooks.clientConfig.url` (suspicious when pointing to the public internet)
+  - `kubernetes.audit.requestObject.webhooks.clientConfig.service.*` (in-cluster service; still validate namespace/name)
+- Review impact-driving webhook settings:
+  - `failurePolicy` (e.g., `Ignore` can make malicious webhooks stealthier by avoiding obvious outages)
+  - `namespaceSelector` / `objectSelector` targeting (e.g., excluding `kube-system` while targeting everything else)
+  - `rules.operations` and `rules.resources` (e.g., `CREATE pods` is consistent with broad sidecar injection)
+  - `sideEffects`, `timeoutSeconds`, `matchPolicy`, `reinvocationPolicy`
+- Scope blast radius and follow-on activity:
+  - Hunt for pods created/updated after the webhook change that include unexpected containers, initContainers, env vars,
+    volume mounts, or securityContext changes.
+  - Check for concurrent RBAC changes, token creation, or secret access from the same identity and source IP.
+
+### False positive analysis
+
+- GitOps upgrades or controller installs can legitimately change admission webhooks. Validate the change against:
+  - approved Helm/Git commits, change tickets, and expected controller namespaces
+  - known controller identities (cert-manager, Gatekeeper, Kyverno, service mesh controllers)
 
 ### Response and remediation
 
-- If unauthorized, revert the webhook configuration from a known-good GitOps commit, delete the malicious webhook, and
-  rotate credentials used by the actor.
-- Review all recent pod creations/updates for mutations during the compromise window and redeploy affected workloads.
+- If unauthorized, revert or delete the webhook configuration from a known-good source (GitOps/Helm), then block the
+  actor identity and rotate any credentials it used.
+- If the webhook targeted pod creation, assume workload impact: identify affected namespaces/workloads, redeploy from
+  trusted manifests/images, and validate that new pods are no longer being mutated.
+- If an external `clientConfig.url` was used, treat it as potential data exfiltration and review egress/DNS logs for the
+  destination around the alert window.
 """
 risk_score = 47
 rule_id = "4f8f7c08-ffb5-443f-86c6-0884c964df7b"
