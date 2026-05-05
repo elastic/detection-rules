@@ -30,6 +30,10 @@ TRIPLE_DQ = DQ * 3
 # - actions[].params.message
 NESTED_PRESERVED_FIELD_NAMES: set[str] = {"message"}
 
+# rule.filters.query (ES DSL): dict keys whose string values skip word-wrap in TOML.
+# NOTE: add keys when a clause type stores long literals under another name.
+FILTER_QUERY_LITERAL_STRING_KEYS: set[str] = {"query", "value"}
+
 
 @cached
 def get_preserved_fmt_fields() -> set[str]:
