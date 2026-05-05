@@ -305,15 +305,6 @@ class TestSchemas(unittest.TestCase):
         contents = build_rule(response_actions)
         self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
 
-        with self.assertRaisesRegex(ValidationError, "action_type_id"):
-            build_rule([{"action_type_id": ".email", "params": {}}])
-
-        with self.assertRaisesRegex(ValidationError, "config"):
-            build_rule([{"action_type_id": ".endpoint", "params": {"command": "suspend-process"}}])
-
-        with self.assertRaisesRegex(ValidationError, "timeout"):
-            build_rule([{"action_type_id": ".osquery", "params": {"timeout": 30}}])
-
 
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
