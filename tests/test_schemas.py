@@ -305,7 +305,7 @@ class TestSchemas(unittest.TestCase):
         with self.assertRaisesRegex(ValidationError, "action_type_id"):
             build_rule([{"action_type_id": ".email", "params": {}}])
 
-        with self.assertRaisesRegex(ValidationError, "params.config"):
+        with self.assertRaisesRegex(ValidationError, "config"):
             build_rule([{"action_type_id": ".endpoint", "params": {"command": "suspend-process"}}])
 
         with self.assertRaisesRegex(ValidationError, "timeout"):

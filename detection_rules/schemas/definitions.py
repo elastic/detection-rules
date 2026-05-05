@@ -124,14 +124,8 @@ KNOWN_BAD_DEPRECATED_DATES = Literal["2021-03-03"]
 KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
 # Action type IDs (e.g. .cases) that do not support frequency/throttle; do not add frequency to these
 SYSTEM_ACTION_TYPE_IDS = (".cases",)
-RESPONSE_ACTION_FIELDS: Final[set[str]] = {"action_type_id", "params"}
-RESPONSE_ACTION_TYPES: Final[set[str]] = {".endpoint", ".osquery"}
-OSQUERY_PARAM_FIELDS: Final[set[str]] = {"ecs_mapping", "pack_id", "queries", "query", "saved_query_id", "timeout"}
-OSQUERY_QUERY_FIELDS: Final[set[str]] = {"ecs_mapping", "id", "platform", "query", "removed", "snapshot", "version"}
 OSQUERY_TIMEOUT_MIN: Final[int] = 60
 OSQUERY_TIMEOUT_MAX: Final[int] = 900
-ENDPOINT_ACTION_COMMANDS: Final[set[str]] = {"isolate", "kill-process", "suspend-process"}
-ENDPOINT_PROCESS_COMMANDS: Final[set[str]] = {"kill-process", "suspend-process"}
 OPERATORS = ["equals"]
 
 TIMELINE_TEMPLATES: Final[dict[str, str]] = {
@@ -238,6 +232,7 @@ RuleType = Literal["query", "saved_query", "machine_learning", "eql", "esql", "t
 StoreType = Literal["appState", "globalState"]
 TransformTypes = Literal["osquery", "investigate"]
 BuildingBlockType = Literal["default"]
+EndpointProcessCommand = Literal["kill-process", "suspend-process"]
 
 NON_EMPTY_STRING_FIELD = fields.String(validate=validate.Length(min=1))
 NonEmptyStr = Annotated[str, NON_EMPTY_STRING_FIELD]
