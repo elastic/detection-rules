@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/04/22"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies audit events for runc init child processes where the effective user is root and the login user ID is not root. 
+This pattern can indicate privilege escalation or credential separation abuse inside container runtimes, where a process executes 
+with elevated effective privileges while retaining a non-root audit identity.
+"""
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation in Container via Runc Init"
+note = """## Triage and analysis
+
+### Investigating Potential Privilege Escalation in Container via Runc Init
+
+runc is the low-level container runtime used by Docker, containerd, and others. The runc init process initializes the
+container environment. A mismatch between effective root (user.effective.id 0) and a non-root user.id in audit
+telemetry can reflect namespace or capability transitions worth validating in your environment.
+
+### Possible investigation steps
+
+- Confirm the host is running containers and identify which workload invoked runc (orchestrator, image, namespace).
+- Review full audit fields for the event: process, process.parent, user.*, and any container or cgroup metadata
+  available in your auditd_manager pipeline.
+- Correlate with other alerts on the same host (namespace changes, mounts, unshare, nsenter, suspicious image pulls).
+- Validate whether the pattern matches expected behavior for your container stack (e.g. specific init or security
+  profiles) before treating as malicious.
+
+### False positive analysis
+
+- Some legitimate container or CRI configurations may produce effective UID 0 with a non-root login UID in audit records.
+  Tune with host, image, or process ancestry exclusions after baseline review.
+
+### Response and remediation
+
+- If abuse is confirmed: isolate the node or workload, rotate credentials exposed to that container, and rebuild from a
+  trusted image after forensic capture.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1611/",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation",
+]
+risk_score = 73
+rule_id = "f2a8c4d1-6b3e-4a9f-8c2d-1e5f7a9b0c4d"
+setup = """## Setup
+
+This rule requires Linux audit events from the **Auditd Manager** integration.
+
+### Auditd Manager integration
+
+Auditd Manager simplifies configuring and monitoring the Linux audit subsystem via Fleet. Administrators define audit
+rules, collect events, and forward them to Elasticsearch.
+
+#### Steps to deploy Auditd Manager
+
+- In Kibana, go to **Integrations** and search for **Auditd Manager**.
+- Add the integration to an Elastic Agent policy that covers your Linux hosts.
+- Configure audit rules appropriate for your environment so execve and identity-related fields are captured where
+  needed for this detection.
+
+For more details, see the [Auditd Manager integration documentation](https://docs.elastic.co/integrations/auditd_manager).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+    "Data Source: Auditd Manager",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.category:process and 
+event.action:(executed or exec) and 
+process.title:"runc init" and user.effective.id:0 and user.id:(* and not 0)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
