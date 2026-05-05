@@ -403,6 +403,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     meta: dict[str, Any] | None = None
     note: definitions.Markdown | None = None
     references: list[str] | None = None
+    response_actions: list[dict[str, Any]] | None = None
     risk_score_mapping: list[RiskScoreMapping] | None = None
     rule_name_override: str | None = None
     severity_mapping: list[SeverityMapping] | None = None
