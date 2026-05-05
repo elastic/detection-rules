@@ -2,8 +2,7 @@
 creation_date = "2020/09/09"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -26,39 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Script Execution via Microsoft HTML Application"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Script Execution via Microsoft HTML Application
-
-Microsoft HTML Applications (HTA) allow scripts to run in a trusted environment, often using utilities like `rundll32.exe` or `mshta.exe`. Adversaries exploit this by executing malicious scripts under the guise of legitimate processes, bypassing defenses. The detection rule identifies suspicious script execution patterns, such as unusual command lines or execution from common download locations, to flag potential abuse.
-
-### Possible investigation steps
-
-- Review the process command line details to identify any suspicious patterns or indicators of malicious activity, such as the presence of script execution commands like "eval", "GetObject", or "WScript.Shell".
-- Check the parent process executable path to determine if the process was spawned by a known legitimate application or if it deviates from expected behavior, especially if it is not from the specified exceptions like Citrix, Microsoft Office, or Quokka.Works GTInstaller.
-- Investigate the origin of the HTA file, particularly if it was executed from common download locations like the Downloads folder or temporary archive extraction paths, to assess if it was downloaded from the internet or extracted from an archive.
-- Analyze the process arguments and count to identify any unusual or unexpected parameters that could indicate malicious intent, especially if the process name is "mshta.exe" and the command line does not include typical HTA or HTM file references.
-- Correlate the event with other security logs and alerts from data sources like Sysmon, SentinelOne, or Microsoft Defender XDR to gather additional context and determine if this activity is part of a broader attack pattern.
-
-### False positive analysis
-
-- Execution of legitimate scripts by enterprise applications like Citrix, Microsoft Office, or Quokka.Works GTInstaller can trigger false positives. Users can mitigate this by adding these applications to the exclusion list in the detection rule.
-- Scripts executed by mshta.exe that do not involve malicious intent, such as internal web applications or administrative scripts, may be flagged. Users should review these scripts and, if deemed safe, exclude them based on specific command line patterns or parent processes.
-- HTA files downloaded from trusted internal sources or vendors might be mistakenly identified as threats. Users can create exceptions for these sources by specifying trusted download paths or file hashes.
-- Temporary files created by legitimate software installations or updates in user temp directories can be misinterpreted as malicious. Users should monitor these activities and exclude known safe processes or directories from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the malicious script or unauthorized access.
-- Terminate any suspicious processes identified by the detection rule, specifically those involving `rundll32.exe` or `mshta.exe` with unusual command lines.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or scripts.
-- Review and analyze the command lines and scripts executed to understand the scope and intent of the attack, and identify any additional compromised systems.
-- Restore the affected system from a known good backup if malicious activity is confirmed and cannot be fully remediated.
-- Implement network segmentation to limit the ability of similar threats to propagate across the network in the future.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems or data have been compromised."""
 risk_score = 73
 rule_id = "181f6b23-3799-445e-9589-0018328a9e46"
 severity = "high"
@@ -118,6 +84,166 @@ process where host.os.type == "windows" and event.type == "start" and
    )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Script Execution via Microsoft HTML Application
+
+#### Possible investigation steps
+
+- Which HTML-application proxy path did the alert capture?
+  - Why: proxy path determines the containment target.
+  - Focus: `process.name`, `process.command_line`, and `process.args_count`: ".hta", ".htm", "vbscript:", "javascript:", "GetObject("script:")", "mshtml,RunHTMLApplication", "mshtml,#135", "http", "WScript.Shell", "StrReverse", "window.close(", or "Chr(".
+  - Implication: escalate on inline script, remote retrieval, obfuscation, "RunHTMLApplication", archive/temp execution, or non-HTA "mshta.exe"; lower concern only for one stable internal HTA/HTM path with no inline script, remote locator, or obfuscation.
+
+- Is the proxy binary a genuine Microsoft LOLBin or a masqueraded executable?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when "mshta.exe" or "rundll32.exe" runs from a user-writable or non-Windows path, has a mismatched original filename, or lacks a trusted Microsoft signature; canonical Microsoft identity lowers masquerade risk but does not clear suspicious arguments.
+
+- What parent and user context explain the launch?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, and `host.id`.
+  - Implication: escalate when the parent is Office, a browser, archive utility, script host, user-writable executable, or a chain outside the rule's excluded parents; lower concern when the same parent, user cohort, and host cohort repeatedly launch the same recognized HTA workflow.
+
+- What referenced HTA, scriptlet, URL, or path can be recovered?
+  - Focus: `process.command_line`, `process.args`, and `process.working_directory`: literal HTA/HTM path, scriptlet URL, remote locator, archive/temp marker, or relative path; recover same-process file and network/DNS events when artifact or remote locator evidence exists. $investigate_0 $investigate_1
+  - Implication: escalate when the locator points to Downloads, Temp, archive extraction, external URLs, scriptlet retrieval, alternate data stream-like syntax, or a single-user path; lower concern only for the same stable internal path from the same recognized workflow. Missing file, network, or DNS telemetry is unresolved, not benign.
+
+- Did the proxy spawn follow-on code or payload execution?
+  - Focus: child starts on `host.id` where `process.parent.entity_id` equals alert `process.entity_id`; inspect child `process.executable`, `process.command_line`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_2
+  - Hint: if `process.entity_id` is absent, use `host.id` + `process.pid` + the tight alert window as a weaker fallback; treat PID reuse as unresolved ambiguity.
+  - Implication: escalate when the proxy spawns shells, PowerShell, script hosts, "regsvr32.exe", another "rundll32.exe", unsigned payloads, or tooling unrelated to the parent workflow; lower concern when child activity stays within the same recognized signed application flow.
+
+- If evidence remains suspicious or incomplete, is it isolated?
+  - Focus: `user.id`, `host.id`, stable `process.command_line` fragments, child `process.executable`, and child `process.command_line` recovered above. $investigate_3 $investigate_4
+  - Implication: broaden scope when the same user, host, command fragment, or child process repeats across alerts or other hosts; keep scope local only when isolated and aligned with one recognized workflow.
+
+- Escalate on proxy script execution, masquerade, suspicious lineage, external/temporary sourcing, follow-on payloads, or recurrence; close only when command intent, binary identity, lineage, locator, child behavior, and scope align with one recognized internal HTA/HTM workflow; preserve artifacts and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Legacy internal HTA applications or support tools may use "mshta.exe" when identity, intent, and context align: canonical Microsoft `process.executable`, stable `process.parent.executable`, repeated `process.command_line` for one internal HTA/HTM path, consistent `user.id`/`host.id` cohort, and no child branching into shells or script hosts. If inventory, owner, or change records exist, require alignment with this telemetry; otherwise require recurrence of the same stable process pattern across prior alerts from this rule for the same cohort.
+- Vendor installers or deployment tools can trigger archive/temp HTA patterns when parent executable, signer context, command line, and bounded child chain match the same recognized package workflow. Do not close on parent name alone; contradictory locator, child process, user/host scope, or signer evidence stays suspicious. Exceptions should use the minimum confirmed pattern, such as `process.parent.executable` + stable `process.command_line` fragment + `host.id` or `user.id`, not `process.name`.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse temporary containment and record the parent workflow, `process.command_line`, extracted locator/path, `user.id`, `host.id`, and recurrence or business records that confirmed the recognized application path. Build exceptions only from the minimum stable workflow pattern, not from "mshta.exe" or "rundll32.exe" alone.
+- If suspicious but unconfirmed:
+  - Preserve the alert event export, process tree, `process.entity_id`, `process.pid`, `process.command_line`, `process.args`, parent lineage, user/host context, recovered child process events, and literal URLs or paths extracted from the command line before cleanup.
+  - Apply reversible containment tied to the findings, such as temporary destination restrictions for remote locators, child-process blocking, or heightened monitoring on the affected `host.id` and `user.id`; use host isolation only when child-process or staging evidence indicates active payload execution and host criticality permits it.
+- If confirmed malicious:
+  - Isolate the host or contain the affected identity after preserving the process and child-process evidence that established malicious execution. Terminate the proxy and spawned payload processes only after recording their identifiers and command lines.
+  - Block confirmed malicious command-line locators, child binaries, domains, and addresses identified during triage, then review other hosts and users for the same command fragment or child-process pattern before eradication.
+  - Remove the malicious HTA, scriptlet, archive-extracted payload, or staged child artifacts identified during investigation; remediate the parent document, browser, archive, or script delivery path; investigate credential exposure if follow-on behavior suggests collection or lateral movement.
+- Post-incident hardening:
+  - Restrict or monitor "mshta.exe" and unusual "rundll32.exe" script-execution paths where the business does not require them.
+  - Retain process telemetry for these binaries and record any missing artifact, library, or destination visibility that limited the case so future triage can account for the gap.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.code_signature.subject_name",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.pe.original_file_name",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the same proxy instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the same proxy instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the same proxy instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
