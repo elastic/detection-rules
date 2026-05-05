@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/05"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/05/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation, modification, or deletion of Kubernetes MutatingWebhookConfigurations or ValidatingWebhookConfigurations 
+by non-system identities. Admission webhooks intercept every API request matching their rules before persistence, giving an 
+attacker powerful capabilities: injecting malicious sidecars into every new pod via a mutating webhook, blocking security 
+tooling deployments via a validating webhook, or silently exfiltrating pod specifications to an external server. 
+Webhook manipulation is a stealthy persistence and defense evasion technique because the webhook configuration itself looks 
+benign in kubectl output while actively modifying or intercepting all matching Kubernetes API traffic.
+"""
+false_positives = [
+  """
+  Cluster operators and GitOps automation may legitimately install or upgrade admission controllers (e.g. cert-manager,
+  Gatekeeper, Kyverno, service mesh components). Validate change tickets and approved controllers before tuning.
+  """,
+]
+from = "now-9m"
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Admission Webhook Created or Modified"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Admission Webhook Created or Modified
+
+Admission webhooks can mutate or validate resources before they are persisted. A malicious webhook can inject sidecars,
+alter securityContext, block defensive workloads, or exfiltrate pod specs. This rule alerts on allowed changes to
+MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by identities outside common system patterns.
+
+### Possible investigation steps
+
+- Retrieve the full webhook object from the audit event (or via `kubectl get -o yaml`) and review the webhook rules,
+  failurePolicy, and the service/URL destination to identify injection or exfiltration paths.
+- Validate the actor identity, source IP, and user agent against expected GitOps controllers or admin workstations.
+- Correlate with workload changes after the webhook update (unexpected sidecars, new env vars, or blocked deployments).
+
+### Response and remediation
+
+- If unauthorized, revert the webhook configuration from a known-good GitOps commit, delete the malicious webhook, and
+  rotate credentials used by the actor.
+- Review all recent pod creations/updates for mutations during the compromise window and redeploy affected workloads.
+"""
+risk_score = 47
+rule_id = "4f8f7c08-ffb5-443f-86c6-0884c964df7b"
+severity = "medium"
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Tactic: Defense Evasion",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+kubernetes.audit.objectRef.resource:("mutatingwebhookconfigurations" or "validatingwebhookconfigurations") and
+kubernetes.audit.verb:("create" or "update" or "patch" or "delete") and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and 
+user.name:(* and not 
+  (system\:kube-controller-manager or
+  system\:kube-scheduler or
+  system\:serviceaccount\:kube-system\:* or
+  eks\:* or aksService or masterclient or nodeclient or
+  system\:serviceaccount\:gke-managed-system\:* or
+  system\:serviceaccount\:cert-manager\:* or
+  system\:serviceaccount\:gatekeeper-system\:* or
+  system\:serviceaccount\:kyverno\:* or
+  system\:serviceaccount\:*\:*-operator)
+) and
+kubernetes.audit.objectRef.name:(* and not (pod-identity-webhook or vpc-resource-mutating-webhook or eks-* or gke-*))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
