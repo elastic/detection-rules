@@ -86,7 +86,7 @@ type = "esql"
 
 query = '''
 FROM logs-* metadata _id, _version, _index 
-| where event.category == "process" KQL("event.type:start and not event.action:fork")
+| where event.category == "process" and KQL("event.type:start and not event.action:fork")
 // more than 100 spaces in process.command_line
 | eval multi_spaces = LOCATE(process.command_line, space(100)) 
 | where multi_spaces > 0 
