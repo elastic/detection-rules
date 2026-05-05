@@ -22,7 +22,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.process*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Container Runtime CLI Execution with Suspicious Arguments"
 note = """## Triage and analysis
@@ -71,24 +71,28 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 query = '''
-host.os.type:linux and event.category:process and event.action:(exec or executed) and 
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "executed") and
 (
-  process.name:(crictl or ctr or nerdctl or .*) or 
-  process.executable:(/dev/shm/* or /home/* or /run/user/* or /tmp/* or /var/tmp/*)
-) and 
-process.args:(
-  (--net-host or --pid-host or --privileged or create or exec or import or load or pull or push or run or start or 
-   tasks and (exec or kill or start) or 
-   snapshots and (mount or prepare) or 
-   content and (fetch or get) or 
-   --mount and type=bind or
-   (k8s.io or moby) and (exec or run or tasks) or 
-   (--rm or delete or rm) and (containers or run)) and 
-   not (--help or info or version)
-   ) and 
-not process.parent.executable:(/lib/systemd/systemd or /sbin/init or /usr/bin/kubelet or /usr/lib/systemd/systemd or /usr/local/bin/kubelet)
+  (
+    process.name in ("ctr", "crictl", "nerdctl") and
+    (
+      (process.args == "tasks" and process.args == "exec") or
+      (process.args == "run" and process.args in ("--privileged", "--rm", "--mount", "--net-host", "--pid-host")) or
+      (process.args == "snapshots" and process.args == "mount")
+    )
+  ) or
+  (
+    (process.executable like ("/dev/shm/*", "/tmp/*", "/var/tmp/*") or process.name : ".*") and
+    process.args like ("*containerd.sock*", "*k8s.io*")
+  )
+) and
+not process.parent.executable in (
+  "/usr/bin/kubelet", "/usr/local/bin/kubelet",
+  "/usr/bin/containerd", "/usr/sbin/containerd"
+  "/lib/systemd/systemd", "/usr/lib/systemd/systemd", "/sbin/init"
+)
 '''
 
 [[rule.threat]]
