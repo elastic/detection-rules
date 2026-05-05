@@ -112,7 +112,7 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
         """Preserve any string value fields under query DSL nodes."""
         if isinstance(target, dict):
             for key, value in target.items():  # type: ignore[reportUnknownVariableType]
-                if key == "value" and isinstance(value, str):
+                if key in FILTER_QUERY_LITERAL_STRING_KEYS and isinstance(value, str):
                     target[key] = NonformattedField(value)
                 elif isinstance(value, dict | list):
                     preserve_descendant_values(value)
