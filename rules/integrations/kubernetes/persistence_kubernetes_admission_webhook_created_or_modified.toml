@@ -36,20 +36,20 @@ MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by ident
 ### Possible investigation steps
 
 - Confirm the webhook resource and operation:
-  - `kubernetes.audit.objectRef.resource` and `kubernetes.audit.verb`
-  - `kubernetes.audit.objectRef.name` (the webhook configuration name)
+  - kubernetes.audit.objectRef.resource and kubernetes.audit.verb
+  - kubernetes.audit.objectRef.name (the webhook configuration name)
 - Attribute the actor and access path:
-  - `user.name` / `kubernetes.audit.user.username` (human vs service account vs node identity)
-  - `source.ip` / `kubernetes.audit.sourceIPs` and `user_agent.original` / `kubernetes.audit.userAgent`
-  - In cloud-managed clusters, map the identity to IAM/Entra principal data present in `kubernetes.audit.user.extra.*`.
+  - user.name (human vs service account vs node identity)
+  - source.ip and user_agent.original
+  - In cloud-managed clusters, map the identity to IAM/Entra principal data present in kubernetes.audit.user.extra.*.
 - Extract the webhook destination and review for external exfiltration:
-  - `kubernetes.audit.requestObject.webhooks.clientConfig.url` (suspicious when pointing to the public internet)
-  - `kubernetes.audit.requestObject.webhooks.clientConfig.service.*` (in-cluster service; still validate namespace/name)
+  - kubernetes.audit.requestObject.webhooks.clientConfig.url (suspicious when pointing to the public internet)
+  - kubernetes.audit.requestObject.webhooks.clientConfig.service.* (in-cluster service; still validate namespace/name)
 - Review impact-driving webhook settings:
-  - `failurePolicy` (e.g., `Ignore` can make malicious webhooks stealthier by avoiding obvious outages)
-  - `namespaceSelector` / `objectSelector` targeting (e.g., excluding `kube-system` while targeting everything else)
-  - `rules.operations` and `rules.resources` (e.g., `CREATE pods` is consistent with broad sidecar injection)
-  - `sideEffects`, `timeoutSeconds`, `matchPolicy`, `reinvocationPolicy`
+  - failurePolicy (e.g., Ignore can make malicious webhooks stealthier by avoiding obvious outages)
+  - namespaceSelector / objectSelector targeting (e.g., excluding kube-system while targeting everything else)
+  - rules.operations and rules.resources (e.g., CREATE pods is consistent with broad sidecar injection)
+  - sideEffects, timeoutSeconds, matchPolicy, reinvocationPolicy
 - Scope blast radius and follow-on activity:
   - Hunt for pods created/updated after the webhook change that include unexpected containers, initContainers, env vars,
     volume mounts, or securityContext changes.
@@ -67,7 +67,7 @@ MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by ident
   actor identity and rotate any credentials it used.
 - If the webhook targeted pod creation, assume workload impact: identify affected namespaces/workloads, redeploy from
   trusted manifests/images, and validate that new pods are no longer being mutated.
-- If an external `clientConfig.url` was used, treat it as potential data exfiltration and review egress/DNS logs for the
+- If an external clientConfig.url was used, treat it as potential data exfiltration and review egress/DNS logs for the
   destination around the alert window.
 """
 risk_score = 47
