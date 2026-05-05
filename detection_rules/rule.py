@@ -158,26 +158,7 @@ class OsqueryParams:
     queries: list[OsqueryQuery] | None = None
     pack_id: str | None = None
     saved_query_id: str | None = None
-    timeout: int | float | None = None
-
-    @validates_schema
-    def validates_timeout(self, data: dict[str, Any], **_: Any) -> None:
-        timeout = data.get("timeout")
-        if timeout is None:
-            return
-
-        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
-            raise ValidationError({"timeout": ["Field should be a number."]})
-
-        if not definitions.OSQUERY_TIMEOUT_MIN <= timeout <= definitions.OSQUERY_TIMEOUT_MAX:
-            raise ValidationError(
-                {
-                    "timeout": [
-                        f"Must be greater than or equal to {definitions.OSQUERY_TIMEOUT_MIN} and less than or "
-                        f"equal to {definitions.OSQUERY_TIMEOUT_MAX}."
-                    ]
-                }
-            )
+    timeout: definitions.OsqueryTimeout | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

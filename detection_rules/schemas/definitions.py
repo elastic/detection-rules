@@ -254,6 +254,10 @@ MaxSignals = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 NewTermsFields = Annotated[
     list[NonEmptyStr], fields.List(NON_EMPTY_STRING_FIELD, validate=validate.Length(min=1, max=3))
 ]
+OsqueryTimeout = Annotated[
+    int | float,
+    fields.Float(validate=validate.Range(min=OSQUERY_TIMEOUT_MIN, max=OSQUERY_TIMEOUT_MAX)),
+]
 PositiveInteger = Annotated[int, fields.Integer(validate=validate.Range(min=1))]
 RiskScore = Annotated[int, fields.Integer(validate=validate.Range(min=0, max=100))]
 RuleName = Annotated[str, fields.String(validate=elastic_rule_name_regexp(NAME_PATTERN))]
