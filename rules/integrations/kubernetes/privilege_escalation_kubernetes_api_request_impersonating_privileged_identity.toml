@@ -69,45 +69,12 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset:"kubernetes.audit_logs" and kubernetes.audit.impersonatedUser.username:* and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.verb:("create" or "list" or "get" or "update" or "patch" or "delete") and
-(
-  kubernetes.audit.impersonatedUser.username:(
-    system\:admin or
-    system\:kube-controller-manager or
-    system\:kube-scheduler or
-    system\:kube-proxy or
-    system\:anonymous or
-    system\:apiserver or
-    system\:volume-scheduler or
-    kubernetes-admin or
-    cluster-admin or
-    admin
-  ) or
-  kubernetes.audit.impersonatedUser.groups:(
-    system\:masters or
-    system\:cluster-admins or
-    cluster-admin
-  ) or
-  kubernetes.audit.impersonatedUser.username:system\:serviceaccount\:kube-system\:* or
-  kubernetes.audit.impersonatedUser.username:system\:node\:*
-) and
-not user.name:(
-  system\:kube-controller-manager or
-  system\:kube-scheduler or
-  system\:serviceaccount\:kube-system\:* or
-  system\:node\:* or
-  eks\:* or
-  aksService or acsService or masterclient or nodeclient or
-  arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKS* or
-  arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKSNodegroup* or
-  arn\:aws\:iam\:*\:role/aws-service-role*
-) and
-not kubernetes.audit.impersonatedUser.username:(
-  eks-event-service\:event-controller or
-  eks\:*
-)
+data_stream.dataset:kubernetes.audit_logs and 
+kubernetes.audit.impersonatedUser.username:(* and not ("eks-event-service:event-controller" or eks\:*)) and 
+kubernetes.audit.annotations.authorization_k8s_io/decision:allow and 
+kubernetes.audit.verb:(create or delete or get or list or patch or update) and 
+(kubernetes.audit.impersonatedUser.username:(admin or cluster-admin or kubernetes-admin or "system:admin" or "system:anonymous" or "system:apiserver" or "system:kube-controller-manager" or "system:kube-proxy" or "system:kube-scheduler" or "system:volume-scheduler" or system\:node\:* or system\:serviceaccount\:kube-system\:*) or kubernetes.audit.impersonatedUser.groups:(cluster-admin or "system:cluster-admins" or "system:masters")) and 
+not user.name:(acsService or aksService or masterclient or nodeclient or "system:kube-controller-manager" or "system:kube-scheduler" or arn\:aws\:iam\:*\:role/aws-service-role* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKS* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKSNodegroup* or eks\:* or system\:node\:* or system\:serviceaccount\:kube-system\:*)
 '''
 
 [[rule.threat]]
