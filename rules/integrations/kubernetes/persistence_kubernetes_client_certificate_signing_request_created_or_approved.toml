@@ -35,14 +35,32 @@ Identify the actor (`user.name`, groups), client (`user_agent.original`), and `s
 principal is expected to create or approve CSRs. Review `kubernetes.audit.requestURI` and, when audit level captures
 request bodies, the CSR `spec` (requested signer, usages, and requested identity / Common Name).
 
+### Extracting the Certificate Common Name
+
+For create events, "kubernetes.audit.requestObject.spec.request" holds the base64-encoded PEM certificate signing request.
+Decode that value to PEM, then inspect the CSR subject (for example with OpenSSL’s CSR subject view) to read the
+requested Common Name (CN). 
+
+Known base64 substrings that often appear inside the encoded request for high-risk identities:
+
+- `c3lzdGVtOm1hc3Rlcn` — `system:masters`
+- `c3lzdGVtOmt1YmUtY29udHJvbGxlci1tYW5hZ2Vy` — `system:kube-controller-manager`
+- `c3lzdGVtOmFkbWlu` — `system:admin`
+
+Priority CNs that usually indicate privilege escalation intent:
+
+- `system:masters` (cluster-admin group)
+- `system:kube-controller-manager` (broad control-plane–style access, including secrets and token minting)
+- `system:kube-scheduler` (scheduling across the cluster)
+- `system:kube-proxy` (node/network–adjacent access)
+- Any CN that matches an existing ClusterRoleBinding subject name
+
 ### Possible investigation steps
 
-- Compare the CSR name and requested identity against approved PKI or bootstrap processes; look for privileged CN values
-  (for example `system:masters`, `system:kube-controller-manager`, or other control plane identities).
+- Compare the CSR name and extracted CN against approved PKI or bootstrap processes.
 - Determine whether the same identity both created and approved or patched the CSR in a short window, which matches
   self-approval abuse.
-- Review `kubernetes.audit.objectRef` and subsequent `authentication.k8s.io` or API activity using new client
-  credentials from unusual networks.
+- Review `kubernetes.audit.objectRef` and subsequent authentication or API activity from unusual networks.
 - Correlate with RBAC changes, secret access, or TokenRequest activity that preceded CSR activity.
 
 ### Response and remediation
@@ -70,6 +88,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
+data_stream.dataset:"kubernetes.audit_logs" and 
 kubernetes.audit.objectRef.resource:"certificatesigningrequests" and
 kubernetes.audit.verb:("create" or "update" or "patch") and
 kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
