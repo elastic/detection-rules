@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/05/06"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/05/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation of YAML files under /etc/kubernetes/manifests on hosts monitored by Elastic Defend for Containers.
+The kubelet watches this directory for static pod manifests, a newly dropped manifest can schedule privileged workloads,
+maintain persistence across kubelet restarts, or tamper with control plane components on affected nodes. Unexpected
+creations should be reviewed alongside process ancestry and cluster context.
+"""
+false_positives = [
+    """
+    Bootstrap tooling (for example kubeadm), configuration management, or approved cluster upgrades may create manifests in
+    this path during planned maintenance. Baseline expected automation identities and tune with process or user exclusions if
+    needed.
+    """,
+]
+from = "now-6m"
+index = ["logs-cloud_defend.file*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Static Pod Manifest File Creation"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Static Pod Manifest File Creation
+
+Identify the created file.path and timestamp. Map the actor process (process.name, process.args, process.parent), container
+or host context (container.id, orchestrator fields), and whether the session was interactive.
+
+### Possible investigation steps
+
+- Determine whether the node is a control plane or worker and whether manifest creation matches a change window.
+- Compare the manifest content (if captured) to prior versions for added privileged pods, hostPath mounts, or suspicious
+  images.
+- Correlate with Kubernetes audit and node logs for kubelet errors, unauthorized SSH or agent activity, or lateral movement.
+- Review broader file and process telemetry from the same host around the event.
+
+### Response and remediation
+
+- If malicious, remove the unauthorized manifest, isolate the node per incident policy, and rebuild or restore from a
+  trusted image.
+- Rotate credentials and review RBAC for principals that could reach the host filesystem or kubelet.
+
+### Additional information
+
+- [Kubernetes static pods](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/)
+"""
+references = [
+    "https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/",
+    "https://attack.mitre.org/techniques/T1053/007/",
+]
+risk_score = 47
+rule_id = "cd2686a5-73c5-4a82-ae80-61ef06d65dcc"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "Domain: Kubernetes",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+event.category:"file" and event.action:"creation" and file.path:/etc/kubernetes/manifests/*.yaml
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.007"
+name = "Container Orchestration Job"
+reference = "https://attack.mitre.org/techniques/T1053/007/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.005"
+name = "Container Service"
+reference = "https://attack.mitre.org/techniques/T1543/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
