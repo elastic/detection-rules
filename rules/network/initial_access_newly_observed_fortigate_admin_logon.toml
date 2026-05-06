@@ -2,7 +2,7 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/06"
 
 [rule]
 author = ["Elastic"]
@@ -88,6 +88,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 | stats Esql.logon_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
         Esql.source_ip_values = VALUES(source.ip),
+        Esql.fortinet_firewall_profiles = VALUES(fortinet.firewall.profile),
         Esql.message_values = VALUES(message) by source.user.name
 
 // first time seen is within 6m of the rule execution time and for the last 5d of events history
@@ -97,7 +98,14 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 // move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(Esql.source_ip_values)
 
-| keep source.ip, source.user.name, Esql.*
+| keep source.ip,
+       source.user.name,
+       Esql.logon_count,
+       Esql.first_time_seen,
+       Esql.source_ip_values,
+       Esql.fortinet_firewall_profiles,
+       Esql.message_values,
+       Esql.recent
 '''
 
 
