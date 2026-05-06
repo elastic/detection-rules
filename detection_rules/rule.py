@@ -403,6 +403,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     meta: dict[str, Any] | None = None
     note: definitions.Markdown | None = None
     references: list[str] | None = None
+    response_actions: list[dict[str, Any]] | None = None
     risk_score_mapping: list[RiskScoreMapping] | None = None
     rule_name_override: str | None = None
     severity_mapping: list[SeverityMapping] | None = None
@@ -682,6 +683,8 @@ class QueryValidator:
 
         required: list[dict[str, Any]] = []
         unique_fields: list[str] = self.unique_fields or []
+        if isinstance(self, ESQLValidator):
+            unique_fields = [f for f in unique_fields if not f.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES)]
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")

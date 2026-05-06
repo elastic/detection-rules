@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/04/24"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process execution events where the effective user is root while the real user is not, the process arguments
+include the privileged shell flag commonly associated with setuid-capable shells, and the executable path is outside
+standard system binary directories. That combination is consistent with abuse of setuid shells or similar helpers
+copied or linked into writable locations, a pattern used to regain a root context after local exploitation.
+"""
+false_positives = [
+    """
+    Custom administrative wrappers or hardened images that legitimately ship a setuid shell outside /usr/bin or /bin
+    for emergency access may match; document and exclude by executable hash or path when verified.
+    """,
+    """
+    Field mapping differences between auditd versions can occasionally mis-populate effective versus real user IDs;
+    validate raw audit fields when triaging unexpected hits.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Root Effective Shell from Non-Standard Path via Auditd"
+note = """## Triage and analysis
+
+### Investigating Potential Root Effective Shell from Non-Standard Path via Auditd
+
+The rule surfaces executed processes where effective UID is root, real UID is not, the argument list contains -p
+(often used with bash, dash, or similar to preserve privileges), and the executable is not under typical distro paths.
+That aligns with interactive or scripted abuse of elevated shells from user-controlled locations.
+
+### Possible investigation steps
+
+- Inspect process.executable, process.args, process.parent, and the full command line reconstructed in audit or ECS
+  fields.
+- Confirm user.id versus user.effective.id and map the login session, TTY, and parent chain (SSH, cron, container
+  entrypoint).
+- Check the on-disk binary for setuid bit, ownership, and recent file creation or rename events in the same directory.
+- Correlate with authentication logs and sudo or polkit outcomes around the same timestamp.
+
+### False positive analysis
+
+- Rare vendor bundles that place setuid helpers under /opt or /usr/local may need allowlisting after review.
+- Container hosts where audit captures host and namespace PIDs together can add noise; scope by host group if needed.
+
+### Response and remediation
+
+- If malicious, isolate the host, remove or quarantine the binary, revoke compromised accounts, audit all setuid
+  binaries on the filesystem, and re-image if integrity cannot be proven.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1548/001/",
+    "https://gtfobins.github.io/gtfobins/bash/",
+]
+risk_score = 73
+rule_id = "7f3a9c2e-1d4b-5e6f-8a9b-0c1d2e3f4a5b"
+setup = """## Setup
+
+This rule requires data from Auditd Manager or legacy Auditbeat shipping comparable ECS process fields on Linux.
+
+### Auditd Manager Integration Setup
+Auditd Manager receives events from the Linux audit subsystem. Deploy the integration from Kibana under Integrations,
+add it to an agent policy, and install the Elastic Agent on Linux hosts that should emit syscall-backed process data.
+
+For integration details, see the [Auditd Manager documentation](https://docs.elastic.co/integrations/auditd_manager).
+
+Ensure process execution (for example execve) is audited so `event.action`, `user.id`, `user.effective.id`,
+`process.args`, and `process.executable` are populated consistently for interactive shells.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.category:process and 
+event.action:(exec or executed) and user.id:(* and not 0) and 
+process.executable:(* and not (/bin/* or /nix/store/*/bin/sudo or /run/wrappers/wrappers*/sudo or /sbin/* or /usr/bin/* or /usr/sbin/*)) and 
+user.effective.id:0 and process.args:-p
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
