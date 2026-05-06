@@ -75,16 +75,47 @@ def patch_jsonschema(obj: Any) -> dict[str, Any]:
             child.pop("default")
 
         child.pop("title", None)
+        # marshmallow-jsonschema 0.16+ emits `enumNames: []` alongside enum-translated
+        # Literal fields for react-jsonschema-form compatibility; older 0.13 did not,
+        # so drop the empty list to keep schemas comparable.
+        if child.get("enumNames") == []:
+            child.pop("enumNames")
+        # marshmallow-jsonschema 0.16+ no longer pairs enums with their underlying
+        # `type`. Restore `type: "string"` for string-only enums to match the prior
+        # shape so external consumers that key off `type` keep working.
+        if (
+            "enum" in child
+            and "type" not in child
+            and child["enum"]
+            and all(isinstance(v, str) for v in child["enum"])
+        ):
+            child["type"] = "string"
 
         if "anyOf" in child:
-            # marshmallow-jsonschema 0.16+ emits an extra `anyOf` branch with only
-            # `default`/`title` keys to represent the None side of an Optional field.
-            # After diving (which strips `default: null` and `title`) those branches
-            # become empty dicts and should be dropped to preserve the previous shape.
+            # marshmallow-jsonschema 0.16+ models `Optional[X]` as
+            # `anyOf: [<X-schema>, {"type": "null"}]` and tacks an empty placeholder
+            # branch (only `default: null` / `title`) on enum-style fields. We dive
+            # each branch first so `$ref`s expand and placeholders collapse to `{}`,
+            # then drop empty/null-only branches to preserve the previous flat shape.
             dived = [dive(c) for c in child["anyOf"]]
-            child["anyOf"] = [c for c in dived if c]
+            real_branches = [c for c in dived if c and c != {"type": "null"}]
+            had_null_branch = any(c == {"type": "null"} for c in dived)
 
-        elif isinstance(child.get("type"), list):
+            if not real_branches:
+                # Only null/empty branches remained -- sibling keys (e.g. `enum`)
+                # already describe the field, so the bogus anyOf can be dropped.
+                child.pop("anyOf")
+            elif len(real_branches) == 1 and had_null_branch:
+                # Optional<X> -- inline X's keys into the parent, matching the
+                # marshmallow-jsonschema 0.13 shape where the wrapper was absent.
+                child.pop("anyOf")
+                merged = real_branches[0].copy()
+                merged.update({k: v for k, v in child.items() if k != "anyOf"})
+                child = merged
+            else:
+                child["anyOf"] = real_branches + ([{"type": "null"}] if had_null_branch else [])
+
+        if isinstance(child.get("type"), list):
             type_vals: list[str] = child["type"]  # type: ignore[reportUnknownVariableType]
 
             if "null" in type_vals:
