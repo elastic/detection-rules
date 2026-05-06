@@ -49,7 +49,7 @@ def get_dataclass_required_fields(cls: Any) -> list[str]:
         if not hint:
             continue
 
-        mm_field = marshmallow_schema.fields.get(dc_field.name)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        mm_field = marshmallow_schema.fields.get(dc_field.name)
         if mm_field is None:
             continue
         if dc_field.default is not dataclasses.MISSING:
@@ -75,47 +75,11 @@ def patch_jsonschema(obj: Any) -> dict[str, Any]:
             child.pop("default")
 
         child.pop("title", None)
-        # marshmallow-jsonschema 0.16+ emits `enumNames: []` alongside enum-translated
-        # Literal fields for react-jsonschema-form compatibility; older 0.13 did not,
-        # so drop the empty list to keep schemas comparable.
-        if child.get("enumNames") == []:
-            child.pop("enumNames")
-        # marshmallow-jsonschema 0.16+ no longer pairs enums with their underlying
-        # `type`. Restore `type: "string"` for string-only enums to match the prior
-        # shape so external consumers that key off `type` keep working.
-        if (
-            "enum" in child
-            and "type" not in child
-            and child["enum"]
-            and all(isinstance(v, str) for v in child["enum"])
-        ):
-            child["type"] = "string"
 
         if "anyOf" in child:
-            # marshmallow-jsonschema 0.16+ models `Optional[X]` as
-            # `anyOf: [<X-schema>, {"type": "null"}]` and tacks an empty placeholder
-            # branch (only `default: null` / `title`) on enum-style fields. We dive
-            # each branch first so `$ref`s expand and placeholders collapse to `{}`,
-            # then drop empty/null-only branches to preserve the previous flat shape.
-            dived = [dive(c) for c in child["anyOf"]]
-            real_branches = [c for c in dived if c and c != {"type": "null"}]
-            had_null_branch = any(c == {"type": "null"} for c in dived)
+            child["anyOf"] = [dive(c) for c in child["anyOf"]]
 
-            if not real_branches:
-                # Only null/empty branches remained -- sibling keys (e.g. `enum`)
-                # already describe the field, so the bogus anyOf can be dropped.
-                child.pop("anyOf")
-            elif len(real_branches) == 1 and had_null_branch:
-                # Optional<X> -- inline X's keys into the parent, matching the
-                # marshmallow-jsonschema 0.13 shape where the wrapper was absent.
-                child.pop("anyOf")
-                merged = real_branches[0].copy()
-                merged.update({k: v for k, v in child.items() if k != "anyOf"})
-                child = merged
-            else:
-                child["anyOf"] = real_branches + ([{"type": "null"}] if had_null_branch else [])
-
-        if isinstance(child.get("type"), list):
+        elif isinstance(child["type"], list):
             type_vals: list[str] = child["type"]  # type: ignore[reportUnknownVariableType]
 
             if "null" in type_vals:
@@ -311,16 +275,16 @@ class PatchedJSONSchema(marshmallow_jsonschema.JSONSchema):
 
         if isinstance(field, marshmallow_dataclass.union_field.Union):
             # convert to marshmallow_union.Union
-            # marshmallow 4 removed `name`, `parent`, `root`, and `default_error_messages`
-            # from `Field.__init__`; bind the new field to the parent schema after construction.
-            new_field = marshmallow_union.Union(
-                [subfield for _, subfield in field.union_fields],  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
+            field = marshmallow_union.Union(
+                [subfield for _, subfield in field.union_fields],
                 metadata=field.metadata,  # type: ignore[reportUnknownMemberType]
                 required=field.required,
-                error_messages=field.error_messages,  # type: ignore[reportUnknownMemberType]
-                dump_default=field.dump_default,  # type: ignore[reportUnknownMemberType]
+                name=field.name,  # type: ignore[reportUnknownMemberType]
+                parent=field.parent,  # type: ignore[reportUnknownMemberType]
+                root=field.root,  # type: ignore[reportUnknownMemberType]
+                error_messages=field.error_messages,
+                default_error_messages=field.default_error_messages,
+                default=field.default,  # type: ignore[reportUnknownMemberType]
                 allow_none=field.allow_none,
             )
-            new_field._bind_to_schema(field.name, field.parent)  # type: ignore[reportUnknownMemberType]  # noqa: SLF001
-            field = new_field
         return super()._get_schema_for_field(obj, field)  # type: ignore[reportUnknownMemberType]

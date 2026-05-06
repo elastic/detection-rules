@@ -56,7 +56,7 @@ class IntegrationManifestSchema(Schema):
     description = fields.Str(required=True)
     download = fields.Str(required=True)
     conditions = fields.Dict(required=True)
-    policy_templates = fields.List(fields.Dict)  # type: ignore[reportUnknownVariableType,reportUnknownArgumentType]
+    policy_templates = fields.List(fields.Dict)
     owner = fields.Dict(required=False)
 
     @post_load
