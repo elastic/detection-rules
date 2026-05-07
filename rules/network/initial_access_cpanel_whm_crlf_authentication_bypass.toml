@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/05/07"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/05/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the network signature of CVE-2026-41940, a pre-auth root-level authentication bypass in cPanel and WebHost
+Manager (WHM) caused by a CRLF injection in the session writer. The exploit-inherent shape on the wire is a `GET /`
+request to a cPanel/WHM admin port (typically TCP/2087, 2086, 2083, 2082, 2095, 2096) carrying an
+`Authorization: Basic` header whose base64-decoded value contains CRLF-injected session fields, which causes cpsrvd
+to respond with a 3xx redirect whose `Location` header leaks a `/cpsessNNNNNNNNNN` token granting the attacker a
+privileged session. This is the network-layer equivalent of the cPanel `access_log` artifact identified by Unfold and
+watchTowr as the first bulletproof detection for this CVE: a `GET /` recorded with `auth_method=b` (HTTP Basic).
+Legitimate access to `GET /` on a WHM admin port returns 200 with the login screen and never includes HTTP Basic
+credentials, so this combination is not produced by normal use.
+"""
+false_positives = [
+    """
+    Authorized vulnerability scanners (Nessus, Tenable, Qualys, etc.) running CVE-2026-41940 plugins will reproduce the
+    exploit shape. Validate against scan windows and source IPs of approved scanners before escalating.
+    """,
+]
+from = "now-9m"
+index = ["packetbeat-*", "logs-network_traffic.http*"]
+language = "lucene"
+license = "Elastic License v2"
+name = "cPanel WHM CRLF Authentication Bypass (CVE-2026-41940)"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating cPanel WHM CRLF Authentication Bypass
+
+CVE-2026-41940 is a critical (CVSS 9.8) authentication bypass in cPanel & WHM that gives an unauthenticated attacker
+a root-privileged session on the host. The exploit chains a CRLF injection in the session writer with an
+encryption-skip triggered by a malformed cookie, then uses how cPanel caches sessions to promote the injected data
+into a privileged login. Around 1.5M cPanel instances were exposed at disclosure and exploitation has been observed in
+the wild since 2026-02-23, two months before the patch.
+
+This rule fires on the Stage 2 request/response shape: a `GET /` to a cPanel admin port that carries an
+`Authorization: Basic` header and receives a 3xx redirect whose `Location` points at a freshly minted
+`/cpsessNNNNNNNNNN` path. Per the watchTowr and Unfold writeups, this is the only request shape that lets the
+exploit retrieve the security token needed for Stage 4 (privileged use of the session).
+
+### Possible investigation steps
+
+- Confirm the destination host runs cPanel/WHM. Identify the installed version and whether the 2026-04-28 emergency
+  patch is applied.
+- Pivot on the source IP across the host's `/usr/local/cpanel/logs/access_log`. The exploit-inherent log artifact is a
+  request line of the form `"GET / HTTP/1.1" 3xx 0 "-" "<UA>" "b" "-" <port>` — auth_method `b` on `GET /` should never
+  occur in normal operation.
+- Look for a follow-on request from the same source IP to `/cpsessNNNNNNNNNN/...` with `auth_method=s` (session) and
+  HTTP 200, without a preceding successful login (form POST `/login`, `/openid_connect/`, or reseller `?session=`).
+  This is the Stage 4 post-exploitation artifact.
+- Identify whether privileged WHM API actions were invoked under the leaked `cpsess` token (account creation, package
+  install, file manager writes, terminal API).
+- Review egress from the host for outbound connections initiated after the alert that could indicate web shell or
+  implant install.
+
+### False positive analysis
+
+- Legitimate WHM administration never produces `GET /` with HTTP Basic authentication and a 3xx redirect leaking a
+  fresh `cpsess` token. This combination is exploit-inherent.
+- Authorized vulnerability scans running CVE-2026-41940 plugins will reproduce the request shape.
+
+### Response and remediation
+
+- Apply the cPanel emergency patch released 2026-04-28 (or the WP Squared equivalent). Verify by checking the
+  installed cPanel version against the advisory.
+- If the alert is paired with an `auth_method=s` `cpsess` request (post-exploitation), assume host compromise:
+  rotate root credentials, audit `/var/cpanel/sessions/`, look for newly created accounts, scheduled tasks, SSH keys,
+  and `authorized_keys` modifications.
+- Restrict access to cPanel admin ports (2087/2086/2083/2082/2095/2096) to known administrator source IPs at the
+  perimeter or via host firewall.
+- Block the source IP at the WAF or perimeter if exploitation is confirmed.
+
+## Setup
+
+This rule requires HTTP traffic decoded by the Network Packet Capture integration (or legacy Packetbeat) with cPanel
+admin ports added to the HTTP protocol configuration and `send_all_headers` enabled, so that
+`http.request.headers.authorization` and `http.response.headers.location` are populated. cPanel admin ports
+(2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly. Because cPanel
+admin traffic is normally TLS, the sensor needs decryption visibility (TLS interception, sidecar on the host, or
+sensor on the management network upstream of TLS termination) for this rule to observe HTTP fields.
+
+### Alternative: Suricata signature
+
+If you operate Suricata directly with plaintext visibility into cPanel admin ports, deploy the following
+request/response pair so Stage 2 produces a `rule.name` containing the CVE. The flowbits pairing requires both the
+request shape and the redirect leaking the `cpsess` token, which together can only be produced by Stage 2 of the
+exploit chain.
+
+```
+alert http any any -> any [2087,2086,2083,2082,2095,2096] (
+    msg:"EXPLOIT cPanel/WHM CRLF Auth Bypass CVE-2026-41940 (GET / with Basic auth)";
+    flow:established,to_server;
+    http.method; content:"GET";
+    http.uri; content:"/"; depth:1; isdataat:!1,relative;
+    http.header_names; content:"|0d 0a|Authorization|0d 0a|"; nocase;
+    http.header; content:"Authorization|3a| Basic"; nocase;
+    flowbits:set,cpanel.cve_2026_41940.req;
+    flowbits:noalert;
+    classtype:attempted-admin;
+    sid:1000041940; rev:1;)
+
+alert http any [2087,2086,2083,2082,2095,2096] -> any any (
+    msg:"EXPLOIT cPanel/WHM CRLF Auth Bypass CVE-2026-41940 (cpsess leaked in Location)";
+    flow:established,to_client;
+    flowbits:isset,cpanel.cve_2026_41940.req;
+    http.stat_code; content:"30";
+    http.header; content:"Location|3a|"; content:"/cpsess"; distance:0; pcre:"/\\/cpsess\\d{10}/";
+    classtype:successful-admin;
+    sid:1000041941; rev:1;)
+```
+"""
+references = [
+    "https://www.unfold.ai/blog/cpanel-exploit-cve-2026-41940",
+    "https://labs.watchtowr.com/the-internet-is-falling-down-falling-down-falling-down-cpanel-whm-authentication-bypass-cve-2026-41940/",
+    "https://www.picussecurity.com/resource/blog/cve-2026-41940-explained-cpanel-whm-authentication-bypass-hit-1-5m-servers",
+    "https://support.cpanel.net/hc/en-us/articles/40073787579671-Security-CVE-2026-41940-cPanel-WHM-WP2-Security-Update-04-28-2026",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-41940",
+    "https://docs.cpanel.net/knowledge-base/cpanel-product/the-cpanel-log-files",
+    "https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-http-options.html#_send_all_headers",
+]
+risk_score = 73
+rule_id = "2449be9d-2fdf-4126-a85b-f05e4058df9f"
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+(data_stream.dataset:network_traffic.http OR (event.category:network_traffic AND network.protocol:http)) AND
+http.request.method:GET AND
+url.path:"\/" AND
+destination.port:(2087 OR 2086 OR 2083 OR 2082 OR 2095 OR 2096) AND
+http.response.status_code:[300 TO 399] AND
+http.request.headers.authorization:Basic* AND
+http.response.headers.location:"\/cpsess*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
