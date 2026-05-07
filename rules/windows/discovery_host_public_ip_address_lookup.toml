@@ -99,9 +99,11 @@ network where host.os.type == "windows" and dns.question.name != null and proces
           "httpbin.org",
           "myip.opendns.com"
          ) and
-not process.executable : (
+not (
+  process.executable : (
     "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
     "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
+  ) and user.id == "S-1-5-18"
 )
 '''
 
