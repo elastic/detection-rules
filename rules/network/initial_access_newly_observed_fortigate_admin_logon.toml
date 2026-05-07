@@ -87,10 +87,9 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
         event.category == "authentication" and event.action == "login" and
         event.outcome == "success" and source.user.roles == "Administrator" and source.user.name is not null
 | stats Esql.logon_count = count(*),
-        Esql.first_time_seen = MIN(@timestamp),
-        Esql.source_ip_values = VALUES(source.ip),
-        Esql.fortinet_firewall_profiles = VALUES(fortinet.firewall.profile),
-        Esql.message_values = VALUES(message) by source.user.name
+       Esql.first_time_seen = MIN(@timestamp),
+       Esql.source_ip_values = VALUES(source.ip),
+       Esql.message_values = VALUES(message) by source.user.name, fortinet.firewall.profile
 
 // first time seen is within 6m of the rule execution time and for the last 5d of events history
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
