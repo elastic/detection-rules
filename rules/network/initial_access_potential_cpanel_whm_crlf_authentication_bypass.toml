@@ -113,36 +113,6 @@ admin ports added to the HTTP protocol configuration and `send_all_headers` enab
 (2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly. Because cPanel
 admin traffic is normally TLS, the sensor needs decryption visibility (TLS interception, sidecar on the host, or
 sensor on the management network upstream of TLS termination) for this rule to observe HTTP fields.
-
-### Alternative: Suricata signature
-
-If you operate Suricata directly with plaintext visibility into cPanel admin ports, deploy the following
-request/response pair so Stage 2 produces a `rule.name` containing the CVE. The flowbits pairing requires both the
-request shape and the redirect leaking the `cpsess` token, which together can only be produced by Stage 2 of the
-exploit chain.
-
-```
-alert http any any -> any [2087,2086,2083,2082,2095,2096] (
-    msg:"EXPLOIT cPanel/WHM CRLF Auth Bypass CVE-2026-41940 (GET / with Basic auth)";
-    flow:established,to_server;
-    http.method; content:"GET";
-    http.uri; content:"/"; depth:1; isdataat:!1,relative;
-    http.header_names; content:"|0d 0a|Authorization|0d 0a|"; nocase;
-    http.header; content:"Authorization|3a| Basic"; nocase;
-    flowbits:set,cpanel.cve_2026_41940.req;
-    flowbits:noalert;
-    classtype:attempted-admin;
-    sid:1000041940; rev:1;)
-
-alert http any [2087,2086,2083,2082,2095,2096] -> any any (
-    msg:"EXPLOIT cPanel/WHM CRLF Auth Bypass CVE-2026-41940 (cpsess leaked in Location)";
-    flow:established,to_client;
-    flowbits:isset,cpanel.cve_2026_41940.req;
-    http.stat_code; content:"30";
-    http.header; content:"Location|3a|"; content:"/cpsess"; distance:0; pcre:"/\\/cpsess\\d{10}/";
-    classtype:successful-admin;
-    sid:1000041941; rev:1;)
-```
 """
 references = [
     "https://www.unfold.ai/blog/cpanel-exploit-cve-2026-41940",
