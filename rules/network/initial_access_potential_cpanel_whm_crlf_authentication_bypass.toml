@@ -104,15 +104,6 @@ The rule requires all of the following on a single decoded HTTP transaction matc
 - Restrict access to cPanel admin ports (2087/2086/2083/2082/2095/2096) to known administrator source IPs at the
   perimeter or via host firewall.
 - Block the source IP at the WAF or perimeter if exploitation is confirmed.
-
-## Setup
-
-This rule requires HTTP traffic decoded by the Network Packet Capture integration (or legacy Packetbeat) with cPanel
-admin ports added to the HTTP protocol configuration and `send_all_headers` enabled, so that
-`http.request.headers.authorization` and `http.response.headers.location` are populated. cPanel admin ports
-(2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly. Because cPanel
-admin traffic is normally TLS, the sensor needs decryption visibility (TLS interception, sidecar on the host, or
-sensor on the management network upstream of TLS termination) for this rule to observe HTTP fields.
 """
 references = [
     "https://www.unfold.ai/blog/cpanel-exploit-cve-2026-41940",
@@ -125,6 +116,15 @@ references = [
 ]
 risk_score = 73
 rule_id = "2449be9d-2fdf-4126-a85b-f05e4058df9f"
+setup = """## Setup
+
+This rule requires HTTP traffic decoded by the Network Packet Capture integration (or legacy Packetbeat) with cPanel
+admin ports added to the HTTP protocol configuration and `send_all_headers` enabled, so that
+`http.request.headers.authorization` and `http.response.headers.location` are populated. cPanel admin ports
+(2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly. Because cPanel
+admin traffic is normally TLS, the sensor needs decryption visibility (TLS interception, sidecar on the host, or
+sensor on the management network upstream of TLS termination) for this rule to observe HTTP fields.
+"""
 severity = "high"
 tags = [
     "Domain: Network",
