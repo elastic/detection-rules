@@ -80,17 +80,18 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-host.os.type:linux and event.category:process and event.action:(exec or executed) and process.name:(
+host.os.type:linux and event.category:process and event.action:(exec or executed) and 
+process.name:(
   bash or sh or dash or zsh or 
-  cat or cp or mv or touch or
-  sed or awk or
+  cat or cp or mv or touch or tee or dd or
+  sed or awk or 
   curl or wget or scp or
-  vi or vim or echo or
+  vi or vim or nano or echo or
   busybox or
-  python*
-  perl* or ruby* or node or lua* or
-  openssl or base64 or xxd
-) and process.args:(*/etc/kubernetes/manifests/* and not (/etc/kubernetes/manifests/etcd.yaml or /etc/kubernetes/manifests/kube-apiserver.yaml or /etc/kubernetes/manifests/kube-scheduler.yaml or /etc/kubernetes/manifests/kube-controller-manager.yaml))
+  python* or perl* or ruby* or node or lua* or
+  openssl or base64 or xxd or
+  .*) and 
+  process.args:(*/etc/kubernetes/manifests/* and not (/etc/kubernetes/manifests/etcd* or /etc/kubernetes/manifests/kube-apiserver* or /etc/kubernetes/manifests/kube-scheduler* or /etc/kubernetes/manifests/kube-controller-manager*))
 '''
 
 [[rule.threat]]
