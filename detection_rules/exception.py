@@ -332,14 +332,14 @@ def build_exception_objects(  # noqa: PLR0913
                 raise FileNotFoundError(  # noqa: TRY301
                     "No Exceptions directory is specified. Please specify either in the config or CLI."
                 )
-            exceptions_path = (
-                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
+            exceptions_path: Path = (  # pyright: ignore[reportUnknownVariableType]
+                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename  # pyright: ignore[reportOptionalOperand]
             )
             if verbose:
                 output.append(f"[+] Building exception(s) for {exceptions_path}")
             e_object = TOMLException(
                 contents=contents,
-                path=exceptions_path,
+                path=exceptions_path,  # pyright: ignore[reportUnknownArgumentType]
             )
             if save_toml:
                 e_object.save_toml()
