@@ -93,9 +93,9 @@ sequence by host.id, process.parent.pid with maxspan=30s
   (
    (auditd.data.syscall == "unshare" and auditd.data.class == "namespace" and auditd.data.a0 in ("10000000", "50000000", "70000000", "10020000", "50020000", "70020000")) or 
    (process.name == "unshare" and process.args in ("-U", "--user", "-r"))
-   ) and user.name != "root"]
+   ) and user.id != "0" and user.id != null]
  [process where host.os.type == "linux" and 
-  user.name == "root" and 
+  user.id == "0" and user.id != null and 
   process.name in ("su", "sudo", "pkexec", "passwd", "chsh", "newgrp", "sudo", "dash", "sh", "bash", "zsh", "fish")]
 '''
 
