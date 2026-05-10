@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the creation of a Kubernetes CronJob or Job resource. CronJobs can be used as a persistence mechanism
+by adversaries who have obtained cluster access — a CronJob will automatically re-execute its workload on a
+schedule, allowing malicious code to survive pod restarts and cluster reconciliation. Attackers may create
+CronJobs to run reverse shells, exfiltrate data, or maintain access even after initial compromise artifacts
+are cleaned up.
+"""
+false_positives = [
+    """
+    Legitimate CI/CD pipelines, data processing workflows, and batch workloads routinely create Jobs and
+    CronJobs as part of normal operations. Validate that the creating user or service account is authorized
+    and that the Job specification aligns with expected workload patterns.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes CronJob or Job Created"
+note = """## Triage and analysis
+
+### Investigating Kubernetes CronJob or Job Created
+
+Kubernetes CronJobs are a powerful persistence mechanism. Once created, they continue to schedule and run
+pods on the configured interval without further user interaction. An adversary who briefly obtains cluster
+access can create a CronJob that will keep spawning malicious pods indefinitely, providing persistent
+re-entry even after the original compromise vector is closed.
+
+#### Possible investigation steps
+
+- **Identify the creator**: Review `kubernetes.audit.user.username` — is this an authorized user, CI/CD service account, or GitOps automation?
+- **Review the Job spec**: Check `kubernetes.audit.requestObject` for the container image, command, environment variables, and mounted volumes.
+  - Unknown images, privileged containers, or hostNetwork/hostPID access are highly suspicious.
+- **Check the schedule**: What CronJob schedule was configured? High-frequency schedules (every minute) are more suspicious.
+- **Review the namespace**: Was the Job created in a production, kube-system, or sensitive namespace?
+- **Correlate with other events**: Were there other suspicious actions (secret reads, RBAC changes) by the same actor shortly before this Job creation?
+
+### False positive analysis
+
+- GitOps systems (ArgoCD, Flux) and Helm chart deployments create Jobs and CronJobs as part of normal lifecycle.
+- Data pipeline and ETL batch workloads regularly create Jobs.
+
+### Response and remediation
+
+- If unauthorized: immediately delete the CronJob/Job and any pods it spawned.
+- Review the container image and command executed by the Job for indicators of compromise.
+- Audit all Jobs and CronJobs in the cluster for other unauthorized entries.
+- Implement admission policies (Kyverno, OPA Gatekeeper) to restrict Job creation to authorized service accounts.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1053/007/",
+    "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/",
+]
+risk_score = 47
+rule_id = "a1b2c3d4-e5f6-4789-abcd-ef0123456789"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.objectRef.resource: ("cronjobs" or "jobs") and
+kubernetes.audit.verb: "create" and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.007"
+name = "Container Orchestration Job"
+reference = "https://attack.mitre.org/techniques/T1053/007/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

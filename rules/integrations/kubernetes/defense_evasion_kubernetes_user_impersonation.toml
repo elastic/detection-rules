@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the use of Kubernetes user impersonation, where an actor uses the `--as` flag or the
+`impersonate` privilege to perform API calls as another user, group, or ServiceAccount. Adversaries
+who have obtained a privileged cluster role may use impersonation to mask their true identity in audit
+logs, bypass RBAC controls scoped to their own identity, or escalate privileges by acting as a more
+privileged principal such as `system:masters` or `cluster-admin`.
+"""
+false_positives = [
+    """
+    Legitimate Kubernetes operators and controllers (e.g., kube-aggregator, certain admission webhooks)
+    may use impersonation as part of their normal workflow. Validate that the impersonating user or
+    service account is an expected automation identity with a documented reason for impersonation.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes User Impersonation Detected"
+note = """## Triage and analysis
+
+### Investigating Kubernetes User Impersonation Detected
+
+Kubernetes impersonation allows a user with the `impersonate` verb on `users`, `groups`, or
+`serviceaccounts` resources to perform API calls as any other identity. This is a powerful privilege
+that is rarely needed outside of specific operator use cases — its presence in audit logs should
+always be investigated.
+
+#### Possible investigation steps
+
+- **Identify the impersonating actor**: Review `kubernetes.audit.user.username` — who initiated this action?
+- **Identify the impersonated identity**: Review `kubernetes.audit.impersonatedUser.username` and `kubernetes.audit.impersonatedUser.groups` — what identity were they acting as? Impersonation of `system:masters`, `cluster-admin`, or other privileged identities is critical.
+- **Review the impersonated action**: What verb and resource was accessed using the impersonated identity?
+- **Check if this is expected behavior**: Is the impersonating account an operator or automation tool known to use this feature?
+- **Correlate with lateral movement**: Were there other suspicious actions (secret reads, RBAC changes, pod exec) by the same actor?
+
+### False positive analysis
+
+- kube-aggregator uses impersonation to proxy requests to extension API servers.
+- Some CI/CD platforms use impersonation for scoped access.
+
+### Response and remediation
+
+- If unauthorized: immediately revoke the `impersonate` ClusterRole or RoleBinding from the actor.
+- Audit all subsequent actions performed under the impersonated identity.
+- Implement audit policies to alert on all future impersonation events.
+- Review RBAC bindings to ensure `impersonate` permissions are restricted to essential accounts only.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1550/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation",
+]
+risk_score = 73
+rule_id = "c3d4e5f6-a7b8-4901-cdef-012345678901"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.impersonatedUser.username: * and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

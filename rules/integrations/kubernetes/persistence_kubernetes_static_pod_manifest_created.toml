@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects file write events targeting the Kubernetes static pod manifest directory
+(/etc/kubernetes/manifests/). Static pod manifests are read directly by the kubelet daemon on each
+node and result in pods that are not tracked by the Kubernetes API server — they cannot be deleted
+via kubectl and survive cluster restarts. Adversaries who gain write access to a node may create
+static pod manifests to establish persistent, API-invisible workloads with node-level privileges.
+"""
+false_positives = [
+    """
+    Kubeadm and cluster provisioning tools write control plane component manifests (etcd, kube-apiserver,
+    kube-controller-manager, kube-scheduler) to this directory during cluster setup and upgrades.
+    These operations should be performed only during planned maintenance windows by authorized automation.
+    """,
+]
+index = ["logs-cloud_defend.file*", "logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kubernetes Static Pod Manifest Written"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Static Pod Manifest Written
+
+Static pods are managed exclusively by the kubelet on the node where their manifest file resides.
+They appear in `kubectl get pods` output (as mirror pods) but cannot be deleted via the API — only
+by removing the manifest file from the node. This makes them an ideal persistence mechanism for
+adversaries with node-level access.
+
+#### Possible investigation steps
+
+- **Identify the writing process**: Review `process.name`, `process.executable`, and the process chain — what process created the file? Shell processes (`bash`, `sh`) or unexpected binaries are suspicious.
+- **Identify the target file**: Review `file.path` — what manifest filename was written? Is this a known control plane component or an unexpected workload?
+- **Inspect the manifest content**: What container image and command does the manifest specify? Review for privileged containers, `hostNetwork`, `hostPID`, or `hostPath` mounts.
+- **Check the node**: Which node (`host.name`) was affected? Is this a control plane node or a worker node?
+- **Correlate with authentication events**: Were there SSH logins or `kubectl exec` sessions to this node shortly before the write?
+
+### False positive analysis
+
+- `kubeadm init`, `kubeadm upgrade`, and cluster bootstrap tools write to this directory.
+- Some Kubernetes distributions (k3s, k0s) use static manifests for embedded components.
+
+### Response and remediation
+
+- If unauthorized: immediately remove the static pod manifest file from the node.
+- Note that the kubelet will attempt to restart the static pod until the manifest is deleted.
+- Audit the node for other indicators of compromise (new users, cron jobs, SSH keys).
+- Implement file integrity monitoring on `/etc/kubernetes/manifests/` on all nodes.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1543/003/",
+    "https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/",
+]
+risk_score = 73
+rule_id = "c9d0e1f2-a3b4-4567-2345-678901234567"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where event.type in ("creation", "change") and
+  file.path like "/etc/kubernetes/manifests/*" and
+  not process.name in ("kubeadm", "kubelet")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

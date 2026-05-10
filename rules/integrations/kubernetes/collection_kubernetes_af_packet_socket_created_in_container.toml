@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects processes inside Kubernetes containers that use AF_PACKET (raw packet) sockets, which
+enable capturing all network traffic on the host network interface. In a containerized environment,
+a process with `CAP_NET_RAW` capability and AF_PACKET socket access can sniff traffic from other
+pods sharing the same node, including unencrypted credentials, session tokens, and service-to-service
+communication. This is a strong indicator of network credential harvesting or pre-pivot reconnaissance.
+"""
+false_positives = [
+    """
+    Legitimate network monitoring tools (Wireshark, tcpdump) and service mesh data planes
+    (Envoy, Cilium) may use AF_PACKET or raw sockets as part of their designed function.
+    Validate that the container image is a known, authorized monitoring or networking tool.
+    """,
+]
+index = ["logs-cloud_defend.process*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AF_PACKET Raw Socket Created in Container"
+note = """## Triage and analysis
+
+### Investigating AF_PACKET Raw Socket Created in Container
+
+`AF_PACKET` sockets bypass the normal TCP/IP stack and provide raw access to layer 2 (Ethernet)
+frames. In Kubernetes, a container with `CAP_NET_RAW` and host network access can capture all
+traffic traversing the node's network interfaces, including inter-pod traffic that is not encrypted
+at the application layer. This is a powerful technique for credential theft and reconnaissance.
+
+#### Possible investigation steps
+
+- **Identify the container**: Review `container.id`, `container.name`, `kubernetes.pod.name`, and `kubernetes.namespace`.
+- **Identify the tool**: Review `process.name` and `process.args` — is this tcpdump, tshark, or a custom binary? What interface and filter was specified?
+- **Check pod security context**: Does the pod have `hostNetwork: true`? Does the container have `CAP_NET_RAW` capability? These significantly expand the capture scope.
+- **Review captured output**: Was traffic written to a file? Review `file.path` for pcap files that may contain captured credentials.
+- **Correlate with data exfiltration**: Did any transfer tools (scp, curl) run shortly after, potentially exfiltrating the captured traffic?
+
+### False positive analysis
+
+- Network performance monitoring containers using raw sockets (Datadog NPM, Cilium agent).
+- Service mesh data plane proxies that capture metrics via packet inspection.
+- Legitimate security testing pods running network diagnostic tools.
+
+### Response and remediation
+
+- If unauthorized: immediately terminate the container and revoke `CAP_NET_RAW` from all workloads that don't need it.
+- Audit all running pods for `CAP_NET_RAW` capability and `hostNetwork: true` configurations.
+- Implement Pod Security Standards (restricted profile) to drop all capabilities by default.
+- Enable mutual TLS (mTLS) across all services to ensure captured traffic is encrypted and useless to an attacker.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1040/",
+]
+risk_score = 73
+rule_id = "f2a3b4c5-d6e7-4890-5678-901234567890"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  container.id != null and
+  process.name in ("tcpdump", "tshark", "dumpcap", "wireshark", "termshark", "tcpflow", "ngrep",
+                   "dsniff", "ettercap", "bettercap", "mitmproxy", "mitmdump")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1040"
+name = "Network Sniffing"
+reference = "https://attack.mitre.org/techniques/T1040/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

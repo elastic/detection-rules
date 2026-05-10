@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects execution of container runtime interface (CRI) clients such as docker, crictl, containerd,
+podman, kubectl, or ctr inside a running container. Adversaries who gain shell access inside a
+container may attempt to interact with the host's container runtime socket (if mounted) to list
+and inspect sibling containers, escape the container sandbox, escalate to node-level privileges,
+or enumerate the broader cluster environment. This technique is a common first step in container
+breakout attacks.
+"""
+false_positives = [
+    """
+    Some Kubernetes security agents and DinD (Docker-in-Docker) CI/CD workloads legitimately use
+    container runtime clients inside containers as part of their designed function. Validate that
+    the container image and namespace are expected to run these tools.
+    """,
+]
+index = ["logs-cloud_defend.process*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Container Runtime Client Executed Inside Container"
+note = """## Triage and analysis
+
+### Investigating Container Runtime Client Executed Inside Container
+
+Executing a container runtime client (`docker`, `kubectl`, `crictl`) inside a container is a strong
+signal of container escape attempts or post-exploitation reconnaissance. To interact with the host
+runtime, the container must have the Docker/containerd socket mounted (typically `/var/run/docker.sock`
+or `/run/containerd/containerd.sock`). If successful, the attacker can list all containers on the
+node, read their environment variables, exec into them, or create privileged containers to escape to
+the host.
+
+#### Possible investigation steps
+
+- **Identify the container**: Review `container.id`, `container.name`, `kubernetes.pod.name`, and `kubernetes.namespace`.
+- **Identify the process and arguments**: Review `process.name` and `process.args` — what command was run? `docker ps`, `crictl pods`, `kubectl get pods --all-namespaces` are common reconnaissance commands.
+- **Check for socket mount**: Inspect the pod spec for volume mounts of the container runtime socket (`/var/run/docker.sock`, `/run/containerd/containerd.sock`).
+- **Review the process chain**: What spawned the CRI client? A shell with no legitimate parent is suspicious.
+- **Correlate with exec events**: Check Kubernetes audit logs for `kubectl exec` sessions into this pod.
+
+### False positive analysis
+
+- CI/CD systems using Docker-in-Docker (DinD) for building images.
+- Kubernetes node management tooling (kured, node-problem-detector) running as DaemonSets.
+- Security agents that inspect container state.
+
+### Response and remediation
+
+- If unauthorized: immediately terminate the container and revoke RBAC permissions allowing exec.
+- Audit all pods in the cluster for mounted container runtime sockets — this is a critical misconfiguration.
+- Implement admission policies to block mounting of runtime sockets.
+- Use read-only root filesystems and drop `DAC_OVERRIDE` capability from container specs.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1611/",
+    "https://attack.mitre.org/techniques/T1609/",
+]
+risk_score = 73
+rule_id = "d0e1f2a3-b4c5-4678-3456-789012345678"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  container.id != null and
+  process.name in ("docker", "dockerd", "crictl", "ctr", "containerd", "podman", "kubectl", "nerdctl")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

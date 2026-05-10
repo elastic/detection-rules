@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the execution of network scanning and reconnaissance tools inside Kubernetes containers.
+Tools such as nmap, netcat, masscan, hping3, and zmap are rarely required in production container
+workloads and their presence strongly suggests unauthorized interactive access or post-exploitation
+activity. Adversaries who have obtained shell access inside a container may use these tools to
+perform network reconnaissance, identify internal services, or pivot to other cluster resources.
+"""
+false_positives = [
+    """
+    Network diagnostic tooling may be intentionally included in debug or testing container images.
+    Some security scanning tools run as containers. Validate that the container image and namespace
+    are expected to contain network tools and that the execution aligns with authorized activity.
+    """,
+]
+index = ["logs-cloud_defend.process*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Reconnaissance Tool Launched in Container"
+note = """## Triage and analysis
+
+### Investigating Network Reconnaissance Tool Launched in Container
+
+Network tools in containers are a strong signal of interactive post-exploitation. Production container
+images follow the principle of minimal attack surface — they contain only what the application needs.
+Finding nmap, netcat, or masscan executing inside a container almost always indicates either a
+compromised workload or a poorly hardened debug image being abused.
+
+#### Possible investigation steps
+
+- **Identify the container**: Review `container.id`, `container.name`, `kubernetes.pod.name`, and `kubernetes.namespace` — what workload is affected?
+- **Identify the process chain**: Review `process.parent.name` and `process.parent.executable` — what spawned the network tool? A shell (`bash`, `sh`, `zsh`) as parent is highly suspicious.
+- **Check the container image**: Review `container.image.name` — is this a known debug image or a production image? Was the image recently modified?
+- **Review network activity**: Were outbound connections made from the container around this time? What ports/IPs were scanned?
+- **Correlate with exec events**: Check Kubernetes audit logs for `kubectl exec` calls targeting this pod.
+
+### False positive analysis
+
+- Security scanning containers (Trivy, Grype) may contain network tools.
+- Network policy testing containers may legitimately use netcat.
+- Debug images like `busybox` or `nicolaka/netshoot` include these tools by design.
+
+### Response and remediation
+
+- If unauthorized: immediately terminate the container and isolate the pod with a restrictive NetworkPolicy.
+- Perform forensic analysis of the container filesystem for dropped tools or malware.
+- Audit container images to remove network tools from production images.
+- Implement runtime security policies (seccomp, AppArmor) to block execution of unauthorized binaries.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1046/",
+    "https://attack.mitre.org/techniques/T1059/004/",
+]
+risk_score = 47
+rule_id = "b8c9d0e1-f2a3-4456-1234-567890123456"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  container.id != null and
+  process.name in ("nmap", "masscan", "zmap", "hping", "hping3", "netcat", "nc", "ncat", "socat",
+                   "tcpdump", "tshark", "wireshark", "arpspoof", "arpwatch")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

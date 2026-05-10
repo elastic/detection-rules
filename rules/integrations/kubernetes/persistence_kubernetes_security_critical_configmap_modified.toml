@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects modifications to security-critical Kubernetes ConfigMaps including aws-auth (EKS IAM mapping),
+ArgoCD RBAC configuration (argocd-rbac-cm), ArgoCD repository configuration (argocd-cm), and the
+kube-proxy configuration. Adversaries who have obtained sufficient cluster privileges may modify these
+ConfigMaps to grant themselves persistent access, add unauthorized IAM principals with cluster-admin
+rights, or alter ArgoCD RBAC policies to gain control of GitOps pipelines.
+"""
+false_positives = [
+    """
+    Authorized IAM changes to aws-auth are routine when onboarding new team members or adding EKS
+    node groups. ArgoCD RBAC updates are expected during policy changes. Validate that the actor is
+    an authorized cluster administrator and that the change was planned.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Security-Critical ConfigMap Modified"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Security-Critical ConfigMap Modified
+
+Certain ConfigMaps act as the primary access control layer for Kubernetes clusters. The `aws-auth`
+ConfigMap in EKS maps IAM roles and users to Kubernetes RBAC identities — modification can grant
+any AWS principal cluster-admin access. ArgoCD ConfigMaps control which users can manage application
+deployments and repositories.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `kubernetes.audit.user.username` — is this a known cluster administrator, GitOps bot, or automation service account?
+- **Identify the target ConfigMap**: Review `kubernetes.audit.objectRef.name` — which ConfigMap was modified?
+  - `aws-auth`: Changes could grant IAM entities cluster access. Review added/modified entries in `requestObject.data.mapRoles` and `mapUsers`.
+  - `argocd-rbac-cm`: Changes could grant unauthorized users admin access to ArgoCD.
+  - `argocd-cm`: Changes could add unauthorized repositories or modify OIDC configuration.
+- **Review the diff**: What specific keys were changed in the ConfigMap data?
+- **Correlate with IAM events**: For aws-auth changes, check CloudTrail for related AssumeRole actions by newly added principals.
+
+### False positive analysis
+
+- `eksctl` and Terraform EKS modules routinely update `aws-auth` during cluster operations.
+- ArgoCD operators update their own ConfigMaps during upgrades or policy changes.
+
+### Response and remediation
+
+- If unauthorized: immediately revert the ConfigMap to its last known-good state.
+- For aws-auth: audit CloudTrail for any authentication attempts by newly added IAM principals.
+- Implement RBAC restrictions so only a break-glass service account can modify these ConfigMaps.
+- Consider using Kyverno or OPA Gatekeeper to enforce immutability on security-critical ConfigMaps.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://docs.aws.amazon.com/eks/latest/userguide/auth-configmap.html",
+    "https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/",
+]
+risk_score = 73
+rule_id = "d4e5f6a7-b8c9-4012-def0-123456789012"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.objectRef.resource: "configmaps" and
+kubernetes.audit.verb: ("update" or "patch") and
+kubernetes.audit.objectRef.name: ("aws-auth" or "argocd-cm" or "argocd-rbac-cm" or "kube-proxy") and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects direct Kubernetes API modifications to resources managed by ArgoCD. In a GitOps model, all
+resource changes should flow through Git — direct kubectl modifications bypass change management,
+audit trails, and will be reverted by ArgoCD's reconciliation loop unless sync is also disabled.
+Adversaries who have obtained cluster credentials may directly modify ArgoCD-managed resources to
+deploy malicious containers, alter configurations, or disable security controls while evading the
+GitOps approval pipeline.
+"""
+false_positives = [
+    """
+    Emergency break-glass procedures may require direct resource modification when Git-based changes
+    cannot be applied in time. ArgoCD operators may also apply patches to fix stuck sync states.
+    Validate that the actor performed this action in accordance with incident response procedures.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes ArgoCD-Managed Resource Directly Modified"
+note = """## Triage and analysis
+
+### Investigating Kubernetes ArgoCD-Managed Resource Directly Modified
+
+ArgoCD implements GitOps: the Git repository is the source of truth, and the cluster state should
+always match. Direct kubectl modifications are detected by ArgoCD as "out of sync" and will typically
+be reverted. An adversary may pair a direct resource modification with disabling ArgoCD auto-sync to
+make a persistent change that isn't tracked in Git.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `kubernetes.audit.user.username` — was this action performed by the ArgoCD controller SA, a known engineer, or an unexpected principal?
+- **Identify the modified resource**: Review `kubernetes.audit.objectRef.resource`, `kubernetes.audit.objectRef.name`, and `kubernetes.audit.objectRef.namespace`.
+- **Check ArgoCD sync status**: Was auto-sync disabled around the same time? Review ArgoCD audit logs for sync policy changes.
+- **Review the change**: What was actually modified in the resource spec? Look for container image changes, environment variable additions, or command overrides.
+- **Cross-reference Git**: Does the cluster state now differ from the Git repository? If so, what is the diff?
+
+### False positive analysis
+
+- ArgoCD server and application controller service accounts modify resources as part of normal reconciliation.
+- Break-glass procedures during incidents may require direct modification.
+
+### Response and remediation
+
+- If unauthorized: revert the resource to its Git-managed state via ArgoCD sync.
+- Audit all ArgoCD-managed namespaces for additional out-of-sync resources.
+- Ensure ArgoCD auto-sync is re-enabled and self-healing is active.
+- Review RBAC to restrict direct write access to ArgoCD-managed namespaces.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://argo-cd.readthedocs.io/en/stable/operator-manual/security/",
+]
+risk_score = 47
+rule_id = "a7b8c9d0-e1f2-4345-0123-456789012345"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.objectRef.resource: ("deployments" or "statefulsets" or "daemonsets" or "services" or "configmaps" or "secrets") and
+kubernetes.audit.verb: ("update" or "patch" or "delete") and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete" and
+not kubernetes.audit.user.username: ("system:serviceaccount:argocd:argocd-application-controller" or "system:serviceaccount:argocd:argocd-server")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

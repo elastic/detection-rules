@@ -1,0 +1,90 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects execution of remote file copy and download utilities inside Kubernetes containers. Tools
+such as scp, sftp, rsync, wget, curl (when used for downloads), and rclone are rarely present
+or needed in production container workloads. Their execution inside a container may indicate
+an adversary downloading additional tools, staging malware, or exfiltrating data after obtaining
+shell access to the container. This behavior maps to MITRE ATT&CK Ingress Tool Transfer (T1105).
+"""
+false_positives = [
+    """
+    Init containers and startup scripts may legitimately use wget or curl to fetch configuration
+    files or bootstrap data. Validate that the container image, namespace, and specific file being
+    transferred align with expected application behavior.
+    """,
+]
+index = ["logs-cloud_defend.process*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote File Copy Tool Launched in Container"
+note = """## Triage and analysis
+
+### Investigating Remote File Copy Tool Launched in Container
+
+Production containers should not need to transfer files to or from external hosts at runtime.
+The presence of scp, rsync, or rclone — or wget/curl used to download executables — indicates
+either a misconfigured workload or an active attack. Adversaries commonly use these tools to
+stage additional payloads (miners, rootkits, C2 agents) after gaining initial container access.
+
+#### Possible investigation steps
+
+- **Identify the container and workload**: Review `container.id`, `kubernetes.pod.name`, `kubernetes.namespace`, and `container.image.name`.
+- **Review the process arguments**: Review `process.args` — what remote host and file path are involved? Does the destination IP match known malicious infrastructure?
+- **Check the process parent**: What spawned the download tool? A shell process (bash, sh) as parent after a kubectl exec is highly suspicious.
+- **Examine the transferred file**: If the file was written to disk, review `file.path` and `file.name` for suspicious executable names.
+- **Network telemetry**: Correlate with outbound network flows from the container to identify the external endpoint.
+
+### False positive analysis
+
+- Containers that fetch config files at startup via curl/wget (e.g., cloud-init-like patterns).
+- CI runner containers that use rsync for artifact synchronization.
+- Backup containers using rclone or rsync legitimately.
+
+### Response and remediation
+
+- If unauthorized: immediately terminate the container and block egress from the affected pod.
+- Forensically analyze any files written by the transfer tool.
+- Implement egress NetworkPolicies to restrict outbound connectivity to only required endpoints.
+- Use read-only root filesystems where possible to prevent dropping of executables.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1105/",
+]
+risk_score = 47
+rule_id = "e1f2a3b4-c5d6-4789-4567-890123456789"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and
+  container.id != null and
+  process.name in ("scp", "sftp", "rsync", "rclone", "wget", "curl", "axel", "aria2c", "aria2")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

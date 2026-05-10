@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects Kubernetes exec commands (kubectl exec) where the executed command contains a public IP
+address. When an adversary obtains cluster access, they may use kubectl exec to run commands inside
+containers that establish reverse shells, initiate data exfiltration, or connect to command-and-control
+infrastructure. The presence of a routable public IP address in the exec command arguments is a strong
+indicator of such malicious activity.
+"""
+false_positives = [
+    """
+    Debugging sessions may occasionally involve explicit IP addresses for connectivity testing (e.g.,
+    curl or ping against a known external endpoint). Validate that the source user is authorized to
+    exec into the target pod and that the external IP belongs to a known, trusted service.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Exec Command Targeting External IP Address"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Exec Command Targeting External IP Address
+
+The `kubectl exec` API endpoint allows running arbitrary commands inside running containers. Attackers
+who obtain sufficient RBAC permissions can use this to execute reverse shells, download tools, or
+exfiltrate data — all from within the cluster's network context. External IP addresses in exec commands
+are a strong indicator of C2 communication or data exfiltration.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `kubernetes.audit.user.username` and `kubernetes.audit.user.extra.sessionName` (AWS SSO email) — is this an authorized user?
+- **Identify the target**: Review `kubernetes.audit.objectRef.namespace` and `kubernetes.audit.objectRef.name` — which pod was exec'd into?
+- **Extract the command**: Review `kubernetes.audit.requestURI` — the URL contains the full command as query parameters.
+- **Investigate the external IP**: Perform threat intelligence lookup on the IP. Is it a known C2 infrastructure, VPS, or anonymization service?
+- **Check geolocation**: Where is the exec originating from (`sourceIPs`)? Does this match expected user locations?
+- **Look for follow-up activity**: Did the container subsequently make outbound network connections to the external IP?
+
+### False positive analysis
+
+- Developers may run `curl` commands against known external APIs for testing.
+- Monitoring tools may exec into pods to check external connectivity.
+
+### Response and remediation
+
+- If unauthorized: immediately terminate the exec session and restrict RBAC to prevent future exec access.
+- Isolate the affected pod by applying a NetworkPolicy that blocks egress.
+- Perform forensic analysis of the container filesystem and process tree for indicators of compromise.
+- Review all exec events cluster-wide for the same time period.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1059/004/",
+    "https://attack.mitre.org/techniques/T1609/",
+    "https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#exec",
+]
+risk_score = 73
+rule_id = "f6a7b8c9-d0e1-4234-f012-345678901234"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.objectRef.subresource: "exec" and
+kubernetes.audit.verb: "create" and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete" and
+kubernetes.audit.requestURI: (*command=* and not (*command=10.* or *command=172.1* or *command=172.2* or *command=172.3* or *command=192.168.* or *command=127.*))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["kubernetes"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects patch operations on Kubernetes Deployments, DaemonSets, or StatefulSets that may indicate
+sidecar container injection. Adversaries with cluster write access can patch existing workloads to
+inject malicious containers alongside legitimate application containers — the injected sidecar runs
+with the workload's existing service account, network namespace, and volume mounts, providing
+persistent execution that is harder to detect than standalone rogue pods.
+"""
+false_positives = [
+    """
+    Service mesh controllers (Istio, Linkerd) and security agents (Falco, Datadog, Sysdig) use
+    automated sidecar injection as a core feature. These are typically performed by webhook controllers
+    operating as cluster service accounts. Validate that the patching actor is a known, authorized
+    controller and that the injected container matches expected sidecar images.
+    """,
+]
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Workload Patched — Possible Sidecar Injection"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Workload Patched — Possible Sidecar Injection
+
+Patching a Deployment, DaemonSet, or StatefulSet to add a container is a common technique for
+injecting malicious sidecars into existing workloads. The injected container inherits the workload's
+service account permissions, shared volumes, and network namespace (including access to localhost
+services), making it a powerful persistence and lateral movement vector.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `kubernetes.audit.user.username` — is this an expected service mesh webhook, CI/CD system, or an unexpected principal?
+- **Identify the target workload**: Review `kubernetes.audit.objectRef.name` and `kubernetes.audit.objectRef.namespace` — what workload was patched and in which namespace?
+- **Review the patch content**: Inspect `kubernetes.audit.requestObject` for added container definitions, particularly:
+  - Unknown container images or registries
+  - Privileged containers or dangerous capabilities
+  - Mounted host paths or sensitive volumes
+  - Environment variables containing credentials or C2 addresses
+- **Check image provenance**: Verify the image SHA against your container registry.
+
+### False positive analysis
+
+- Istio, Linkerd, Envoy-based service meshes inject proxy sidecars at admission time.
+- Datadog, Sysdig, and similar APM/security tools inject sidecars.
+- Helm upgrades may patch workloads as part of chart updates.
+
+### Response and remediation
+
+- If unauthorized: immediately remove the injected container by reverting the patch and restarting affected pods.
+- Audit the injected container image for indicators of compromise.
+- Implement OPA Gatekeeper or Kyverno admission policies to restrict which images can be run in your cluster.
+- Review RBAC to ensure patch permissions on Deployments are restricted to authorized principals.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1055/",
+    "https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/",
+]
+risk_score = 47
+rule_id = "e5f6a7b8-c9d0-4123-ef01-234567890123"
+severity = "medium"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "kubernetes.audit_logs" and
+kubernetes.audit.objectRef.resource: ("deployments" or "daemonsets" or "statefulsets") and
+kubernetes.audit.verb: "patch" and
+kubernetes.audit.annotations.authorization_k8s_io/decision: "allow" and
+kubernetes.audit.stage: "ResponseComplete"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1055"
+name = "Process Injection"
+reference = "https://attack.mitre.org/techniques/T1055/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
