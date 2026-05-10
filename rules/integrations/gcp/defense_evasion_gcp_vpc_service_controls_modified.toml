@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects modifications to GCP VPC Service Controls (Access Context Manager) perimeters or access policies.
+VPC Service Controls create security perimeters around GCP APIs to prevent data exfiltration by restricting
+which identities, networks, and devices can access specific services. An attacker who can modify or delete
+service perimeters can effectively disable these controls, enabling data exfiltration from otherwise protected
+services such as BigQuery, Cloud Storage, or Cloud KMS.
+"""
+false_positives = [
+    """
+    VPC Service Controls changes are performed by cloud security or platform teams during perimeter expansion
+    for new services, access policy updates for new users, or incident response. Changes should align with
+    a documented change request.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP VPC Service Controls Perimeter Modified"
+note = """## Triage and analysis
+
+### Investigating GCP VPC Service Controls Perimeter Modified
+
+VPC Service Controls define security perimeters around GCP services. Modifying or deleting perimeters can
+expose protected data to unauthorized access or exfiltration.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the operation**: Was a perimeter deleted, modified, or was an access level changed?
+- **Review perimeter scope**: Which services were in the modified perimeter?
+- **Check for follow-up data access**: Were any API calls made to services that were removed from the perimeter?
+
+### False positive analysis
+
+- Security teams adding new services or identities to existing perimeters.
+- Incident response operations requiring temporary perimeter modifications.
+
+### Response and remediation
+
+- Restore the perimeter to its previous state if modified without authorization.
+- Review data access logs for the protected services during the window of perimeter weakness.
+- Require multiple approvers for VPC Service Controls changes via Access Approval.
+"""
+references = [
+    "https://cloud.google.com/access-context-manager/docs/overview",
+    "https://cloud.google.com/vpc-service-controls/docs/overview",
+]
+risk_score = 73
+rule_id = "d1dc2612-6b78-4173-bdeb-c4be474d0403"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:google.identity.accesscontextmanager.v1.AccessContextManager.* and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

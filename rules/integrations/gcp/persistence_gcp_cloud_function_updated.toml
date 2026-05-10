@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects updates to GCP Cloud Function code or configuration via the Cloud Functions API. Cloud Functions are
+serverless event-driven compute units that execute in response to GCP events, HTTP requests, or Pub/Sub messages.
+An attacker who gains access to a GCP project can modify an existing Cloud Function to inject malicious code —
+such as a backdoor, credential harvester, or data exfiltration routine — that executes automatically in the
+context of the function's service account, potentially with access to sensitive resources and secrets.
+"""
+false_positives = [
+    """
+    Cloud Function updates are routine during CI/CD deployments and development workflows. Validate the actor
+    and function name against known deployment pipelines. Updates by human identities or service accounts
+    outside of approved CI/CD systems should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Cloud Function Code or Configuration Updated"
+note = """## Triage and analysis
+
+### Investigating GCP Cloud Function Code or Configuration Updated
+
+Updating a Cloud Function changes the code that executes in response to events. A compromised function
+runs in the context of its attached service account and can access any resource that account has permissions for.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the function**: Review `gcp.audit.resource_name` for the function name and project.
+- **Review the service account**: What service account does the function run as? What permissions does it have?
+- **Inspect the update**: Was this a code upload (GenerateUploadUrl) or a configuration change (UpdateFunction)?
+- **Check triggers**: What events trigger this function? Can an attacker control the trigger input?
+
+### False positive analysis
+
+- CI/CD pipelines update Cloud Functions on every code deployment.
+- Developers may update function configuration (memory, timeout, env vars) during tuning.
+
+### Response and remediation
+
+- Roll back the function to the previous version if unauthorized.
+- Review Cloud Function execution logs for suspicious behavior after the update.
+- Restrict Cloud Function deployment to CI/CD service accounts via IAM.
+- Use Binary Authorization or signed container images for function code.
+"""
+references = [
+    "https://cloud.google.com/functions/docs/reference/rest/v2/projects.locations.functions/patch",
+    "https://cloud.google.com/functions/docs/securing/function-identity",
+]
+risk_score = 47
+rule_id = "1650c09b-b5cb-4139-9b14-9bc99ed42fe9"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and
+event.action:(google.cloud.functions.v1.CloudFunctionsService.UpdateFunction or google.cloud.functions.v2.FunctionService.UpdateFunction or google.cloud.functions.v2.FunctionService.GenerateUploadUrl) and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

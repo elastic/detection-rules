@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects creation or modification of log exclusions in Google Cloud Logging. Log exclusions are filters that
+prevent matching log entries from being ingested into Cloud Logging, effectively creating blind spots in the
+audit trail. An attacker with logging configuration permissions can create exclusions that suppress specific
+audit events — such as admin activity logs, data access logs, or security-relevant operations — causing
+subsequent malicious actions to go unrecorded and significantly hindering incident detection and response.
+"""
+false_positives = [
+    """
+    Log exclusions are sometimes created to reduce logging costs by filtering high-volume, low-value events
+    such as health checks or automated read operations. Validate that the exclusion filter does not suppress
+    security-relevant events. Exclusions targeting admin activity or authentication events are always suspicious.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Log Exclusion Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GCP Log Exclusion Created or Modified
+
+GCP Cloud Logging exclusions define filters for log entries that should be dropped before ingestion.
+Unlike sink deletions, exclusions silently suppress matching events — they do not generate errors and
+may not be immediately obvious during incident response.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Review the exclusion filter**: What log entries does the exclusion suppress? Does it match admin activity, IAM changes, or authentication events?
+- **Identify the scope**: Is the exclusion at the project, folder, or organization level?
+- **Check for correlation**: Were any suspicious actions performed in the window after the exclusion was created that would have been suppressed?
+
+### False positive analysis
+
+- Cost optimization pipelines may create exclusions for high-volume, low-value logs (e.g., health check requests).
+- Compliance teams may exclude specific automated service account reads.
+
+### Response and remediation
+
+- Delete the exclusion immediately if it suppresses security-relevant events.
+- Review whether any log entries were dropped during the exclusion's active period.
+- Reconstruct any missing audit trail from other sources (VPC flow logs, firewall logs).
+- Restrict logging configuration permissions to a small set of authorized identities.
+"""
+references = [
+    "https://cloud.google.com/logging/docs/exclusions",
+    "https://cloud.google.com/logging/docs/reference/v2/rest/v2/projects.exclusions",
+]
+risk_score = 73
+rule_id = "8541c42c-842e-4c14-8aee-6623e5e0f6c4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Log Auditing",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and
+event.action:(google.logging.v2.ConfigServiceV2.CreateExclusion or google.logging.v2.ConfigServiceV2.UpdateExclusion) and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

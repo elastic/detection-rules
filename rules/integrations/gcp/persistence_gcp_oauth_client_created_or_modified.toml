@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects creation or modification of OAuth 2.0 clients in a GCP project via the Client Auth Config API
+(clientauthconfig.googleapis.com). OAuth clients define how applications authenticate users and request scopes.
+An attacker who creates a new OAuth client or modifies an existing one can configure it to request broad scopes —
+such as access to Gmail, Drive, or Admin SDK — and trick users into authorizing it, enabling persistent access
+to user data without requiring ongoing credential theft.
+"""
+false_positives = [
+    """
+    OAuth clients are created during application development, new service integrations, or CI/CD pipelines.
+    Validate the actor and project against known development activity. Creation of OAuth clients with admin
+    or sensitive API scopes by unexpected identities should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP OAuth Client Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GCP OAuth Client Created or Modified
+
+OAuth 2.0 clients in GCP are used by applications to authenticate users and access Google APIs on their behalf.
+Malicious OAuth clients have been used in phishing campaigns to gain persistent access to Google Workspace data.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the client**: Check `event.action` and `gcp.audit.resource_name` for the client ID and project.
+- **Review scopes**: What API scopes does the OAuth client request? Admin SDK, Gmail, or Drive scopes are high risk.
+- **Check for consent phishing**: Were any users redirected to an authorization URL for this client?
+
+### False positive analysis
+
+- Internal application development frequently creates OAuth clients.
+- Third-party SaaS integrations may create OAuth clients during setup.
+
+### Response and remediation
+
+- Delete the unauthorized OAuth client from the GCP Console or via API.
+- Revoke any tokens issued to the client by auditing Google Workspace token grants.
+- Restrict OAuth client creation to authorized developers via org policy.
+"""
+references = [
+    "https://cloud.google.com/docs/authentication/oauth2",
+    "https://developers.google.com/identity/protocols/oauth2",
+]
+risk_score = 47
+rule_id = "0dca34ad-b01a-4b35-b873-d3ef38a9d7dd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:(CreateClient or UpdateClient or CreateBrand) and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

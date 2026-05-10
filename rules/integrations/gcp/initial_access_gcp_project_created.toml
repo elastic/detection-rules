@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the creation of a new GCP project. In Google Cloud, projects are the fundamental unit of resource
+organization and billing. An attacker who has gained access to a GCP organization or billing account can create
+new projects to deploy shadow infrastructure, bypass project-level security controls, evade resource quotas, or
+establish persistence outside of monitored environments. New projects created by unexpected identities or outside
+of approved provisioning pipelines should be investigated.
+"""
+false_positives = [
+    """
+    GCP projects are created during normal product launches, environment provisioning (dev/staging/prod), and
+    by automated account vending pipelines. Validate the actor against known provisioning service accounts or
+    administrators.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP New Project Created"
+note = """## Triage and analysis
+
+### Investigating GCP New Project Created
+
+New GCP projects expand the cloud footprint and may inherit organization-level policies, but can also become
+isolated environments used for malicious activity.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the project**: Note the new project ID and name.
+- **Check billing account**: What billing account is the project linked to?
+- **Review subsequent activity**: What APIs were enabled and what resources were created in the new project?
+- **Verify authorization**: Does the project name follow naming conventions? Was it created via an approved pipeline?
+
+### False positive analysis
+
+- Cloud platform teams create projects regularly for new services or environments.
+- CI/CD systems may create ephemeral projects for integration testing.
+
+### Response and remediation
+
+- Delete the unauthorized project.
+- Review and revoke any IAM bindings created in the project.
+- Restrict project creation to authorized service accounts via org policy: `constraints/resourcemanager.allowedExportDestinations`.
+"""
+references = [
+    "https://cloud.google.com/resource-manager/reference/rest/v1/projects/create",
+    "https://cloud.google.com/resource-manager/docs/creating-managing-projects",
+]
+risk_score = 21
+rule_id = "c59ee7b8-4efb-4c51-aa47-5f9338f75dc7"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:CreateProject and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.001"
+name = "Create Snapshot"
+reference = "https://attack.mitre.org/techniques/T1578/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

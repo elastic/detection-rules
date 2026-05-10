@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GCP API service is enabled in a project via the Service Usage API. Enabling a new API expands the
+attack surface of a GCP project by making previously unavailable services accessible. An attacker who has gained
+access to a GCP project may enable additional APIs — such as Compute Engine, Cloud Functions, or Container Registry —
+to establish persistence, pivot to new resources, or enable capabilities not previously available to their account.
+"""
+false_positives = [
+    """
+    API services are routinely enabled during new project setup, service onboarding, or by IaC pipelines.
+    Validate whether the enabled API matches a known deployment or development activity. Unexpected enablement
+    of high-risk APIs (compute, cloudfunctions, iam) by human identities outside change windows is suspicious.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP API Service Enabled in Project"
+note = """## Triage and analysis
+
+### Investigating GCP API Service Enabled in Project
+
+Enabling an API in GCP activates that service's endpoints for the project. This is a prerequisite for using
+most GCP services and can expand an attacker's options significantly.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the API enabled**: Check `event.action` and request parameters for the service name.
+- **Assess the risk**: High-risk APIs include compute, cloudfunctions, iam, cloudbuild, container.
+- **Correlate with provisioning**: Does this match a Terraform apply or deployment pipeline run?
+
+### False positive analysis
+
+- Project creation pipelines frequently enable a standard set of APIs.
+- Developer onboarding may enable additional APIs for testing.
+
+### Response and remediation
+
+- Disable the API if it was enabled without authorization: `gcloud services disable <service>`.
+- Review what resources were created using the newly enabled API.
+- Restrict API enablement permissions using org policy: `constraints/serviceuser.services`.
+"""
+references = [
+    "https://cloud.google.com/service-usage/docs/reference/rest/v1/services/enable",
+    "https://cloud.google.com/resource-manager/docs/organization-policy/restricting-services",
+]
+risk_score = 21
+rule_id = "5faa6e2a-1282-437b-a0ac-9e4e56696bf6"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"google.api.serviceusage.v1.ServiceUsage.EnableService" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

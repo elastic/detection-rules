@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects SetIamPolicy calls against GCP projects, folders, or organizations via the Cloud Resource Manager API.
+Attackers with sufficient permissions can use SetIamPolicy to grant themselves or others elevated roles — such as
+roles/owner or roles/editor — on a project, enabling persistent, broad access to cloud resources. This differs from
+service-account-level IAM changes and represents a higher-impact privilege escalation vector.
+"""
+false_positives = [
+    """
+    IAM policy changes are routinely performed by cloud administrators, IaC pipelines (Terraform, Pulumi), and
+    onboarding automation. Validate whether the principal, timing, and target project align with a known change.
+    Unexpected changes by human identities outside change windows or from unknown IPs should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP IAM Policy Modified at Project or Organization Level"
+note = """## Triage and analysis
+
+### Investigating GCP IAM Policy Modified at Project or Organization Level
+
+The `SetIamPolicy` call on `cloudresourcemanager.googleapis.com` modifies access control bindings for an entire
+GCP project, folder, or organization. This is one of the most impactful operations in GCP — granting a role such
+as `roles/owner` or `roles/editor` gives broad access to all resources within the scope.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email` to determine who made the change.
+- **Check the binding delta**: Look at `gcp.audit.request` for added or removed role bindings, especially high-privilege roles.
+- **Review the target resource**: Was the policy changed at the project, folder, or organization level?
+- **Correlate with IaC or CI/CD**: Check if the change matches a Terraform plan or deployment pipeline.
+- **Check for follow-up actions**: Did the newly granted identity perform any API calls after the binding was added?
+
+### False positive analysis
+
+- Terraform and Pulumi pipelines frequently call `SetIamPolicy` during provisioning.
+- Google Cloud Console admin operations by authorized admins.
+
+### Response and remediation
+
+- If unauthorized, revert the binding using `SetIamPolicy` to restore the previous state.
+- Remove the unauthorized principal from the project or organization.
+- Review CloudTrail for subsequent actions taken with the elevated permissions.
+- Harden by enforcing organization policy constraints limiting `roles/owner` assignments.
+"""
+references = [
+    "https://cloud.google.com/resource-manager/reference/rest/v1/projects/setIamPolicy",
+    "https://cloud.google.com/iam/docs/granting-changing-revoking-access",
+]
+risk_score = 73
+rule_id = "1c84ad7a-d3b5-4a41-848a-3530bf2daef3"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:SetIamPolicy and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "gcp.audit.protoPayload.service_name",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

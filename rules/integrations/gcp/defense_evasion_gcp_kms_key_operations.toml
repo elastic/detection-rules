@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects administrative operations against Google Cloud KMS (Key Management Service), including key ring and
+cryptographic key creation, deletion, disabling, or IAM policy changes on keys. KMS keys protect secrets,
+disk encryption, and data-at-rest across GCP services. An attacker who gains access to KMS can disable or
+destroy keys to render encrypted data inaccessible (impact), exfiltrate key material, or modify key IAM policies
+to grant themselves decrypt permissions for sensitive data.
+"""
+false_positives = [
+    """
+    KMS operations are performed during key rotation, new service onboarding, or infrastructure provisioning.
+    Verify the actor and target key against a known change request. Automated pipelines may also create or
+    manage keys during deployment.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Cloud KMS Key Operation Detected"
+note = """## Triage and analysis
+
+### Investigating GCP Cloud KMS Key Operation Detected
+
+Google Cloud KMS manages encryption keys used to protect data across GCP services. Key operations include
+creating key rings, creating/disabling/destroying key versions, and updating key IAM policies.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the key**: Review `gcp.audit.resource_name` to determine which key ring or key was affected.
+- **Identify the operation**: Check `event.action` — destruction or disabling of key versions is highest risk.
+- **Check encryption scope**: Determine what data is protected by the affected key.
+- **Verify authorization**: Confirm with the key owner whether the operation was planned.
+
+### False positive analysis
+
+- Key rotation pipelines periodically create new key versions and disable old ones.
+- Infrastructure provisioning may create new key rings for new services.
+
+### Response and remediation
+
+- If a key version was destroyed or disabled, assess impact on encrypted data.
+- Restore from backup key material if available.
+- Revoke the actor's KMS permissions if unauthorized.
+- Re-encrypt affected data with a new key if needed.
+"""
+references = [
+    "https://cloud.google.com/kms/docs/reference/rest",
+    "https://cloud.google.com/kms/docs/key-states",
+]
+risk_score = 47
+rule_id = "44696bca-cbb5-45eb-999e-361349997637"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:google.cloud.kms.v1.KeyManagementService.* and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

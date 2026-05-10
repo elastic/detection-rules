@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects creation of an HMAC (Hash-based Message Authentication Code) key for Google Cloud Storage. HMAC keys
+are used for authentication with the Cloud Storage XML API and provide an alternative authentication mechanism
+that does not require GCP-native credentials. An attacker who creates an HMAC key for a service account gains
+long-lived credentials that can be used to access Cloud Storage buckets using S3-compatible tools, potentially
+bypassing GCP IAM audit controls and persisting access even if the service account's GCP key is rotated.
+"""
+false_positives = [
+    """
+    HMAC keys are created by developers who need S3-compatible API access to Cloud Storage, or by migration
+    tools. Validate the actor and the service account being used. HMAC key creation by unexpected identities
+    or on sensitive service accounts should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Cloud Storage HMAC Key Created"
+note = """## Triage and analysis
+
+### Investigating GCP Cloud Storage HMAC Key Created
+
+HMAC keys for Cloud Storage provide long-lived S3-compatible credentials. Unlike service account keys,
+HMAC key usage does not always appear in standard GCP audit logs, making them a useful tool for attackers
+seeking persistent, low-visibility storage access.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the target service account**: For which service account was the HMAC key created?
+- **Assess bucket permissions**: What buckets does the service account have access to?
+- **Check for HMAC key usage**: Review Cloud Storage data access logs for XML API requests using HMAC.
+
+### False positive analysis
+
+- Data migration tools using S3-compatible APIs may require HMAC keys.
+- Legacy applications using S3 SDKs pointed at Cloud Storage may need HMAC keys.
+
+### Response and remediation
+
+- Delete the unauthorized HMAC key from Cloud Storage settings.
+- Review Cloud Storage access logs for any data accessed using the key.
+- Restrict HMAC key creation via org policy or IAM conditions.
+"""
+references = [
+    "https://cloud.google.com/storage/docs/authentication/hmackeys",
+    "https://cloud.google.com/storage/docs/xml-api/overview",
+]
+risk_score = 47
+rule_id = "c497642d-bf16-48d6-a8d6-8a5dd067b13c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"storage.hmacKeys.create" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

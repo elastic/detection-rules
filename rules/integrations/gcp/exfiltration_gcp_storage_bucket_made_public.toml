@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GCP Cloud Storage bucket IAM policy is modified to grant access to allUsers or
+allAuthenticatedUsers, making bucket contents publicly readable or writable. Public buckets have been a
+significant source of cloud data breaches. An attacker or misconfigured automation can expose sensitive data
+to the internet by adding allUsers as a viewer or storage object viewer on a bucket, bypassing all
+authentication requirements.
+"""
+false_positives = [
+    """
+    Some buckets are intentionally public for static website hosting or public software distribution.
+    Validate the bucket name and contents against known public-facing assets. Public buckets containing
+    sensitive data, credentials, backups, or internal resources should be immediately investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Cloud Storage Bucket Made Publicly Accessible"
+note = """## Triage and analysis
+
+### Investigating GCP Cloud Storage Bucket Made Publicly Accessible
+
+Making a GCP storage bucket public exposes all its contents to unauthenticated internet access. This is one
+of the most common causes of cloud data breaches.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the bucket**: Review `gcp.audit.resource_name` for the bucket name.
+- **Assess contents**: What data is stored in the bucket? Is it sensitive?
+- **Check for exfiltration**: Review Cloud Storage access logs for reads by external IPs after the policy change.
+- **Determine intent**: Is this a known public website bucket or an internal bucket accidentally exposed?
+
+### False positive analysis
+
+- Static website hosting buckets intentionally grant allUsers objectViewer.
+- Public software distribution buckets (SDKs, binaries) may be intentionally public.
+
+### Response and remediation
+
+- Immediately remove the allUsers/allAuthenticatedUsers binding.
+- Enable Uniform Bucket-Level Access to prevent future ACL-based public access.
+- Review storage access logs for any data downloaded during the exposure window.
+- Enable Cloud Storage audit logs for the affected bucket.
+- Consider applying org policy: `constraints/storage.publicAccessPrevention`.
+"""
+references = [
+    "https://cloud.google.com/storage/docs/access-control/making-data-public",
+    "https://cloud.google.com/storage/docs/public-access-prevention",
+]
+risk_score = 73
+rule_id = "8c8c76bd-02ef-4f01-b565-3d2b33704ee9"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"storage.setIamPermissions" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

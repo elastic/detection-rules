@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when SSH keys are added or modified in GCP Compute Engine project metadata via
+setCommonInstanceMetadata. Project-level SSH keys are automatically propagated to all VM instances in a project
+that do not have the project-wide SSH key override set. An attacker who adds their SSH public key at the project
+level gains SSH access to all affected VMs without modifying individual instances, creating a persistent
+lateral movement path across the entire project's compute infrastructure.
+"""
+false_positives = [
+    """
+    Project-level SSH key updates are performed by system administrators during initial setup or when rotating
+    access credentials. Validate the actor and key fingerprint against known administrators. Changes performed
+    outside of change windows or by unexpected identities should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP SSH Keys Added to Project Metadata"
+note = """## Triage and analysis
+
+### Investigating GCP SSH Keys Added to Project Metadata
+
+Project-level SSH keys in GCP Compute Engine metadata are propagated to all VMs in the project. Adding an
+attacker-controlled key at this level provides immediate SSH access to potentially hundreds of instances.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Review the key added**: Inspect request parameters for the SSH key fingerprint and username.
+- **Assess scope**: How many VMs in the project do not have the project-wide SSH key override set?
+- **Check for SSH connections**: Review SSH login events on affected VMs for connections using the new key.
+
+### False positive analysis
+
+- Initial project setup may add SSH keys for authorized administrators.
+- Key rotation by infrastructure teams may update project-level keys.
+
+### Response and remediation
+
+- Remove the unauthorized SSH key from project metadata immediately.
+- Audit SSH connection logs across all project VMs for unauthorized access.
+- Rotate keys for all VMs and switch to OS Login for centralized SSH access management.
+- Restrict project metadata modification to authorized service accounts.
+"""
+references = [
+    "https://cloud.google.com/compute/docs/connect/add-ssh-keys#project-wide",
+    "https://cloud.google.com/compute/docs/metadata/setting-custom-metadata",
+]
+risk_score = 73
+rule_id = "64ee9948-3265-469a-8ab7-981ca15097c0"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Tactic: Lateral Movement",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"v1.compute.projects.setCommonInstanceMetadata" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

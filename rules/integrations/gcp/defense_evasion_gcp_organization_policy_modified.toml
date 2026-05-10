@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects modifications to Google Cloud Organization Policies via the orgpolicy.googleapis.com API. Organization
+policies are constraints applied at the organization, folder, or project level that govern what actions are allowed
+across a GCP environment — such as restricting which regions resources can be created in, disabling service account
+key creation, or requiring OS Login. An attacker with org-level admin access can weaken these guardrails to enable
+actions that would otherwise be blocked, such as disabling required MFA, allowing external service account keys,
+or permitting resource creation in any region.
+"""
+false_positives = [
+    """
+    Organization policy changes are performed by cloud platform administrators during infrastructure redesign,
+    compliance adjustments, or new service onboarding. Changes should align with documented change requests.
+    Any modification that relaxes a security constraint should be reviewed carefully.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Organization Policy Modified"
+note = """## Triage and analysis
+
+### Investigating GCP Organization Policy Modified
+
+GCP Organization Policies enforce constraints across the entire cloud hierarchy. Modifying or deleting
+constraints can remove critical security guardrails.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email` — this should be an authorized org admin.
+- **Identify the constraint**: Which policy was changed? Was a DENY constraint removed or weakened?
+- **Assess the scope**: Was this project, folder, or org level?
+- **Check for follow-up actions**: Were any resources created or modified immediately after the policy change that would not have been permitted before?
+
+### False positive analysis
+
+- New service enablement may require policy relaxation (e.g., allowing specific resource types).
+- Compliance program changes may update location or key policies.
+
+### Response and remediation
+
+- Re-apply the constraint if it was weakened without authorization.
+- Review what actions were taken in the window after the policy was relaxed.
+- Restrict org policy modification to break-glass identities only.
+"""
+references = [
+    "https://cloud.google.com/resource-manager/docs/organization-policy/overview",
+    "https://cloud.google.com/resource-manager/docs/organization-policy/using-constraints",
+]
+risk_score = 73
+rule_id = "18e7ad56-011a-4848-b709-71a9b8fec059"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:google.cloud.orgpolicy.v2.OrgPolicy.* and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

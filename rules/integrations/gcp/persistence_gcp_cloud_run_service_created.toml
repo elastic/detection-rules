@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects creation of a new Cloud Run service in Google Cloud Platform. Cloud Run is a managed serverless
+compute platform that runs containerized workloads. An attacker who has gained access to a GCP project can
+deploy a malicious container as a Cloud Run service to establish persistent command execution, create a
+reverse shell endpoint, exfiltrate data, or act as a covert C2 channel — all without managing any underlying
+infrastructure.
+"""
+false_positives = [
+    """
+    Cloud Run services are created during application deployments, microservice launches, and CI/CD pipelines.
+    Validate the actor, project, and container image against known deployment activity. Creation of Cloud Run
+    services with unknown container images by human identities outside deployment pipelines is suspicious.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Cloud Run Service Created"
+note = """## Triage and analysis
+
+### Investigating GCP Cloud Run Service Created
+
+Cloud Run services can serve HTTP requests from any source and run arbitrary container images. A newly created
+service with an unknown or suspicious image is a strong indicator of attacker activity.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the container image**: Check request parameters for the container image URI.
+- **Check the service account**: What service account is the Cloud Run service running as? Does it have elevated permissions?
+- **Review traffic**: Is the service receiving external requests from unexpected sources?
+- **Check for public access**: Is the service accessible without authentication (allUsers invoker)?
+
+### False positive analysis
+
+- CI/CD pipelines regularly create new Cloud Run service revisions.
+- Development teams may create Cloud Run services for prototyping.
+
+### Response and remediation
+
+- Delete the unauthorized Cloud Run service.
+- Revoke the service account used by the service.
+- Review what requests were received by the service.
+- Restrict Cloud Run creation to authorized service accounts via org policy.
+"""
+references = [
+    "https://cloud.google.com/run/docs/reference/rest/v1/namespaces.services/create",
+    "https://cloud.google.com/run/docs/securing/service-identity",
+]
+risk_score = 47
+rule_id = "5cbef394-dbbb-4876-b59e-8290dca5aed3"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"google.cloud.run.v1.Services.CreateService" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

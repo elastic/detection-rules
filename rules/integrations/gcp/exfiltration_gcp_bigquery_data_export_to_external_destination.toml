@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["gcp"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects BigQuery EXTRACT jobs or EXPORT DATA statements that write data to a Cloud Storage bucket. BigQuery
+export operations transfer potentially large volumes of structured data outside of BigQuery into Cloud Storage,
+from which it can be downloaded externally. An attacker or malicious insider with BigQuery Data Viewer and
+Storage Object Creator permissions can exfiltrate entire datasets by running an EXTRACT job to an
+attacker-controlled bucket, bypassing row-level security and DLP controls.
+"""
+false_positives = [
+    """
+    BigQuery EXTRACT jobs are routinely used by data pipelines to export data to Cloud Storage for downstream
+    processing, archival, or sharing with external analytics tools. Validate the actor, destination bucket,
+    and data volume against known pipeline activity. Exports to unknown buckets, by human identities, or
+    during off-hours should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-gcp*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP BigQuery Data Export to Cloud Storage"
+note = """## Triage and analysis
+
+### Investigating GCP BigQuery Data Export to Cloud Storage
+
+BigQuery EXTRACT jobs and EXPORT DATA statements move data from BigQuery tables into Cloud Storage objects.
+This is a common data pipeline pattern but also a primary data exfiltration vector in GCP environments.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `gcp.audit.authentication_info.principal_email`.
+- **Identify the destination bucket**: Is the destination bucket in the same project? Owned by the organization?
+- **Assess data volume**: How many bytes were exported? Large exports (>100GB) warrant investigation.
+- **Review the query/job**: What tables were exported? Do they contain PII, credentials, or sensitive data?
+- **Correlate with DLP findings**: Has Cloud DLP flagged the source tables or destination bucket?
+
+### False positive analysis
+
+- Scheduled Airflow/Composer pipelines regularly export data to known internal buckets.
+- Data sharing agreements may export data to partner-owned buckets.
+- BI tools may extract data for reporting purposes.
+
+### Response and remediation
+
+- Block access to the destination bucket if controlled by an attacker.
+- Revoke the actor's BigQuery Data Viewer or bigquery.jobs.create permissions.
+- Enable BigQuery audit logs and DLP inspection for exported data.
+- Apply VPC Service Controls to restrict BigQuery access to trusted networks.
+"""
+references = [
+    "https://cloud.google.com/bigquery/docs/exporting-data",
+    "https://cloud.google.com/bigquery/docs/reference/auditlogs",
+]
+risk_score = 73
+rule_id = "6622839a-000a-4f53-a5e0-4fe96812e8c4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Use Case: Data Exfiltration",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"google.cloud.bigquery.v2.JobService.InsertJob" and event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "gcp.audit.authentication_info.principal_email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "cloud.project.id",
+    "source.ip",
+    "event.outcome",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
