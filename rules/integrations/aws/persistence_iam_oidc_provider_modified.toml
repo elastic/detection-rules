@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects modifications to an existing AWS IAM OpenID Connect (OIDC) identity provider, including updates
+to the provider's thumbprint list or addition of new client IDs. OIDC providers establish trust between
+AWS and external identity providers (such as GitHub Actions, Kubernetes service accounts, or custom IdPs)
+for web identity federation. After an OIDC provider is created, adversaries with IAM administrative access
+may modify the thumbprint list to add a certificate they control, enabling them to forge tokens and assume
+roles that trust this provider. Adding a client ID can expand the set of tokens accepted, potentially
+allowing unauthorized external services to obtain AWS credentials.
+"""
+false_positives = [
+    """
+    OIDC provider thumbprint updates are required when the external IdP rotates its TLS certificate.
+    Client ID additions may occur when new applications are integrated with the federation path.
+    Validate whether the change aligns with a known certificate rotation or integration project.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM OIDC Provider Modified"
+note = """## Triage and analysis
+
+### Investigating AWS IAM OIDC Provider Modified
+
+Modifying an existing OIDC provider is a targeted action that can enable an attacker to forge web identity
+tokens and assume IAM roles that trust the provider. This is particularly dangerous for providers used by
+CI/CD pipelines or Kubernetes workloads that have broad IAM permissions.
+
+#### Possible investigation steps
+
+- Identify the OIDC provider ARN from `aws.cloudtrail.request_parameters`.
+- Determine which IAM roles have trust policies referencing this provider.
+- For thumbprint updates: verify the new thumbprint against the IdP's current TLS certificate.
+- For client ID additions: confirm whether the new client ID corresponds to a known application.
+- Review `AssumeRoleWithWebIdentity` calls using this provider shortly after the modification.
+
+### Response and remediation
+
+- Revert the thumbprint list to the known-good certificate fingerprints.
+- Remove unauthorized client IDs using `RemoveClientIDFromOpenIDConnectProvider`.
+- Audit IAM roles trusting this provider for recent unauthorized `AssumeRoleWithWebIdentity` calls.
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateOpenIDConnectProviderThumbprint.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html",
+]
+risk_score = 47
+rule_id = "dfe445ab-95c1-4ff6-9cd3-4109cea89374"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:iam.amazonaws.com and
+event.action:(UpdateOpenIDConnectProviderThumbprint or AddClientIDToOpenIDConnectProvider) and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

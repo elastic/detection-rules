@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Identifies a successful AWS Management Console login where Multi-Factor Authentication (MFA) was not used.
+MFA provides a critical additional layer of protection against credential theft and account takeover. A successful
+console login without MFA may indicate the use of compromised credentials, a misconfigured IAM policy that does not
+enforce MFA, or an attacker who has obtained the target's username and password but has not bypassed MFA requirements.
+All console logins — particularly for privileged IAM users — should require MFA as a baseline security control.
+"""
+false_positives = [
+    """
+    Some IAM users may be intentionally configured without MFA enforcement for automation or legacy compatibility
+    reasons. Break-glass accounts accessed in emergencies may also lack MFA. Validate whether the identity is an
+    expected MFA-exempt user and whether the login occurred from a known, trusted source IP. If both conditions are
+    met, the alert may represent legitimate activity. Any unrecognized login without MFA should be investigated
+    immediately as a potential credential compromise.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Management Console Login Without MFA"
+note = """## Triage and analysis
+
+### Investigating AWS Management Console Login Without MFA
+
+Multi-Factor Authentication (MFA) is a foundational control for AWS console access. When a user logs in to the AWS
+Management Console without MFA, it means only a password was used to authenticate. This significantly increases the
+risk of account takeover if credentials have been compromised via phishing, credential stuffing, or data breaches.
+
+This rule detects successful `ConsoleLogin` events where `additionalEventData.MFAUsed` is `No`. It excludes assumed
+roles, which authenticate via temporary credentials rather than console MFA.
+
+#### Possible investigation steps
+
+- **Identify the user and context**
+  - Review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` to identify who logged in.
+  - Check whether this user is expected to log in to the console (some service accounts should not have console access).
+  - Verify if MFA is configured for this IAM user via the IAM console or `ListMFADevices` API.
+
+- **Assess source and location**
+  - Review `source.ip` and `source.geo` fields.
+  - Determine whether the source IP matches known corporate networks, VPN exit points, or trusted locations.
+  - A login from an unfamiliar country or cloud provider IP is a strong indicator of credential compromise.
+
+- **Review session activity**
+  - Query CloudTrail for API calls made by this identity in the 30–60 minutes following the login.
+  - Look for high-risk actions: `CreateUser`, `CreateAccessKey`, `AttachUserPolicy`, `DeleteTrail`, `AssumeRole`.
+
+- **Check MFA configuration**
+  - Verify whether MFA is enabled for this user and why it was not used during this login.
+  - If MFA is not configured, escalate to enforce it immediately.
+
+- **Correlate with threat intelligence**
+  - Cross-reference `source.ip` against threat intelligence feeds for known malicious infrastructure.
+
+### False positive analysis
+
+- **MFA-exempt accounts**
+  - Some organizations configure specific service or break-glass accounts without MFA for operational reasons.
+  - Confirm the user is in an approved MFA-exempt list before closing the alert.
+- **Legacy IAM users**
+  - Older IAM users created before MFA enforcement policies were implemented may not have MFA configured.
+  - Use this alert as an opportunity to remediate missing MFA configurations.
+
+### Response and remediation
+
+- **Immediate containment**
+  - If the login cannot be attributed to a known, authorized user, revoke the active session by detaching or disabling the IAM user.
+  - Reset the IAM user's console password and require a new password on next sign-in.
+
+- **Enforce MFA**
+  - Enable MFA for the affected user immediately.
+  - Use AWS IAM Policies or AWS Organizations Service Control Policies (SCPs) to deny console access without MFA across all accounts.
+
+- **Investigation**
+  - Review all API activity from this identity for the duration of the session.
+  - Determine whether any sensitive resources were accessed or configuration changes were made.
+
+- **Hardening**
+  - Implement an SCP that denies all actions except `iam:CreateVirtualMFADevice` and `iam:EnableMFADevice` for users without MFA.
+  - Enable AWS Security Hub and activate the "IAM.2: IAM users should have MFA enabled" control.
+  - Consider requiring hardware MFA for privileged accounts with access to production environments.
+
+### Additional information
+
+- **[AWS IAM Best Practices: Using MFA](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#enable-mfa-for-privileged-users)**
+- **[Enforcing MFA with IAM Policies](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_my-sec-creds-self-manage-mfa-only.html)**
+- **[AWS Security Hub: IAM.2 Control](https://docs.aws.amazon.com/securityhub/latest/userguide/iam-controls.html#iam-2)**
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html",
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html",
+]
+risk_score = 47
+rule_id = "e9cb28a9-fda6-476a-9c90-e579ddea3a2e"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Sign-In",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:signin.amazonaws.com and
+event.action:ConsoleLogin and
+event.outcome:success and
+aws.cloudtrail.console_login.additional_eventdata.mfa_used:No and
+not aws.cloudtrail.user_identity.type:AssumedRole
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.console_login.additional_eventdata.mfa_used",
+    "event.outcome",
+    "cloud.account.id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

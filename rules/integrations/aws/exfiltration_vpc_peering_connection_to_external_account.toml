@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the creation of an AWS VPC peering connection request to an external AWS account. VPC peering
+enables direct network routing between two VPCs, potentially across different AWS accounts. While
+legitimate for multi-account architectures, an unauthorized peering connection to an attacker-controlled
+account can establish a persistent network tunnel into the victim's VPC, enabling direct access to
+internal services, databases, and EC2 instances without going through the internet. This technique
+can be used for lateral movement, data exfiltration, or establishing command and control channels
+through private IP space that may bypass perimeter controls.
+"""
+false_positives = [
+    """
+    VPC peering connections are commonly created for legitimate multi-account architectures, shared
+    services VPCs, and managed service provider integrations. Validate whether the peer account ID
+    in the request parameters is a known, trusted internal account. Cross-account peering outside
+    of documented architecture decisions should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS VPC Peering Connection Request to External Account"
+note = """## Triage and analysis
+
+### Investigating AWS VPC Peering Connection Request to External Account
+
+VPC peering creates a direct networking connection between two VPCs. When initiated to an external account,
+it can expose internal resources to a third party. The requesting side creates the peering connection;
+it becomes active only when the peer account accepts it.
+
+#### Possible investigation steps
+
+- Review `aws.cloudtrail.request_parameters` for the peer VPC ID and peer account ID (`peerOwnerId`).
+- Determine whether the peer account ID is a known internal or partner account.
+- Check whether the peering connection was subsequently accepted (look for `AcceptVpcPeeringConnection` in the peer account's CloudTrail).
+- Identify which VPC and CIDR range is being peered and what services are exposed in that subnet.
+
+### Response and remediation
+
+- Delete the peering connection using `DeleteVpcPeeringConnection` if unauthorized.
+- Review VPC route tables for routes pointing to the peering connection.
+- Audit security groups for rules that allow traffic from the peer CIDR range.
+"""
+references = [
+    "https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVpcPeeringConnection.html",
+]
+risk_score = 47
+rule_id = "de6c954b-7d29-47ef-a4ae-69399348f6af"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS EC2",
+    "Use Case: Network Security Monitoring",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+    "Tactic: Lateral Movement",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:ec2.amazonaws.com and
+event.action:CreateVpcPeeringConnection and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1199"
+name = "Trusted Relationship"
+reference = "https://attack.mitre.org/techniques/T1199/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

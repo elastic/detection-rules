@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects destructive operations against AWS DynamoDB, including deletion of tables, deletion of backups,
+or disabling of point-in-time recovery (UpdateContinuousBackups with PointInTimeRecoveryEnabled set to
+DISABLED). DynamoDB tables often store critical application state, user data, and business records.
+Deleting tables or their backups can cause irreversible data loss and service disruption. Disabling
+continuous backups removes the ability to restore the table to any point in the preceding 35 days,
+eliminating a key recovery option before a subsequent destructive action. These actions may be part
+of a ransomware or data destruction attack, insider threat activity, or an attacker attempting to
+destroy evidence.
+"""
+false_positives = [
+    """
+    DynamoDB tables and backups are legitimately deleted during application decommissioning, environment
+    cleanup, and cost optimization. Infrastructure-as-code pipelines may delete and recreate tables as
+    part of deployments. Validate whether the action aligns with a planned change. Deletion of tables
+    in production or regulated environments without a change ticket should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS DynamoDB Table or Backup Deleted or Recovery Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS DynamoDB Table or Backup Deleted or Recovery Disabled
+
+DynamoDB is a managed NoSQL database that may store critical application and business data. Destructive
+operations against it — whether deleting tables, removing backups, or disabling point-in-time recovery —
+can result in permanent data loss if not quickly detected and remediated.
+
+#### Possible investigation steps
+
+- Review `aws.cloudtrail.user_identity.arn` to identify the actor.
+- Examine `aws.cloudtrail.request_parameters` for the table name and backup ARN affected.
+- Determine the business criticality of the affected table.
+- Check for other destructive operations against S3, RDS, or other data stores around the same time.
+- Look for preceding reconnaissance: `ListTables`, `DescribeTable`, `ListBackups`.
+
+### Response and remediation
+
+- For deleted tables: attempt recovery from DynamoDB on-demand backups or AWS Backup.
+- For deleted backups: assess whether point-in-time recovery or other backups are still available.
+- For disabled PITR: re-enable using `UpdateContinuousBackups` with `PointInTimeRecoveryEnabled: ENABLED`.
+- Revoke the actor's DynamoDB permissions pending investigation.
+"""
+references = [
+    "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteTable.html",
+    "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteBackup.html",
+    "https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateContinuousBackups.html",
+]
+risk_score = 73
+rule_id = "fa156ebd-b621-400e-801b-2a916d910ccd"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Asset Visibility",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:dynamodb.amazonaws.com and
+event.action:(DeleteTable or DeleteBackup or UpdateContinuousBackups) and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

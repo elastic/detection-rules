@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects a member account leaving an AWS Organization. The LeaveOrganization API call causes a member
+account to exit the AWS Organizations hierarchy, immediately removing it from the organization's
+management scope. This action strips the account of all Service Control Policy (SCP) guardrails that
+the organization enforces, removes it from centralized CloudTrail aggregation, disables organization-level
+GuardDuty and Security Hub coverage, and eliminates the ability of the management account to audit or
+control it. An adversary who has gained root or management access in a member account may use this
+technique to escape organizational security controls and operate in an unmonitored environment.
+"""
+false_positives = [
+    """
+    Accounts may legitimately leave an organization during company splits, divestitures, or significant
+    structural changes. This action requires the account's root credentials or an explicit organization
+    policy allowing member accounts to leave. Any unexpected LeaveOrganization event should be treated
+    as a critical incident requiring immediate investigation.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Member Account Left Organization"
+note = """## Triage and analysis
+
+### Investigating AWS Member Account Left Organization
+
+Leaving an AWS Organization immediately removes all SCP-based guardrails from the account, cuts off
+centralized monitoring, and eliminates the management account's ability to audit the departed account.
+This is a critical security event that should be investigated immediately.
+
+#### Possible investigation steps
+
+- Identify which account left via `cloud.account.id` and `aws.cloudtrail.request_parameters`.
+- Determine who initiated the action using `aws.cloudtrail.user_identity.arn` — only root or a principal
+  with `organizations:LeaveOrganization` permission can do this.
+- Immediately contact the account owner and management to confirm intent.
+- Review the account's CloudTrail logs for suspicious activity before departure.
+
+### Response and remediation
+
+- Use `InviteAccountToOrganization` from the management account to reinvite the departed account.
+- If the departure was unauthorized, treat the account as potentially compromised.
+- Revoke all credentials associated with the actor who initiated the action.
+- Review the departed account for unauthorized resource creation or data access during the unmonitored period.
+"""
+references = [
+    "https://docs.aws.amazon.com/organizations/latest/APIReference/API_LeaveOrganization.html",
+    "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_remove.html",
+]
+risk_score = 73
+rule_id = "96f15495-ecd1-4957-bf48-c577f24941d4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:organizations.amazonaws.com and
+event.action:LeaveOrganization and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

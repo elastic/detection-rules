@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects privilege escalation through AWS IAM Identity Center (formerly AWS SSO) by identifying the creation or
+modification of permission sets, attachment of managed policies to permission sets, or creation of account assignments.
+IAM Identity Center permission sets define what actions users or groups can perform when they federate into AWS
+accounts. An attacker with administrative access to IAM Identity Center can create a new permission set with
+AdministratorAccess, assign it to a controlled user or group, and provision it to one or more AWS accounts — gaining
+persistent, federation-based administrative access that survives IAM user credential rotation and may not be caught
+by traditional IAM monitoring focused on direct IAM user changes.
+"""
+false_positives = [
+    """
+    IAM Identity Center permission sets are routinely created or modified during onboarding, role changes,
+    infrastructure provisioning, or security reviews. Automated pipelines using AWS Control Tower or IaC tools
+    such as Terraform may also create or update permission sets as part of account vending workflows. Validate
+    whether the actor, timing, and target account align with a documented change. Privileged permission set changes
+    performed outside of approved change windows or by unexpected identities should be investigated immediately.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Identity Center Permission Set Created or Modified"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Identity Center Permission Set Created or Modified
+
+AWS IAM Identity Center (formerly AWS Single Sign-On) centralizes access management for multiple AWS accounts within
+an organization. Permission sets are templates that define the level of access granted when a user or group federates
+into a target account. Modifications to permission sets or their account assignments can grant broad and persistent
+access to AWS resources across an entire organization.
+
+This rule detects several key IAM Identity Center API calls that, individually or in combination, can be used
+to escalate privileges: `CreatePermissionSet`, `UpdatePermissionSet`, `AttachManagedPolicyToPermissionSet`,
+`PutInlinePolicyToPermissionSet`, `CreateAccountAssignment`, and `ProvisionPermissionSet`.
+
+#### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` to determine who made the change.
+  - Determine whether this identity is an expected IAM Identity Center administrator.
+  - Check whether the action was performed interactively via the console or via automation.
+
+- **Review the permission set details**
+  - Examine `aws.cloudtrail.request_parameters` for the permission set name, description, and session duration.
+  - If `AttachManagedPolicyToPermissionSet` was called, identify the policy ARN attached.
+  - Look for `arn:aws:iam::aws:policy/AdministratorAccess` or other high-privilege managed policies.
+
+- **Review account assignments**
+  - If `CreateAccountAssignment` was called, identify the target account ID, principal type (USER or GROUP), and principal ID.
+  - Determine whether the assigned principal is a known, authorized identity.
+  - Correlate with `ProvisionPermissionSet` calls that deploy the permission set to target accounts.
+
+- **Check for multi-step privilege escalation chains**
+  - Look for a sequence of: `CreatePermissionSet` → `AttachManagedPolicyToPermissionSet` → `CreateAccountAssignment` → `ProvisionPermissionSet`.
+  - Such a chain, performed rapidly, is a strong indicator of deliberate privilege escalation.
+
+- **Validate authorization**
+  - Confirm with IAM administrators whether this change was part of a planned workflow.
+  - Check for related change management tickets or IaC commit history.
+
+### False positive analysis
+
+- **Account vending pipelines**
+  - AWS Control Tower and similar frameworks automatically create permission sets and account assignments during
+    new account provisioning.
+- **Routine role changes**
+  - HR-driven access reviews or team restructuring may lead to legitimate permission set updates.
+
+### Response and remediation
+
+- **Immediate containment**
+  - If unauthorized, delete the account assignment using `DeleteAccountAssignment` to revoke federated access.
+  - Remove the rogue managed policy attachment using `DetachManagedPolicyFromPermissionSet`.
+  - Delete the unauthorized permission set if applicable.
+
+- **Investigation**
+  - Review CloudTrail for `AssumeRoleWithSAML` or `AssumeRoleWithWebIdentity` calls by the assigned principal.
+  - Check what actions were performed in the target account during the assignment period.
+
+- **Hardening**
+  - Restrict IAM Identity Center administrative actions using AWS Organizations SCPs.
+  - Enable CloudTrail logging for `sso-admin.amazonaws.com` events in the management account.
+  - Require MFA for IAM Identity Center administrators.
+  - Monitor for any permission sets with `AdministratorAccess` or `PowerUserAccess` policies.
+
+### Additional information
+
+- **[AWS IAM Identity Center Documentation](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html)**
+- **[Permission Sets in IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/permissionsetsconcept.html)**
+- **[CloudTrail Events for IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/logging-using-cloudtrail.html)**
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/permissionsetsconcept.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_CreatePermissionSet.html",
+]
+risk_score = 73
+rule_id = "b11ebbdd-4cc0-4b52-a9f6-d429813ba03b"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:(sso.amazonaws.com or sso-admin.amazonaws.com) and
+event.action:(CreatePermissionSet or UpdatePermissionSet or AttachManagedPolicyToPermissionSet or PutInlinePolicyToPermissionSet or CreateAccountAssignment or ProvisionPermissionSet) and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "aws.cloudtrail.request_parameters",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects updates to an IAM user's login profile (console password) by a different IAM principal. The
+UpdateLoginProfile API call changes the console password for an IAM user. When this action is performed
+by an entity other than the target user themselves, it may indicate an adversary using administrative
+access to reset a user's password and gain console access to that account. This technique allows attackers
+to pivot to a different IAM identity, escalate privileges by targeting more permissive accounts, or establish
+persistence under a legitimate-looking user identity that may not trigger anomaly-based detections.
+"""
+false_positives = [
+    """
+    IAM administrators routinely reset console passwords for users who have been locked out or are onboarding.
+    Automated provisioning systems may also set or reset login profiles as part of account lifecycle management.
+    Validate whether the actor is an authorized IAM administrator performing a documented password reset. If the
+    change was not initiated by a help desk ticket or onboarding workflow, investigate whether the actor's
+    credentials may have been compromised.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM User Login Profile Updated by Another Principal"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Login Profile Updated by Another Principal
+
+The `UpdateLoginProfile` API call sets or changes the console password for an IAM user. When one IAM entity
+updates the login profile of a different IAM user, it can represent a legitimate administrative password reset
+or an adversary using elevated privileges to take control of another account. Since console access provides a
+graphical interface to the full scope of that user's IAM permissions, this action can be a significant
+privilege escalation or lateral movement step.
+
+This rule detects `UpdateLoginProfile` events where the `requestParameters.userName` (target user) differs
+from the caller's identity, indicating a cross-user password reset.
+
+#### Possible investigation steps
+
+- **Identify the actor and target**
+  - Review `aws.cloudtrail.user_identity.arn` to determine who made the change.
+  - Extract the target username from `aws.cloudtrail.request_parameters` (`requestParameters.userName`).
+  - Determine the IAM permissions and group memberships of the target user.
+
+- **Assess authorization**
+  - Confirm with the IAM administrator team or help desk whether a password reset was requested for this user.
+  - Check for an open IT ticket or onboarding request associated with the password reset.
+
+- **Review follow-on console activity**
+  - Query CloudTrail for subsequent `ConsoleLogin` events by the target user shortly after the password reset.
+  - If a login occurred from an unfamiliar IP or location, treat as a confirmed account takeover.
+
+- **Check if password reset was forced**
+  - Review `aws.cloudtrail.request_parameters` for `passwordResetRequired`. If set to false, the attacker may
+    have set a known password without forcing the user to reset it — a sign of silent takeover.
+
+- **Correlate with other IAM changes**
+  - Look for additional changes to the target user: `CreateAccessKey`, `AttachUserPolicy`, `AddUserToGroup`.
+  - A combination of these actions suggests a systematic account takeover pattern.
+
+### False positive analysis
+
+- **IT help desk password resets**
+  - Routine password resets for locked-out or onboarding users. Validate via ticketing system.
+- **Automated provisioning**
+  - Account lifecycle automation may reset passwords as part of onboarding workflows.
+
+### Response and remediation
+
+- **Immediate containment**
+  - Disable the target user's console access using `UpdateLoginProfile` to set a complex, unknown password.
+  - Revoke any active sessions for the target user.
+
+- **Investigation**
+  - Review all API activity under the target user's identity after the password change.
+  - Determine whether any sensitive resources were accessed or configuration changes were made.
+
+- **Hardening**
+  - Apply least-privilege constraints to `iam:UpdateLoginProfile` — restrict it to dedicated IAM admin roles.
+  - Enable IAM Access Analyzer to detect when users have more permissions than expected.
+  - Require MFA for all console logins to limit the impact of a stolen password.
+
+### Additional information
+
+- **[UpdateLoginProfile API Reference](https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateLoginProfile.html)**
+- **[AWS IAM Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)**
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateLoginProfile.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_admin-change-user.html",
+]
+risk_score = 47
+rule_id = "36e96c36-63a6-4f26-a929-a0cb3b4f95bc"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:iam.amazonaws.com and
+event.action:UpdateLoginProfile and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the closure of an AWS account. The CloseAccount API call initiates account closure, which
+triggers a 90-day grace period during which the account is suspended before permanent termination.
+Account closure is an irreversible and destructive action that removes all resources, data, and access
+within the account. An adversary with root-level or AWS Organizations administrative access may close
+accounts to destroy evidence, disrupt business operations, or eliminate compute and data resources used
+by the organization. This action can also be used by a malicious insider to sabotage an organization's
+cloud infrastructure.
+"""
+false_positives = [
+    """
+    AWS accounts may be legitimately closed as part of organizational restructuring, account consolidation,
+    or decommissioning of workloads. Account closures should always have corresponding change management
+    tickets and executive approval. Any account closure without documented authorization should be treated
+    as a critical incident.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Account Closed"
+note = """## Triage and analysis
+
+### Investigating AWS Account Closed
+
+AWS account closure is one of the most destructive actions that can be performed in an AWS environment.
+Even during the 90-day grace period, resources are inaccessible. The action requires root or Organizations
+admin access, making any unauthorized closure a critical security incident.
+
+#### Possible investigation steps
+
+- Identify who initiated the closure via `aws.cloudtrail.user_identity.arn`.
+- Determine which account was closed from `aws.cloudtrail.request_parameters` or `cloud.account.id`.
+- Contact the account owner immediately to confirm intent.
+- If unauthorized, use AWS Organizations to cancel the closure during the 90-day suspension window.
+- Review the closing actor's other actions before and after the closure event.
+
+### Response and remediation
+
+- Contact AWS Support immediately to attempt account restoration within the 90-day grace period.
+- Revoke the actor's credentials and escalate to incident response.
+- Preserve all available CloudTrail logs from the closed account before access expires.
+"""
+references = [
+    "https://docs.aws.amazon.com/accounts/latest/reference/API_CloseAccount.html",
+    "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_close.html",
+]
+risk_score = 99
+rule_id = "c85ca192-7d15-42a2-91d0-0d9224b1076a"
+severity = "critical"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:account.amazonaws.com and
+event.action:CloseAccount and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the enabling of a new AWS region for an account. AWS accounts have a set of regions enabled by
+default; additional regions must be explicitly opted into using the `EnableRegion` API call on the
+account service. An adversary who has compromised an AWS account may enable a new, rarely monitored
+region to deploy resources — such as EC2 instances, Lambda functions, or IAM changes — outside the
+visibility of existing regional monitoring, alerting, and compliance controls. This technique allows
+attackers to operate in shadow infrastructure where logging pipelines, GuardDuty detectors, and Security
+Hub may not yet be configured, reducing the likelihood of detection.
+"""
+false_positives = [
+    """
+    New regions are legitimately enabled when an organization expands its geographic footprint, meets data
+    residency requirements, or evaluates new services only available in specific regions. Validate whether
+    the region being enabled aligns with a planned expansion or infrastructure decision. Enablement of
+    obscure regions not used in the organization's architecture should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS New Region Enabled for Account"
+note = """## Triage and analysis
+
+### Investigating AWS New Region Enabled for Account
+
+Enabling a new AWS region is a rare administrative action. When done by an unauthorized actor, it can
+create a blind spot where attacker activity occurs in a region without existing monitoring coverage.
+
+#### Possible investigation steps
+
+- Review `aws.cloudtrail.user_identity.arn` to determine who enabled the region.
+- Identify the region enabled from `aws.cloudtrail.request_parameters`.
+- Check whether CloudTrail, GuardDuty, and Security Hub are configured in the newly enabled region.
+- Query the new region's CloudTrail for any API activity after the region was enabled.
+- Correlate with other suspicious activity from the same actor around the same time.
+
+### Response and remediation
+
+- If unauthorized, disable the region using `DisableRegion` on the account service.
+- Enable all detective controls (CloudTrail, GuardDuty, Config, Security Hub) in the region.
+- Review any resources that were created in the region during the period it was unmonitored.
+"""
+references = [
+    "https://docs.aws.amazon.com/accounts/latest/reference/API_EnableRegion.html",
+    "https://docs.aws.amazon.com/general/latest/gr/rande-manage.html",
+]
+risk_score = 47
+rule_id = "3faca98f-1155-4219-b2a0-93b5fa953923"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:account.amazonaws.com and
+event.action:EnableRegion and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1535"
+name = "Unused/Unsupported Cloud Regions"
+reference = "https://attack.mitre.org/techniques/T1535/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

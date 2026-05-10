@@ -1,0 +1,176 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects modification of EC2 instance metadata service (IMDS) options to enable IMDSv1, the legacy version
+of the metadata endpoint. IMDSv2 introduced session-oriented requests that require a PUT-based token, providing
+protection against server-side request forgery (SSRF) attacks that attempt to steal instance credentials. When
+an instance is configured to allow IMDSv1 (by setting httpTokens to "optional"), attackers who exploit SSRF
+vulnerabilities in applications running on that instance can issue simple HTTP GET requests to the metadata endpoint
+to retrieve IAM role credentials without requiring the session token that IMDSv2 mandates.
+"""
+false_positives = [
+    """
+    Legacy applications, older AMIs, or third-party software that has not been updated to support IMDSv2 may require
+    IMDSv1 to function correctly. Infrastructure-as-code automation may also set httpTokens to "optional" during
+    instance configuration if the application compatibility requirements have not been assessed. Validate whether the
+    instance and application have a documented need for IMDSv1, and if so, track such exceptions with a compensating
+    control. Any unexpected or undocumented change to IMDSv1 should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 IMDSv1 Enabled on Instance"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 IMDSv1 Enabled on Instance
+
+The EC2 Instance Metadata Service (IMDS) provides running instances with access to instance-specific data, including
+IAM role temporary credentials. IMDSv2 (launched in 2019) requires session-oriented requests using a token obtained
+via a PUT request, which prevents unauthenticated SSRF-based credential theft. Enabling IMDSv1 by setting
+`httpTokens` to `optional` removes this protection and allows simple GET requests to reach the metadata endpoint.
+
+This rule detects successful `ModifyInstanceMetadataOptions` API calls that set `httpTokens` to `optional`,
+effectively re-enabling IMDSv1 on the instance.
+
+#### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` to determine who made the change.
+  - Verify whether this principal typically manages EC2 instance configurations.
+  - Check `user_agent.original` to determine if this was a console action, CLI, or SDK call.
+
+- **Identify the target instance**
+  - Review `aws.cloudtrail.request_parameters` to identify the EC2 instance ID (`instanceId`).
+  - Determine the instance's purpose, the IAM role attached to it, and the applications running on it.
+  - Assess the sensitivity of the IAM role credentials accessible via the metadata endpoint.
+
+- **Validate the change**
+  - Confirm with the instance owner or platform team whether this change was authorized.
+  - Check for related change tickets, Terraform plans, or configuration management updates.
+  - Review whether the change aligns with a known application compatibility requirement.
+
+- **Check for SSRF exposure**
+  - Determine whether the instance hosts a web application or API that processes user-supplied URLs.
+  - If yes, assess whether the application is patched against SSRF and whether WAF rules are in place.
+
+- **Correlate with subsequent metadata access**
+  - Look for unusual `GetSessionToken` or `AssumeRole` calls made shortly after the change using the instance role.
+  - Review VPC Flow Logs for outbound connections from the instance to unusual destinations following the change.
+
+### False positive analysis
+
+- **Legacy application requirements**
+  - Some older applications do not support IMDSv2. If this is documented and accepted, the instance should be
+    tracked in an IMDSv1 exception register with compensating controls.
+- **IaC automation**
+  - Automated deployments may set `httpTokens: optional` when IMDSv2 compatibility has not been assessed. Align
+    with infrastructure teams to enforce `required` as the default in all Terraform/CloudFormation templates.
+
+### Response and remediation
+
+- **Immediate containment**
+  - Re-enable IMDSv2 enforcement by calling `ModifyInstanceMetadataOptions` with `HttpTokens=required`.
+  - If the change was unauthorized, review recent API activity from the instance's IAM role for signs of credential abuse.
+
+- **Hardening**
+  - Use AWS Config rule `ec2-imdsv2-check` to detect and alert on all instances not enforcing IMDSv2.
+  - Apply an SCP that denies `ec2:ModifyInstanceMetadataOptions` with `httpTokens=optional` across all accounts.
+  - Use launch templates and AMI policies to enforce `HttpTokens=required` on all new instances at launch.
+
+- **Investigation**
+  - If SSRF exploitation is suspected, capture instance memory or review application logs for requests to `169.254.169.254`.
+  - Rotate the IAM role's trust policy or create a new role to revoke any potentially exfiltrated credentials.
+
+### Additional information
+
+- **[AWS IMDSv2 Announcement](https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/)**
+- **[ModifyInstanceMetadataOptions API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceMetadataOptions.html)**
+- **[AWS Config IMDSv2 Check](https://docs.aws.amazon.com/config/latest/developerguide/ec2-imdsv2-check.html)**
+"""
+references = [
+    "https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceMetadataOptions.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html",
+]
+risk_score = 47
+rule_id = "5855c0a0-0e20-4dad-ac28-5c0d704caa0b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS EC2",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Tactic: Credential Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:ec2.amazonaws.com and
+event.action:ModifyInstanceMetadataOptions and
+event.outcome:success and
+aws.cloudtrail.request_parameters:*optional*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.005"
+name = "Cloud Instance Metadata API"
+reference = "https://attack.mitre.org/techniques/T1552/005/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

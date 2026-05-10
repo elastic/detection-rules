@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the import of an external SSH key pair into AWS EC2. The ImportKeyPair API call allows an IAM
+principal to upload a public key of their own choosing, which AWS will then associate with a key pair name
+that can be specified when launching EC2 instances. Unlike CreateKeyPair, where AWS generates the private
+key and the user receives it once, ImportKeyPair allows an attacker who has already generated their own
+RSA or ED25519 key pair to register the public component with AWS. This provides persistent SSH access to
+any EC2 instance launched with that key pair name, even after IAM credential rotation, and may not be
+detected by controls that only monitor CreateKeyPair events.
+"""
+false_positives = [
+    """
+    Importing existing SSH key pairs is common when migrating from other cloud providers or when using
+    infrastructure-as-code tools that generate and manage key pairs externally. DevOps teams may import
+    shared key pairs for fleet-wide SSH access. Validate whether the actor and key pair name align with
+    a known operational pattern or change management request.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 External SSH Key Pair Imported"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 External SSH Key Pair Imported
+
+This rule detects `ImportKeyPair` API calls that register an externally generated SSH public key with AWS EC2.
+This is distinct from `CreateKeyPair` (where AWS generates the private key), because `ImportKeyPair` allows
+the caller to control which private key will correspond to the imported public key — meaning the attacker
+retains the private key and AWS never sees it.
+
+#### Possible investigation steps
+
+- Review `aws.cloudtrail.user_identity.arn` to determine who imported the key.
+- Examine `aws.cloudtrail.request_parameters` for the key pair name and the public key material.
+- Check whether any EC2 instances were launched with this key pair name after import.
+- Determine whether the key pair name follows your organization's naming conventions.
+
+### Response and remediation
+
+- Delete the imported key pair using `DeleteKeyPair` if unauthorized.
+- Review all EC2 instances associated with this key pair name.
+- Terminate or re-image any instances that were launched with the rogue key pair.
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ImportKeyPair.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html",
+]
+risk_score = 47
+rule_id = "1e379182-c462-4771-bb4c-6550f3910a92"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS EC2",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.provider:ec2.amazonaws.com and
+event.action:ImportKeyPair and
+event.outcome:success
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

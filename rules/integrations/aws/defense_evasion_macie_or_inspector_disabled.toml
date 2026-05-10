@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects the disabling of Amazon Macie or Amazon Inspector, two AWS security services that provide
+data classification and vulnerability assessment capabilities. Amazon Macie uses machine learning to
+discover and protect sensitive data stored in S3, while Amazon Inspector assesses EC2 instances and
+container images for software vulnerabilities. Disabling these services removes visibility into data
+exposure risks and known vulnerabilities. Adversaries who have obtained administrative access may disable
+these services to prevent detection of exfiltration activities (Macie) or to delay remediation of
+vulnerabilities they plan to exploit (Inspector). These actions can also be used to degrade an
+organization's security posture before a destructive attack.
+"""
+false_positives = [
+    """
+    Amazon Macie or Amazon Inspector may be intentionally disabled in non-production accounts, during cost
+    optimization reviews, or as part of planned infrastructure decommissioning. Automated account cleanup
+    pipelines may also disable these services in accounts being retired. Validate whether the actor is an
+    authorized administrator performing a documented change. Any disabling of Macie or Inspector in production
+    or regulated environments without a corresponding change ticket should be treated as suspicious.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Macie or Inspector Security Service Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS Macie or Inspector Security Service Disabled
+
+Amazon Macie and Amazon Inspector are AWS-managed security services that provide ongoing visibility into data
+exposure and software vulnerability risks. Macie continuously monitors S3 buckets for sensitive data such as
+PII, credentials, and financial information. Inspector assesses EC2 instances and container images for known
+CVEs. Disabling either service removes an important layer of detective control.
+
+This rule detects successful API calls that disable Macie (`DisableMacie`) or Inspector (`Disable` on
+`inspector2.amazonaws.com`).
+
+#### Possible investigation steps
+
+- **Identify the actor**
+  - Review `aws.cloudtrail.user_identity.arn` to determine who disabled the service.
+  - Determine whether this identity is authorized to manage AWS security services.
+  - Check `user_agent.original` to distinguish console actions from CLI or SDK calls.
+
+- **Determine the scope of impact**
+  - For Macie: identify which S3 buckets and accounts are now unmonitored for sensitive data exposure.
+  - For Inspector: identify which EC2 instances or ECR repositories are no longer being scanned.
+  - Check whether the service was disabled in a single account or across the entire organization.
+
+- **Validate authorization**
+  - Confirm with the security team whether this change was approved and documented in a change ticket.
+  - Determine whether the action aligns with a planned infrastructure decommission or cost review.
+
+- **Correlate with other suspicious activity**
+  - Look for concurrent S3 data access or export operations that Macie would have flagged.
+  - Check for any other security service disabling events around the same time: GuardDuty, Security Hub, Config.
+  - Review for any CloudTrail tampering (StopLogging, DeleteTrail) that may indicate a broader cover-up.
+
+- **Assess pre-disabling findings**
+  - Review any open Macie or Inspector findings before the service was disabled for indicators of active threats.
+
+### False positive analysis
+
+- **Non-production account management**
+  - These services may be intentionally disabled in sandbox or development accounts to reduce cost.
+- **Account retirement**
+  - Automated pipelines decommissioning accounts may disable all security services as part of cleanup.
+
+### Response and remediation
+
+- **Immediate containment**
+  - Re-enable the disabled service and configure it to monitor the affected resources.
+  - For Macie: use `EnableMacie` and re-add monitored S3 buckets.
+  - For Inspector: use `Enable` and re-associate the affected EC2 instances or ECR repositories.
+
+- **Investigation**
+  - Review CloudTrail for sensitive data access or unusual S3 GetObject/PutObject calls during the period Macie was disabled.
+  - Check for any new Inspector findings now that it has been re-enabled.
+
+- **Hardening**
+  - Use AWS Organizations SCPs to prevent `macie2:DisableMacie` and `inspector2:Disable` without explicit approval.
+  - Enable AWS Config rules to detect when Macie or Inspector is not enabled in an account.
+  - Centralize Macie findings to a Security Hub or SIEM for cross-account visibility.
+
+### Additional information
+
+- **[Amazon Macie Documentation](https://docs.aws.amazon.com/macie/latest/user/what-is-macie.html)**
+- **[Amazon Inspector Documentation](https://docs.aws.amazon.com/inspector/latest/user/what-is-inspector.html)**
+- **[DisableMacie API Reference](https://docs.aws.amazon.com/macie/latest/APIReference/macie.html)**
+"""
+references = [
+    "https://docs.aws.amazon.com/macie/latest/APIReference/macie.html",
+    "https://docs.aws.amazon.com/inspector/latest/APIReference/API_Disable.html",
+    "https://docs.aws.amazon.com/macie/latest/user/what-is-macie.html",
+]
+risk_score = 47
+rule_id = "86cc5213-2b08-46a8-8805-82480d47369a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:aws.cloudtrail and
+event.outcome:success and
+(
+    (event.provider:macie2.amazonaws.com and event.action:DisableMacie) or
+    (event.provider:inspector2.amazonaws.com and event.action:Disable)
+)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.provider",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
