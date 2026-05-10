@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects execution of the dnscat2 DNS tunneling tool or its variants on Linux systems. dnscat2 establishes
+covert command-and-control channels by encapsulating arbitrary data within DNS queries and responses, allowing
+attackers to bypass firewall rules that permit outbound DNS traffic. DNS tunneling tools like dnscat2 are
+used for C2 communication, data exfiltration, and maintaining persistent access in environments where
+direct outbound connections are blocked.
+"""
+false_positives = [
+    """
+    Security researchers and penetration testers may legitimately use dnscat2 in authorized testing environments.
+    Validate the executing user, host, and whether the activity aligns with an approved security assessment.
+    """,
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS Tunneling via dnscat Tool Detected"
+note = """## Triage and analysis
+
+### Investigating DNS Tunneling via dnscat Tool Detected
+
+dnscat2 is an open-source tool designed to create encrypted C2 channels over DNS. Because DNS is typically
+allowed through firewalls and not deeply inspected, it is commonly abused by attackers to maintain C2
+connectivity in restricted environments. Detection of dnscat execution is a high-fidelity signal for
+unauthorized C2 activity.
+
+#### Possible investigation steps
+
+- **Identify the binary**: Check `process.executable` and `process.name` — is this a known dnscat binary or renamed variant?
+- **Review arguments**: Check `process.args` — what domain or server is being connected to?
+- **Identify the parent**: What process spawned dnscat? Shell, cron, or a web service parent is highly suspicious.
+- **Check network activity**: Correlate with DNS logs for the host — look for high-frequency DNS queries to unusual domains.
+- **Review the user context**: Which user ran dnscat? A web service or daemon user running this tool is critical.
+- **Check for download activity**: Was dnscat downloaded shortly before execution (curl, wget, chmod patterns)?
+
+### False positive analysis
+
+- Authorized penetration testing with dnscat2 in a pre-approved scope.
+- Security tooling that references dnscat in its own process name (unlikely but possible).
+
+### Response and remediation
+
+- Immediately isolate the host from the network to prevent ongoing C2 communication.
+- Kill the dnscat process and investigate how it was deployed.
+- Review DNS logs for the full C2 communication history.
+- Search for any additional tools or backdoors installed during the session.
+- Conduct a full forensic review of the host.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1071/004/",
+    "https://attack.mitre.org/techniques/T1048/003/",
+    "https://github.com/iagox86/dnscat2",
+]
+risk_score = 73
+rule_id = "e7ccfd60-3e7e-4b3a-958b-7879d0a87b43"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  (
+    process.name == "dnscat" or
+    process.name like~ "dnscat*" or
+    process.executable like~ "*/dnscat*" or
+    process.args like~ "*dnscat*"
+  )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "user.name",
+    "process.name",
+    "process.executable",
+    "process.args",
+    "process.parent.name",
+    "process.parent.executable",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1048.003"
+name = "Exfiltration Over Unencrypted Non-C2 Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/003/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects a shell process (bash, sh, dash, zsh) spawned by a Python interpreter whose grandparent process is the
+SSH daemon (sshd). This process chain — sshd → python3 → shell — is a strong indicator of a Python-based reverse
+shell or interactive shell upgrade technique executed through an established SSH session. Legitimate SSH sessions
+spawn shells directly from sshd; the insertion of a Python interpreter in the process chain strongly suggests
+post-exploitation activity such as a Python pty shell upgrade or a Python reverse shell spawning an interactive
+terminal.
+"""
+false_positives = [
+    """
+    Developers or system administrators running Python scripts interactively over SSH that subsequently invoke
+    shell commands via subprocess or os.system() may trigger this rule. Legitimate use cases include automation
+    scripts that use subprocess.run(['bash', ...]) or os.execv() to launch shell subprocesses. Validate the
+    specific Python script being executed and whether the spawned shell has an associated TTY or is interactive.
+    """,
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Shell Spawned by Python Under SSH Session"
+note = """## Triage and analysis
+
+### Investigating Shell Spawned by Python Under SSH Session
+
+A common post-exploitation technique after obtaining a limited reverse shell is to upgrade it to a fully
+interactive TTY using Python: `python3 -c 'import pty; pty.spawn("/bin/bash")'`. This technique is used to
+enable job control, tab completion, and interactive commands that are not available in a raw reverse shell.
+When this chain occurs under an SSH session (sshd → python3 → bash), it typically indicates an attacker has
+established initial SSH access and is upgrading their shell for more effective post-exploitation.
+
+#### Possible investigation steps
+
+- **Review the process chain**: Confirm the ancestry: sshd → python* → shell.
+  - Check `process.parent.name`, `process.parent.parent.name` to verify the chain.
+- **Identify the SSH user**: Check `user.name` — which account was used for the SSH session?
+  - Was this account recently created or modified?
+- **Review SSH source**: Check authentication logs for the source IP of the SSH connection.
+  - Is this an IP the user normally connects from?
+- **Review Python arguments**: Check `process.parent.args` — what Python code was executed?
+  - `pty.spawn` or `os.execv` with a shell argument is highly suspicious.
+- **Check for prior lateral movement**: Was this SSH login preceded by unusual authentication events?
+- **Check host for backdoors**: Were any new cron jobs, SSH keys, or services added?
+
+### False positive analysis
+
+- Python automation scripts using subprocess to invoke shell commands over SSH.
+- Admin scripts that use Python to manage system configuration and invoke shell subcommands.
+- Validate by reviewing the specific Python arguments and whether the user has a legitimate reason for the session.
+
+### Response and remediation
+
+- If confirmed malicious: immediately terminate the SSH session and block the source IP.
+- Revoke the SSH key or reset the password for the compromised account.
+- Review all commands executed during the session via shell history and auditd logs.
+- Search for any backdoors or persistence mechanisms installed during the session.
+- Conduct a full forensic review of the host for signs of lateral movement or data exfiltration.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1059/006/",
+    "https://attack.mitre.org/techniques/T1059/004/",
+    "https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Reverse%20Shell%20Cheatsheet.md",
+]
+risk_score = 73
+rule_id = "dceca838-2a7e-4ec3-9884-9c8648c5e148"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id, user.name with maxspan=1m
+  [process where host.os.type == "linux" and event.type == "start" and
+   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+   process.name like~ "python*" and
+   process.parent.name in ("sshd", "sshd-session")]
+  [process where host.os.type == "linux" and event.type == "start" and
+   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+   process.name in ("bash", "sh", "dash", "zsh", "ash") and
+   process.parent.name like~ "python*"]
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "user.name",
+    "process.name",
+    "process.args",
+    "process.parent.name",
+    "process.parent.args",
+    "process.parent.parent.name",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a shell or interpreter process writes a NOPASSWD entry to the sudoers configuration on Linux.
+Adding a NOPASSWD rule to /etc/sudoers or /etc/sudoers.d/ allows a user to execute commands as root without
+providing a password, effectively granting persistent passwordless privilege escalation. This technique is
+commonly used by attackers who have achieved initial access as a non-root user and wish to establish
+persistent root access without triggering password authentication prompts.
+"""
+false_positives = [
+    """
+    Configuration management tools such as Ansible, Puppet, Chef, and Salt routinely write sudoers entries
+    including NOPASSWD directives as part of automated infrastructure provisioning. Validate that the parent
+    process corresponds to an authorized configuration management agent. Manual NOPASSWD additions by
+    interactive users or unexpected parent processes should be treated as suspicious.
+    """,
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Sudoers NOPASSWD Entry Added via Shell or Interpreter"
+note = """## Triage and analysis
+
+### Investigating Sudoers NOPASSWD Entry Added via Shell or Interpreter
+
+Adding a NOPASSWD sudoers entry is a common persistence and privilege escalation technique. Once in place,
+any process running as the specified user can execute root commands without authentication. This is often
+the second step after initial access — the attacker first obtains shell access, then establishes
+persistent root access via sudoers modification.
+
+#### Possible investigation steps
+
+- **Identify the command**: Check `process.args` — what NOPASSWD entry is being written and to which file?
+  - `echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers` is the canonical attack pattern.
+- **Identify the parent process**: Check `process.parent.name` and `process.parent.executable`.
+  - A web server, container init, or reverse shell parent is a high-confidence indicator.
+- **Review the user context**: Which user executed this command? A web service or container user is critical.
+- **Check for prior access**: Was this preceded by initial access events (web shell, SSH brute force)?
+- **Review sudoers files**: Immediately check /etc/sudoers and /etc/sudoers.d/ for unauthorized NOPASSWD entries.
+- **Check for subsequent root commands**: Were any commands run with the new NOPASSWD privileges?
+
+### False positive analysis
+
+- Ansible, Puppet, Chef, Salt, and cloud-init frequently write sudoers NOPASSWD entries during provisioning.
+- Validate that the parent process is a known configuration management binary.
+
+### Response and remediation
+
+- Immediately remove any unauthorized NOPASSWD entries from sudoers.
+- Identify and terminate any active sessions established using the sudoers escalation.
+- Investigate how the attacker obtained the initial access that allowed them to modify sudoers.
+- Review all commands executed with root privileges since the NOPASSWD entry was added.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1548/003/",
+    "https://www.sudo.ws/docs/man/sudoers.man/",
+]
+risk_score = 73
+rule_id = "417b28a2-3e18-4b72-9c3f-6f2a3e1d5a89"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  process.args like~ "*NOPASSWD*" and
+  process.name in ("bash", "sh", "dash", "zsh", "ash", "echo", "printf", "tee", "sed", "awk",
+                   "python", "python3", "python2", "perl", "ruby") and
+  not process.parent.executable like~ (
+    "*/ansible*", "*/puppet*", "*/chef*", "*/salt-minion*",
+    "*/saltstack*", "*/cloud-init*"
+  )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "user.name",
+    "process.name",
+    "process.args",
+    "process.executable",
+    "process.parent.name",
+    "process.parent.executable",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

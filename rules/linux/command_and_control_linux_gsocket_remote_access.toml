@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects execution of the gsocket toolkit (gs-netcat, gsocket) on Linux systems. gsocket is a NAT-traversal
+and firewall-bypass tool that creates encrypted peer-to-peer connections using a shared secret, without
+requiring port forwarding or direct IP connectivity. Adversaries use gsocket to establish covert remote
+access channels that bypass network controls, making it a popular tool for C2 implants and unauthorized
+remote access in cloud and containerized environments.
+"""
+false_positives = [
+    """
+    Security researchers and authorized system administrators may use gsocket for legitimate remote access
+    in environments where traditional VPN or SSH is not available. Validate that the usage aligns with
+    an approved network architecture or security assessment.
+    """,
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Remote Access via gsocket Tool Detected"
+note = """## Triage and analysis
+
+### Investigating Remote Access via gsocket Tool Detected
+
+gsocket (Global Socket) is a toolkit for creating NAT-traversing network connections using a shared
+secret. Unlike traditional reverse shells that require an attacker-controlled listener with a public IP,
+gsocket connections are mediated through a relay server (gsocket.io), making them difficult to block
+with simple IP-based firewall rules. Detection of gsocket on production Linux hosts is a high-fidelity
+signal for unauthorized remote access tooling.
+
+#### Possible investigation steps
+
+- **Identify the binary**: Check `process.executable` — is this a renamed binary or the original gs-netcat/gsocket?
+- **Review arguments**: Check `process.args` — what secret or relay server is being used?
+- **Identify the parent process**: What spawned gsocket? A web server, container runtime, or CI/CD runner is highly suspicious.
+- **Check container context**: Is this running in a Kubernetes pod or container? Review `container.name` and `container.image.name`.
+- **Review download activity**: Was gsocket downloaded immediately before execution?
+- **Check for persistence**: Was a cron job, systemd service, or rc.local entry created to auto-start gsocket?
+
+### False positive analysis
+
+- Authorized use by sysadmins in environments with strict outbound firewall rules where SSH tunneling is not available.
+- Security research or authorized penetration testing.
+
+### Response and remediation
+
+- Immediately kill the gsocket process and isolate the host.
+- Review network logs for the gsocket relay communication timeline.
+- Search for persistence mechanisms that may restart gsocket after termination.
+- Conduct a full forensic review to identify how gsocket was deployed and what commands were executed.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1572/",
+    "https://attack.mitre.org/techniques/T1219/",
+    "https://github.com/hackerschoice/gsocket",
+]
+risk_score = 73
+rule_id = "d2754edc-5b8f-4e4e-9c1b-56a57db3ab5f"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Auditd Manager",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  (
+    process.name like~ "gs-*" or
+    process.name == "gsocket" or
+    process.executable like~ "*/gsocket*" or
+    process.executable like~ "*/gs-netcat*" or
+    process.args like~ "*gsocket*" or
+    process.args like~ "*gs-netcat*" or
+    process.args like~ "*gsocket.io*"
+  )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "user.name",
+    "process.name",
+    "process.executable",
+    "process.args",
+    "process.parent.name",
+    "process.parent.executable",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Software"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
