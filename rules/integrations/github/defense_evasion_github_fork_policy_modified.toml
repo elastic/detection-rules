@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when forking settings are modified at the GitHub organization or repository level. Forking policies
+control whether members and outside collaborators can create forks of private repositories. Enabling forking
+of private repositories allows anyone with read access to create a personal copy of the repository,
+effectively transferring the entire codebase — including commit history — to an account outside organizational
+control. Adversaries may enable forking to silently exfiltrate source code without triggering download-based
+detections.
+"""
+false_positives = [
+    """
+    Open-source projects and teams managing public repositories routinely allow forking as part of their
+    contribution workflow. Enabling forking on repositories that are already public or intended for open
+    contribution is expected. Enabling forking on private repositories is the high-risk scenario.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Fork Policy Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub Fork Policy Modified
+
+GitHub forking settings determine whether private repository contents can be copied to external user accounts.
+When enabled on private repositories, any organization member or collaborator with read access can fork the
+repository, creating a full copy under their personal account that is outside organizational DLP controls.
+This is a common technique for data exfiltration by insiders and compromised accounts.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized repository or organization admin?
+- **Review what was changed**: Was forking enabled or disabled? For private repos, enabling forking is the risk.
+- **Identify the scope**: Was this a repository-level or organization-wide setting change?
+- **Review the repository**: Is this repository private and does it contain sensitive IP or credentials?
+- **Check for subsequent forks**: After forking was enabled, were any forks created? By whom?
+
+### False positive analysis
+
+- Public repositories and open-source projects legitimately enable forking.
+- Disabling forking (restricting) is a security hardening action and should not be alarming.
+
+### Response and remediation
+
+- If forking was inappropriately enabled: immediately disable forking for the repository.
+- Review whether any forks were created during the window when forking was enabled.
+- Remove any unauthorized forks from external accounts via repository network graph.
+- Implement organization-level policy to prevent enabling forking on private repositories without approval.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1537/",
+    "https://docs.github.com/en/organizations/managing-organization-settings/managing-the-forking-policy-for-your-organization",
+]
+risk_score = 47
+rule_id = "f6a7b8c9-d0e1-4234-efab-345678901234"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action like~ "*fork*" and
+  event.action in ("org.enable_forking", "org.disable_forking",
+                   "repo.allow_forking", "repo.deny_forking",
+                   "repo.enable_forking", "repo.disable_forking")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "github.operation_type",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when GitHub Pages is activated on a repository, converting its contents into a publicly accessible
+website. GitHub Pages hosts static content directly from the repository and makes it available on the internet
+without authentication. Enabling Pages on a private or sensitive repository can expose source code, internal
+documentation, API specifications, configuration files, and embedded secrets to anyone on the internet.
+Adversaries may enable GitHub Pages as an exfiltration or staging mechanism to make repository content
+publicly accessible.
+"""
+false_positives = [
+    """
+    Development and documentation teams legitimately enable GitHub Pages for public-facing project documentation,
+    open-source project sites, and developer portals. Validate that the repository is intended for public access
+    and that its contents are appropriate for public distribution.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Pages Enabled on Repository"
+note = """## Triage and analysis
+
+### Investigating GitHub Pages Enabled on Repository
+
+GitHub Pages converts repository contents into a publicly hosted website accessible by anyone on the internet.
+When enabled on repositories that contain internal documentation, configuration files, API specs, or code,
+this immediately exposes those contents publicly. Enabling Pages on a previously private or internal repository
+is a high-confidence signal for accidental or deliberate data exposure.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized repository administrator?
+- **Review the repository**: What does the repository contain? Is it classified as internal, private, or public?
+  - Private or internal repos with Pages enabled warrant immediate review.
+- **Access the published site**: Navigate to the GitHub Pages URL and assess what content is exposed.
+- **Check the branch**: Which branch is being served? Is it the main branch with production configuration?
+- **Review timing**: Was this enabled just before or after suspicious activity like cloning or downloads?
+
+### False positive analysis
+
+- Open-source project documentation and developer portal sites legitimately use GitHub Pages.
+- Public marketing or team landing pages hosted on GitHub are expected.
+
+### Response and remediation
+
+- If unauthorized: immediately disable GitHub Pages for the repository in repository settings.
+- Assess what content was served during the exposure window using GitHub Pages access logs.
+- If sensitive data was exposed: initiate data breach notification procedures.
+- Implement repository security policies that restrict Pages activation on non-public repositories.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1567/",
+    "https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages",
+]
+risk_score = 73
+rule_id = "a7b8c9d0-e1f2-4345-abcd-456789012345"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Data Loss Prevention",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action == "repo.pages_public"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

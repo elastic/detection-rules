@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GitHub webhook is created, modified, or deleted at the repository or organization level.
+Webhooks deliver HTTP POST payloads to configured URLs when specific GitHub events occur. Adversaries who
+have obtained repository administrator or organization owner access may create webhooks to exfiltrate source
+code, secrets, and activity data to attacker-controlled endpoints. Webhook creation can also be used as a
+persistence mechanism, continuing to deliver data even after the attacker's primary access is revoked.
+"""
+false_positives = [
+    """
+    Development teams frequently create and manage webhooks for CI/CD pipelines, Slack integrations, project
+    management tools, and other automation. Validate that the webhook target URL is a recognized and approved
+    endpoint. Webhooks pointing to personal or external domains should be investigated.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Webhook Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub Webhook Created or Modified
+
+GitHub webhooks are a common persistence and data exfiltration mechanism. Once created, a webhook
+automatically delivers event payloads — including push content, pull request diffs, and issue comments —
+to the configured URL. Malicious webhooks can exfiltrate code, credentials committed to repositories, and
+organizational activity indefinitely without requiring interactive access.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized engineer or admin?
+- **Review the target URL**: What URL is the webhook delivering to?
+  - Internal CI/CD endpoints (Jenkins, GitHub Actions) are expected.
+  - Personal domains, webhook relay services (webhook.site, requestbin), or unknown external domains are suspicious.
+- **Review the events subscribed**: What events trigger the webhook? Broad subscriptions (push, pull_request, release) are higher risk.
+- **Check the repository classification**: Is this a sensitive or production repository?
+- **Verify the action**: Was this a creation, update, or deletion? Updates to change the target URL are particularly suspicious.
+
+### False positive analysis
+
+- CI/CD pipeline webhooks for Jenkins, GitHub Actions, Slack, and project management tools are common.
+- Build an approved webhook URL allowlist and review deviations.
+
+### Response and remediation
+
+- If unauthorized: immediately delete the webhook from the repository or organization settings.
+- Review the webhook's delivery history to understand what data was sent and to where.
+- If sensitive data was delivered: treat as a data breach and initiate incident response.
+- Audit all webhooks across the organization for unauthorized entries.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1102/",
+    "https://attack.mitre.org/techniques/T1537/",
+    "https://docs.github.com/en/webhooks/about-webhooks",
+]
+risk_score = 47
+rule_id = "c3d4e5f6-a7b8-4901-bcde-f12345678901"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Exfiltration",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action in ("hook.create", "hook.destroy", "hook.update")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "github.operation_type",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

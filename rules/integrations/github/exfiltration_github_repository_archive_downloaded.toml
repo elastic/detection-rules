@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GitHub user downloads repository archives (ZIP/tarball) across an unusually high number of
+distinct repositories within a time window. The repository download feature allows any user with read access
+to download a complete snapshot of repository contents. Adversaries or malicious insiders may use bulk
+repository downloads to exfiltrate source code, infrastructure configuration, and embedded secrets without
+triggering clone-based detection. This threshold-based rule fires when a single actor downloads more than
+5 distinct repositories within the detection window.
+"""
+false_positives = [
+    """
+    Developers migrating large codebases or performing bulk local backups may trigger this rule. Automated
+    tooling that archives repositories for compliance or backup purposes should be excluded by actor name.
+    Validate the actor's role and whether the volume of downloads aligns with a documented task.
+    """,
+]
+from = "now-130m"
+index = ["logs-github.audit-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "GitHub Repository Archive Mass Download Detected"
+note = """## Triage and analysis
+
+### Investigating GitHub Repository Archive Mass Download Detected
+
+Downloading repository archives is a simple way to exfiltrate code without using Git tooling, which leaves
+fewer traces. A single actor downloading many repositories in a short window is a high-fidelity signal for
+insider threat activity, departing employee data theft, or a compromised account being used for bulk source
+code exfiltration.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an active employee, contractor, or service account?
+  - Cross-reference with HR offboarding records or termination lists.
+- **Review the repositories downloaded**: What were the repositories? Were they production, security-critical, or IP-sensitive?
+- **Check the actor's role**: Does this user have a legitimate need to download all these repos?
+- **Review timing**: Were downloads performed during business hours or off-hours?
+- **Correlate with other activity**: Were there PAT creations, clone operations, or API enumeration events from the same actor?
+
+### False positive analysis
+
+- Backup automation that downloads repo archives for compliance archiving.
+- Bulk migration tooling during repository consolidation projects.
+
+### Response and remediation
+
+- If unauthorized: immediately suspend the actor's GitHub access and initiate insider threat investigation.
+- Identify all repositories accessed and assess the data classification and sensitivity.
+- If an active employee: contact their manager and HR immediately.
+- Review the download timestamps and correlate with VPN, endpoint, and email logs.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1213/003/",
+    "https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives",
+]
+risk_score = 73
+rule_id = "d4e5f6a7-b8c9-4012-cdef-123456789012"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Data Loss Prevention",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:"github.audit" and event.action:*download*
+'''
+
+[rule.threshold]
+field = ["github.actor"]
+value = 5
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

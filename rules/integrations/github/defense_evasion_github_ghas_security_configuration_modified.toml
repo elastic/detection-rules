@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GitHub Advanced Security (GHAS) security configuration is modified. GHAS security configurations
+define organization-wide policies for code scanning, secret scanning, Dependabot, and push protection features.
+These configurations are centrally managed and applied to multiple repositories at once. Unauthorized modification
+of a GHAS security configuration can silently disable security scanning across all repositories using that
+configuration, creating widespread blind spots in the organization's security posture without modifying
+individual repository settings.
+"""
+false_positives = [
+    """
+    Security engineering teams may legitimately update GHAS configurations to onboard new features, adjust
+    scanning settings, or align with updated security policies. Validate that the actor is an authorized
+    security engineer and that the change was communicated and documented in a change management ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Advanced Security Configuration Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub Advanced Security Configuration Modified
+
+GitHub Advanced Security (GHAS) configurations centrally manage security feature policies across multiple
+repositories. A single configuration change can enable or disable code scanning, secret scanning, Dependabot,
+and push protection for all repositories using that configuration simultaneously. This makes GHAS configuration
+changes a high-leverage attack vector for defense impairment — one unauthorized change can disable security
+scanning across hundreds of repositories.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized security or DevSecOps engineer?
+- **Review what changed**: Which security features were enabled or disabled in the configuration?
+  - Secret scanning, push protection, and code scanning are the highest-value features to check.
+- **Identify the scope**: Which repositories use this configuration? How many are affected?
+- **Verify authorization**: Is there a change management ticket for this modification?
+- **Check for concurrent changes**: Were other security configurations or individual repository settings changed at the same time?
+
+### False positive analysis
+
+- Security team configuration updates to onboard new GHAS features are expected.
+- Annual policy reviews may result in configuration updates.
+
+### Response and remediation
+
+- Immediately review the configuration change and revert if unauthorized.
+- Audit all repositories using the affected configuration for security gaps during the modification window.
+- Implement approval workflows for GHAS configuration changes.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1562/001/",
+    "https://docs.github.com/en/code-security/securing-your-organization/managing-the-security-of-your-organization/about-security-configurations",
+]
+risk_score = 73
+rule_id = "d0e1f2a3-b4c5-4678-defa-789012345678"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action == "security_configuration.update"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.org",
+    "event.action",
+    "github.operation_type",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when the default branch of a GitHub repository is changed. The default branch is the primary
+development branch of a repository and serves as the baseline for pull requests, CI/CD pipelines, deployments,
+and branch protection rules. Changing the default branch can redirect CI/CD pipelines to untrusted code,
+bypass branch protection rules that are configured on the previous default branch, affect automated deployments,
+or cause confusion during incident response. Adversaries with repository admin access may change the default
+branch to redirect builds to a malicious branch or to circumvent branch protection controls.
+"""
+false_positives = [
+    """
+    Development teams may legitimately rename their default branch (e.g., from 'master' to 'main') as part
+    of inclusive terminology initiatives or repository reorganization. Validate that the change was planned
+    and communicated, and that branch protection rules were updated to reflect the new default branch.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Repository Default Branch Changed"
+note = """## Triage and analysis
+
+### Investigating GitHub Repository Default Branch Changed
+
+The default branch is the most critical branch in a GitHub repository. Branch protection rules, required
+status checks, required reviews, and deployment policies are typically configured on the default branch.
+Changing the default branch can bypass all of these controls by redirecting the repository to a branch that
+does not have the same protections. This is a high-impact change that can immediately affect production
+deployments, CI/CD security, and code review requirements.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized repository administrator?
+- **Review the repository**: Is this a production, security-critical, or infrastructure repository?
+- **Identify old and new branches**: What was the previous default branch and what is the new default?
+  - Changes from a protected main branch to an unprotected feature branch are highly suspicious.
+- **Check branch protection rules**: Does the new default branch have equivalent protection rules?
+- **Review CI/CD pipelines**: Were any builds or deployments triggered from the new default branch?
+- **Verify authorization**: Was this change documented in a change management ticket?
+
+### False positive analysis
+
+- Planned branch renames (master → main) communicated organization-wide.
+- Repository restructuring during major refactoring initiatives.
+
+### Response and remediation
+
+- If unauthorized: immediately revert the default branch to the original value.
+- Review any CI/CD runs or deployments triggered from the new branch during the window.
+- Audit branch protection rules on the new default branch for missing controls.
+- Restrict default branch change permissions to a smaller group of authorized maintainers.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1195/002/",
+    "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-branches-in-your-repository/changing-the-default-branch",
+]
+risk_score = 47
+rule_id = "a3b4c5d6-e7f8-4901-abcd-012345678901"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Impact",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action == "repo.update_default_branch"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

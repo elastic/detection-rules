@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a single GitHub actor makes API requests touching an unusually high number of distinct repositories
+within a detection window. This pattern is indicative of automated repository enumeration — a technique used
+by adversaries who have obtained a valid access token or compromised an account and are systematically
+discovering and cataloging all accessible repositories before targeted data exfiltration. Legitimate users
+rarely interact with more than a few dozen repositories via the API in a short time window.
+"""
+false_positives = [
+    """
+    GitHub Apps, automation bots, and platform engineering tools that perform organization-wide inventory,
+    compliance scanning, or dependency analysis may generate high API request volumes across many repositories.
+    Exclude known automation accounts by actor name. Human user accounts generating this volume warrant
+    immediate investigation regardless of context.
+    """,
+]
+from = "now-130m"
+index = ["logs-github.audit-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "GitHub High Volume API Requests Across Repositories Detected"
+note = """## Triage and analysis
+
+### Investigating GitHub High Volume API Requests Across Repositories Detected
+
+Automated repository enumeration via the GitHub API is typically the reconnaissance step before bulk data
+exfiltration. An adversary who has obtained a PAT or OAuth token will enumerate all accessible repositories
+to identify high-value targets. The GitHub API allows listing all repositories an actor has access to,
+then making requests to each to retrieve file trees, contents, and metadata. Detecting >200 distinct
+repository API interactions in an hour is a strong signal of automated reconnaissance.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this a human user, bot, or GitHub App?
+  - Known automation (CI/CD, security scanning) with high counts is expected; human users are not.
+- **Review the token used**: Was this performed via a PAT, OAuth token, or GitHub App installation token?
+  - Newly created tokens performing high API volume is highly suspicious.
+- **Check the repositories accessed**: What categories of repositories were touched? Production, security tooling, infrastructure?
+- **Correlate with download/clone activity**: Was API enumeration followed by targeted clone or download events?
+- **Review the source IP**: Is this from a corporate IP, VPN, or an external/cloud provider IP?
+
+### False positive analysis
+
+- Organization-wide GitHub Apps (security scanners, dependency managers, repo managers) make high API volumes.
+- Build an exclusion list for approved automation actors.
+
+### Response and remediation
+
+- If unauthorized: immediately revoke the token used and suspend the actor's access.
+- Review all repositories accessed during the enumeration window.
+- Check for follow-up clone or download events that represent the actual exfiltration step.
+- Implement rate limiting or API usage monitoring at the GitHub App or organization level.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://attack.mitre.org/techniques/T1087/003/",
+    "https://docs.github.com/en/rest/about-the-rest-api/rate-limits-for-the-rest-api",
+]
+risk_score = 73
+rule_id = "e1f2a3b4-c5d6-4789-efab-890123456789"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:"github.audit" and event.action:"api.request"
+'''
+
+[rule.threshold]
+field = ["github.actor"]
+value = 200
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1087.003"
+name = "Email Account"
+reference = "https://attack.mitre.org/techniques/T1087/003/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

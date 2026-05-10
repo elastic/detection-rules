@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GitHub Actions runner group is created, updated, or deleted at the organization level. Runner
+groups control which repositories and workflows can use specific self-hosted runners. Unauthorized modification
+of runner group settings — such as expanding repository access, disabling workflow restrictions, or allowing
+public repository access — can expose self-hosted runners to malicious workflows from untrusted code, enabling
+supply chain attacks, code execution on internal infrastructure, or privilege escalation within CI/CD pipelines.
+"""
+false_positives = [
+    """
+    Platform engineering teams managing CI/CD infrastructure routinely create and update runner groups as
+    new repositories are onboarded or runner fleets are scaled. Validate that the actor is an authorized
+    DevOps or platform engineer and that the change aligns with planned infrastructure changes.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Actions Runner Group Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub Actions Runner Group Created or Modified
+
+GitHub Actions runner groups determine which repositories can use self-hosted runners. Self-hosted runners
+run workflow code directly on internal infrastructure. If an adversary can modify runner group settings to
+allow untrusted repositories access to sensitive runners, they can execute arbitrary code on internal
+infrastructure by triggering a workflow in an allowed repository. This is a critical supply chain attack
+vector, especially when runners have access to production secrets, deployment credentials, or internal networks.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized platform or DevOps engineer?
+- **Review the change**: What was modified? Check for:
+  - New repositories added to the runner group
+  - Public repository access enabled (`allow_public` set to true)
+  - Workflow restrictions relaxed
+- **Identify the runner group**: Which runner group was modified? Does it have access to production secrets or environments?
+- **Verify authorization**: Is there a documented change management request for this modification?
+- **Check for subsequent workflow runs**: After the modification, did any unexpected repositories run workflows on these runners?
+
+### False positive analysis
+
+- Adding new repositories to a runner group during project onboarding is expected.
+- Scaling runner groups for new CI/CD pipelines is routine platform engineering work.
+
+### Response and remediation
+
+- If unauthorized: immediately revert the runner group configuration change.
+- Review all workflows executed by the affected runner group since the modification.
+- Rotate any secrets or credentials accessible to the runners.
+- Implement approval workflows for runner group modifications affecting production runners.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1195/002/",
+    "https://docs.github.com/en/actions/using-github-hosted-runners/using-groups-to-manage-access-to-ae-hosted-runners",
+    "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions",
+]
+risk_score = 73
+rule_id = "f2a3b4c5-d6e7-4890-fabc-901234567890"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Impact",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action in ("org.runner_group_created", "org.runner_group_deleted",
+                   "org.runner_group_updated", "org.runner_group_runners_updated",
+                   "org.runner_group_runner_removed", "org.runner_group_runner_added")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.org",
+    "event.action",
+    "github.operation_type",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

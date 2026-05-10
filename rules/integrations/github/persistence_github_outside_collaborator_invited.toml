@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a GitHub organization member or outside collaborator is added to or removed from a repository.
+Outside collaborators are GitHub users who are not members of the organization but are granted access to
+specific repositories. Adding an outside collaborator to a sensitive or private repository can expose
+proprietary source code, secrets, and intellectual property to unauthorized individuals. Adversaries who
+have compromised an organization member account may add external accomplices as collaborators to facilitate
+data exfiltration.
+"""
+false_positives = [
+    """
+    Organizations frequently add contractors, partners, and open-source contributors as outside collaborators
+    to specific repositories. Validate that the inviter has authorization to grant external access to the
+    specific repository, and that the invitee is a known and vetted external party.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Outside Collaborator Added or Removed from Repository"
+note = """## Triage and analysis
+
+### Investigating GitHub Outside Collaborator Added or Removed from Repository
+
+Outside collaborators bypass organization membership controls and can be added to private repositories by
+any repository administrator. This makes them a potential vector for unauthorized access, either by a
+compromised insider adding a malicious external party, or by an adversary who has gained repository admin
+access and wants to establish access for an external account they control.
+
+#### Possible investigation steps
+
+- **Identify the inviter**: Review `github.actor` — is this an authorized repository administrator?
+- **Identify the invitee**: Review `github.user` — is this a known, vetted external party?
+  - Newly created GitHub accounts or accounts with no prior organizational context are suspicious.
+- **Review the repository**: Is the repository sensitive (production code, security tooling, infrastructure)?
+- **Check the permission level granted**: Read, write, or admin access?
+  - Write or admin access for outside collaborators on sensitive repos warrants immediate review.
+- **Verify business justification**: Is there a contract or approved request for this collaborator?
+
+### False positive analysis
+
+- Legitimate contractor or partner onboarding adds outside collaborators to specific project repositories.
+- Open-source contribution workflows may add community contributors as collaborators.
+
+### Response and remediation
+
+- If unauthorized: immediately remove the outside collaborator from the repository.
+- Audit what the collaborator accessed or cloned during their access window.
+- Review all repositories where the actor has admin access for additional unauthorized collaborator additions.
+- Implement organization policies requiring approval workflows for outside collaborator access.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1136/003/",
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-outside-collaborators",
+]
+risk_score = 47
+rule_id = "e5f6a7b8-c9d0-4123-def0-234567890123"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action like~ "org.*outside_collaborator*"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.user",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

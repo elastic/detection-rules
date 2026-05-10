@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when Dependabot security alerts are disabled for a GitHub repository. Dependabot continuously monitors
+repository dependencies for known vulnerabilities and notifies maintainers via security alerts and automated
+pull requests. Disabling Dependabot alerts removes automated vulnerability detection for the affected
+repository, reducing visibility into exploitable weaknesses in the codebase's supply chain. Adversaries with
+repository admin access may disable these alerts to prevent detection of vulnerable dependencies they intend
+to exploit, or to suppress security notifications as part of broader defense impairment.
+"""
+false_positives = [
+    """
+    Repository administrators may legitimately disable Dependabot alerts for archived repositories, repositories
+    with no active maintenance, or repositories where dependency scanning is handled by a different tool
+    (e.g., Snyk, Renovate). Validate that the repository is genuinely inactive or that an equivalent
+    scanning mechanism is in place.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Dependabot Security Alerts Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub Dependabot Security Alerts Disabled
+
+Dependabot provides continuous dependency vulnerability scanning for GitHub repositories. Disabling these
+alerts removes automated notification when new CVEs affecting the repository's dependencies are published.
+This is a defense impairment action that reduces the security team's visibility into the repository's
+vulnerability posture.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized repository maintainer or admin?
+- **Review the repository**: Is this an active production repository? Disabling alerts on active repos is concerning.
+- **Check for a replacement**: Is there another scanning tool (Snyk, FOSSA, Renovate) configured for this repository?
+- **Review the reason**: Was there a documented reason for disabling alerts (e.g., noise reduction for a specific ecosystem)?
+- **Check for concurrent changes**: Were other security settings (secret scanning, code scanning) also disabled at the same time?
+
+### False positive analysis
+
+- Archived or deprecated repositories may have Dependabot disabled as part of archiving.
+- Repositories migrating to third-party SCA tools may temporarily disable Dependabot.
+
+### Response and remediation
+
+- Re-enable Dependabot alerts for any active repository where they were inappropriately disabled.
+- Review the repository's current dependency state for unpatched known vulnerabilities.
+- Implement organization-level policies that prevent disabling Dependabot without admin approval.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1562/001/",
+    "https://docs.github.com/en/code-security/dependabot/dependabot-alerts/about-dependabot-alerts",
+]
+risk_score = 47
+rule_id = "b8c9d0e1-f2a3-4456-bcde-567890123456"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action in ("repository_vulnerability_alerts.disable", "dependabot_alerts.disable")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.repo",
+    "github.org",
+    "event.action",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

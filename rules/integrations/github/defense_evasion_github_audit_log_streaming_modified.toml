@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when GitHub Audit Log Streaming configuration is created, modified, or deleted. Audit log streaming
+forwards GitHub audit events to an external destination (e.g., SIEM, S3 bucket) for security monitoring.
+Adversaries who have obtained organization owner access may stop or reconfigure log streaming to prevent
+their activity from reaching the security monitoring pipeline, enabling them to operate undetected.
+"""
+false_positives = [
+    """
+    Security engineering teams may legitimately reconfigure audit log streaming when migrating to new SIEM
+    infrastructure, rotating credentials, or updating streaming destinations. Validate that the actor is
+    an authorized security or platform engineer with a corresponding change management ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Audit Log Streaming Configuration Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub Audit Log Streaming Configuration Modified
+
+GitHub Audit Log Streaming allows organizations to continuously forward audit events to external security
+systems. Disabling or modifying this stream is a high-impact action that can create blind spots in an
+organization's security monitoring. Attackers who compromise an organization owner account may disable
+streaming to suppress evidence of their subsequent actions.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized security or DevSecOps engineer?
+- **Review the operation type**: Was this a create, update, or delete? Deletions or disabling operations are highest risk.
+- **Check timing**: Was this change made outside business hours or immediately before other suspicious activity?
+- **Review concurrent activity**: Were there other sensitive org-level changes around the same time?
+- **Verify against change management**: Is there an approved ticket for this streaming configuration change?
+
+### False positive analysis
+
+- Streaming configuration changes during SIEM migrations or infrastructure rotations are expected.
+- Rotating streaming credentials (tokens, AWS keys) triggers update events.
+
+### Response and remediation
+
+- If unauthorized: immediately re-enable audit log streaming and review the gap period for missed events.
+- Audit all other actions taken by the actor in the past 24 hours using available logs.
+- Rotate the organization owner credentials for the account that made the change.
+- Restrict organization owner role to a minimal set of named individuals.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1562/001/",
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise",
+]
+risk_score = 73
+rule_id = "a1f2e3d4-b5c6-4789-8abc-def012345678"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action like~ "audit_log_streaming*"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.org",
+    "event.action",
+    "github.operation_type",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

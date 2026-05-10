@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a user is granted admin or maintainer permission on a GitHub repository. Repository admin
+permission grants full control over repository settings, including the ability to modify branch protection
+rules, manage webhooks, add outside collaborators, and delete the repository. Adversaries who have compromised
+an organization member account may grant admin permissions to additional accounts they control to establish
+persistent access and escalate privileges within the repository. Maintainer permission, while less powerful,
+also allows sensitive repository management actions.
+"""
+false_positives = [
+    """
+    Team leads and project managers routinely grant repository admin and maintainer permissions to new team
+    members or during project ownership transfers. Validate that the actor is authorized to grant this level
+    of access and that the recipient has a documented business need for admin privileges.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Repository Admin or Maintainer Permission Granted"
+note = """## Triage and analysis
+
+### Investigating GitHub Repository Admin or Maintainer Permission Granted
+
+Repository admin permission in GitHub is equivalent to full control over the repository's configuration.
+Admins can bypass branch protection rules, add webhooks for data exfiltration, invite outside collaborators,
+and transfer or delete the repository. Granting admin access to unauthorized users is a persistence and
+privilege escalation technique that allows adversaries to establish durable footholds in sensitive repositories.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `github.actor` — is this an authorized repository admin or team lead?
+- **Identify the recipient**: Review `github.user` — is this a known, active employee with a need for admin access?
+  - Newly created accounts or accounts with no prior activity are suspicious recipients.
+- **Review the repository**: Is this a production, security-critical, or infrastructure repository?
+  - Admin grants on sensitive repositories warrant expedited review.
+- **Check the permission level**: Admin vs. maintainer. Admin is higher risk.
+- **Review subsequent activity**: What did the newly granted admin do immediately after receiving access?
+
+### False positive analysis
+
+- New team member onboarding with appropriate admin access requirements.
+- Project ownership transfers during team restructuring.
+
+### Response and remediation
+
+- If unauthorized: immediately revoke the admin permission from the repository.
+- Review all repository changes made by the newly added admin during the window.
+- If the granting actor's account is compromised: suspend and rotate credentials for that account.
+- Implement least-privilege policies limiting repo admin to a small set of named maintainers.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-repository-roles/repository-roles-for-an-organization",
+]
+risk_score = 47
+rule_id = "c5d6e7f8-a9b0-4123-cdef-234567890123"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit" and
+  event.action in ("repo.add_member", "repo.change_member_permission") and
+  github.permission in ("admin", "maintain")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "github.actor",
+    "github.user",
+    "github.repo",
+    "github.org",
+    "github.permission",
+    "event.action",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
