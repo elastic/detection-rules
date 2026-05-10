@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a Google Workspace user account is suspended by an administrator. While account suspension is a routine
+IT operation, adversaries with admin access may suspend accounts to lock out legitimate users, disrupt operations,
+or prevent targeted users from detecting ongoing intrusion activity. Suspension of accounts belonging to security
+personnel, IT administrators, or executives is particularly high-risk.
+"""
+false_positives = [
+    """
+    Account suspension is a routine operation during employee offboarding, security incident response, or
+    policy violation enforcement. Automated deprovisioning workflows also suspend accounts during offboarding.
+    Validate that the suspended account corresponds to an expected offboarding case or a documented security action.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace User Account Suspended"
+note = """## Triage and analysis
+
+### Investigating Google Workspace User Account Suspended
+
+Account suspension in Google Workspace immediately prevents the user from logging in and accessing any Google
+services. While routine during offboarding, unexpected suspensions — especially of admin accounts, security
+personnel, or active employees — may indicate an adversary attempting to disrupt operations or lock out defenders.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an authorized admin or automated provisioning system?
+- **Identify the suspended account**: Check `user.target.email` — is this a legitimate offboarding case?
+  - Cross-reference with HR offboarding records or incident response tickets.
+- **Check for targeting patterns**: Were multiple accounts suspended in a short window?
+  - If yes, correlate with the bulk suspension rule.
+- **Review actor's recent activity**: Did this admin perform other unusual actions (role changes, OAuth grants) before or after suspension?
+- **Assess account type**: Is the suspended account an admin, security team member, or executive?
+  - These high-privilege suspensions require immediate escalation.
+
+### False positive analysis
+
+- Automated deprovisioning (SailPoint, BambooHR) suspends accounts routinely during offboarding.
+- Manual admin suspensions for policy violations are expected.
+
+### Response and remediation
+
+- If unauthorized: unsuspend the account immediately and investigate the actor who performed the suspension.
+- Review all admin actions by the suspending actor in the past 48 hours for additional malicious changes.
+- If a security or admin account was targeted: initiate incident response immediately.
+- Implement approval workflows for suspending admin-role accounts.
+"""
+references = [
+    "https://support.google.com/a/answer/33312",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+]
+risk_score = 47
+rule_id = "d6e9b28e-5b9a-488e-be30-61526e9233c6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.provider:admin
+  and event.category:iam
+  and event.action:SUSPEND_USER
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.target.email",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

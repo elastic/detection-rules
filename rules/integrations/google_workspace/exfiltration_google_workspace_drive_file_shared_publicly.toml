@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a Google Drive file or folder is shared via a public "anyone with the link" or "anyone on the internet"
+permission, making it accessible without authentication. Adversaries who have compromised internal accounts may
+share sensitive Drive documents publicly to exfiltrate data without triggering DLP tools, or to stage files for
+external access. Publicly shared files in Drive are indexed by Google and accessible to any user with the link,
+posing a significant data exposure risk.
+"""
+false_positives = [
+    """
+    Some teams intentionally share public-facing documents (e.g., product documentation, open-source resources,
+    public blog drafts) using "anyone with the link" permissions. Validate that the file type and content are
+    appropriate for public distribution and that the owner is aware of the sharing level.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Drive File Shared Publicly"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Drive File Shared Publicly
+
+Google Drive files shared with "anyone with the link" or "public" visibility are accessible to any internet user
+without authentication. Sensitive documents, spreadsheets, and presentations shared this way represent a significant
+data loss risk. This sharing is often used by adversaries to exfiltrate data in a way that appears as normal
+user activity.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — does this user routinely share files publicly?
+- **Review the file**: Check `file.name` and `google_workspace.drive.file.type` to assess content sensitivity.
+- **Check visibility**: Confirm the visibility was set to `people_with_link` or `public_in_the_cloud`.
+- **Verify access**: Attempt to access the shared link (if still active) to confirm what data is exposed.
+- **Review sharing history**: Has this user shared multiple files publicly in a short time window?
+- **Check for insider threat indicators**: Is this user on the leaver list or under a PIP?
+
+### False positive analysis
+
+- Public documentation, blog content, or marketing materials are routinely shared publicly.
+- Verify with the file owner and their manager that the sharing was intentional.
+
+### Response and remediation
+
+- Immediately revoke public access from the file via the Admin console or Drive audit.
+- Assess what data may have been accessed while the file was public (Drive audit logs).
+- If sensitive data was exposed, initiate breach notification procedures per your data governance policy.
+- Consider implementing DLP policies to prevent public sharing of files containing sensitive data.
+"""
+references = [
+    "https://support.google.com/drive/answer/2494822",
+    "https://developers.google.com/admin-sdk/reports/v1/reference/activities/list",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two",
+]
+risk_score = 47
+rule_id = "87618c15-6207-425b-859e-f976cb4c7fae"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Data Loss Prevention",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.drive"
+  and event.action:"change_acl_editors"
+  and google_workspace.drive.visibility:("people_with_link" or "public_in_the_cloud")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "file.name",
+    "google_workspace.drive.file.type",
+    "google_workspace.drive.visibility",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

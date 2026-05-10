@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when an administrator modifies the organizational Google Calendar sharing settings, particularly when
+external sharing is expanded beyond the default policy. Domain-wide calendar sharing settings control whether
+users can share calendars with external recipients and what level of detail is exposed. An adversary with
+admin access may loosen these settings to enable bulk calendar data exfiltration or to facilitate reconnaissance
+across the entire organization.
+"""
+false_positives = [
+    """
+    Administrators may legitimately modify calendar sharing settings to align with collaboration requirements
+    or partner organization policies. Validate that the change was authorized and aligns with organizational
+    data governance policies. Changes that expand external sharing (e.g., from freebusy to full details) should
+    be reviewed carefully.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Organizational Calendar Sharing Settings Modified"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Organizational Calendar Sharing Settings Modified
+
+Organizational calendar sharing policies in Google Workspace Admin control how all users' calendars are shared
+with users outside the domain. Changing these settings to allow external users to see full calendar details —
+rather than just freebusy information — can expose sensitive meeting content, attendees, and schedules to
+external parties.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an authorized admin making a planned change?
+- **Review the setting changed**: Check `google_workspace.admin.setting.name` and `google_workspace.admin.setting.value`.
+  - Did the new value expand external sharing? (e.g., `READ_WRITE_ACCESS` or full detail visibility)
+- **Check for correlated activity**: Were there other admin changes (Gmail routing, Drive sharing) made at the same time?
+- **Assess the blast radius**: This is a domain-wide setting — all users are affected.
+
+### False positive analysis
+
+- Legitimate cross-organizational collaboration projects may require calendar sharing setting adjustments.
+- Verify the change was planned and communicated via a change management process.
+
+### Response and remediation
+
+- Immediately revert the calendar sharing setting to the previous value if unauthorized.
+- Notify all users and managers if sensitive calendar information may have been exposed.
+- Implement change management controls requiring approval for domain-wide admin setting changes.
+"""
+references = [
+    "https://support.google.com/a/answer/60765",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+]
+risk_score = 47
+rule_id = "e7728702-6029-43d1-be9c-abb95bce3e56"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.action:"change_calendar_setting"
+  and google_workspace.admin.setting.name:"SHARING_OUTSIDE_DOMAIN*"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.setting.value",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

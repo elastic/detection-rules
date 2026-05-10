@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a new user account is created in Google Workspace by an actor other than known automated provisioning
+service accounts. Adversaries who have obtained administrative access may create new accounts to maintain persistence
+or facilitate lateral movement. Unexpected user creation — especially outside normal provisioning windows or by
+unusual actors — warrants immediate review.
+"""
+false_positives = [
+    """
+    Automated provisioning systems (e.g., SailPoint, Okta) regularly create user accounts as part of employee
+    onboarding. Verify that the actor email corresponds to an approved provisioning service account and that the
+    target user is a legitimate new hire. Validate creation time against HR onboarding records.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace New User Account Created"
+note = """## Triage and analysis
+
+### Investigating Google Workspace New User Account Created
+
+New user creation in Google Workspace is a privileged admin operation. When performed outside of approved
+provisioning tools or by unexpected actors, it may indicate an adversary establishing persistence with a
+backdoor account or preparing for credential-based lateral movement.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` to identify who created the account.
+  - Is the actor a known provisioning service account? If not, this is immediately suspicious.
+- **Review the target user**: Check `user.target.email` for the newly created account.
+  - Does this user exist in HR systems? Is the creation time aligned with onboarding?
+- **Check for follow-up activity**: Did the new account immediately receive admin role assignments or API access?
+  - Search for `event.action:ASSIGN_ROLE` with the new `user.target.email` as the target.
+- **Correlate with access logs**: Review whether the new account has already logged in.
+
+### False positive analysis
+
+- Expected from provisioning service accounts (SailPoint, Okta, etc.) during onboarding workflows.
+- Validate actor identity and cross-reference with HR records.
+
+### Response and remediation
+
+- If unauthorized: immediately suspend the newly created account.
+- Review all actions performed by the actor who created the account in the past 48 hours.
+- Audit all accounts created in the same time window for additional rogue accounts.
+- Restrict account creation privileges to approved service accounts only.
+"""
+references = [
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+    "https://support.google.com/a/answer/33310",
+]
+risk_score = 47
+rule_id = "8ed61466-7b72-401b-8d95-ec740a8ba6fd"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.provider:admin
+  and event.category:iam
+  and event.action:CREATE_USER
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.target.email",
+    "source.ip",
+    "event.action",
+    "google_workspace.admin.org_unit.name",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a single administrator suspends an unusually high number of Google Workspace user accounts within
+a short time window. Bulk account suspension is a destructive action that can immediately disrupt operations for
+a large portion of the workforce. While automated offboarding workflows may suspend multiple accounts during
+restructuring events, a single admin suspending 5 or more accounts rapidly is a high-fidelity signal for either
+insider threat activity or a compromised administrator account being weaponized for a destructive attack.
+"""
+false_positives = [
+    """
+    Automated deprovisioning systems may suspend multiple accounts simultaneously during mass offboarding events
+    such as workforce reductions or organizational restructuring. Validate that the actor is an approved
+    provisioning service account and that the suspended accounts correspond to expected offboarded employees.
+    Manual bulk suspension by an individual administrator without a corresponding HR event is always suspicious.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Bulk User Account Suspension"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Bulk User Account Suspension
+
+A single administrator suspending multiple user accounts rapidly is a high-severity event. Whether caused by a
+compromised admin credential, a disgruntled insider, or a misconfigured automation, bulk suspension can immediately
+disrupt operations for dozens or hundreds of users, lock out employees, and impair incident response capability
+if security accounts are targeted.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an admin or automated provisioning system?
+  - Manual admin bulk suspension without an HR event is immediately suspicious.
+- **Identify all suspended accounts**: Query for `event.action:SUSPEND_USER` by the same actor in the timeframe.
+  - Were high-privilege accounts (other admins, security team) among those suspended?
+- **Check for prior compromise indicators**: Was the acting admin account accessed from an unusual location before the suspension activity?
+- **Review timing**: Were the suspensions performed during business hours or off-hours?
+- **Check for corresponding HR events**: Is there a documented mass offboarding event?
+
+### False positive analysis
+
+- Automated deprovisioning during mass layoffs or organizational changes suspends multiple accounts simultaneously.
+- Provisioning service accounts (SailPoint, Okta) performing bulk offboarding are expected.
+
+### Response and remediation
+
+- Immediately unsuspend any accounts that should not have been suspended.
+- If the acting admin account is compromised: suspend that account and initiate account takeover response.
+- Review all admin actions by the actor in the past 48 hours for additional destructive changes.
+- Consider requiring dual-admin approval for bulk suspension operations affecting more than 3 accounts.
+"""
+references = [
+    "https://support.google.com/a/answer/33312",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+]
+risk_score = 73
+rule_id = "4d51b1d3-25b1-45ce-9ce7-467b3786cdae"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.provider:admin
+  and event.category:iam
+  and event.action:SUSPEND_USER
+'''
+
+[rule.threshold]
+field = ["user.email"]
+value = 5
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"

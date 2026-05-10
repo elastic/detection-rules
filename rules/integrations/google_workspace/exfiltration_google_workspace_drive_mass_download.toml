@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a single Google Workspace user downloads an unusually high volume of files from Google Drive within
+a short time window. Bulk Drive downloads are a common exfiltration technique used by insider threats, compromised
+accounts, and departing employees. A threshold of 50 download events per hour serves as an initial signal;
+organizations should tune this value based on their baseline user download activity.
+"""
+false_positives = [
+    """
+    Users synchronizing large quantities of files via Google Drive for Desktop, migrating data between drives, or
+    performing legitimate bulk data exports for analytics or backup purposes may trigger this rule. Validate the
+    actor, source application, and file types involved. Drive for Desktop sync operations often generate high
+    download event volumes.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Drive Mass File Download Detected"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Drive Mass File Download Detected
+
+Bulk downloading of files from Google Drive is one of the most common data exfiltration techniques used by
+insider threats and compromised accounts. This threshold-based rule fires when a single user exceeds 50 download
+events within the detection window. The threshold should be calibrated to your organization's typical download
+patterns.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an employee, contractor, or service account?
+  - Is this user on a leaver list or under investigation?
+- **Review download sources**: What files were downloaded? Were they sensitive, classified, or proprietary?
+- **Check the application**: Was the download from a browser, Drive for Desktop, or a third-party app?
+  - Drive for Desktop sync legitimately downloads many files; filter these out if applicable.
+- **Check timing**: Were these downloads performed during business hours or off-hours?
+- **Look for staging**: Were the downloaded files compressed or renamed before download?
+- **Correlate with other data sources**: Check VPN, endpoint, and email logs for correlated suspicious activity.
+
+### False positive analysis
+
+- Google Drive for Desktop sync generates many download events. Exclude known sync agent user-agents if possible.
+- Bulk data exports for legitimate analytics or backup purposes may trigger this rule.
+- New employees onboarding and downloading large amounts of documentation are common.
+
+### Response and remediation
+
+- If unauthorized: suspend the account and revoke Drive access pending investigation.
+- Review Drive audit logs for the specific files downloaded and assess data classification.
+- If sensitive data was exfiltrated: initiate incident response and breach notification procedures.
+- Consider implementing DLP policies to restrict bulk downloads of sensitive classified files.
+"""
+references = [
+    "https://support.google.com/a/answer/4579696",
+    "https://developers.google.com/admin-sdk/reports/v1/reference/activities/list",
+]
+risk_score = 73
+rule_id = "254c8639-938c-4d7c-9129-610d4c467468"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Data Loss Prevention",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:"google_workspace.drive"
+  and event.action:"download"
+'''
+
+[rule.threshold]
+field = ["user.email"]
+value = 50
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a Google Calendar is shared with the public principal, making it visible to anyone on the internet.
+Calendar entries frequently contain sensitive information such as meeting agendas, attendee lists, call-in
+credentials, executive travel schedules, and internal project timelines. Public calendar sharing can enable
+adversaries to gather intelligence for social engineering, targeted phishing, or physical security attacks.
+"""
+false_positives = [
+    """
+    Some teams intentionally publish public event calendars (e.g., conference room availability, public-facing
+    event schedules). Validate that the actor and calendar are approved for public sharing. Calendars belonging
+    to executives or containing sensitive project information should never be shared publicly.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Calendar Shared Publicly"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Calendar Shared Publicly
+
+Google Calendar sharing with the public principal (`__public_principal__@public.calendar.google.com`) makes
+calendar contents visible to any unauthenticated internet user. This can expose meeting schedules, internal
+project plans, executive travel, and other sensitive organizational data to adversaries for reconnaissance.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — does this user have a business need to share this calendar publicly?
+- **Review the access level**: What permissions were granted? Read access, freebusy only, or full edit?
+  - Check `google_workspace.admin.setting.value` or related fields.
+- **Review calendar contents**: Access the calendar as an admin and assess what information is now publicly visible.
+- **Check for targeting**: Was this calendar shared shortly before a high-stakes meeting or executive event?
+
+### False positive analysis
+
+- Public-facing event calendars for conferences or community events may legitimately be shared publicly.
+- Validate with the calendar owner and relevant business stakeholders.
+
+### Response and remediation
+
+- Immediately revoke public sharing from the calendar in the Admin console.
+- Assess what information was exposed during the period the calendar was public.
+- Notify the calendar owner and their manager of the sharing event.
+- Consider implementing org-wide policies to prevent calendar sharing with public principals.
+"""
+references = [
+    "https://support.google.com/calendar/answer/37083",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 47
+rule_id = "c425c574-1e65-497a-9a44-ed64bfd5782a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.action:"change_calendar_acls"
+  and google_workspace.admin.setting.name:"__public_principal__@public.calendar.google.com"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.setting.value",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

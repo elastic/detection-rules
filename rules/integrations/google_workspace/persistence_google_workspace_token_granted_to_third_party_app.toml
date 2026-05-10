@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a Google Workspace user grants OAuth token access to an unrecognized or potentially malicious
+third-party application with broad scopes. OAuth token grants allow external applications to access Google Workspace
+data (Drive, Gmail, Contacts, Calendar) on behalf of the user. Adversaries can distribute malicious OAuth applications
+that, once authorized by a victim, provide persistent access to their GWS data without requiring credentials.
+This technique is commonly used in cloud-based phishing campaigns.
+"""
+false_positives = [
+    """
+    Users regularly authorize legitimate third-party applications (Slack, Atlassian, Zoom, Salesforce) that
+    integrate with Google Workspace. Organizations should maintain an approved application allow-list and
+    tune this rule to exclude known-good application IDs. Alerts on applications not in the allow-list
+    should be triaged carefully.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace OAuth Token Granted to Third-Party Application"
+note = """## Triage and analysis
+
+### Investigating Google Workspace OAuth Token Granted to Third-Party Application
+
+OAuth token grants allow applications to access a user's Google Workspace data without knowing their password.
+When users are phished into authorizing malicious OAuth applications, adversaries gain persistent, credential-free
+access to email, Drive, contacts, and calendar. This access persists even if the user changes their password and
+is not revoked until the token is explicitly deleted.
+
+#### Possible investigation steps
+
+- **Identify the application**: Review `google_workspace.token.app_name` and `google_workspace.token.client.id`.
+  - Is this application in your organization's approved application list?
+  - Search the application name in public threat intelligence sources.
+- **Review the requested scopes**: Check `google_workspace.token.scope.data.scope_name`.
+  - Broad scopes like `https://mail.google.com/` or `https://www.googleapis.com/auth/drive` grant extensive access.
+- **Identify the user**: Review `user.email` — did this user recently receive a suspicious email with an OAuth consent link?
+- **Check for subsequent API activity**: After the token grant, was the application used to access Drive or Gmail?
+
+### False positive analysis
+
+- Legitimate business applications (productivity tools, CRMs, project management) are frequently authorized.
+- Build an approved application allow-list and exclude those application IDs from alerting.
+
+### Response and remediation
+
+- If the application is malicious: immediately revoke the OAuth token from the Admin console (Security > Manage API client access).
+- Review all data accessed by the application since the token was granted.
+- Notify the affected user and conduct phishing awareness training.
+- Implement an OAuth application allow-list policy to prevent future unauthorized grants.
+"""
+references = [
+    "https://support.google.com/a/answer/7281227",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 47
+rule_id = "f616275c-6182-4822-9e6e-2f344526820f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.token"
+  and event.action:authorize
+  and google_workspace.token.client.id:*apps.googleusercontent.com
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "google_workspace.token.app_name",
+    "google_workspace.token.client.id",
+    "google_workspace.token.scope.data.scope_name",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

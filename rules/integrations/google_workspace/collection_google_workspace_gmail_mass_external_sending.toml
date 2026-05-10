@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a single Google Workspace user sends an unusually high volume of emails to external recipients
+within a short time window. Mass external email sending may indicate a compromised account being used for spam
+campaigns, phishing distribution, business email compromise (BEC) fraud, or bulk exfiltration of sensitive
+information to external recipients. The threshold of 70 sent messages per detection window should be tuned based
+on organizational baselines.
+"""
+false_positives = [
+    """
+    Marketing teams, automated notification systems, and mass communication platforms may send high volumes of
+    external emails. Known bulk-sending service accounts (e.g., marketing automation, CRM, transactional email
+    systems) should be excluded from this rule. Validate that the actor is not a known bulk-sending service
+    account before escalating.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Gmail Mass External Email Sending Detected"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Gmail Mass External Email Sending Detected
+
+Sending a large volume of external emails from a corporate Gmail account is unusual for most users and may
+indicate account compromise, insider threat activity, or BEC fraud. Compromised corporate email accounts are
+particularly valuable for phishing because the sending domain is trusted by recipient spam filters.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `source.user.email` — is this a typical corporate user or a bulk-sending service?
+  - Marketing systems, notification bots, and CRM integrations are expected to send bulk mail.
+- **Review the subject lines and recipients**: What were the emails about? Were they sent to internal contacts, external partners, or random recipients?
+- **Check the email content**: Review Gmail logs for message content if available and permitted.
+- **Check for account compromise indicators**: Were there any login failures or logins from unusual locations for this account recently?
+- **Evaluate the timing**: Were the emails sent during business hours? Outside-hours mass sending is more suspicious.
+- **Check for BEC patterns**: Were the emails about financial transfers, invoice changes, or requesting gift cards?
+
+### False positive analysis
+
+- Marketing, CRM, and HR notification systems regularly send bulk email from corporate accounts.
+- End-of-quarter campaigns and mass communications from leadership are expected.
+
+### Response and remediation
+
+- If unauthorized: suspend the account immediately and investigate the source of the compromise.
+- Review all sent emails during the incident window and notify affected recipients if phishing was distributed.
+- If BEC fraud: notify finance and legal teams immediately.
+- Implement DMARC, DKIM, and SPF to limit the impact of domain-spoofed phishing sent from compromised accounts.
+"""
+references = [
+    "https://support.google.com/a/answer/2905542",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+]
+risk_score = 47
+rule_id = "11d26c42-5a2c-4e03-a491-e35c0d205aa8"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Data Loss Prevention",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:"google_workspace.gmail"
+  and event.action:"message_delivered"
+'''
+
+[rule.threshold]
+field = ["source.user.email"]
+value = 70
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1534"
+name = "Internal Spearphishing"
+reference = "https://attack.mitre.org/techniques/T1534/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.001"
+name = "Spearphishing Attachment"
+reference = "https://attack.mitre.org/techniques/T1566/001/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a Gmail forwarding setting is enabled or modified via the Google Workspace Admin console, potentially
+redirecting user email to an external destination. This is distinct from server-level Gmail route creation and covers
+domain-wide auto-forwarding settings that an adversary may configure to silently exfiltrate email content. Enabling
+automatic email forwarding at the domain or user level allows all incoming mail to be copied to an attacker-controlled
+inbox, providing persistent access to sensitive communications without additional authentication.
+"""
+false_positives = [
+    """
+    Administrators may legitimately enable email forwarding for specific users during account transitions,
+    role changes, or to comply with legal hold requirements. Validate that the actor is an authorized admin
+    performing a documented action and that the forwarding destination is a trusted corporate address.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Gmail Domain-Wide Forwarding Setting Enabled"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Gmail Domain-Wide Forwarding Setting Enabled
+
+Gmail auto-forwarding configured at the admin level silently routes all matching emails to an external recipient.
+Unlike per-user forwarding rules, admin-level setting changes apply broadly and may not be visible to individual
+users. This technique is commonly used by adversaries who have obtained admin credentials to establish persistent
+email collection.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — does this admin have a legitimate reason to modify Gmail settings?
+- **Review the setting name**: Check `google_workspace.admin.setting.name` to identify what forwarding configuration changed.
+- **Review the new value**: What forwarding target was specified? Is this an internal address or external domain?
+- **Check for other email collection activity**: Were any custom Gmail routes (EMAIL_ROUTE) created around the same time?
+- **Review actor's recent activity**: Search for other admin actions by this user in the past 48 hours.
+
+### False positive analysis
+
+- Legal hold configurations may route email to archive systems.
+- IT administrators may enable forwarding for specific users during offboarding or role transitions.
+
+### Response and remediation
+
+- If unauthorized: immediately disable the forwarding setting in Gmail settings of the Admin console.
+- Review all emails that may have been forwarded during the active period and assess data exposure.
+- Audit all admin Gmail settings changes in the past 30 days for similar unauthorized modifications.
+- Implement alerts for any changes to Gmail routing configuration and require change management approval.
+"""
+references = [
+    "https://support.google.com/a/answer/2685650",
+    "https://support.google.com/mail/answer/10957",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 73
+rule_id = "00f83cf6-11b2-4cae-ab8a-2b087b3110cc"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.action:("CREATE_GMAIL_SETTING" or "CHANGE_GMAIL_SETTING")
+  and google_workspace.event.type:"EMAIL_SETTINGS"
+  and google_workspace.admin.setting.name:("ENABLE_EMAIL_AUTOFORWARD" or "ENABLE_EMAIL_AUTOFORWARD_FOR_DOMAIN" or "EMAIL_FORWARDING_OUT_OF_DOMAIN")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.target.email",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.setting.value",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1114"
+name = "Email Collection"
+reference = "https://attack.mitre.org/techniques/T1114/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1114.003"
+name = "Email Forwarding Rule"
+reference = "https://attack.mitre.org/techniques/T1114/003/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

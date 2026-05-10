@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when an administrator modifies USER_SETTINGS type events in Google Workspace, covering a broad range of
+user-level administrative changes such as custom attributes, organizational unit assignments, account recovery
+settings, or profile information. Adversaries with admin access may modify user settings to prepare accounts for
+takeover, escalate privileges covertly, or alter recovery contacts to prevent legitimate users from regaining access.
+"""
+false_positives = [
+    """
+    Administrative user settings modifications are common during onboarding, offboarding, organizational
+    restructuring, or bulk user management operations. Automated provisioning and HR systems routinely
+    modify user attributes. Validate the actor and scope of changes against expected operational activity.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Administrative User Settings Modified"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Administrative User Settings Modified
+
+USER_SETTINGS events in Google Workspace admin reports cover a wide range of user account attribute changes.
+While many are routine, adversaries may abuse these events to alter account recovery contacts, modify
+organizational unit membership to bypass policies, or update custom attributes used by access control systems.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an authorized admin or provisioning system?
+- **Identify the target**: Review `user.target.email` — does this user have elevated privileges?
+  - Changes to admin or executive accounts warrant immediate investigation.
+- **Review the specific setting modified**: Check `google_workspace.admin.setting.name`.
+  - Recovery email or phone changes: high risk (prevents account recovery by legitimate owner).
+  - OU changes: may affect security policies applied to the account.
+  - Custom field changes: may affect access control or RBAC systems downstream.
+- **Check for bulk changes**: Were multiple users' settings modified by the same actor in a short window?
+
+### False positive analysis
+
+- HR system integrations (BambooHR, Workday) routinely update user attributes via API.
+- IT operations bulk-update settings during organizational restructuring.
+
+### Response and remediation
+
+- If unauthorized recovery contact modification: immediately revert and initiate account recovery review.
+- If OU changes: verify that the new OU policies are appropriate for the user's role.
+- Restrict USER_SETTINGS modification privileges to a small set of authorized admins.
+"""
+references = [
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+    "https://support.google.com/a/answer/6208994",
+]
+risk_score = 47
+rule_id = "84374d22-9dbd-4592-a919-703fca03a4ff"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.provider:admin
+  and google_workspace.event.type:"USER_SETTINGS"
+  and not event.action:("CREATE_USER" or "DELETE_USER" or "SUSPEND_USER" or "UNSUSPEND_USER"
+    or "CHANGE_PASSWORD" or "RENAME_USER" or "ASSIGN_ROLE" or "UNASSIGN_ROLE")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.target.email",
+    "event.action",
+    "google_workspace.admin.setting.name",
+    "source.ip",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

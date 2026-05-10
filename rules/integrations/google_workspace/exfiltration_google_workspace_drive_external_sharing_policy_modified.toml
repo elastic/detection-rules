@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when an administrator modifies Google Drive application sharing settings at the domain or organizational
+unit level. Domain-wide Drive sharing policies control whether users can share files outside the organization and
+with what permissions. An adversary with admin access may loosen sharing restrictions to enable bulk data
+exfiltration by internal users or external collaborators, or to remove DLP controls that would otherwise
+prevent sensitive file sharing.
+"""
+false_positives = [
+    """
+    Administrators may legitimately modify Drive sharing policies for organizational units involved in external
+    collaboration projects or partner integrations. Changes that restrict sharing (tightening policies) are
+    generally benign. Changes that expand external sharing permissions should be carefully reviewed and should
+    correspond to an approved change management request.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Drive External Sharing Policy Modified"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Drive External Sharing Policy Modified
+
+Google Drive organizational sharing policies define the maximum level of sharing that users can perform. If an
+adversary modifies these policies to allow "anyone with the link" or external domain sharing, all users within
+the affected OU may subsequently share sensitive files externally without restriction. This is a high-impact
+change that affects the entire organization's data governance posture.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an authorized admin with a planned change?
+- **Review the setting changed**: Check `google_workspace.admin.setting.name` and `google_workspace.admin.setting.value`.
+  - Was sharing expanded from internal-only to external? That is the high-risk scenario.
+- **Review the scope**: Was this change applied to the entire domain or a specific OU?
+  - Domain-wide changes are higher risk than OU-scoped changes.
+- **Check the change management system**: Is there an approved ticket for this change?
+- **Look for subsequent sharing activity**: After this policy change, did users begin sharing files externally?
+
+### False positive analysis
+
+- Cross-organizational collaboration projects may require temporary policy relaxation.
+- IT admins adjusting policies for specific OUs is common.
+
+### Response and remediation
+
+- Immediately revert unauthorized sharing policy expansions.
+- Review Drive audit logs for any file sharing that occurred during the expanded policy window.
+- Implement change management controls requiring approval for domain-wide Drive policy changes.
+- Enable DLP scanning for files shared externally to catch sensitive data exposure.
+"""
+references = [
+    "https://support.google.com/a/answer/60781",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two",
+]
+risk_score = 47
+rule_id = "d5d37cd6-4685-4b19-bb63-592104d98ed7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Configuration Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.action:"CHANGE_APPLICATION_SETTING"
+  and google_workspace.admin.application.name:"Drive and Docs"
+  and google_workspace.admin.setting.name:("SHARING_OUTSIDE_DOMAIN" or "SHARING_ACCESS_CHECKER_OPTIONS"
+    or "SHARING_INVITES_TO_NON_GOOGLE_ACCOUNTS" or "SHARING_TEAM_DRIVE_CROSS_DOMAIN_OPTIONS")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "google_workspace.admin.application.name",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.setting.value",
+    "google_workspace.admin.org_unit.name",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

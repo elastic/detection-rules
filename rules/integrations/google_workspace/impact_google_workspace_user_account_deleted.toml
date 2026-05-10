@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/05/10"
+integration = ["google_workspace"]
+maturity = "development"
+updated_date = "2026/05/10"
+
+[rule]
+author = ["Ivan Saakov"]
+description = """
+Detects when a user account is permanently deleted in Google Workspace. Account deletion is an irreversible
+administrative action that removes the user and may destroy associated data and audit history. An adversary
+with admin access may delete accounts to cover tracks, disrupt operations, or eliminate competing access.
+Deletion of accounts shortly after suspicious admin activity should be treated as a high-priority incident.
+"""
+false_positives = [
+    """
+    Automated deprovisioning workflows triggered during employee offboarding routinely delete user accounts.
+    Validate the actor is an approved HR system or provisioning service account and that the deleted user
+    matches an offboarded employee in HR records.
+    """,
+]
+from = "now-130m"
+index = ["filebeat-*", "logs-google_workspace*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace User Account Deleted"
+note = """## Triage and analysis
+
+### Investigating Google Workspace User Account Deleted
+
+Permanent user account deletion in Google Workspace removes all associated data, mailboxes, and drive files
+unless explicitly backed up. Adversaries who have gained admin access may delete accounts to disrupt operations
+or remove evidence of their activities.
+
+#### Possible investigation steps
+
+- **Identify the actor**: Review `user.email` — is this an authorized admin or deprovisioning service?
+- **Identify the deleted account**: Check `user.target.email` — is this a legitimate offboarded employee?
+- **Check the timing**: Was this deletion performed outside business hours or without a corresponding HR ticket?
+- **Review prior activity**: Did the deleted account take any sensitive actions in the 24 hours before deletion?
+- **Check for data transfer**: Was any data transferred from the account before deletion?
+
+### False positive analysis
+
+- Automated deprovisioning (SailPoint, BambooHR) regularly deletes accounts during offboarding.
+- Manual admin deletions for test accounts or inactive users are common.
+
+### Response and remediation
+
+- If unauthorized: initiate account recovery from the Google Admin console (accounts recoverable within 20 days).
+- Identify all data and emails associated with the deleted account and assess exposure.
+- Review all other admin actions by the same actor in the past 48 hours.
+- Enforce approval workflows for account deletion operations.
+"""
+references = [
+    "https://support.google.com/a/answer/33314",
+    "https://developers.google.com/admin-sdk/reports/reference/rest/v1/activities/list",
+]
+risk_score = 73
+rule_id = "fa76a584-aa3b-487d-9bdf-8e8c255c3565"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"google_workspace.admin"
+  and event.provider:admin
+  and event.category:iam
+  and event.action:DELETE_USER
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.target.email",
+    "source.ip",
+    "event.action",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
