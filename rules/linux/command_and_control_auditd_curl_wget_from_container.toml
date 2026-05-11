@@ -2,7 +2,7 @@
 creation_date = "2026/04/22"
 integration = ["auditd_manager"]
 maturity = "production"
-updated_date = "2026/04/22"
+updated_date = "2026/05/11"
 
 [rule]
 author = ["Elastic"]
@@ -104,7 +104,8 @@ process.title:"runc init" and
 (
   process.name:(curl or wget) or
   process.args:(* curl* or */bin/curl* or *wget*)
-)
+) and 
+not process.args :(*127.0.0.1* or *localhost* or "wget --no-verbose --tries=1 --spider --no-check-certificate http://${WEB_HOST}:${WEB_PORT}/api/ping || exit 1")
 '''
 
 [[rule.threat]]
