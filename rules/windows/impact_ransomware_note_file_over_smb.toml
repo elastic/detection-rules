@@ -2,7 +2,7 @@
 creation_date = "2024/05/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -15,43 +15,6 @@ index = ["logs-endpoint.events.file-*", "logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Ransomware Note File Dropped via SMB"
-note = """## Triage and analysis
-
-## Performance
-
-- This rule may cause medium to high performance impact due to logic scoping all icoming SMB network events.
-
-#### Possible investigation steps
-
-- Investigate the source.ip address connecting to port 445 on this host.
-- Identify the user account that performed the file creation via SMB.
-- If the number of files is too high and source.ip connecting over SMB is unusual isolate the host and block the used credentials.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-
-### False positive analysis
-
-- Remote file creation with similar file naming convention via SMB.
-
-
-### Related rules
-
-- Third-party Backup Files Deleted via Unexpected Process - 11ea6bec-ebde-4d71-a8e9-784948f8e3e9
-- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
-- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
-- Volume Shadow Copy Deletion via WMIC - dc9c1f74-dac3-48e3-b47f-eb79db358f57
-- Suspicious File Renamed via SMB - 78e9b5d5-7c07-40a7-a591-3dbbf464c386
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look for ransomware preparation and execution activities.
-- If any backups were affected:
-  - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "02bab13d-fb14-4d7c-b6fe-4a28874d37c5"
 severity = "high"
@@ -79,6 +42,112 @@ sequence by host.id with maxspan=1s
     file.name : ("*read*me*", "*lock*", "*@*", "*RECOVER*", "*decrypt*", "*restore*file*", "*FILES_BACK*", "*how*to*")] with runs=3
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Ransomware Note File Dropped via SMB
+
+#### Possible investigation steps
+
+- What do the sequence member events show about the accepted SMB session and note-file burst?
+  - Why: this sequence can omit stage-specific values from the combined alert; disposition depends on recovered source events.
+  - Focus: Timeline member events: network-stage `source.ip`, then file-stage `user.id`, `file.path`, `file.name`, and `file.extension`.
+  - Implication: escalate when one remote source is followed within one second by repeated note-like creations under user-profile paths; lower concern only when recovered source, identity, names, and paths form one bounded, neutral file-copy pattern for validation.
+  - Hint: `process.pid` value "4" is target-side kernel SMB I/O, not the remote executable; use `user.name` only as a readable label for the file-stage identity.
+
+- Do recovered `source.ip` and writing identity match a stable SMB pattern for this host?
+  - Why: the target-side kernel process does not identify the remote operator; source and SMB identity carry attribution value.
+  - Focus: surrounding and historical SMB "connection_accepted" events for `host.id` and recovered `source.ip`, plus file-stage `user.id` and `user.name`. $investigate_0
+  - Implication: escalate when the source is new for this host, appears only in a short burst, or pairs with an unusual SMB identity; lower concern when the same source and identity recur as one bounded backup, migration, or maintenance pattern. Missing SMB history is unresolved, not benign.
+
+- Do created files indicate broad ransom-note staging rather than routine instructions?
+  - Focus: recovered `file.path`, `file.name`, `file.extension`, `file.size`, and `file.Ext.header_bytes`; repeated names across multiple "C:\\Users\\" profile paths.
+  - Implication: escalate when identical or near-identical note files land in multiple profiles, use ".hta" or HTML variants, or are small text/HTML artifacts meant for user visibility; lower concern when files stay in one bounded application or migration folder and match stable instruction-file naming for the same source.
+
+- Does same-window SMB file activity show broader destructive or staging behavior?
+  - Why: note drops often accompany remote rename, delete, or other drop activity that this rule does not capture directly.
+  - Focus: file events in the same SMB window: `event.action`, `file.path`, `file.extension`, `file.Ext.original.path`, and `file.Ext.original.extension`. $investigate_1
+  - Implication: escalate when the same window shows mass rename, delete, extension-change, or extra drop behavior in user or shared paths; lower concern when activity stays limited to the small note set with no follow-on churn.
+
+- If local SMB evidence remains suspicious or unresolved, does impact context stay local or show source fan-out?
+  - Why: ransomware may place notes apart from encryption or recovery inhibition, and SMB ransomware can fan out with valid accounts or admin shares.
+  - Focus: same-host impact alerts over 48 hours, then other SMB events keyed by recovered `source.ip` with matching note-like `file.name`, `file.path`, or impact `event.action`. $investigate_2
+  - Implication: escalate when the host shows rename, shadow-copy, backup-tamper, or destructive alerts, or when one source fans out to multiple hosts with matching note-drop or impact signals; keep the case local only when the source is confined to one bounded file-copy pattern. Missing cross-host SMB telemetry is unresolved, not benign.
+  - Hint: start with `source.ip` plus `destination.port` 445, then join returned hosts to note-like file creations by time.
+
+- What disposition do the recovered SMB source, identity, note pattern, file churn, and scope support?
+  - Escalate for remote note staging plus unexpected SMB identity, destructive file activity, recovery inhibition, or multi-host spread; close only for one stable bounded file-copy pattern with neutral names and no contradictory impact evidence; if purpose still depends on records, preserve artifacts until telemetry resolves it.
+
+### False positive analysis
+
+- Bulk backup, migration, or endpoint-management jobs can place repeated text or HTML instruction files over SMB. Confirm the same recovered `source.ip`, `user.id`, `user.name`, neutral `file.name` family, and bounded `file.path` recurs for this `host.id` without rename, delete, shadow-copy, backup-tamper, or cross-host note-drop spread. Change records can corroborate, not replace, telemetry alignment.
+- Case-driven incident response, legal-hold, or notification activity can write readme-style files remotely. Confirm recovered `source.ip`, `user.id`, `user.name`, `file.path`, and `file.extension` stay bounded to intended case or communication folders, use neutral notice/readme naming rather than decrypt, recover, lock, or payment language, and do not coincide with broader rename or delete activity from `process.pid` value "4". If case records are unavailable, require recurrence of the same source, identity, and path family without spread.
+- Before creating an exception, validate recurrence across prior alerts from this rule. Build the exception from the minimum pattern: recovered `source.ip`, `user.id` or `user.name`, representative `file.name`, bounded `file.path` family, and affected host cohort. Avoid exceptions on `file.name`, `host.id`, or `process.pid` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the confirmed `source.ip`, `user.id` or `user.name`, representative `file.name`, and bounded `file.path` pattern. Create an exception only after that same pattern recurs consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert, Timeline member-event export, copies or hashes of representative note files, recovered source and user identifiers, surrounding file-action evidence, and same-host alert identifiers before containment. Apply reversible containment first, such as temporarily blocking SMB from the recovered source to the target or restricting the recovered user for SMB access. Use host isolation only if note drops continue, spread to additional hosts, or the target role can tolerate interruption.
+- If confirmed malicious, isolate the recovered source host when it is managed and the source, SMB identity, note-file pattern, and impact evidence confirm active ransomware behavior. If direct endpoint response is unavailable on the source, hand off the preserved artifacts to the team that can block the SMB path or contain the source system. Before deleting files, terminating processes, or restoring data, export the member events, related impact alerts, note files, and affected host list.
+- After confirmed malicious scoping identifies affected hosts and accounts, rotate or reset the SMB credentials that were used or exposed, review other hosts touched by the same recovered `source.ip`, then remove dropped notes and restore affected data from known-good backups.
+- Post-incident hardening: restrict unnecessary SMB administrative access, protect backup and shadow-copy workflows, retain endpoint network and file telemetry needed to reconstruct remote file activity, and record the confirmed benign workflow or malicious source-and-path pattern for future cases.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "process.pid",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "SMB connection events on the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "event.action", queryType = "phrase", value = "connection_accepted", valueType = "string" },
+    { excluded = false, field = "destination.port", queryType = "phrase", value = "445", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for SMB server writes on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
