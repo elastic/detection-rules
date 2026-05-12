@@ -2,41 +2,19 @@
 creation_date = "2025/05/23"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the creation of a delegated Managed Service Account by an unusual subject account. Attackers can abuse the dMSA
-account migration feature to elevate privileges abusing weak persmission allowing users child objects rights or
-msDS-DelegatedManagedServiceAccount rights.
+Detects creation of a delegated Managed Service Account by an unusual subject account. Attackers can abuse weak
+child-object or msDS-DelegatedManagedServiceAccount rights during account migration to elevate privileges.
 """
 from = "now-9m"
 index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "dMSA Account Creation by an Unusual User"
-note = """## Triage and analysis
-
-### Investigating dMSA Account Creation by an Unusual User
-
-### Possible investigation steps
-- Examine the winlog.event_data.SubjectUserName field and verify if he is allowed and used to create dMSA accounts.
-- Examine all Active Directory modifications performed by the winlog.event_data.SubjectUserName.
-- Investigate the history of the identified user account to determine if there are any other suspicious activities or patterns of behavior.
-- Collaborate with the IT or security team to determine if the changes were authorized or if further action is needed to secure the environment.
-
-### False positive analysis
-
-- Migration of legacy service accounts using delegated managed service account.
-
-### Response and remediation
-
-- Immediately disable the winlog.event_data.SubjectUserName account and revert all changes performed by that account.
-- Identify and isolate the source machines from where the SubjectUserName is authenticating.
-- Reset passwords for all accounts that were potentially affected or had their permissions altered, focusing on privileged accounts to prevent adversaries from regaining access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach, including identifying any other compromised systems or accounts.
-- Review and update access control policies and security configurations to prevent similar attacks, ensuring that only authorized personnel have the ability to modify critical Active Directory objects or create OU child objects."""
 references = ["https://www.akamai.com/blog/security-research/abusing-dmsa-for-privilege-escalation-in-active-directory"]
 risk_score = 73
 rule_id = "f0dbff4c-1aa7-4458-9ed5-ada472f64970"
@@ -58,6 +36,140 @@ query = '''
 event.code:5137 and host.os.type:"windows" and winlog.event_data.ObjectClass:"msDS-DelegatedManagedServiceAccount"
 '''
 
+note = """## Triage and analysis
+
+### Investigating dMSA Account Creation by an Unusual User
+
+#### Possible investigation steps
+
+- What dMSA object did the alert show, and where was it created?
+  - Focus: use `winlog.event_data.ObjectClass`, `winlog.event_data.ObjectDN`, `winlog.event_data.ObjectGUID`, `winlog.event_data.SubjectUserName`, and `winlog.computer_name` to identify the new msDS-DelegatedManagedServiceAccount, new-to-this-rule writer, and controller.
+  - Implication: escalate when the object is in a privileged service, sync, backup, DC, or identity-infrastructure path, or when name or writer lacks a narrow service-account purpose; lower only when DN, writer, and controller match one exact planned dMSA rollout or lab path.
+- Did the same dMSA receive migration or privilege-enabling attributes?
+  - Why: BadSuccessor-style abuse elevates creation with `5136` changes such as msDS-ManagedAccountPrecededByLink, msDS-DelegatedMSAState, SPNs, delegation attributes, or gMSA membership.
+  - Focus: review same-object `5136` and `5137` records on this controller with `winlog.event_data.ObjectGUID`, comparing `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, and `winlog.event_data.ObjectDN`. $investigate_0
+  - Hint: if same-controller results have gaps, repeat the `winlog.event_data.ObjectGUID` search across DC Windows Security logs before treating missing follow-on changes as lower risk.
+  - Implication: escalate when values link the dMSA to a privileged predecessor, advance migration state, or add SPN/delegation material; lower suspicion only when attributes form one bounded migration to the intended legacy service account.
+- Who created the dMSA, and what session reached the domain controller?
+  - Focus: identify writer and session with `winlog.event_data.SubjectUserSid` and `winlog.event_data.SubjectLogonId`, then recover `source.ip`, `winlog.logon.type`, and `winlog.event_data.AuthenticationPackageName`. $investigate_1
+  - Hint: this pivot uses `winlog.event_data.TargetLogonId` for `4624` or `4634`; search `4648` separately with `winlog.event_data.SubjectLogonId` when explicit-credential use matters. Missing authentication telemetry is unresolved, not benign.
+  - Implication: escalate for an unexpected human, helpdesk account, low-privilege service identity, unusual source, interactive/RDP session, or explicit-credential path; lower suspicion only when actor and source match the narrow identity-management path for this object.
+- Did the same session touch other directory objects?
+  - Focus: compare surrounding `5137` and `5136` records on the same `host.id` for `winlog.event_data.SubjectLogonId`, reading `winlog.event_data.ObjectDN`, `winlog.event_data.ObjectClass`, and `winlog.event_data.AttributeLDAPDisplayName`.
+  - Implication: escalate when the session creates multiple dMSAs, edits ACLs, changes delegation, or touches unrelated privileged users, computers, groups, or service accounts; lower when every change stays tied to one bounded dMSA rollout.
+- Did the new dMSA get used from systems that should not touch it?
+  - Focus: derive the dMSA from the CN in `winlog.event_data.ObjectDN`, confirm it in `winlog.event_data.TargetUserName`, then review `4624` records for `source.ip`, `winlog.logon.type`, and `winlog.event_data.AuthenticationPackageName`; search `4648` separately for explicit credential use.
+  - Hint: absent dMSA authentication is a timing or visibility gap, not proof creation is harmless.
+  - Implication: escalate when the dMSA authenticates from unexpected servers, workstations, jump hosts, or non-service logon types; lower suspicion only when use stays inside the exact service host set for the confirmed rollout.
+- If local evidence is suspicious or incomplete, do related Windows Security events show broader AD abuse?
+  - Focus: review events for writer `user.id`, then compare records referencing the new `winlog.event_data.ObjectGUID`. $investigate_2
+  - Hint: use the object-event view for shadow credentials, delegation abuse, unusual service changes, or other AD tampering tied to the same dMSA. $investigate_3
+  - Implication: escalate and expand scope when either entity is tied to privilege abuse, directory tampering, or suspicious authentication; keep scope to this object when related events are quiet, but do not close solely because no other event exists.
+- Escalate for sensitive placement, privileged migration links, unexpected writer/session context, broader directory edits, unexpected dMSA authentication, or related AD-abuse events; close only when telemetry and outside confirmation prove one exact planned migration or lab activity; if mixed or incomplete, preserve directory-change and session evidence and escalate.
+
+### False positive analysis
+
+- Planned dMSA rollout or service-account migration can legitimately create msDS-DelegatedManagedServiceAccount objects. Confirm expected `winlog.event_data.ObjectDN`, same-object `5136` attributes limited to the intended legacy service account, and `winlog.event_data.SubjectUserSid`, recovered `source.ip`, and `winlog.logon.type` matching the narrow migration account and host path. If change records, migration tickets, or owner confirmation are unavailable, leave unresolved unless telemetry proves the exact authorized workflow.
+- Lab validation or staged service-account modernization can also trigger this rule. Confirm `winlog.event_data.ObjectDN` stays in the test/staging OU, the same `winlog.event_data.SubjectLogonId` avoids unrelated privileged objects, and any `winlog.event_data.TargetUserName`, `source.ip`, or `winlog.logon.type` activity stays limited to designated test systems. If test scope lacks outside confirmation, treat the alert as unresolved.
+- Before creating an exception, validate exact writer `winlog.event_data.SubjectUserSid`, dMSA path pattern, bounded same-object `5136` attributes, controller path, and recovered source. Use a temporary or tightly scoped exception for one-time migrations, and avoid exceptions on event `5137`, all msDS-DelegatedManagedServiceAccount objects, or all dMSA creation activity.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the evidence that proved the authorized workflow: `winlog.event_data.SubjectUserSid`, `winlog.event_data.ObjectDN`, same-object `5136` sequence, recovered `source.ip`, `winlog.logon.type`, and exact rollout or lab scope.
+- If suspicious but unconfirmed, preserve a case export with the triggering `5137`, related same-object `5136` records, recovered `4624` or `4648` records, and key object/session identifiers before containment. Apply reversible containment first, such as temporary DC access restrictions for the recovered source or heightened monitoring on the writer and dMSA. Disable the writer or isolate the source host only if privileged follow-on changes, unexpected authentication, or related events appear.
+- If confirmed malicious, preserve the same directory-change and session evidence first, then remove the unauthorized dMSA and roll back related msDS-ManagedAccountPrecededByLink, msDS-DelegatedMSAState, SPN, delegation, or membership changes found in the same-object sequence. Isolate the recovered source host when endpoint response is available and host criticality permits, then disable or reset the compromised writer and any linked service accounts.
+- Before deleting objects or closing the case, review hosts and services that used the new dMSA, verify rollback replication across domain controllers, then rotate affected secrets or restore service bindings.
+- Post-incident hardening: restrict who can create dMSAs or start service-account migration, review CreateChild and delegated managed service account rights on service-account OUs, retain `5136`, `5137`, `4624`, and `4648` coverage on domain controllers, and record the confirmed workflow or BadSuccessor evidence pattern for future triage.
+"""
+
+setup = """## Setup
+
+Audit Directory Service Changes must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-directory-service-changes
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "user.name",
+    "user.id",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectDomainName",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ObjectDN",
+    "winlog.event_data.ObjectGUID",
+    "winlog.event_data.ObjectClass",
+    "winlog.event_data.DSName",
+    "host.name",
+    "host.id",
+    "winlog.computer_name",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Directory changes for the same dMSA object on this controller"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ObjectGUID", queryType = "phrase", value = "{{winlog.event_data.ObjectGUID}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5137", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ObjectGUID", queryType = "phrase", value = "{{winlog.event_data.ObjectGUID}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Authentication events for the writer session on this controller"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Windows Security events associated with the modifying account"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Windows Security events associated with the new dMSA object"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.event_data.ObjectGUID", queryType = "phrase", value = "{{winlog.event_data.ObjectGUID}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["winlog.event_data.SubjectUserName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -99,9 +211,3 @@ reference = "https://attack.mitre.org/techniques/T1136/002/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["winlog.event_data.SubjectUserName"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
