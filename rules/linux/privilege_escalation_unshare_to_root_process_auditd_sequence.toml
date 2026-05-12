@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/05/08"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/05/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a short sequence where a non-root user performs unshare-related namespace activity (often associated with user
+namespace privilege escalation primitives) and then a root process is executed shortly after. This can indicate a
+successful local privilege escalation attempt or suspicious namespace manipulation captured in Auditd Manager telemetry.
+"""
+false_positives = [
+    """
+    Legitimate sandboxing, container tooling, or maintenance scripts may use unshare and spawn privileged helpers under
+    controlled workflows. Baseline approved tools and tune by host role, parent process, or user accounts.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via unshare Followed by Root Process"
+note = """## Triage and analysis
+
+### Investigating Potential Privilege Escalation via unshare Followed by Root Process
+
+Validate that the initiating user and parent process should be using unshare. Then confirm whether the subsequent root
+process aligns with an approved administrative workflow or represents an unexpected transition to root.
+
+### Possible investigation steps
+
+- Review auditd.data.* (syscall, class, and a0) and process args to understand the unshare intent.
+- Identify the first root process spawned and its command line, then look for follow-on persistence or credential access.
+- Correlate with recent downloads/compilation in temp directories and other local privesc indicators on the host.
+
+### Response and remediation
+
+- If unauthorized, isolate the host, capture forensic artifacts, and patch/harden user namespace settings as appropriate.
+"""
+references = [
+    "https://docs.elastic.co/integrations/auditd_manager",
+    "https://attack.mitre.org/techniques/T1068/",
+]
+risk_score = 73
+rule_id = "0dd84246-a723-49ba-9f4e-a1e1dfa15990"
+setup = """## Setup
+
+This rule relies on Auditd Manager (or Auditbeat) process telemetry that captures:
+
+- Process execution events (execve/execveat) to populate process.name, process.args, and process.parent.pid
+- Namespace-related activity to populate auditd.data.syscall, auditd.data.class, and auditd.data.a0 for unshare calls
+- Privilege transitions so processes started as root can be correlated after the namespace action
+
+Ensure your auditd ruleset includes coverage for unshare and exec-related syscalls and that arguments are collected. If
+your environment does not populate auditd.data.class/a0 for unshare, keep the process-based fallback branch (process.name
+== unshare with -U/--user/-r args) enabled and consider extending auditing to enrich those auditd.data fields.
+
+### Example auditd rules
+
+The following example syscall rules are commonly used to capture the signals required by this detection. Adjust keys and
+scope to your environment (these examples are intentionally broad).
+
+- Capture unshare (namespace activity):
+  -a always,exit -F arch=b64 -S unshare -k namespace
+  -a always,exit -F arch=b32 -S unshare -k namespace
+
+- Capture process execution (argv collection depends on your auditd/auditbeat pipeline configuration):
+  -a always,exit -F arch=b64 -S execve -S execveat -k exec
+  -a always,exit -F arch=b32 -S execve -S execveat -k exec
+
+- Capture UID transition syscalls often associated with privilege changes:
+  -a always,exit -F arch=b64 -S setuid -S setreuid -S setresuid -S setfsuid -k uid_change
+  -a always,exit -F arch=b32 -S setuid -S setreuid -S setresuid -S setfsuid -k uid_change
+
+See https://docs.elastic.co/integrations/auditd_manager
+"""
+severity = "high"
+tags = [
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by host.id, process.parent.pid with maxspan=30s
+ [process where host.os.type == "linux" and 
+  (
+   (auditd.data.syscall == "unshare" and auditd.data.class == "namespace" and auditd.data.a0 in ("10000000", "50000000", "70000000", "10020000", "50020000", "70020000")) or 
+
+   (process.name == "unshare" and  
+    (process.args in ("--user", "--map-root-user", "--map-current-user") or process.args like ("-*U*", "-*r*")))
+   ) and user.id != "0" and user.id != null]
+ [process where host.os.type == "linux" and 
+  user.id == "0" and user.id != null and 
+  (
+   process.name in ("su", "sudo", "pkexec", "passwd", "chsh", "newgrp", "doas", "run0", "sg", "dash", "sh", "bash", "zsh", "fish", 
+                    "ksh", "csh", "tcsh", "ash", "mksh", "busybox", "rbash", "rzsh", "rksh", "tmux", "screen", "node") or 
+   process.name like ("python*", "perl*", "ruby*", "php*", "lua*")
+  )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
