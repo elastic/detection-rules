@@ -17,7 +17,7 @@ import re
 import shutil
 import subprocess
 import zipfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from dataclasses import astuple, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -195,7 +195,7 @@ def read_gzip(path: str | Path) -> str:
 
 
 @contextlib.contextmanager
-def unzip(contents: bytes) -> Iterator[zipfile.ZipFile]:
+def unzip(contents: bytes) -> Generator[zipfile.ZipFile]:
     """Get zipped contents."""
     zipped = io.BytesIO(contents)
     archive = zipfile.ZipFile(zipped, mode="r")
