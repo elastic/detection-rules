@@ -2,7 +2,7 @@
 creation_date = "2022/01/31"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -18,44 +18,9 @@ index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AdminSDHolder Backdoor"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating AdminSDHolder Backdoor
-
-The AdminSDHolder object in Active Directory is crucial for maintaining consistent permissions across privileged accounts. It ensures that any changes to these accounts are reverted to match the AdminSDHolder's settings. Adversaries exploit this by modifying the AdminSDHolder to create persistent backdoors, regaining administrative privileges. The detection rule identifies such abuses by monitoring specific directory service changes, focusing on modifications to the AdminSDHolder object, thus alerting security teams to potential threats.
-
-### Possible investigation steps
-
-- Review the event logs for entries with event.code:5136 to identify specific changes made to the AdminSDHolder object.
-- Examine the winlog.event_data.ObjectDN field to confirm the object path is CN=AdminSDHolder,CN=System* and verify the nature of the modifications.
-- Identify the user account responsible for the changes by checking the event logs for the associated user information.
-- Investigate the history of the identified user account to determine if there are any other suspicious activities or patterns of behavior.
-- Assess the current permissions on the AdminSDHolder object and compare them with the expected baseline to identify unauthorized changes.
-- Check for any recent changes in group memberships or permissions of privileged accounts that could indicate exploitation of the AdminSDHolder backdoor.
-- Collaborate with the IT or security team to determine if the changes were authorized or if further action is needed to secure the environment.
-
-### False positive analysis
-
-- Routine administrative changes to the AdminSDHolder object can trigger alerts. To manage this, establish a baseline of expected changes and create exceptions for these known activities.
-- Scheduled maintenance or updates to Active Directory may result in temporary modifications to the AdminSDHolder object. Document these events and exclude them from triggering alerts during the maintenance window.
-- Automated scripts or tools used for Active Directory management might modify the AdminSDHolder object as part of their normal operation. Identify these tools and whitelist their activities to prevent false positives.
-- Changes made by trusted security personnel or systems should be logged and reviewed. Implement a process to verify and exclude these changes from alerting if they are part of approved security operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
-- Revert any unauthorized changes to the AdminSDHolder object by restoring it from a known good backup or manually resetting its permissions to the default secure state.
-- Conduct a thorough review of all privileged accounts and groups to ensure their permissions align with organizational security policies and have not been altered to match the compromised AdminSDHolder settings.
-- Reset passwords for all accounts that were potentially affected or had their permissions altered, focusing on privileged accounts to prevent adversaries from regaining access.
-- Implement additional monitoring on the AdminSDHolder object and other critical Active Directory objects to detect any future unauthorized modifications promptly.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach, including identifying any other compromised systems or accounts.
-- Review and update access control policies and security configurations to prevent similar attacks, ensuring that only authorized personnel have the ability to modify critical Active Directory objects."""
 references = [
     "https://adsecurity.org/?p=1906",
-    "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-c--protected-accounts-and-groups-in-active-directory#adminsdholder",
+    "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-c--protected-accounts-and-groups-in-active-directory",
 ]
 risk_score = 73
 rule_id = "6e9130a5-9be6-48e5-943a-9628bfc74b18"
@@ -77,27 +42,181 @@ query = '''
 event.code:5136 and host.os.type:"windows" and winlog.event_data.ObjectDN:CN=AdminSDHolder,CN=System*
 '''
 
+note = """## Triage and analysis
+
+### Investigating AdminSDHolder Backdoor
+
+#### Possible investigation steps
+
+- What AdminSDHolder change did the alert preserve?
+  - Focus: confirm `winlog.event_data.ObjectDN` under AdminSDHolder, then read `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.OperationType`, `winlog.event_data.AttributeValue`, and `winlog.event_data.AttributeSyntaxOID`.
+  - Implication: escalate on "nTSecurityDescriptor", ownership data, or any value that can alter control of protected objects; lower concern only for non-security metadata tied to a recognized tier-0 maintenance workflow.
+
+- What did the correlated 5136 operation contain?
+  - Why: one alert document may show only part of a logical directory change; `winlog.event_data.OpCorrelationID` reconstructs the rest of the operation.
+  - Focus: review same-controller `5136` events for the same `host.id`, `winlog.computer_name`, and `winlog.event_data.OpCorrelationID`; compare attribute, value, and operation type. $investigate_0
+  - Implication: escalate when the operation adds multiple ACL changes, touches unrelated sensitive attributes, or suggests a staged AdminSDHolder template rewrite; lower concern only when bounded to one expected non-security update on the same object.
+
+- Does the recovered value grant or preserve access that SDProp can stamp onto protected identities?
+  - Why: AdminSDHolder is the ACL template for protected accounts and groups, so a small template edit can become persistent privileged access after SDProp runs.
+  - Focus: interpret attribute name, value, and syntax for a new trustee, ACE, owner reference, or delegated right rather than non-security metadata.
+  - Implication: escalate when the value adds a SID, DN, ACE, owner path, Full Control, Modify, WriteDacl, WriteOwner, or GenericAll outside the expected tier-0 admin set; truncated or opaque values keep permission impact unresolved and require preserving raw change data.
+
+- Who initiated the modification, and where did the session originate?
+  - Focus: identify the writer and controller with `user.id`, `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectLogonId`, and `winlog.computer_name`.
+  - Hint: on the same `winlog.computer_name`, match `5136` `winlog.event_data.SubjectLogonId` to `4624` `winlog.event_data.TargetLogonId`; search `4648` for the same `winlog.event_data.SubjectLogonId` when explicit credentials matter, then read `source.ip` and `winlog.event_data.AuthenticationPackageName`. Missing linked authentication records or `source.ip` leaves origin unresolved, not benign.
+    - $investigate_1
+    - $investigate_2
+  - Implication: escalate when the writer is unexpected, source or auth method does not fit tier-0 administration, or origin remains unresolved with a security-relevant change; do not wait on auth pivots when the attribute/value and change set already prove unauthorized rights.
+
+- Did the template change propagate or get forced onto protected objects?
+  - Why: SDProp can apply the AdminSDHolder template to protected accounts and groups, so impact may appear after the initial directory-change event.
+  - Focus: on the same `winlog.event_data.DSName` or `winlog.computer_name`, review later `5136` events for object, attribute, writer, and time on protected users or groups.
+  - Hint: if the logging controller has no follow-on records, search the same `winlog.event_data.DSName` across domain controllers; absence on one controller does not clear propagation. $investigate_3
+  - Implication: escalate when later events show security-descriptor, owner, or trustee changes on protected identities after the AdminSDHolder edit; no follow-on `5136` visibility leaves propagation unresolved, not benign.
+
+- Escalate when object, security-relevant attribute/value, `winlog.event_data.OpCorrelationID`, writer/session origin, or propagation evidence shows unauthorized control; close only when the exact change, bounded `5136` set, actor/session origin, and available change or baseline record all point to one recognized tier-0 workflow; preserve directory-change evidence and escalate mixed or incomplete answers. If local answers stay suspicious or unresolved, review alerts for the modifying `user.id`; use controller `host.id` alert history only when actor evidence is sparse or controller compromise is plausible.
+    - $investigate_4
+    - $investigate_5
+
+### False positive analysis
+
+- AdminSDHolder ACL hardening, delegated-directory cleanup, security-baseline tooling, or migration automation are narrow tier-0 exceptions, not routine administration. Confirm the exact attribute/value/operation for `winlog.event_data.ObjectDN`, expected admin or service-account session, bounded `winlog.event_data.OpCorrelationID`, matching controller/template rollout, and no unrelated actor or controller alerts. If change records, automation inventory, or deployment records exist, require alignment; otherwise prove the current actor/action or service-account/template fit from telemetry first, then use prior recurrence only to support exception stability.
+- Before creating an exception, validate recurrence of the same `user.id` or `winlog.event_data.SubjectUserSid`, specific attribute, object, `winlog.event_data.DSName`, bounded operation shape, and controller pattern across prior alerts from this rule. Build the exception from that minimum confirmed workflow only after the current event is fully explained, and avoid exceptions on AdminSDHolder changes, Windows Security event "5136", or the rule name alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and record the exact actor, session, AdminSDHolder object, changed attribute, operation-correlation, and controller pattern that proved the recognized workflow. Do not keep a broad exception unless the same workflow recurs.
+- If suspicious but unconfirmed, preserve the triggering `5136` event, the correlated `winlog.event_data.OpCorrelationID` change set, the current AdminSDHolder security descriptor, linked `4624` or `4648` session records, and case exports before containment. Apply reversible containment first, such as temporarily restricting the modifying account's directory-write path or increasing monitoring on the recovered actor and controller. Use broader account disablement or domain-controller isolation only if related alerts or follow-on directory abuse show active compromise and the AD response owner accepts the operational impact.
+- If confirmed malicious, export the current AdminSDHolder security descriptor, recovered `5136` change set, replication context, implicated object identity, actor SID, logon session, and source-origin evidence before rollback or account action. Contain the modifying account and any recovered source endpoint or IP through identity-response or endpoint-response tooling; if direct response is unavailable, escalate that preserved evidence set to the AD or incident-response team that can act.
+- After containment, review protected users and groups for unauthorized ACEs, owner changes, or delegated rights that may have been restamped from the tampered template before removing them. Restore the AdminSDHolder ACL to a known-good state, verify clean replication across domain controllers, then reset or rotate privileged credentials exposed or newly granted through the unauthorized template.
+- Post-incident hardening: restrict AdminSDHolder write access to dedicated tier-0 administration paths, baseline the expected AdminSDHolder security descriptor, keep directory-service change auditing for `5136` and linked authentication logging enabled on domain controllers, and record telemetry gaps that limited the investigation.
+"""
+
+setup = """## Setup
+
+Audit Directory Service Changes must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-directory-service-changes
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ObjectDN",
+    "winlog.event_data.ObjectClass",
+    "winlog.event_data.AttributeLDAPDisplayName",
+    "winlog.event_data.AttributeValue",
+    "winlog.event_data.OperationType",
+    "winlog.event_data.OpCorrelationID",
+    "winlog.event_data.DSName",
+    "host.id",
+    "winlog.computer_name",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "All 5136 events in this AdminSDHolder change set"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.OpCorrelationID", queryType = "phrase", value = "{{winlog.event_data.OpCorrelationID}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Linked logon for the modifying session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Explicit credential events for the modifying session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Later 5136 changes in the same directory service"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.event_data.DSName", queryType = "phrase", value = "{{winlog.event_data.DSName}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
+  ]
+]
+relativeFrom = "now"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Recent alerts tied to this modifying identity"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Recent alerts on this domain controller"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.002"
 name = "Domain Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/002/"
-
 
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

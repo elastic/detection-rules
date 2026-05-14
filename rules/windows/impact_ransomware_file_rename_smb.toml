@@ -2,7 +2,7 @@
 creation_date = "2024/05/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -15,42 +15,6 @@ index = ["logs-endpoint.events.file-*", "logs-endpoint.events.network-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious File Renamed via SMB"
-note = """## Triage and analysis
-
-## Performance
-
-- This rule may cause medium to high performance impact due to logic scoping all icoming SMB network events.
-
-#### Possible investigation steps
-
-- Investigate the source.ip address connecting to port 445 on this host.
-- Identify the user account that performed the file creation via SMB.
-- If the number of files is too high and source.ip connecting over SMB is unusual isolate the host and block the used credentials.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-
-### False positive analysis
-
-- Remote file rename over SMB.
-
-### Related rules
-
-- Third-party Backup Files Deleted via Unexpected Process - 11ea6bec-ebde-4d71-a8e9-784948f8e3e9
-- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
-- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
-- Volume Shadow Copy Deletion via WMIC - dc9c1f74-dac3-48e3-b47f-eb79db358f57
-- Potential Ransomware Note File Dropped via SMB - 02bab13d-fb14-4d7c-b6fe-4a28874d37c5
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- If any other destructive action was identified on the host, it is recommended to prioritize the investigation and look for ransomware preparation and execution activities.
-- If any backups were affected:
-  - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = ["https://news.sophos.com/en-us/2023/12/21/akira-again-the-ransomware-that-keeps-on-taking/"]
 risk_score = 73
 rule_id = "78e9b5d5-7c07-40a7-a591-3dbbf464c386"
@@ -76,9 +40,94 @@ sequence by host.id with maxspan=1s
   event.action == "rename" and process.pid == 4 and user.id : ("S-1-5-21*", "S-1-12-*") and
   file.extension != null and file.Ext.entropy >= 6 and file.path : "C:\\Users\\*" and
   file.Ext.original.name : ("*.jpg", "*.bmp", "*.png", "*.pdf", "*.doc", "*.docx", "*.xls", "*.xlsx", "*.ppt", "*.pptx", "*.lnk") and
-  not file.extension : ("jpg", "bmp", "png", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "*.lnk")] with runs=3
+  not file.extension : ("jpg", "bmp", "png", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "lnk")] with runs=3
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious File Renamed via SMB
+#### Possible investigation steps
+
+- What do the Timeline member events show for the SMB-to-rename sequence?
+  - Focus: use `host.id` as target context; open Investigate in Timeline to recover accepted SMB `source.ip`, rename-event `user.id`, and representative renamed `file.path`.
+  - Implication: escalate on one remote SMB source followed by repeated high-entropy user-file renames; lower concern only when member events show one bounded remote file-management job with stable source, account, path, and extension mapping. Missing member events are unresolved, not benign.
+- Does the recovered source/account pair fit a recognized remote file-management workflow?
+  - Focus: recovered `source.ip`, `user.id`, `user.name`, and `user.domain`.
+  - Implication: escalate when a rare source or privileged account remotely renames user data; lower concern when the same source/account pair recurs as a backup, migration, DLP, or conversion actor for this exact share.
+- Do rename artifacts look like encryption instead of content conversion?
+  - Focus: same target host, SMB-server context, alert window, and recovered `user.id`: `file.Ext.original.extension`, `file.extension`, `file.Ext.entropy`, and `file.size`.
+  - Implication: escalate when common documents or images move to one unfamiliar high-entropy extension family across many paths; lower concern when before/after extensions and file sizes match a recognized converter, archive, or quarantine workflow.
+- How far did the rename burst spread on the target host?
+  - Focus: file rename events from the same target host, SMB-server context, recovered `user.id`, and surrounding window; compare `file.path` roots and `file.Ext.original.extension` families.
+  - Implication: escalate when the burst crosses user profiles, share roots, or document families; lower urgency when it stays a short bounded task in one managed folder with stable extension mapping.
+- Did the target receive ransom-note or payload files around the rename burst?
+  - Why: SMB ransomware may run from the remote source while leaving note or helper files on the target share, making target-side file artifacts decisive corroboration.
+  - Focus: file events on the same `host.id` around the rename window: repeated `file.name`, `file.path`, or `file.extension` patterns for note-like files, scripts, or executables. $investigate_0
+  - Implication: escalate when repeated note-like names or executable/script drops appear in impacted paths; lower concern when file activity stays limited to the explained rename workflow.
+- Did recovery inhibition or destructive behavior align with the rename burst?
+  - Focus: related alerts on the same `host.id` around the rename window naming recovery inhibition, destructive file activity, or ransomware notes. $investigate_1
+  - Implication: escalate and prioritize containment when these alerts align; absence reduces urgency only after source/account and rename evidence fit one exact workflow.
+- If local findings remain suspicious or unresolved, does the same SMB source or account drive similar renames elsewhere?
+  - Focus: across hosts, look for the same recovered `source.ip` or `user.id` paired with inbound SMB accept events and high-entropy rename bursts using the suspicious `file.extension`.
+  - Implication: broaden containment when the same source or account drives similar user-file rename bursts on other hosts; keep scope local only when this pivot is quiet and local evidence is otherwise resolved.
+- Escalate when SMB source/account, rename shape, target breadth, note/payload artifacts, recovery-inhibition alerts, or cross-host spread show remote encryption or destructive file handling over SMB. Close only when recovered telemetry binds one exact backup, migration, DLP, or conversion job on this host, with owner or change records as corroboration only. Preserve evidence and escalate when telemetry is mixed, incomplete, or contradicted.
+
+### False positive analysis
+
+- Backup, migration, DLP quarantine, or document-conversion tooling can rename many files over SMB. Confirm that recovered `source.ip`, `user.id`, managed `file.path` scope, extension mapping, and absence of note/payload or recovery-inhibition evidence all support the same workflow on this host. Use owner confirmation or change records only as corroboration; if unavailable, close only when recovered events independently bind one exact workflow.
+- Treat recurrence of the same source/account, folder scope, and extension mapping across prior alerts as candidate tuning evidence, not a standalone benign verdict. Build exceptions from the narrowest stable pattern: recovered `source.ip`, `user.id`, managed `file.path` scope, host cohort, and extension mapping. Do not except on SMB activity, `process.pid` 4, high entropy, rename volume, or one extension alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the source host, account, managed folder scope, and extension mapping that explained the rename burst. Create an exception only after the same bounded pattern recurs.
+- If suspicious but unconfirmed, preserve a Timeline export of the sequence member events, representative renamed files, any note or payload files, recovered SMB source/account details, and related alert IDs before containment that could alter evidence.
+- Apply reversible containment first: block SMB from the recovered source, suspend the recovered account session, or temporarily restrict write access to the impacted share. Isolate the source or target host only when active renaming or destructive corroborators show ongoing ransomware activity.
+- If confirmed malicious, isolate the source and impacted target or file server when the environment can tolerate it, disable and reset the recovered account, and stop active SMB sessions only after recording the source, account, renamed-file set, notes or payloads, and destructive alerts.
+- Review other hosts for the same `source.ip`, `user.id`, suspicious extension, or note pattern before restoration so the full ransomware scope is understood.
+- Restore renamed or encrypted files only from trusted backups or replicas after scope is complete, and verify backup repositories were not touched by the same source or account.
+- Post-incident hardening: restrict remote SMB write paths and administrative shares, require MFA or equivalent controls for remote access and high-privilege accounts, protect backup credentials, and retain file and network telemetry needed to recover future SMB rename sequences."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "host.os.type",
+    "process.pid",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Recent file activity on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
