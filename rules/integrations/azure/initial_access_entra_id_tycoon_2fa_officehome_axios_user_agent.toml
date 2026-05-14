@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/05/14"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Microsoft Entra ID sign-ins where the application and resource are both OfficeHome and the client user agent 
+matches axios, an indicator of activity associated with the Tycoon 2FA phishing-as-a-service (PhaaS) kit.
+Tycoon 2FA is an adversary-in-the-middle (AiTM) platform used to bypass MFA, often targeting Microsoft 365 and Gmail.
+This pattern is uncommon for legitimate browser-based OfficeHome sessions and should be validated against expected
+automation in the tenant.
+"""
+false_positives = [
+    """
+    Rare internal tooling or scripted health checks that authenticate to OfficeHome with an axios-based HTTP client may
+    match. Baseline approved automation identities and source networks before tuning exclusions.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Tycoon AiTM Sign-In via OfficeHome"
+note = """## Triage and analysis
+
+### Investigating Potential Tycoon AiTM Sign-In via OfficeHome
+
+Review user.name, azure.signinlogs.properties.user_principal_name, source.ip, source.geo fields, and
+azure.signinlogs.properties.session_id. 
+
+Confirm whether the user intentionally signed in and whether axios is expected for any approved client in your environment.
+
+### Possible investigation steps
+
+- Correlate the session with Microsoft Graph activity logs and mailbox audit for follow-on data access.
+- Review conditional access outcomes and MFA detail for the same session.
+- Hunt for other sign-ins from the same source IP with unusual user agents or rapid OAuth patterns.
+
+### Response and remediation
+
+- If malicious, revoke refresh tokens for the user, reset credentials per policy, and review application consent.
+- Block or monitor the source IP and escalate per incident procedures.
+"""
+references = ["https://any.run/malware-trends/tycoon/"]
+risk_score = 73
+rule_id = "6e6376c1-a71e-4789-a795-198b05664064"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"azure.signinlogs" and event.category:"authentication" and 
+event.action:"Sign-in activity" and 
+azure.signinlogs.properties.app_display_name:"OfficeHome" and 
+azure.signinlogs.properties.resource_display_name:"OfficeHome" and user_agent.original:axios*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "event.outcome",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.session_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.authentication_protocol",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

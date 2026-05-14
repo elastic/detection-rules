@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/05/14"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/05/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Microsoft 365 audit `UserLoggedIn` events where the client application and object identifiers match a first-party 
+Microsoft Office web client application ID and the user agent matches axios, an indicator associated with Tycoon 2FA 
+phishing-as-a-service (PhaaS) adversary-in-the-middle (AiTM) activity. Tycoon 2FA is used to bypass MFA by relaying 
+authentication and capturing session material, often targeting Microsoft 365 and Gmail. This combination is uncommon 
+for legitimate browser-based user sessions and should be validated against approved automation.
+"""
+false_positives = [
+    """
+    Rare internal tooling or scripted flows that sign in to Microsoft 365 using an axios-based HTTP client with the same
+    application identifiers may match. Baseline approved service principals, networks, and identities before tuning.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Tycoon AiTM M365 UserLoggedIn via Office App"
+note = """## Triage and analysis
+
+### Investigating Potential Tycoon AiTM M365 UserLoggedIn via Office App
+
+Review `o365.audit.UserId`, `user_agent.original`, `source.ip` or `o365.audit.ActorIpAddress`, and related Entra ID
+sign-in logs (`azure.signinlogs`) for the same session or time window.
+
+Confirm whether the account owner intentionally authenticated and whether an axios user agent is ever expected for this
+application in your environment.
+
+### Possible investigation steps
+
+- Correlate with `azure.signinlogs` for matching user principal name, IP, and session identifiers.
+- Review Microsoft Graph or Exchange audit activity following the login for mailbox or data access anomalies.
+- Hunt for other `UserLoggedIn` events from the same source with unusual user agents or rapid OAuth patterns.
+
+### Response and remediation
+
+- If malicious, revoke refresh tokens for the user, reset credentials per policy, and review conditional access outcomes.
+- Block or monitor the source IP and escalate per incident procedures.
+"""
+references = ["https://any.run/malware-trends/tycoon/"]
+risk_score = 73
+rule_id = "275b972d-2fed-44fc-9214-08603b3318e3"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"o365.audit" and event.category:"authentication" and event.action:"UserLoggedIn" and
+o365.audit.ApplicationId:"4765445b-32c6-49b0-83e6-1d93765276ca" and
+o365.audit.ObjectId:"4765445b-32c6-49b0-83e6-1d93765276ca" and user_agent.original:axios*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "o365.audit.UserId",
+    "user_agent.original",
+    "source.ip",
+    "o365.audit.ActorIpAddress",
+    "source.geo.country_name",
+    "event.outcome",
+    "o365.audit.ApplicationId",
+    "o365.audit.ObjectId",
+    "o365.audit.ExtendedProperties.RequestType",
+    "event.provider",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
