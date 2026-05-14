@@ -23,10 +23,10 @@ false_positives = [
 from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
-name = "Microsoft Graph Delegated User Multi-Category Reconnaissance Burst"
+name = "Microsoft Graph Multi-Category Reconnaissance Burst"
 note = """## Triage and analysis
 
-### Investigating Microsoft Graph Delegated User Multi-Category Reconnaissance Burst
+### Investigating Microsoft Graph Multi-Category Reconnaissance Burst
 
 This rule uses an aggregation-based ES|QL query. Alert documents contain summarized fields; pivot to raw Graph activity
 logs using user principal object ID, session ID (c_sid), source IP, tenant ID, and timestamps from the alert.
@@ -67,12 +67,12 @@ type = "esql"
 query = '''
 from logs-azure.graphactivitylogs-* metadata _id, _version, _index
 
-// Scope: Graph calls via delegated user tokens (any status, any method)
+// Graph calls via delegated user tokens (any status, any method)
 | where event.dataset == "azure.graphactivitylogs"
   and azure.graphactivitylogs.properties.c_idtyp == "user"
   and azure.graphactivitylogs.properties.client_auth_method == 0
 
-// Tag high-value recon endpoints by url.path
+// high-value recon endpoints by url.path
 | eval Esql.is_role_enum = case(
     url.path like "*roleManagement/directory*"
       or url.path like "*memberOf/microsoft.graph.directoryRole*"
@@ -158,7 +158,7 @@ from logs-azure.graphactivitylogs-* metadata _id, _version, _index
     azure.graphactivitylogs.properties.c_sid,
     azure.tenant_id
 
-// Threshold: 3+ distinct recon categories = enumeration playbook
+// Threshold: 3+ distinct recon categories 
 | where Esql.distinct_categories >= 3
 
 // Burst duration in seconds
