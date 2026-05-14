@@ -7,20 +7,21 @@ updated_date = "2026/05/14"
 [rule]
 author = ["Elastic"]
 description = """
-Detects Microsoft Entra ID sign-ins where the application and resource are both OfficeHome and the client user agent 
-matches axios, an indicator of activity associated with the Tycoon 2FA phishing-as-a-service (PhaaS) kit.
-Tycoon 2FA is an adversary-in-the-middle (AiTM) platform used to bypass MFA, often targeting Microsoft 365 and Gmail.
-This pattern is uncommon for legitimate browser-based OfficeHome sessions and should be validated against expected
-automation in the tenant.
+Detects Microsoft Entra ID sign-ins consistent with Tycoon2FA phishing-as-a-service (PhaaS) adversary-in-the-middle
+(AiTM) activity: the Microsoft Authentication Broker requesting tokens for Microsoft Graph or Exchange Online, or the
+Office web client application authenticating to itself, combined with Node.js-style user agents (node, axios, undici).
+Tycoon 2FA bypasses MFA by relaying authentication and capturing session material, often targeting Microsoft 365 and
+Gmail. Baseline legitimate automation and developer tooling before tuning.
 """
 false_positives = [
     """
-    Rare internal tooling or scripted health checks that authenticate to OfficeHome with an axios-based HTTP client may
-    match. Baseline approved automation identities and source networks before tuning exclusions.
+    Legitimate Node.js or undici-based automation, health checks, or internal services that use the Microsoft
+    Authentication Broker or the same first-party application IDs against Graph or Exchange may match. Developers using
+    axios or undici with delegated flows can also resemble this pattern.
     """,
 ]
 from = "now-9m"
-index = ["filebeat-*", "logs-azure.signinlogs-*"]
+index = ["logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Entra ID Potential AiTM Sign-In via OfficeHome (Tycoon2FA)"
@@ -28,10 +29,12 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Potential AiTM Sign-In via OfficeHome (Tycoon2FA)
 
-Review user.name, azure.signinlogs.properties.user_principal_name, source.ip, source.geo fields, and
-azure.signinlogs.properties.session_id. 
+Review user.name, azure.signinlogs.properties.user_principal_name, azure.signinlogs.properties.app_id,
+azure.signinlogs.properties.resource_id, user_agent.original, source.ip, source.geo fields, and
+azure.signinlogs.properties.session_id.
 
-Confirm whether the user intentionally signed in and whether axios is expected for any approved client in your environment.
+Confirm whether the user intentionally signed in and whether Node.js-style user agents (node, axios, undici) are
+expected for Microsoft Authentication Broker or Office web client flows in your environment.
 
 ### Possible investigation steps
 
@@ -62,10 +65,20 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset:"azure.signinlogs" and event.category:"authentication" and 
-event.action:"Sign-in activity" and 
-azure.signinlogs.properties.app_id:"4765445b-32c6-49b0-83e6-1d93765276ca" and 
-azure.signinlogs.properties.resource_id:"4765445b-32c6-49b0-83e6-1d93765276ca" and user_agent.original:axios*
+data_stream.dataset:"azure.signinlogs" and event.category:"authentication" and
+event.action:"Sign-in activity" and
+(
+    (
+        azure.signinlogs.properties.app_id:"29d9ed98-a469-4536-ade2-f981bc1d605e" and
+        azure.signinlogs.properties.resource_id:(
+            "00000002-0000-0ff1-ce00-000000000000" or "00000003-0000-0000-c000-000000000000"
+        )
+    ) or
+    (
+        azure.signinlogs.properties.app_id:"4765445b-32c6-49b0-83e6-1d93765276ca" and
+        azure.signinlogs.properties.resource_id:"4765445b-32c6-49b0-83e6-1d93765276ca"
+    )
+) and user_agent.original:(node or axios* or undici)
 '''
 
 [rule.investigation_fields]
@@ -79,7 +92,9 @@ field_names = [
     "azure.signinlogs.properties.user_principal_name",
     "azure.signinlogs.properties.session_id",
     "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_id",
     "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.resource_id",
     "azure.signinlogs.properties.authentication_protocol",
     "azure.tenant_id",
 ]
