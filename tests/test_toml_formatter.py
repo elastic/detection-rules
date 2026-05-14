@@ -72,3 +72,39 @@ class TestRuleTomlFormatter(unittest.TestCase):
     def test_formatter_deep(self):
         """Test that the data remains unchanged from formatting."""
         self.compare_test_data(self.test_data[1:])
+
+    def test_filter_value_does_not_word_wrap(self):
+        """Test long filter values are not split across TOML lines."""
+        filter_value = (
+            r"C:\Program Files\Microsoft Monitoring Agent\Agent\Health Service State\Monitoring Host Temporary "
+            r"Files*\AvailabilityGroupMonitoring.ps1"
+        )
+        data = {
+            "rule": {
+                "filters": [
+                    {
+                        "meta": {"negate": True},
+                        "query": {
+                            "wildcard": {
+                                "file.path": {
+                                    "case_insensitive": True,
+                                    "value": filter_value,
+                                }
+                            }
+                        },
+                    }
+                ]
+            }
+        }
+        tmp_path = Path(tmp_file)
+
+        try:
+            self.compare_formatted(copy.deepcopy(data))
+            toml_write(copy.deepcopy(data), tmp_path)
+            formatted_data = tmp_path.read_text()
+
+            self.assertIn("Monitoring Host Temporary Files*", formatted_data)
+            self.assertNotIn("Monitoring Host Temporary\nFiles*", formatted_data)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()

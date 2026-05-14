@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/05/05"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/05/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation, modification, or deletion of Kubernetes MutatingWebhookConfigurations or ValidatingWebhookConfigurations 
+by non-system identities. Admission webhooks intercept every API request matching their rules before persistence, giving an 
+attacker powerful capabilities: injecting malicious sidecars into every new pod via a mutating webhook, blocking security 
+tooling deployments via a validating webhook, or silently exfiltrating pod specifications to an external server. 
+Webhook manipulation is a stealthy persistence and defense evasion technique because the webhook configuration itself looks 
+benign in kubectl output while actively modifying or intercepting all matching Kubernetes API traffic.
+"""
+false_positives = [
+  """
+  Cluster operators and GitOps automation may legitimately install or upgrade admission controllers (e.g. cert-manager,
+  Gatekeeper, Kyverno, service mesh components). Validate change tickets and approved controllers before tuning.
+  """,
+]
+from = "now-9m"
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Admission Webhook Created or Modified"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Admission Webhook Created or Modified
+
+Admission webhooks can mutate or validate resources before they are persisted. A malicious webhook can inject sidecars,
+alter securityContext, block defensive workloads, or exfiltrate pod specs. This rule alerts on allowed changes to
+MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by identities outside common system patterns.
+
+### Possible investigation steps
+
+- Confirm the webhook resource and operation:
+  - kubernetes.audit.objectRef.resource and kubernetes.audit.verb
+  - kubernetes.audit.objectRef.name (the webhook configuration name)
+- Attribute the actor and access path:
+  - user.name (human vs service account vs node identity)
+  - source.ip and user_agent.original
+  - In cloud-managed clusters, map the identity to IAM/Entra principal data present in kubernetes.audit.user.extra.*.
+- Extract the webhook destination and review for external exfiltration:
+  - kubernetes.audit.requestObject.webhooks.clientConfig.url (suspicious when pointing to the public internet)
+  - kubernetes.audit.requestObject.webhooks.clientConfig.service.* (in-cluster service; still validate namespace/name)
+- Review impact-driving webhook settings:
+  - failurePolicy (e.g., Ignore can make malicious webhooks stealthier by avoiding obvious outages)
+  - namespaceSelector / objectSelector targeting (e.g., excluding kube-system while targeting everything else)
+  - rules.operations and rules.resources (e.g., CREATE pods is consistent with broad sidecar injection)
+  - sideEffects, timeoutSeconds, matchPolicy, reinvocationPolicy
+- Scope blast radius and follow-on activity:
+  - Hunt for pods created/updated after the webhook change that include unexpected containers, initContainers, env vars,
+    volume mounts, or securityContext changes.
+  - Check for concurrent RBAC changes, token creation, or secret access from the same identity and source IP.
+
+### False positive analysis
+
+- GitOps upgrades or controller installs can legitimately change admission webhooks. Validate the change against:
+  - approved Helm/Git commits, change tickets, and expected controller namespaces
+  - known controller identities (cert-manager, Gatekeeper, Kyverno, service mesh controllers)
+
+### Response and remediation
+
+- If unauthorized, revert or delete the webhook configuration from a known-good source (GitOps/Helm), then block the
+  actor identity and rotate any credentials it used.
+- If the webhook targeted pod creation, assume workload impact: identify affected namespaces/workloads, redeploy from
+  trusted manifests/images, and validate that new pods are no longer being mutated.
+- If an external clientConfig.url was used, treat it as potential data exfiltration and review egress/DNS logs for the
+  destination around the alert window.
+"""
+risk_score = 47
+rule_id = "4f8f7c08-ffb5-443f-86c6-0884c964df7b"
+severity = "medium"
+tags = [
+  "Data Source: Kubernetes",
+  "Domain: Kubernetes",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Tactic: Defense Evasion",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+kubernetes.audit.objectRef.resource:("mutatingwebhookconfigurations" or "validatingwebhookconfigurations") and
+kubernetes.audit.verb:("create" or "update" or "patch" or "delete") and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and 
+user.name:(* and not 
+  (system\:kube-controller-manager or
+  system\:kube-scheduler or
+  system\:serviceaccount\:kube-system\:* or
+  eks\:* or aksService or masterclient or nodeclient or
+  system\:serviceaccount\:gke-managed-system\:* or
+  system\:serviceaccount\:cert-manager\:* or
+  system\:serviceaccount\:gatekeeper-system\:* or
+  system\:serviceaccount\:kyverno\:* or
+  system\:serviceaccount\:*\:*-operator)
+) and
+kubernetes.audit.objectRef.name:(* and not (pod-identity-webhook or vpc-resource-mutating-webhook or eks-* or gke-*))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
