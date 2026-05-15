@@ -2,7 +2,7 @@
 creation_date = "2020/11/11"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,43 +25,8 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Execution via TSClient Mountpoint"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Execution via TSClient Mountpoint
-
-The TSClient mountpoint is a feature of the Remote Desktop Protocol (RDP) that allows users to access local drives from a remote session. Adversaries can exploit this by executing malicious files from the shared mountpoint, facilitating lateral movement within a network. The detection rule identifies such activities by monitoring for process executions originating from the TSClient path, signaling potential unauthorized access attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the process execution path matches the pattern "\\\\Device\\\\Mup\\\\tsclient\\\\*.exe" and verify the host operating system is Windows.
-- Identify the user account associated with the RDP session and check for any unusual or unauthorized access patterns, such as logins from unexpected locations or at odd times.
-- Examine the executed process's hash and compare it against known malicious hashes in threat intelligence databases to determine if the file is potentially harmful.
-- Investigate the source system from which the RDP session originated to identify any signs of compromise or unauthorized access that could indicate lateral movement.
-- Check for any additional suspicious activities on the target host, such as unexpected network connections or file modifications, that may correlate with the execution event.
-- Review the security logs from data sources like Microsoft Defender XDR or Sysmon for any related alerts or anomalies that could provide further context on the incident.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they are executed from a local drive mapped through TSClient. To manage this, create exceptions for known update processes or installation paths that are frequently used in your environment.
-- IT administrative tasks performed via RDP sessions can also cause false positives. Identify and exclude specific administrative tools or scripts that are regularly executed from TSClient paths by trusted personnel.
-- Automated backup or synchronization software that accesses local drives through RDP might be flagged. Review and whitelist these processes if they are part of routine operations.
-- Development or testing activities involving remote execution of scripts or applications from TSClient can be mistaken for threats. Establish a list of approved development tools and paths to exclude from monitoring.
-- Regularly review and update the list of exceptions to ensure that only verified and necessary exclusions are maintained, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Immediately isolate the affected host from the network to prevent further lateral movement and potential data exfiltration.
-- Terminate any suspicious processes running from the TSClient path to halt any ongoing malicious activity.
-- Conduct a thorough scan of the affected host using endpoint detection and response (EDR) tools to identify and remove any malicious files or artifacts.
-- Review and analyze RDP logs and session details to identify unauthorized access attempts and determine the source of the intrusion.
-- Reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
-- Implement network segmentation to limit RDP access to only necessary systems and users, reducing the attack surface for similar threats.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts."""
 references = [
-    "https://posts.specterops.io/revisiting-remote-desktop-lateral-movement-8fb905cb46c3",
+    "https://specterops.io/blog/2020/01/22/revisiting-remote-desktop-lateral-movement/",
     "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
 ]
 risk_score = 73
@@ -88,6 +53,135 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and process.executable : "\\Device\\Mup\\tsclient\\*.exe"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Execution via TSClient Mountpoint
+
+#### Possible investigation steps
+
+- What exact TSClient launch did the alert capture?
+  - Focus: `process.executable`, `process.command_line`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`.
+  - Implication: escalate when the redirected-drive executable is unsigned, untrusted, renamed, script-capable, or launched with command intent outside a recognized RDP support or deployment workflow; lower concern only when a vendor-signed installer or utility from the RDP client drive matches that exact session purpose.
+- What launcher and Windows session produced the TSClient process?
+  - Focus: `process.parent.name`, `process.parent.command_line`, `process.Ext.session_info.logon_type`, `user.id`.
+  - Implication: escalate when the parent is "cmd.exe", "powershell.exe", "taskmgr.exe", or another remote-session launcher, when the session is remote-interactive for an unusual user, or when children show another TSClient-launched payload; lower concern when parent and session match a recognized support launcher or deployment tool.
+- Which RDP source created the session, when authentication telemetry is available?
+  - Focus: bridge `process.Ext.authentication_id` to same-host authentication events through `winlog.event_data.TargetLogonId`; read `source.ip`, `winlog.logon.type`, `winlog.event_data.AuthenticationPackageName`. $investigate_0
+  - Implication: escalate when the recovered source or authentication package conflicts with recognized jump hosts, support workstations, or deployment sources. Missing authentication telemetry is unresolved, not benign.
+- Did the TSClient process spawn shells, tools, or persistence helpers on the target?
+  - Focus: child starts from `process.entity_id` on `host.id`, especially `process.executable`, `process.command_line`, `process.parent.entity_id`. $investigate_1
+  - Hint: if `process.entity_id` is absent, recover descendants with `host.id` + `process.pid` + a tight alert-time window and confirm the parent command line before interpreting results.
+  - Implication: escalate when descendants include shells, script hosts, remote-access tools, credential utilities, or persistence helpers; an isolated installer-like launch lowers urgency only if session and identity evidence also align.
+- If local evidence remains suspicious or incomplete, do related alerts show the same user or host attempting RDP or remote execution elsewhere?
+  - Focus: same-user `user.id` and same-host `host.id` alerts sharing RDP, credential, remote-service, or execution patterns.
+  - Hint: user alert pivot. $investigate_2
+  - Hint: host alert pivot. $investigate_3
+  - Implication: expand scope only when related alerts reuse the same user, host, session pattern, or command family; unrelated alert noise does not change disposition.
+- Escalate when suspicious identity, lineage, source, descendants, or related alerts support unauthorized redirected-drive execution; close only when process identity, parent/session, source when available, and descendants all match one recognized RDP support or deployment activity; preserve artifacts and escalate when authentication visibility is missing or evidence remains mixed.
+
+### False positive analysis
+
+- RDP helpdesk, break-fix, or software deployment workflows can legitimately run installers or utilities from a client drive redirected into the target session. Confirm all evidence converges on one exact activity: identity and intent (`process.executable`, `process.command_line`, signature), launch/session (`process.parent.name`, `user.id`, `host.id`, recovered `source.ip` when available), and outcome (no suspicious descendants or related alerts). Contradictory evidence keeps the case open.
+- Use recurrence only to support a narrow exception candidate, not to close the current case by itself. Require the same stable executable path or signer, parent/session pattern, `user.id`, `host.id`, recovered source when available, and descendant-clean outcome across prior alerts from this rule; keep the case open when current telemetry is incomplete or contradictory.
+- Before creating an exception, anchor it on the minimum confirmed pattern: specific `process.executable`, stable `process.command_line` or signer, `process.parent.name`, `user.id`, `host.id`, and recovered `source.ip` only when it was part of the confirmation. Avoid exceptions on the TSClient path wildcard or `process.name` alone.
+
+### Response and remediation
+
+- Preserve evidence before changing state: case export of the alert, process tree, command line, binary hash or sample when available, child-process events, and authentication-bridge records.
+- If confirmed benign after preservation, reverse temporary containment and document the exact process identity, parent/session context, `user.id`, `host.id`, and recovered `source.ip` that established the redirected-drive workflow. Create an exception only after the same narrowly scoped pattern is stable across prior alerts.
+- If suspicious but unconfirmed after preservation, use reversible containment only: terminate the active RDP session, restrict new RDP connections from the recovered source when available, disable drive redirection for the affected access path, or heighten monitoring on the affected `host.id`. Do not isolate the host, terminate processes, or suspend accounts unless follow-on execution or related alerts confirm broader abuse.
+- If confirmed malicious, isolate the target host when feasible, terminate the TSClient-launched process and malicious descendants after evidence capture, and disable or suspend the account or RDP access path used for the session.
+- Scope before cleanup by reviewing other hosts and users tied to the same recovered source, `user.id`, distinctive `process.command_line`, signer, or hash.
+- Eradicate only the staged payloads, persistence artifacts, or tooling identified during the investigation, then review whether credentials exposed in the RDP session need reset or reissue.
+- Post-incident hardening: limit RDP drive redirection, restrict RDP access to managed jump hosts, retain endpoint process and Windows Security telemetry for session bridging, and document any TSClient execution patterns that should become narrow exceptions."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.parent.name",
+    "process.parent.command_line",
+    "process.Ext.session_info.logon_type",
+    "process.Ext.authentication_id",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Authentication events for the linked session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{process.Ext.authentication_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child processes spawned by the TSClient launch"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
