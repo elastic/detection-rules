@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-180m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.login*"]
 interval = "60m"
 language = "kuery"
 license = "Elastic License v2"
@@ -93,6 +93,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "google_workspace.login" and
+    event.provider: "login"
     event.action: "login_success" and
     event.outcome: "success" and
     google_workspace.login.is_suspicious: true
