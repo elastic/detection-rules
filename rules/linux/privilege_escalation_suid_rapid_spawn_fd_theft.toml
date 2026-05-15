@@ -1,0 +1,201 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects setuid-root binaries (ssh-keysign, chfn, chsh, gpasswd, newgrp, passwd, pkexec, pppd)
+executing with effective UID 0 while the real UID is non-zero, when the invoking parent process
+falls outside the expected caller set. This is a behavioral indicator of the mm-NULL
+ptrace_may_access bypass (pidfd_getfd fd theft) described by Jann Horn (2020) and demonstrated by
+the ssh-keysign-pwn PoC: an attacker spawns a setuid binary from an arbitrary process to race its
+exit window using pidfd_getfd, stealing open file descriptors — SSH host private keys, /etc/shadow,
+/etc/gshadow — without ever calling open() on those files directly. The parent-context anomaly is
+the primary single-event signal because legitimate setuid helpers are always invoked from a narrow
+set of known callers.
+"""
+false_positives = [
+    """
+    Automation frameworks or configuration management tools (Ansible, Chef, Puppet) that call
+    passwd, chfn, or gpasswd directly may match; add the automation parent executable to the
+    relevant exclusion list and correlate with change management windows.
+    """,
+    """
+    Custom PAM stacks or non-standard display managers not listed in the exclusions may legitimately
+    invoke chfn or chsh; baseline parent executables in the environment before promoting to production.
+    """,
+    """
+    pppd launched by custom dial-up or VPN scripts outside the standard NetworkManager/pon chain may
+    fire; verify the parent and narrow the exclusion list accordingly.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Setuid Root Binary Invoked from Anomalous Parent Process"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Setuid Root Binary Invoked from Anomalous Parent Process
+
+This rule fires when a setuid-root binary (ssh-keysign, chfn, chsh, gpasswd, newgrp, passwd, pkexec, or pppd) is started with effective UID 0 but real UID non-zero, and the invoking parent falls outside the expected caller set.
+This is the single-invocation behavioral signature of the mm-NULL pidfd_getfd file descriptor theft technique: the attacker spawns the setuid binary from an arbitrary exploit process to race its exit window and steal open file descriptors — including SSH host private keys (/etc/ssh/ssh_host_*_key) and shadow credentials (/etc/shadow, /etc/gshadow) — without calling open() on those files directly.
+
+### Possible investigation steps
+
+- Identify the parent process executable and working directory; an unusual binary in /tmp, /dev/shm, /home, or /usr/local/bin that is not a shell, display manager, or service manager is a strong exploitation indicator.
+- Check whether the target binary and its expected caller are consistent with the detected event: ssh-keysign should only be called by sshd or ssh; passwd called from /tmp strongly suggests scripted exploitation.
+- If ssh-keysign was the target, inspect /etc/ssh/ssh_host_*_key modification times and verify key fingerprints against known-good values; treat keys as stolen if the host is unpatched.
+- If passwd, chfn, gpasswd, or newgrp was the target, check /etc/shadow and /etc/gshadow modification times; if theft occurred before any privilege drop, treat all credentials as compromised.
+- Correlate with rapid-spawn events from the same parent (many consecutive executions of the same setuid binary within seconds), which is the complementary signal from the exploit's iteration loop.
+- Verify whether the host kernel is patched for the mm-NULL ptrace_may_access bypass (kernel >= 5.10 with commit 31e62c2ebbfd or vendor backport).
+- If available, check for pidfd_open (syscall 434) and pidfd_getfd (syscall 438) calls from the parent process via auditd or eBPF telemetry.
+
+### False positive analysis
+
+- Configuration management tools (Ansible, Puppet, Chef) may invoke passwd, chfn, or gpasswd from a non-shell parent; validate the parent binary matches known automation tooling and correlate with scheduled maintenance windows.
+- Non-standard display managers or custom PAM configurations may invoke chfn or chsh from callers not in the default exclusion list; baseline the environment before production rollout.
+- pppd launched by custom VPN or dial-up scripts outside the standard chain may fire; verify the parent and add it to the exclusion list if legitimate.
+
+### Response and remediation
+
+- Isolate the host immediately if exploitation is confirmed or suspected; the attacker may have already stolen credentials or private keys before this event fired.
+- Apply the kernel patch for the mm-NULL ptrace_may_access bypass (distro vendor advisories for Debian, Ubuntu, RHEL, Arch et al.).
+- If ssh-keysign was targeted: rotate all SSH host keys (ssh-keygen -A) and update known_hosts on all clients; treat keys as compromised regardless of whether theft succeeded.
+- If a shadow-reading binary (passwd, chfn, gpasswd, newgrp) was targeted: force password resets for all accounts and treat /etc/shadow contents as known to the attacker.
+- Remove the parent exploit binary identified in the alert; audit /tmp, /dev/shm, and user home directories for additional artifacts.
+- Review sshd authentication logs for unexpected host-based auth successes that may indicate stolen keys have already been used.
+"""
+references = [
+    "https://github.com/0xdeadbeefnetwork/ssh-keysign-pwn",
+    "https://lore.kernel.org/all/20201016230915.1972840-1-jannh@google.com/",
+]
+risk_score = 73
+rule_id = "b274856c-4241-483e-9704-8b1aa9f99db4"
+setup = """## Setup
+
+This rule requires data from Elastic Defend (process events with user identity fields).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy.
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Privilege Escalation",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  (
+    /* Confirmed PoC — SSH host key theft */
+    (process.name == "ssh-keysign" and
+     not process.parent.name in ("sshd", "ssh", "ssh-agent", "sshd-session", "openssh")) or
+
+    /* Account management — opens /etc/shadow, /etc/gshadow, /etc/passwd before privilege drop */
+    (process.name in ("chfn", "chsh") and
+     not process.parent.name in ("login", "gdm-session-worker", "gdm3", "lightdm",
+                                  "sddm", "xdm", "su", "sudo",
+                                  "bash", "sh", "zsh", "fish", "dash", "ksh")) or
+
+    (process.name in ("gpasswd", "newgrp") and
+     not process.parent.name in ("bash", "sh", "zsh", "fish", "dash", "ksh",
+                                  "su", "sudo")) or
+
+    (process.name == "passwd" and
+     not process.parent.name in ("bash", "sh", "zsh", "fish", "dash", "ksh",
+                                  "login", "sshd", "su", "sudo",
+                                  "gdm-session-worker", "systemd")) or
+
+    /* PolicyKit — opens polkit rules as root */
+    (process.name == "pkexec" and
+     not process.parent.name in ("bash", "sh", "zsh", "fish", "dash",
+                                  "gnome-shell", "nautilus", "synaptic",
+                                  "update-manager", "software-center")) or
+
+    /* pppd — opens SSL private key material before privilege drop */
+    (process.name == "pppd" and
+     not process.parent.name in ("NetworkManager", "pppoe-connect", "pon", "chat"))
+  ) and
+  process.user.id == "0" and process.real_user.id != "0"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1003.008"
+name = "/etc/passwd and /etc/shadow"
+reference = "https://attack.mitre.org/techniques/T1003/008/"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.004"
+name = "Private Keys"
+reference = "https://attack.mitre.org/techniques/T1552/004/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

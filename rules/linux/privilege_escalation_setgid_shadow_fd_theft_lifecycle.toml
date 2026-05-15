@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the start → GID-change → exit lifecycle of setgid-shadow binaries (chage, expiry,
+unix_chkpwd) invoked by a non-root user. This three-event sequence captures the fd theft window
+described by Jann Horn (2020): the binary opens /etc/shadow under the shadow group, drops its
+elevated GID, then exits — but the shadow fd remains open until the mm=NULL transition during
+exit(). An attacker racing this window with pidfd_getfd can steal the shadow fd and read
+/etc/shadow without ever calling open() directly. chage -l is the confirmed PoC vector;
+expiry shares the same source tree and fd lifecycle; unix_chkpwd is a high-frequency PAM helper
+with the same structural window.
+"""
+false_positives = [
+    """
+    Legitimate chage -l invocations by system administrators or monitoring agents may match;
+    correlate with expected caller processes and consider splitting unix_chkpwd into a separate
+    rule with tighter parent process exclusions given its high invocation frequency.
+    """,
+    """
+    PAM-stack integrations that call unix_chkpwd at high frequency during normal authentication
+    may generate noise; baseline the environment before promoting this rule to production and
+    consider suppression by known-good parent executables (sshd, login, gdm-session-worker).
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Setgid Shadow Binary Start-GID-Change-Exit Lifecycle Indicative of FD Theft"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Setgid Shadow Binary Start-GID-Change-Exit Lifecycle Indicative of FD Theft
+
+This rule fires when a setgid-shadow binary (chage, expiry, or unix_chkpwd) completes the full start → GID-change → exit lifecycle while running as a non-root user.
+This sequence is the observable behavioral fingerprint of the mm-NULL pidfd_getfd fd theft technique: the binary opens /etc/shadow under the shadow group, performs its GID drop (the gid_change event), then exits. During the mm=NULL transition window at exit, a racing attacker process can call pidfd_getfd to steal the still-open shadow file descriptor and read all credential hashes without any direct file access.
+
+The `until` clause suppresses sequences where a "Permission denied" output is observed, which would indicate normal failed access rather than a successful race setup.
+
+### Possible investigation steps
+
+- Identify the process that spawned chage, expiry, or unix_chkpwd; an unusual binary in /tmp, /dev/shm, or non-standard directories is a strong exploitation indicator versus expected callers (passwd, login, sshd, shadow utilities).
+- Check whether the host is running multiple concurrent invocations of the same setgid binary from the same parent within seconds; rapid repeated spawning (hundreds of iterations) is the primary exploit loop signature.
+- If chage or expiry was the binary, inspect /etc/shadow modification time and consider all credential hashes potentially known to the attacker.
+- Correlate with any subsequent offline cracking tool execution (john, hashcat, psyco) or suspicious authentication activity following the alert.
+- Check for pidfd_open (syscall 434) and pidfd_getfd (syscall 438) calls from the parent process in auditd or eBPF telemetry if available.
+- Verify whether the host kernel is patched for the mm-NULL ptrace_may_access bypass (kernel >= 5.10 with Jann Horn's commit, or a vendor backport).
+
+### False positive analysis
+
+- Legitimate chage -l by administrators or monitoring tools will complete this lifecycle normally; validate the parent process and correlate with expected maintenance activity.
+- unix_chkpwd is invoked at high frequency by PAM for every password authentication; this rule may be noisy in environments with heavy SSH or console login activity. Consider splitting unix_chkpwd into a dedicated rule with parent process suppressions (sshd, login, gdm-session-worker, polkit) before production deployment.
+
+### Response and remediation
+
+- Isolate the host if exploitation is suspected; the attacker may have read /etc/shadow before this event fired.
+- Apply the kernel patch for the mm-NULL ptrace_may_access bypass (vendor security advisories for Debian, Ubuntu, RHEL, and Arch have been issued).
+- Force password resets for all accounts; if the shadow fd was successfully stolen, all credential hashes must be considered known to the attacker.
+- Audit /tmp, /dev/shm, and home directories for exploit binaries; remove any identified artifacts.
+- Review authentication logs for accounts targeted in subsequent brute-force or credential stuffing attempts following the alert.
+"""
+references = [
+    "https://github.com/0xdeadbeefnetwork/ssh-keysign-pwn",
+    "https://lore.kernel.org/all/20201016230915.1972840-1-jannh@google.com/",
+]
+risk_score = 73
+rule_id = "be2849dc-5128-4b86-97bd-e9d15aeefeee"
+setup = """## Setup
+
+This rule requires data from Elastic Defend (process events with user identity fields and GID change events).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+- Process IO capture must be enabled in the Elastic Defend policy for the `until` clause (process.io.text) to function; the rule will still fire on the start/gid_change/end sequence without it.
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy.
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+
+#### Note on unix_chkpwd noise:
+unix_chkpwd is a high-frequency PAM helper invoked on every password authentication. Validate noise
+levels before enabling this rule in production with unix_chkpwd included. Consider creating a
+separate rule for unix_chkpwd with additional parent process exclusions.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Privilege Escalation",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+tiebreaker_field = "event.sequence"
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by process.entity_id with maxspan=60s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   (
+     (process.name in ("chage", "expiry") and process.args == "-l") or
+     (process.name == "unix_chkpwd")
+   ) and
+   process.user.id != "0"]
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "gid_change" and
+   process.name in ("chage", "expiry", "unix_chkpwd") and
+   process.user.id != "0"]
+  [process where host.os.type == "linux" and event.type == "end" and event.action == "end" and
+   process.name in ("chage", "expiry", "unix_chkpwd") and
+   process.user.id != "0"]
+until [process where event.action == "text_output" and process.io.text : "*Permission denied*"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1003"
+name = "OS Credential Dumping"
+reference = "https://attack.mitre.org/techniques/T1003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1003.008"
+name = "/etc/passwd and /etc/shadow"
+reference = "https://attack.mitre.org/techniques/T1003/008/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
