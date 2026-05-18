@@ -2,7 +2,7 @@
 creation_date = "2020/11/26"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -23,40 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler Point and Print DLL"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Print Spooler Point and Print DLL
-
-The Windows Print Spooler service manages print jobs and is integral to printing operations. Adversaries exploit vulnerabilities like CVE-2020-1030 to escalate privileges by loading malicious DLLs into the spooler process, which runs with SYSTEM-level permissions. The detection rule identifies suspicious registry modifications linked to the Print Spooler, indicating potential exploitation attempts by monitoring specific registry paths and data patterns.
-
-### Possible investigation steps
-
-- Review the registry paths specified in the alert to confirm any unauthorized modifications, focusing on the paths: HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\SpoolDirectory and HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Print\\Printers\\*\\CopyFiles\\Payload\\Module.
-- Check the registry data strings for any unexpected or suspicious DLLs located in C:\\Windows\\System32\\spool\\drivers\\x64\\4, which may indicate a malicious payload.
-- Investigate the host identified by host.id to determine if there are any other signs of compromise or unusual activity, such as unexpected processes or network connections.
-- Correlate the alert with other security events or logs from the same host to identify any related activities or patterns that could suggest a broader attack.
-- Assess the system's patch level and update status to ensure that all known vulnerabilities, including CVE-2020-1030, have been addressed and mitigated.
-- If a malicious DLL is confirmed, isolate the affected system to prevent further exploitation and begin remediation efforts, such as removing the malicious files and restoring the system to a known good state.
-
-### False positive analysis
-
-- Legitimate printer driver updates or installations may trigger the rule due to registry modifications in the specified paths. Users can create exceptions for known and trusted driver update processes to prevent false alerts.
-- Custom print configurations by IT departments that modify the SpoolDirectory or CopyFiles registry paths might be flagged. Document and exclude these configurations if they are verified as safe and necessary for business operations.
-- Automated scripts or software that manage printer settings and inadvertently modify the monitored registry paths can cause false positives. Identify and whitelist these scripts or applications after confirming their legitimacy.
-- Third-party print management solutions that interact with the Print Spooler service may lead to false detections. Evaluate these solutions and exclude their known benign activities from the detection rule.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the adversary.
-- Terminate the Print Spooler service on the compromised system to stop any ongoing malicious activity and prevent further DLL loading.
-- Conduct a thorough scan of the system using updated antivirus and anti-malware tools to identify and remove any malicious DLLs or related files.
-- Review and restore the registry paths identified in the detection query to their default values to ensure no malicious configurations remain.
-- Apply the latest security patches and updates from Microsoft to address CVE-2020-1030 and other known vulnerabilities in the Print Spooler service.
-- Monitor the network for any signs of similar exploitation attempts, focusing on the registry paths and data patterns specified in the detection rule.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
 references = [
     "https://www.accenture.com/us-en/blogs/cyber-defense/discovering-exploiting-shutting-down-dangerous-windows-print-spooler-vulnerability",
     "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES/blob/master/Privilege%20Escalation/privesc_sysmon_cve_20201030_spooler.evtx",
@@ -92,6 +58,107 @@ sequence by host.id with maxspan=30s
    registry.data.strings : "C:\\Windows\\System32\\spool\\drivers\\x64\\4\\*"]
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Print Spooler Point and Print DLL
+
+#### Possible investigation steps
+
+- Do the source registry events describe one printer object?
+  - Why: sequence alerts joined only on `host.id` can omit stage-specific registry and writer fields; recover member events before interpreting the grouped alert.
+  - Focus: compare the printer segment in `registry.path`, `registry.value`, and `registry.data.strings`; keep `user.id` and any `process.entity_id` pivots.
+  - Implication: escalate when one printer key sets SpoolDirectory to "C:\\Windows\\System32\\spool\\drivers\\x64\\4" then CopyFiles\\Payload\\Module under that path; lower concern only when recovery breaks the same-printer chain or value match.
+
+- Which process and user wrote the values, and does context fit printer administration?
+  - Focus: source-event writer context: `user.id`, `process.executable`, `process.command_line`, `process.parent.executable`, and recovered `process.entity_id`.
+  - Implication: escalate when reg.exe, rundll32.exe, a scripting host, a user-writable binary, or an unexpected interactive user wrote the values; lower concern when writer identity, parentage, and service context match the same confirmed driver deployment.
+
+- What DLL path did Module name, and was it staged?
+  - Focus: recovered Module `registry.data.strings`; if file telemetry exists, exact-path `file.path`, `file.Ext.original.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier`. Missing file telemetry leaves staging unresolved, not benign.
+  - Implication: escalate when the path names a newly written, renamed, internet-marked, or script-staged DLL in the spool drivers tree; lower concern when the exact path is a stable signed printer-driver package tied to the recovered printer object and writer workflow.
+
+- Did Print Spooler or print isolation consume the module?
+  - Why: CVE-2020-1030 abuse becomes higher impact when the CopyFiles\\Payload\\Module value is loaded or spooler restart behavior forces the changed configuration into effect.
+  - Focus: in library or process telemetry, check spoolsv.exe or PrintIsolationHost.exe loading the recovered path with `dll.path`, `dll.hash.sha256`, `dll.code_signature.subject_name`, and `dll.code_signature.trusted`. $investigate_1
+  - Hint: pivot on the recovered Module path because the sequence alert may not preserve that value; spooler termination or restart around the writes can be a force-load clue.
+  - Implication: escalate immediately when spooler loads the recovered DLL, restarts unexpectedly, or shows abnormal child activity soon after the writes; absent load telemetry does not clear a matching registry chain.
+
+- If suspicious or unresolved, does the pattern appear beyond this alert?
+  - Focus: related alerts for `host.id`, then exact matches for recovered `registry.data.strings`, printer `registry.path`, or `dll.hash.sha256` across other hosts when available. $investigate_0
+  - Implication: broaden response when the same module path, DLL hash, printer-object pattern, or spooler-abuse alert appears on unrelated hosts; keep scope local when the pattern stays confined to the same confirmed driver workflow.
+
+- What disposition do registry chain, writer, payload, spooler, and scope evidence support?
+  - Focus: decide from same-printer registry stages, writer identity, DLL staging/load, workflow fit, and scope: escalate suspicious or unresolved chains, close only when telemetry cleanly aligns with one signed driver or print-management workflow, and preserve artifacts when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Recognized signed printer-driver installation, print-management, imaging, or endpoint-build workflows can update SpoolDirectory and CopyFiles\\Payload\\Module or stage spool-directory drivers. Confirm recovered `registry.path`, exact `registry.data.strings`, stable signed DLL identity, writer `process.executable`, parent workflow, current-case `host.id`, and any spooler follow-on all point to the same driver or management workflow without ad hoc scripting, unsigned payloads, or suspicious child processes. Change or deployment records may corroborate; prior-alert recurrence can scope exceptions but must not substitute for current-case telemetry.
+- Build exceptions only from the minimum confirmed workflow pattern: `host.id`, recovered printer object from `registry.path`, exact recovered Module path, stable DLL identity, and the confirmed writer or deployment process. Avoid exceptions on the spool drivers directory alone, the printer name alone, or spoolsv.exe activity alone.
+
+### Response and remediation
+
+- If confirmed benign, record `host.id`, the recovered printer object, exact Module path, stable DLL identity, and deployment workflow that justified closure before reversing temporary containment. Create an exception only from that exact confirmed workflow pattern; use prior alerts to narrow scope, not to prove benignity.
+- If suspicious but unconfirmed, preserve the Timeline member events, exact `registry.path` and `registry.data.strings`, exported affected registry keys, recovered DLL file if present, file or library hashes, writer `process.executable`, user context, and any spoolsv.exe or PrintIsolationHost.exe follow-on evidence before containment. Apply reversible containment first, such as restricting remote printer administration, disabling Point and Print exposure, or pausing nonessential printing on the affected host.
+- If confirmed malicious, preserve the DLL if feasible, export the affected printer keys, and retain related spoolsv.exe or PrintIsolationHost.exe process and library telemetry before containment. Then use endpoint response to isolate the host when registry-chain, payload, or spooler-side evidence shows malicious activity and host criticality allows it. Review other hosts for the same recovered DLL path, DLL hash, or printer-object pattern before stopping spoolsv.exe, deleting the DLL, restoring registry values, and removing the mechanism that staged the payload.
+- Post-incident hardening: apply the Microsoft fix for CVE-2020-1030, restrict Point and Print and printer-driver installation rights where feasible, disable the Print Spooler service on hosts that do not need it, retain registry, file, and library telemetry for spooler abuse, and document confirmed printer-object and DLL patterns for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "user.id",
+    "user.name",
+    "user.domain"
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Spooler or print isolation loads on the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "library", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "spoolsv.exe", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "library", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "PrintIsolationHost.exe", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
