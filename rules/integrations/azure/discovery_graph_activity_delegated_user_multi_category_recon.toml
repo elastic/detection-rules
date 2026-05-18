@@ -148,18 +148,18 @@ from logs-azure.graphactivitylogs-* metadata _id, _version, _index
     Esql.status_codes = values(http.response.status_code),
     Esql.first_seen = min(@timestamp),
     Esql.last_seen = max(@timestamp),
-    Esql.source_asn_org = values(source.`as`.organization.name),
-    Esql.source_asn_number = values(source.`as`.number),
     Esql.user_agents = values(user_agent.original),
     Esql.app_ids = values(azure.graphactivitylogs.properties.app_id)
   by
     azure.graphactivitylogs.properties.user_principal_object_id,
     source.ip,
+    source.`as`.organization.name,
+    source.`as`.number,
     azure.graphactivitylogs.properties.c_sid,
     azure.tenant_id
 
 // Threshold: 3+ distinct recon categories 
-| where Esql.distinct_categories >= 3
+| where Esql.distinct_categories >= 4 and Esql.total_high_value_calls >= 20
 
 // Burst duration in seconds
 | eval Esql.burst_duration_seconds = date_diff("seconds", Esql.first_seen, Esql.last_seen)
@@ -167,24 +167,12 @@ from logs-azure.graphactivitylogs-* metadata _id, _version, _index
 
 | keep
     azure.graphactivitylogs.properties.user_principal_object_id,
-    source.ip,
     azure.graphactivitylogs.properties.c_sid,
     azure.tenant_id,
-    Esql.total_high_value_calls,
-    Esql.distinct_categories,
-    Esql.distinct_paths,
-    Esql.failed_calls,
-    Esql.categories,
-    Esql.sample_paths,
-    Esql.http_methods,
-    Esql.status_codes,
-    Esql.first_seen,
-    Esql.last_seen,
-    Esql.source_asn_org,
-    Esql.source_asn_number,
-    Esql.user_agents,
-    Esql.app_ids,
-    Esql.burst_duration_seconds
+    source.ip,
+    source.`as`.organization.name,
+    source.`as`.number,
+    Esql.*
 '''
 
 [[rule.threat]]
