@@ -2,7 +2,7 @@
 creation_date = "2026/04/22"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/22"
+updated_date = "2026/05/15"
 
 [rule]
 author = ["Elastic"]
@@ -76,15 +76,16 @@ from logs-kubernetes.audit_logs-* metadata _id, _index, _version
     and kubernetes.audit.objectRef.resource in ("namespaces", "nodes", "pods", "roles", "configmaps", "serviceaccounts", "clusterroles", "clusterrolebindings", "rolebindings")
     and source.ip is not null and user.name IS NOT NULL
     and not to_string(source.ip) in ("127.0.0.1", "::1")
-    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/|system:serviceaccount:kube-system:azure|system:node:aks-default|aksService).*"""
+    and not user.name rlike """(system:serviceaccount:kube-system:|eks:|system:kube-|arn:aws:sts::.*:assumed-role/AWSServiceRoleForAmazonEKS/|system:serviceaccount:kube-system:azure|system:node:aks-default|aksService).*""" 
+    and not kubernetes.audit.user.username in ("system:serviceaccount:flux-system:kustomize-controller", "system:serviceaccount:flux-system:helm-controller", "system:serviceaccount:flux-system:source-controller", "system:serviceaccount:security:trivy-operator")
 | stats
     Esql.unique_resources = count_distinct(kubernetes.audit.objectRef.resource),
     Esql.enumerated_resources = values(kubernetes.audit.objectRef.resource),
     Esql.enumerated_namespaces = values(kubernetes.audit.objectRef.namespace),
     Esql.decisions = values(`kubernetes.audit.annotations.authorization_k8s_io/decision`)
-  by user.name, source.ip, user_agent.original, Esql.time_interval
+  by user.name, kubernetes.audit.user.username, source.ip, user_agent.original, Esql.time_interval
 | where Esql.unique_resources >= 3
-| keep Esql.*, user.name, source.ip, user_agent.original
+| keep Esql.*, kubernetes.audit.user.username, user.name, source.ip, user_agent.original
 '''
 
 [[rule.threat]]
