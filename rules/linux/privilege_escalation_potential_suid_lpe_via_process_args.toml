@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2026/04/30"
+creation_date = "2026/05/18"
 integration = ["endpoint"]
 maturity = "production"
 updated_date = "2026/05/18"
@@ -7,10 +7,8 @@ updated_date = "2026/05/18"
 [rule]
 author = ["Elastic"]
 description = """
-Detects execution of SUID binaries that may be used for privilege escalation under the root effective user
-when the real user and parent user are not root, combined with minimal argument counts and suspicious parent
-context (interpreters, short shell -c invocations, or parents running from user-writable paths) to indicate
-potential misuse of SUID binaries for privilege escalation.
+Detects potential privilege escalation under the root effective user when the real user and parent user are not
+root, indicative of the execution of binaries with SUID or SGID bits set.
 """
 false_positives = [
     """
@@ -22,12 +20,12 @@ from = "now-6m"
 index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious SUID Binary Execution"
+name = "Potential Privilege Escalation via SUID/SGID"
 note = """## Triage and analysis
 
-### Investigating Suspicious SUID Binary Execution
+### Investigating Potential Privilege Escalation via SUID/SGID
 
-Confirm whether the non-root real user should be invoking SUID binaries as root. Review the parent process tree, script path, and any preceding download or decode activity.
+Adversaries exploit misconfigured SUID/SGID binaries to gain elevated access or persistence. This rule identifies processes running with root privileges but initiated by non-root users, flagging potential misuse of SUID/SGID permissions.
 
 ### Possible investigation steps
 
@@ -43,7 +41,7 @@ references = [
     "https://attack.mitre.org/techniques/T1548/",
 ]
 risk_score = 73
-rule_id = "e7856173-6489-449f-80ec-c1f5fcd7b87c"
+rule_id = "769a2e72-11bd-437b-9503-e51e7790d273"
 severity = "high"
 tags = [
     "Data Source: Elastic Defend",
@@ -61,16 +59,8 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   (process.group.id == "0" and process.real_group.id != "0" and process.parent.group.id != "0")
 ) and
 (
-  (process.name in ("su", "passwd", "unix_chkpwd") and process.args_count <= 2) or
-  (
-    process.name in ("sudo", "pkexec", "fusermount", "fusermount3", "mount", "umount", "newgrp", "chsh") and
-    process.args_count == 1
-  ) or
-  process.name in (
-    "sudoedit", "gpasswd", "chfn", "polkit-agent-helper-1", "dbus-daemon-launch-helper", "ssh-keysign",
-    "pam_extrausers_chkpwd", "expiry", "chage", "crontab", "wall", "bsd-write", "ssh-agent", "ping",
-    "ping6", "traceroute", "mtr", "ntfs-3g", "Xorg.wrap", "chrome-sandbox", "bwrap"
-  )
+  startsWith(process.executable, process.command_line) or
+  startsWith(process.name, process.command_line)
 ) and
 (
   process.parent.name like (".*", "python*", "perl*", "ruby*", "lua*", "php*", "node", "deno", "bun", "java") or
