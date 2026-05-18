@@ -163,17 +163,17 @@ def build_action_connector_objects(  # noqa: PLR0913
                 raise FileNotFoundError(  # noqa: TRY301
                     "No Action Connector directory is specified. Please specify either in the config or CLI."
                 )
-            actions_path = (
+            actions_path: Path = (  # pyright: ignore[reportUnknownVariableType]
                 Path(action_connectors_directory) / filename
                 if action_connectors_directory
-                else RULES_CONFIG.action_connector_dir / filename
+                else RULES_CONFIG.action_connector_dir / filename  # pyright: ignore[reportOptionalOperand]
             )
             if verbose:
                 output.append(f"[+] Building action connector(s) for {actions_path}")
 
             ac_object = TOMLActionConnector(
                 contents=contents,
-                path=actions_path,
+                path=actions_path,  # pyright: ignore[reportUnknownArgumentType]
             )
             if save_toml:
                 ac_object.save_toml()

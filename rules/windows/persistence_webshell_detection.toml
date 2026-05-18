@@ -2,15 +2,16 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = "Identifies suspicious commands executed via a web server, which may suggest a vulnerability and remote shell access."
 false_positives = [
     """
-    Security audits, maintenance, and network administrative scripts may trigger this alert when run under web
-    processes.
+    Security audits, maintenance, and network administrative scripts may trigger this alert only when parent context,
+    child identity, command scope, service identity, and available artifact or destination evidence align to the same
+    bounded workflow.
     """,
 ]
 from = "now-9m"
@@ -27,49 +28,6 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Web Shell Detection: Script Process Child of Common Web Processes"
-note = """## Triage and analysis
-
-### Investigating Web Shell Detection: Script Process Child of Common Web Processes
-
-Adversaries may backdoor web servers with web shells to establish persistent access to systems. A web shell is a web script that is placed on an openly accessible web server to allow an adversary to use the web server as a gateway into a network. A web shell may provide a set of functions to execute or a command-line interface on the system that hosts the web server.
-
-This rule detects a web server process spawning script and command-line interface programs, potentially indicating attackers executing commands using the web shell.
-
-#### Possible investigation steps
-
-- Investigate abnormal behaviors observed by the subject process such as network connections, registry or file modifications, and any other spawned child processes.
-- Examine the command line to determine which commands or scripts were executed.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- If scripts or executables were dropped, retrieve the files and determine if they are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Any activity that triggered the alert and is not inherently malicious must be monitored by the security team.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://www.microsoft.com/security/blog/2020/02/04/ghost-in-the-shell-investigating-web-shell-attacks/",
     "https://www.elastic.co/security-labs/elastic-response-to-the-the-spring4shell-vulnerability-cve-2022-22965",
@@ -83,8 +41,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Initial Access",
-    "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
@@ -134,6 +90,75 @@ host.os.type:windows and event.category:process and event.type:start and process
   )
 '''
 
+note = """## Triage and analysis
+
+#### Possible investigation steps
+
+- What execution path did the alert capture?
+  - Focus: child `process.executable` / `process.command_line`; web-parent `process.parent.name`, `process.parent.executable`, and `process.parent.command_line` for IIS/Apache/nginx/PHP CGI/Tomcat/ArcGIS.
+  - Implication: escalate when a web-facing parent launches a shell, script host, downloader, archive tool, or admin utility outside bounded tasks; lower only when parent context, child path, and command match one exact deployment, health-check, log rotation, or support task.
+- Is the child command administration or post-exploitation?
+  - Focus: `process.command_line`: WMIC, download cradles, archive creation, account/system discovery, service control, credential access, script-host flags, or web-root/temp/backup/app-content paths.
+  - Hint: for PowerShell, reconstruct script blocks by `host.id` and `process.pid` via `powershell.file.script_block_text`, `powershell.sequence`, and `powershell.total`; missing PowerShell telemetry is unresolved, not benign.
+  - Implication: escalate when the command stages payloads, runs discovery, creates accounts, changes services, or writes to web-accessible or temp paths; lower suspicion when bounded to one recognized deployment, health-check, log rotation, or support task.
+- Is user context human admin or service identity?
+  - Why: web-process children often inherit app-pool or service identity; `user.id`, `user.name`, and `user.domain` do not prove human initiation.
+  - Focus: `@timestamp`, `user.id`, `user.name`, `process.Ext.session_info.logon_type`, and `process.parent.command_line`.
+  - Implication: escalate when service or network logon context launches interactive troubleshooting, remote administration, or off-hours shell activity without a matching window; lower suspicion when identity, logon type, parent pool/service, and command scope fit one exact workflow.
+- Does child binary identity fit its command?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the child is renamed, unsigned/untrusted, user-writable, or mismatched to original file name; lower suspicion when identity and path match stable tooling, but continue because trusted binaries can carry web-shell commands.
+- Did file telemetry show web-shell placement, staging, or config changes?
+  - Focus: if file telemetry exists, review `host.id` file events for child `process.entity_id` or `process.pid`, checking `file.path`, `file.Ext.original.path`, and `file.Ext.windows.zone_identifier`. $investigate_1
+  - Hint: web-root script writes without later child starts are adjacent-variant evidence; if the child writes a script or executable, query starts where `process.executable` equals that path on same `host.id`.
+  - Implication: escalate when the child writes ASPX, ASP, PHP, JSP, JS, BAT, PS1, EXE, DLL, JAR, WAR, or archives to web-accessible/temp/user-writable paths, or a written artifact later executes; missing file telemetry is unresolved, not benign, and absence does not close.
+- Did the child launch second-stage processes?
+  - Focus: child starts on `host.id` where `process.parent.entity_id` equals child `process.entity_id`, checking `process.executable`, `process.command_line`, and `process.hash.sha256`. $investigate_2
+  - Implication: escalate when descendants include shells, script hosts, downloaders, archive tools, credential utilities, service control, or persistence tooling; absence only narrows impact when command, file, network, and related alerts also fit a benign workflow.
+- Did DNS/network telemetry show retrieval or control?
+  - Focus: if DNS/network telemetry exists, review child `process.entity_id` events on `host.id`, separating `dns.question.name` / `dns.resolved_ip` from `destination.ip` / `destination.port`; compare role with command intent. $investigate_3
+  - Hint: map DNS results to later connection IPs before linking query and connection; if a third-party alert lacks `process.entity_id`, recover the child by `host.id`, `process.pid`, and `@timestamp`. Missing network/DNS telemetry is unresolved, not benign.
+  - Implication: escalate when the child retrieves tools from public infrastructure, reaches rare/misaligned destinations, or connects outside web-server administration; decide from alert-local process evidence and corroboration when DNS/network telemetry is unavailable.
+- Do related alerts show broader compromise?
+  - Focus: same-web-parent starts and 48h `host.id` alerts for web-shell, credential-access, discovery, archive, lateral-movement, persistence, or anti-forensics.
+    - $investigate_4
+    - $investigate_0
+  - Implication: escalate scope when alerts cluster around the same server role, child command family, or staged artifacts; absence only narrows response scope when local parent-child, command, identity, file, and network evidence are explained.
+- What disposition fits?
+  - Implication: escalate on unexplained server-side execution, exploit-like command intent, suspicious child identity, payload staging, rare destinations, or broader compromise; do not wait for optional pivots when alert-local process evidence is unsafe. Close only when same-host alert-window telemetry proves one exact benign web-server workflow; use outside confirmation for legitimacy gaps. If evidence is mixed or visibility incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- Web deployment, post-install validation, health checks, vendor extension install, ArcGIS publishing, or maintenance can spawn "cmd.exe", PowerShell, or "wscript.exe" from web components. Confirm only when parent, child, command, service identity, and artifact/destination evidence describe the same alert-window workflow with no unexpected web-content writes, rare callbacks, or contradictions.
+- If telemetry proves shape but not legitimacy, require matching change, deployment, runbook, vendor, or owner confirmation; use prior occurrences post-closure to test exception stability.
+- Build exceptions from minimum confirmed pattern: web parent command, child executable/hash/signature, command line, `user.id`, `host.id`, and bounded content path or destination when decisive. Avoid parent name, `process.name`, or `host.id` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment, document exact parent, child, command, service identity, artifact/destination evidence, and confirmation, and create exceptions only from that pattern.
+- If suspicious but unconfirmed, preserve the alert/export, process tree, child/parent entity IDs, command lines, hash, staged-file copies, destinations, related alerts, and web/app logs around `@timestamp` before containment or cleanup.
+- Apply reversible containment tied to evidence: block confirmed malicious destinations, restrict affected site/app access, disable exposed extension or virtual directory, or increase `host.id` monitoring. Isolate only when evidence and server criticality permit.
+- If confirmed malicious, contain the host or terminate the child only after preservation; if direct response is unavailable, escalate with process/artifact/destination/server-log evidence to the team that can contain the server, disable the exposed path, or stop the service.
+- Before deletion/restoration, hunt for the same hash, child command, staged path, domain, IP, and port across hosts/accounts. Then remove web shells, scripts, archives, scheduled tasks, dropped utilities, and persistence; restore known-good content/config; rotate exposed service, app, or admin credentials if secrets may be exposed.
+- After containment, patch the implicated app, extension, framework, or server component; review the internet-exposed site/service that launched the child; retain endpoint, network, and web logs; document script-only variants or logging gaps.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
 
 [[rule.filters]]
 [rule.filters.meta]
@@ -142,7 +167,6 @@ negate = true
 case_insensitive = true
 value = "*?:\\\\Program Files\\\\*"
 
-
 [[rule.filters]]
 [rule.filters.meta]
 negate = true
@@ -150,6 +174,107 @@ negate = true
 case_insensitive = true
 value = "*?:\\\\Program Files (x86)\\\\*"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.Ext.session_info.logon_type",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.hash.sha256",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the suspicious child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events from the suspicious child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the suspicious child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events from the same web parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -219,9 +344,3 @@ reference = "https://attack.mitre.org/techniques/T1059/007/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "process.command_line"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"

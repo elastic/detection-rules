@@ -2,7 +2,7 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/01"
+updated_date = "2026/05/06"
 
 [rule]
 author = ["Elastic"]
@@ -48,13 +48,16 @@ network where host.os.type == "windows" and dns.question.name != null and proces
 (
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
   "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
-  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com", "curl.exe", "bun.exe") or
 
   (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
 
   ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
 
-  ?process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe")
+  ?process.executable : (
+    "?:\\Users\\Public\\*.exe", "?:\\ProgramData\\*.exe", "?:\\Users\\*\\Downloads\\*.exe",
+    "\\Device\\HarddiskVolume*\\Users\\Public\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\Downloads\\*.exe"
+  )
  ) and
  dns.question.name :
          (
@@ -95,7 +98,13 @@ network where host.os.type == "windows" and dns.question.name != null and proces
           "geolocation-db.com",
           "httpbin.org",
           "myip.opendns.com"
-         )
+         ) and
+not (
+  process.executable : (
+    "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
+    "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
+  ) and user.id == "S-1-5-18"
+)
 '''
 
 note = """## Triage and analysis
