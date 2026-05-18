@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/05/07"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Amazon EKS UpdateClusterConfig requests that disable control plane logging. Disabling EKS API server
+and control plane logs can reduce visibility into cluster activity and may indicate defense evasion following
+compromised AWS credentials or unauthorized administrative access. EKS control plane logging changes are typically rare
+and should align with approved maintenance or cost optimization workflows.
+"""
+false_positives = [
+    """
+    Legitimate changes to EKS logging configuration during cluster provisioning, troubleshooting, or cost optimization
+    may match. Validate the caller identity and change records, and baseline expected automation roles.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Control Plane Logging Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS EKS Control Plane Logging Disabled
+
+Review the caller (user.name, aws.cloudtrail.user_identity.arn, type), source.ip, user_agent.original, cloud.account.id, and cloud.region. Confirm which log types were disabled and whether the change aligns with a planned change window.
+
+### Possible investigation steps
+
+- Inspect aws.cloudtrail.request_parameters and response elements for cluster name and logging settings.
+- Correlate with adjacent EKS and IAM activity from the same principal (access entry changes, iam policy attachments, sts assume events) and with any Kubernetes audit telemetry available.
+- Check whether control plane logs stopped ingesting shortly after the change and scope potential visibility gaps.
+
+### Response and remediation
+
+- If unauthorized, re-enable EKS control plane logging and restrict IAM permissions that allow eks:UpdateClusterConfig.
+- Rotate or revoke compromised credentials and review for additional EKS or IAM persistence changes.
+"""
+references = [
+    "https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html",
+    "https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateClusterConfig.html",
+]
+risk_score = 47
+rule_id = "0f189343-dac7-4c1b-aca7-be8baa6bd02b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"aws.cloudtrail" and
+event.provider:"eks.amazonaws.com" and
+event.action:"UpdateClusterConfig" and
+event.outcome:"success" and
+aws.cloudtrail.request_parameters:*logging*enabled=false*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
