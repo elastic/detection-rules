@@ -2,15 +2,17 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies attempt to execute Windows scripts from a remote WebDav Share. Adversaries may abuse this method to evade
-dropping malicious files to victim file system.
+Identifies attempts to execute or invoke content from remote WebDAV shares. Adversaries may abuse WebDAV paths,
+public tunnels, or host@port UNC paths to run tools or scripts while reducing local staging on the victim file system.
 """
-false_positives = ["Trusted webdav shares used to host trusted content."]
+false_positives = [
+    "Trusted WebDAV content when the command namespace, parent, utility identity, signer, user/host scope, and child/artifact/destination evidence align with a recognized workflow"
+]
 from = "now-9m"
 index = [
     "endgame-*",
@@ -26,30 +28,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution from a WebDav Share"
-note = """## Triage and analysis
-
-### Investigating Suspicious Execution from a WebDav Share
-
-#### Possible investigation steps
-
-- Check if the remote webdav server is autorized by the organization.
-- Check all the downloaded files from the remote server and their content.
-- Investigate the process execution chain (parent process tree) to identify the initial vector.
-- Investigate other alerts associated with the user/host during the past 5 minutes.
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Identify the target computer and its role in the IT environment.
-- Investigate what commands were run, and assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "ee7726cc-babc-4885-988c-f915173ac0c0"
 severity = "high"
@@ -61,7 +39,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
@@ -77,6 +55,156 @@ process where host.os.type == "windows" and event.type == "start" and
  not (process.name : "cmd.exe" and process.args : "\\\\?\\UNC\\*.sharepoint.com@SSL\\DavWWWRoot\\*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Execution from a WebDav Share
+
+#### Possible investigation steps
+
+- Does the alert command line show direct WebDAV execution, and external delivery vs internal transfer?
+  - Focus: `process.command_line`, `process.name`, and `process.executable`; separate public tunnel or tenant paths from internal host@port UNC, "@SSL", "DavWWWRoot", or high-port paths.
+  - Implication: escalate when a script host, installer, shell, transfer tool, or net.exe points to public WebDAV content or an unrelated internal transfer host; lower concern when path maps to one recognized internal tenant, vendor, or deployment namespace for that role.
+
+- Do the launcher identity and parent lineage match that exact workflow?
+  - Focus: `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when a signed utility proxies execution from a browser, Office app, chat client, archive tool, or unexplained service context. Public paths from user-facing parents suggest user delivery; internal host@port paths or net.exe share activity suggest lateral transfer. Lower concern when signer, parent, path, host, and user recur as one recognized collaboration, deployment, or support workflow; identity alone does not clear remote execution.
+
+- Did the alerting process spawn follow-on execution or share-mount activity?
+  - Focus: child or sibling process starts on `host.id` where `process.parent.entity_id` matches `process.entity_id`; check shells, downloaders, installers, schedulers, net.exe, or user-writable `process.executable` paths. $investigate_2
+  - Hint: if `process.entity_id` is unavailable, use `host.id`, `process.pid`, and a tight alert-time window; PID lineage is weaker because of reuse.
+  - Implication: escalate when the launcher spawns download, install, persistence, or share-mapping tied to the same path; narrow scope when the chain ends cleanly inside one recognized workflow.
+
+- Did file telemetry show local staging or later execution from the WebDAV launch?
+  - Focus: if file telemetry exists, query `host.id` plus `process.entity_id` for `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later starts where `process.executable` matches a written path. $investigate_3
+  - Hint: if WebDAV content is copied locally or to a mapped drive before execution, treat it as the same delivery chain and keep original-process scope.
+  - Range: start with the alert window; expand only after a suspicious write to confirm later execution.
+  - Implication: escalate when the chain writes scripts, installers, renamed payloads, or startup material in user-writable paths. Missing file telemetry is unresolved, not benign; direct WebDAV execution may leave few local artifacts.
+
+- Did DNS or connection telemetry confirm the WebDAV endpoint or delivery infrastructure?
+  - Focus: if network telemetry exists, separate DNS events (`dns.question.name`, `dns.resolved_ip`) from connection events (`destination.ip`, `destination.port`) for the same `host.id` and `process.entity_id`. $investigate_4
+  - Hint: use DNS lookup_result events to map `dns.resolved_ip` to later `destination.ip` before tying a domain to a connection. Missing network telemetry is unresolved, not benign.
+  - Implication: escalate when the process reaches public tunnels, rare external domains, high-port WebDAV services, or destinations unrelated to the signer and parent workflow; lower concern when the endpoint matches the command line's recognized tenant, internal share, or vendor.
+
+- If local evidence is suspicious or unresolved, do related alerts show the same WebDAV delivery or transfer pattern?
+  - Focus: related alerts for `user.id` over 48 hours, checking reused WebDAV path, launcher, destination, or follow-on artifact. $investigate_0
+  - Hint: if user scope is quiet or ambiguous, check `host.id` for whether the path stays local or appears with other execution or download alerts. $investigate_1
+  - Implication: broaden scope when the same path, domain, launcher, or artifact pattern appears beyond one recognized workflow; keep the case local when related-alert history is confined to that workflow.
+
+- Escalate on direct remote WebDAV execution plus suspicious launcher, lineage, child, artifact, destination, or related-alert evidence; close only when process evidence and recovery align to one exact recognized workflow; preserve and escalate when answers conflict or visibility is incomplete.
+
+### False positive analysis
+
+- Tenant collaboration portals, internal WebDAV shares, and vendor content portals can trigger when `process.command_line` namespace, `process.parent.executable`, `process.executable`, signer, `user.id`, and `host.id` converge on one recognized workflow. Close only when telemetry shows parent, path, utility, user, and host stable across prior rule alerts and no child, artifact, or destination evidence contradicts the portal workflow. Use portal allowlists or owner records as corroboration, not substitutes.
+- Deployment or remote-support tooling can run msiexec.exe, powershell.exe, cmd.exe, or bitsadmin.exe against WebDAV-hosted packages. Confirm only when a management-agent or support-console parent, utility identity, signer, package namespace, written-artifact pattern, and host/user scope fit the same workflow. Public tunnel paths, renamed payloads, unexpected children, or one-off standard-user launches remain suspicious unless externally confirmed with no telemetry contradictions.
+- Before creating an exception, use the minimum confirmed workflow pattern: stable `process.code_signature.subject_name` or `process.executable`, `process.parent.executable`, specific `process.command_line` namespace or destination pattern, and proving `user.id` or `host.id` scope. Avoid exceptions on `process.name`, `user.name`, "@SSL", or "DavWWWRoot" alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the command-line namespace, parent launcher, utility identity, signer, available destination or artifact evidence, and `user.id` / `host.id` scope that validated the workflow. Create an exception only after the same scoped pattern is stable across prior rule alerts.
+- If suspicious but unconfirmed, preserve the alert export, process tree, `process.entity_id`, `process.command_line`, `process.parent.command_line`, remote path, staged artifacts, and destination indicators before containment. First apply reversible containment, such as temporarily blocking the confirmed WebDAV namespace or increasing monitoring on affected `host.id` and `user.id`; avoid termination or deletion until child execution, payload staging, or repeated suspicious destinations indicate active compromise.
+- If confirmed malicious, isolate the host when feasible or terminate the alerting process after evidence capture. If identity evidence suggests account misuse, contain or reset the affected account with identity owners. If direct endpoint response is unavailable, hand off preserved process, artifact, destination, host, and user evidence to the team able to contain the host or account.
+- Block confirmed malicious domains, destination IPs, hashes, executable paths, and staged artifact paths. Review other hosts and users for the same `process.parent.executable` plus `process.command_line` plus destination pattern, then remove only staged scripts, installers, startup material, or persistence changes tied to the chain.
+- Post-incident hardening: restrict unnecessary WebDAV and WebClient usage, limit direct execution from remote shares by script hosts and installers, use application control or attack surface reduction where feasible, retain file and network telemetry for this workflow, and document variants such as mapped-drive execution, copied-local execution, and alternate script-host launchers.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events from the WebDAV launcher"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events from the WebDAV launcher"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events from the WebDAV launcher"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

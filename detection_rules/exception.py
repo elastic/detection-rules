@@ -4,8 +4,9 @@
 # 2.0.
 """Rule exceptions data."""
 
+import copy
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, get_args
@@ -72,7 +73,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
         type: definitions.EsDataTypes
 
     operator: definitions.ExceptionEntryOperator
-    list_vals: ListObject | None = None
+    list_vals: ListObject | None = field(default=None, metadata={"data_key": "list"})
     value: str | None | list[str] = None
 
     @validates_schema
@@ -250,6 +251,29 @@ class TOMLException:
         save_yaml(ensure_yaml_suffix(target_path), content)
 
 
+def _comment_id(comment: dict[str, Any] | str) -> str:
+    """Return a stable id for deduplication. API comments are dicts with 'id'; fallback str() for other types."""
+    return comment.get("id", "Null") if isinstance(comment, dict) else str(comment)
+
+
+def _deduplicate_comments(item: dict[str, Any]) -> dict[str, Any]:
+    """Remove duplicate comments from an exception item by comment id (order preserved)."""
+    item = copy.deepcopy(item)
+    comments: list[Any] | None = item.get("comments", [])
+    if not isinstance(comments, list) or not comments:
+        return item
+    seen: set[str] = set()
+    seen.add("Null")
+    deduplicated: list[Any] = []
+    for comment in comments:
+        cid = _comment_id(comment)
+        if cid not in seen:
+            seen.add(cid)
+            deduplicated.append(comment)
+    item["comments"] = deduplicated
+    return item
+
+
 def parse_exceptions_results_from_api(
     results: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any], list[str], list[dict[str, Any]]]:
@@ -257,6 +281,7 @@ def parse_exceptions_results_from_api(
     exceptions_containers: dict[str, Any] = {}
     exceptions_items: dict[str, list[Any]] = defaultdict(list)
     unparsed_results: list[dict[str, Any]] = []
+    seen_list_item_pairs: set[tuple[str, str]] = set()
 
     for result in results:
         result_type = result.get("type")
@@ -266,7 +291,15 @@ def parse_exceptions_results_from_api(
             if result_type in get_args(definitions.ExceptionContainerType):
                 exceptions_containers[list_id] = result
             elif result_type in get_args(definitions.ExceptionItemType):
-                exceptions_items[list_id].append(result)
+                item_id = result.get("item_id")
+                pair = (list_id, item_id) if item_id is not None else None
+                if pair is not None and pair in seen_list_item_pairs:
+                    print(f"Duplicate item found for list_id {list_id} and item_id {item_id}, skipping...")
+                    continue
+                item = _deduplicate_comments(result)
+                if pair is not None:
+                    seen_list_item_pairs.add(pair)
+                exceptions_items[list_id].append(item)
         else:
             unparsed_results.append(result)
 
@@ -299,14 +332,14 @@ def build_exception_objects(  # noqa: PLR0913
                 raise FileNotFoundError(  # noqa: TRY301
                     "No Exceptions directory is specified. Please specify either in the config or CLI."
                 )
-            exceptions_path = (
-                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename
+            exceptions_path: Path = (  # pyright: ignore[reportUnknownVariableType]
+                Path(exceptions_directory) / filename if exceptions_directory else RULES_CONFIG.exception_dir / filename  # pyright: ignore[reportOptionalOperand]
             )
             if verbose:
                 output.append(f"[+] Building exception(s) for {exceptions_path}")
             e_object = TOMLException(
                 contents=contents,
-                path=exceptions_path,
+                path=exceptions_path,  # pyright: ignore[reportUnknownArgumentType]
             )
             if save_toml:
                 e_object.save_toml()

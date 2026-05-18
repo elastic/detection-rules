@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,41 +21,7 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "UAC Bypass via ICMLuaUtil Elevated COM Interface"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating UAC Bypass via ICMLuaUtil Elevated COM Interface
-
-The ICMLuaUtil Elevated COM Interface is a Windows component that facilitates User Account Control (UAC) operations, allowing certain processes to execute with elevated privileges. Adversaries exploit this by invoking the interface to bypass UAC, executing malicious code stealthily. The detection rule identifies such attempts by monitoring processes initiated by `dllhost.exe` with specific arguments, excluding legitimate processes like `WerFault.exe`, thus flagging potential privilege escalation activities.
-
-### Possible investigation steps
-
-- Review the process tree to identify the parent and child processes of the flagged `dllhost.exe` instance to understand the context of its execution.
-- Examine the command-line arguments of the `dllhost.exe` process to confirm the presence of the suspicious `/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}` or `/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}` arguments.
-- Check for any recent changes or installations on the system that might have introduced the suspicious behavior, focusing on software that might interact with UAC settings.
-- Investigate the user account under which the `dllhost.exe` process was executed to determine if it has been compromised or if it has elevated privileges.
-- Correlate the event with other security logs or alerts from data sources like Sysmon or Microsoft Defender for Endpoint to identify any related suspicious activities or patterns.
-- Assess the network activity of the affected system around the time of the alert to detect any potential data exfiltration or communication with known malicious IP addresses.
-
-### False positive analysis
-
-- Legitimate software updates or installations may trigger the rule if they use the ICMLuaUtil Elevated COM Interface for necessary elevation. Users can monitor the specific software involved and create exceptions for trusted applications.
-- System maintenance tasks initiated by IT administrators might use similar processes for legitimate purposes. Identifying these tasks and excluding them from the rule can reduce false positives.
-- Certain enterprise applications may require elevated privileges and use the same COM interface. Regularly review and whitelist these applications to prevent unnecessary alerts.
-- Automated scripts or tools used for system management that invoke the interface should be evaluated. If deemed safe, they can be added to an exclusion list to avoid repeated false positives.
-- Regularly update the list of excluded processes to reflect changes in the organization's software environment, ensuring that only non-threatening behaviors are excluded.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious processes initiated by `dllhost.exe` with the specified arguments to stop the execution of potentially malicious code.
-- Conduct a thorough review of the affected system to identify any unauthorized changes or additional malicious files, and remove them.
-- Restore the system from a known good backup if any critical system files or configurations have been altered.
-- Update and patch the operating system and all installed software to mitigate any known vulnerabilities that could be exploited for UAC bypass.
-- Implement application whitelisting to prevent unauthorized applications from executing, focusing on blocking the execution of `dllhost.exe` with suspicious arguments.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
+references = ["https://github.com/hfiref0x/UACME"]
 risk_score = 73
 rule_id = "68d56fdc-7ffa-4419-8e95-81641bd6f845"
 severity = "high"
@@ -64,12 +30,10 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
-    "Tactic: Defense Evasion",
-    "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -79,59 +43,199 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
  process.parent.name == "dllhost.exe" and
  process.parent.args in ("/Processid:{3E5FC7F9-9A51-4367-9063-A120244FBEC7}", "/Processid:{D2E7041B-2927-42FB-8E9F-7CE93B6DC937}") and
- process.pe.original_file_name != "WerFault.exe"
+ process.pe.original_file_name != "WerFault.exe" and
+ not (process.executable : "?:\\Program Files\\WireGuard\\wireguard.exe" and process.args : "/installmanagerservice")
 '''
 
+note = """## Triage and analysis
+
+### Investigating UAC Bypass via ICMLuaUtil Elevated COM Interface
+
+#### Possible investigation steps
+
+- What did the auto-elevated COM broker launch?
+  - Focus: `process.name`, `process.executable`, `process.command_line`, `process.pe.original_file_name`, and `process.parent.args`.
+  - Implication: escalate when the CLSID-specific broker launched a shell, script host, LOLBin, installer, user-writable binary, or relaunched payload; lower suspicion when the child is a signed Windows or endpoint-management helper whose protected path and arguments fit one recognized servicing or support workflow.
+
+- Does the elevated child look like a stable trusted binary or a staged payload?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.Ext.relative_file_creation_time`.
+  - Implication: escalate when the child is unsigned, new, user-writable, renamed, hash-new, or PE-mismatched; lower suspicion only when identity, signer, age, and path fit a stable installed component.
+
+- Did the child receive an elevation state that changes risk for this user session?
+  - Focus: `process.Ext.token.integrity_level_name`, `process.Ext.token.elevation_level`, `process.Ext.authentication_id`, and `user.id`.
+  - Implication: escalate when a limited or interactive user context produced a high-integrity or full-elevation child without a matching maintenance task; lower suspicion when token and session align with a recognized elevated admin utility for the same user.
+
+- Which process initiated the brokered elevation behind `dllhost.exe`?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.Ext.effective_parent.executable`, and `process.Ext.effective_parent.name`.
+  - Hint: if effective-parent fields are absent or repeat `dllhost.exe`, recover broader lineage and keep origin attribution unresolved rather than treating the COM broker as the real launcher.
+  - Implication: escalate when the logical initiator is a script host, archive/temp path, renamed binary, remote-access tool, or unexplained user process; lower suspicion when it resolves to the same signed Windows or endpoint-management workflow as the child.
+
+- Did the elevated child spawn payloads, shells, or other post-elevation tools?
+  - Focus: child process events from `process.entity_id`, checking `process.name`, `process.executable`, `process.command_line`, and `process.parent.executable`. $investigate_0
+  - Hint: if `process.entity_id` is absent, recover children with `host.id` plus `process.pid` in a tight alert-time window and treat PID reuse as ambiguous.
+  - Implication: escalate when the elevated child starts shells, script hosts, LOLBins, security-tool tampering, or payloads outside the recognized workflow; if no child process appears, scope the case to the broker launch rather than assuming the bypass failed.
+
+- If local evidence is suspicious or incomplete, does surrounding alert context expand scope?
+  - Focus: related alerts for `host.id`, especially privilege-escalation, defense-evasion, masquerading, suspicious child-process, or tampering findings tied to `process.parent.args` or `process.executable`. $investigate_1
+  - Hint: compare `user.id` alerts only to decide whether elevation is host-local or follows the user. $investigate_2
+  - Hint: pivot on same executable and COM parent arguments. $investigate_3
+  - Implication: broaden response scope when the same host or user also shows UAC-bypass, masquerading, or post-elevation execution; keep scope local when surrounding alerts are clean and broker, child, token, and follow-on evidence are coherent.
+
+- What disposition do the broker, child identity, launcher, token, follow-on activity, and scope support?
+  - Escalate on unauthorized brokered CLSID launch, child identity, launcher, token, child-process, or alert-scope evidence; close only when alert-local and recovered process evidence bind one exact recognized workflow with no contradictory follow-on activity; preserve and escalate on mixed or incomplete evidence.
+
+### False positive analysis
+
+- Legitimate closure is narrow: signed Windows or enterprise endpoint-management helpers may use the elevated COM broker during servicing or support. Align identity (`process.executable`, signer, hash, and PE original name), broker context (`process.parent.args` and effective parent), token state, and absence of contradictory child-process or alert-scope evidence. Recently staged helpers also need `process.Ext.relative_file_creation_time`, hash or signer, parent context, and command line to fit the same update workflow; require outside confirmation when telemetry cannot explain the elevation.
+- If workflow context is unavailable, recurrence for the same `host.id` or `user.id` can support the conclusion but cannot override contradictory local evidence.
+- Before creating an exception, validate that child identity, signer or hash, `process.parent.args`, token state, and host or user scope stay stable across benign occurrences. Build the exception from that minimum confirmed pattern, and avoid exceptions on `process.parent.name`, `dllhost.exe`, or CLSID values alone.
+
+### Response and remediation
+
+- First, export the alert details, process tree, command line, hash/signature identity, token state, effective-parent evidence, and recovered child-process or related-alert records.
+- If confirmed benign after preservation, reverse temporary containment and document the validated child identity, broker CLSID, effective parent, token state, `host.id`, and `user.id` values that proved the workflow. Create an exception only after the same complete pattern repeats benignly.
+- If suspicious but unconfirmed, apply reversible containment tied to the finding: block the suspicious `process.executable`, end the associated user session, or raise monitoring on the same `host.id`. Use host isolation only when the elevated child spawned payloads or coincided with tampering or lateral-movement evidence.
+- If confirmed malicious, isolate the host when needed to prevent lateral movement, then terminate the elevated child and payloads using the preserved `process.entity_id`, `process.hash.sha256`, command line, broker CLSID, token state, and `@timestamp`. If direct response is unavailable, hand off the preserved process, child-process, and scope evidence to the response team.
+- Review other hosts and users for the same `process.parent.args`, `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, or `user.id` before removing artifacts so scoping completes before evidence is destroyed.
+- Eradicate only the staged helper binary, launched payloads, persistence changes, and launcher artifacts identified during the investigation, then restore affected controls and service configuration to a known-good state.
+- Post-incident hardening: reduce local administrator membership where possible, set UAC to the highest practical enforcement level, restrict system lookalike or helper binaries from user-writable paths, prefer WDAC or AppLocker coverage for admin helpers, and retain process telemetry around elevated COM abuse.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.hash.sha256",
+    "process.parent.args",
+    "process.Ext.effective_parent.executable",
+    "process.Ext.token.integrity_level_name",
+    "process.Ext.token.elevation_level",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Child processes launched by the elevated child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the same child and COM interface"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{process.executable}}", valueType = "string" },
+    { excluded = false, field = "process.parent.args", queryType = "phrase", value = "{{process.parent.args}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.002"
 name = "Bypass User Account Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
-
-
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1548.002"
 name = "Bypass User Account Control"
 reference = "https://attack.mitre.org/techniques/T1548/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1559"
 name = "Inter-Process Communication"
 reference = "https://attack.mitre.org/techniques/T1559/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1559.001"
 name = "Component Object Model"
 reference = "https://attack.mitre.org/techniques/T1559/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,41 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via TelemetryController Scheduled Task Hijack"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Persistence via TelemetryController Scheduled Task Hijack
-
-The Microsoft Compatibility Appraiser, part of Windows telemetry, uses scheduled tasks to assess system compatibility. Adversaries exploit this by hijacking the task to execute malicious code with system-level privileges, ensuring persistence. The detection rule identifies anomalies by monitoring processes initiated by the Appraiser that deviate from expected behavior, flagging potential hijacks for further investigation.
-
-### Possible investigation steps
-
-- Review the process tree to identify the parent process CompatTelRunner.exe and verify if it has spawned any unexpected child processes that match the alert criteria.
-- Examine the command-line arguments of the suspicious process to determine if they include the "-cv*" flag, which may indicate a hijack attempt.
-- Check the execution history of the flagged process to see if it aligns with legitimate system activities or if it appears anomalous.
-- Investigate the user account context under which the suspicious process is running to assess if it has elevated privileges or is associated with unusual user behavior.
-- Correlate the alert with other security logs and telemetry data from sources like Microsoft Defender for Endpoint or Sysmon to identify any related malicious activities or indicators of compromise.
-- Analyze any network connections initiated by the suspicious process to detect potential data exfiltration or communication with known malicious IP addresses.
-- Review recent changes to scheduled tasks on the system to identify unauthorized modifications that could indicate persistence mechanisms.
-
-### False positive analysis
-
-- Legitimate system maintenance tasks may trigger the rule if they involve processes that are not typically associated with the Microsoft Compatibility Appraiser. Users can create exceptions for known maintenance scripts or tools that are verified as safe.
-- Software updates or installations that temporarily use unusual processes under the Appraiser's context might be flagged. Users should monitor and whitelist these processes if they are part of a trusted update or installation routine.
-- Custom scripts or administrative tools that leverage the Appraiser's context for legitimate purposes could be misidentified. Users should document and exclude these scripts from detection if they are part of regular administrative operations.
-- Security tools or monitoring software that interact with the Appraiser process for analysis or logging purposes may cause false positives. Users should ensure these tools are recognized and excluded from the detection rule to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious processes identified by the detection rule that are not part of the expected process list, such as those not matching "conhost.exe", "DeviceCensus.exe", "CompatTelRunner.exe", "DismHost.exe", "rundll32.exe", or "powershell.exe".
-- Review and restore the integrity of the Microsoft Compatibility Appraiser scheduled task by resetting it to its default configuration to ensure it is not executing unauthorized code.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional malicious files or software.
-- Analyze the system for any unauthorized changes to user accounts or privileges, and revert any modifications to ensure that only legitimate users have access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for the affected system and similar scheduled tasks across the network to detect any future attempts at hijacking or unauthorized modifications."""
 references = ["https://www.trustedsec.com/blog/abusing-windows-telemetry-for-persistence"]
 risk_score = 73
 rule_id = "68921d85-d0dc-48b3-865f-43291ca2c4f2"
@@ -69,11 +34,10 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Privilege Escalation",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
@@ -93,49 +57,202 @@ process where host.os.type == "windows" and event.type == "start" and
                       "powershell.exe")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Persistence via TelemetryController Scheduled Task Hijack
+
+#### Possible investigation steps
+
+- What behavior path did the alert preserve from CompatTelRunner to the child?
+  - Why: "-cv" marks the TelemetryController handoff; the executable path before it is the key artifact.
+  - Focus: `process.parent.executable`, `process.command_line`, `process.executable`, `process.Ext.token.integrity_level_name`, and `user.id`.
+  - Implication: escalate when "CompatTelRunner.exe" launches a user-writable, script-hosted, renamed, or newly introduced child with SYSTEM context; lower suspicion only when the handoff resolves to a stable Microsoft telemetry component for this host, then still validate the registry state that produced it.
+
+- Does the child binary identity match the command path and expected telemetry role?
+  - Focus: `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.Ext.relative_file_creation_time`.
+  - Implication: escalate when metadata, signer, hash, or recent file age conflicts with the path or Microsoft telemetry role; lower suspicion when identity, signer, path, and age fit a stable Windows or enterprise diagnostic binary.
+
+- Which TelemetryController values enabled this launch, and which process wrote them?
+  - Focus: recovered registry events on `host.id` for TelemetryController `registry.path`, `registry.value`, `registry.data.strings`, and writer `process.executable`.
+  - Range: search back several days; the registry hijack can precede scheduled task execution.
+  - Hint: search the TelemetryController root and subkeys, compare command-like `registry.data.strings` to the alert child, and treat registry telemetry as recovery evidence; missing registry history leaves persistence unresolved. Do not clear only because startup folders or service keys are clean.
+  - Implication: escalate when a command value points to the alert child or another non-Windows binary or script and the same subkey enables execution; an unexpected writer exposes the privileged component that planted HKLM persistence. Lower suspicion only when values, writer, and child path all match one controlled diagnostic or test workflow.
+
+- Did the launched child stage or reuse artifacts that extend the persistence chain?
+  - Focus: same-process file events on `host.id` using `process.entity_id`, or `process.pid` in a tight alert window: `file.path`, `file.Ext.original.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse. $investigate_0
+  - Implication: escalate when the child writes executable or scriptable content to user-writable, startup, service, or task paths, especially with external provenance or later execution; absent file telemetry does not clear a suspicious command or registry handoff.
+
+- Did the launched child contact destinations inconsistent with telemetry or the signer?
+  - Focus: same-process DNS and connection events on `host.id`: `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_1
+  - Hint: Missing network telemetry is unresolved, not benign. Treat infrastructure ownership as context rather than a verdict.
+  - Implication: escalate when the child reaches public, rare, or signer-misaligned infrastructure; lower suspicion when destinations consistently fit Microsoft telemetry, internal servicing, or the same verified diagnostic workflow.
+
+- If local evidence remains suspicious or unresolved, is this a local test pattern or repeated TelemetryController persistence?
+  - Focus: recent alerts for the same `process.executable` before broader host review. $investigate_2
+  - Hint: use host alert history only after child identity, command line, registry, file, or network evidence remains suspicious or unresolved. $investigate_3
+  - Implication: broaden when the same child path, TelemetryController pattern, or follow-on alert chain appears on unrelated hosts; keep scope local when telemetry ties the exact child, writer, values, and host scope to one verified lab or diagnostic workflow.
+
+- Escalate when the handoff, child identity, registry writer/values, artifacts, destinations, or alert history show arbitrary or staged execution through TelemetryController; close only when the same evidence ties the exact child, writer, values, and scope to a controlled diagnostic or validation workflow; preserve artifacts and escalate when registry, file, or network evidence is missing or contradictory.
+
+### False positive analysis
+
+- Non-Microsoft TelemetryController command registration is an operational anti-pattern. Controlled image-validation or compatibility-lab workflows can still trigger this rule when they register a signed diagnostic or servicing binary. Close benign only when telemetry ties `process.command_line`, `process.executable`, `process.hash.sha256`, TelemetryController `registry.path`, `registry.data.strings`, writer `process.executable`, and the `host.id` cohort to the same build or lab workflow. Use records only as corroboration; before exceptioning, validate recurrence for the same payload identity, writer, value pattern, and lab-host scope.
+- Authorized adversary-emulation or detection-validation tests can deliberately hijack TelemetryController. Close benign only when `process.command_line`, `process.hash.sha256`, TelemetryController `registry.path`, expected `host.id` or `user.id` test scope, and registry-writing `process.executable` all match exercise telemetry. Use engagement records only as corroboration; before exceptioning, verify the same payload hash or path and writer recur only on known test assets and not unrelated production hosts. Do not exception on `process.parent.name`, "CompatTelRunner.exe", "-cv", or `process.name` alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Record the TelemetryController `registry.path`, child `process.executable` or `process.hash.sha256`, writer `process.executable`, host scope, and telemetry that proved the workflow, then reverse any temporary containment. Build exceptions from that minimum pattern plus `host.id`, not from `process.parent.name`, "CompatTelRunner.exe", or "-cv" alone.
+- If suspicious but unconfirmed:
+  - Preserve the alert process record, recovered TelemetryController registry events, writer lineage, written `file.path` artifacts, and any `dns.question.name` or `destination.ip` indicators before cleanup.
+  - Apply reversible containment tied to the findings, such as temporarily disabling the suspect TelemetryController subkey or blocking the child binary or destination. Escalate to host isolation only when host criticality allows it and same-process artifacts or destinations show active follow-on behavior.
+- If confirmed malicious:
+  - Isolate the host and terminate the malicious child only after recording the child process identity, command line, TelemetryController values, writer lineage, written `file.path`, `process.hash.sha256`, and destination indicators. If direct endpoint response is unavailable, escalate with that evidence set to the team that can contain the asset.
+  - Remove the malicious TelemetryController subkey or restore its values to known-good state, then remove only the payloads and additional persistence artifacts identified during the investigation. Validate that the "Microsoft Compatibility Appraiser" task no longer launches the malicious child, and scope other hosts for the same child path or registry pattern before deleting artifacts.
+- Post-incident hardening:
+  - Restrict local admin rights on exposed hosts, keep process, registry, file, and network telemetry for this key family enabled, and record any TelemetryController visibility gaps in the case notes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.Ext.token.integrity_level_name",
+    "process.hash.sha256",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the launched child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the launched child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts involving the same child path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{process.executable}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
 reference = "https://attack.mitre.org/techniques/T1053/005/"
 
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1053"
 name = "Scheduled Task/Job"
 reference = "https://attack.mitre.org/techniques/T1053/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1053.005"
 name = "Scheduled Task"
 reference = "https://attack.mitre.org/techniques/T1053/005/"
-
 
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

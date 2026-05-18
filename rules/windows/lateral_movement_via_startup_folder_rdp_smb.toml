@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,40 +22,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Lateral Movement via Startup Folder"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Lateral Movement via Startup Folder
-
-The Windows Startup folder is a mechanism that allows programs to run automatically upon user logon or system reboot. Adversaries exploit this by placing malicious files in the Startup folder of remote systems, often accessed via RDP or SMB, to ensure persistence and facilitate lateral movement. The detection rule identifies suspicious file activities in these folders, focusing on processes like mstsc.exe, which may indicate unauthorized access and file creation, signaling potential lateral movement attempts.
-
-### Possible investigation steps
-
-- Review the alert details to confirm the file creation or change event in the specified Startup folder paths, focusing on the file path patterns: "?:\\\\Users\\\\*\\\\AppData\\\\Roaming\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\*" and "?:\\\\ProgramData\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\*".
-- Check the process information associated with the event, particularly if the process name is "mstsc.exe" or if the process ID is 4, to determine if the activity is linked to remote access via RDP or SMB.
-- Investigate the origin of the remote connection by examining network logs or RDP session logs to identify the source IP address and user account involved in the connection.
-- Analyze the newly created or modified file in the Startup folder for malicious characteristics, such as unusual file names, unexpected file types, or known malware signatures, using antivirus or sandbox analysis tools.
-- Review user account activity and permissions to determine if the account associated with the process has been compromised or is being misused for unauthorized access.
-- Correlate this event with other security alerts or logs from data sources like Sysmon, Microsoft Defender for Endpoint, or SentinelOne to identify any related suspicious activities or patterns indicating lateral movement attempts.
-
-### False positive analysis
-
-- Legitimate software installations or updates may create files in the Startup folder, triggering the rule. Users can manage this by maintaining a list of known software that typically modifies the Startup folder and creating exceptions for these processes.
-- System administrators using remote desktop tools like mstsc.exe for legitimate purposes might inadvertently trigger the rule. To handle this, users can exclude specific administrator accounts or known IP addresses from the detection rule.
-- Automated scripts or system management tools that deploy updates or configurations across multiple systems might cause false positives. Users should identify these tools and add them to an exclusion list to prevent unnecessary alerts.
-- Some enterprise applications may use the Startup folder for legitimate operations, especially during system boot or user logon. Users should document these applications and configure the rule to ignore file changes associated with them.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further lateral movement and potential spread of the threat.
-- Terminate any suspicious processes, particularly those related to mstsc.exe or any unauthorized processes with PID 4, to halt any ongoing malicious activities.
-- Remove any unauthorized files or scripts found in the Startup folder paths specified in the detection query to prevent them from executing on reboot or user logon.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or remnants.
-- Review and reset credentials for any accounts that were accessed or potentially compromised during the incident to prevent unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for RDP and SMB activities, focusing on unusual file creation events in Startup folders, to improve detection of similar threats in the future."""
 references = [
     "https://www.mdsec.co.uk/2017/06/rdpinception/",
     "https://www.elastic.co/security-labs/hunting-for-lateral-movement-using-event-query-language",
@@ -71,7 +37,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
@@ -88,6 +54,136 @@ file where host.os.type == "windows" and event.type in ("creation", "change") an
                 "?:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Lateral Movement via Startup Folder
+
+#### Possible investigation steps
+
+- What remote Startup-folder write did the alert capture?
+  - Focus: `file.path`, `file.extension`, `process.name`, `process.pid`, and `process.executable`.
+  - Implication: escalate when a remote writer plants a scriptable or executable item, especially in ProgramData Startup; lower suspicion only when the Startup item, writer, user, and host identify one bounded deployment or support component.
+- What does the planted Startup item contain or point to?
+  - Focus: `file.name`, `file.size`, `file.Ext.header_bytes`, and `file.Ext.windows.zone_identifier`.
+  - Implication: escalate on shortcuts, scripts, archives, executables, renamed payloads, or content/header mismatches that could run at logon; lower suspicion when a bounded installer or support shortcut has content and provenance matching the same named tool.
+- Does writer and user context identify the same support or deployment component?
+  - Focus: `user.id`, `user.domain`, `process.command_line`, and `process.parent.name`.
+  - Hint: for PID 4 SMB writes, recover surrounding SMB connection events to identify `source.ip`; for "mstsc.exe" writes, validate the RDP drive-redirection source through Terminal Services or RDP session logs when available. Missing SMB/RDP telemetry is unresolved, not benign. $investigate_0
+  - Implication: escalate when the account, host, parent, or command line does not explain remote RDP/SMB Startup persistence; lower suspicion when command line, parent, and user-host pairing point to the same bounded component.
+- Did the same Startup directory show staging, renames, or cleanup?
+  - Focus: file events in the same Startup directory on `host.id`, especially `file.directory`, `file.path`, `file.name`, and `file.Ext.original.path`. $investigate_1
+  - Hint: use the directory view to separate one bounded write from broader Startup-folder staging.
+  - Implication: escalate on multiple writes, renames, mixed payload types, or cleanup artifacts; a single stable artifact narrows scope but does not clear the alert until execution and workflow fit are resolved.
+- Has the Startup item executed on the host?
+  - Focus: process starts on `host.id` where `process.executable` matches the written `file.path`, then review `process.command_line` and `user.id`. $investigate_2
+  - Hint: for shortcuts or scripts, exact path matching may miss the launched target; inspect the artifact and search same-host process starts for the referenced interpreter or target path.
+  - Implication: escalate when the item or referenced target executes, especially under a different user than the writer; no execution yet lowers immediacy, but clears only when writer, artifact, and directory evidence already prove a benign tool.
+- If local evidence is suspicious or incomplete, are there related same-host alerts?
+  - Focus: related alerts for the same `host.id` involving remote services, credentials, execution, discovery, or persistence. $investigate_3
+  - Implication: related alerts broaden the case from one Startup write to an intrusion path; no related alerts or an unavailable pivot narrows scope only and cannot close contradictory artifact, writer, or execution evidence.
+- Escalate for remotely planted Startup persistence or later execution; close only when writer mechanism, path, artifact, directory, execution, and alert pivots bind to one bounded benign component without contradiction; preserve artifacts and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Software deployment, break-fix support, enterprise agents, or line-of-business applications can place bounded installers, shortcuts, support utilities, or stable per-user/all-users components in Startup through RDP or SMB. Confirm that `file.path`, `file.name`, `file.extension`, writer process or command line, `user.id`, `host.id`, directory view, and later direct or shortcut-target execution all identify the same bounded component, with no extra staging files or suspicious same-host alerts. Do not close on a role, ticket, or partial field match when current telemetry does not bind writer, artifact, and execution behavior together.
+- Build exceptions from the minimum confirmed workflow pattern: the specific `file.path`, writer `process.name` or `process.pid`, `user.id`, `host.id`, and bounded later-execution or quiet-directory evidence that distinguishes the benign case. Avoid exceptions on the Startup folder path alone, on "mstsc.exe" alone, or on PID 4 alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the exact `file.path`, writer `process.name` or `process.pid`, `user.id`, `host.id`, and quiet-directory or later-execution evidence that established the bounded workflow. Create an exception only when that same evidence set distinguishes the benign workflow from remote Startup-folder abuse.
+- If suspicious but unconfirmed, preserve a copy of the written Startup item, the Startup directory listing, and case exports for the relevant file events, writer process metadata, later execution records, user-host identifiers, and related-alert context before containment.
+- Apply reversible containment before destructive action: quarantine the Startup item after preserving it, restrict further RDP or SMB administrative access to the host, or heighten monitoring on the affected `host.id`. Isolate the host only when later execution or related alerts show broader compromise and the host role can tolerate disruption.
+- If confirmed malicious, record any later-executed process identifiers and command lines, preserve the Startup item and same-directory artifacts, then isolate the host when feasible, terminate malicious execution, and remove the Startup item, shortcuts, scripts, and staging artifacts identified during the investigation.
+- Before deleting artifacts or resetting credentials, scope other hosts and accounts for the same `file.name`, `file.path`, writer `process.command_line`, or later `process.executable` pattern. Reset or reissue credentials only when related alerts or later execution indicate likely account misuse.
+- Post-incident hardening: restrict unnecessary RDP drive redirection, tighten SMB administrative write access, monitor Startup folder changes on remote-access targets, and retain the file/process telemetry needed to distinguish repeat deployment workflows from repeat abuse."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.type",
+    "host.id",
+    "user.id",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "file.extension",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.name",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "SMB connection events on the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "event.action", queryType = "phrase", value = "connection_accepted", valueType = "string" },
+    { excluded = false, field = "destination.port", queryType = "phrase", value = "445", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events in the same Startup directory"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.directory", queryType = "phrase", value = "{{file.directory}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events where the Startup item later executed"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

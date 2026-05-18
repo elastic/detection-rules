@@ -2,7 +2,7 @@
 creation_date = "2025/09/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,36 +22,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential System Tampering via File Modification"
-note = """## Triage and analysis
-
-### Investigating Potential System Tampering via File Modification
-
-This rule identifies attempts to delete or modify critical files used during the boot process to prevent the system from booting.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes.
-- Assess all deleted or modified system critical files and perform a complete recovery of those files to prevent system booting issues.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Identify the user account that performed the action and whether it should perform this kind of action, if not immedialy disable the account.
-
-### False positive analysis
-
-- Analysts can dismiss the alert if the administrator is aware of the activity, no other suspicious activity was identified, and there are justifications for the execution.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-  - Prioritize cases involving critical servers and users.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- If important data was encrypted, deleted, or modified, activate your data recovery plan.
-    - Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "1a3f2a4c-12d0-4b88-961a-2711ee295637"
 severity = "high"
@@ -59,26 +29,25 @@ tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
     "Tactic: Impact",
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "windows" and event.type in ("change", "deletion") and
-  file.name : ("winload.exe", "winlod.efi", "ntoskrnl.exe", "bootmgr") and
+  file.name : ("winload.exe", "winload.efi", "ntoskrnl.exe", "bootmgr") and
   file.path : ("?:\\Windows\\*", "\\Device\\HarddiskVolume*\\Windows\\*") and
   not process.executable : (
     "?:\\Windows\\System32\\poqexec.exe",
-    "?:\\Windows\\WinSxS\\amd64_microsoft-windows-servicingstack_*\\tiworker.exe"
+    "?:\\Windows\\System32\\wbengine.exe",
+    "?:\\Windows\\WinSxS\\???64_microsoft-windows-servicingstack_*\\tiworker.exe"
   ) and
   not file.path : (
     "?:\\Windows\\WinSxS\\Temp\\InFlight\\*",
@@ -86,10 +55,167 @@ file where host.os.type == "windows" and event.type in ("change", "deletion") an
     "?:\\Windows\\WinSxS\\amd64_microsoft-windows*",
     "?:\\Windows\\SystemTemp\\*",
     "?:\\Windows\\Temp\\????????.???\\*",
-    "?:\\Windows\\Temp\\*\\amd64_microsoft-windows-*"
+    "?:\\Windows\\Temp\\*\\amd64_microsoft-windows-*",
+    "\\Device\\HarddiskVolume*\\Windows\\SoftwareDistribution\\Download*",
+    "?:\\Windows\\Temp\\BootImages\\{*}\\mount\\Windows\\*"
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential System Tampering via File Modification
+
+#### Possible investigation steps
+
+- Does the alert-local file event show modification or deletion of an active boot-critical file?
+  - Focus: `file.path`, `file.name`, `event.type`, `event.action`, and `process.executable`.
+  - Implication: escalate on deletion or active Windows System32, Windows Boot, or EFI boot paths for `winload.exe`, `winload.efi`, `ntoskrnl.exe`, or `bootmgr`; lower concern only when path normalization or surrounding file evidence shows repair content, not active boot content.
+- Is the modifying process consistent with servicing, repair, recovery, or rollback?
+  - Focus: same-process `process.executable`, `process.command_line`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_0
+  - Hint: if the transform is ambiguous or empty, recover the process start with `host.id`, `process.pid`, and alert time before judging identity.
+  - Implication: escalate when the binary is unsigned or untrusted, runs from a user-writable or unexpected path, or uses non-servicing commands; a trusted Microsoft or vendor identity lowers concern only when behavior and lineage also fit.
+- What launch chain led to the boot-file modification or deletion?
+  - Focus: same-host process lineage with `process.parent.executable` and `process.parent.command_line`.
+  - Implication: escalate when the chain includes script hosts, remote-management tooling, document launchers, or unexplained intermediaries before the write; lower concern when lineage resolves to a bounded same-host servicing or recovery workflow.
+- Does the user or service context fit legitimate maintenance?
+  - Focus: `user.id`, `user.name`, `user.domain`, and `process.Ext.session_info.logon_type`.
+  - Hint: read `process.Ext.session_info.logon_type` from the same process event used for identity.
+  - Implication: escalate when an interactive or remote user session modifies boot files directly, or when account context does not match repair duties; if session details are unavailable, do not close on user context alone.
+- Did the same process touch other boot, recovery, or protected OS files?
+  - Focus: same-process file telemetry on `host.id` and `process.entity_id`: `file.path`, `event.type`, `event.action`, and rename details for renames. $investigate_1
+  - Hint: if the pivot is ambiguous, constrain it with `host.id`, `process.pid`, and alert time before interpreting file spread.
+  - Implication: escalate when the process modifies multiple boot-related or protected files, renames content into executable extensions, or spreads outside the original target; lower concern when activity stays bounded to the exact repair set.
+- Did the same process or host also inhibit recovery or show broader destructive behavior?
+  - Focus: surrounding process and file telemetry on `host.id`: `process.executable`, `process.command_line`, `file.path`, and `event.type` for shadow-copy, backup, boot-configuration, or WinRE changes. $investigate_2
+  - Implication: escalate when boot-file tampering is paired with vssadmin, wbadmin, diskshadow, bcdedit, REAgentC, or wmic activity that disables recovery, deletes backups, or damages protected paths; lower concern only when this step finds no recovery-control change, backup deletion, or protected-path spread.
+- If the local findings remain suspicious or unresolved, is the pattern isolated or broader for the same host or user?
+  - Focus: related destructive or recovery-inhibition alerts for the same `host.id`: boot-file tampering, shadow-copy deletion, backup deletion, service disruption, or protected-file modification. $investigate_3
+  - Hint: if `user.id` remains relevant, compare related destructive alerts for that user separately. $investigate_4
+  - Implication: escalate scope when the same host or user shows multiple destructive or recovery-control alerts in a short window; keep the case localized only when this is a single bounded event and local evidence resolves cleanly.
+
+- Escalate when file target, actor identity, lineage, session, protected-file spread, recovery-control, or related alerts point to unauthorized boot tampering; close only when evidence binds one recognized repair, recovery, servicing, or rollback workflow on this host with no contradictory spread; if mixed or incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- Offline repair, OEM recovery, Windows servicing, administrator-led boot remediation, or security/backup rollback can replace boot files. Confirm `process.executable`, signer, command line, user or service context, `file.path`, and `event.type` bind to one recognized workflow, stay bounded to the expected repair set, and do not branch into script hosts, unusual parents, protected-file damage, shadow-copy deletion, backup deletion, or boot-configuration tampering. Without change records, require the same signed repair or rollback binary, service or recovery context, protected path family, and no destructive or recovery-control activity on the same `host.id`.
+- Before creating an exception, anchor it on the narrowest stable pattern: `process.executable`, `process.code_signature.subject_name`, `file.path`, and the expected `user.id` or service context. Do not except on `process.name`, `file.name`, or Windows-path activity alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and record the repair, recovery, servicing, or rollback workflow that matched the process identity, signer, service context, and protected path set. Create an exception only after the same bounded pattern recurs.
+- If suspicious but unconfirmed, preserve the alert event, process-start record, Timeline or case export for the modifying process, boot-file metadata or available copies, recovered binary identity, lineage/session evidence, and any recovery-control or protected-file findings before containment or cleanup.
+- If suspicious but unconfirmed and the host is still online, avoid reboot until boot-file evidence is preserved. Apply reversible containment tied to the findings, such as blocking the remote administration path, disabling the active account session, or isolating the host if protected-file modification or recovery inhibition continues. Weigh host criticality before isolation.
+- If confirmed malicious, isolate the host through endpoint response when boot-file tampering, actor identity, lineage, or recovery-control evidence establishes unauthorized activity. Terminate the offending process only after preserving its entity ID, command line, affected path list, and recovered hashes. If direct response is unavailable, hand off the same evidence to the team that can isolate the host or disk.
+- Review related hosts and users for the same destructive pattern before restoring files so scoping finishes before evidence is destroyed.
+- Restore affected boot files only from trusted media, golden images, or known-good backups after destructive scope is understood, then repair any WinRE, shadow-copy, backup, or boot-configuration controls the attacker disabled.
+- Post-incident hardening: retain file and process telemetry for protected boot paths, restrict who can run repair tooling on critical systems, protect backups from the same account path, and record adjacent destructive behaviors in the case notes."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+- [Sysmon Event ID 23 - File Delete](https://ela.st/sysmon-event-23-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "file.path",
+    "file.name",
+    "event.action",
+    "event.type",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Events for the modifying process on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the modifying process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events on the host near the modification"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

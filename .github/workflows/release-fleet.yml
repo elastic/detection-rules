@@ -33,20 +33,23 @@ on:
           - "true"
           - "false"
 
+permissions:
+  contents: write
+
 jobs:
     fleet-pr:
       name: Build package and create PR to integrations
       runs-on: ubuntu-latest
       steps:
         - name: Validate the source branch
-          uses: actions/github-script@ffc2c79a5b2490bd33e0a41c1de74b877714d736 # v3
+          uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
           with:
             script: |
               if ('refs/heads/main' === '${{github.ref}}') {
                 core.setFailed('Forbidden branch')
               }
         - name: Checkout detection-rules
-          uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
           with:
             path: detection-rules
             fetch-depth: 0
@@ -66,7 +69,7 @@ jobs:
             git checkout $COMMIT_HASH
 
         - name: Checkout elastic/integrations
-          uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
           with:
             token: ${{ secrets.WRITE_INTEGRATIONS_DETECTION_RULES_TOKEN }}
             repository: ${{github.event.inputs.target_repo}}
@@ -117,7 +120,7 @@ jobs:
             DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
             DR_API_KEY: ${{ secrets.dr_api_key }}
           if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY }}
-          uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+          uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
           with:
             path: elastic-container
             repository: peasead/elastic-container
@@ -134,6 +137,7 @@ jobs:
             echo "::add-mask::$GENERATED_PASSWORD"
             echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
             set -x
+            bash elastic-container.sh update-version
             bash elastic-container.sh start
           
         - name: Get API Key and setup auth
@@ -173,7 +177,7 @@ jobs:
             git config --global user.name "tradebot-elastic"
 
         - name: Setup go
-          uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495 # v3
+          uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
           with:
             go-version: '^1.20.1'
             check-latest: true
@@ -199,7 +203,7 @@ jobs:
               $DRAFT_ARGS
 
         - name: Archive production artifacts
-          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
           with:
             name: release-files
             path: |

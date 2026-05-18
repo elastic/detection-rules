@@ -2,7 +2,7 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/08/26"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -23,41 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious ImagePath Service Creation"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious ImagePath Service Creation
-
-Windows services are crucial for running background processes. Adversaries exploit this by creating or modifying services with malicious ImagePath values to gain persistence or escalate privileges. The detection rule monitors registry changes to ImagePath entries, flagging unusual patterns like command shells or named pipes, which are often used in stealthy attacks. This helps identify and mitigate potential threats early.
-
-### Possible investigation steps
-
-- Review the registry event logs to identify the specific ImagePath value that triggered the alert, focusing on entries with command shells or named pipes, such as those containing "%COMSPEC%*" or "*\\\\.\\\\pipe\\\\*".
-- Investigate the associated service name and description in the registry path "HKLM\\\\SYSTEM\\\\ControlSet*\\\\Services\\\\*\\\\ImagePath" to determine if it is a legitimate service or potentially malicious.
-- Check the creation or modification timestamp of the suspicious ImagePath entry to correlate with other system events or user activities around the same time.
-- Analyze the parent process and user account responsible for the registry change to assess if it aligns with expected behavior or if it indicates unauthorized access.
-- Search for related network activity or connections, especially those involving named pipes, to identify any lateral movement or data exfiltration attempts.
-- Cross-reference the alert with threat intelligence sources to determine if the ImagePath value or associated service is linked to known malware or adversary techniques.
-
-### False positive analysis
-
-- Legitimate software updates or installations may modify ImagePath values, triggering alerts. Users can create exceptions for known software update processes to reduce noise.
-- System administrators might intentionally change service configurations for maintenance or optimization. Document and exclude these planned changes to prevent false positives.
-- Some enterprise applications use named pipes for inter-process communication, which could be flagged. Identify and whitelist these applications to avoid unnecessary alerts.
-- Security tools or scripts that automate service management might alter ImagePath values. Ensure these tools are recognized and excluded from monitoring to minimize false alerts.
-- Regularly review and update the list of exceptions to ensure they align with current organizational practices and software environments.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious processes associated with the identified ImagePath values, such as those involving command shells or named pipes.
-- Remove or disable the malicious service by reverting the ImagePath registry entry to its legitimate state or deleting the service if it is not required.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any additional threats or malware.
-- Review and restore any modified system files or configurations to their original state to ensure system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for similar registry changes and suspicious service creations to detect and respond to future threats promptly."""
 risk_score = 73
 rule_id = "36a8e048-d888-4f61-a8b9-0f9e2e40f317"
 severity = "high"
@@ -66,11 +31,10 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
@@ -86,34 +50,187 @@ registry where host.os.type == "windows" and event.type == "change" and
   registry.data.strings : ("%COMSPEC%*", "*\\.\\pipe\\*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious ImagePath Service Creation
+
+#### Possible investigation steps
+
+- What exact service "ImagePath" behavior did the alert preserve?
+  - Why: shell and pipe-backed service launches require different execution pivots.
+  - Focus: `registry.path`, `registry.key`, `registry.value`, `registry.data.type`, `registry.data.strings`.
+  - Implication: escalate when the value invokes the command interpreter, chains shell commands, or points to a local named pipe instead of a normal service executable; lower concern only when exact key and value match a recognized same-product service wrapper.
+
+- Who wrote the service value, and does that context fit service management?
+  - Focus: `process.executable`, `process.command_line`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `user.id`.
+  - Hint: if the writer is "svchost.exe" or another broker, use `process.parent.executable` and broader lineage before attributing intent. $investigate_0
+  - Implication: escalate for unsigned utilities, script hosts, remote-admin tools, unusual paths, or user contexts that do not fit service changes; lower concern only when signer, path, command line, and user fit a recognized installer or management agent.
+
+- Did the same writer change other values under the service key?
+  - Why: existing-service edits can preserve trust while changing start mode, account context, DLL loading, failure behavior, or security descriptor.
+  - Focus: same-`host.id` registry events scoped by service `registry.key`, reviewing `registry.value` and `registry.data.strings`. $investigate_1
+  - Implication: escalate when surrounding values make the service autostart, run privileged, load a DLL/parameter path, restart on failure, or become harder to enumerate; lower concern when the writer performs only one bounded product-owned service update.
+
+- Did the service path execute or spawn follow-on activity?
+  - Focus: later same-`host.id` process events where `process.executable` or `process.command_line` matches the recovered service value, plus `process.parent.executable` and lineage. $investigate_2
+  - Range: start with the alert window; expand after `@timestamp` only to test delayed service start.
+  - Hint: for command-interpreter paths, search "cmd.exe" and recovered command fragments in `process.command_line`; for named-pipe paths, search "services.exe" lineage, helpers, or service-start failures instead of expecting a file-backed executable.
+  - Implication: escalate when service lineage launches a shell, pipe helper, or unexpected child soon after the write; do not close solely because execution is not visible, since the service may start later or fail during launch.
+
+- If execution occurred, does the launched process fit the expected service?
+  - Focus: recovered launch event: `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.pe.original_file_name`, `process.Ext.relative_file_creation_time`.
+  - Implication: escalate when the binary is unsigned, newly created, renamed, PE-mismatched, or unrelated to the writer signer; lower concern when identity, signer, age, and service value all fit the same recognized product.
+
+- What disposition do service value, writer, adjacent values, execution, and related alerts support?
+  - Hint: if local evidence remains suspicious or unresolved, review user- and host-scoped alerts.
+    - $investigate_3
+    - $investigate_4
+  - Implication: escalate when shell or named-pipe execution plus writer, adjacent value, execution, or alert context fails to fit one recognized workflow; close only when those categories converge on the exact service-management activity, using outside confirmation when telemetry cannot prove legitimacy; if evidence is mixed or incomplete, preserve registry and process evidence and escalate.
+
+### False positive analysis
+
+- Software installation, repair, agent upgrade, remote-support, or deployment tooling can rewrite service "ImagePath" values or register short-lived helper services only when a signed installer, management component, vendor behavior, or internal test plan owns the service end-to-end. Confirm `process.executable`, signer/trust, `user.id`, `registry.key`, `registry.data.strings`, and later parent/command-line activity align with that workflow, not an ad hoc shell or pipe helper.
+- Shell or pipe "ImagePath" behavior is an anti-pattern unless the vendor or test plan accounts for that exact helper. Without records, require current-case telemetry that writer, signer, service key/value, `user.id`, `host.id`, later execution, and related alerts align without contradiction.
+- Before creating an exception, use prior alerts only to prove exception stability, not to close the case. Validate consistent service value, writer, user, host, and execution behavior across the same workflow. Treat a first occurrence as a candidate exception, not a suppression. Build the exception from the minimum confirmed pattern: writer signer and path, exact service key, exact `registry.data.strings`, `user.id`, and `host.id`. Avoid exceptions on `registry.value` = "ImagePath", "services.exe", or the rule name alone.
+
+### Response and remediation
+
+- If confirmed benign, preserve the case export and document the writer identity, exact service key and value, affected `user.id` and `host.id`, and later service-start behavior that proved the recognized workflow before reversing temporary containment. Keep any exception narrow and require recurrence of the same workflow pattern.
+- If suspicious but unconfirmed, preserve a case export of the triggering registry event, exact service key/value, writer process details, launched-process details, and volatile service state before containment. Then apply reversible containment tied to those findings, such as disabling the affected service, preventing the referenced command from starting, or isolating the host only after weighing service criticality. Escalate to account or broader host action only when related alerts or later execution show wider compromise.
+- If confirmed malicious, preserve the same registry and process evidence before destructive action. Disable and remove the malicious or hijacked service, restore the expected "ImagePath", quarantine the referenced executable or command artifact when present, and review the same `process.entity_id`, `registry.key`, and service lineage for additional unauthorized service changes before cleanup. Use endpoint response tooling to contain the host or terminate the recovered malicious process when available; if direct response is unavailable, escalate with the preserved identifiers to the team that can act.
+- After containment, review other hosts for the same `registry.data.strings`, service-key pattern, signer, hash, or command fragment before deleting artifacts, then verify that no additional services reference the same shell, named pipe, or staged payload.
+- Post-incident hardening: restrict service creation and service-registry writes to trusted installers and management tools, retain registry and process telemetry needed to correlate "ImagePath" changes to later execution, and record any adjacent service-abuse variant surfaced during triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "registry.path",
+    "registry.key",
+    "registry.value",
+    "registry.data.type",
+    "registry.data.strings",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Activity from this writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry events for the same service key"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "registry.key", queryType = "phrase", value = "{{registry.key}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process starts on the host near the service change"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

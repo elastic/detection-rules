@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -32,42 +32,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Unusual Child Process of dns.exe"
-note = """## Triage and analysis
-
-### Investigating Unusual Child Process of dns.exe
-
-SIGRed (CVE-2020-1350) is a wormable, critical vulnerability in the Windows DNS server that affects Windows Server versions 2003 to 2019 and can be triggered by a malicious DNS response. Because the service is running in elevated privileges (SYSTEM), an attacker that successfully exploits it is granted Domain Administrator rights. This can effectively compromise the entire corporate infrastructure.
-
-This rule looks for unusual children of the `dns.exe` process, which can indicate the exploitation of the SIGRed or a similar remote code execution vulnerability in the DNS server.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes.
-  - Any suspicious or abnormal child process spawned from dns.exe should be carefully reviewed and investigated. It's impossible to predict what an adversary may deploy as the follow-on process after the exploit, but built-in discovery/enumeration utilities should be top of mind (`whoami.exe`, `netstat.exe`, `systeminfo.exe`, `tasklist.exe`).
-  - Built-in Windows programs that contain capabilities used to download and execute additional payloads should also be considered. This is not an exhaustive list, but ideal candidates to start out would be: `mshta.exe`, `powershell.exe`, `regsvr32.exe`, `rundll32.exe`, `wscript.exe`, `wmic.exe`.
-  - If a denial-of-service (DoS) exploit is successful and DNS Server service crashes, be mindful of potential child processes related to `werfault.exe` occurring.
-- Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Investigate other alerts associated with the host during the past 48 hours.
-- Check whether the server is vulnerable to CVE-2020-1350.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Reimage the host operating system or restore the compromised server to a clean state.
-- Install the latest patches on systems that run Microsoft DNS Server.
-- Consider the implementation of a patch management system, such as the Windows Server Update Services (WSUS).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Review the privileges assigned to the user to ensure that the least privilege principle is being followed.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://research.checkpoint.com/2020/resolving-your-way-into-domain-admin-exploiting-a-17-year-old-bug-in-windows-dns-servers/",
     "https://msrc-blog.microsoft.com/2020/07/14/july-2020-security-update-cve-2020-1350-vulnerability-in-windows-domain-name-system-dns-server/",
@@ -87,7 +51,7 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
@@ -100,14 +64,171 @@ process where host.os.type == "windows" and event.type == "start" and
   process.parent.name : "dns.exe" and
   not process.executable : (
     "?:\\Windows\\System32\\conhost.exe",
+    "?:\\Windows\\System32\\dns.exe",
 
     /* Crowdstrike specific exclusion as it uses NT Object paths */
     "\\Device\\HarddiskVolume*\\Windows\\System32\\conhost.exe",
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\dns.exe",
     "\\Device\\HarddiskVolume*\\Program Files\\ReasonLabs\\*"
   ) and
   not ?process.parent.executable : "?:\\Program Files\\ReasonLabs\\DNS\\ui\\DNS.exe"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Unusual Child Process of dns.exe
+#### Possible investigation steps
+
+- What did "dns.exe" launch, and does that define a crash path or live execution path?
+  - Focus: `process.name`, `process.executable`, `process.command_line`, and `process.parent.executable`.
+  - Implication: escalate quickly for shells, script hosts, downloaders, service tools, or non-Windows paths spawned by "dns.exe"; a bounded "WerFault.exe" crash-reporting child points toward DNS service fault or SIGRed DoS, but still needs follow-on checks.
+- Is the child binary a recognized system or DNS-support component, or a disguised payload?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the child is unsigned, renamed, user-writable, newly seen, or PE-mismatched; a recognized Microsoft or vendor identity lowers only identity concern and does not clear unexpected execution from "dns.exe".
+- What intent does the child command line express?
+  - Focus: `process.command_line`, `process.name`, and `process.Ext.token.integrity_level_name`.
+  - Implication: escalate for discovery, script interpretation, download, service change, credential, or persistence behavior under the DNS service token; crash-reporting or bounded diagnostic arguments support fault handling.
+- Do lineage and session context fit the Windows DNS service?
+  - Focus: `process.parent.command_line`, `process.parent.entity_id`, `process.Ext.session_info.logon_type`, and `user.id`.
+  - Implication: escalate when parent, service, or user context does not fit a stable Windows DNS service launch; expected service lineage supports but does not prove a benign child.
+- Did the child produce follow-on execution or artifacts after the spawn?
+  - Focus: recovered file, registry, network, DNS, and descendant process events for `host.id` + child `process.entity_id`, or `host.id` + `process.pid` in a tight alert window.
+    - $investigate_0
+    - $investigate_1
+    - $investigate_2
+  - Hint: prioritize descendant `process.command_line`, `file.path`, `registry.path`, and `destination.ip`. Missing network telemetry is unresolved, not benign.
+  - Implication: escalate when recovered events show descendants, payload staging, persistence changes, or outbound activity; no follow-on activity supports a crash-only hypothesis but cannot clear the alert alone.
+- If local evidence remains suspicious or unresolved, do same-host alerts show the same DNS-service execution pattern?
+  - Focus: same-parent process starts and related alerts on `host.id`, prioritizing `process.parent.name` of "dns.exe", the same child `process.executable`, or the same `process.hash.sha256`.
+    - $investigate_3
+    - $investigate_4
+  - Hint: broaden scope only after child identity, command intent, lineage, or follow-on recovery remains suspicious or incomplete.
+  - Implication: escalate scope when related alerts repeat the "dns.exe" child pattern or child binary identity; unrelated or nonmatching alerts keep the case narrower.
+- Escalate for live execution intent, suspicious identity or lineage, or recovered post-exploitation artifacts; close only when evidence tightly binds one crash-handling or recognized DNS-support workflow on this host; preserve artifacts and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Crash handling can legitimately produce "WerFault.exe" after a DNS service fault or SIGRed DoS attempt. Confirm that child identity, `process.command_line`, signer, and `host.id` form a crash-reporting pattern and recovered follow-on endpoint activity does not contradict it. Use incident records only as corroboration; telemetry-only closure requires a crash-reporter-only pattern on the same `host.id` without payload descendants or artifact creation.
+- Named DNS/security tooling, such as ReasonLabs DNS components in the rule exclusions, explains the alert only when exact `process.executable`, `process.code_signature.subject_name`, `process.command_line`, `process.parent.executable`, and `host.id` match that product workflow. Treat generic vendor claims, partial matches, or a trusted signer without matching behavior as unresolved.
+- Before creating an exception, anchor it on exact child path, signer or certificate thumbprint when available, command line, parent DNS service path, and affected `host.id`. Avoid exceptions on `process.parent.name` of "dns.exe", `process.name` alone, or the entire host.
+
+### Response and remediation
+
+- If suspicious but unconfirmed, preserve the child `process.entity_id`, `process.executable`, `process.hash.sha256`, signer details, `process.command_line`, `process.parent.command_line`, crash dumps, recovered endpoint events, and any collected payload artifacts before containment.
+- Apply reversible containment before destructive action: remove the server from DNS rotation, restrict external resolver exposure, or heighten monitoring on the affected `host.id`. Move to host isolation only when follow-on execution or broader compromise evidence shows the server cannot serve safely.
+- If confirmed benign, reverse temporary containment and record the exact child path, signer, command line, parent DNS service path, and `host.id` that proved the crash-handling or DNS-support workflow. Create an exception only after the same pattern is stable across prior alerts.
+- If confirmed malicious, weigh DNS/domain-controller criticality, then isolate the server when feasible, terminate the suspicious child and descendants after evidence capture, and block confirmed malicious domains, IPs, hashes, or payload paths identified during triage.
+- Scope other DNS servers and domain controllers for the same child path, hash, command line, signer, or "dns.exe" child-process pattern before deleting artifacts or rebuilding systems.
+- Eradicate only payloads, persistence changes, or malicious child processes identified during the investigation, restore DNS service configuration from known-good state, and reset credentials only if evidence shows credential exposure or lateral movement from the server.
+- Post-incident hardening: apply the Microsoft DNS security update for CVE-2020-1350, remove temporary SIGRed workarounds only after patching is verified, and retain process plus file, registry, and network telemetry for DNS servers where gaps limited triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File and registry events for the same child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the same child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events from the dns.exe child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events from the same dns.exe parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,12 +2,13 @@
 creation_date = "2025/06/11"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a suspicious Diagnostics Utility for Internet Explorer child process. This may indicate the successful exploitation of the vulnerability CVE-2025-33053.
+Identifies Internet Explorer Diagnostics launching a helper name from a non-System32 path, which may indicate
+CVE-2025-33053 exploitation.
 """
 from = "now-9m"
 index = [
@@ -21,30 +22,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential CVE-2025-33053 Exploitation"
-note = """## Triage and analysis
-
-### Investigating Potential CVE-2025-33053 Exploitation
-
-### Possible investigation steps
-
-- Review the process details to confirm the suspicious child process was indeed started by iediagcmd.exe.
-- Check any URL file type creation before the alert and review the source of those files.
-- Investigate the process tree and make sure all descendant processes are terminated.
-- Examine the network activity associated with the suspicious process to detect any unauthorized data exfiltration or communication with known malicious IP addresses.
-- Assess the system for any additional indicators of compromise, such as unexpected changes in system files or registry keys, which might suggest a broader attack.
-
-### False positive analysis
-
-- This behavior is very rare and should be highly suspicious.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of the potential threat and to contain any malicious activity.
-- Terminate the suspicious child process identified in the alert.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or processes.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if the threat is part of a larger attack campaign.
-- Implement additional monitoring and alerting for similar suspicious activities involving explorer.exe to enhance detection capabilities and prevent recurrence.
-- Review and update endpoint security policies to restrict the execution of potentially malicious URL files."""
 references = [
      "https://research.checkpoint.com/2025/stealth-falcon-zero-day/", 
      "https://msrc.microsoft.com/update-guide/en-US/vulnerability/CVE-2025-33053",
@@ -57,11 +34,10 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
@@ -81,6 +57,170 @@ process where host.os.type == "windows" and event.type == "start" and
                             "C:\\Windows\\System32\\makecab.exe")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential CVE-2025-33053 Exploitation
+
+#### Possible investigation steps
+
+- Does the alert show "iediagcmd.exe" launching a non-system helper?
+  - Focus: `process.parent.executable`, `process.name`, `process.executable`, and `process.command_line`; check for WebDAV, UNC, temp, downloads, archive-extracted, or user-writable helper paths.
+  - Implication: escalate when the helper name matches a diagnostics utility but `process.executable` is outside "C:\\Windows\\System32\\" or points to remote/user-writable content; lower suspicion only when the path is a controlled diagnostic harness bounded to this `host.id` and `user.id`.
+- Does child identity fit the claimed system utility?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the child is unsigned, newly seen, remotely hosted, user-writable, or PE metadata mismatches the helper name; a trusted signer/familiar name confirms identity only, not benign "iediagcmd.exe" use.
+- Does parent/session context fit user-triggered execution?
+  - Focus: `process.parent.command_line`, `process.Ext.session_info.logon_type`, and `user.id`.
+  - Hint: inspect `process.Ext.ancestry` only when direct parent/child context is incomplete.
+  - Implication: escalate when the parent command line/ancestry points to a shortcut, archive, browser, mail client, or document-open path in an interactive user session; lower suspicion when parent/session evidence stays inside a controlled diagnostic or authorized test launch path.
+- If file telemetry is available, did the lure or child stage follow-on artifacts?
+  - Focus: recover file events with `host.id` + `process.entity_id`; if absent, use `host.id` + `process.pid` in the alert window. Review `file.name`, `file.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier` for ".url" lures, archive extraction, decoy PDFs, copied helpers, DLLs, or payloads. $investigate_0
+  - Hint: if the child writes a file, check later starts where `process.executable` equals `file.path`.
+  - Implication: escalate on internet provenance, WebDAV/UNC lure paths, decoys, copied utilities, DLLs, or written artifacts later executed; missing file telemetry is unresolved, not benign.
+- If DNS/connection telemetry is available, did the child contact a remote share or callback?
+  - Focus: recover network events with `host.id` + `process.entity_id`; if absent, use `host.id` + `process.pid` in the alert window. Separate DNS `dns.question.name`/`dns.resolved_ip` from connection `destination.ip`/`destination.port`. $investigate_1
+  - Hint: map "lookup_result" `dns.question.name` to `dns.resolved_ip`, then compare with `destination.ip` and any remote host from the helper path or lure.
+  - Implication: escalate when the child reaches a remote-share host, rare public destination, or later C2-like infrastructure unrelated to diagnostics; missing DNS/connection telemetry is unresolved, not benign.
+- Do descendants or siblings show cleanup, decoy opening, or payload execution?
+  - Focus: later process starts on the same `host.id`, using direct `process.parent.entity_id` links first; review `process.executable`, `process.command_line`, `process.Ext.created_suspended`, and signer context. $investigate_2
+  - Hint: use PID matching only in a tight alert-time window, and inspect `process.Ext.ancestry` only when direct lineage is incomplete.
+  - Implication: escalate when the chain launches "taskkill.exe", opens a decoy through "cmd.exe", starts a browser from an abnormal path, creates a suspended process, or runs unsigned follow-on payloads; keep host-local only when no follow-on evidence contradicts a bounded diagnostic or test path.
+- If local evidence is suspicious or incomplete, do related alerts show broader delivery or post-exploitation?
+  - Focus: review same-`user.id` alerts over 48 hours for the same lure, proxy-execution, payload, or C2 pattern. $investigate_3
+  - Hint: if the user scope is sparse or shared, compare same-`host.id` alerts for the same ".url", WebDAV, child hash, or payload pattern. $investigate_4
+  - Implication: expand response scope when related alerts show the same lure, remote working directory, payload, or post-exploitation pattern; keep response host-local only when related alerts are absent and local telemetry fully explains one recognized workflow.
+- What disposition do helper-path, identity, launch, artifact, network, descendant, and related-alert findings support?
+  - Implication: escalate on remote working-directory abuse, lure delivery, payload staging, suspicious destinations, cleanup, or broader compromise; close only when process, artifact, network, descendant, and alert-scope evidence bind one recognized diagnostic or authorized test workflow; preserve and escalate on incomplete or mixed visibility.
+
+### False positive analysis
+
+- Routine diagnostics resolve helpers from "C:\\Windows\\System32\\". Treat helper execution from WebDAV, UNC, temp, downloads, or archive paths as an operational anti-pattern unless telemetry proves a controlled harness or authorized exploit test: child identity (`process.executable`, `process.hash.sha256`, signer, `process.command_line`), parent launch context, `user.id`, `host.id`, and ".url", file-provenance, DNS, or destination evidence stay inside the same bounded workflow; use testing records only to corroborate telemetry.
+- Before exceptions, validate the minimum recurring pattern: child path or hash, signer, command line, `process.parent.executable`, `user.id`, `host.id`, and bounded lure or destination pattern. Avoid exceptions on "iediagcmd.exe", `process.name`, helper basename, or `host.id` alone because those fields also match malicious working-directory hijack chains.
+
+### Response and remediation
+
+- If confirmed benign, reverse containment and document the exact child path/hash, command line, parent launch context, `user.id`, `host.id`, and lure or destination evidence proving the diagnostic or testing workflow. Create an exception only for that recurring bounded pattern.
+- If suspicious but unconfirmed, preserve a case export of the alert, parent/child process details, suspicious helper binary, ".url" or archive artifacts, file-provenance records, DNS/connection records, and descendant process evidence before containment. Apply reversible containment first: block the confirmed WebDAV or callback destination, remove remote-share access, or raise monitoring on `host.id`; isolate only when artifact, network, or descendant evidence shows active compromise and the host role can tolerate disruption.
+- If confirmed malicious, isolate the host or terminate the malicious child and confirmed descendants only after recording process entity IDs, command lines, hashes, lure paths, destination indicators, and related alert identifiers. If endpoint response is unavailable, hand off preserved evidence to contain the endpoint or block remote infrastructure.
+- Before deleting artifacts, scope other users and hosts for the same ".url" filename pattern, WebDAV/UNC host, child hash, command line, decoy path, and payload path. Remove only lure files, dropped helpers, DLLs, decoys, archives, and payloads found during the investigation, then restore modified execution paths that supported the hijack chain.
+- After containment, apply the June 2025 Windows security updates for CVE-2025-33053 where missing, restrict untrusted Internet Shortcut content and remote-working-directory execution paths, retain process/file/network telemetry, and document variants such as helper names or WebDAV paths for detection engineering review.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.name",
+    "process.pid",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.Ext.session_info.logon_type",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.hash.sha256",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the suspicious child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the suspicious child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the suspicious child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

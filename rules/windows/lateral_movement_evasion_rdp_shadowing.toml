@@ -2,7 +2,7 @@
 creation_date = "2021/04/12"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -24,40 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Remote Desktop Shadowing Activity"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Remote Desktop Shadowing Activity
-
-Remote Desktop Shadowing allows administrators to view or control active RDP sessions, aiding in support and troubleshooting. However, adversaries can exploit this feature to monitor or hijack user sessions without consent. The detection rule identifies suspicious modifications to RDP Shadow registry settings and the execution of specific processes linked to shadowing, signaling potential misuse.
-
-### Possible investigation steps
-
-- Review the registry event details to confirm if there was a modification to the RDP Shadow registry path, specifically checking for changes in "HKLM\\Software\\Policies\\Microsoft\\Windows NT\\Terminal Services\\Shadow".
-- Investigate the process events to identify if "RdpSaUacHelper.exe" or "RdpSaProxy.exe" were started by "svchost.exe", which could indicate unauthorized shadowing activity.
-- Check for any instances of "mstsc.exe" being executed with the "/shadow:*" argument, as this could signify an attempt to shadow an RDP session.
-- Correlate the identified processes and registry changes with user activity logs to determine if the actions were authorized or expected as part of legitimate administrative tasks.
-- Analyze network logs for any unusual remote connections or lateral movement patterns that coincide with the timing of the detected shadowing activity.
-- Consult endpoint security solutions like Microsoft Defender for Endpoint or SentinelOne for additional context or alerts related to the same host or user account involved in the shadowing activity.
-
-### False positive analysis
-
-- Legitimate administrative activities may trigger alerts when IT staff use RDP Shadowing for support. To manage this, create exceptions for known IT administrator accounts or specific IP addresses.
-- Scheduled maintenance or automated scripts that modify RDP Shadow registry settings can be mistaken for malicious activity. Identify and exclude these processes or scripts from the detection rule.
-- Security software or monitoring tools that interact with RDP sessions might mimic shadowing behavior. Verify these tools and whitelist their processes to prevent false alerts.
-- Training sessions or remote support tools that use RDP Shadowing features can generate alerts. Document and exclude these activities by identifying their unique process names or arguments.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement.
-- Terminate any suspicious processes identified in the alert, such as RdpSaUacHelper.exe, RdpSaProxy.exe, or mstsc.exe with shadowing arguments, to stop potential session hijacking.
-- Revert any unauthorized changes to the RDP Shadow registry settings to their default or secure state to prevent further exploitation.
-- Conduct a thorough review of user accounts and permissions on the affected system to ensure no unauthorized changes have been made, and reset passwords for any compromised accounts.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for RDP activities across the network to detect and respond to similar threats more quickly in the future.
-- Review and update RDP access policies and configurations to ensure they align with best practices, such as enforcing multi-factor authentication and limiting RDP access to only necessary users and systems."""
 references = [
     "https://blog.bitsadmin.com/spying-on-users-using-rdp-shadowing",
     "https://swarm.ptsecurity.com/remote-desktop-services-shadowing/",
@@ -73,7 +39,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
 ]
@@ -95,12 +61,155 @@ any where host.os.type == "windows" and
 
   ) or
   (event.category == "process" and event.type == "start" and
-     (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
-     (?process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
+    (
+      (process.name : ("RdpSaUacHelper.exe", "RdpSaProxy.exe") and process.parent.name : "svchost.exe") or
+      (?process.pe.original_file_name : "mstsc.exe" and process.args : "/shadow:*")
+    )
   )
 )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Remote Desktop Shadowing Activity
+
+#### Possible investigation steps
+
+- Which RDP shadowing path fired?
+  - Focus: `event.category`, `process.name`, `process.command_line`, `registry.path`, `registry.data.strings`.
+  - Implication: escalate faster for active "mstsc.exe /shadow" use or a `Shadow` policy value that removes consent; lower suspicion only when alert-local evidence matches recognized helpdesk, training, or policy-setting activity with consent retained.
+- Do process identity and lineage fit RDP shadowing components?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.command_line`.
+  - Hint: for registry alerts, recover same-process starts for lineage or command-line detail. $investigate_0
+  - Implication: escalate when "mstsc.exe", "RdpSaUacHelper.exe", or "RdpSaProxy.exe" runs from a user-writable path, has an unexpected signer, or has a parent inconsistent with Remote Desktop Services or a support launcher. A trusted Microsoft binary confirms identity, not authorization.
+- If the `Shadow` registry value fired, did the new setting remove consent or allow control?
+  - Focus: `registry.path`, `registry.data.strings` (decimal or hex: `1`/`0x00000001` = full control with consent, `2`/`0x00000002` = full control without consent, `3`/`0x00000003` = view only with consent, `4`/`0x00000004` = view only without consent), and `process.executable`.
+  - Implication: escalate when `registry.data.strings` is `2`/`0x00000002` (full control, no consent) or `4`/`0x00000004` (view, no consent) because these allow silent shadowing; treat `1`/`0x00000001` or `3`/`0x00000003` as weaker setup evidence because the user is prompted, unless active shadowing or unexplained lineage appears.
+- If a process event fired, does it show active session shadowing?
+  - Focus: `process.name`, `process.command_line`, `process.parent.name`, `process.parent.executable`.
+  - Hint: if `process.command_line` is truncated or normalized, verify "/shadow", "/control", and "/noConsentPrompt" boundaries with `process.args` before lowering suspicion.
+  - Implication: escalate when "mstsc.exe" includes "/shadow" with "/control" or "/noConsentPrompt". Treat "RdpSaUacHelper.exe" or "RdpSaProxy.exe" under a service host as active target-side shadowing that escalates when paired with no-consent/control, unexplained lineage, or unrecognized user-host context; a plain "mstsc.exe" launch without shadowing arguments is not enough.
+- Does user, host, and session context fit recognized support or training?
+  - Focus: `user.id`, `user.name`, `user.domain`, `host.id`, `process.Ext.session_info.logon_type`.
+  - Implication: escalate when `user.id` targets an unusual workstation, privileged session, or host with no matching shadow-support pattern; lower suspicion only when user-host pairing, session type, and branch evidence match the same recognized workflow.
+- Did the same actor prepare, persist, or extend the host-side shadowing activity?
+  - Focus: `user.id`, `process.entity_id`, `process.command_line`, `registry.path`, `registry.data.strings`.
+  - Hint: start with recovered same-process events; expand to same-host process and registry events only when local capability or context remains suspicious. $investigate_1
+  - Implication: escalate when the same user or lineage enumerates sessions, prepares alternate-token launch, changes Terminal Services or RDP state, launches admin tooling, or persists shadow settings; absent process or registry evidence narrows the case but does not clear the alert.
+- If local findings stay suspicious or unresolved, do related alerts expand scope?
+  - Focus: related alerts for the same `user.id` and `host.id`, especially remote-access, credential, remote-service, and persistence alerts.
+  - Hint: review same-user alerts when local branch and capability questions remain suspicious. $investigate_2
+  - Hint: review same-host alerts when host preparation or follow-on activity remains unresolved. $investigate_3
+  - Implication: broaden scope when related alerts show the same user or host in remote-access, credential, or persistence activity; keep scope narrow only when local evidence fits a recognized workflow and related alerts do not contradict it.
+
+- Using branch, capability, identity, lineage, user-host fit, host-side activity, and related alerts, escalate unauthorized no-consent/control shadowing or stealthy policy relaxation; close only when evidence binds to one recognized support, training, or policy workflow with no contradictions; if mixed or incomplete, preserve process and registry artifacts and escalate.
+
+### False positive analysis
+
+- Helpdesk support, training labs, and supervised administration can legitimately use "mstsc.exe /shadow" or target-side "RdpSa*" helpers. Confirm `process.command_line`, `process.name`, `process.parent.name`, `user.id`, `host.id`, and any `Shadow` value align with the same authorized workflow, without contradictory `process.command_line` or `registry.path` evidence. Without ticketing or support rosters, require telemetry-only recurrence of the same command pattern, user-host pairing, consent mode, and quiet follow-on profile before closing as benign.
+- Group Policy or endpoint management tooling can legitimately change `Shadow`. Confirm stable `process.executable`, `process.code_signature.subject_name`, `process.parent.command_line`, exact `registry.path`, and resulting `registry.data.strings` match the host class. Without change records or GPO inventories, require quiet recurrence of the same process and registry pattern for the same management scope before closing.
+- Before creating an exception, anchor it on the minimum confirmed workflow: `event.category`, exact `process.command_line` or `registry.path`, `registry.data.strings`, `user.id`, and `host.id`. Avoid exceptions on `process.name`, `registry.value`, or `Shadow` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the exact `event.category`, `process.command_line` or `registry.path`, `registry.data.strings`, `user.id`, and `host.id` that proved the support, training, or policy workflow. Create an exception only after the same narrow pattern recurs.
+- If suspicious but unconfirmed, preserve a case export with the process tree, `process.entity_id`, `process.command_line`, `process.parent.command_line`, `registry.path`, `registry.value`, `registry.data.strings`, affected `user.id`, affected `host.id`, and surrounding preparation or follow-on evidence before changing host state.
+- Apply reversible containment next: restore the `Shadow` policy to the pre-change value, disable shadowing with `0`, require consent with `1` or `3`, or restrict the involved account on the affected `host.id`. Escalate to host isolation only when shadowing is part of broader session abuse and the host role can tolerate isolation.
+- If confirmed malicious, isolate the host when feasible, then terminate active "mstsc.exe" or "RdpSa*" shadowing processes after recording their process identifiers and command lines. Revert unauthorized `Shadow` and related Terminal Services or RDP shadow permission changes after preservation.
+- Scope other hosts and users tied to the same `user.id`, `process.command_line`, `registry.path`, or `registry.data.strings` before removing artifacts or resetting access.
+- Remove malicious helper scripts or tooling found during scoping, revert unauthorized RDP service or policy changes, and reset credentials that may have been exposed in the shadowed session.
+- Post-incident hardening: keep `Shadow` at the least permissive accepted setting, restrict who can shadow sessions, review RDP-Tcp shadow permissions, and retain process and registry telemetry needed to distinguish support use from no-consent shadowing."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.category",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.parent.name",
+    "process.pe.original_file_name",
+    "process.code_signature.trusted",
+    "registry.path",
+    "registry.value",
+    "registry.data.strings",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Process events for the same process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry events on the host near the alert"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
