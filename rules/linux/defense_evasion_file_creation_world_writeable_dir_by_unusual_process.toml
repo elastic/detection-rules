@@ -2,7 +2,7 @@
 creation_date = "2026/04/09"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/09"
+updated_date = "2026/05/13"
 
 [rule]
 author = ["Elastic"]
@@ -92,12 +92,9 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:file and event.type:creation and (
-  process.name:(
-    "cp" or "mv" or "chmod" or "chown" or "chattr" or "chgrp" or "curl" or "wget" or "timeout" or
-    "env" or "node" or "deno" or "nodejs" or .* or python* or perl* or ruby* or php* or lua*
-  ) or
+  process.name:("cp" or "mv") or
   process.executable:(
-    ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /run/* or /var/run/* or /boot/* or /sys/* or
+    ./* or /tmp/* or /var/tmp/* or /dev/shm/* or /run/user/* or /var/run/user/* or /boot/* or /sys/* or
     /lost+found/* or /proc/* or /var/mail/* or /var/www/*
   )
 ) and
@@ -107,9 +104,16 @@ not (
     /var/tmp/dracut.* or /var/tmp/mkinitramfs_* or /tmp/.*-00000000.so or /run/udev/rules.d/* or
     /tmp/new_root/* or /tmp/newroot/* or /run/user/*/.bubblewrap/newroot/* or /tmp/tmp.*/docker-scout_* or
     /var/tmp/portage/* or /tmp/yarn--* or /run/k3s/containerd/* or /var/tmp/pamac-build-* or
-    /tmp/mkinitcpio* or /run/user/*/netns/netns-*
+    /tmp/mkinitcpio* or /run/user/*/netns/netns-* or /tmp/apt-key* or /tmp/tmp.*/pubring.orig.gpg or
+    /tmp/CVU_19_* or /tmp/ut-backup-files.* or /tmp/tmp.*/terraform/*
   ) or
-  file.extension:("json" or "txt")
+  file.extension:("json" or "txt") or
+  process.executable:(
+    /tmp/par-* or /tmp/snap.rootfs_* or /tmp/CVU_*/exectask or /tmp/.mount_*/usr/bin/QGroundControl or
+    ./snap/snapd/*/usr/lib/snapd/snap-update-ns or "./usr/lib/snapd/snap-update-ns" or
+    "/tmp/newroot/snap/snapd/current/usr/bin/snap" or /tmp/newroot/snap/snapd/*/usr/lib/snapd/snap-confine or
+    "./usr/bin/podman" or "/tmp/newroot/usr/lib/systemd/systemd"
+  )
 )
 '''
 
@@ -133,7 +137,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["host.id", "process.executable", "file.path"]
+value = ["host.id", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
