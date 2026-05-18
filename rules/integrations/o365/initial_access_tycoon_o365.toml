@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/05/14"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/05/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Microsoft 365 audit "UserLoggedIn" events consistent with Tycoon 2FA phishing-as-a-service (PhaaS)
+adversary-in-the-middle (AiTM) activity: the Microsoft Authentication Broker requesting access where the object
+identifier matches Microsoft Graph or Exchange Online, or the Office web client application authenticating to itself,
+combined with Node.js-style user agents (node, axios, undici). Tycoon 2FA bypasses MFA by relaying authentication and
+capturing session material, often targeting Microsoft 365 and Gmail. Baseline legitimate automation and developer
+tooling before tuning.
+"""
+false_positives = [
+    """
+    Legitimate Node.js or undici-based automation, health checks, or internal services that use the Microsoft
+    Authentication Broker or the same first-party application IDs against Graph or Exchange may match. Developers using
+    axios or undici with delegated flows can also resemble this pattern.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Potential AiTM UserLoggedIn via Office App (Tycoon2FA)"
+note = """## Triage and analysis
+
+### Investigating M365 Potential AiTM UserLoggedIn via Office App (Tycoon2FA)
+
+Review `o365.audit.UserId`, `user_agent.original`, `source.ip` or `o365.audit.ActorIpAddress`, and related Entra ID
+sign-in logs (`azure.signinlogs`) for the same session or time window.
+
+Confirm whether the account owner intentionally authenticated and whether Node.js-style user agents (node, axios, undici)
+are expected for Microsoft Authentication Broker or Office web client flows in your environment.
+
+### Possible investigation steps
+
+- Correlate with `azure.signinlogs` for matching user principal name, IP, and session identifiers.
+- Review Microsoft Graph or Exchange audit activity following the login for mailbox or data access anomalies.
+- Hunt for other `UserLoggedIn` events from the same source with unusual user agents or rapid OAuth patterns.
+
+### Response and remediation
+
+- If malicious, revoke refresh tokens for the user, reset credentials per policy, and review conditional access outcomes.
+- Block or monitor the source IP and escalate per incident procedures.
+"""
+references = ["https://any.run/malware-trends/tycoon/"]
+risk_score = 73
+rule_id = "275b972d-2fed-44fc-9214-08603b3318e3"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Threat: Tycoon2FA",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"o365.audit" and event.category:"authentication" and event.action:"UserLoggedIn" and
+(
+    (
+        o365.audit.ApplicationId:"29d9ed98-a469-4536-ade2-f981bc1d605e" and
+        o365.audit.ObjectId:(
+            "00000002-0000-0ff1-ce00-000000000000" or "00000003-0000-0000-c000-000000000000"
+        )
+    ) or
+    (
+        o365.audit.ApplicationId:"4765445b-32c6-49b0-83e6-1d93765276ca" and
+        o365.audit.ObjectId:"4765445b-32c6-49b0-83e6-1d93765276ca"
+    )
+) and user_agent.original:(node or axios* or undici)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "o365.audit.UserId",
+    "user_agent.original",
+    "source.ip",
+    "o365.audit.ActorIpAddress",
+    "source.geo.country_name",
+    "event.outcome",
+    "o365.audit.ApplicationId",
+    "o365.audit.ObjectId",
+    "o365.audit.ExtendedProperties.RequestType",
+    "event.provider",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
