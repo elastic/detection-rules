@@ -558,7 +558,7 @@ class Package:
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
-        if Version.parse("8.0.0") <= stack_version < Version.parse("9.0.0"):
+        if stack_version < Version.parse("9.0.0"):
             doc_version = f"{stack_version.major}.{stack_version.minor}"
             readme_text = textwrap.dedent(f"""
             # Prebuilt Security Detection Rules
