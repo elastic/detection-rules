@@ -48,6 +48,7 @@ RULES_CONFIG = parse_rules_config()
 #   (no full rule); Kibana shows deprecation UI. deprecated_reason is only added to the
 #   stub when stack_version >= 9.4.
 MIN_STACK_VERSION_DEPRECATED_STUBS = Version.parse("9.4.0")
+MIN_STACK_VERSION_NEW_README = Version.parse("9.0.0")
 
 RELEASE_DIR = get_path(["releases"])
 PACKAGE_FILE = str(RULES_CONFIG.packages_file)
@@ -558,7 +559,7 @@ class Package:
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
-        if stack_version < Version.parse("9.0.0"):
+        if stack_version < MIN_STACK_VERSION_NEW_README:
             doc_version = f"{stack_version.major}.{stack_version.minor}"
             readme_text = textwrap.dedent(f"""
             # Prebuilt Security Detection Rules
