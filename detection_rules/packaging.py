@@ -558,14 +558,25 @@ class Package:
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
-        readme_text = textwrap.dedent("""
-        # Prebuilt Security Detection Rules
-        
-        The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/docs/solutions/security/detect-and-alert).
+        if self.name == "8.19":
+            readme_text = textwrap.dedent("""
+            # Prebuilt Security Detection Rules
 
-        To download the rules, refer to [Install Elastic prebuilt rules](https://www.elastic.co/docs/solutions/security/detect-and-alert/install-prebuilt-rules#load-prebuilt-rules). 
-        To update the rules to ensure they detect the latest threats and techniques, refer to [Update Elastic prebuilt rules](https://www.elastic.co/docs/solutions/security/detect-and-alert/update-prebuilt-rules).
-        """).lstrip()
+            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/8.19/detection-engine-overview.html).
+
+            To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
+            Then [import](https://www.elastic.co/guide/en/security/8.19/prebuilt-rules-management.html#load-prebuilt-rules)
+            the rules into the Detection engine.
+            """).lstrip()
+        else:
+            readme_text = textwrap.dedent("""
+            # Prebuilt Security Detection Rules
+
+            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/docs/solutions/security/detect-and-alert).
+
+            To download the rules, refer to [Install Elastic prebuilt rules](https://www.elastic.co/docs/solutions/security/detect-and-alert/install-prebuilt-rules#load-prebuilt-rules).
+            To update the rules to ensure they detect the latest threats and techniques, refer to [Update Elastic prebuilt rules](https://www.elastic.co/docs/solutions/security/detect-and-alert/update-prebuilt-rules).
+            """).lstrip()
 
         # notice only needs to be appended to the README for 7.13.x
         # in 7.14+ there's a separate modal to display this
