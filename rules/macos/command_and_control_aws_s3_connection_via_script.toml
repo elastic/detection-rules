@@ -70,7 +70,7 @@ FROM logs-endpoint.events.network-*
          OR destination.domain LIKE "*.s3*.amazonaws.com" 
          OR destination.domain LIKE "*.cloudfront.net")
     AND (process.code_signature.exists == "false" OR process.code_signature.trusted == "false")
-    AND NOT (process.executable LIKE "/opt/homebrew/*")
+    AND NOT (process.executable LIKE "/opt/homebrew/*" OR process.executable LIKE "/Applications/Xcode*.app/*")
 | STATS Esql.connection_count = COUNT(*),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.code_signature_exists_values = VALUES(process.code_signature.exists),
