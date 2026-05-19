@@ -558,27 +558,30 @@ class Package:
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
-        if self.name == "8.19":
-            readme_text = textwrap.dedent("""
+        if Version.parse("8.0.0") <= stack_version < Version.parse("9.0.0"):
+            doc_version = f"{stack_version.major}.{stack_version.minor}"
+            readme_text = textwrap.dedent(f"""
             # Prebuilt Security Detection Rules
 
-            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/8.19/detection-engine-overview.html).
+            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/{doc_version}/detection-engine-overview.html).
 
             To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
-            Then [import](https://www.elastic.co/guide/en/security/8.19/prebuilt-rules-management.html#load-prebuilt-rules)
+            Then [import](https://www.elastic.co/guide/en/security/{doc_version}/prebuilt-rules-management.html#load-prebuilt-rules)
             the rules into the Detection engine.
             """).lstrip()
         else:
-            readme_text = textwrap.dedent("""
+            docs = "https://www.elastic.co/docs/solutions/security/detect-and-alert"
+            install_docs = f"{docs}/install-prebuilt-rules#load-prebuilt-rules"
+            update_docs = f"{docs}/update-prebuilt-rules"
+            readme_text = textwrap.dedent(f"""
             # Prebuilt Security Detection Rules
 
-            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/docs/solutions/security/detect-and-alert).
+            The detection rules package stores the prebuilt security rules for the Elastic Security
+            [detection engine]({docs}).
 
-            To download the rules, refer to [Install Elastic prebuilt rules](
-            https://www.elastic.co/docs/solutions/security/detect-and-alert/install-prebuilt-rules#load-prebuilt-rules).
+            To download the rules, refer to [Install Elastic prebuilt rules]({install_docs}).
             To update the rules to ensure they detect the latest threats and techniques, refer to
-            [Update Elastic prebuilt rules](
-            https://www.elastic.co/docs/solutions/security/detect-and-alert/update-prebuilt-rules).
+            [Update Elastic prebuilt rules]({update_docs}).
             """).lstrip()
 
         # notice only needs to be appended to the README for 7.13.x
