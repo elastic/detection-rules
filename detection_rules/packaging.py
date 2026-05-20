@@ -48,6 +48,7 @@ RULES_CONFIG = parse_rules_config()
 #   (no full rule); Kibana shows deprecation UI. deprecated_reason is only added to the
 #   stub when stack_version >= 9.4.
 MIN_STACK_VERSION_DEPRECATED_STUBS = Version.parse("9.4.0")
+MIN_STACK_VERSION_NEW_README = Version.parse("9.0.0")
 
 RELEASE_DIR = get_path(["releases"])
 PACKAGE_FILE = str(RULES_CONFIG.packages_file)
@@ -558,18 +559,31 @@ class Package:
                 asset_path.write_text(json.dumps(asset, indent=4, sort_keys=True), encoding="utf-8")
 
         notice_contents = NOTICE_FILE.read_text()
-        readme_text = textwrap.dedent("""
-        # Prebuilt Security Detection Rules
+        if stack_version < MIN_STACK_VERSION_NEW_README:
+            doc_version = f"{stack_version.major}.{stack_version.minor}"
+            readme_text = textwrap.dedent(f"""
+            # Prebuilt Security Detection Rules
 
-        The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/7.13/detection-engine-overview.html).
+            The detection rules package stores the prebuilt security rules for the Elastic Security [detection engine](https://www.elastic.co/guide/en/security/{doc_version}/detection-engine-overview.html).
 
-        To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
-        Then [import](https://www.elastic.co/guide/en/security/current/rules-ui-management.html#load-prebuilt-rules)
-        the rules into the Detection engine.
+            To download or update the rules, click **Settings** > **Install Prebuilt Security Detection Rules assets**.
+            Then [import](https://www.elastic.co/guide/en/security/{doc_version}/prebuilt-rules-management.html#load-prebuilt-rules)
+            the rules into the Detection engine.
+            """).lstrip()
+        else:
+            docs = "https://www.elastic.co/docs/solutions/security/detect-and-alert"
+            install_docs = f"{docs}/install-prebuilt-rules#load-prebuilt-rules"
+            update_docs = f"{docs}/update-prebuilt-rules"
+            readme_text = textwrap.dedent(f"""
+            # Prebuilt Security Detection Rules
 
-        ## License Notice
+            The detection rules package stores the prebuilt security rules for the Elastic Security
+            [detection engine]({docs}).
 
-        """).lstrip()
+            To download the rules, refer to [Install Elastic prebuilt rules]({install_docs}).
+            To update the rules to ensure they detect the latest threats and techniques, refer to
+            [Update Elastic prebuilt rules]({update_docs}).
+            """).lstrip()
 
         # notice only needs to be appended to the README for 7.13.x
         # in 7.14+ there's a separate modal to display this
