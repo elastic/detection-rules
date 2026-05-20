@@ -58,6 +58,7 @@ tags = [
     "Domain: Cloud",
     "Domain: Endpoint",
     "OS: Windows",
+    "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Data Source: Azure",
@@ -71,17 +72,16 @@ type = "esql"
 
 query = '''
 FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _version, _index
-| WHERE (
-    event.category == "process" AND KQL("event.type:start")
-    AND process.name == "powershell.exe"
-    AND process.command_line LIKE "powershell  -ExecutionPolicy Unrestricted -File script?.ps1"
-  ) OR
+| WHERE 
   (
     event.category == "process" AND KQL("event.action:start")
     AND process.parent.name == "powershell.exe"
     AND process.parent.command_line LIKE "powershell  -ExecutionPolicy Unrestricted -File script?.ps1"
     AND process.name != "conhost.exe"
   ) OR
+  (
+    KQL("event.category:process and event.action:exec and process.parent.name:(dash or bash or sh) and process.parent.args:/var/lib/waagent/run-command/download/*/script.sh")
+   )
   (
     event.module == "azure"
     AND event.action == "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION"
