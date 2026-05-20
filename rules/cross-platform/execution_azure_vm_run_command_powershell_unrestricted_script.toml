@@ -81,12 +81,12 @@ FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _ve
   ) OR
   (
     KQL("event.category:process and event.action:exec and process.parent.name:(dash or bash or sh) and process.parent.args:/var/lib/waagent/run-command/download/*/script.sh")
-   )
+   ) OR 
   (
     event.module == "azure"
     AND event.action == "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION"
     AND NOT KQL("event.outcome:failure")
-  )
+   )
 
 // Azure hostname comes as upper-case while Endpoint event comes as lowercase
 | EVAL Esql.host_name = COALESCE(
