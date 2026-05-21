@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -97,9 +97,9 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
 
 // classify each source ip based on alert type
 | eval
-  Esql.source_ip_mail_access_case = case(data_stream.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_azure_signin_case = case(data_stream.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not data_stream.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
+  Esql.source_ip_mail_access_case = case(data_stream.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip)),
+  Esql.source_ip_azure_signin_case = case(data_stream.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip)),
+  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not data_stream.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip))
 
 // aggregate by source ip
 | stats
