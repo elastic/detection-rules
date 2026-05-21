@@ -20,9 +20,10 @@ false_positives = [
     production tenants since Microsoft has been steering callers off AAD Graph for years.
     """,
     """
-    Authorized red team or penetration test activity using ROADrecon, ROADtools, or similar tooling can match. Add
+    Authorized red team or penetration test activity using ROADrecon, ROADtools, AADInternalsor similar tooling can match. Add
     exceptions on the source IP, signed-in user, or app ID after validation.
     """,
+
 ]
 from = "now-9m"
 index = ["logs-azure.aadgraphactivitylogs-*"]
@@ -97,6 +98,7 @@ type = "query"
 
 query = '''
 data_stream.dataset:"azure.aadgraphactivitylogs"
+and azure.aadgraphactivitylogs.properties.actor_type: "User"
 and user_agent.original:(
     *fasthttp* or *aiohttp* or *azurehound* or *bloodhound* or *AADInternals*
     or *go-http-client* or python* or *curl/* or *okhttp*
