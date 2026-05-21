@@ -60,24 +60,19 @@ tags = [
 ]
 type = "esql"
 query = '''
-FROM logs-endpoint.events.network-*
+FROM logs-endpoint.events.network-*  
 | WHERE host.os.type == "macos" 
-    AND event.type == "start"
+    AND event.type == "start"  
     AND (process.name == "osascript" 
-         OR process.name == "node" 
-         OR process.name LIKE "python*")
+            OR process.name == "node" 
+            OR process.name LIKE "python*")  
     AND (destination.domain LIKE "s3.*.amazonaws.com" 
-         OR destination.domain LIKE "*.s3*.amazonaws.com" 
-         OR destination.domain LIKE "*.cloudfront.net")
-    AND (process.code_signature.exists == "false" OR process.code_signature.trusted == "false")
-    AND NOT (process.executable LIKE "/opt/homebrew/*" OR process.executable LIKE "/Applications/Xcode*.app/*")
-| STATS Esql.connection_count = COUNT(*),
-        Esql.process_executable_values = VALUES(process.executable),
-        Esql.code_signature_exists_values = VALUES(process.code_signature.exists),
-        Esql.code_signature_trusted_values = VALUES(process.code_signature.trusted)
-  BY user.name, host.name, destination.domain, process.entity_id
-| WHERE Esql.connection_count >= 20
-| KEEP Esql.*, user.name, host.name, destination.domain, process.entity_id
+            OR destination.domain LIKE "*.s3*.amazonaws.com" 
+            OR destination.domain LIKE "*.cloudfront.net")  
+| STATS Esql.connection_count = COUNT(*) 
+    BY process.entity_id, process.executable, user.name, host.name, destination.domain  
+| WHERE Esql.connection_count >= 20  
+| KEEP Esql.*, process.entity_id, process.executable, user.name, host.name, destination.domain  
 '''
 
 [[rule.threat]]
