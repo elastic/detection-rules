@@ -2,7 +2,7 @@
 creation_date = "2025/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -94,11 +94,9 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 from logs-endpoint.events.network-* metadata _id, _index, _version
-| mv_expand event.action
 | where
     host.os.type == "linux" and
-    event.type == "start" and
-    event.action == "connection_attempted" and
+    KQL("event.type:start and event.action:connection_attempted") and
     not (
       process.executable in ("/usr/local/bin/prometheus", "/app/extra/chrome", "/usr/lib/virtualbox/VBoxHeadless", "/usr/bin/prometheus") or
       process.executable like "/usr/local/prometheus/*/prometheus" or

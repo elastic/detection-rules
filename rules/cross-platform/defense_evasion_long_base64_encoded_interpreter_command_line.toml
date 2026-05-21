@@ -2,7 +2,7 @@
 creation_date = "2026/03/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/27"
+updated_date = "2026/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -63,6 +63,7 @@ type = "esql"
 query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 | MV_EXPAND _ignored
+| MV_EXPAND event.type
 | WHERE _ignored == "process.command_line"
 | WHERE event.category == "process" and event.type == "start"
 | EVAL command_line = TO_LOWER(process.command_line.text), pname = TO_LOWER(process.name)

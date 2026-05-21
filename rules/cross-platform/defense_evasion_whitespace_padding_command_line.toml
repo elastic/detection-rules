@@ -2,7 +2,7 @@
 creation_date = "2025/06/30"
 integration = ["endpoint", "system", "windows", "auditd_manager", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,7 @@ type = "esql"
 
 query = '''
 FROM logs-* metadata _id, _version, _index 
-| where event.category == "process" and event.type == "start" and event.action != "fork"
+| where event.category == "process" and KQL("event.type:start and not event.action:fork")
 // more than 100 spaces in process.command_line
 | eval multi_spaces = LOCATE(process.command_line, space(100)) 
 | where multi_spaces > 0 

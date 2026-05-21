@@ -2,7 +2,7 @@
 creation_date = "2026/03/26"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/05"
 
 [rule]
 author = ["Elastic"]
@@ -62,9 +62,9 @@ type = "esql"
 query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 
-| WHERE host.os.type in ("linux", "macos") and event.type == "start" and TO_LOWER(process.parent.name) like "python*" and
+| WHERE host.os.type in ("linux", "macos") and TO_LOWER(process.parent.name) like "python*" and
   process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
-  KQL("""event.action:"exec" and process.args:("-c" or "-cl" or "-lc")""")
+  KQL("""event.action:"exec" and event.type:"start" and process.args:("-c" or "-cl" or "-lc")""")
 
 // truncate timestamp to 1-minute window
 | EVAL Esql.time_window_date_trunc = DATE_TRUNC(1 minutes, @timestamp)
