@@ -79,8 +79,6 @@ type = "esql"
 
 query = '''
 from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
-// query runs every 1 hour looking for activities occurred during last 8 hours to match on disparate events
-| where @timestamp > now() - 8 hours
 // filter for azure or m365 sign-in and external alerts with source.ip not null
 | where to_ip(source.ip) is not null
   and (data_stream.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa")
