@@ -750,6 +750,8 @@ class QueryRuleData(BaseRuleData):
     @cached_property
     def validator(self) -> QueryValidator | None:
         if self.language == "kuery":
+            if not self.query.strip() and self.filters:
+                return None
             return KQLValidator(self.query)
         if self.language == "eql":
             return EQLValidator(self.query)
