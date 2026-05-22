@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import eql
+import kql
 import pytest
 from marshmallow import ValidationError
 from semver import Version
@@ -304,6 +305,72 @@ class TestSchemas(unittest.TestCase):
         ]
         contents = build_rule(response_actions)
         self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
+
+    @unittest.mock.patch.dict(os.environ, {"CUSTOM_RULES_DIR": "/tmp"})
+    @unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "/tmp")
+    def test_empty_kuery_with_filters_valid_for_custom_rules(self) -> None:
+        """Empty KQL query with filters is valid for custom rules (Kibana filter-only rules)."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        rule = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "filter only rule",
+            "query": "",
+            "filters": [
+                {
+                    "meta": {
+                        "disabled": False,
+                        "negate": False,
+                        "alias": None,
+                        "index": "logs-*",
+                        "key": "message",
+                        "field": "message",
+                        "params": {"query": "expected phrase"},
+                        "type": "phrase",
+                    },
+                    "query": {"match_phrase": {"message": "expected phrase"}},
+                    "$state": {"store": "appState"},
+                }
+            ],
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        contents = TOMLRuleContents.from_dict({"metadata": metadata, "rule": rule})
+        self.assertEqual(contents.data.query, "")
+        self.assertIsNone(contents.data.validator)
+
+    def test_empty_kuery_without_custom_rules_dir_invalid(self) -> None:
+        """Empty KQL query is always invalid for non-custom (prebuilt) rules."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        rule = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "filter only rule",
+            "query": "",
+            "filters": [{"meta": {}, "query": {}, "$state": {}}],
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with self.assertRaises(kql.KqlParseError):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": rule})
 
 
 class TestVersionLockSchema(unittest.TestCase):

@@ -28,7 +28,7 @@ from marshmallow import ValidationError, pre_load, validates_schema
 from semver import Version
 
 from . import beats, ecs, endgame, utils
-from .config import load_current_package_version, parse_rules_config
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
@@ -750,6 +750,8 @@ class QueryRuleData(BaseRuleData):
     @cached_property
     def validator(self) -> QueryValidator | None:
         if self.language == "kuery":
+            if not self.query.strip() and self.filters and CUSTOM_RULES_DIR:
+                return None
             return KQLValidator(self.query)
         if self.language == "eql":
             return EQLValidator(self.query)
