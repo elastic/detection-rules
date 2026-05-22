@@ -7,8 +7,8 @@ updated_date = "2026/05/20"
 [rule]
 author = ["Elastic"]
 description = """
-Correlates successful Azure Virtual Machine Run Command operations with endpoint PowerShell execution on the same host
-within two minutes. Adversaries abuse Run Command to run scripts remotely as SYSTEM while activity logs only record the
+Correlates successful Azure Virtual Machine Run Command operations with endpoint process execution on the same host
+within minutes. Adversaries abuse Run Command to run scripts remotely as SYSTEM or root while activity logs only record the
 control-plane action; Elastic Defend process telemetry reveals the on-guest payload.
 """
 false_positives = [
@@ -27,8 +27,7 @@ note = """## Triage and analysis
 ### Investigating Azure Run Command Correlated with Process Execution
 
 This ES|QL rule correlates Azure Activity Log `MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION` events with
-endpoint process starts where PowerShell runs `-ExecutionPolicy Unrestricted -File script?.ps1` (or a child of that
-parent), joined on host name within a two-minute bucket and a 0–120 second delay between Run Command and process start.
+endpoint process starts, joined on host name within a two-minute bucket and a 0–120 second delay between Run Command and process start.
 
 Pivot into raw `logs-azure.activitylogs-*` and `logs-endpoint.events.process-*` events for full command lines and
 resource identifiers.
