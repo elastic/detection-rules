@@ -1,28 +1,26 @@
 [metadata]
-creation_date = "2026/05/20"
+creation_date = "2026/05/22"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/20"
+updated_date = "2026/05/22"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies Azure AD Graph (graph.windows.net) requests where the combination of calling OAuth client
-(`azure.aadgraphactivitylogs.properties.app_id`) and signed-in user (`user.id`) has not been observed in
-the tenant in the previous 14 days. A user appearing against AAD Graph under an OAuth client that has not
-previously authenticated that user is a sign of a FOCI swap, a phished refresh token being redeemed for a
-new client, or an adversary running tooling under a client identity the user does not normally use. This is
-a new-terms style detection that fires on first observation of a (client, user) pair against AAD Graph.
+(`azure.aadgraphactivitylogs.properties.app_id`) and signed-in user (`user.id`) has not been observed in the tenant in
+the previous 14 days. A user appearing against AAD Graph under an OAuth client that has not previously authenticated
+that user is a sign of a FOCI swap, a phished refresh token being redeemed for a new client, or an adversary running
+tooling under a client identity the user does not normally use. This is a new-terms style detection that fires on first
+observation of a (client, user) pair against AAD Graph.
 """
 false_positives = [
     """
-    First-time use of a legitimate first-party or sanctioned client by the user (newly installed app, first
-    sign-in to a workload, fresh PowerShell module install). Validate by `azure.aadgraphactivitylogs.properties.app_id`
-    and the user's history.
+    First-time use of a legitimate first-party or sanctioned client by the user (newly installed app, first sign-in to a
+    workload, fresh PowerShell module install). Validate by `azure.aadgraphactivitylogs.properties.app_id` and the
+    user's history.
     """,
-    """
-    Authorized red team or audit activity. Add exceptions on the calling user after review.
-    """,
+    "    Authorized red team or audit activity. Add exceptions on the calling user after review.\n    ",
 ]
 from = "now-9m"
 index = ["logs-azure.aadgraphactivitylogs-*"]
@@ -106,6 +104,42 @@ data_stream.dataset:"azure.aadgraphactivitylogs" and
     ) and user.id:*
 '''
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
 [rule.investigation_fields]
 field_names = [
     "user.id",
@@ -118,50 +152,11 @@ field_names = [
     "azure.tenant_id",
 ]
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1550"
-name = "Use Alternate Authentication Material"
-reference = "https://attack.mitre.org/techniques/T1550/"
-[[rule.threat.technique.subtechnique]]
-id = "T1550.001"
-name = "Application Access Token"
-reference = "https://attack.mitre.org/techniques/T1550/001/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
-
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1087"
-name = "Account Discovery"
-reference = "https://attack.mitre.org/techniques/T1087/"
-[[rule.threat.technique.subtechnique]]
-id = "T1087.004"
-name = "Cloud Account"
-reference = "https://attack.mitre.org/techniques/T1087/004/"
-
-
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [rule.new_terms]
 field = "new_terms_fields"
-value = [
-    "azure.aadgraphactivitylogs.properties.app_id",
-    "user.id",
-]
-
+value = ["azure.aadgraphactivitylogs.properties.app_id", "user.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+
