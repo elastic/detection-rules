@@ -306,8 +306,8 @@ class TestSchemas(unittest.TestCase):
         contents = build_rule(response_actions)
         self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
 
-    @unittest.mock.patch.dict(os.environ, {"CUSTOM_RULES_DIR": "/tmp"})
-    @unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "/tmp")
+    @unittest.mock.patch.dict(os.environ, {"CUSTOM_RULES_DIR": "custom-rules-dir"})
+    @unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir")
     def test_empty_kuery_with_filters_is_valid_for_custom_rules(self) -> None:
         """Test that filter-only KQL rules exported from Kibana can be loaded."""
         metadata = {
