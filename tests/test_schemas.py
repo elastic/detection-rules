@@ -306,7 +306,9 @@ class TestSchemas(unittest.TestCase):
         contents = build_rule(response_actions)
         self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
 
-    def test_empty_kuery_with_filters_is_valid(self) -> None:
+    @unittest.mock.patch.dict(os.environ, {"CUSTOM_RULES_DIR": "/tmp"})
+    @unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "/tmp")
+    def test_empty_kuery_with_filters_is_valid_for_custom_rules(self) -> None:
         """Test that filter-only KQL rules exported from Kibana can be loaded."""
         metadata = {
             "creation_date": "1970/01/01",
@@ -349,6 +351,46 @@ class TestSchemas(unittest.TestCase):
         rule_without_filters = dict(rule, rule_id=str(uuid.uuid4()), filters=[])
         with self.assertRaises(kql.KqlParseError):
             TOMLRuleContents.from_dict({"metadata": metadata, "rule": rule_without_filters})
+
+    def test_empty_kuery_with_filters_is_invalid_for_prebuilt_rules(self) -> None:
+        """Test that filter-only KQL remains invalid outside custom rule exports."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        rule = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "filter only rule",
+            "query": "",
+            "filters": [
+                {
+                    "meta": {
+                        "disabled": False,
+                        "negate": False,
+                        "alias": None,
+                        "index": "logs-*",
+                        "key": "message",
+                        "field": "message",
+                        "params": {"query": "expected phrase"},
+                        "type": "phrase",
+                    },
+                    "query": {"match_phrase": {"message": "expected phrase"}},
+                    "$state": {"store": "appState"},
+                }
+            ],
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+
+        with self.assertRaises(kql.KqlParseError):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": rule})
 
 
 class TestVersionLockSchema(unittest.TestCase):
