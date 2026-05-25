@@ -61,11 +61,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where host.os.type == "macos" and event.action == "exec" and
-  process.name like~ "sqlite*" and
-  process.args like "/*/Application Support/com.apple.TCC/TCC.db" and
-  (process.parent.name like~ ("osascript","bash","sh","zsh","Terminal","Python*")
-   or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
+process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name like~ "sqlite*" and
+ process.args like "/*/Application Support/com.apple.TCC/TCC.db" and
+ (process.parent.name like~ ("osascript", "bash", "sh", "zsh", "Terminal", "Python*") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 
