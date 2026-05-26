@@ -2,7 +2,7 @@
 creation_date = "2021/01/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/04/24"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic", "Skoetting"]
@@ -45,6 +45,13 @@ This rule monitors events related to a user being added to a privileged group.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
+
+setup = """## Setup
+
+Audit Security Group Management must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-security-group-management
+"""
+
 references = [
     "https://docs.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
 ]
@@ -102,14 +109,18 @@ iam where host.os.type == "windows" and event.action == "added-member-to-group" 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

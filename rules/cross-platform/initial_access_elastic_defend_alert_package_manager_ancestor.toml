@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2026/03/31"
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
+min_stack_version = "9.3.0"
+updated_date = "2026/04/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Elastic Defend alerts (behavior, malicious file, memory signature, shellcode) where the alerted process has a
+package-manager install context in its ancestry: npm (Node.js), PyPI (pip / Python / uv), or Rust (cargo). Install-time
+spawn chains are a common path for supply-chain and postinstall abuse; this Higher-Order rule surfaces Defend alerts
+whose process tree includes such activity for prioritization.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Elastic Defend Alert from Package Manager Install Ancestry"
+note = """## Triage and analysis
+
+### Investigating Elastic Defend Alert from Package Manager Install Ancestry
+
+Elastic Defend raised an alert on a process whose ancestry includes a parent that was involved in a package install
+(npm, pip/PyPI, or cargo/crates.io). That can indicate malicious postinstall scripts, dependency confusion, or
+compromised packages.
+
+### Possible investigation steps
+
+- Identify the install context by finding a process whose `entity_id` appears in `Esql.pkg_ancestor_ids` (intersection
+  with `process.Ext.ancestry`).
+- Review `process.command_line` and `process.parent.command_line` for the install command and any script hooks
+  (e.g. `preinstall`, `postinstall`, `setup.py`, build scripts).
+- Correlate package name, registry, and lockfile or manifest on the host if available.
+- Pivot on host, user, and network for additional alerts or outbound connections from the same tree.
+
+### False positive analysis
+
+- Normal `npm install`, `pip install`, and `cargo build` / `cargo install` during development or CI can produce alerts
+  on descendant processes. Tune by excluding known-safe Defend rule names, paths, or command-line patterns.
+
+### Response and remediation
+
+- If abuse is confirmed: remove the suspect package, rotate secrets exposed to that environment, and block related IOCs.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1195/",
+    "https://attack.mitre.org/techniques/T1195/002/",
+]
+risk_score = 99
+rule_id = "344e6c7d-ceb0-4f20-ba04-7c75569a7e38"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _version, _index
+
+| EVAL is_pkg_install = CASE(
+    // npm  npx  yarn  pnpm (Node.js ecosystem)
+    process.parent.name IN ("node", "node.exe") AND (
+      process.parent.command_line LIKE "*npm install*" OR
+      process.parent.command_line LIKE "*npm i *" OR
+      ends_with(process.parent.command_line, "npm i") OR
+      process.parent.command_line LIKE "*npx *" OR
+      process.parent.command_line LIKE "*yarn install*" OR
+      process.parent.command_line LIKE "*yarn add*" OR
+      process.parent.command_line LIKE "*pnpm install*" OR
+      process.parent.command_line LIKE "*pnpm add*" OR
+      process.parent.command_line LIKE "*npm-cli.js*install*" OR
+      process.parent.command_line LIKE "*setup.js*"
+    ), true,
+
+    // pip  pip3 pipx poetry  uv (Python ecosystem)
+    ((process.parent.name like "python*" or process.parent.name like "pip*" or process.parent.name IN ("uv", "uv.exe") ) AND (
+      process.parent.command_line LIKE "*pip install*" OR
+      process.parent.command_line LIKE "*pip3 install*" OR
+      process.parent.command_line LIKE "*-m pip install*" OR
+      process.parent.command_line LIKE "*setup.py install*" OR
+      process.parent.command_line LIKE "*setup.py develop*" OR
+      process.parent.command_line LIKE "*pipx install*" OR
+      process.parent.command_line LIKE "*poetry install*" OR
+      process.parent.command_line LIKE "*poetry add*" OR
+      process.parent.command_line LIKE "*uv pip install*" OR
+      process.parent.command_line LIKE "*uv add*")), true,
+
+    // cargo (Rust / crates.io ecosystem)
+    process.parent.name IN ("cargo", "cargo.exe", "rustc", "rustc.exe") AND (
+      process.parent.command_line LIKE "*cargo install*" OR
+      process.parent.command_line LIKE "*cargo build*" OR
+      process.parent.command_line LIKE "*cargo run*" OR
+      process.parent.command_line LIKE "*cargo fetch*"), true,
+
+    false
+  )
+
+| WHERE process.Ext.ancestry IS NOT NULL AND (data_stream.dataset == "endpoint.alerts" OR is_pkg_install)
+
+// Capture entity_ids for package install parent processes
+| EVAL all_entity_id = CASE(is_pkg_install, process.parent.entity_id, "null")
+
+// Collect all package install entity_ids globally
+| INLINE STATS all_pkg_entity_ids = VALUES(all_entity_id) WHERE all_entity_id != "null"
+
+// Find which package install entity_ids appear in this process's ancestry
+| EVAL Esql.pkg_ancestor_ids = MV_INTERSECTION(all_pkg_entity_ids, process.Ext.ancestry)
+
+// Elastic Defend alerts descended from a package install process
+| WHERE Esql.pkg_ancestor_ids IS NOT NULL AND data_stream.dataset == "endpoint.alerts"
+
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

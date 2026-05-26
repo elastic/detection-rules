@@ -6,13 +6,15 @@
 """Test stack versioned schemas."""
 
 import copy
+import os
 import unittest
+import unittest.mock
 import uuid
 from pathlib import Path
+from typing import Any
 
 import eql
 import pytest
-import pytoml
 from marshmallow import ValidationError
 from semver import Version
 
@@ -253,6 +255,56 @@ class TestSchemas(unittest.TestCase):
                     process where process.pid == "some string field"
             """)
 
+    def test_response_actions_validation(self) -> None:
+        """Test that response actions are properly validated in the schema."""
+        base_fields: dict[str, Any] = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-endpoint.events.*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "process.name:test.query",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+
+        def build_rule(response_actions: list[dict[str, Any]]) -> TOMLRuleContents:
+            """Helper function to build a TOMLRuleContents object."""
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+            }
+            data = base_fields.copy()
+            data["response_actions"] = response_actions
+            return TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+        response_actions = [
+            {
+                "action_type_id": ".osquery",
+                "params": {
+                    "query": "select * from processes;",
+                    "timeout": 120,
+                    "ecs_mapping": {"process.pid": {"field": "pid"}},
+                    "queries": [{"id": "processes", "query": "select * from processes;"}],
+                },
+            },
+            {"action_type_id": ".endpoint", "params": {"command": "isolate", "comment": "isolate host"}},
+            {
+                "action_type_id": ".endpoint",
+                "params": {
+                    "command": "kill-process",
+                    "comment": "kill process",
+                    "config": {"field": "", "overwrite": True},
+                },
+            },
+        ]
+        contents = build_rule(response_actions)
+        self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
+
 
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
@@ -318,7 +370,7 @@ class TestESQLValidation(unittest.TestCase):
         # A random ESQL rule to deliver a test query
         rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
         rule_body = rule_path.read_text()
-        rule_dict = pytoml.loads(rule_body)
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
 
         # Most used order of the metadata fields
         query = """
@@ -356,4 +408,82 @@ class TestESQLValidation(unittest.TestCase):
                 | WHERE event.code == "4104"
             """
             rule_dict["rule"]["query"] = query
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_keep_validation_bypass_missing_keep(self):
+        """ES|QL keep checks are skipped when DR_BYPASS_ESQL_KEEP_VALIDATION is set."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational* METADATA _id, _index, _version
+            | WHERE event.code == "4104"
+        """
+        rule_dict["rule"]["query"] = query
+        with unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_KEEP_VALIDATION": "1"}):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_keep_bypass_does_not_skip_from_metadata_validation(self):
+        """FROM METADATA requirement still applies when only keep validation is bypassed."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational*
+            | WHERE event.code == "4104"
+        """
+        rule_dict["rule"]["query"] = query
+        with (
+            unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_KEEP_VALIDATION": "1"}),
+            pytest.raises(EsqlSemanticError),
+        ):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_metadata_validation_bypass_missing_from_metadata(self):
+        """ES|QL FROM METADATA checks are skipped when DR_BYPASS_ESQL_METADATA_VALIDATION is set."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational*
+            | WHERE event.code == "4104"
+            | KEEP event.code, _id, _version, _index
+        """
+        rule_dict["rule"]["query"] = query
+        with unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_METADATA_VALIDATION": "1"}):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_metadata_bypass_does_not_skip_keep_validation(self):
+        """`keep` validation still applies when only FROM metadata validation is bypassed."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational*
+            | WHERE event.code == "4104"
+        """
+        rule_dict["rule"]["query"] = query
+        with (
+            unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_METADATA_VALIDATION": "1"}),
+            pytest.raises(EsqlSemanticError),
+        ):
+            _ = RuleCollection().load_dict(rule_dict, path=rule_path)
+
+    def test_esql_keep_validation_bypass_missing_metadata_in_keep(self):
+        """ES|QL metadata-in-keep checks are skipped when DR_BYPASS_ESQL_KEEP_VALIDATION is set."""
+        # A random ESQL rule to deliver a test query
+        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
+        rule_body = rule_path.read_text()
+        rule_dict = RuleCollection.deserialize_toml_string(rule_body)
+        query = """
+            FROM logs-windows.powershell_operational* METADATA _id, _version, _index
+            | WHERE event.code == "4104"
+            | KEEP event.code
+        """
+        rule_dict["rule"]["query"] = query
+        with unittest.mock.patch.dict(os.environ, {"DR_BYPASS_ESQL_KEEP_VALIDATION": "1"}):
             _ = RuleCollection().load_dict(rule_dict, path=rule_path)

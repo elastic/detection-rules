@@ -2,21 +2,11 @@
 creation_date = "2024/09/12"
 integration = ["jamf_protect"]
 maturity = "production"
-updated_date = "2025/02/03"
+updated_date = "2026/05/06"
 
 [transform]
 [[transform.investigate]]
-label = "Show events after Privilege Escalation"
-providers = [
-  [
-    { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" }
-  ]
-]
-relativeFrom = "now"
-relativeTo = "now+30m"
-
-[[transform.investigate]]
-label = "Show events having the same reponsible process"
+label = "Show events having the same responsible process"
 providers = [
   [
     { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
@@ -46,9 +36,6 @@ note = """## Triage and analysis
 
 To thoroughly investigate the actions that occurred **after a user was elevated to administrator**, it's essential to conduct a search on the Timeline. This allows you to review and understand the sequence of events that followed the elevation, helping to identify any potentially malicious or unauthorized activities that might have taken place. **Analyzing these actions is crucial for maintaining security and ensuring that the elevation was not exploited for harmful purposes.**
 
-> **Note**:
-> This investigation guide uses the [Investigate Markdown Plugin](https://www.elastic.co/guide/en/security/current/interactive-investigation-guides.html) introduced in Elastic Stack version 8.8.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
 **Consider reviewing these actions:**
 
 - Have persistency items been added?
@@ -57,7 +44,6 @@ To thoroughly investigate the actions that occurred **after a user was elevated 
 
 $investigate_0
 $investigate_1
-$investigate_2
 """
 references = [
     "https://www.loobins.io/binaries/dscl/",
@@ -103,19 +89,28 @@ configuration where host.os.type == "macos" and event.type == "change" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1078"
 name = "Valid Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1078.003"
 name = "Local Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/003/"
 
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
 
+[[rule.threat.technique.subtechnique]]
+id = "T1098.007"
+name = "Additional Local or Domain Groups"
+reference = "https://attack.mitre.org/techniques/T1098/007/"
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

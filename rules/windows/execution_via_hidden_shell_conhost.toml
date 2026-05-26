@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,56 +22,8 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Conhost Spawned By Suspicious Parent Process"
-note = """## Triage and analysis
-
-### Investigating Conhost Spawned By Suspicious Parent Process
-
-The Windows Console Host, or `conhost.exe`, is both the server application for all of the Windows Console APIs as well as the classic Windows user interface for working with command-line applications.
-
-Attackers often rely on custom shell implementations to avoid using built-in command interpreters like `cmd.exe` and `PowerShell.exe` and bypass application allowlisting and security features. Attackers commonly inject these implementations into legitimate system processes.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate abnormal behaviors observed by the subject process, such as network connections, registry or file modifications, and any spawned child processes.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
-- Retrieve the parent process executable and determine if it is malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Related rules
-
-- Suspicious Process from Conhost - 28896382-7d4f-4d50-9b72-67091901fd26
-- Suspicious PowerShell Engine ImageLoad - 852c1f19-68e8-43a6-9dce-340771fe1be3
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
-    "https://www.fireeye.com/blog/threat-research/2017/08/monitoring-windows-console-activity-part-one.html",
+    "https://cloud.google.com/blog/topics/threat-intelligence/monitoring-windows-console-activity-part-one",
 ]
 risk_score = 73
 rule_id = "05b358de-aa6d-4f6c-89e6-78f74018b43b"
@@ -81,13 +33,11 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
-    "Tactic: Defense Evasion",
-    "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
@@ -104,41 +54,227 @@ process where host.os.type == "windows" and event.type == "start" and
                               "?:\\WINDOWS\\system32\\davclnt.dll,DavSetCookie"))
 '''
 
+note = """## Triage and analysis
+
+### Investigating Conhost Spawned By Suspicious Parent Process
+
+#### Possible investigation steps
+
+- Is the alerting "conhost.exe" the native console host, and which parent requested the console?
+  - Why: Windows creates "conhost.exe" for console clients; service, COM, logon, or shell parents rarely need direct console allocation.
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate if "conhost.exe" is renamed, outside the Windows directory, mismatched to its PE name, not Microsoft-signed, or if parent path and command line contradict its name; lower only when native child and parent identity fit one exact MSI, compatibility, or WebDAV helper action explaining direct parentage.
+
+- Does the parent identity, lineage, and session fit a legitimate console allocation path?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.parent.code_signature.subject_name`, `process.Ext.ancestry`, and `process.Ext.session_info.logon_type`.
+  - Implication: escalate when system/logon, COM/LOLBin, or shell/input parents run from unexpected paths, have unfamiliar signers, appear in unexpected ancestry, or allocate a console in a mismatched session; lower when signed parent command line and session fit one bounded MSI custom action, Program Compatibility Assistant, or WebDAV workflow.
+
+- Did the same parent launch a shell, script host, LOLBin, or payload around the alert?
+  - Focus: same-host child process events by `process.parent.entity_id`; if absent, use `host.id`, `process.parent.pid`, and a tight alert-time window, then read child `process.executable`, `process.command_line`, and signer. $investigate_2
+  - Hint: if clean but parent identity remains suspicious, check for pre-existing console or shell processes in the same `host.id` and session before closure.
+  - Implication: escalate when the parent starts shells, script hosts, downloaders, task/service tools, or unsigned payloads; lower only when "conhost.exe" is the lone unusual child and earlier evidence proves an exact bounded parent workflow, but do not close on this alone because attackers can reuse an existing console or shell.
+
+- If file or registry telemetry is available, did the same parent stage artifacts or change configuration?
+  - Focus: match parent `process.parent.entity_id` to actor `process.entity_id` on `host.id`; if absent, match parent/actor PID in a tight alert window, then read `file.path`. $investigate_3
+  - Hint: use the same joins for `registry.path`. $investigate_4 Missing file or registry telemetry is unresolved, not benign.
+  - Implication: escalate when the parent writes executables or scripts, stages console clients, or changes persistence or security configuration; absent optional artifacts lower corroboration only and do not close.
+
+- If DNS or network telemetry is available, did the same parent contact staging, remote-control, or lateral destinations?
+  - Focus: match parent `process.parent.entity_id` to actor `process.entity_id` on `host.id`; if absent, match parent/actor PID in a tight alert window, then read DNS "lookup_result" events (`dns.question.name`, `dns.resolved_ip`) separately from connections (`destination.ip`). $investigate_5
+  - Hint: missing DNS or network telemetry is unresolved, not benign; correlate `dns.resolved_ip` to `destination.ip` before treating a domain as contacted.
+  - Implication: escalate when the parent reaches public or internal destinations unrelated to the workflow, WebDAV/SMB destinations, or unexpected internal systems; lower only when destinations fit the same MSI, Program Compatibility Assistant, or WebDAV workflow proven by process evidence.
+
+- If the parent path, child execution, artifacts, or destinations remain suspicious or unexplained, do related alerts change scope or urgency?
+  - Focus: recent `host.id` alerts, especially process injection, indirect execution, suspicious shell, credential, or C2 activity. $investigate_0
+  - Hint: review the same `user.id` only when the local evidence suggests the operator or session may have moved to other systems. $investigate_1
+  - Implication: broaden scope when the same host or user has related injection, shell, credential, or C2 alerts; keep the case local when isolated and earlier process evidence fits one exact recognized workflow.
+
+- Escalate for masqueraded parent, unexpected ancestry, unexplained console allocation, suspicious follow-on execution, staging, or remote-control corroboration; close only when native "conhost.exe" identity, parent identity/lineage, session, child processes, optional artifact or destination evidence, and related alerts align with one recognized installer, compatibility, or WebDAV workflow with no contradictions; if mixed or incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Installer repair, MSI custom actions, Program Compatibility Assistant activity, and WebDAV helpers can allocate "conhost.exe" from signed parents. Confirm parent path/command/signer, `process.executable`, `user.id`, and `host.id` describe one exact workflow, same-parent children show no shells, script hosts, LOLBins, or payloads, and optional file, registry, DNS, or network telemetry does not contradict it. Use change records, inventories, or owner confirmation only after telemetry fits.
+- Without organizational context, telemetry-only confirmation must prove the current event fits that workflow. Historical alerts corroborate only when the same parent path, signer, command line, child, user/host, and bounded child pattern recur without contradictions; do not close on recurrence while parentage or follow-on execution remains unexplained.
+- Before an exception, validate the minimum stable pattern: parent executable, command line, signer, child executable, `user.id`, and `host.id`. Avoid exceptions on "conhost.exe", parent name, or broad signers alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment, document native child identity, parent path/signer/command, session, `user.id`, `host.id`, and corroboration, and create exceptions only for the recurring minimum pattern above.
+- If suspicious but unconfirmed, preserve the alert export, parent/child timeline, entity IDs, command lines, artifact/destination indicators, and owner/change evidence before containment. Apply reversible controls first: temporary destination blocking or heightened `host.id` / `user.id` monitoring; disable a task, service, or startup item only after identifying it as malicious. Escalate to isolation or account action only when follow-on execution, persistence, remote control, or credential abuse is confirmed and the asset can tolerate interruption.
+- If confirmed malicious, isolate the host when unauthorized parent execution, payload launch, persistence, or remote control is confirmed, after weighing host role. Record parent/payload process IDs and command lines before suspending or terminating processes, then block confirmed malicious destinations, hashes, or domains.
+- Eradicate only malicious parent/payload artifacts and configuration changes. Review other hosts/users for the same parent path, command line, child executable, artifact, or destination before deleting payloads, removing persistence, restoring settings, or closing the execution vector.
+- Post-incident hardening: tighten the exposed MSI, Program Compatibility Assistant, or WebDAV workflow, and record variants such as existing-console reuse, injected "explorer.exe", or service-host console abuse.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.pid",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.parent.code_signature.subject_name",
+    "process.parent.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process starts from the same suspicious parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events from the same suspicious parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry events from the same suspicious parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events from the same suspicious parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1036"
 name = "Masquerading"
 reference = "https://attack.mitre.org/techniques/T1036/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1055"
 name = "Process Injection"
 reference = "https://attack.mitre.org/techniques/T1055/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

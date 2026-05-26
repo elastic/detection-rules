@@ -2,7 +2,7 @@
 creation_date = "2026/02/11"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/02/18"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "ssm.amazonaws.com"
     and (
         event.action: ("GetInventory" or "GetInventorySchema" or "ListInventoryEntries" or "DescribeInstancePatches" or "ListCommands")
@@ -124,6 +124,12 @@ field_names = [
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1518"
+name = "Software Discovery"
+reference = "https://attack.mitre.org/techniques/T1518/"
+
 [[rule.threat.technique]]
 id = "T1538"
 name = "Cloud Service Dashboard"
@@ -138,7 +144,6 @@ reference = "https://attack.mitre.org/techniques/T1580/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["cloud.account.id", "user.name"]

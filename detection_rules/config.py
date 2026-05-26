@@ -16,7 +16,13 @@ import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 
 from .misc import discover_tests
-from .utils import cached, get_etc_path, load_etc_dump, set_all_validation_bypass
+from .utils import (
+    OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV,
+    cached,
+    get_etc_path,
+    load_etc_dump,
+    set_all_validation_bypass,
+)
 
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
@@ -208,6 +214,12 @@ class RulesConfig:
     exception_dir: Path | None = None
     normalize_kql_keywords: bool = True
     bypass_optional_elastic_validation: bool = False
+    bypass_note_validation_and_parse: bool = False
+    bypass_bbr_lookback_validation: bool = False
+    bypass_tags_validation: bool = False
+    bypass_timeline_template_validation: bool = False
+    bypass_esql_keep_validation: bool = False
+    bypass_esql_metadata_validation: bool = False
     no_tactic_filename: bool = False
 
     def __post_init__(self) -> None:
@@ -323,7 +335,22 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
     # bypass_optional_elastic_validation
     contents["bypass_optional_elastic_validation"] = loaded.get("bypass_optional_elastic_validation", False)
     if contents["bypass_optional_elastic_validation"]:
-        set_all_validation_bypass(contents["bypass_optional_elastic_validation"])
+        set_all_validation_bypass(True)
+        for yaml_key in OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV:
+            contents[yaml_key] = True
+    else:
+        for yaml_key, env_var in OPTIONAL_ELASTIC_VALIDATION_BYPASS_ENV.items():
+            if yaml_key in loaded:
+                val = loaded[yaml_key]
+                if not isinstance(val, bool):
+                    raise SystemExit(
+                        f"`{yaml_key}` in _config.yaml must be a boolean (true/false), not {type(val).__name__}"
+                    )
+            else:
+                val = False
+            contents[yaml_key] = val
+            if val:
+                os.environ[env_var] = str(True)
 
     # no_tactic_filename
     contents["no_tactic_filename"] = loaded.get("no_tactic_filename", False)

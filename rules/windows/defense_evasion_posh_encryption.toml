@@ -2,7 +2,7 @@
 creation_date = "2023/01/23"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/02/09"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -94,6 +94,13 @@ This behavior can be legitimate (protecting configuration values, packaging cont
 - If the activity is confirmed benign:
   - Record the expected `file.path` / `file.name`, the responsible `user.id`, and normal execution patterns to support consistent future triage and tuning decisions.
 """
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
+
 risk_score = 47
 rule_id = "1d9aeb0b-9549-46f6-a32d-05e2a001b7fd"
 severity = "medium"
@@ -140,22 +147,39 @@ event.category:process and host.os.type:windows and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.013"
+name = "Encrypted/Encoded File"
+reference = "https://attack.mitre.org/techniques/T1027/013/"
 
 [[rule.threat.technique]]
 id = "T1140"
 name = "Deobfuscate/Decode Files or Information"
 reference = "https://attack.mitre.org/techniques/T1140/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference = "https://attack.mitre.org/techniques/T1486/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -174,4 +198,3 @@ field_names = [
     "host.id",
     "powershell.file.script_block_length"
 ]
-

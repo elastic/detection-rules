@@ -16,6 +16,7 @@ from marshmallow import EXCLUDE
 from .config import parse_rules_config
 from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
+from .utils import ensure_yaml_suffix, save_yaml
 
 RULES_CONFIG = parse_rules_config()
 
@@ -111,6 +112,16 @@ class TOMLActionConnector:
             sorted_dict = dict(sorted(contents_dict.items(), key=lambda item: item[0] != "metadata"))
             pytoml.dump(sorted_dict, f)  # type: ignore[reportUnknownMemberType]
 
+    def save_yaml(self, path: Path | None = None) -> None:
+        """Save the action to a YAML file."""
+        target_path = path or self.path
+        if not target_path:
+            raise ValueError(f"Can't save action for {self.name} without a path")
+        api_format = self.contents.to_api_format()
+        # If single item, write as dict; if multiple, write as list
+        content = api_format[0] if len(api_format) == 1 else api_format
+        save_yaml(ensure_yaml_suffix(target_path), content)
+
 
 def parse_action_connector_results_from_api(
     results: list[dict[str, Any]],
@@ -152,17 +163,17 @@ def build_action_connector_objects(  # noqa: PLR0913
                 raise FileNotFoundError(  # noqa: TRY301
                     "No Action Connector directory is specified. Please specify either in the config or CLI."
                 )
-            actions_path = (
+            actions_path: Path = (  # pyright: ignore[reportUnknownVariableType]
                 Path(action_connectors_directory) / filename
                 if action_connectors_directory
-                else RULES_CONFIG.action_connector_dir / filename
+                else RULES_CONFIG.action_connector_dir / filename  # pyright: ignore[reportOptionalOperand]
             )
             if verbose:
                 output.append(f"[+] Building action connector(s) for {actions_path}")
 
             ac_object = TOMLActionConnector(
                 contents=contents,
-                path=actions_path,
+                path=actions_path,  # pyright: ignore[reportUnknownArgumentType]
             )
             if save_toml:
                 ac_object.save_toml()

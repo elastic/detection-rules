@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,63 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Volume Shadow Copy Deletion via WMIC"
-note = """## Triage and analysis
-
-### Investigating Volume Shadow Copy Deletion via WMIC
-
-The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes that can later be restored or mounted to recover specific files or folders.
-
-A typical step in the playbook of an attacker attempting to deploy ransomware is to delete Volume Shadow Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow copies worth monitoring.
-
-This rule monitors the execution of `wmic.exe` to interact with VSS via the `shadowcopy` alias and delete parameter.
-
-#### Possible investigation steps
-
-- Investigate the program execution chain (parent process tree).
-- Check whether the account is authorized to perform this operation.
-- Contact the account owner and confirm whether they are aware of this activity.
-- In the case of a resize operation, check if the resize value is equal to suspicious values, like 401MB.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Use process name, command line, and file hash to search for occurrences in other hosts.
-- Check if any files on the host machine have been encrypted.
-
-
-### False positive analysis
-
-- This rule has chances of producing benign true positives (B-TPs). If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of user and command line conditions.
-
-### Related rules
-
-- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
-- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Priority should be given due to the advanced stage of this activity on the attack.
-- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- If data was encrypted, deleted, or modified, activate your data recovery plan.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "dc9c1f74-dac3-48e3-b47f-eb79db358f57"
 severity = "high"
@@ -90,12 +33,11 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Impact",
-    "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
-    "Data Source: Microsoft Defender for Endpoint",
+    "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
@@ -109,29 +51,148 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : "delete" and process.args : "shadowcopy"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Volume Shadow Copy Deletion via WMIC
+
+#### Possible investigation steps
+
+- What recovery data did WMIC try to delete?
+  - Focus: `process.command_line` scope: "shadowcopy delete", "ID=", "VolumeName=", "where", "/node:", or broad no-filter deletion.
+  - Implication: escalate when the command removes all shadows, targets a remote node, or lacks a narrow snapshot or volume filter; lower suspicion only when it targets one expected snapshot or volume and parent, account, host, and later process evidence fit that task.
+
+- Is this the expected Microsoft WMIC binary for the host?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when WMIC is renamed, runs outside a Windows system path, has a non-Microsoft or untrusted signature, or mismatches its original file name; Microsoft-signed system-path WMIC lowers identity risk but does not clear shadow-copy deletion.
+
+- Which launcher and account initiated the deletion?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, `user.name`, and `user.domain`.
+  - Implication: escalate when a document, browser, archive tool, script host, interactive user, or unexplained remote-management parent launches WMIC; lower suspicion only when parent command, account, and host identify the exact recovery, imaging, lab-reset, or authorized test runner.
+
+- Did the same host or lineage run other recovery-inhibition or encryption-prep commands?
+  - Why: ransomware often mixes WMIC with "vssadmin.exe", "wbadmin.exe", "bcdedit.exe", "REAgentC.exe", "diskshadow.exe", service-stop commands, or encryption tooling.
+  - Focus: same-`host.id` process starts, scoped to `process.parent.entity_id` when present, for recovery-inhibition utilities, service stops, backup-agent tampering, or encryption tools. $investigate_2
+  - Hint: without `process.entity_id`, pivot by `host.id` + `process.pid` near the alert and treat lineage as weaker.
+  - Implication: escalate when WMIC is adjacent to additional recovery inhibition, backup tampering, service stops, or encryption preparation; keep scope narrower when process activity stays limited to one coherent maintenance or test sequence.
+
+- If local evidence is suspicious or unresolved, is the activity broader than one host workflow?
+  - Focus: same-`user.id` alerts for impact, execution, credential, or recovery-inhibition activity. $investigate_0
+  - Hint: review same-`host.id` alerts for alternate shadow-copy deletion utilities, backup tampering, or repeated destructive command lines. $investigate_1
+  - Implication: escalate scope when the user or host shows related impact or execution alerts beyond this command; keep host-local only when both pivots stay confined to the same narrow command sequence.
+
+- Escalate for unauthorized shadow-copy deletion, remote targeting, destructive preparation, or broader spread; close only when command scope, binary identity, parent/account context, same-host corroboration, and related alerts bind to one recognized workflow; preserve evidence and escalate when mixed or incomplete.
+
+### False positive analysis
+
+- Treat WMIC shadow-copy deletion as a recovery-inhibition anti-pattern. Benign closure is narrow: telemetry must show one expected snapshot or volume, a parent command for that exact task, the expected account and host, and no contradictory same-host recovery-inhibition or encryption-prep activity. Use change records or test plans only as corroboration.
+- Do not close as benign when the command removes all shadows, uses "/node:" remote targeting, has unexplained lineage, or appears with service-stop, backup-tampering, or encryption-prep activity. Recurrence, WMIC identity, or a stated maintenance window is not enough when process evidence remains broad or contradictory.
+- Before creating an exception, require a confirmed benign case with the exact `process.command_line` scope, `process.parent.executable`, `process.parent.command_line`, `user.id`, and `host.id`. Build the exception from that minimum pattern, never on "wmic.exe", `process.name`, or "shadowcopy" alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the command scope, parent workflow, account, host, and corroborating maintenance or test evidence. Create an exception only when the same workflow recurs consistently for the same account and host scope.
+- If suspicious but unconfirmed, export the alert, process tree, full command line, parent command line, account, host identifiers, and related-alert results before containment. Apply reversible containment first, such as heightened monitoring or temporary administrative-access restrictions for the affected host or account; isolate the endpoint only if process evidence suggests active encryption, backup tampering, or broader destructive activity.
+- If confirmed malicious, preserve the process tree and command evidence before stopping processes or deleting artifacts. Isolate the endpoint to prevent further impact, suspend or reset involved accounts when the same `user.id` shows unauthorized activity, and remove only the scripts, scheduled tasks, services, or tools identified through the process investigation.
+- Restore recovery capability after containment: re-enable or repair affected VSS, backup, and recovery settings, validate that snapshots or backup jobs are functioning, and confirm no related recovery-inhibition commands remain active on the same host or scoped host set.
+- Post-incident hardening: restrict WMIC and VSS-management access on sensitive hosts, use application control where WMIC is not required, retain the process evidence that proved the case, and record any observed variants such as "vssadmin.exe", PowerShell Win32_ShadowCopy deletion, "wbadmin.exe", "bcdedit.exe", or "diskshadow.exe" in the case notes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.pe.original_file_name",
+    "process.command_line",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events from the same parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1490"
 name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1047"
 name = "Windows Management Instrumentation"
 reference = "https://attack.mitre.org/techniques/T1047/"
 
-
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

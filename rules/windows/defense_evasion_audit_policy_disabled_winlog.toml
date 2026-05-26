@@ -2,7 +2,9 @@
 creation_date = "2025/01/14"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2025/03/20"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0, MV_CONTAINS is in preview since 9.2."
+min_stack_version = "9.3.0"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -10,9 +12,8 @@ description = """
 Identifies attempts to disable auditing for some security sensitive audit policy sub-categories. This is often done by
 attackers in an attempt to evade detection and forensics on a system.
 """
-from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.forwarded*", "logs-system.security*"]
-language = "kuery"
+from = "now-11m"
+language = "esql"
 license = "Elastic License v2"
 name = "Sensitive Audit Policy Sub-Category Disabled"
 note = """## Triage and analysis
@@ -54,19 +55,8 @@ risk_score = 47
 rule_id = "0ef5d3eb-67ef-43ab-93b7-305cfa5a21f6"
 setup = """## Setup
 
-The 'Audit Audit Policy Change' logging policy must be configured for (Success, Failure).
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Policies >
-Windows Settings >
-Security Settings >
-Advanced Audit Policies Configuration >
-Audit Policies >
-Policy Change >
-Audit Audit Policy Change (Success,Failure)
-```
+Audit Policy Change must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-policy-change
 """
 severity = "medium"
 tags = [
@@ -78,19 +68,32 @@ tags = [
     "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-event.code : "4719" and host.os.type : "windows" and
-  winlog.event_data.AuditPolicyChangesDescription : "Success removed" and
-  winlog.event_data.SubCategory : (
-     "Logon" or
-     "Audit Policy Change" or
-     "Process Creation" or
-     "Audit Other System Events" or
-     "Audit Security Group Management" or
-     "Audit User Account Management"
+from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _index
+| where host.os.type == "windows" and event.code == "4719" and
+  winlog.event_data.AuditPolicyChangesDescription in ("Success removed", "Success Added") and
+  winlog.event_data.SubCategory in (
+    "Logon",
+    "Audit Policy Change",
+    "Process Creation",
+    "Other System Events",
+    "Security Group Management",
+    "User Account Management"
   )
+| eval Esql.time_window = DATE_TRUNC(5m, @timestamp)
+
+// Aggregate policy changes within each 5m window per host and sub-category,
+// then keep only removals that were not re-enabled in the same window
+| inline stats
+    Esql.winlog_AuditPolicyChangesDescription_values = VALUES(winlog.event_data.AuditPolicyChangesDescription)
+  by host.id, winlog.event_data.SubCategory, Esql.time_window
+| where winlog.event_data.AuditPolicyChangesDescription == "Success removed" and not MV_CONTAINS(Esql.winlog_AuditPolicyChangesDescription_values, "Success Added")
+
+// Wait 5m for a potential "Success Added" to arrive before alerting
+| where @timestamp < NOW() - 5m
+| keep *
 '''
 
 
