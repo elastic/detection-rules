@@ -9,7 +9,7 @@ author = ["Elastic"]
 description = """
 Identifies when a Microsoft Exchange inbox rule is created or modified with a name composed only of special characters.
 Adversaries may use obfuscated inbox rule names to evade detection, hide malicious forwarding or deletion rules, or blend
-in with benign audit noise. The rule name is parsed from `o365.audit.ObjectId`, which encodes the mailbox identity and
+in with benign audit noise. The rule name is parsed from "o365.audit.ObjectId", which encodes the mailbox identity and
 rule name separated by a backslash.
 """
 false_positives = [
@@ -83,9 +83,6 @@ from logs-o365.audit-* metadata _id, _version, _index
 | where Esql.inbox_rule_name rlike """[!@#$%^&*()_+={[\]|\\:;"'<,>.?/~` \-]+"""
 | keep
     @timestamp,
-    _id,
-    _version,
-    _index,
     Esql.inbox_rule_name,
     o365.audit.ObjectId,
     o365.audit.UserId,
