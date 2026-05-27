@@ -9,6 +9,18 @@ Spawns the JVM-based daemon in ``lib/esql-validator`` and exchanges
 line-delimited JSON over stdin/stdout to validate arbitrary ES|QL queries.
 """
 
-from .validator import EsqlValidator, ValidationError, ValidationResult
+from .validator import (
+    EsqlValidator,
+    ValidationError,
+    ValidationResult,
+    get_shared_validator,
+    shared_validator,
+)
 
-__all__ = ("EsqlValidator", "ValidationError", "ValidationResult")
+__all__ = (
+    "EsqlValidator",
+    "ValidationError",
+    "ValidationResult",
+    "get_shared_validator",
+    "shared_validator",
+)

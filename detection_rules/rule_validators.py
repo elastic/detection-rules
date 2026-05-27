@@ -15,7 +15,6 @@ from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
-from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import (  # type: ignore[reportMissingTypeStubs]
@@ -35,7 +34,6 @@ from .custom_schemas import update_auto_generated_schema
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
-    create_remote_indices,
     execute_query_against_indices,
     get_rule_integrations,
     prepare_mappings,
@@ -861,7 +859,7 @@ class ESQLValidator(QueryValidator):
 
     def remote_validate_rule_contents(
         self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
-    ) -> ObjectApiResponse[Any]:
+    ) -> dict[str, Any]:
         """Remote validate a rule's ES|QL query using an Elastic Stack."""
         return self.remote_validate_rule(
             kibana_client=kibana_client,
@@ -880,7 +878,7 @@ class ESQLValidator(QueryValidator):
         metadata: RuleMeta,
         rule_id: str = "",
         verbosity: int = 0,
-    ) -> ObjectApiResponse[Any]:
+    ) -> dict[str, Any]:
         """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
 
         self.rule_id = rule_id
@@ -903,20 +901,23 @@ class ESQLValidator(QueryValidator):
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
         )
 
-        # Get mappings for all matching existing index templates
-        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
+        # Get mappings for all matching existing index templates. The middle
+        # index_lookup return is unused now that we no longer materialize remote
+        # test indices for the integration patterns.
+        existing_mappings, _index_lookup, combined_mappings = prepare_mappings(
             elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
         )
         self.log(f"Collected mappings: {len(existing_mappings)}")
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
-        # Create remote indices
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
-
-        # Replace all sources with the test indices
-        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
-
-        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
+        # Validate the query locally via the embedded Java validator. The combined
+        # mapping covers every field across the rule's integrations, and the key
+        # matches the FROM clause exactly so the analyzer's IndexResolution lookup
+        # succeeds without any string rewriting.
+        validator_indices = {indices_str: {"properties": combined_mappings}}
+        query_columns, response = execute_query_against_indices(
+            elastic_client, query, validator_indices, self.log
+        )
         self.esql_unique_fields = query_columns
 
         # Build a mapping lookup for all stack versions to validate against.

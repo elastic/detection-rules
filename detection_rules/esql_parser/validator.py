@@ -7,12 +7,15 @@
 
 from __future__ import annotations
 
+import atexit
+import contextlib
 import itertools
 import json
 import os
 import subprocess
 import sys
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any
@@ -74,15 +77,7 @@ class ValidationResult:
 
 
 class EsqlValidator:
-    """Long-running JVM daemon that parses and verifies ES|QL queries.
-
-    Usage:
-        with EsqlValidator() as v:
-            result = v.validate("FROM logs | LIMIT 5",
-                                indices={"logs": {"properties": {"foo": {"type": "integer"}}}})
-            if not result.ok:
-                ...
-    """
+    """Long-running JVM daemon that parses and verifies ES|QL queries."""
 
     def __init__(
         self,
@@ -92,6 +87,7 @@ class EsqlValidator:
         startup_timeout: float = 60.0,
         request_timeout: float = 30.0,
         build_if_missing: bool = True,
+        heap_size: str | None = "512m",
     ) -> None:
         self.validator_dir = Path(validator_dir or DEFAULT_VALIDATOR_DIR)
         self.es_home = Path(es_home or os.environ.get("ES_HOME") or DEFAULT_ES_HOME)
@@ -99,12 +95,17 @@ class EsqlValidator:
         self.startup_timeout = startup_timeout
         self.request_timeout = request_timeout
         self.build_if_missing = build_if_missing
+        # Cap JVM heap so long-running daemons in bulk validation don't grow unbounded.
+        self.heap_size = heap_size
 
         self._proc: subprocess.Popen[bytes] | None = None
         self._lock = threading.Lock()
         self._counter = itertools.count(1)
         self._stderr_thread: threading.Thread | None = None
         self._stderr_lines: list[str] = []
+        # PID that spawned the current daemon; used to detect fork-inherited state.
+        self._started_pid: int | None = None
+        self._atexit_registered = False
 
     # --- public API ---------------------------------------------------------
 
@@ -134,14 +135,23 @@ class EsqlValidator:
         env = os.environ.copy()
         env.setdefault("RUNTIME_JAVA_HOME", env.get("JAVA_HOME", ""))
 
+        cmd: list[str] = [self.java_bin]
+        if self.heap_size:
+            cmd.append(f"-Xmx{self.heap_size}")
+        cmd.extend(["-cp", classpath, "co.elastic.detectionrules.esqlvalidator.Main"])
+
         self._proc = subprocess.Popen(
-            [self.java_bin, "-cp", classpath, "co.elastic.detectionrules.esqlvalidator.Main"],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
             bufsize=0,
         )
+        self._started_pid = os.getpid()
+        if not self._atexit_registered:
+            atexit.register(self._atexit_stop)
+            self._atexit_registered = True
         assert self._proc.stdout is not None and self._proc.stdin is not None
         self._stderr_thread = threading.Thread(
             target=self._drain_stderr, args=(self._proc.stderr,), daemon=True
@@ -172,6 +182,7 @@ class EsqlValidator:
             self._proc.kill()
         finally:
             self._proc = None
+            self._started_pid = None
 
     def validate(
         self,
@@ -182,17 +193,11 @@ class EsqlValidator:
         enrich_policies: list[dict[str, Any]] | None = None,
         params: list[Any] | None = None,
     ) -> ValidationResult:
-        """Parse and verify an ES|QL query.
-
-        Args:
-            query: the ES|QL query text.
-            indices: ``{index_pattern: es_mapping}`` for FROM targets.
-                ``es_mapping`` is the standard ES mapping JSON, e.g.
-                ``{"properties": {"foo": {"type": "integer"}}}``.
-            lookup_indices: same shape as ``indices``, for LOOKUP JOIN targets.
-            enrich_policies: list of ``{name, policy_type, match_field, index, mapping}``.
-            params: ES|QL positional query params (``?``).
-        """
+        """Parse and verify an ES|QL query."""
+        # indices: {pattern: es_mapping} for FROM targets, e.g. {"logs": {"properties": ...}}.
+        # lookup_indices: same shape, for LOOKUP JOIN targets.
+        # enrich_policies: list of {name, policy_type, match_field, index, mapping}.
+        # params: positional query params (?).
         request_id = str(next(self._counter))
         payload: dict[str, Any] = {"id": request_id, "query": query}
         if indices:
@@ -243,13 +248,55 @@ class EsqlValidator:
             )
 
     def _roundtrip(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # One transparent restart if the daemon was inherited across a fork or died
+        # since the last call; surface the underlying failure on a second strike.
+        last_err: ValidationError | None = None
         with self._lock:
-            self._send(payload)
-            line = self._read_line(self.request_timeout)
+            for attempt in range(2):
+                try:
+                    self._ensure_alive()
+                    self._send(payload)
+                    line = self._read_line(self.request_timeout)
+                    try:
+                        return json.loads(line)
+                    except json.JSONDecodeError as e:
+                        raise ValidationError(f"Daemon emitted non-JSON: {line!r}") from e
+                except (BrokenPipeError, ValidationError) as e:
+                    last_err = e if isinstance(e, ValidationError) else ValidationError(str(e))
+                    # Force a clean respawn on the next attempt.
+                    self._proc = None
+                    self._started_pid = None
+                    continue
+        assert last_err is not None
+        raise last_err
+
+    def _ensure_alive(self) -> None:
+        """Spawn or respawn the daemon as needed."""
+        # Handles three cases: never started, inherited via fork(), and crashed since
+        # the last call. Callers (currently _roundtrip) retry once after this.
+        if self._proc is None:
+            self.start()
+            return
+        if self._started_pid is not None and self._started_pid != os.getpid():
+            # We're in a forked child that inherited the parent's pipes; don't reuse them.
+            self._proc = None
+            self._started_pid = None
+            self._stderr_lines.clear()
+            self.start()
+            return
+        if self._proc.poll() is not None:
+            self._proc = None
+            self._started_pid = None
+            self._stderr_lines.clear()
+            self.start()
+
+    def _atexit_stop(self) -> None:
+        # Best-effort cleanup on interpreter exit; swallow everything so we never
+        # interfere with shutdown.
         try:
-            return json.loads(line)
-        except json.JSONDecodeError as e:
-            raise ValidationError(f"Daemon emitted non-JSON: {line!r}") from e
+            self.stop()
+        except Exception:  # noqa: BLE001
+            pass
 
     def _send(self, payload: dict[str, Any]) -> None:
         if self._proc is None or self._proc.stdin is None:
@@ -302,3 +349,36 @@ class EsqlValidator:
     def _kill(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
             self._proc.kill()
+
+
+# --- Shared session ---------------------------------------------------------
+#
+# Keyed by os.getpid() so a child process never reuses a daemon inherited from
+# its parent (a fork would have it share the same stdin/stdout pipes, which
+# would corrupt the JSON protocol).
+_SHARED: dict[int, EsqlValidator] = {}
+
+
+def get_shared_validator() -> EsqlValidator | None:
+    """Return the validator registered for the current process, if any."""
+    return _SHARED.get(os.getpid())
+
+
+@contextlib.contextmanager
+def shared_validator(**kwargs: Any) -> Iterator[EsqlValidator]:
+    """Scope a single EsqlValidator to a block of work, reused across calls in it."""
+    # Re-entrant: an inner `with shared_validator()` yields the outer instance and
+    # does not stop it on exit. Used by bulk validation to amortize JVM startup.
+    pid = os.getpid()
+    existing = _SHARED.get(pid)
+    if existing is not None:
+        yield existing
+        return
+    v = EsqlValidator(**kwargs)
+    v.start()
+    _SHARED[pid] = v
+    try:
+        yield v
+    finally:
+        _ = _SHARED.pop(pid, None)
+        v.stop()
