@@ -96,9 +96,10 @@ query = '''
     or event.category:(network or network_traffic))
     and event.type:(connection and not end)
     and not event.action:(flow_dropped or flow_denied or denied or deny or
-        flow_terminated or timeout or Reject or network_flow or connection-denied)
+        flow_terminated or timeout or Reject or network_flow or connection-denied or
+        connection-end or server-rst or client-rst)
     and not (event.action:netflow_flow and not network.packets > 1)
-    and not network.application:traceroute
+    and not network.application:(traceroute or stretchoid-scanning)
     and destination.port:23
 '''
 
