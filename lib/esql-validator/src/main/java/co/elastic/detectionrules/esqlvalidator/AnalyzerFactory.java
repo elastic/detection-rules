@@ -15,6 +15,8 @@ import org.elasticsearch.xpack.esql.analysis.AnalyzerContext;
 import org.elasticsearch.xpack.esql.analysis.EnrichResolution;
 import org.elasticsearch.xpack.esql.analysis.UnmappedResolution;
 import org.elasticsearch.xpack.esql.analysis.Verifier;
+import org.elasticsearch.xpack.esql.inference.ResolvedInference;
+import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.core.type.EsField;
 import org.elasticsearch.xpack.esql.enrich.ResolvedEnrichPolicy;
@@ -62,7 +64,8 @@ final class AnalyzerFactory {
     record ResolutionInputs(
         Map<String, Map<String, Object>> indices,
         Map<String, Map<String, Object>> lookupIndices,
-        List<EnrichPolicyInput> enrichPolicies
+        List<EnrichPolicyInput> enrichPolicies,
+        List<InferenceEndpointInput> inferenceEndpoints
     ) {}
 
     record EnrichPolicyInput(
@@ -72,6 +75,8 @@ final class AnalyzerFactory {
         String index,
         Map<String, Object> mapping
     ) {}
+
+    record InferenceEndpointInput(String inferenceId, String taskType) {}
 
     Analyzer build(ResolutionInputs inputs) {
         Map<IndexPattern, IndexResolution> indexResolutions = new HashMap<>();
@@ -109,6 +114,16 @@ final class AnalyzerFactory {
             }
         }
 
+        InferenceResolution.Builder inferenceBuilder = InferenceResolution.builder();
+        if (inputs.inferenceEndpoints() != null) {
+            for (InferenceEndpointInput ep : inputs.inferenceEndpoints()) {
+                // Unknown task_type strings turn into a structured request_error rather
+                // than a silent fallback — easier to spot a typo in the whitelist file.
+                TaskType taskType = TaskType.valueOf(ep.taskType().toUpperCase(Locale.ROOT));
+                inferenceBuilder.withResolvedInference(new ResolvedInference(ep.inferenceId(), taskType));
+            }
+        }
+
         Configuration cfg = buildConfiguration();
         AnalyzerContext ctx = new AnalyzerContext(
             cfg,
@@ -117,7 +132,7 @@ final class AnalyzerFactory {
             indexResolutions,
             lookupResolutions,
             enrichResolution,
-            InferenceResolution.builder().build(),
+            inferenceBuilder.build(),
             TransportVersion.current(),
             QuerySettings.UNMAPPED_FIELDS.defaultValue()
         );

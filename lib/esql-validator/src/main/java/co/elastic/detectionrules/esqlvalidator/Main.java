@@ -135,7 +135,7 @@ public final class Main {
         // Stage 2: verify (analyze).
         try {
             Analyzer analyzer = analyzerFactory.build(new AnalyzerFactory.ResolutionInputs(
-                req.indices, req.lookupIndices, req.enrichPolicies));
+                req.indices, req.lookupIndices, req.enrichPolicies, req.inferenceEndpoints));
             LogicalPlan analyzed = analyzer.analyze(parsed);
             String planText = analyzed.toString();
             List<? extends Attribute> outputAttrs = analyzed.output();
@@ -298,6 +298,7 @@ public final class Main {
         Map<String, Map<String, Object>> indices;
         Map<String, Map<String, Object>> lookupIndices;
         List<AnalyzerFactory.EnrichPolicyInput> enrichPolicies;
+        List<AnalyzerFactory.InferenceEndpointInput> inferenceEndpoints;
         List<Object> params;
         boolean shutdown;
         boolean ping;
@@ -332,6 +333,20 @@ public final class Main {
                                 (String) em.get("index"),
                                 em.get("mapping") instanceof Map<?, ?> mm ? (Map<String, Object>) mm : Map.of()
                             ));
+                        }
+                    }
+                }
+                Object inference = raw.get("inference_endpoints");
+                if (inference instanceof List<?> il) {
+                    r.inferenceEndpoints = new ArrayList<>();
+                    for (Object o : il) {
+                        if (o instanceof Map<?, ?> m) {
+                            Map<String, Object> em = (Map<String, Object>) m;
+                            String inferenceId = (String) em.get("inference_id");
+                            String taskType = (String) em.get("task_type");
+                            if (inferenceId != null && taskType != null) {
+                                r.inferenceEndpoints.add(new AnalyzerFactory.InferenceEndpointInput(inferenceId, taskType));
+                            }
                         }
                     }
                 }

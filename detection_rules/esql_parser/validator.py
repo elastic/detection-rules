@@ -23,6 +23,35 @@ from typing import IO, Any
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_VALIDATOR_DIR = DEFAULT_REPO_ROOT / "lib" / "esql-validator"
 DEFAULT_ES_HOME = Path("/tmp/elasticsearch")
+DEFAULT_INFERENCE_ENDPOINTS_FILE = DEFAULT_VALIDATOR_DIR / "known_inference_endpoints.json"
+
+
+def _merge_inference_endpoints(
+    defaults: list[dict[str, str]], overrides: list[dict[str, str]] | None
+) -> list[dict[str, str]]:
+    """Merge default and per-call inference endpoints; later entries win on inference_id."""
+    by_id: dict[str, dict[str, str]] = {e["inference_id"]: e for e in defaults}
+    for entry in overrides or ():
+        if "inference_id" in entry and "task_type" in entry:
+            by_id[entry["inference_id"]] = entry
+    return list(by_id.values())
+
+
+def _load_default_inference_endpoints(path: Path) -> list[dict[str, str]]:
+    """Read the bundled whitelist of known-valid inference endpoints, if present."""
+    # Missing or malformed file is non-fatal: callers can still pass endpoints
+    # explicitly via validate(..., inference_endpoints=...).
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    out: list[dict[str, str]] = []
+    for entry in data.get("endpoints", []):
+        if isinstance(entry, dict) and "inference_id" in entry and "task_type" in entry:
+            out.append({"inference_id": entry["inference_id"], "task_type": entry["task_type"]})
+    return out
 
 
 class ValidationError(Exception):
@@ -88,6 +117,7 @@ class EsqlValidator:
         request_timeout: float = 30.0,
         build_if_missing: bool = True,
         heap_size: str | None = "512m",
+        default_inference_endpoints: list[dict[str, str]] | None = None,
     ) -> None:
         self.validator_dir = Path(validator_dir or DEFAULT_VALIDATOR_DIR)
         self.es_home = Path(es_home or os.environ.get("ES_HOME") or DEFAULT_ES_HOME)
@@ -97,6 +127,15 @@ class EsqlValidator:
         self.build_if_missing = build_if_missing
         # Cap JVM heap so long-running daemons in bulk validation don't grow unbounded.
         self.heap_size = heap_size
+        # Whitelist of inference endpoints to register on every validate() call. The
+        # daemon has no live cluster to resolve `.gp-llm-v2-completion` and similar,
+        # so we feed in a known-valid set from known_inference_endpoints.json. Pass
+        # an explicit list to override (e.g. for tests); pass [] to disable.
+        if default_inference_endpoints is None:
+            default_inference_endpoints = _load_default_inference_endpoints(
+                self.validator_dir / "known_inference_endpoints.json"
+            )
+        self.default_inference_endpoints = default_inference_endpoints
 
         self._proc: subprocess.Popen[bytes] | None = None
         self._lock = threading.Lock()
@@ -191,12 +230,16 @@ class EsqlValidator:
         indices: dict[str, dict[str, Any]] | None = None,
         lookup_indices: dict[str, dict[str, Any]] | None = None,
         enrich_policies: list[dict[str, Any]] | None = None,
+        inference_endpoints: list[dict[str, str]] | None = None,
         params: list[Any] | None = None,
     ) -> ValidationResult:
         """Parse and verify an ES|QL query."""
         # indices: {pattern: es_mapping} for FROM targets, e.g. {"logs": {"properties": ...}}.
         # lookup_indices: same shape, for LOOKUP JOIN targets.
         # enrich_policies: list of {name, policy_type, match_field, index, mapping}.
+        # inference_endpoints: list of {inference_id, task_type}. Merged with the
+        #   bundled whitelist (see default_inference_endpoints); per-call entries win
+        #   on inference_id collision.
         # params: positional query params (?).
         request_id = str(next(self._counter))
         payload: dict[str, Any] = {"id": request_id, "query": query}
@@ -206,6 +249,9 @@ class EsqlValidator:
             payload["lookup_indices"] = lookup_indices
         if enrich_policies:
             payload["enrich_policies"] = enrich_policies
+        merged_inference = _merge_inference_endpoints(self.default_inference_endpoints, inference_endpoints)
+        if merged_inference:
+            payload["inference_endpoints"] = merged_inference
         if params:
             payload["params"] = params
 
