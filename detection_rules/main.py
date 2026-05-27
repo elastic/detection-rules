@@ -489,21 +489,23 @@ def mass_update(
 @root.command("view-rule")
 @click.argument("rule-file", type=Path)
 @click.option("--api-format/--rule-format", default=True, help="Print the rule in final api or rule format")
-@click.option("--esql-remote-validation", is_flag=True, default=False, help="Enable remote validation for the rule")
+@click.option("--esql-validation", is_flag=True, default=False, help="Run local ES|QL validation on the rule")
 @click.pass_context
 def view_rule(
-    _: click.Context, rule_file: Path, api_format: str, esql_remote_validation: bool
+    _: click.Context, rule_file: Path, api_format: str, esql_validation: bool
 ) -> TOMLRule | DeprecatedRule:
     """View an internal rule or specified rule file."""
     rule = RuleCollection().load_file(rule_file)
+    # Skip if the config-level auto-validation already ran during rule loading
+    # (avoids double-validating the same rule).
     if (
-        esql_remote_validation
+        esql_validation
         and isinstance(rule.contents.data, ESQLRuleData)
         and isinstance(rule.contents.data.validator, ESQLValidator)
         and isinstance(rule.contents.metadata, RuleMeta)
-        and not getdefault("remote_esql_validation")()
+        and not getdefault("esql_validation")()
     ):
-        rule.contents.data.validator.validate(rule.contents.data, rule.contents.metadata, force_remote_validation=True)
+        rule.contents.data.validator.validate(rule.contents.data, rule.contents.metadata, force_validation=True)
 
     if api_format:
         click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))

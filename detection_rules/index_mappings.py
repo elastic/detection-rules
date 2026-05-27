@@ -94,10 +94,16 @@ def get_rule_integrations(metadata: RuleMeta) -> list[str]:
     return rule_integrations
 
 
-def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+def get_existing_mappings(
+    elastic_client: Elasticsearch | None, indices: list[str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Retrieve mappings for all matching existing index templates."""
+    # When elastic_client is None we skip simulate_index_template entirely; callers
+    # fall back to local integration / ECS / custom schemas.
     existing_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
+    if elastic_client is None:
+        return existing_mappings, index_lookup
     for index in indices:
         index_tmpl_mappings = get_simulated_index_template_mappings(elastic_client, index)
         index_lookup[index] = index_tmpl_mappings
@@ -404,7 +410,7 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
 
 
 def prepare_mappings(  # noqa: PLR0913
-    elastic_client: Elasticsearch,
+    elastic_client: Elasticsearch | None,
     indices: list[str],
     event_dataset_integrations: list[EventDataset],
     metadata: RuleMeta,
@@ -412,6 +418,8 @@ def prepare_mappings(  # noqa: PLR0913
     log: Callable[[str], None],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Prepare index mappings for the given indices and rule integrations."""
+    # When elastic_client is None, get_existing_mappings returns empty and we rely
+    # solely on local integration, ECS, non-ECS and custom schemas below.
     existing_mappings, index_lookup = get_existing_mappings(elastic_client, indices)
 
     # Collect mappings for the integrations

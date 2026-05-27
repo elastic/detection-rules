@@ -29,7 +29,7 @@ from .base import BaseRuleTest
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
 @unittest.skipIf(
-    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
+    not getdefault("esql_validation")(), "Skipping ES|QL validation because esql_validation is False"
 )
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
