@@ -8,8 +8,9 @@
 import fnmatch
 import gzip
 import json
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -244,36 +245,141 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
     return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
 
 
-def find_least_compatible_version(
-    package: str,
-    integration: str,
-    current_stack_version: str,
-    packages_manifest: dict[str, Any],
-) -> str:
-    """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = dict(sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0])))
-    stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
+def _major_has_compatible_stack(major: int, version_requirement: str) -> bool:
+    """Return True iff the Kibana range overlaps some stack in ``[major.0.0, (major+1).0.0)``."""
+    major_lo = Version(major, 0, 0)
+    major_hi = Version(major + 1, 0, 0)
+    for lo, hi in _parse_kibana_range(version_requirement):
+        if lo < major_hi and (hi is None or hi > major_lo):
+            return True
+    return False
 
-    # filter integration_manifests to only the latest major entries
+
+def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) -> set[int]:
+    """Collect Kibana stack majors that any manifest in the package can serve."""
+    stack_majors: set[int] = set()
+    for manifest in integration_manifests.values():
+        version_requirement = manifest["conditions"]["kibana"]["version"]
+        for lo, _hi in _parse_kibana_range(version_requirement):
+            if _major_has_compatible_stack(lo.major, version_requirement):
+                stack_majors.add(lo.major)
+    return stack_majors
+
+
+def _anchor_for_aligned_integration_major(
+    major: int,
+    integration_manifests: dict[str, Any],
+) -> str | None:
+    """Oldest integration version in ``major`` whose Kibana range overlaps ``[major, major+1)``."""
+    major_manifests = {
+        version: manifest
+        for version, manifest in integration_manifests.items()
+        if Version.parse(version).major == major
+    }
+    for version, manifest in sorted(major_manifests.items(), key=lambda x: Version.parse(x[0])):
+        version_requirement = manifest["conditions"]["kibana"]["version"]
+        if _major_has_compatible_stack(major, version_requirement):
+            return version
+    return None
+
+
+def _find_least_compatible_for_stack(
+    stack_version: Version,
+    integration_manifests: dict[str, Any],
+) -> str | None:
+    """Stack-dependent least compatible integration version (pre-#5601 behavior)."""
     major_versions = sorted(
         {Version.parse(manifest_version).major for manifest_version in integration_manifests},
         reverse=True,
     )
     for max_major in major_versions:
         major_integration_manifests = {
-            k: v for k, v in integration_manifests.items() if Version.parse(k).major == max_major
+            version: manifest
+            for version, manifest in integration_manifests.items()
+            if Version.parse(version).major == max_major
         }
-
-        # iterates through ascending integration manifests
-        # returns latest major version that is least compatible
-        for version, manifest in OrderedDict(
-            sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0]))
-        ).items():
+        for version, manifest in sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0])):
             version_requirement = manifest["conditions"]["kibana"]["version"]
             if _satisfies_kibana_range(stack_version, version_requirement):
-                return f"^{version}"
+                return version
+    return None
 
-    raise ValueError(f"no compatible version for integration {package}:{integration}")
+
+def _representative_stack_version(stack_major: int) -> Version:
+    """Representative stack version used to resolve unaligned integration majors."""
+    return Version(stack_major, 19, 0)
+
+
+@dataclass(frozen=True)
+class CompatibleVersionRange:
+    """Stack-invariant related integration compatibility range."""
+
+    range: str
+    anchors: list[str]
+    forward_anchor: str
+
+
+def find_compatible_version_range(
+    package: str,
+    packages_manifest: dict[str, Any],
+) -> CompatibleVersionRange:
+    """Return a stack-invariant OR'd caret range for ``related_integrations.version``.
+
+    Emits one ``^X.Y.Z`` anchor per stack line the integration package supports, plus a
+    forward-looking ``^(top_major + 1).0.0`` anchor. Integration majors aligned with Kibana
+    stack majors (e.g. endpoint 8.x / 9.x) use manifest overlap on ``[M, M+1)``; other
+    packages resolve additional stack lines via the legacy stack walk.
+    """
+    package_manifest = packages_manifest.get(package)
+    if package_manifest is None:
+        raise ValueError(f"Package {package} not found in manifest.")
+
+    integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
+    integration_majors = {Version.parse(version).major for version in integration_manifests}
+    stack_majors = _stack_majors_supported_by_package(integration_manifests)
+
+    if not stack_majors:
+        raise ValueError(f"no compatible version for integration package {package}")
+
+    aligned_by_major = {
+        major: anchor
+        for major in sorted(integration_majors)
+        if (anchor := _anchor_for_aligned_integration_major(major, integration_manifests)) is not None
+    }
+    aligned_min_major = min(aligned_by_major) if aligned_by_major else None
+
+    if aligned_min_major is not None:
+        effective_stack_majors = sorted(stack_major for stack_major in stack_majors if stack_major >= aligned_min_major)
+    else:
+        effective_stack_majors = sorted(
+            stack_major for stack_major in stack_majors if stack_major >= max(stack_majors) - 1
+        )
+
+    anchors: list[str] = []
+    for stack_major in effective_stack_majors:
+        if stack_major in aligned_by_major:
+            anchor = aligned_by_major[stack_major]
+        elif stack_major in integration_majors:
+            anchor = _anchor_for_aligned_integration_major(stack_major, integration_manifests)
+        else:
+            anchor = _find_least_compatible_for_stack(
+                _representative_stack_version(stack_major),
+                integration_manifests,
+            )
+        if anchor and anchor not in anchors:
+            anchors.append(anchor)
+
+    if not anchors:
+        raise ValueError(f"no compatible version for integration package {package}")
+
+    top_major = max(Version.parse(anchor).major for anchor in anchors)
+    forward_anchor = f"{top_major + 1}.0.0"
+    range_parts = [f"^{anchor}" for anchor in anchors] + [f"^{forward_anchor}"]
+    return CompatibleVersionRange(
+        range=" || ".join(range_parts),
+        anchors=anchors,
+        forward_anchor=forward_anchor,
+    )
 
 
 def find_latest_compatible_version(

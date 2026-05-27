@@ -32,7 +32,7 @@ from .config import load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
-    find_least_compatible_version,
+    find_compatible_version_range,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -1428,7 +1428,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
-            current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name) and isinstance(
                 self.data, QueryRuleData | MachineLearningRuleData
@@ -1446,22 +1445,19 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         return
 
                     for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
+                        result = find_compatible_version_range(
                             package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
                             packages_manifest=packages_manifest,
                         )
+                        package["version"] = result.range
 
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            version_data = packages_manifest.get(package["package"], {}).get(
-                                package["version"].strip("^"), {}
-                            )
-                            policy_templates = version_data.get("policy_templates", [])
+                        policy_templates: set[str] = set()
+                        for anchor in result.anchors:
+                            version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
+                            policy_templates.update(version_data.get("policy_templates", []))
 
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                        if package["integration"] not in policy_templates:
+                            del package["integration"]
 
                 # remove duplicate entries
                 package_integrations = list({json.dumps(d, sort_keys=True): d for d in package_integrations}.values())

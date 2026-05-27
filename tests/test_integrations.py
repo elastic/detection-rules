@@ -13,8 +13,8 @@ from detection_rules.integrations import (
     _parse_clause,
     _parse_kibana_range,
     _satisfies_kibana_range,
+    find_compatible_version_range,
     find_latest_compatible_version,
-    find_least_compatible_version,
 )
 
 
@@ -215,45 +215,88 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
             find_latest_compatible_version("missing", "missing", Version(9, 1, 0), {})
 
 
-class TestFindLeastCompatibleVersion(unittest.TestCase):
-    """Behavior coverage for ``find_least_compatible_version``."""
+class TestFindCompatibleVersionRange(unittest.TestCase):
+    """Behavior coverage for ``find_compatible_version_range``."""
 
-    def test_picks_oldest_compatible_in_latest_major(self):
-        """Returns the oldest manifest in the latest major whose range admits the stack."""
+    def test_emits_or_range_across_majors(self):
+        """Emits oldest anchor per major plus a forward-looking next-major anchor."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^8.12.0"),
-                "1.5.0": _manifest("^8.12.0"),
-                "2.0.0": _manifest("^9.0.0"),
-                "2.1.0": _manifest("^9.1.0"),
-                "2.5.0": _manifest("^9.1.0"),
+                "1.0.0": _manifest("^1.0.0"),
+                "1.5.0": _manifest("^1.5.0"),
+                "2.0.0": _manifest("^2.0.0"),
+                "2.5.0": _manifest("^2.1.0"),
             }
         }
-        # 2.0.0 (^9.0.0) is the oldest 9.x manifest that admits a 9.1.0 stack.
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "9.1.0", manifests), "^2.0.0")
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^1.0.0 || ^2.0.0 || ^3.0.0")
+        self.assertEqual(result.anchors, ["1.0.0", "2.0.0"])
+        self.assertEqual(result.forward_anchor, "3.0.0")
 
-    def test_no_compatible_in_any_major_raises(self):
-        """When neither the latest nor any prior major admits the stack, raise."""
+    def test_stack_invariance(self):
+        """Range result does not depend on build stack version."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^8.12.0"),
-                "2.0.0": _manifest("^9.4.0"),
+                "1.0.0": _manifest("^1.0.0"),
+                "2.0.0": _manifest("^2.0.0"),
+            }
+        }
+        first = find_compatible_version_range("pkg", manifests)
+        second = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(first, second)
+
+    def test_single_major_appends_forward_anchor(self):
+        """A single integration major still appends the forward-looking anchor."""
+        manifests = {"pkg": {"9.0.0": _manifest("^9.0.0")}}
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^9.0.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ["9.0.0"])
+        self.assertEqual(result.forward_anchor, "10.0.0")
+
+    def test_three_majors_endpoint_shape(self):
+        """Synthetic endpoint-like majors mirror the #5601 reproducer shape."""
+        manifests = {
+            "endpoint": {
+                "7.17.0": _manifest("^7.17.0"),
+                "8.2.0": _manifest("^8.2.0"),
+                "9.0.0": _manifest("^9.0.0"),
+            }
+        }
+        result = find_compatible_version_range("endpoint", manifests)
+        self.assertEqual(result.range, "^7.17.0 || ^8.2.0 || ^9.0.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ["7.17.0", "8.2.0", "9.0.0"])
+        self.assertEqual(result.forward_anchor, "10.0.0")
+
+    def test_skips_majors_with_no_overlap(self):
+        """Majors without stack overlap are omitted from anchors."""
+        manifests = {
+            "pkg": {
+                "7.10.0": _manifest("^7.10.0"),
+                "9.4.0": _manifest("=9.4.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^7.10.0 || ^9.4.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ["7.10.0", "9.4.0"])
+
+    def test_raises_when_no_compatible_major(self):
+        """When no stack line can be resolved, raise."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest(">=99.0.0 <99.0.0"),
             }
         }
         with self.assertRaises(ValueError):
-            find_least_compatible_version("pkg", "pkg", "9.1.0", manifests)
+            find_compatible_version_range("pkg", manifests)
 
-    def test_cross_major_fallback(self):
-        """Falls back to an earlier major when the latest major is incompatible."""
+    def test_returns_anchor_list_for_policy_template_lookup(self):
+        """Anchors and forward anchor are exposed for policy template union."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^8.12.0"),
-                "2.0.0": _manifest("^9.4.0"),
+                "1.0.0": _manifest("^1.0.0"),
+                "2.0.0": _manifest("^2.0.0"),
             }
         }
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "8.12.0", manifests), "^1.0.0")
-
-    def test_or_clause(self):
-        """OR'd clauses are honored by the least-compatible search."""
-        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0 || ^9.0.0")}}
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "9.1.0", manifests), "^1.0.0")
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ["1.0.0", "2.0.0"])
+        self.assertEqual(result.forward_anchor, "3.0.0")
