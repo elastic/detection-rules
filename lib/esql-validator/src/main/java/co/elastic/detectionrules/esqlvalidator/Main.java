@@ -22,6 +22,8 @@ import org.elasticsearch.xpack.esql.parser.ParsingException;
 import org.elasticsearch.xpack.esql.parser.QueryParam;
 import org.elasticsearch.xpack.esql.parser.QueryParams;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
+import org.elasticsearch.xpack.esql.core.expression.Attribute;
+import org.elasticsearch.xpack.esql.core.expression.UnsupportedAttribute;
 import org.elasticsearch.xpack.esql.core.type.DataType;
 
 import java.io.BufferedReader;
@@ -33,6 +35,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Long-running daemon that validates ES|QL queries via line-delimited JSON over
@@ -50,7 +54,8 @@ import java.util.Map;
  * }</pre>
  *
  * <p>Response shape on success:
- * <pre>{@code {"id": "1", "status": "ok", "plan": "..."}}</pre>
+ * <pre>{@code {"id": "1", "status": "ok", "plan": "...",
+ *              "columns": [{"name": "foo", "type": "integer"}, ...]}}</pre>
  *
  * <p>Response shape on failure:
  * <pre>{@code {"id": "1", "status": "parse_error", "errors": [{"message": "...", "line": 1, "column": 5}]}}</pre>
@@ -133,10 +138,36 @@ public final class Main {
                 req.indices, req.lookupIndices, req.enrichPolicies));
             LogicalPlan analyzed = analyzer.analyze(parsed);
             String planText = analyzed.toString();
+            List<? extends Attribute> outputAttrs = analyzed.output();
             return write(b -> {
                 b.field("id", req.id);
                 b.field("status", "ok");
                 b.field("plan", planText);
+                b.startArray("columns");
+                for (Attribute attr : outputAttrs) {
+                    b.startObject();
+                    b.field("name", attr.name());
+                    b.field("type", attr.dataType().outputType());
+                    // Mirror ColumnInfoImpl: unsupported fields surface their underlying ES
+                    // types and a suggested cast, so callers can react to mapping conflicts.
+                    if (attr instanceof UnsupportedAttribute ua) {
+                        List<String> originalTypes = ua.originalTypes();
+                        if (originalTypes != null && !originalTypes.isEmpty()) {
+                            b.field("original_types", originalTypes);
+                            DataType suggestedCast = DataType.suggestedCast(
+                                originalTypes.stream()
+                                    .map(DataType::fromTypeName)
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toSet())
+                            );
+                            if (suggestedCast != null) {
+                                b.field("suggested_cast", suggestedCast.typeName());
+                            }
+                        }
+                    }
+                    b.endObject();
+                }
+                b.endArray();
             });
         } catch (VerificationException ve) {
             return verifyErrorResponse(req.id, ve.getMessage());

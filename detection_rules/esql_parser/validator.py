@@ -51,6 +51,12 @@ class ValidationResult:
 
     status: str  # 'ok' | 'parse_error' | 'verify_error' | 'request_error'
     plan: str | None = None
+    # Output columns, matching the shape returned by the ES|QL HTTP API:
+    # [{"name": "<field>", "type": "<esql_type>"}, ...]. For fields whose underlying ES
+    # mapping is unsupported or in conflict, an entry also carries "original_types"
+    # (list[str]) and, when one can be inferred, "suggested_cast" (str). Only populated
+    # when status == 'ok'.
+    columns: list[dict[str, Any]] = field(default_factory=list)
     errors: list[_DiagnosticEntry] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -206,6 +212,7 @@ class EsqlValidator:
         return ValidationResult(
             status=response.get("status", "unknown"),
             plan=response.get("plan"),
+            columns=response.get("columns", []),
             errors=[_DiagnosticEntry.from_json(e) for e in response.get("errors", [])],
             raw=response,
         )

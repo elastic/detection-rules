@@ -79,13 +79,13 @@ and response shape.
 
 **Response**
 
-| `status`         | Other fields                                                |
-|------------------|-------------------------------------------------------------|
-| `ok`             | `plan` — analyzed logical plan as text                      |
-| `parse_error`    | `errors[]` — `{type, message, line, column}`                |
-| `verify_error`   | `errors[]` — one entry per Verifier diagnostic              |
-| `request_error`  | `message` — malformed JSON or missing required field        |
-| `internal_error` | `message` — uncaught exception while serializing a response |
+| `status`         | Other fields                                                                                                  |
+|------------------|---------------------------------------------------------------------------------------------------------------|
+| `ok`             | `plan` — analyzed logical plan as text; `columns` — `[{name, type, original_types?, suggested_cast?}]`, matching the ES\|QL HTTP API response (the last two only appear for unsupported / type-conflicting fields) |
+| `parse_error`    | `errors[]` — `{type, message, line, column}`                                                                  |
+| `verify_error`   | `errors[]` — one entry per Verifier diagnostic                                                                |
+| `request_error`  | `message` — malformed JSON or missing required field                                                          |
+| `internal_error` | `message` — uncaught exception while serializing a response                                                   |
 
 ## Python interface
 
