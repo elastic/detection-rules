@@ -55,9 +55,9 @@ In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of the
 Using the environment variable `DR_CLI_MAX_WIDTH` will set a custom max width for the click CLI. 
 For instance, some users may want to increase the default value in cases where help messages are cut off. 
 
-Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ESQL validation for rules that use ESQL queries. This validation will be performed whenever the rule is loaded including for example the view-rule command. This requires the appropriate kibana_url or cloud_id, api_key, and es_url to be set in the config file or as environment variables.
+Using the environment variable `DR_ESQL_VALIDATION` will enable ES|QL validation for rules that use ES|QL queries. This validation runs locally via the embedded Java validator (`lib/esql-validator`) and is performed whenever the rule is loaded — including, for example, the `view-rule` command. No Elasticsearch or Kibana credentials are required.
 
-Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
+Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of any stale `rule-test-*` / `test-*` indexes left over from older remote-validation runs. Current validation does not create any such indexes — the variable only affects opportunistic cleanup triggered when validation errors fire with a live Elasticsearch client configured.
 
 ## Importing rules into the repo
 

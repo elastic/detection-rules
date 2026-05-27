@@ -15,7 +15,6 @@ from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
-from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from eql import ast  # type: ignore[reportMissingTypeStubs]
 from eql.parser import (  # type: ignore[reportMissingTypeStubs]
@@ -35,7 +34,6 @@ from .custom_schemas import update_auto_generated_schema
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
-    create_remote_indices,
     execute_query_against_indices,
     get_rule_integrations,
     prepare_mappings,
@@ -832,37 +830,31 @@ class ESQLValidator(QueryValidator):
 
         return True
 
-    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an ESQL query while checking TOMLRule."""
-        if misc.getdefault("remote_esql_validation")() or force_remote_validation:
-            resolved_kibana_options = {
-                str(option.name): option.default() if callable(option.default) else option.default
-                for option in misc.kibana_options
-                if option.name is not None
-            }
+        if not (misc.getdefault("esql_validation")() or force_validation):
+            return
 
-            resolved_elastic_options = {
-                option.name: option.default() if callable(option.default) else option.default
-                for option in misc.elasticsearch_options
-                if option.name is not None
-            }
-
-            with (
-                misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
-                misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
-            ):
-                _ = self.remote_validate_rule(
-                    kibana_client,
-                    elastic_client,
-                    data.query,
-                    rule_meta,
-                    data.rule_id,
-                )
+        # Validation runs locally via the embedded Java validator; no Kibana or
+        # Elasticsearch client is required. The remote-client setup that used to
+        # live here was the source of "Missing required --cloud-id/--kibana-url"
+        # errors when this was invoked from `view-rule --esql-validation`.
+        _ = self.remote_validate_rule(
+            kibana_client=None,
+            elastic_client=None,
+            query=data.query,
+            metadata=rule_meta,
+            rule_id=data.rule_id,
+        )
 
     def remote_validate_rule_contents(
-        self, kibana_client: Kibana, elastic_client: Elasticsearch, contents: TOMLRuleContents, verbosity: int = 0
-    ) -> ObjectApiResponse[Any]:
-        """Remote validate a rule's ES|QL query using an Elastic Stack."""
+        self,
+        kibana_client: Kibana | None,
+        elastic_client: Elasticsearch | None,
+        contents: TOMLRuleContents,
+        verbosity: int = 0,
+    ) -> dict[str, Any]:
+        """Validate a rule's ES|QL query (clients optional; both may be None for local-only)."""
         return self.remote_validate_rule(
             kibana_client=kibana_client,
             elastic_client=elastic_client,
@@ -874,27 +866,28 @@ class ESQLValidator(QueryValidator):
 
     def remote_validate_rule(  # noqa: PLR0913
         self,
-        kibana_client: Kibana,
-        elastic_client: Elasticsearch,
+        kibana_client: Kibana | None,
+        elastic_client: Elasticsearch | None,
         query: str,
         metadata: RuleMeta,
         rule_id: str = "",
         verbosity: int = 0,
-    ) -> ObjectApiResponse[Any]:
-        """Uses remote validation from an Elastic Stack to validate ES|QL a given rule"""
+    ) -> dict[str, Any]:
+        """Validate an ES|QL rule using the embedded Java validator."""
 
         self.rule_id = rule_id
         self.verbosity = verbosity
 
-        # Validate that all fields (columns) are either dynamic fields or correctly mapped
-        # against the combined mapping of all the indices
-        kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
-        if "version" not in kibana_details:
-            raise ValueError("Failed to retrieve Kibana details.")
+        # When a Kibana client is supplied, sanity-check connectivity; otherwise we
+        # rely solely on local schemas and the embedded validator (no cluster needed).
+        if kibana_client is not None:
+            kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
+            if "version" not in kibana_details:
+                raise ValueError("Failed to retrieve Kibana details.")
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
+        _indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         self.log(f"Extracted indices from query: {', '.join(indices)}")
 
         event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
@@ -903,20 +896,23 @@ class ESQLValidator(QueryValidator):
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
         )
 
-        # Get mappings for all matching existing index templates
-        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
+        # Get mappings for all matching existing index templates. The middle
+        # index_lookup return is unused now that we no longer materialize remote
+        # test indices for the integration patterns.
+        existing_mappings, _index_lookup, combined_mappings = prepare_mappings(
             elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
         )
         self.log(f"Collected mappings: {len(existing_mappings)}")
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
-        # Create remote indices
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
-
-        # Replace all sources with the test indices
-        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
-
-        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
+        # Validate the query locally via the embedded Java validator. The combined
+        # mapping covers every field across the rule's integrations. The key uses
+        # the same canonical no-whitespace comma-join the ES|QL parser produces, so
+        # the analyzer's IndexResolution lookup hits.
+        validator_indices = {",".join(indices): {"properties": combined_mappings}}
+        query_columns, response = execute_query_against_indices(
+            elastic_client, query, validator_indices, self.log
+        )
         self.esql_unique_fields = query_columns
 
         # Build a mapping lookup for all stack versions to validate against.
