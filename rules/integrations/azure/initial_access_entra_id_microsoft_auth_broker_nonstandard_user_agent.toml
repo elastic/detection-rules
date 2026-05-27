@@ -7,9 +7,8 @@ updated_date = "2026/05/26"
 [rule]
 author = ["Elastic"]
 description = """
-Detects Microsoft Entra ID sign-in activity where the Microsoft Authentication Broker authenticates to Device
-Registration Service, Windows Azure Active Directory, or Microsoft Graph using a user agent that is not consistent
-with common browser, mobile, or Windows platform authentication clients. Adversary-in-the-middle and OAuth phishing
+Detects Microsoft Entra ID sign-in activity where the Microsoft Authentication Broker authenticates is using a user agent 
+that is not consistent with common browser, mobile, or Windows platform authentication clients. Adversary-in-the-middle and OAuth phishing
 tooling often presents scripted or relayed user agents (for example Node.js, Python, or generic HTTP libraries) while
 still targeting first-party resources through the broker.
 """
@@ -83,12 +82,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"azure.signinlogs" and event.action:"Sign-in activity" and
+data_stream.dataset:"azure.signinlogs" and event.action:"Sign-in activity" and event.outcome:(success or Success) and 
 azure.signinlogs.properties.app_display_name:"Microsoft Authentication Broker" and
-user_agent.original:(* and not (Mozilla* or Dalvik* or *CFNetwork* or Windows-AzureAD-Authentication-Provider*)) and
-azure.signinlogs.properties.resource_display_name:(
-    "Device Registration Service" or "Windows Azure Active Directory" or "Microsoft Graph"
-)
+user_agent.original:(* and not (Mozilla* or Dalvik* or *CFNetwork* or Windows-AzureAD-Authentication-Provider* or Java*ThinkPad*)) and
+azure.signinlogs.properties.resource_display_name:*
 '''
 
 [rule.investigation_fields]
