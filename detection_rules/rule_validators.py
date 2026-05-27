@@ -887,7 +887,7 @@ class ESQLValidator(QueryValidator):
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
+        _indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
         self.log(f"Extracted indices from query: {', '.join(indices)}")
 
         event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
@@ -906,10 +906,10 @@ class ESQLValidator(QueryValidator):
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
 
         # Validate the query locally via the embedded Java validator. The combined
-        # mapping covers every field across the rule's integrations, and the key
-        # matches the FROM clause exactly so the analyzer's IndexResolution lookup
-        # succeeds without any string rewriting.
-        validator_indices = {indices_str: {"properties": combined_mappings}}
+        # mapping covers every field across the rule's integrations. The key uses
+        # the same canonical no-whitespace comma-join the ES|QL parser produces, so
+        # the analyzer's IndexResolution lookup hits.
+        validator_indices = {",".join(indices): {"properties": combined_mappings}}
         query_columns, response = execute_query_against_indices(
             elastic_client, query, validator_indices, self.log
         )

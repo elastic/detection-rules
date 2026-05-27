@@ -77,7 +77,14 @@ final class AnalyzerFactory {
         Map<IndexPattern, IndexResolution> indexResolutions = new HashMap<>();
         if (inputs.indices() != null) {
             for (Map.Entry<String, Map<String, Object>> e : inputs.indices().entrySet()) {
-                indexResolutions.put(new IndexPattern(Source.EMPTY, e.getKey()), indexResolution(e.getKey(), e.getValue(), IndexMode.STANDARD));
+                // The ES|QL parser canonicalizes multi-pattern FROM clauses by joining
+                // with "," (no whitespace) — see IdentifierBuilder.visitIndexPattern.
+                // IndexPattern.equals is a strict string compare, so we must match that
+                // canonical form or the analyzer's resolution lookup misses and emits
+                // "[none specified]". Accept caller keys with arbitrary whitespace and
+                // normalize here for robustness.
+                String key = e.getKey().replaceAll("\\s*,\\s*", ",").trim();
+                indexResolutions.put(new IndexPattern(Source.EMPTY, key), indexResolution(key, e.getValue(), IndexMode.STANDARD));
             }
         }
 
