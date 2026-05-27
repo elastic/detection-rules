@@ -130,6 +130,13 @@ final class MappingLoader {
             if ("constant_keyword".equals(typeName) || "wildcard".equals(typeName)) {
                 return KEYWORD;
             }
+            // Text-family storage types that field_caps surfaces as plain "text" at
+            // search time. Mirror that here so callers can pass raw index mappings
+            // (e.g. ECS's `message: match_only_text`) without the analyzer marking
+            // them UNSUPPORTED — which would then reject perfectly valid queries.
+            if ("match_only_text".equals(typeName) || "annotated_text".equals(typeName)) {
+                return TEXT;
+            }
             Object metricsTypeParameter = content.get(TimeSeriesParams.TIME_SERIES_METRIC_PARAM);
             TimeSeriesParams.MetricType metricType = null;
             if (metricsTypeParameter instanceof String s) {
