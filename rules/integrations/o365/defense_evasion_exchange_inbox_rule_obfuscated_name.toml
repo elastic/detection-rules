@@ -80,6 +80,7 @@ from logs-o365.audit-* metadata _id, _version, _index
     event.outcome == "success" and
     o365.audit.ObjectId is not null
 | grok o365.audit.ObjectId """.*\\\\(?<Esql.inbox_rule_name>.*)$"""
+// only special chars in inbox rule name
 | where Esql.inbox_rule_name rlike """[!@#$%^&*()_+={[\]|\\:;"'<,>.?/~` \-]+"""
 | keep
     @timestamp,
