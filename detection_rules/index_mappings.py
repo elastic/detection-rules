@@ -457,6 +457,11 @@ def prepare_mappings(  # noqa: PLR0913
     # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
     # and also at a per index level as custom schemas can override non-ecs fields and/or indices
     non_ecs_schema = ecs.flatten(non_ecs_schema)
+    # Merge in Elastic Endpoint extension fields (process.Ext.*, file.Ext.*, dll.Ext.*, ...).
+    # The KQL/EQL paths in ecs.py already include these; ES|QL queries against
+    # logs-endpoint.* or .alerts-security.* legitimately reference them too and would
+    # otherwise hit "Unknown column" even though the field is valid on real indices.
+    non_ecs_schema.update(ecs.flatten(ecs.get_endpoint_schemas()))
     non_ecs_schema = utils.convert_to_nested_schema(non_ecs_schema)
     non_ecs_schema = prune_mappings_of_unsupported_types("non-ecs", non_ecs_schema, log)
 
