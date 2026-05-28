@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies FreeIPA API commands that create, modify, or delete Active Directory trust relationships. Trust relationships
+enable cross-realm Kerberos authentication between FreeIPA and AD domains. Modifying trust configurations can enable
+lateral movement to AD environments or weaken the security boundary between domains.
+"""
+false_positives = [
+    """
+    Initial trust setup or trust reconfiguration during planned AD integration changes may trigger this rule.
+    Trust modifications are extremely rare in production and should always correspond to a change management
+    record.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Active Directory Trust Modified"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Active Directory Trust Modified
+
+FreeIPA supports trust relationships with Active Directory, enabling cross-realm Kerberos authentication. Trust modifications are infrastructure-level changes that affect the security boundary between domains. An adversary with admin access can create trusts to attacker-controlled AD domains, modify existing trusts to weaken security, or delete trusts to cause service disruption.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` and verify they are authorized to manage trust relationships.
+- Check `event.action` for the specific operation (trust_add, trust_mod, trust_del, trust_fetch_domains).
+- Review `freeipa.api.parameters` to identify the target AD domain.
+- For trust_add, verify the target domain is legitimate and the trust was planned.
+- For trust_del, assess the impact on cross-realm authentication and service availability.
+- Verify the operation against a change management record.
+
+### Response and remediation
+
+- If unauthorized, immediately remove any rogue trust relationships.
+- Investigate the actor's account for compromise.
+- Review trust configuration to ensure it follows the principle of least privilege.
+- Check for cross-realm ticket activity that may indicate exploitation of the modified trust.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1484/002/",
+    "https://www.freeipa.org/page/Active_Directory_trust_setup",
+]
+risk_score = 73
+rule_id = "ca89c58e-3087-4744-bf33-6896af4cd3d9"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.action in ("trust_add", "trust_mod", "trust_del", "trustdomain_add", "trustdomain_del")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+[[rule.threat.technique.subtechnique]]
+id = "T1484.002"
+name = "Trust Modification"
+reference = "https://attack.mitre.org/techniques/T1484/002/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]

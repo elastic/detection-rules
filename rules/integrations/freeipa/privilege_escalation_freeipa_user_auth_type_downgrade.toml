@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a FreeIPA API user_mod command that changes a user's authentication type. Adversaries with admin privileges
+can downgrade a user from OTP (two-factor) to password-only authentication, making the account vulnerable to
+single-factor credential attacks. This is a high-value persistence and defense evasion technique.
+"""
+false_positives = [
+    """
+    Legitimate auth type changes during OTP token replacement or troubleshooting may trigger this rule.
+    Verify against a support ticket or change request.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA User Authentication Type Modified"
+note = """## Triage and analysis
+
+### Investigating FreeIPA User Authentication Type Modified
+
+FreeIPA supports per-user authentication types including password, OTP (TOTP/HOTP), PKINIT, and RADIUS. Changing a user's auth type from OTP to password-only effectively disables their two-factor authentication, making the account vulnerable to password-only attacks. This is particularly dangerous for admin accounts.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` and the target user from `freeipa.api.parameters`.
+- Determine what the auth type was changed to — look for `password` in the parameters, which indicates a downgrade.
+- Check if the target user is a high-privilege account (admin, helpdesk, service account).
+- Verify the change was authorized through a support ticket or change management process.
+- Look for subsequent authentication activity for the target user from unusual sources.
+
+### Response and remediation
+
+- If unauthorized, restore the user's auth type to OTP via `ipa user-mod <user> --user-auth-type=otp`.
+- Investigate the actor's account for compromise.
+- Reset the target user's password as a precaution.
+- Review who has the permission to modify user auth types and restrict it.
+"""
+references = [
+    "https://www.freeipa.org/page/V4/OTP",
+    "https://attack.mitre.org/techniques/T1556/006/",
+]
+risk_score = 73
+rule_id = "7a4a0414-a388-4d55-a81a-3c2e98126bff"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.action == "user_mod"
+    and event.outcome == "success"
+    and freeipa.api.parameters like "*ipauserauthtype*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]

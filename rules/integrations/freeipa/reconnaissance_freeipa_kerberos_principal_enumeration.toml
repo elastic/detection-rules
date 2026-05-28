@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a high number of Kerberos AS_REQ failures with CLIENT_NOT_FOUND from a single source IP, indicating
+username enumeration against the FreeIPA KDC. Adversaries probe for valid Kerberos principals before attempting
+credential attacks. The CLIENT_NOT_FOUND error is not produced by normal SSSD operations and is inherently suspicious
+in volume.
+"""
+false_positives = [
+    """
+    Misconfigured applications referencing deleted or renamed principals may generate occasional CLIENT_NOT_FOUND
+    errors. A sustained burst from a single source is unlikely to be benign.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Kerberos Principal Enumeration"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Kerberos Principal Enumeration
+
+Adversaries enumerate valid Kerberos principals by sending AS_REQ for candidate usernames and observing whether the KDC returns CLIENT_NOT_FOUND (principal does not exist) or PREAUTH_FAILED (principal exists, wrong password). A burst of CLIENT_NOT_FOUND indicates the reconnaissance phase of a credential attack.
+
+### Possible investigation steps
+
+- Review `source.ip` and `source.geo` to determine the origin. External sources are high risk.
+- Examine the `freeipa.kdc.client_principal` values to understand what usernames are being probed — common patterns include admin, root, test, or sequential usernames.
+- Check if the same source IP later generates PREAUTH_FAILED events (indicating it found valid principals and moved to password guessing).
+- Correlate with LDAP anonymous bind activity from the same source in the `directory_access` data stream.
+
+### Response and remediation
+
+- Block the source IP at the network perimeter.
+- Review whether the FreeIPA KDC is exposed to untrusted networks and restrict access if possible.
+- Monitor for follow-up brute force or spraying activity from the same or related sources.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1589/001/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 47
+rule_id = "b8b7abbf-3669-453a-b79d-a17f7c7ec409"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - KDC: `/var/log/krb5kdc.log` (kdc data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA KDC",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.kdc-*
+| where freeipa.kdc.error_code == "CLIENT_NOT_FOUND"
+| stats Esql.enumeration_count = count(*) by source.ip
+| where Esql.enumeration_count >= 10
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1589"
+name = "Gather Victim Identity Information"
+reference = "https://attack.mitre.org/techniques/T1589/"
+[[rule.threat.technique.subtechnique]]
+id = "T1589.001"
+name = "Credentials"
+reference = "https://attack.mitre.org/techniques/T1589/001/"
+
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "source.geo.country_name",
+    "freeipa.kdc.client_principal",
+    "freeipa.kdc.error_code",
+    "freeipa.kdc.request_type",
+    "event.outcome",
+    "Esql.enumeration_count",
+]

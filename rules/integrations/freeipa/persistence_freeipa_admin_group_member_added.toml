@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a user or group is added to the FreeIPA admins group via the IPA API. The admins group grants full
+domain administrator privileges. Adding members to this group is a direct privilege escalation path that should be
+rare and closely monitored.
+"""
+false_positives = [
+    """
+    Authorized admin onboarding or emergency access provisioning may trigger this rule. Verify the operation
+    matches an approved change request.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Admin Group Member Added"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Admin Group Member Added
+
+The FreeIPA `admins` group provides full administrative control over the domain, including user management, policy changes, and Kerberos configuration. Adding a member to this group is the most direct privilege escalation in FreeIPA. This should be an extremely rare operation.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` and `source.ip`.
+- Identify the newly added member from `freeipa.api.parameters`.
+- Verify the change was authorized through a change management process.
+- Check if the actor's account shows signs of compromise — unusual login times, new source IPs, or other API calls.
+- Review the new admin member's subsequent activity for signs of abuse.
+
+### Response and remediation
+
+- If unauthorized, immediately remove the added member from the admins group via `ipa group_remove_member admins --users=<user>`.
+- Reset credentials for both the actor and the newly added member.
+- Investigate the actor's account for compromise.
+- Review who has permission to modify the admins group and restrict it.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 73
+rule_id = "6f77eb93-0f3e-4dea-8870-de70c49973af"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.action == "group_add_member"
+    and event.outcome == "success"
+    and freeipa.api.parameters like "*admins*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]
