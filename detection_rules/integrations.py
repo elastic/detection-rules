@@ -249,10 +249,7 @@ def _major_has_compatible_stack(major: int, version_requirement: str) -> bool:
     """Return True iff the Kibana range overlaps some stack in ``[major.0.0, (major+1).0.0)``."""
     major_lo = Version(major, 0, 0)
     major_hi = Version(major + 1, 0, 0)
-    for lo, hi in _parse_kibana_range(version_requirement):
-        if lo < major_hi and (hi is None or hi > major_lo):
-            return True
-    return False
+    return any(lo < major_hi and (hi is None or hi > major_lo) for lo, hi in _parse_kibana_range(version_requirement))
 
 
 def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) -> set[int]:
