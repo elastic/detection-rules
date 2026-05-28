@@ -29,19 +29,22 @@ class TestEsqlValidator(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        """Spawn one JVM daemon and reuse it across every test method in the class."""
         cls.validator = EsqlValidator(build_if_missing=os.environ.get("DR_ESQL_BUILD") == "1")
         cls.validator.start()
 
     @classmethod
     def tearDownClass(cls) -> None:
+        """Reap the JVM daemon after the last test runs."""
         cls.validator.stop()
 
     def test_ping(self) -> None:
-        # Smoke test of the JSON round-trip path.
+        """Smoke-test the stdin/stdout JSON round-trip with a trivial query."""
         result = self.validator.validate("FROM idx", indices={"idx": {"properties": {"a": {"type": "long"}}}})
         self.assertEqual(result.status, "ok")
 
     def test_valid_query_returns_plan(self) -> None:
+        """A well-formed query returns ok with a populated analyzed-plan text."""
         result = self.validator.validate(
             "FROM logs | WHERE foo == 1 | LIMIT 5",
             indices={"logs": {"properties": {"foo": {"type": "integer"}}}},
@@ -51,6 +54,7 @@ class TestEsqlValidator(unittest.TestCase):
         self.assertIn("EsRelation[logs]", result.plan)
 
     def test_parse_error_includes_position(self) -> None:
+        """Syntax errors surface as parse_error with structured line/column."""
         result = self.validator.validate("FROM logs | WAT")
         self.assertEqual(result.status, "parse_error")
         self.assertGreaterEqual(len(result.errors), 1)
@@ -60,6 +64,7 @@ class TestEsqlValidator(unittest.TestCase):
         self.assertGreater(err.column or 0, 0)
 
     def test_unknown_field_is_verify_error(self) -> None:
+        """References to fields missing from the supplied mapping become verify_error."""
         result = self.validator.validate(
             "FROM logs | WHERE missing_field == 1",
             indices={"logs": {"properties": {"foo": {"type": "integer"}}}},
@@ -71,7 +76,7 @@ class TestEsqlValidator(unittest.TestCase):
         self.assertEqual(err.line, 1)
 
     def test_type_mismatch_is_verify_error(self) -> None:
-        # Comparing a keyword field with a number — Verifier should flag this.
+        """Comparing a keyword field with a number is flagged by the Verifier."""
         result = self.validator.validate(
             'FROM logs | WHERE name == 1',
             indices={"logs": {"properties": {"name": {"type": "keyword"}}}},
@@ -80,12 +85,13 @@ class TestEsqlValidator(unittest.TestCase):
         self.assertTrue(any("name" in e.message for e in result.errors), msg=result.errors)
 
     def test_raise_for_status(self) -> None:
+        """raise_for_status() turns any non-ok result into a ValidationError."""
         result = self.validator.validate("FROM x | WAT")
         with self.assertRaises(ValidationError):
             result.raise_for_status()
 
     def test_multiple_round_trips_share_daemon(self) -> None:
-        # Verify the long-running daemon doesn't break across many calls.
+        """The long-running daemon stays healthy across many sequential calls."""
         mapping = {"logs": {"properties": {"foo": {"type": "integer"}}}}
         for i in range(10):
             r = self.validator.validate(f"FROM logs | LIMIT {i + 1}", indices=mapping)
