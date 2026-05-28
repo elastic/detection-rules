@@ -17,8 +17,8 @@ false_positives = [
     journaling, spam handling, or partner integrations.
     """,
 ]
-from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace.admin-*"]
+from = "now-20m"
+index = ["logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
@@ -71,16 +71,14 @@ Google may emit multiple admin audit events per single save (legacy `CREATE_GMAI
 
 ## Setup
 
-The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+The Google Workspace Fleet integration with the Admin data stream (`logs-google_workspace.admin-*`) is required for this rule.
 
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
-- This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
-- To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
-- By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
+- This rule uses `timestamp_override = event.ingested` and is configured to run every 10 minutes with a lookback of 20 minutes, aligned with the integration's default Admin poll interval (`interval`: 15m) and lag time (`lag_time`: 3m).
 - See the following references for further information:
   - https://support.google.com/a/answer/7061566
-  - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
+  - https://www.elastic.co/docs/reference/integrations/google_workspace"""
 references = [
     "https://support.google.com/a/answer/2685650?hl=en",
     "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
