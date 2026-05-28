@@ -2,7 +2,7 @@
 creation_date = "2022/08/24"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/05/22"
+updated_date = "2026/05/28"
 
 [rule]
 author = ["Elastic"]
@@ -46,12 +46,15 @@ relying on per-file sharing changes. This rule detects two related admin audit a
 
 - Review admin logs for involved user accounts.
 - For data transfer requests, confirm the request initiator, source and destination users in `user.email`, `user.target.email`, and `google_workspace.admin.new_value`.
-- For Customer Takeout events, in Admin Console view the export request scope details.
+- For Customer Takeout events (`CUSTOMER_TAKEOUT_CREATED`):
+  - In Elasticsearch, pivot on `google_workspace.admin.OBFUSCATED_CUSTOMER_TAKEOUT_REQUEST_ID` to find related admin events for the same export job (for example completion or failure). The Admin console Data export UI does not expose or accept this ID for search.
+  - In the Admin console, go to Data > Data import & export > Data export and identify the export by correlating `@timestamp`, Set up by (`user.email`), and Last start date / Status. The export Name shown in the console is not present in Workspace admin logs.
+  - Open the matching row and select View archive to review exported data scope and where the archive is stored (Google-provided bucket or customer-owned Cloud Storage).
 - Determine if involved user accounts are active.
 - Check if involved user accounts were recently disabled, suspended, or scheduled for deletion.
 - Review involved user accounts for potentially misconfigured permissions or roles.
 - Review the involved shared drives, My Drive files, or export scope to determine if this action was expected.
-- Triage potentially related alerts based on the users involved. 
+- Triage potentially related alerts based on the users involved.
 
 ### False positive analysis
 
@@ -124,8 +127,6 @@ id = "T1074.002"
 name = "Remote Data Staging"
 reference = "https://attack.mitre.org/techniques/T1074/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
@@ -136,7 +137,6 @@ framework = "MITRE ATT&CK"
 id = "T1537"
 name = "Transfer Data to Cloud Account"
 reference = "https://attack.mitre.org/techniques/T1537/"
-
 
 [rule.threat.tactic]
 id = "TA0010"
@@ -154,5 +154,6 @@ field_names = [
     "google_workspace.admin.new_value",
     "event.action",
     "cloud.account.id",
+    "google_workspace.admin.OBFUSCATED_CUSTOMER_TAKEOUT_REQUEST_ID",
 ]
 
