@@ -396,6 +396,12 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
         if info["type"] == "scaled_float":
             ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
         ecs_schema_flattened.update({index: info["type"]})
+        # Expand ECS multi-fields (e.g. process.command_line.text). The ECS flat
+        # schema records them under each field's "multi_fields", but the iteration
+        # above only copies "type" — without this step, queries that reference a
+        # subfield like `process.command_line.text` hit "Unknown column".
+        for sub in info.get("multi_fields", []):
+            ecs_schema_flattened[f"{index}.{sub['name']}"] = sub["type"]
     ecs_schema = utils.convert_to_nested_schema(ecs_schema_flattened)
     for index, info in ecs_schema_scaled_floats.items():
         parts = index.split(".")
