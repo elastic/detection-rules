@@ -2,51 +2,64 @@
 creation_date = "2022/08/24"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/28"
 
 [rule]
 author = ["Elastic"]
 description = """
-Drive and Docs is a Google Workspace service that allows users to leverage Google Drive and Google Docs. Access to files
-is based on inherited permissions from the child organizational unit the user belongs to which is scoped by
-administrators. Typically if a user is removed, their files can be transferred to another user by the administrator.
-This service can also be abused by adversaries to transfer files to an adversary account for potential exfiltration.
+Detects when Google Workspace administrators initiate bulk movement or export of user Drive data. This includes admin
+data transfer requests that reassign a user's Drive files to another account, and Customer Takeout export jobs that
+package organizational data for download or off-platform transfer. Adversaries with administrative access may abuse
+these mechanisms to stage or exfiltrate sensitive files.
 """
 false_positives = [
     """
-    Administrators may transfer file ownership during employee leave or absence to ensure continued operations by a new
-    or existing employee.
+    Administrators may create Drive data transfer requests during employee offboarding to preserve files for a manager
+    or successor account.
+    """,
+    """
+    Customer Takeout exports may be created for legal hold, compliance, migration, or user-requested backups. Verify the
+    initiator, target user, and export scope are expected.
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Drive Ownership Transferred via Google Workspace"
+name = "Google Workspace Drive Data Transfer or Takeout Export Initiated"
 note = """## Triage and analysis
 
-### Investigating Google Drive Ownership Transferred via Google Workspace
+### Investigating Google Workspace Drive Data Transfer or Takeout Export Initiated
 
-Google Drive is a cloud storage service that allows users to store and access files. It is available to users with a Google Workspace account.
+Google Drive is a cloud storage service available to Google Workspace users. Administrators can bulk-transfer a
+departing user's Drive files to another in-domain account, or create Customer Takeout exports that package user or
+organizational data for download or transfer to an external destination (for example, another cloud provider).
 
-Google Workspace administrators consider users' roles and organizational units when assigning permissions to files or shared drives. Owners of sensitive files and folders can grant permissions to users who make internal or external access requests. Adversaries abuse this trust system by accessing Google Drive resources with improperly scoped permissions and shared settings. Distributing phishing emails is another common approach to sharing malicious Google Drive documents. With this approach, adversaries aim to inherit the recipient's Google Workspace privileges when an external entity grants ownership.
+Adversaries with compromised administrator credentials may abuse these workflows to collect sensitive files without
+relying on per-file sharing changes. This rule detects two related admin audit actions:
 
-This rule identifies when the ownership of a shared drive within a Google Workspace organization is transferred to another internal user.
+- `CREATE_DATA_TRANSFER_REQUEST` with Drive application scope — ownership or bulk transfer to another user.
+- `CUSTOMER_TAKEOUT_CREATED` — initiation of a Customer Takeout export job.
 
-#### Possible investigation steps
+### Possible investigation steps
 
-- From the admin console, review admin logs for involved user accounts. To find admin logs, go to `Security > Reporting > Audit and investigation > Admin log events`.
-- Determine if involved user accounts are active. To view user activity, go to `Directory > Users`.
-- Check if the involved user accounts were recently disabled, then re-enabled.
+- Review admin logs for involved user accounts.
+- For data transfer requests, confirm the request initiator, source and destination users in `user.email`, `user.target.email`, and `google_workspace.admin.new_value`.
+- For Customer Takeout events (`CUSTOMER_TAKEOUT_CREATED`):
+  - In Elasticsearch, pivot on `google_workspace.admin.OBFUSCATED_CUSTOMER_TAKEOUT_REQUEST_ID` to find related admin events for the same export job (for example completion or failure). The Admin console Data export UI does not expose or accept this ID for search.
+  - In the Admin console, go to Data > Data import & export > Data export and identify the export by correlating `@timestamp`, Set up by (`user.email`), and Last start date / Status. The export Name shown in the console is not present in Workspace admin logs.
+  - Open the matching row and select View archive to review exported data scope and where the archive is stored (Google-provided bucket or customer-owned Cloud Storage).
+- Determine if involved user accounts are active.
+- Check if involved user accounts were recently disabled, suspended, or scheduled for deletion.
 - Review involved user accounts for potentially misconfigured permissions or roles.
-- Review the involved shared drive or files and related policies to determine if this action was expected and appropriate.
-- If a shared drive, access requirements based on Organizational Units in `Apps > Google Workspace > Drive and Docs > Manage shared drives`.
-- Triage potentially related alerts based on the users involved. To find alerts, go to `Security > Alerts`.
+- Review the involved shared drives, My Drive files, or export scope to determine if this action was expected.
+- Triage potentially related alerts based on the users involved.
 
 ### False positive analysis
 
-- Transferring drives requires Google Workspace administration permissions related to Google Drive. Check if this action was planned/expected from the requester and is appropriately targeting the correct receiver.
+- Drive data transfers require Google Workspace administration permissions. Confirm the transfer was planned during offboarding or role change and targets the correct receiver.
+- Customer Takeout exports are common for compliance, migration, and departures. Validate the initiator is authorized and the export scope matches policy.
 
 ### Response and remediation
 
@@ -78,8 +91,9 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
   - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
 references = [
     "https://support.google.com/a/answer/1247799?hl=en",
+    "https://support.google.com/a/answer/10276199",
     "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
-    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two"
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two",
 ]
 risk_score = 47
 rule_id = "07b5f85a-240f-11ed-b3d9-f661ea17fbce"
@@ -88,25 +102,26 @@ tags = [
     "Domain: Cloud",
     "Data Source: Google Workspace",
     "Tactic: Collection",
+    "Tactic: Exfiltration",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"google_workspace.admin" and event.action:"CREATE_DATA_TRANSFER_REQUEST"
-  and event.category:"iam" and google_workspace.admin.application.name:Drive*
+data_stream.dataset:"google_workspace.admin" and (
+  (event.action:"CREATE_DATA_TRANSFER_REQUEST" and google_workspace.admin.application.name:Drive*) or
+  event.action:"CUSTOMER_TAKEOUT_CREATED"
+)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1074"
 name = "Data Staged"
 reference = "https://attack.mitre.org/techniques/T1074/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1074.002"
 name = "Remote Data Staging"
@@ -116,10 +131,8 @@ reference = "https://attack.mitre.org/techniques/T1074/002/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1537"
 name = "Transfer Data to Cloud Account"
@@ -129,3 +142,18 @@ reference = "https://attack.mitre.org/techniques/T1537/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.email",
+    "source.ip",
+    "google_workspace.actor.type",
+    "user.target.email",
+    "google_workspace.admin.new_value",
+    "event.action",
+    "cloud.account.id",
+    "google_workspace.admin.OBFUSCATED_CUSTOMER_TAKEOUT_REQUEST_ID",
+]
+
