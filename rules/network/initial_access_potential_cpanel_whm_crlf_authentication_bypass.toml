@@ -130,6 +130,20 @@ This rule supports two data sources:
    which is a less precise but still exploit-shaped signal. Confirm exploitation by retrieving the raw header values
    from the upstream Zeek sensor or correlated packet capture.
 
+   The Zeek branch has non-default sensor prerequisites that must be met or it will never match:
+   - **Header-name logging is not enabled by default.** `client_header_names` and `server_header_names` are produced by
+     the policy script `policy/protocols/http/header-names.zeek`, which is not loaded by `base/protocols/http` or the
+     default `site/local.zeek`. Add `@load policy/protocols/http/header-names.zeek` to the Zeek configuration. Without
+     it, neither field is emitted and the Zeek branch cannot fire.
+   - **Server header-name logging defaults to off.** Even with the script loaded, `HTTP::log_server_header_names`
+     defaults to `F`, so the `server_header_names:LOCATION` condition is unsatisfiable. Set
+     `redef HTTP::log_server_header_names = T;` (client header-name logging is on by default).
+   - **Non-standard ports are handled by DPD, not a port list.** Zeek ships port-independent HTTP DPD signatures
+     (`base/protocols/http/dpd.sig`) that detect HTTP by payload regardless of port, so plaintext `GET /` on cPanel
+     admin ports (2086/2082/2095) is parsed into `zeek.http` without registering those ports. The TLS ports
+     (2087/2083/2096) are encrypted and yield `zeek.ssl`, not `zeek.http`, unless the sensor sits upstream of TLS
+     termination (see decryption note below).
+
 cPanel/WHM exposes paired TLS and plaintext ports: 2087 (WHM HTTPS), 2083 (cPanel HTTPS), and 2096 (Webmail HTTPS)
 require decryption visibility (TLS interception, sidecar on the host, or a sensor upstream of TLS termination) for
 either data source to observe HTTP headers. The plaintext counterparts — 2086 (WHM HTTP), 2082 (cPanel HTTP), and 2095
