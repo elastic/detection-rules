@@ -246,7 +246,7 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
 
 
 def _major_has_compatible_stack(major: int, version_requirement: str) -> bool:
-    """Return True iff the Kibana range overlaps some stack in ``[major.0.0, (major+1).0.0)``."""
+    """Return True iff the Kibana range overlaps some stack in [major.0.0, (major+1).0.0)."""
     major_lo = Version(major, 0, 0)
     major_hi = Version(major + 1, 0, 0)
     return any(lo < major_hi and (hi is None or hi > major_lo) for lo, hi in _parse_kibana_range(version_requirement))
@@ -257,9 +257,11 @@ def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) ->
     stack_majors: set[int] = set()
     for manifest in integration_manifests.values():
         version_requirement = manifest["conditions"]["kibana"]["version"]
-        for lo, _hi in _parse_kibana_range(version_requirement):
-            if _major_has_compatible_stack(lo.major, version_requirement):
-                stack_majors.add(lo.major)
+        for lo, hi in _parse_kibana_range(version_requirement):
+            end_major = lo.major + 1 if hi is None else max(hi.major, lo.major + 1)
+            for major in range(lo.major, end_major):
+                if _major_has_compatible_stack(major, version_requirement):
+                    stack_majors.add(major)
     return stack_majors
 
 
@@ -267,7 +269,7 @@ def _anchor_for_aligned_integration_major(
     major: int,
     integration_manifests: dict[str, Any],
 ) -> str | None:
-    """Oldest integration version in ``major`` whose Kibana range overlaps ``[major, major+1)``."""
+    """Oldest integration version in major whose Kibana range overlaps [major, major+1)."""
     major_manifests = {
         version: manifest
         for version, manifest in integration_manifests.items()
@@ -302,9 +304,28 @@ def _find_least_compatible_for_stack(
     return None
 
 
-def _representative_stack_version(stack_major: int) -> Version:
-    """Representative stack version used to resolve unaligned integration majors."""
-    return Version(stack_major, 19, 0)
+def _stack_version_for_major(stack_major: int, integration_manifests: dict[str, Any]) -> Version:
+    """Pick a stack version within stack_major likely to satisfy manifest Kibana ranges."""
+    major_lo = Version(stack_major, 0, 0)
+    major_hi = Version(stack_major + 1, 0, 0)
+    candidate = major_lo
+
+    for manifest in integration_manifests.values():
+        version_requirement = manifest["conditions"]["kibana"]["version"]
+        if not _major_has_compatible_stack(stack_major, version_requirement):
+            continue
+        for lo, hi in _parse_kibana_range(version_requirement):
+            if hi is not None and hi <= major_lo:
+                continue
+            if lo >= major_hi:
+                continue
+            in_major = lo if lo >= major_lo else major_lo
+            if _satisfies_kibana_range(in_major, version_requirement):
+                candidate = max(candidate, in_major)
+            elif _satisfies_kibana_range(major_lo, version_requirement):
+                candidate = max(candidate, major_lo)
+
+    return candidate
 
 
 @dataclass(frozen=True)
@@ -320,11 +341,11 @@ def find_compatible_version_range(
     package: str,
     packages_manifest: dict[str, Any],
 ) -> CompatibleVersionRange:
-    """Return a stack-invariant OR'd caret range for ``related_integrations.version``.
+    """Return a stack-invariant OR'd caret range for related_integrations.version.
 
-    Emits one ``^X.Y.Z`` anchor per stack line the integration package supports, plus a
-    forward-looking ``^(top_major + 1).0.0`` anchor. Integration majors aligned with Kibana
-    stack majors (e.g. endpoint 8.x / 9.x) use manifest overlap on ``[M, M+1)``; other
+    Emits one ^X.Y.Z anchor per stack line the integration package supports, plus a
+    forward-looking ^(top_major + 1).0.0 anchor. Integration majors aligned with Kibana
+    stack majors (e.g. endpoint 8.x / 9.x) use manifest overlap on [M, M+1); other
     packages resolve additional stack lines via the legacy stack walk.
     """
     package_manifest = packages_manifest.get(package)
@@ -356,11 +377,9 @@ def find_compatible_version_range(
     for stack_major in effective_stack_majors:
         if stack_major in aligned_by_major:
             anchor = aligned_by_major[stack_major]
-        elif stack_major in integration_majors:
-            anchor = _anchor_for_aligned_integration_major(stack_major, integration_manifests)
         else:
             anchor = _find_least_compatible_for_stack(
-                _representative_stack_version(stack_major),
+                _stack_version_for_major(stack_major, integration_manifests),
                 integration_manifests,
             )
         if anchor and anchor not in anchors:
