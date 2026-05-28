@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "sonicwall_firewall", "suricata"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
@@ -94,9 +94,12 @@ query = '''
 (data_stream.dataset:(fortinet_fortigate.log or network_traffic.flow
         or sonicwall_firewall.log or suricata.eve or panw.panos)
     or event.category:(network or network_traffic))
-    and event.type:(connection and not end) and not event.action:(
-        flow_dropped or flow_denied or denied or deny or
-        flow_terminated or timeout or Reject or network_flow)
+    and event.type:(connection and not end)
+    and not event.action:(flow_dropped or flow_denied or denied or deny or
+        flow_terminated or timeout or Reject or network_flow or connection-denied or
+        connection-end or server-rst or client-rst)
+    and not (event.action:netflow_flow and not network.packets > 1)
+    and not network.application:(traceroute or stretchoid-scanning)
     and destination.port:23
 '''
 
