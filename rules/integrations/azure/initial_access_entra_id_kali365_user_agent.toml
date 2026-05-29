@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/05/26"
+integration = ["azure", "o365"]
+maturity = "production"
+updated_date = "2026/05/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the default user agent string associated with Kali365 (also referred to as Kali365 Live), a
+phishing-as-a-service (PhaaS) platform that automates OAuth 2.0 device code phishing and adversary-in-the-middle (AiTM)
+session capture against Microsoft 365 and Microsoft Entra ID. The Kali365 Electron desktop client identifies itself with
+the user agent `kali365-live/1.0.0` when polling for and replaying captured OAuth tokens, so its appearance in Entra ID
+sign-in logs, Entra ID audit logs, or the Microsoft 365 unified audit log indicates that an attacker-controlled Kali365
+client is interacting with the tenant using stolen tokens. Unlike dual-use offensive tooling, Kali365 is a criminal
+service with no legitimate enterprise use, making this user agent a high-fidelity indicator of active account
+compromise.
+"""
+false_positives = [
+    """
+    Security researchers, sandbox detonations, or red team engagements that intentionally run the Kali365 client against
+    a monitored tenant may generate this user agent. Document approved research activity and exclude the associated
+    principals, source IPs, or tenants if expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*", "logs-azure.signinlogs-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Kali365 Default User-Agent Detected"
+note = """## Triage and analysis
+
+### Investigating Entra ID Kali365 Default User-Agent Detected
+
+Kali365 (Kali365 Live) is a phishing-as-a-service platform distributed via Telegram that provides affiliates with
+AI-generated lures, automated device code phishing campaigns, target-tracking dashboards, and OAuth token capture. The
+typical flow is: a lure delivers a Microsoft device code, the victim enters it on the legitimate Microsoft verification
+page and unknowingly authorizes the attacker, Kali365 captures the resulting OAuth access and refresh tokens, and the
+attacker uses those tokens for persistent, MFA-free access to Microsoft 365 (Outlook, Teams, OneDrive).
+
+The Kali365 desktop client presents the user agent `kali365-live/1.0.0`. This rule fires when that user agent is observed
+in Entra ID sign-in logs, Entra ID audit logs, or the Microsoft 365 unified audit log. Because the user agent maps to a
+criminal service with no legitimate use, an alert generally indicates that stolen tokens are already being replayed
+against the tenant.
+
+### Possible investigation steps
+
+- Confirm the tool and identify the affected identity.
+    - `user_agent.original` matches `kali365-live/*`.
+    - Pivot on `user.name`, `azure.signinlogs.properties.user_principal_name`, or the M365 audit `user.id`.
+- Review the origin and compare against the user's normal sign-in behavior.
+    - `source.ip`, `source.geo.*`, and `source.as.organization.name`; flag hosting/VPS ASNs and unexpected geographies.
+    - Cross-reference published Kali365 infrastructure (`216.203.20.95`, `162.243.166.119`, `199.91.220.111`).
+- Confirm the device code grant in sign-in logs.
+    - `azure.signinlogs.properties.authentication_protocol` is `deviceCode`.
+    - Review `app_id`/`app_display_name` and `resource_display_name` for the brokered mail or collaboration API.
+- Scope follow-on access in the Microsoft 365 unified audit log for the same user and timeframe.
+    - Look for mailbox access, inbox rule creation, OneDrive/SharePoint downloads, or Teams activity from the same session or IP.
+- Check the Entra ID audit log for a device registration by the same identity around the alert window.
+    - A `Register device` event by the identity paired (via `azure.correlation_id`) with an `Add device` event from the `Device Registration Service` indicates a Primary Refresh Token (PRT) was issued for persistence that survives password resets.
+
+### False positive analysis
+
+- This user agent has no legitimate enterprise use.
+    - The only expected matches are authorized security research or red team exercises running the Kali365 client; validate and document before dismissing.
+
+### Response and remediation
+
+- Remove rogue device registrations created by the user BEFORE revoking sessions.
+    - Device-bound PRTs survive `revokeSignInSessions`, so a device left in place re-establishes access.
+    - `GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for unrecognized devices.
+- Revoke refresh tokens and sessions, then reset credentials and re-register MFA.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the account if you need to halt activity during investigation.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- Remove other attacker persistence: malicious inbox/forwarding rules, OAuth consents, and app passwords.
+- Block or monitor Kali365 source IPs and infrastructure, and hunt for the user agent across other users and tenants.
+- Apply Conditional Access to the device code grant.
+    - Require a managed/compliant device, or block the device-code flow outside approved app and user populations.
+"""
+references = [
+    "https://arcticwolf.com/resources/blog/token-bingo-dont-let-your-code-be-the-winner/",
+    "https://www.ic3.gov/PSA/2026/PSA260521",
+]
+risk_score = 73
+rule_id = "4b11dbab-ce37-49c4-bdf1-cdf64b405d96"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Threat: Kali365",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset : ("azure.signinlogs" or "azure.auditlogs" or "o365.audit") and user_agent.original: kali365-live/*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
