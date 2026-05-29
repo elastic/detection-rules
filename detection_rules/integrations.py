@@ -258,6 +258,7 @@ def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) ->
     for manifest in integration_manifests.values():
         version_requirement = manifest["conditions"]["kibana"]["version"]
         for lo, hi in _parse_kibana_range(version_requirement):
+            majors_to_check: list[int]
             if hi is None:
                 majors_to_check = [lo.major]
             else:
