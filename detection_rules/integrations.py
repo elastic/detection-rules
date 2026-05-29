@@ -258,8 +258,15 @@ def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) ->
     for manifest in integration_manifests.values():
         version_requirement = manifest["conditions"]["kibana"]["version"]
         for lo, hi in _parse_kibana_range(version_requirement):
-            end_major = lo.major + 1 if hi is None else max(hi.major, lo.major + 1)
-            for major in range(lo.major, end_major):
+            if hi is None:
+                majors_to_check = [lo.major]
+            else:
+                major = lo.major
+                majors_to_check = []
+                while Version(major, 0, 0) < hi:
+                    majors_to_check.append(major)
+                    major += 1
+            for major in majors_to_check:
                 if _major_has_compatible_stack(major, version_requirement):
                     stack_majors.add(major)
     return stack_majors
@@ -305,10 +312,10 @@ def _find_least_compatible_for_stack(
 
 
 def _stack_version_for_major(stack_major: int, integration_manifests: dict[str, Any]) -> Version:
-    """Pick a stack version within stack_major likely to satisfy manifest Kibana ranges."""
+    """Pick the earliest stack version within stack_major that satisfies manifest ranges."""
     major_lo = Version(stack_major, 0, 0)
     major_hi = Version(stack_major + 1, 0, 0)
-    candidate = major_lo
+    candidates: list[Version] = []
 
     for manifest in integration_manifests.values():
         version_requirement = manifest["conditions"]["kibana"]["version"]
@@ -321,11 +328,11 @@ def _stack_version_for_major(stack_major: int, integration_manifests: dict[str, 
                 continue
             in_major = lo if lo >= major_lo else major_lo
             if _satisfies_kibana_range(in_major, version_requirement):
-                candidate = max(candidate, in_major)
+                candidates.append(in_major)
             elif _satisfies_kibana_range(major_lo, version_requirement):
-                candidate = max(candidate, major_lo)
+                candidates.append(major_lo)
 
-    return candidate
+    return min(candidates) if candidates else major_lo
 
 
 @dataclass(frozen=True)
