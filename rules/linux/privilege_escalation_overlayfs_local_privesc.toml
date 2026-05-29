@@ -2,7 +2,7 @@
 creation_date = "2023/07/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/08"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
@@ -62,7 +62,7 @@ type = "eql"
 query = '''
 sequence by process.parent.entity_id, host.id with maxspan=60s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-    process.name == "unshare" and process.args : ("-r", "-rm", "m", "-U", "--user") and user.id != "0"]
+    process.name == "unshare" and process.args : ("-r", "-rm", "-m", "-U", "--user") and user.id != "0"]
   [process where host.os.type == "linux" and event.action == "uid_change" and event.type == "change" and
     user.id == "0"]
 '''
