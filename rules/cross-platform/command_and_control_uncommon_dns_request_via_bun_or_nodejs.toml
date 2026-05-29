@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/05/21"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/05/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects uncommon DNS requests via Bun or Node.js. Adversaries may leverage these tools
+via a supply chain attack of a compromised developer's package to execute malicious code and
+steal/exfiltrate data.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Uncommon DNS Request via Bun or Node.js"
+references = [
+    "https://github.com/nrwl/nx-console/issues/3139",
+]
+risk_score = 21
+rule_id = "55be0398-e72d-4c02-a916-b11d62af0e29"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:network and host.os.type:(linux or macos or windows) and event.action:lookup_requested and
+process.name:(bun or bun.exe or node or node.exe or nodejs) and dns.question.name:(* and not localhost)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "DNS"
+    id = "T1071.004"
+    reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "dns.question.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

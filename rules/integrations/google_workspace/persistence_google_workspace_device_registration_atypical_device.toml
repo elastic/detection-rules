@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a Google Workspace user is observed authenticating from a device of a given type (e.g., WINDOWS,
+MAC, ANDROID, IOS, LINUX) within a historical window. Note that "DEVICE_REGISTER_UNREGISTER_EVENT" events do not
+represent one-time physical device enrollments; the Google Reports API emits a fresh "google_workspace.device.id" on
+each event, and the same physical device may produce multiple events per day as sessions/sync renewals occur. The rule
+therefore surfaces a user authenticating from a new device type, not a new physical device. This is still high-fidelity
+because adversaries who compromise a Workspace identity via AiTM kits or stolen OAuth refresh tokens frequently relay
+sessions from device types that diverge from the legitimate user's baseline (e.g., a WINDOWS session appearing for a
+known macOS user, or simultaneous WINDOWS+MAC sessions within minutes), which is the canonical kit fingerprint. Because
+the underlying token retains access after password rotation, treat unexpected device-type divergence as a compromise
+indicator and revoke tokens, not just credentials.
+"""
+false_positives = [
+    """
+    A user legitimately enrolling a new personal or corporate device (new laptop, replacement phone, BYOD enrollment).
+    Validate by confirming the device registration timing aligns with a known device refresh, IT hardware ticket, or
+    onboarding event.
+    """,
+    """
+    Bulk device enrollment campaigns (e.g., MDM rollout, fleet refresh) where many users register the same new device
+    type in a short window. Consider suppressing during planned rollouts.
+    """,
+]
+from = "now-9m"
+index = ["logs-google_workspace.device*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace User Sign-in from Atypical Device Type"
+note = """## Triage and analysis
+
+### Investigating Google Workspace User Sign-in from Atypical Device Type
+
+This rule emits when a user authenticates from a device whose type (`google_workspace.device.type`) has not been observed for that user in the prior 14 days.
+
+**Important: this is not a true "device enrollment" event.** Google's Reports API emits `DEVICE_REGISTER_UNREGISTER_EVENT` from the `mobile` provider on every session/sync registration, with a fresh `google_workspace.device.id` each time. A single physical device can produce many such events per day. The rule therefore identifies a *device-type-per-user* anomaly: a session originating from a class of device the user has not been seen on in the prior 14 days, not a one-time physical device join.
+
+The detection value remains high because adversaries who relay sessions via AiTM kits (Tycoon2FA Google variant, EvilGinx phishlets) or who replay stolen OAuth refresh tokens typically egress from device fingerprints that diverge from the victim's baseline. Two patterns are especially diagnostic:
+
+- A device type appearing for a user that does not match the user's known OS (e.g., WINDOWS sessions for a user whose corporate laptop is macOS).
+- Simultaneous WINDOWS+MAC (or similar cross-type) sessions for the same user within a short window, indicating the kit and the victim are active at the same time.
+
+Because the underlying OAuth refresh token continues to grant access after a password reset, password rotation alone does not remediate this; only token revocation does.
+
+### Possible investigation steps
+
+- Identify the user (`user.email`), the device type (`google_workspace.device.type`), and the device model and OS (`google_workspace.device.model`, `host.os.version`).
+- Compare the registered device type to the user's known device baseline. A WINDOWS device for a known macOS user, or an ANDROID device for a known iOS user, is a high-confidence adversary signal.
+- Pull all `logs-google_workspace.login` events for the same `user.email` in the 24 hours leading up to the device registration. Inspect `source.geo.country_name`, `source.as.organization.name`, and `user_agent.original` for each sign-in. A device registration immediately following a sign-in from a non-baseline ASN (hosting providers, cheap VPS, AiTM kit egress like Clouvider or Host Telecom) is the kit-driven persistence signature.
+- Cross-reference `logs-google_workspace.token` for `event.action: "authorize"` events from the same user near the same time. OAuth grants minted around the device registration window indicate the kit has minted additional tokens for the attacker-controlled device.
+- Inspect `google_workspace.device.id` and `google_workspace.device.resource.id` for the registered device. Capture both, since `device.id` is required for the device removal API call during remediation.
+- Confirm with the user whether the device registration is theirs (new hardware, BYOD enrollment) or unexpected.
+
+### False positive analysis
+
+- Legitimate first-time device enrollment for new hardware, BYOD onboarding, or device refresh cycles. Validate by checking IT hardware tickets, onboarding records, or HR.
+- Planned MDM rollouts that register many users' devices in a short window. Consider a temporary rule suppression during scheduled rollouts.
+- Users who legitimately use multiple device types and happened to first enroll a given type outside the lookback window (e.g., always had a personal Android but only just enrolled it in Workspace).
+
+### Response and remediation
+
+- If the device registration is unexpected: treat as compromise. Immediately suspend the user, revoke all OAuth tokens (`DELETE /admin/directory/v1/users/<email>/tokens/<clientId>`), reset the password, and clear recovery email/phone.
+- Remove the attacker-controlled device via the Admin SDK Directory API: `POST /admin/directory/v1/customer/<customerId>/devices/chromeos/<deviceId>/action` (or the mobile device variant) to wipe / remove the device.
+- Audit any post-registration mailbox, Drive, and Calendar activity for adversary data access or exfiltration.
+- Cross-check `logs-gcp.audit-*` if the tenant exposes GCP resources to the user: look for `authenticationInfo.principalEmail` matching the user from a non-baseline `callerIp` in the same window, since token theft frequently extends to cross-cloud access.
+"""
+references = [
+    "https://developers.google.com/workspace/admin/reports/v1/appendix/activity/mobile",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://any.run/malware-trends/tycoon/",
+]
+risk_score = 47
+rule_id = "e0916edd-ea8c-49d2-882e-2cf6af161dd7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Google Workspace",
+    "Data Source: Google Workspace Device Logs",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "google_workspace.device" and
+event.action: "DEVICE_REGISTER_UNREGISTER_EVENT" and
+google_workspace.device.account_state: "REGISTERED" and
+google_workspace.device.type: * and
+user.email: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "google_workspace.device.type",
+    "google_workspace.device.model",
+    "google_workspace.device.id",
+    "google_workspace.device.resource.id",
+    "google_workspace.device.account_state",
+    "host.os.version",
+    "event.provider",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["google_workspace.device.type", "user.email"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
