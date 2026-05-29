@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/05/26"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra ID device registration where the recorded cloud device operating system build is
+"10.0.19041.928" and the device display name follows the default "DESKTOP-" pattern. This combination is the default
+device profile that ROADtools (roadtx) uses when registering a device, and it is uncommon for the OS build to match the
+hardcoded value across an environment of otherwise patched hosts. Adversaries register rogue devices in Entra ID to
+acquire a Primary Refresh Token (PRT), establish persistence, and obtain trusted, programmatic access to the tenant.
+Because the OS build is a tool default, this is a high-fidelity but evadable indicator; baseline approved provisioning
+tooling and device naming conventions before relying on it.
+"""
+false_positives = [
+    """
+    Legitimate device registrations may coincidentally use the `10.0.19041.928` build (Windows 10 20H1) with a default
+    `DESKTOP-` hostname, particularly on imaged or unmanaged Windows hosts that have not been updated. Validate against
+    your device inventory, expected provisioning workflows, and the registering user before escalating.
+    """,
+    """
+    Authorized red team or penetration testing engagements that use ROADtools to register devices will match this rule.
+    If this is expected, add exceptions for the specific user principal names, source IPs, or device names involved.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Device Registration with ROADtools Default OS Build"
+note = """## Triage and analysis
+
+### Investigating Entra ID Device Registration with ROADtools Default OS Build
+
+ROADtools (roadtx) registers a device in Entra ID with a default cloud device OS build of `10.0.19041.928` and a default
+display name of `DESKTOP-<8 random characters>`. This OS build is the current default value roadtx uses and
+differs from the OS version of legitimate hosts, making the build a useful indicator of ROADtools device registration.
+Rogue device registration is typically a precursor to Primary Refresh Token (PRT) acquisition, MFA/Conditional Access
+bypass, and persistent token-based access.
+
+The matching Entra ID audit event is an `Add device` operation initiated by the `Device Registration Service`, where the
+modified properties record the registered device characteristics:
+
+- `azure.auditlogs.properties.target_resources.0.modified_properties.3` (`CloudDeviceOSVersion`) = `10.0.19041.928`
+- `azure.auditlogs.properties.target_resources.0.modified_properties.4` (`CloudDisplayName`) = `DESKTOP-*`
+
+### Possible investigation steps
+
+- Confirm the registering identity via `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and determine
+whether that user is expected to register a new device.
+- Review `azure.auditlogs.identity` to confirm the `Device Registration Service` initiated the request, and use
+`azure.correlation_id` to pivot across the full registration flow (`Add device`, `Add registered users to device`,
+`Add registered owner to device`).
+- Inspect the device name in `azure.auditlogs.properties.target_resources.0.display_name`; default `DESKTOP-` names that
+do not match your naming convention are suspicious.
+- Pivot to `azure.signinlogs` for the same user and timeframe and look for follow-on sign-ins where the incoming token
+type is a `primaryRefreshToken`, or for risky/AiTM sign-ins immediately preceding the registration.
+- Review `azure.auditlogs.properties.initiated_by.user.ipAddress` and geolocation for the registration source. Flag
+unexpected IPs, hosting/VPS ASNs, or impossible-travel relative to the user's normal activity.
+- Correlate with the user-agent-based device registration rules (e.g., `Dsreg/*`, `DeviceRegistrationClient`,
+`Microsoft.OData.Client/*`) for the same user or correlation ID to strengthen attribution to ROADtools.
+
+### False positive analysis
+
+- Unmanaged or imaged Windows 10 20H1 hosts may legitimately present the `10.0.19041.928` build with a default
+`DESKTOP-` hostname. Validate against device inventory and known provisioning programs.
+- Authorized security assessments using ROADtools will match. Document the engagement and add scoped exceptions.
+
+### Response and remediation
+
+- If confirmed malicious, remove the registered device from Entra ID and revoke the user's refresh tokens and primary
+refresh tokens.
+- Disable the account or reset credentials per policy and review for additional persistence (added owners, app
+registrations, or service principal credentials).
+- Conduct historical analysis using `azure.correlation_id` and the registering user to determine scope of access.
+- Tighten device registration and join controls via Conditional Access (restrict who can register/join devices and
+require MFA for registration).
+"""
+references = [
+    "https://unit42.paloaltonetworks.com/roadtools-cloud-attacks/",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/",
+]
+risk_score = 47
+rule_id = "db1271cd-f574-4173-b4e5-7369f3c03d44"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"azure.auditlogs" and event.action:"Add device" and
+    azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value:*10.0.19041.928* and
+    azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value:*DESKTOP-*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.identity",
+    "azure.auditlogs.operation_name",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.correlation_id",
+]
+
