@@ -7,20 +7,18 @@ updated_date = "2026/05/20"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high ratio of 4xx HTTP responses from Azure AD Graph (graph.windows.net) per calling
-identity in a short window. Post-identity compromise leading to recon often leaves a tail of 403s and 404s as tooling
-walks endpoints it does not have permission for, asks for object IDs it does not have, or uses an OAuth client
-that has been pulled off the AAD Graph allow-list. Surges of 4xx responses concentrated on a single
-(user and ASN) pair are characteristic of automated tooling rather than human or first-party traffic.
+Detects an unusually high ratio of 4xx HTTP responses from Azure AD Graph (graph.windows.net) per calling identity in a
+short window. Post-identity compromise leading to recon often leaves a tail of 403s and 404s as tooling walks endpoints
+it does not have permission for, asks for object IDs it does not have, or uses an OAuth client that has been pulled off
+the AAD Graph allow-list. Surges of 4xx responses concentrated on a single (user and ASN) pair are characteristic of
+automated tooling rather than human or first-party traffic.
 """
 false_positives = [
     """
-    Legitimate first-party clients occasionally hit 4xx responses as part of conditional access flows,
-    transient permission changes, or stale token retries. Tune the threshold for your tenant baseline.
+    Legitimate first-party clients occasionally hit 4xx responses as part of conditional access flows, transient
+    permission changes, or stale token retries. Tune the threshold for your tenant baseline.
     """,
-    """
-    Authorized red team activity. Document and add exceptions on the user, app ID, or source IP.
-    """,
+    "    Authorized red team activity. Document and add exceptions on the user, app ID, or source IP.\n    ",
     """
     Legacy tooling may still be using AAD Graph. Validate and add exceptions on the calling app ID after review.
     """,
@@ -29,10 +27,10 @@ from = "now-8h"
 interval = "1h"
 language = "esql"
 license = "Elastic License v2"
-name = "Azure AD Graph 4xx Error Surge from User"
+name = "Azure AD Graph High 4xx Error Ratio from User"
 note = """## Triage and analysis
 
-### Investigating Entra ID AAD Graph 4xx Error Surge per Caller
+### Investigating Azure AD Graph High 4xx Error Ratio from User
 
 A high 4xx rate on AAD Graph from a single calling identity is consistent with automated permission probing,
 recon against endpoints the caller is not authorized for, or a token whose client has been blocked from AAD
@@ -64,7 +62,7 @@ Graph. The pattern is structurally distinct from sparse 4xx in first-party traff
 references = [
     "https://github.com/dirkjanm/ROADtools",
     "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
-    "https://aadinternals.com/"
+    "https://aadinternals.com/",
 ]
 risk_score = 47
 rule_id = "8cbc7793-9ce4-4b7d-9c20-a30afbde2a05"
@@ -96,6 +94,7 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
 | eval Esql.time_window = date_trunc(2 minutes, @timestamp)
 | stats
     Esql.total_calls     = count(*),
+    Esql.azure_tenants   = values(azure.tenant_id),
     Esql.errors          = sum(Esql.is_4xx),
     Esql.url_path_count  = count_distinct(url.path),
     Esql.api_versions    = values(azure.aadgraphactivitylogs.properties.api_version),
@@ -110,32 +109,18 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
     source.as.number,
     Esql.time_window
 | eval Esql.error_rate = round(Esql.errors * 1.0 / Esql.total_calls, 2)
-| where Esql.total_calls > 20 and Esql.errors >= 10 and Esql.error_rate >= 0.4
+| where 
+    Esql.total_calls > 20 and Esql.errors >= 10 and
+    Esql.error_rate >= 0.4 and Esql.url_path_count >= 15
 | keep
     user.id,
     source.as.number,
     Esql.*
 '''
 
-[rule.investigation_fields]
-field_names = [
-    "user.id",
-    "user_agent.original",
-    "azure.tenant_id",
-    "Esql.total_calls",
-    "Esql.errors",
-    "Esql.error_rate",
-    "Esql.sample_paths",
-    "Esql.api_versions",
-    "Esql.app_ids",
-    "Esql.source_ips",
-    "Esql.first_seen",
-    "Esql.last_seen",
-]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1087"
 name = "Account Discovery"
@@ -156,3 +141,7 @@ reference = "https://attack.mitre.org/techniques/T1526/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = ["user.id", "user_agent.original"]
+
