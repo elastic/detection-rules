@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/05/30"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/30"
+
+[rule]
+author = ["Spyced Concepts Ltd."]
+description = """
+Detects creation or modification of GitHub Actions workflow files using the known Megalodon campaign filenames:
+SysDiag.yml / SysDiag.yaml (mass variant) and Optimize-Build.yml / Optimize-Build.yaml (targeted variant).
+
+These filenames are documented IoCs from the Megalodon supply chain backdoor campaign (2026-05-18), which
+compromised 5,561 GitHub repositories by pushing malicious workflow files using stolen Personal Access Tokens.
+Both variants exfiltrate CI secrets, credentials, and OIDC tokens to a C2 server at 216.126.225.129:8443.
+
+Intelligence: IoC data sourced from SafeDep.io original Megalodon research (see references).
+Detection rule logic is original work by Spyced Concepts Ltd.
+"""
+false_positives = [
+    """
+    Legitimate internal tooling coincidentally named SysDiag or Optimize-Build. Review the workflow file
+    content against the Megalodon YARA rules to confirm — these filenames are specific enough that any
+    match warrants immediate triage.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Megalodon - Known Malicious Workflow Filename Pushed to Repository"
+note = """## Triage and analysis
+
+### Investigating Megalodon Known Malicious Workflow Filename
+
+This rule detects pushes that create or modify workflow files using the known Megalodon campaign filenames.
+These filenames are high-confidence IoCs — any match should be treated as suspicious until content analysis confirms benign intent.
+
+### Possible investigation steps
+
+- Review `github.repo` to identify the affected repository.
+- Check `user.name` / `github.actor` — was this pushed by an expected automation account or a human user?
+- Examine the full commit contents: was SysDiag.yml or Optimize-Build.yml added or modified?
+- Apply the Megalodon YARA rules (megalodon-workflow.yar) to the workflow file content to confirm campaign IoCs.
+- Check `github.head_branch` — was this pushed directly to the default branch without a PR? Correlate with
+  the companion rule for direct pushes without PRs.
+- Review the commit author fields for Megalodon forged author IoCs (build-bot, auto-ci, ci-bot, pipeline-bot).
+- Check whether the C2 IP (216.126.225.129) appears anywhere in the pushed file.
+
+### False positive analysis
+
+- An internal tool genuinely named SysDiag or Optimize-Build. Confirm by reviewing file content against YARA rules.
+- A repository migration or archive import that happens to contain historically-named files.
+
+### Response and remediation
+
+- If confirmed Megalodon: immediately revert the pushed commit and remove the malicious workflow file.
+- Audit the repository for any completed runs of the malicious workflow — check Actions tab run history.
+- Rotate all CI secrets accessible from the repository (tokens, credentials, OIDC configuration).
+- Audit the PAT or OAuth app used to push — revoke and regenerate if the actor is unexpected.
+- Enable or tighten branch protection to require PR review for all workflow file changes.
+- Report the compromised PAT to GitHub security if applicable.
+"""
+references = [
+    "https://safedep.io/megalodon-mass-github-repo-backdooring-ci-workflows/",
+    "https://github.com/Spyced-Concepts/detection-rules",
+]
+risk_score = 99
+rule_id = "14c94cce-5773-4db2-8d83-8554a42ead16"
+severity = "critical"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"github.audit" and
+event.action:"git.push" and (
+  github.head_commit.added:(".github/workflows/SysDiag*" or ".github/workflows/Optimize-Build*") or
+  github.head_commit.modified:(".github/workflows/SysDiag*" or ".github/workflows/Optimize-Build*")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

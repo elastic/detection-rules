@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/05/30"
+integration = ["github"]
+maturity = "development"
+updated_date = "2026/05/30"
+
+[rule]
+author = ["Spyced Concepts Ltd."]
+description = """
+Detects a direct git push that modifies the .github/workflows/ directory without a corresponding pull request.
+This is the primary delivery vector for the Megalodon GitHub CI backdoor campaign (2026-05-18), in which stolen
+Personal Access Tokens (PATs) were used to push malicious workflow files directly to repository default branches,
+bypassing PR review and branch protection rules.
+
+The attack injected one of two workflow types:
+  - SysDiag (mass variant): pull_request_target + id-token:write — exfiltrates OIDC tokens from fork PRs
+  - Optimize-Build (targeted variant): workflow_dispatch — exfiltrates CI secrets on demand
+
+Both variants deliver a base64-encoded bash payload that sends secrets to C2 at 216.126.225.129:8443.
+
+Intelligence: IoC data sourced from SafeDep.io original Megalodon research (see references).
+Detection rule logic is original work by Spyced Concepts Ltd.
+"""
+false_positives = [
+    """
+    Initial repository setup before branch protection is enforced.
+    """,
+    """
+    Authorised repository administrators with bypass permissions making intentional direct pushes —
+    these should be documented; any undocumented bypass is suspicious.
+    """,
+    """
+    Automated bots with explicit bypass grants (Dependabot, Renovate). Document these; any undocumented
+    bypass by a generic CI identity (build-bot, auto-ci, ci-bot, pipeline-bot) warrants review.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Megalodon - Direct Push to Workflow Directory Without Pull Request"
+note = """## Triage and analysis
+
+### Investigating Megalodon Direct Push to Workflow Directory
+
+This rule detects direct git pushes that add or modify workflow files without going through a pull request.
+The Megalodon campaign used stolen PATs to make exactly this type of push at scale across 5,561 repositories.
+
+### Possible investigation steps
+
+- Review `user.name` / `github.actor` — is this a known automation account, or an unexpected identity?
+- Check `github.head_branch` — was the push to the default branch (main/master)?
+- Examine the pushed files: were any files added or modified in .github/workflows/?
+- Apply the Megalodon YARA rules (megalodon-workflow.yar) to any new or modified workflow files.
+- Check for Megalodon forged author identities in commit metadata: build-bot, auto-ci, ci-bot, pipeline-bot,
+  or the known email addresses [email protected] and [email protected].
+- Correlate with the workflow name IoC rule — did the push add SysDiag.yml or Optimize-Build.yml?
+- Check whether the PAT used has recently been granted new permissions or is an unexpected OAuth app.
+
+### False positive analysis
+
+- Repository administrators with documented bypass permissions. Maintain an allow-list and validate against it.
+- Automation bots with explicit documented bypass grants.
+- Initial repo setup pushes before branch protection was configured.
+
+### Response and remediation
+
+- Review the pushed workflow files immediately — apply YARA rules to confirm or exclude Megalodon IoCs.
+- If confirmed: revert the commit, rotate all repository CI secrets, and audit the PAT used for the push.
+- Audit the GitHub organisation for other repositories with the same unexpected actor or similar pushes.
+- Tighten branch protection to require PR reviews for all .github/workflows/ changes.
+- Consider implementing CODEOWNERS for the .github/workflows/ directory requiring security team review.
+"""
+references = [
+    "https://safedep.io/megalodon-mass-github-repo-backdooring-ci-workflows/",
+    "https://github.com/Spyced-Concepts/detection-rules",
+]
+risk_score = 73
+rule_id = "012b3719-572d-4a31-9777-27572ccd6011"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Persistence",
+    "Data Source: Github",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"github.audit" and
+event.action:"git.push" and (
+  github.head_commit.added:".github/workflows/*" or
+  github.head_commit.modified:".github/workflows/*"
+) and
+not github.pull_request.id:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/30"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/05/30"
+
+[rule]
+author = ["Spyced Concepts Ltd."]
+description = """
+Detects outbound TCP connections from a Linux host to 216.126.225.129 on port 8443 — the confirmed Megalodon
+C2 server used to receive exfiltrated CI secrets, credentials, and OIDC tokens from compromised GitHub Actions
+workflow runs.
+
+Both Megalodon variants (SysDiag mass variant and Optimize-Build targeted variant) exfiltrate data to this
+endpoint using a base64-encoded bash payload embedded in the malicious workflow file. This is the most reliable
+post-exploitation indicator: if this fires, the workflow has already executed and exfiltration has likely
+completed. Treat as confirmed compromise and rotate all CI secrets immediately.
+
+Intelligence: IoC data sourced from SafeDep.io original Megalodon research (see references).
+Detection rule logic is original work by Spyced Concepts Ltd.
+"""
+false_positives = [
+    """
+    None expected — this IP/port combination has no known legitimate use. The IP was confirmed as the
+    Megalodon C2 server as of 2026-05-18. Verify continued attribution before treating absence as clean,
+    as the IP may be reassigned or retired by the threat actor.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Megalodon - Outbound Connection to Known C2 Server from CI Runner"
+note = """## Triage and analysis
+
+### Investigating Megalodon C2 Outbound Connection
+
+If this rule fires, exfiltration to the Megalodon C2 has most likely already occurred. Immediate response
+is required — this is not a pre-execution indicator.
+
+### Possible investigation steps
+
+- Identify `host.name` — which runner or host made the connection?
+- Review `process.name` and `process.command_line` — which process initiated the outbound connection?
+  Look for bash, sh, curl, wget, or similar tools executing a base64-decoded payload.
+- Check `process.parent.name` — was the connecting process spawned by a GitHub Actions runner process?
+- Review recent GitHub Actions runs on the host's associated repository for the time window of the alert.
+- Identify which workflow file triggered the run. Apply YARA rules (megalodon-workflow.yar) to confirm.
+- Assume all CI secrets accessible during the workflow run have been exfiltrated — rotate immediately.
+- Audit the repository for the Megalodon workflow files (SysDiag.yml, Optimize-Build.yml).
+
+### Response and remediation
+
+- Treat as confirmed compromise. Rotate all CI secrets, tokens, and credentials accessible from the runner.
+- Revoke any OIDC tokens that may have been issued during the workflow run.
+- Remove the malicious workflow file from the repository and audit its full run history.
+- Preserve logs for forensic review before rotating credentials.
+- Review other repositories in the organisation for the same malicious workflow files.
+- Report the C2 IP to your network security team for blocking at the perimeter.
+"""
+references = [
+    "https://safedep.io/megalodon-mass-github-repo-backdooring-ci-workflows/",
+    "https://github.com/Spyced-Concepts/detection-rules",
+]
+risk_score = 99
+rule_id = "6cd736c7-a103-4a85-ab2a-5ab9b1c91963"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:linux and event.category:network and
+destination.ip:"216.126.225.129" and destination.port:8443
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
