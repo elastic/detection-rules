@@ -152,7 +152,7 @@ class RuleResource(BaseResource):
         if query:
             data['query'] = query
         elif rule_ids:
-            data['rule_ids'] = rule_ids
+            data['ids'] = rule_ids
         response = Kibana.current().post(cls.BASE_URI + "/_bulk_action", params=params, data=data, **kwargs)
 
         # export returns ndjson
