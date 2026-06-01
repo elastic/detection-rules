@@ -2,18 +2,17 @@
 creation_date = "2026/05/14"
 integration = ["google_workspace"]
 maturity = "production"
-min_stack_version = "9.4.0"
 min_stack_comments = "ES|QL FIRST and LAST aggregation functions are GA in 9.4."
+min_stack_version = "9.4.0"
 updated_date = "2026/05/14"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects successful Google Workspace sign-ins for the same user from two geographically separated locations within a
-90-minute window, where the implied travel speed between the two points exceeds what is physically possible (>=800
-km/h, faster than modern commercial airliners) and the geographic separation is at least 500 km. This pattern indicates
-either VPN/proxy use or an adversary signing in to a compromised account from a different location than the legitimate
-user.
+90-minute window, where the implied travel speed between the two points exceeds what is physically possible (>=800 km/h,
+faster than modern commercial airliners) and the geographic separation is at least 500 km. This pattern indicates either
+VPN/proxy use or an adversary signing in to a compromised account from a different location than the legitimate user.
 """
 false_positives = [
     """
@@ -181,10 +180,6 @@ from logs-google_workspace.login-*
     Esql.honest_window_minutes
 '''
 
-[rule.alert_suppression]
-group_by = ["user.email"]
-duration = {value = 30, unit = "m"}
-missing_fields_strategy = "suppress"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -221,6 +216,14 @@ id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
 
+[rule.alert_suppression]
+group_by = ["user.email"]
+missing_fields_strategy = "suppress"
+
 [rule.investigation_fields]
 field_names = ["user.email"]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 30
 
