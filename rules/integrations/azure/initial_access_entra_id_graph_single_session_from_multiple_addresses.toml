@@ -2,7 +2,7 @@
 creation_date = "2025/05/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/21"
 
 [rule]
 author = ["Elastic"]
@@ -112,8 +112,8 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
         data_stream.dataset == "azure.graphactivitylogs", "graph",
         "other"
     ),
-    Esql.signin_source_asn = case(data_stream.dataset == "azure.signinlogs", source.`as`.organization.name, null),
-    Esql.graph_source_asn = case(data_stream.dataset == "azure.graphactivitylogs", source.`as`.organization.name, null)
+    Esql.signin_source_asn = case(data_stream.dataset == "azure.signinlogs", source.`as`.organization.name),
+    Esql.graph_source_asn = case(data_stream.dataset == "azure.graphactivitylogs", source.`as`.organization.name)
 
 | where Esql.azure_signinlogs_properties_app_id_coalesce not in (
     "4354e225-50c9-4423-9ece-2d5afd904870",  // Augmentation Loop
@@ -170,8 +170,8 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     Esql.azure_signinlogs_properties_app_id_coalesce_count_distinct = count_distinct(Esql.azure_signinlogs_properties_app_id_coalesce),
     Esql.event_type_case_values = values(Esql.event_type_case),
     Esql.event_type_case_count_distinct = count_distinct(Esql.event_type_case),
-    Esql.signin_time_min = min(case(Esql.event_type_case == "signin", Esql.@timestamp, null)),
-    Esql.graph_time_min = min(case(Esql.event_type_case == "graph", Esql.@timestamp, null)),
+    Esql.signin_time_min = min(case(Esql.event_type_case == "signin", Esql.@timestamp)),
+    Esql.graph_time_min = min(case(Esql.event_type_case == "graph", Esql.@timestamp)),
     Esql.url_original_values = values(url.original),
     Esql.azure_graphactivitylogs_properties_scopes_values = values(azure.graphactivitylogs.properties.scopes),
     Esql.event_count = count()
