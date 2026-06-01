@@ -28,7 +28,7 @@ false_positives = [
 
 ]
 from = "now-10m"
-interval = "5m"
+interval = "9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Azure AD Graph Access with Suspicious User-Agent"
@@ -106,20 +106,23 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
     and user_agent.original is not null
 | eval Esql.ua_lower = to_lower(user_agent.original)
 | where Esql.ua_lower like "*fasthttp*"
-     or Esql.ua_lower like "*aiohttp*"
-     or Esql.ua_lower like "*azurehound*"
-     or Esql.ua_lower like "*bloodhound*"
-     or Esql.ua_lower like "*aadinternals*"
-     or Esql.ua_lower like "*go-http-client*"
-     or Esql.ua_lower like "python*"
-     or Esql.ua_lower like "*curl/*"
-     or Esql.ua_lower like "*okhttp*"
-     or Esql.ua_lower like "*axios*"
-     or Esql.ua_lower like "*node-fetch*"
-     or Esql.ua_lower like "*go-resty*"
-     or Esql.ua_lower like "*bav2ropc*"
-     or Esql.ua_lower like "*undici*"
+    or Esql.ua_lower like "*aiohttp*"
+    or Esql.ua_lower like "*azurehound*"
+    or Esql.ua_lower like "*bloodhound*"
+    or Esql.ua_lower like "*aadinternals*"
+    or Esql.ua_lower like "*go-http-client*"
+    or Esql.ua_lower like "python*"
+    or Esql.ua_lower like "*curl/*"
+    or Esql.ua_lower like "*okhttp*"
+    or Esql.ua_lower like "*axios*"
+    or Esql.ua_lower like "*node-fetch*"
+    or Esql.ua_lower like "*go-resty*"
+    or Esql.ua_lower like "*bav2ropc*"
+    or Esql.ua_lower like "*undici*"
 | keep
+    _id,
+    _version,
+    _index,
     @timestamp,
     user.id,
     source.ip,
