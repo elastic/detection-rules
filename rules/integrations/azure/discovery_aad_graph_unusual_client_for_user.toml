@@ -2,17 +2,18 @@
 creation_date = "2026/05/22"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/22"
+min_stack_version = "9.2.0"
+min_stack_comments = "azure.aadgraphactivitylogs backports to 8.19.10 only."
+updated_date = "2026/05/2"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies Azure AD Graph (graph.windows.net) requests where the combination of calling OAuth client
-(`azure.aadgraphactivitylogs.properties.app_id`) and signed-in user (`user.id`) has not been observed in the tenant in
-the previous 14 days. A user appearing against AAD Graph under an OAuth client that has not previously authenticated
+("azure.aadgraphactivitylogs.properties.app_id") and signed-in user ("user.id") has not been observed in the tenant in
+a historical window. A user appearing against AAD Graph under an OAuth client that has not previously authenticated
 that user is a sign of a FOCI swap, a phished refresh token being redeemed for a new client, or an adversary running
-tooling under a client identity the user does not normally use. This is a new-terms style detection that fires on first
-observation of a (client, user) pair against AAD Graph.
+tooling under a client identity the user does not normally use.
 """
 false_positives = [
     """
