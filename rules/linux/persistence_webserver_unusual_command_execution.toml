@@ -2,27 +2,28 @@
 creation_date = "2025/12/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule leverages the "new_terms" rule type to detect unusual command executions originating from web server processes on Linux systems.
-Attackers may exploit web servers to maintain persistence on a compromised system, often resulting in atypical command executions. As
-command execution from web server parent processes is common, the "new_terms" rule type approach helps to identify deviations from normal
-behavior.
+This rule leverages the "new_terms" rule type to detect unusual command executions originating
+from web server processes on Linux systems. Attackers may exploit web servers to maintain
+persistence on a compromised system, often resulting in atypical command executions. As command
+execution from web server parent processes is common, the "new_terms" rule type approach helps to
+identify deviations from normal behavior.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Unusual Web Server Command Execution"
+name = "Unusual Command Execution via Web Server"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Unusual Web Server Command Execution
+### Investigating Unusual Command Execution via Web Server
 
 This rule detects shells invoked by web server processes on Linux to run one-off commands, surfacing command lines the server has never executed before. Attackers exploit vulnerable apps or dropped webshells to launch bash -c from web roots, e.g., download a payload with wget/curl into /opt or /tmp, chmod +x and execute it, or open a reverse shell (nc -e sh) to implant services or cron-like tasks and persist under the web server account.
 
@@ -65,31 +66,35 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
   process.parent.name:(
-    "apache" or "nginx" or "apache2" or "httpd" or "lighttpd" or "caddy" or "mongrel_rails" or "haproxy" or
-    "gunicorn" or "uwsgi" or "openresty" or "cherokee" or "h2o" or "resin" or "puma" or "unicorn" or "traefik" or "uvicorn" or
-    "tornado" or "hypercorn" or "daphne" or "twistd" or "yaws" or "webfsd" or "httpd.worker" or "flask" or "rails" or "mongrel" or
-    php-fpm* or "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "java" or "node" or "catalina.sh" or "hiawatha" or "lswsctrl"
+    apache2 or asterisk or caddy or daphne or flask or frankenphp or httpd or httpd.worker or
+    lswsctrl or mongrel_rails or nginx or php-cgi or php-cgi.cagefs or php-fcgi or starman or
+    sw-engine-fpm or uvicorn or uwsgi or varnishd or waitress-serve or zabbix_server or *.cgi
+    or *.fcgi or gunicorn* or php-fpm*
   ) or
-  user.name:("apache" or "www-data" or "httpd" or "nginx" or "lighttpd" or "tomcat" or "tomcat8" or "tomcat9") or
-  user.id:("33" or "498" or "48" or "54321")
-) and process.working_directory:(
-  /var/www/* or
-  /usr/share/nginx/* or
-  /srv/www/* or
-  /srv/http/* or
-  */webapps/* or
-  /home/*/public_html/* or
-  /home/*/www/* or
-  /opt/* or
-  /u0*/*
+  process.parent.name:ruby* and process.parent.command_line:(*passenger* or *puma* or *rails*) or
+  process.parent.name:python* and process.parent.command_line:(
+    *app.py* or *asgi.py* or *django* or *flask* or *hypercorn* or *server.py* or *uvicorn* or *wsgi.py*
+  ) or
+  process.parent.name:perl* and process.parent.command_line:*plackup* or
+  process.parent.name:java and process.parent.args:(
+    com.atlassian.jira.startup.Launcher or com.caucho.server.resin.Resin or com.google.gerrit.pgm.Daemon or
+    com.ibm.ws.kernel.boot.cmdline.Bootstrap or com.ibm.ws.runtime.WsServer or
+    com.sun.enterprise.glassfish.bootstrap.ASMain or io.dropwizard.cli.ServerCommand or
+    io.helidon.microprofile.server.Main or io.micronaut.runtime.Micronaut or io.quarkus.runner.GeneratedMain or
+    io.vertx.core.Launcher or org.apache.catalina.startup.Bootstrap or org.eclipse.jetty.start.Main or
+    org.elasticsearch.bootstrap.Elasticsearch or org.jboss.modules.Main or play.core.server.ProdServerStart or
+    weblogic.Server or *-Dsolr.solr.home=* or *BitbucketServerLauncher* or *jenkins.war* or *quarkus-run.jar* or
+    *weblogic-launcher.jar* or -Dcatalina.base=* or -Djboss.home.dir=* or -Djetty.home=* or -Dweblogic.Name=* or
+    io.helidon.webserver* or org.apereo.cas* or org.keycloak* or org.springframework.boot.loader.*
+  )
 ) and
-process.command_line:* and process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish) and process.args:"-c" and
+process.command_line:* and
+process.name:(bash or busybox or csh or dash or fish or ksh or mksh or sh or tcsh or zsh) and
+process.args:(-c or -cl or -lc) and
 not (
-  (process.parent.name:java and not process.parent.executable:/u0*/*) or
-  (process.parent.name:node and process.parent.executable:(/home/*/.vscode-server/* or /users/*/.vscode-server/* or /bin/node or /usr/bin/node or /usr/local/bin/node or /opt/plesk/node/*/bin/node)) or
-  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/dbhome_* or /u0*/app/oracle/product/*/db_* or /var/www/*edoc*) or
-  process.parent.executable:/tmp/* or
-  process.args:(/usr/local/bin/wkhtmltopdf* or /usr/bin/rsvg-convert*) or
+  process.parent.name:java and not process.parent.executable:/u0*/* or
+  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/db_* or /u0*/app/oracle/product/*/dbhome_* or /var/www/*edoc*) or
+  process.args:(/usr/bin/rsvg-convert* or /usr/local/bin/wkhtmltopdf*) or
   process.command_line:*/opt/sc/bin/showvulns*
 )
 '''
@@ -155,10 +160,11 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.command_line"]
+value = ["process.command_line", "host.id", "process.parent.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-5d"
+value = "now-7d"
