@@ -108,10 +108,23 @@ event.category:process and host.os.type:linux and event.type:start and event.act
     )
   )
 ) and
-process.command_line:* and
-process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish or mksh or busybox) and
-process.args:("-c" or "-cl" or "-lc") and
+process.executable:* and process.command_line:* and
 not (
+  process.name:(
+    .* or *.elf or *.sh or *.py or *.rb or *.pl or *.lua* or *.php* or .js or *.bin or *.jar or *.mjs or
+    "bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish" or "mksh" or "busybox" or
+    "nc" or "netcat" or "ncat" or "telnet" or "socat" or "openssl" or "nc.openbsd" or "ngrok" or "nc.traditional" or
+    "az" or "gcloud" or "aws" or "kubectl" or "helm" or "docker" or "ctr" or "crictl" or
+    "whoami" or "ifconfig" or "ip" or "ss" or "top" or "htop" or "df" or "du" or "lsblk" or "lsof" or "tcpdump" or
+    "strace" or "ltrace" or "curl" or "wget" or "dig" or "nslookup" or "host" or "nmap" or "arp" or "traceroute" or
+    "cat" or "touch" or "cp" or "mv" or "rm" or "mkdir" or "ln" or "chmod" or "sudo" or "xxd" or "base64" or "basez" or
+    "base64plain" or "base64url" or "base64mime" or "base64pem" or "basenc" or "base32" or "base16" or "chpasswd" or
+    "passwd"
+  ) or
+  process.executable:(
+    /tmp/* or /var/tmp/* or /dev/shm/* or ./* or /run/* or /var/run/* or /boot/* or /sys/* or /lost+found/* or
+    /proc/* or /var/mail/* or /var/www/* or /home/*/* or /root/*
+  ) or
   (process.parent.name:java and not process.parent.executable:/u0*/*) or
   process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/dbhome_* or /u0*/app/oracle/product/*/db_* or /var/www/*edoc*) or
   process.args:(/usr/local/bin/wkhtmltopdf* or /usr/bin/rsvg-convert*) or
@@ -183,7 +196,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["process.command_line", "host.id", "process.parent.executable"]
+value = ["process.command_line", "host.id", "process.executable"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
