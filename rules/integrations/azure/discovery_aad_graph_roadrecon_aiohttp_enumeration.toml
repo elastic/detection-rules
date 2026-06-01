@@ -2,6 +2,8 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
+min_stack_version = "9.2.0"
+min_stack_comments = "azure.aadgraphactivitylogs backports to 8.19.10 only."
 updated_date = "2026/05/20"
 
 [rule]
@@ -24,7 +26,6 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-interval = "8m"
 language = "esql"
 license = "Elastic License v2"
 name = "Azure AD Graph Potential Enumeration (ROADrecon)"
@@ -162,6 +163,10 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
     Esql.*
 '''
 
+[rule.alert_suppression]
+group_by = ["user.id", "azure.tenant_id"]
+duration = {value = 5, unit = "m"}
+missing_fields_strategy = "suppress"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
