@@ -18,6 +18,38 @@ index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual Child Execution via Web Server"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Child Execution via Web Server
+
+This alert flags a Linux web service starting a child program it does not normally launch, which can reveal a compromised application server being used for persistence or follow-on actions. A common pattern is an attacker exploiting a web app bug, then making nginx, Apache, or a Python app server spawn a shell or script interpreter that downloads tools, runs system commands, or installs a backdoor under the web service context.
+
+### Possible investigation steps
+
+- Review the full parent-to-descendant execution chain to determine whether the web service launched a shell, interpreter, downloader, or archive utility that then executed additional payloads.
+- Correlate the process start time with web access, error, reverse-proxy, and WAF logs to identify the triggering request, source IP, requested path, upload activity, and signs of exploitation such as command injection or remote file inclusion.
+- Determine whether the spawned program is part of a legitimate deployment or maintenance task by validating its file path, package ownership, hash, modification time, deployment records, and recent change windows.
+- Examine activity under the web service account around the alert for suspicious file writes, new scheduled tasks or service entries, privilege escalation attempts, credential access, and unusual outbound network connections.
+- If the execution is not explained by approved application behavior, contain the affected host or web service, preserve forensic artifacts, remove unauthorized files or persistence mechanisms, rotate exposed secrets, and hunt for the same behavior across other internet-facing servers.
+
+### False positive analysis
+
+- A newly deployed or updated web application may legitimately cause the web server or app server to launch a previously unseen helper binary for application functionality, so verify the child executable path, package ownership, and command line against recent approved deployment or configuration changes.
+- A CGI, FastCGI, or application framework process may spawn a custom maintenance or content-processing program only for specific requests, so confirm the parent-child relationship by correlating the execution time and arguments with the triggering web request and expected application behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux web host or remove it from the load balancer, stop the compromised web service if business impact allows, and block the source IPs and outbound destinations associated with the malicious child process and any follow-on downloads.
+- Preserve forensic evidence and remove persistence by collecting the suspicious executable or script, web-accessible backdoors, recent uploads, cron jobs, systemd service files, rc.local changes, modified SSH authorized_keys entries, and any attacker-created accounts before deleting them.
+- Terminate all attacker-controlled processes spawned by the web service, then delete dropped payloads and staging files from locations such as /tmp, /var/tmp, /dev/shm, and the web root, and revert any unauthorized permission, sudoers, or startup changes used to maintain execution.
+- Restore the application and host to a known-good state by rebuilding from a trusted image or clean backup, redeploying verified packages and web content, rotating credentials and tokens exposed on the server, and confirming no unauthorized binaries or modified files remain.
+- Escalate to incident response immediately if the web child process launched a shell or interpreter, established outbound command-and-control traffic, modified authentication material, moved laterally, or if sensitive data, production secrets, or customer-facing systems may have been exposed.
+- Harden the environment by patching the exploited web component, disabling unnecessary script execution from upload and web content directories, enforcing least privilege for the web service account, restricting outbound network access, and expanding monitoring for similar child-process launches and persistence artifacts across peer web servers.
+
+"""
 risk_score = 47
 rule_id = "b2f0ea08-2b60-4a2d-93d7-fe996a30031a"
 severity = "medium"
@@ -27,7 +59,8 @@ tags = [
   "OS: Linux",
   "Use Case: Threat Detection",
   "Tactic: Persistence",
-  "Data Source: Elastic Defend"
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
