@@ -5,7 +5,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
-updated_date = "2026/05/04"
+updated_date = "2026/05/26"
 
 [rule]
 author = ["Elastic"]
@@ -125,11 +125,8 @@ dns.question.name like~ (
   /* URL shorteners */
   "*shorturl.at", "*tinyurl.com", "*bit.ly", "*cutt.ly", "*is.gd", "*rebrand.ly", "*rebrandly.com",
   "*adf.ly", "*rb.gy", "tiny.one", "t.ly", "urlz.fr", "rentry.co",
-
-  /* Regional / large providers */
-  "yandex.ru", "*.yandex.ru",
   
-    /* Crypto mining pools */
+  /* Crypto mining pools */
   "*.nicehash.com", "stratum*.nicehash.com",
   "*.2miners.com", "*.moneroocean.stream", "*.supportxmr.com",
   "*.nanopool.org", "*.f2pool.com", "*.poolbinance.com",
@@ -146,6 +143,15 @@ dns.question.name like~ (
   "ic0.app", "*.ic0.app",
   "icp0.io", "*.icp0.io",
   "*.storjshare.io"
+) and
+not process.executable like (
+  "/opt/google-cloud-ops-agent/subagents/fluent-bit/bin/fluent-bit", "/usr/lib/systemd/systemd-resolved",
+  "/opt/Elastic/Agent/data/elastic-agent-*/components/elastic-otel-collector", "/usr/bin/dockerd",
+  "/usr/bin/google_osconfig_agent", "/snap/firefox/*/usr/lib/firefox/firefox", "/usr/bin/warp-svc",
+  "/var/lib/docker/overlay2/*/merged/usr/local/bin/node", "/snap/chromium/*/usr/lib/chromium-browser/chrome",
+  "/opt/google-cloud-ops-agent/subagents/opentelemetry-collector/otelopscol", "/usr/local/bin/rclone",
+  "/var/lib/elastic-agent/data/elastic-agent-*/components/elastic-otel-collector", "/opt/google/chrome/chrome",
+  "/usr/bin/pihole-FTL"
 )
 '''
 
