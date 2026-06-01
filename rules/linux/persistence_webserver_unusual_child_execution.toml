@@ -34,68 +34,46 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
   process.parent.name:(
-    "nginx" or "apache2" or "httpd" or "caddy" or "mongrel_rails" or "uwsgi" or "daphne" or "httpd.worker" or "flask" or
-    "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "lswsctrl" or "varnishd" or "uvicorn" or "waitress-serve" or "starman" or
-    "frankenphp" or "zabbix_server" or "asterisk" or "sw-engine-fpm"
+    apache2 or asterisk or caddy or daphne or flask or frankenphp or httpd or httpd.worker or
+    lswsctrl or mongrel_rails or nginx or php-cgi or php-cgi.cagefs or php-fcgi or starman or
+    sw-engine-fpm or uvicorn or uwsgi or varnishd or waitress-serve or zabbix_server or *.cgi
+    or *.fcgi or gunicorn* or php-fpm*
   ) or
-  process.parent.name:(php-fpm* or gunicorn* or *.cgi or *.fcgi) or
-  (
-    process.parent.name:ruby* and
-    process.parent.command_line:(*puma* or *rails* or *passenger*)
+  process.parent.name:ruby* and process.parent.command_line:(*passenger* or *puma* or *rails*) or
+  process.parent.name:python* and process.parent.command_line:(
+    *app.py* or *asgi.py* or *django* or *flask* or *hypercorn* or *server.py* or *uvicorn* or *wsgi.py*
   ) or
-  (
-    process.parent.name:python* and
-    process.parent.command_line:(
-      *hypercorn* or *flask* or *uvicorn* or *django* or *app.py* or *server.py* or *wsgi.py* or *asgi.py*
-    )
-  ) or
-  (process.parent.name:perl* and process.parent.command_line:*plackup*) or
-  (
-    process.parent.name:"java" and
-    process.parent.args:(
-      "org.apache.catalina.startup.Bootstrap" or -Dcatalina.base=* or
-      "org.eclipse.jetty.start.Main" or -Djetty.home=* or
-      "org.jboss.modules.Main" or -Djboss.home.dir=* or
-      "weblogic.Server" or -Dweblogic.Name=* or *weblogic-launcher.jar* or
-      "com.ibm.ws.runtime.WsServer" or "com.ibm.ws.kernel.boot.cmdline.Bootstrap" or
-      "com.sun.enterprise.glassfish.bootstrap.ASMain" or
-      "com.caucho.server.resin.Resin" or
-      org.springframework.boot.loader.* or
-      *quarkus-run.jar* or "io.quarkus.runner.GeneratedMain" or
-      "io.micronaut.runtime.Micronaut" or
-      "io.dropwizard.cli.ServerCommand" or
-      "play.core.server.ProdServerStart" or
-      "io.helidon.microprofile.server.Main" or io.helidon.webserver* or
-      "io.vertx.core.Launcher" or
-      org.keycloak* or
-      org.apereo.cas* or
-      "org.elasticsearch.bootstrap.Elasticsearch" or
-      "com.atlassian.jira.startup.Launcher" or *BitbucketServerLauncher* or "com.google.gerrit.pgm.Daemon" or
-      *-Dsolr.solr.home=* or
-      *jenkins.war*
-    )
+  process.parent.name:perl* and process.parent.command_line:*plackup* or
+  process.parent.name:java and process.parent.args:(
+    com.atlassian.jira.startup.Launcher or com.caucho.server.resin.Resin or com.google.gerrit.pgm.Daemon or
+    com.ibm.ws.kernel.boot.cmdline.Bootstrap or com.ibm.ws.runtime.WsServer or
+    com.sun.enterprise.glassfish.bootstrap.ASMain or io.dropwizard.cli.ServerCommand or
+    io.helidon.microprofile.server.Main or io.micronaut.runtime.Micronaut or io.quarkus.runner.GeneratedMain or
+    io.vertx.core.Launcher or org.apache.catalina.startup.Bootstrap or org.eclipse.jetty.start.Main or
+    org.elasticsearch.bootstrap.Elasticsearch or org.jboss.modules.Main or play.core.server.ProdServerStart or
+    weblogic.Server or *-Dsolr.solr.home=* or *BitbucketServerLauncher* or *jenkins.war* or *quarkus-run.jar* or
+    *weblogic-launcher.jar* or -Dcatalina.base=* or -Djboss.home.dir=* or -Djetty.home=* or -Dweblogic.Name=* or
+    io.helidon.webserver* or org.apereo.cas* or org.keycloak* or org.springframework.boot.loader.*
   )
 ) and
 process.executable:* and process.command_line:* and
 not (
   process.name:(
-    .* or *.elf or *.sh or *.py or *.rb or *.pl or *.lua* or *.php* or .js or *.bin or *.jar or *.mjs or
-    "bash" or "dash" or "sh" or "tcsh" or "csh" or "zsh" or "ksh" or "fish" or "mksh" or "busybox" or
-    "nc" or "netcat" or "ncat" or "telnet" or "socat" or "openssl" or "nc.openbsd" or "ngrok" or "nc.traditional" or
-    "az" or "gcloud" or "aws" or "kubectl" or "helm" or "docker" or "ctr" or "crictl" or
-    "whoami" or "ifconfig" or "ip" or "ss" or "top" or "htop" or "df" or "du" or "lsblk" or "lsof" or "tcpdump" or
-    "strace" or "ltrace" or "curl" or "wget" or "dig" or "nslookup" or "host" or "nmap" or "arp" or "traceroute" or
-    "cat" or "touch" or "cp" or "mv" or "rm" or "mkdir" or "ln" or "chmod" or "sudo" or "xxd" or "base64" or "basez" or
-    "base64plain" or "base64url" or "base64mime" or "base64pem" or "basenc" or "base32" or "base16" or "chpasswd" or
-    "passwd" or "uname"
+    arp or aws or az or base16 or base32 or base64 or base64mime or base64pem or base64plain or base64url or
+    basenc or basez or bash or busybox or cat or chmod or chpasswd or cp or crictl or csh or ctr or curl or dash or
+    df or dig or docker or du or fish or gcloud or helm or host or htop or ifconfig or ip or ksh or kubectl or ln or
+    lsblk or lsof or ltrace or mkdir or mksh or mv or nc or nc.openbsd or nc.traditional or ncat or netcat or ngrok or
+    nmap or nslookup or openssl or passwd or rm or sh or socat or ss or strace or sudo or tcpdump or tcsh or telnet or
+    top or touch or traceroute or wget or whoami or xxd or zsh or *.bin or *.elf or *.jar or *.lua* or *.mjs or
+    *.js or *.php* or *.pl or *.py or *.rb or *.sh or .*
   ) or
   process.executable:(
-    /tmp/* or /var/tmp/* or /dev/shm/* or ./* or /run/* or /var/run/* or /boot/* or /sys/* or /lost+found/* or
-    /proc/* or /var/mail/* or /var/www/* or /home/*/* or /root/*
+    ./* or /boot/* or /dev/shm/* or /home/*/* or /lost+found/* or /proc/* or /root/* or /run/* or /sys/* or /tmp/* or
+    /var/mail/* or /var/run/* or /var/tmp/* or /var/www/*
   ) or
-  (process.parent.name:java and not process.parent.executable:/u0*/*) or
-  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/dbhome_* or /u0*/app/oracle/product/*/db_* or /var/www/*edoc*) or
-  process.args:(/usr/local/bin/wkhtmltopdf* or /usr/bin/rsvg-convert*) or
+  process.parent.name:java and not process.parent.executable:/u0*/* or
+  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/db_* or /u0*/app/oracle/product/*/dbhome_* or /var/www/*edoc*) or
+  process.args:(/usr/bin/rsvg-convert* or /usr/local/bin/wkhtmltopdf*) or
   process.command_line:*/opt/sc/bin/showvulns*
 )
 '''
