@@ -2,6 +2,8 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
+min_stack_version = "9.2.0"
+min_stack_comments = "azure.aadgraphactivitylogs backports to 8.19.10 only."
 updated_date = "2026/05/20"
 
 [rule]
@@ -9,8 +11,8 @@ author = ["Elastic"]
 description = """
 Identifies Azure AD Graph (graph.windows.net) requests originating from user-agent strings associated with offensive
 tooling, scripting libraries, or generic HTTP clients. First-party Microsoft components calling AAD Graph identify with
-specific user agents such as `Microsoft Azure Graph Client Library`, `Microsoft ADO.NET Data Services`, or
-`Microsoft.OData.Client`. Anything outside that recognised set is either a developer prototyping against the legacy API
+specific user agents such as "Microsoft Azure Graph Client Library", "Microsoft ADO.NET Data Services", or
+"Microsoft.OData.Client". Anything outside that recognised set is either a developer prototyping against the legacy API
 or an enumeration tool walking the directory.
 """
 false_positives = [
@@ -25,14 +27,14 @@ false_positives = [
     """,
 
 ]
-from = "now-9m"
-index = ["logs-azure.aadgraphactivitylogs-*"]
-language = "kuery"
+from = "now-10m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "Azure AD Graph Access with Suspicious User-Agent"
 note = """## Triage and analysis
 
-### Investigating Entra ID AAD Graph Activity from Non-Microsoft User-Agent
+### Investigating Azure AD Graph Access with Suspicious User-Agent
 
 Azure AD Graph (graph.windows.net) is the legacy directory REST API that Microsoft has been retiring for years.
 Legitimate first-party traffic against it is dominated by a small set of recognisable user agents (`Microsoft.OData.Client`,
@@ -94,17 +96,41 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset:"azure.aadgraphactivitylogs"
-and azure.aadgraphactivitylogs.properties.actor_type: "User"
-and user_agent.original:(
-    *fasthttp* or *aiohttp* or *azurehound* or *bloodhound* or *AADInternals*
-    or *go-http-client* or python* or *curl/* or *okhttp*
-    or *axios* or *node-fetch* or *go-resty* or *bav2ropc*
-    or *undici*
-)
+from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
+
+| where data_stream.dataset == "azure.aadgraphactivitylogs"
+    and azure.aadgraphactivitylogs.properties.actor_type == "User"
+    and user_agent.original is not null
+| eval Esql.ua_lower = to_lower(user_agent.original)
+| where Esql.ua_lower like "*fasthttp*"
+     or Esql.ua_lower like "*aiohttp*"
+     or Esql.ua_lower like "*azurehound*"
+     or Esql.ua_lower like "*bloodhound*"
+     or Esql.ua_lower like "*aadinternals*"
+     or Esql.ua_lower like "*go-http-client*"
+     or Esql.ua_lower like "python*"
+     or Esql.ua_lower like "*curl/*"
+     or Esql.ua_lower like "*okhttp*"
+     or Esql.ua_lower like "*axios*"
+     or Esql.ua_lower like "*node-fetch*"
+     or Esql.ua_lower like "*go-resty*"
+     or Esql.ua_lower like "*bav2ropc*"
+     or Esql.ua_lower like "*undici*"
+| keep
+    @timestamp,
+    user.id,
+    source.ip,
+    source.as.organization.name,
+    user_agent.original,
+    azure.aadgraphactivitylogs.properties.app_id,
+    azure.aadgraphactivitylogs.properties.api_version,
+    url.path,
+    http.response.status_code,
+    azure.tenant_id,
+    Esql.ua_lower
 '''
 
 
