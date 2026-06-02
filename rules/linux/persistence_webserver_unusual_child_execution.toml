@@ -1,0 +1,182 @@
+[metadata]
+creation_date = "2026/06/01"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/06/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the "new_terms" rule type to detect unusual child process executions originating
+from web server processes on Linux systems. Attackers may exploit web servers to maintain persistence
+on a compromised system, often resulting in atypical child process executions. As child process spawns
+from web server parent processes are common, the "new_terms" rule type approach helps identify deviations
+from normal behavior.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Child Execution via Web Server"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Child Execution via Web Server
+
+This alert flags a Linux web service starting a child program it does not normally launch, which can reveal a compromised application server being used for persistence or follow-on actions. A common pattern is an attacker exploiting a web app bug, then making nginx, Apache, or a Python app server spawn a shell or script interpreter that downloads tools, runs system commands, or installs a backdoor under the web service context.
+
+### Possible investigation steps
+
+- Review the full parent-to-descendant execution chain to determine whether the web service launched a shell, interpreter, downloader, or archive utility that then executed additional payloads.
+- Correlate the process start time with web access, error, reverse-proxy, and WAF logs to identify the triggering request, source IP, requested path, upload activity, and signs of exploitation such as command injection or remote file inclusion.
+- Determine whether the spawned program is part of a legitimate deployment or maintenance task by validating its file path, package ownership, hash, modification time, deployment records, and recent change windows.
+- Examine activity under the web service account around the alert for suspicious file writes, new scheduled tasks or service entries, privilege escalation attempts, credential access, and unusual outbound network connections.
+- If the execution is not explained by approved application behavior, contain the affected host or web service, preserve forensic artifacts, remove unauthorized files or persistence mechanisms, rotate exposed secrets, and hunt for the same behavior across other internet-facing servers.
+
+### False positive analysis
+
+- A newly deployed or updated web application may legitimately cause the web server or app server to launch a previously unseen helper binary for application functionality, so verify the child executable path, package ownership, and command line against recent approved deployment or configuration changes.
+- A CGI, FastCGI, or application framework process may spawn a custom maintenance or content-processing program only for specific requests, so confirm the parent-child relationship by correlating the execution time and arguments with the triggering web request and expected application behavior.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux web host or remove it from the load balancer, stop the compromised web service if business impact allows, and block the source IPs and outbound destinations associated with the malicious child process and any follow-on downloads.
+- Preserve forensic evidence and remove persistence by collecting the suspicious executable or script, web-accessible backdoors, recent uploads, cron jobs, systemd service files, rc.local changes, modified SSH authorized_keys entries, and any attacker-created accounts before deleting them.
+- Terminate all attacker-controlled processes spawned by the web service, then delete dropped payloads and staging files from locations such as /tmp, /var/tmp, /dev/shm, and the web root, and revert any unauthorized permission, sudoers, or startup changes used to maintain execution.
+- Restore the application and host to a known-good state by rebuilding from a trusted image or clean backup, redeploying verified packages and web content, rotating credentials and tokens exposed on the server, and confirming no unauthorized binaries or modified files remain.
+- Escalate to incident response immediately if the web child process launched a shell or interpreter, established outbound command-and-control traffic, modified authentication material, moved laterally, or if sensitive data, production secrets, or customer-facing systems may have been exposed.
+- Harden the environment by patching the exploited web component, disabling unnecessary script execution from upload and web content directories, enforcing least privilege for the web service account, restricting outbound network access, and expanding monitoring for similar child-process launches and persistence artifacts across peer web servers.
+
+"""
+risk_score = 47
+rule_id = "b2f0ea08-2b60-4a2d-93d7-fe996a30031a"
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "Domain: Web",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and (
+  process.parent.name:(
+    apache2 or asterisk or caddy or daphne or flask or frankenphp or httpd or httpd.worker or
+    lswsctrl or mongrel_rails or nginx or php-cgi or php-cgi.cagefs or php-fcgi or starman or
+    sw-engine-fpm or uvicorn or uwsgi or varnishd or waitress-serve or zabbix_server or *.cgi
+    or *.fcgi or gunicorn* or php-fpm*
+  ) or
+  process.parent.name:ruby* and process.parent.command_line:(*passenger* or *puma* or *rails*) or
+  process.parent.name:python* and process.parent.command_line:(
+    *app.py* or *asgi.py* or *django* or *flask* or *hypercorn* or *server.py* or *uvicorn* or *wsgi.py*
+  ) or
+  process.parent.name:perl* and process.parent.command_line:*plackup* or
+  process.parent.name:java and process.parent.args:(
+    com.atlassian.jira.startup.Launcher or com.caucho.server.resin.Resin or com.google.gerrit.pgm.Daemon or
+    com.ibm.ws.kernel.boot.cmdline.Bootstrap or com.ibm.ws.runtime.WsServer or
+    com.sun.enterprise.glassfish.bootstrap.ASMain or io.dropwizard.cli.ServerCommand or
+    io.helidon.microprofile.server.Main or io.micronaut.runtime.Micronaut or io.quarkus.runner.GeneratedMain or
+    io.vertx.core.Launcher or org.apache.catalina.startup.Bootstrap or org.eclipse.jetty.start.Main or
+    org.elasticsearch.bootstrap.Elasticsearch or org.jboss.modules.Main or play.core.server.ProdServerStart or
+    weblogic.Server or *-Dsolr.solr.home=* or *BitbucketServerLauncher* or *jenkins.war* or *quarkus-run.jar* or
+    *weblogic-launcher.jar* or -Dcatalina.base=* or -Djboss.home.dir=* or -Djetty.home=* or -Dweblogic.Name=* or
+    io.helidon.webserver* or org.apereo.cas* or org.keycloak* or org.springframework.boot.loader.*
+  )
+) and
+process.executable:* and process.command_line:* and
+not (
+  process.name:(
+    arp or aws or az or base16 or base32 or base64 or base64mime or base64pem or base64plain or base64url or
+    basenc or basez or bash or busybox or cat or chmod or chpasswd or cp or crictl or csh or ctr or curl or dash or
+    df or dig or docker or du or fish or gcloud or helm or host or htop or ifconfig or ip or ksh or kubectl or ln or
+    lsblk or lsof or ltrace or mkdir or mksh or mv or nc or nc.openbsd or nc.traditional or ncat or netcat or ngrok or
+    nmap or nslookup or openssl or passwd or rm or sh or socat or ss or strace or sudo or tcpdump or tcsh or telnet or
+    top or touch or traceroute or wget or whoami or xxd or zsh or *.bin or *.elf or *.jar or *.lua* or *.mjs or
+    *.js or *.php* or *.pl or *.py or *.rb or *.sh or .*
+  ) or
+  process.executable:(
+    ./* or /boot/* or /dev/shm/* or /home/*/* or /lost+found/* or /proc/* or /root/* or /run/* or /sys/* or /tmp/* or
+    /var/mail/* or /var/run/* or /var/tmp/* or /var/www/*
+  ) or
+  process.parent.name:java and not process.parent.executable:/u0*/* or
+  process.working_directory:(/u0*/*/sysman/emd or /u0*/app/oracle/product/*/db_* or /u0*/app/oracle/product/*/dbhome_* or /var/www/*edoc*) or
+  process.args:(/usr/bin/rsvg-convert* or /usr/local/bin/wkhtmltopdf*) or
+  process.command_line:*/opt/sc/bin/showvulns*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.command_line", "host.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
