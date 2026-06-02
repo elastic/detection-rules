@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/06/02"
 
 [rule]
 author = ["Elastic"]
@@ -101,6 +101,14 @@ file.path : (
   (
     file.path : */.config/github-copilot/* and 
     file.name : (apps.json or versions.json or copilot*nitrite.db)
+  ) or
+  file.name : (policy-limits.json or mcp-needs-auth-cache.json or .last-cleanup) or
+  file.name : *.tmp.* or
+  file.path : (*/.codex/logs*.sqlite or */.codex/*.sqlite) or
+  process.name : build-script-build or
+  (
+    file.path : (*/.gemini/* or */.claude/* or */.codex/*) and
+    file.extension : (rs or h or out or part)
   )
 )
 '''
