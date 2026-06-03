@@ -1,0 +1,178 @@
+[metadata]
+creation_date = "2026/06/02"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a long-term IAM user access key (AKIA*) generates a failed Bedrock model invocation via
+InvokeModel or InvokeModelWithResponseStream. Adversaries who obtain stolen IAM user credentials commonly probe Bedrock
+by attempting to invoke models they may not have access to, resulting in AccessDeniedException, ValidationException, or
+ResourceNotFoundException errors. Because long-term keys are persistent and associated with a specific IAM user, a key
+that has never previously failed a Bedrock invocation represents an unfamiliar access pattern that warrants
+investigation. Unlike volume-based detections, this rule fires on the first failure from a previously-unseen key —
+catching early-stage LLMjacking reconnaissance before the adversary succeeds.
+"""
+false_positives = [
+    """
+    A developer configuring Bedrock access for the first time with a new IAM user key may generate a failed invocation
+    due to a misconfigured model ID, missing model access, or incorrect request format. Verify the source IP, user
+    agent, and time of day match expected developer activity and that the identity is a known engineer onboarding a new
+    workload.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Model Invocation Failure by Rare Long-Term Key"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Model Invocation Failure by Rare Long-Term Key
+
+This rule fires when a long-term IAM user access key (`AKIA*` prefix) that has not previously failed a
+Bedrock invocation in the last 14 days generates an `AccessDeniedException`, `ValidationException`, or
+`ResourceNotFoundException` on `InvokeModel` or `InvokeModelWithResponseStream`. This pattern is
+consistent with LLMjacking reconnaissance: an adversary with a stolen IAM key probing which Bedrock
+models are accessible before launching a sustained invocation campaign.
+
+Long-term keys (`AKIA*`) are IAM user credentials, not role sessions. They are persistent and directly
+tied to a single identity. A key appearing at Bedrock for the first time — and immediately failing —
+suggests either a credential testing pattern or an unanticipated use of a legitimate key.
+
+### Possible investigation steps
+
+- **Identify the key and owner**: Review `aws.cloudtrail.user_identity.arn` and
+  `aws.cloudtrail.user_identity.access_key_id` to identify the IAM user. Confirm whether they are
+  authorized to invoke Bedrock models.
+- **Check the error context**: Inspect `aws.cloudtrail.error_code` and `aws.cloudtrail.request_parameters`
+  to determine which model ID was targeted. A random or systematically varied model ID is a strong
+  probe signal. `AccessDeniedException` may indicate the key lacks the required IAM permissions.
+- **Examine source IP and user agent**: Confirm that `source.ip` and `user_agent.original` match the
+  key owner's expected environment. Unexpected geolocations, residential IPs, or unusual tools (e.g.,
+  raw HTTP clients) indicate compromise.
+- **Check for credential exposure**: Search version control systems, CI/CD logs, and secret scanning
+  alerts for the access key ID. A key appearing in an unexpected context often signals exposure.
+- **Look for follow-on activity**: Check whether subsequent successful `InvokeModel` calls occurred
+  after this failure — a failed probe followed by successful invocations from the same key is a
+  strong LLMjacking signal.
+- **Correlate with other services**: Check whether the same key accessed other AWS services (S3,
+  Secrets Manager, EC2) around the same time to assess the broader scope of the compromise.
+
+### False positive analysis
+
+- **New developer onboarding**: A developer using a fresh IAM key for the first time may hit a
+  `ValidationException` due to an incorrect model ID or request format. Validate the identity and
+  confirm the request matches known development activity.
+- **IAM policy misconfiguration**: A new workload deploying with insufficient IAM permissions may
+  generate `AccessDeniedException` on its first invocation. Confirm the service identity and expected
+  policy rollout.
+
+### Response and remediation
+
+- If the key is confirmed compromised, disable it immediately and audit all API calls made with it.
+- Rotate the key and notify the affected IAM user.
+- Review whether the key was used to successfully invoke any models after this failure event.
+- Enforce IAM roles over long-term keys for all Bedrock workloads and restrict `bedrock:InvokeModel`
+  to approved roles via SCP.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModel.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html"
+]
+risk_score = 47
+rule_id = "31e2df08-dae7-419f-9e58-c4c44dbf8d2d"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "bedrock.amazonaws.com"
+    and event.action: ("InvokeModel" or "InvokeModelWithResponseStream")
+    and aws.cloudtrail.user_identity.access_key_id: AKIA*
+    and aws.cloudtrail.error_code: (
+        "AccessDeniedException" or
+        "ValidationException" or
+        "ResourceNotFoundException"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.user_identity.access_key_id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.error_code",
+    "aws.cloudtrail.error_message",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.access_key_id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 5
+
