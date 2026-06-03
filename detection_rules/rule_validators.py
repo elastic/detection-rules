@@ -46,12 +46,7 @@ from .integrations import (
     parse_datasets,
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
-from .schemas import (
-    get_latest_stack_version,
-    get_min_supported_stack_version,
-    get_stack_schemas,
-    get_stack_versions,
-)
+from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
 from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES, FROM_SOURCES_REGEX
 
 EQL_ERROR_TYPES = (
@@ -929,19 +924,19 @@ class ESQLValidator(QueryValidator):
         # mismatch error, as the EsqlSchemaError and EsqlSyntaxError errors from the stack
         # will not be impacted by the difference in schema type mapping.
         mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
-        # Only validate against stack versions the rule actually targets. A rule floored at
-        # min_stack_version is never backported below it, so building mappings for older stacks
-        # resolves integration packages that predate the rule's data sources (e.g. a new data
-        # stream) and raises spurious EsqlUnknownIndexError. Fall back to the minimum supported
-        # stack when the rule does not pin a min_stack_version.
-        min_stack = Version.parse(
-            str(metadata.min_stack_version or get_min_supported_stack_version()),
-            optional_minor_and_patch=True,
+        # Skip stacks below the rule's floor: it is never backported there, and resolving an older
+        # integration package that predates the rule's data sources raises a spurious
+        # EsqlUnknownIndexError. No floor means validate every supported stack, as before. We do not
+        # skip the error at/above the floor; there it correctly flags an unreleasable floor.
+        min_stack = (
+            Version.parse(metadata.min_stack_version, optional_minor_and_patch=True)
+            if metadata.min_stack_version
+            else None
         )
         for version in get_stack_versions():
             if version in mappings_lookup:
                 continue
-            if Version.parse(version) < min_stack:
+            if min_stack is not None and Version.parse(version) < min_stack:
                 self.log(f"Skipping {version} stack: below rule min_stack_version {min_stack}")
                 continue
             _, _, combined_mappings = prepare_mappings(
