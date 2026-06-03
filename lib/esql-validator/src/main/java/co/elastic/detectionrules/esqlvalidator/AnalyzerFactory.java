@@ -50,7 +50,7 @@ import java.util.Map;
 final class AnalyzerFactory {
 
     private final EsqlFunctionRegistry functionRegistry = new EsqlFunctionRegistry();
-    private final PromqlFunctionRegistry promqlFunctionRegistry = new PromqlFunctionRegistry();
+    private final PromqlFunctionRegistry promqlFunctionRegistry = PromqlFunctionRegistry.INSTANCE;
     private final XPackLicenseState licenseState = new XPackLicenseState(() -> System.currentTimeMillis());
     private final Verifier verifier = new Verifier(
         new Metrics(functionRegistry, /*isSnapshot*/ true, /*isServerless*/ true),
