@@ -9,7 +9,7 @@ import fnmatch
 import gzip
 import json
 from collections import OrderedDict, defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -244,6 +244,38 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
     return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
 
 
+def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
+    """Find the latest stack patch the given integration packages need for a major.minor."""
+    # The stack-schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its latest
+    # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10). Resolving
+    # against the literal .0 falls back to an older package that predates the stream. Return the
+    # latest patch a package gates on for the minor, i.e. the stack patch needed to receive the most
+    # up-to-date integration package on that minor. Only the supplied packages are inspected rather
+    # than the full manifest, so the scan stays small.
+    manifests = load_integrations_manifests()
+    latest_patch = 0
+    for package in packages:
+        # Manifests sorted newest-first: a package raises its floor as it adds features, so the newest
+        # version gating the minor carries the controlling patch and we can stop at the first match.
+        package_manifests = sorted(
+            manifests.get(package, {}).items(), key=lambda kv: Version.parse(kv[0]), reverse=True
+        )
+        for _, manifest in package_manifests:
+            version_requirement = manifest.get("conditions", {}).get("kibana", {}).get("version")
+            if not version_requirement:
+                continue
+            try:
+                clauses = _parse_kibana_range(version_requirement)
+            except ValueError:
+                # Skip manifests whose kibana condition uses tokens we cannot parse.
+                continue
+            floors = [lo.patch for lo, _ in clauses if lo.major == major and lo.minor == minor]
+            if floors:
+                latest_patch = max(latest_patch, *floors)
+                break
+    return latest_patch
+
+
 def find_least_compatible_version(
     package: str,
     integration: str,
@@ -253,6 +285,14 @@ def find_least_compatible_version(
     """Finds least compatible version for specified integration based on stack version supplied."""
     integration_manifests = dict(sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0])))
     stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
+
+    # The manifest's kibana condition only tells us whether the *package* installs on the stack, not
+    # whether this particular integration/data stream exists yet in that package version (e.g. azure
+    # added aadgraphactivitylogs in 1.37.0, but 1.0.0 already installs on 8.19). The schemas record
+    # the data streams present per package version, so use them to skip versions that predate the
+    # integration. Only filter when schema data exists for a version, otherwise fall back to kibana
+    # compatibility alone (e.g. for synthetic manifests in tests).
+    package_schemas = load_integrations_schemas().get(package, {})
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(
@@ -270,8 +310,11 @@ def find_least_compatible_version(
             sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0]))
         ).items():
             version_requirement = manifest["conditions"]["kibana"]["version"]
-            if _satisfies_kibana_range(stack_version, version_requirement):
-                return f"^{version}"
+            if not _satisfies_kibana_range(stack_version, version_requirement):
+                continue
+            if integration and version in package_schemas and integration not in package_schemas[version]:
+                continue
+            return f"^{version}"
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
