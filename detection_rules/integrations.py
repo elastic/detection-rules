@@ -250,8 +250,13 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
     # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10). Resolving
     # against the literal .0 falls back to an older package that predates the stream. Return the
     # latest patch a package gates on for the minor, i.e. the stack patch needed to receive the most
-    # up-to-date integration package on that minor. Scan each package once and track the newest
-    # matching package manifest.
+    # up-to-date integration package on that minor.
+    #
+    # Track the *newest* package version's floor (not the max floor across all versions): Fleet always
+    # installs the latest compatible package, so that floor is the patch a stack actually needs. A
+    # newer package occasionally lowers its floor (e.g. apm 7.16.1 gates ^7.16.1 but the newer 7.16.2
+    # gates ^7.16.0); honoring the newest version matches what Fleet installs rather than an older,
+    # higher floor that would never be installed on that stack.
     manifests = load_integrations_manifests()
     latest_patch = 0
     for package in packages:
