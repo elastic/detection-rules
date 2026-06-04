@@ -11,6 +11,7 @@ import unittest.mock
 from semver import Version
 
 from detection_rules.integrations import (
+    _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
     _majors_overlapping_kibana_clause,
     _parse_clause,
     _parse_kibana_range,
@@ -308,7 +309,9 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         """``>=8.12.0`` (unbounded upper) must collect every overlapping stack major."""
         manifests = {"pkg": {"1.0.0": _manifest(">=8.12.0")}}
         stack_majors = _stack_majors_supported_by_package(manifests["pkg"])
-        self.assertEqual(stack_majors, {8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18})
+        lo_major = 8
+        expected = set(range(lo_major, lo_major + _MAX_UNBOUNDED_STACK_MAJOR_SPAN + 1))
+        self.assertEqual(stack_majors, expected)
 
     def test_bounded_kibana_range_includes_upper_major(self):
         """``>=8.12.0 <9.1.0`` overlaps stack major 9 (9.0.x) and must include it."""
