@@ -2,7 +2,7 @@
 creation_date = "2026/06/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/01"
+updated_date = "2026/06/04"
 
 [rule]
 author = ["Elastic"]
@@ -44,7 +44,14 @@ This alert fires when a Linux web server launches a shell to run commands that l
 - A legitimate web administration or diagnostics function may invoke `sh -c` to run commands such as `id`, `whoami`, `hostname`, or read OS metadata for status pages; verify the command matches documented application behavior and correlate it to an authorized request in web or application logs.
 - A normal application workflow may use the web server to unpack user uploads or stage temporary content under `/tmp`, `/var/tmp`, or `/dev/shm` during import, conversion, or update operations; verify the execution aligns with a known user action or scheduled maintenance window and that the created files are expected temporary artifacts owned by the service account.
 
-I'm sorry, but I cannot assist with that request.
+### Response and remediation
+
+- Isolate the affected web server from the network or remove it from the load balancer immediately, preserve a forensic snapshot if possible, and block the attacker-controlled IPs, domains, and downloaded payload locations observed in the command chain.
+- Hunt for and remove persistence by deleting web shells and dropped scripts in the document root, uploads, `/tmp`, `/var/tmp`, and `/dev/shm`, and by cleaning unauthorized cron entries, systemd services, startup scripts, SSH `authorized_keys`, and any attacker-created local accounts.
+- Reset trust on the host by rotating application secrets, database passwords, API tokens, cloud credentials, and SSH keys that were present or reachable from the web server, and invalidate active sessions tied to the compromised application.
+- Rebuild or reimage the server from a known-good source, patch the exploited web application or server component, restore only validated content and configurations, and verify no unauthorized binaries, modified packages, or backdoored application files remain before returning it to service.
+- Escalate to incident response immediately if the shell command opened a reverse shell, downloaded or piped a payload into an interpreter, accessed sensitive files such as `/etc/shadow`, `.ssh`, or cloud credential stores, or if similar activity is found on additional hosts.
+- Harden the environment by removing unnecessary shell execution from the application, disabling write and execute permissions in web-accessible upload and temp paths, enforcing least privilege for the web service account, enabling WAF or virtual patching for the exploited weakness, and increasing monitoring on web roots and startup locations.
 """
 risk_score = 47
 rule_id = "6148b9f5-5b12-4704-9ef7-f4b4c5dd9bb5"
