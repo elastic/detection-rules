@@ -6,6 +6,7 @@
 """Test integration version resolution against EPR manifest ranges."""
 
 import unittest
+import unittest.mock
 
 from semver import Version
 
@@ -300,3 +301,66 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         result = find_compatible_version_range("pkg", manifests)
         self.assertEqual(result.anchors, ["1.0.0", "2.0.0"])
         self.assertEqual(result.forward_anchor, "3.0.0")
+
+
+class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
+    """Schema-aware data stream filtering ported from #6251 into OR-range export."""
+
+    def test_skips_versions_missing_integration(self):
+        """Kibana-compatible versions whose schema lacks the integration are skipped for a later one."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.12.0"),
+                "1.5.0": _manifest("^8.12.0"),
+                "1.9.0": _manifest("^8.12.0"),
+            }
+        }
+        schemas = {
+            "pkg": {
+                "1.0.0": {"existing_ds": {}},
+                "1.5.0": {"existing_ds": {}},
+                "1.9.0": {"existing_ds": {}, "new_ds": {}},
+            }
+        }
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas):
+            new_ds = find_compatible_version_range("pkg", manifests, integration="new_ds")
+            self.assertIn("1.9.0", new_ds.anchors)
+            self.assertNotIn("1.0.0", new_ds.anchors)
+            self.assertNotIn("1.5.0", new_ds.anchors)
+
+            existing_ds = find_compatible_version_range("pkg", manifests, integration="existing_ds")
+            self.assertEqual(existing_ds.anchors, ["1.0.0"])
+
+    def test_no_schema_data_falls_back_to_kibana_only(self):
+        """Versions without schema data are not filtered; kibana compatibility alone decides."""
+        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0"), "1.5.0": _manifest("^8.12.0")}}
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value={}):
+            result = find_compatible_version_range("pkg", manifests, integration="new_ds")
+            self.assertEqual(result.anchors, ["1.0.0"])
+
+    def test_all_compatible_versions_missing_integration_raises(self):
+        """Raise when every kibana-compatible version's schema lacks the requested integration."""
+        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0"), "1.5.0": _manifest("^8.12.0")}}
+        schemas = {"pkg": {"1.0.0": {"existing_ds": {}}, "1.5.0": {"existing_ds": {}}}}
+        with (
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
+            self.assertRaises(ValueError),
+        ):
+            find_compatible_version_range("pkg", manifests, integration="new_ds")
+
+    def test_azure_aadgraphactivitylogs_schema_floor(self):
+        """aadgraphactivitylogs first appears in azure 1.37.0 and bumps RI anchors."""
+        from detection_rules.integrations import load_integrations_manifests, load_integrations_schemas
+
+        schemas = load_integrations_schemas()
+        manifests = load_integrations_manifests()
+        result = find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
+        self.assertIn("1.37.0", result.anchors)
+        self.assertNotIn("1.0.0", result.anchors)
+        self.assertIn("^1.37.0", result.range)
+        floor_versions = [
+            version
+            for version in sorted(schemas["azure"], key=Version.parse)
+            if "aadgraphactivitylogs" in schemas["azure"][version]
+        ]
+        self.assertEqual(floor_versions[0], "1.37.0")
