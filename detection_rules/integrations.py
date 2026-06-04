@@ -23,7 +23,7 @@ from semver import Version
 from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
-from .schemas import definitions
+from .schemas import definitions, get_stack_versions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
@@ -455,6 +455,11 @@ def _build_compatible_version_range(anchors: list[str]) -> CompatibleVersionRang
     )
 
 
+def _shipped_stack_majors() -> set[int]:
+    """Stack majors we ship prebuilt rules to (from the stack-schema-map backport lines)."""
+    return {Version.parse(version).major for version in get_stack_versions()}
+
+
 def minimum_schema_package_version(
     package: str,
     integration: str,
@@ -588,7 +593,8 @@ def find_compatible_version_range(
         package_schemas = load_integrations_schemas().get(package, {})
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
-    stack_majors = _stack_majors_supported_by_package(integration_manifests)
+    # Only walk stack majors we ship prebuilt rules to (stack-schema-map backport lines).
+    stack_majors = _stack_majors_supported_by_package(integration_manifests) & _shipped_stack_majors()
 
     if not stack_majors:
         raise ValueError(f"no compatible version for integration package {package}")

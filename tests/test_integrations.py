@@ -222,13 +222,13 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
     """Behavior coverage for ``find_compatible_version_range``."""
 
     def test_emits_or_range_across_majors(self):
-        """Emits oldest anchor per major plus a forward-looking next-major anchor."""
+        """Emits oldest anchor per shipped stack major plus a forward-looking next-major anchor."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^1.0.0"),
-                "1.5.0": _manifest("^1.5.0"),
-                "2.0.0": _manifest("^2.0.0"),
-                "2.5.0": _manifest("^2.1.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.5.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
+                "2.5.0": _manifest("^9.1.0"),
             }
         }
         result = find_compatible_version_range("pkg", manifests)
@@ -240,8 +240,8 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         """Range result does not depend on build stack version."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^1.0.0"),
-                "2.0.0": _manifest("^2.0.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
             }
         }
         first = find_compatible_version_range("pkg", manifests)
@@ -257,7 +257,7 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         self.assertEqual(result.forward_anchor, "10.0.0")
 
     def test_three_majors_endpoint_shape(self):
-        """Synthetic endpoint-like majors mirror the #5601 reproducer shape."""
+        """Synthetic endpoint-like majors on shipped stack lines (8.x and 9.x)."""
         manifests = {
             "endpoint": {
                 "7.17.0": _manifest("^7.17.0"),
@@ -266,8 +266,8 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             }
         }
         result = find_compatible_version_range("endpoint", manifests)
-        self.assertEqual(result.range, "^7.17.0 || ^8.2.0 || ^9.0.0 || ^10.0.0")
-        self.assertEqual(result.anchors, ("7.17.0", "8.2.0", "9.0.0"))
+        self.assertEqual(result.range, "^8.2.0 || ^9.0.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ("8.2.0", "9.0.0"))
         self.assertEqual(result.forward_anchor, "10.0.0")
 
     def test_skips_majors_with_no_overlap(self):
@@ -279,8 +279,8 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             }
         }
         result = find_compatible_version_range("pkg", manifests)
-        self.assertEqual(result.range, "^7.10.0 || ^9.4.0 || ^10.0.0")
-        self.assertEqual(result.anchors, ("7.10.0", "9.4.0"))
+        self.assertEqual(result.range, "^9.4.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ("9.4.0",))
 
     def test_raises_when_no_compatible_major(self):
         """When no stack line can be resolved, raise."""
@@ -296,8 +296,8 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         """Anchors and forward anchor are exposed for policy template union."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^1.0.0"),
-                "2.0.0": _manifest("^2.0.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
             }
         }
         result = find_compatible_version_range("pkg", manifests)
@@ -321,8 +321,8 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         self.assertIn(9, majors)
         self.assertNotIn(10, majors)
 
-    def test_non_aligned_package_covers_all_stack_majors(self):
-        """Non-aligned integration majors emit one anchor per supported stack line."""
+    def test_non_aligned_package_covers_shipped_stack_majors(self):
+        """Non-aligned packages emit one anchor per shipped backport stack major."""
         manifests = {
             "pkg": {
                 "1.0.0": _manifest("^8.12.0"),
@@ -331,8 +331,29 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             }
         }
         result = find_compatible_version_range("pkg", manifests)
-        self.assertEqual(result.anchors, ("1.0.0", "1.1.0", "1.2.0"))
-        self.assertEqual(result.range, "^1.0.0 || ^1.1.0 || ^1.2.0 || ^2.0.0")
+        # Stack 10 is not a shipped backport line; only 8.x and 9.x majors from stack-schema-map.
+        self.assertEqual(result.anchors, ("1.0.0", "1.1.0"))
+        self.assertEqual(result.range, "^1.0.0 || ^1.1.0 || ^2.0.0")
+
+    def test_excludes_unshipped_stack_majors(self):
+        """Manifest stack lines outside shipped backports (e.g. Kibana 7.x) are not walked."""
+        manifests = {
+            "pkg": {
+                "0.0.2": _manifest("^7.9.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.22.0": _manifest("^9.0.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ("1.0.0", "1.22.0"))
+        self.assertNotIn("0.0.2", result.anchors)
+        self.assertEqual(result.range, "^1.0.0 || ^1.22.0 || ^2.0.0")
+
+    def test_keeps_zero_major_when_only_stable_option_missing(self):
+        """Keep 0.x anchors when no major >= 1 anchor exists."""
+        manifests = {"pkg": {"0.5.0": _manifest("^8.0.0")}}
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ("0.5.0",))
 
 
 class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
@@ -380,6 +401,27 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
         ):
             find_compatible_version_range("pkg", manifests, integration="new_ds")
 
+    def test_schema_floor_excludes_legacy_zero_major(self):
+        """Schema-floor fallback must not retain 0.x anchors from the package baseline."""
+        manifests = {
+            "pkg": {
+                "0.0.2": _manifest("^7.9.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.37.0": _manifest("^9.0.0"),
+            }
+        }
+        schemas = {
+            "pkg": {
+                "0.0.2": {"other_ds": {}},
+                "1.0.0": {"other_ds": {}},
+                "1.37.0": {"aadgraphactivitylogs": {}},
+            }
+        }
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas):
+            result = find_compatible_version_range("pkg", manifests, integration="aadgraphactivitylogs")
+            self.assertEqual(result.anchors, ("1.37.0",))
+            self.assertEqual(result.range, "^1.37.0 || ^2.0.0")
+
     def test_azure_aadgraphactivitylogs_schema_floor(self):
         """aadgraphactivitylogs first appears in azure 1.37.0 and bumps RI anchors.
 
@@ -393,7 +435,9 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
         result = find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
         self.assertIn("1.37.0", result.anchors)
         self.assertNotIn("1.0.0", result.anchors)
+        self.assertNotIn("0.0.2", result.anchors)
         self.assertIn("^1.37.0", result.range)
+        self.assertEqual(result.range, "^1.37.0 || ^2.0.0")
         floor_versions = [
             version
             for version in sorted(schemas["azure"], key=Version.parse)
