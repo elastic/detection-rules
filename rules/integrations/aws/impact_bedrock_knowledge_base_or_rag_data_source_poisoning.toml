@@ -78,7 +78,24 @@ references = [
 ]
 risk_score = 47
 rule_id = "7811b5f7-9e07-4999-87aa-a950365cd327"
-setup = "This rule depends on the AWS Bedrock / CloudTrail integration. Note that `IngestKnowledgeBaseDocuments` and `StartIngestionJob` may be emitted as CloudTrail DATA events rather than management events; if so, they are only logged when Bedrock data-event logging is enabled on the trail and routed to the `aws.cloudtrail` data stream. The Create/Update/Delete DataSource and UpdateKnowledgeBase actions are management events and are captured by default."
+setup = """## Setup
+
+This rule requires the **AWS CloudTrail** logs integration (`aws.cloudtrail` data stream).
+
+Coverage depends on which CloudTrail event categories are enabled on your trail:
+
+- **Management events** (captured by default): knowledge base and data source *configuration* changes — `CreateDataSource`,
+`UpdateDataSource`, `DeleteDataSource`, `UpdateKnowledgeBase`, `DeleteKnowledgeBase`.
+- **Data events** (NOT captured by default): the direct document operations that represent the actual corpus 
+poisoning — `IngestKnowledgeBaseDocuments` and `DeleteKnowledgeBaseDocuments` (and, depending on configuration, `StartIngestionJob`) are 
+emitted as Amazon Bedrock CloudTrail **data events**, which are only recorded when Bedrock data-event logging is explicitly enabled on the 
+trail and routed to `aws.cloudtrail`.
+
+**Impact:** Without Bedrock data-event logging enabled, this rule provides only **partial coverage** — it will still alert on 
+knowledge base / data source *configuration* changes, but it will **not** observe direct document ingestion or deletion, which is the primary 
+corpus-poisoning vector. Enable Bedrock Knowledge Base data-event logging on your CloudTrail trail for full coverage.
+"""
+
 severity = "medium"
 tags = [
     "Domain: Cloud",
