@@ -1446,9 +1446,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                     for package in package_integrations:
                         integration = package.get("integration")
-                        integration_name = (
-                            integration if integration and integration != "Unknown" else None
-                        )
+                        integration_name = integration if integration and integration != "Unknown" else None
                         result = find_compatible_version_range(
                             package=package["package"],
                             packages_manifest=packages_manifest,
