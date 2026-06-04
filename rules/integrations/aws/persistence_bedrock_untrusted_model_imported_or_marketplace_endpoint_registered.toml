@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/06/03"
+creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/03"
+updated_date = "2026/06/04"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,7 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+index = ["logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS Bedrock Untrusted Model Imported or Marketplace Endpoint Registered"
@@ -71,10 +71,11 @@ references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/model-import.html"
 ]
 risk_score = 47
-rule_id = "0b9d8f2e-3a6c-4d7e-9f1b-2c8a4e6f1d3b"
+rule_id = "c435defe-8438-4d5a-b4d0-86ab0faf9a49"
 severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Domain: LLM",
     "Data Source: Amazon Web Services",
     "Data Source: Amazon Bedrock",
     "Use Case: Threat Detection",
@@ -110,10 +111,6 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[rule.alert_suppression]
-group_by = ["aws.cloudtrail.user_identity.arn"]
-missing_fields_strategy = "doNotSuppress"
-
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -131,8 +128,3 @@ field_names = [
     "aws.cloudtrail.flattened.request_parameters",
     "aws.cloudtrail.response_elements",
 ]
-
-[rule.alert_suppression.duration]
-unit = "m"
-value = 60
-
