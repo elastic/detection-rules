@@ -80,7 +80,7 @@ net-new resource creation rather than tampering with established, trusted agents
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_UpdateAgent.html",
     "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_CreateAgentActionGroup.html",
-    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PrepareAgent.html"
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PrepareAgent.html",
 ]
 risk_score = 47
 rule_id = "a953f6d5-01cd-4f4c-94dc-207e34965cac"
@@ -97,7 +97,7 @@ tags = [
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset: "aws.cloudtrail" and
@@ -148,3 +148,9 @@ field_names = [
     "aws.cloudtrail.response_elements",
 ]
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
