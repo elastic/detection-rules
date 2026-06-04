@@ -250,17 +250,14 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
     # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10). Resolving
     # against the literal .0 falls back to an older package that predates the stream. Return the
     # latest patch a package gates on for the minor, i.e. the stack patch needed to receive the most
-    # up-to-date integration package on that minor. Only the supplied packages are inspected rather
-    # than the full manifest, so the scan stays small.
+    # up-to-date integration package on that minor. Scan each package once and track the newest
+    # matching package manifest.
     manifests = load_integrations_manifests()
     latest_patch = 0
     for package in packages:
-        # Manifests sorted newest-first: a package raises its floor as it adds features, so the newest
-        # version gating the minor carries the controlling patch and we can stop at the first match.
-        package_manifests = sorted(
-            manifests.get(package, {}).items(), key=lambda kv: Version.parse(kv[0]), reverse=True
-        )
-        for _, manifest in package_manifests:
+        latest_package_version: Version | None = None
+        latest_package_patch = 0
+        for package_version, manifest in manifests.get(package, {}).items():
             version_requirement = manifest.get("conditions", {}).get("kibana", {}).get("version")
             if not version_requirement:
                 continue
@@ -270,9 +267,13 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
                 # Skip manifests whose kibana condition uses tokens we cannot parse.
                 continue
             floors = [lo.patch for lo, _ in clauses if lo.major == major and lo.minor == minor]
-            if floors:
-                latest_patch = max(latest_patch, *floors)
-                break
+            if not floors:
+                continue
+            parsed_package_version = Version.parse(package_version)
+            if latest_package_version is None or parsed_package_version > latest_package_version:
+                latest_package_version = parsed_package_version
+                latest_package_patch = max(floors)
+        latest_patch = max(latest_patch, latest_package_patch)
     return latest_patch
 
 
