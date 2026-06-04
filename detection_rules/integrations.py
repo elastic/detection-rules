@@ -246,18 +246,17 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
 
 
 def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
-    """Find the latest stack patch the given integration packages need for a major.minor."""
-    # The stack-schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its latest
-    # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10). Resolving
-    # against the literal .0 falls back to an older package that predates the stream. Return the
-    # latest patch a package gates on for the minor, i.e. the stack patch needed to receive the most
-    # up-to-date integration package on that minor.
+    """Find the latest stack patch integration packages need for a major.minor."""
+    # stack-schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its latest
+    # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10).
+    # Resolving against the literal .0 falls back to an older package that predates the
+    # stream. Return the latest patch a package gates on for the minor.
     #
-    # Track the *newest* package version's floor (not the max floor across all versions): Fleet always
-    # installs the latest compatible package, so that floor is the patch a stack actually needs. A
-    # newer package occasionally lowers its floor (e.g. apm 7.16.1 gates ^7.16.1 but the newer 7.16.2
-    # gates ^7.16.0); honoring the newest version matches what Fleet installs rather than an older,
-    # higher floor that would never be installed on that stack.
+    # Track the *newest* package version's floor (not the max floor across all versions):
+    # Fleet always installs the latest compatible package, so that floor is the patch a
+    # stack actually needs. A newer package occasionally lowers its floor (e.g. apm 7.16.1
+    # gates ^7.16.1 but the newer 7.16.2 gates ^7.16.0); honoring the newest version
+    # matches what Fleet installs rather than an older, higher floor.
     manifests = load_integrations_manifests()
     latest_patch = 0
     for package in packages:
@@ -283,6 +282,14 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
     return latest_patch
 
 
+# Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
+UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
+
+# Cap stack majors collected from an unbounded Kibana clause (``>=X.Y.Z``). EPR caret/tilde
+# ranges are always bounded today; this only applies if EPR ever emits an open-ended requirement.
+_MAX_UNBOUNDED_STACK_MAJOR_SPAN = 10
+
+
 def _major_has_compatible_stack(major: int, version_requirement: str) -> bool:
     """Return True iff the Kibana range overlaps some stack in [major.0.0, (major+1).0.0)."""
     major_lo = Version(major, 0, 0)
@@ -301,22 +308,38 @@ def _package_version_has_integration(
     return integration in package_schemas[version]
 
 
+def _majors_overlapping_kibana_clause(
+    lo: Version,
+    hi: Version | None,
+    version_requirement: str,
+) -> list[int]:
+    """Return stack majors whose [M.0.0, (M+1).0.0) band intersects the parsed clause bounds."""
+    if hi is not None:
+        majors_to_check: list[int] = []
+        major = lo.major
+        while Version(major, 0, 0) < hi:
+            majors_to_check.append(major)
+            major += 1
+        return majors_to_check
+
+    # Unbounded upper (``>=``, ``>``): walk forward while the major still overlaps.
+    majors_to_check: list[int] = []
+    major = lo.major
+    while major <= lo.major + _MAX_UNBOUNDED_STACK_MAJOR_SPAN and _major_has_compatible_stack(
+        major, version_requirement
+    ):
+        majors_to_check.append(major)
+        major += 1
+    return majors_to_check
+
+
 def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) -> set[int]:
     """Collect Kibana stack majors that any manifest in the package can serve."""
     stack_majors: set[int] = set()
     for manifest in integration_manifests.values():
         version_requirement = manifest["conditions"]["kibana"]["version"]
         for lo, hi in _parse_kibana_range(version_requirement):
-            majors_to_check: list[int]
-            if hi is None:
-                majors_to_check = [lo.major]
-            else:
-                major = lo.major
-                majors_to_check = []
-                while Version(major, 0, 0) < hi:
-                    majors_to_check.append(major)
-                    major += 1
-            for major in majors_to_check:
+            for major in _majors_overlapping_kibana_clause(lo, hi, version_requirement):
                 if _major_has_compatible_stack(major, version_requirement):
                     stack_majors.add(major)
     return stack_majors
@@ -408,7 +431,7 @@ class CompatibleVersionRange:
     """Stack-invariant related integration compatibility range."""
 
     range: str
-    anchors: list[str]
+    anchors: tuple[str, ...]
     forward_anchor: str
 
 
@@ -417,8 +440,12 @@ def _build_compatible_version_range(anchors: list[str]) -> CompatibleVersionRang
     if not anchors:
         raise ValueError("anchors must not be empty")
 
-    sorted_anchors = sorted(set(anchors), key=Version.parse)
+    sorted_anchors = tuple(sorted(set(anchors), key=Version.parse))
     top_major = max(Version.parse(anchor).major for anchor in sorted_anchors)
+    # Forward sentinel: no manifest entry exists yet for (top_major + 1). Kibana accepts
+    # the caret and it prevents immediate incompatibility when a new package major ships
+    # before the next manifest refresh. Trade-off: breaking changes in that major would
+    # not surface until manifests/schemas update.
     forward_anchor = f"{top_major + 1}.0.0"
     range_parts = [f"^{anchor}" for anchor in sorted_anchors] + [f"^{forward_anchor}"]
     return CompatibleVersionRange(
@@ -462,10 +489,11 @@ def apply_schema_version_floor(
     if not any(Version.parse(anchor).major == floor_major for anchor in bumped_anchors):
         bumped_anchors.append(schema_floor)
 
-    if bumped_anchors == result.anchors:
+    bumped_tuple = tuple(sorted(set(bumped_anchors), key=Version.parse))
+    if bumped_tuple == result.anchors:
         return result
 
-    return _build_compatible_version_range(bumped_anchors)
+    return _build_compatible_version_range(list(bumped_tuple))
 
 
 def _collect_compatible_anchors(
@@ -474,7 +502,14 @@ def _collect_compatible_anchors(
     integration: str | None,
     package_schemas: dict[str, Any],
 ) -> list[str]:
-    """Collect manifest anchors for each supported stack major."""
+    """Collect manifest anchors for each supported stack major.
+
+    For each supported Kibana stack major, resolve the oldest integration package
+    version compatible with that line (schema-aware when ``integration`` is set).
+    When integration package majors align with stack majors (endpoint 8.x on Kibana
+    8.x), use the aligned anchor directly; otherwise fall back to the legacy
+    least-compatible walk at the earliest stack point in that major.
+    """
     integration_majors = {Version.parse(version).major for version in integration_manifests}
     aligned_by_major = {
         major: anchor
@@ -494,9 +529,9 @@ def _collect_compatible_anchors(
     if aligned_min_major is not None:
         effective_stack_majors = sorted(stack_major for stack_major in stack_majors if stack_major >= aligned_min_major)
     else:
-        effective_stack_majors = sorted(
-            stack_major for stack_major in stack_majors if stack_major >= max(stack_majors) - 1
-        )
+        # Non-aligned packages (integration major != stack major): walk every supported
+        # stack line so we never drop an older backport anchor (#5601).
+        effective_stack_majors = sorted(stack_majors)
 
     anchors: list[str] = []
     for stack_major in effective_stack_majors:
@@ -534,6 +569,16 @@ def find_compatible_version_range(
     integration: str | None = None,
 ) -> CompatibleVersionRange:
     """Return a stack-invariant OR'd caret range for related_integrations.version."""
+    # Resolve anchors from EPR manifests alone (no build-time stack version), OR the
+    # carets together, and append a forward sentinel for the next integration major.
+    #
+    # When integration is set, the manifest kibana condition only tells us whether the
+    # *package* installs on a stack, not whether a particular data stream exists yet
+    # (e.g. azure added aadgraphactivitylogs in 1.37.0 while 1.0.0 already installs
+    # on 8.19). integration-schemas.json.gz records streams per package version; skip
+    # versions that predate the stream when schema data exists, otherwise fall back to
+    # kibana compatibility alone (e.g. synthetic manifests in tests). Schemas are loaded
+    # lazily only when integration is set.
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -779,7 +824,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
 
-        integration = "Unknown"
+        integration = UNKNOWN_PACKAGE_INTEGRATION
         if "." in value:
             package, integration = value.split(".", 1)
             # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)

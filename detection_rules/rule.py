@@ -32,6 +32,7 @@ from .config import load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
+    UNKNOWN_PACKAGE_INTEGRATION,
     find_compatible_version_range,
     get_integration_schema_fields,
     load_integrations_manifests,
@@ -1446,7 +1447,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                     for package in package_integrations:
                         integration = package.get("integration")
-                        integration_name = integration if integration and integration != "Unknown" else None
+                        integration_name = (
+                            integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
+                        )
                         result = find_compatible_version_range(
                             package=package["package"],
                             packages_manifest=packages_manifest,
@@ -1454,6 +1457,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         )
                         package["version"] = result.range
 
+                        # Union policy templates across manifest-backed anchors only.
+                        # forward_anchor has no manifest entry and is excluded by design.
                         policy_templates: set[str] = set()
                         for anchor in result.anchors:
                             version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
@@ -1896,7 +1901,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
 
-        integration = "Unknown"
+        integration = UNKNOWN_PACKAGE_INTEGRATION
         if "." in value:
             package, integration = value.split(".", 1)
             # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)
