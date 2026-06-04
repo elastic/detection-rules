@@ -16,12 +16,10 @@ equivalent of disabling a security tool. This activity should be validated again
 responsible identity.
 """
 false_positives = [
-    """
-    Guardrail changes may be performed by platform or ML engineering teams during legitimate tuning, policy iteration,
-    or decommissioning of a Bedrock workload. Verify whether the user identity, user agent, and source IP are expected
-    to make guardrail changes in your environment. Changes made by unfamiliar users, roles, or automation should be
-    investigated. If known behavior is causing false positives, it can be exempted from the rule.
-    """,
+  """
+  Platform or ML engineering teams may legitimately tune, iterate on, or decommission guardrails as part of normal
+  development. If this is expected in your environment, the responsible identities can be exempted from the rule.
+  """,
 ]
 from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
@@ -56,13 +54,6 @@ intent before accepting the change.
   - Look for surrounding Bedrock `InvokeModel` / `Converse` activity and other defense-impairing
     actions (e.g., logging or detector changes) from the same identity.
   - Check for prior enumeration such as `ListGuardrails` or `GetGuardrail`.
-
-### False positive analysis
-
-- **Planned tuning or decommissioning**: ML/platform teams may legitimately update or delete
-  guardrails. Validate against change tickets and standard configuration.
-- **Automation**: IaC or deployment pipelines may manage guardrails. Verify the source IP and ARN
-  match expected automation infrastructure.
 
 ### Response and remediation
 
