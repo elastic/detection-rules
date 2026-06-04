@@ -279,7 +279,7 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 def find_least_compatible_version(
     package: str,
-    integration: str,
+    integration: str | None,
     current_stack_version: str,
     packages_manifest: dict[str, Any],
 ) -> str:
