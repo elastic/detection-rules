@@ -77,8 +77,9 @@ type = "query"
 query = '''
 data_stream.dataset: "azure.auditlogs" and
 azure.auditlogs.operation_name: "Update user" and
-azure.auditlogs.properties.target_resources: *UserType* and
-azure.auditlogs.properties.target_resources: *Member* and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: "UserType" and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.old_value: *Guest* and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.new_value: *Member* and
 event.outcome: (Success or success)
 '''
 
