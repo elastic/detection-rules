@@ -364,6 +364,15 @@ class TestVersions(unittest.TestCase):
 class TestESQLValidation(unittest.TestCase):
     """Test ESQL rule validation"""
 
+    def setUp(self):
+        """Force local validation for these tests."""
+        # These cases exercise local AST/semantic validation (KEEP/METADATA checks). Routing them
+        # through remote validation is possible, but the explicit goal of these is to use local vs remote,
+        # so we patch the environment variable to force local validation regardless of other settings.
+        patcher = unittest.mock.patch.dict(os.environ, {"DR_REMOTE_ESQL_VALIDATION": ""})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_esql_data_validation(self):
         """Test ESQL rule data validation"""
 
