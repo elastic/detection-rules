@@ -92,7 +92,7 @@ tags = [
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset: "aws.cloudtrail" and
@@ -133,3 +133,9 @@ field_names = [
     "aws.cloudtrail.response_elements",
 ]
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
