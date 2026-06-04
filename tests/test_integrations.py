@@ -6,6 +6,7 @@
 """Test integration version resolution against EPR manifest ranges."""
 
 import unittest
+import unittest.mock
 
 from semver import Version
 
@@ -257,3 +258,43 @@ class TestFindLeastCompatibleVersion(unittest.TestCase):
         """OR'd clauses are honored by the least-compatible search."""
         manifests = {"pkg": {"1.0.0": _manifest("^8.12.0 || ^9.0.0")}}
         self.assertEqual(find_least_compatible_version("pkg", "pkg", "9.1.0", manifests), "^1.0.0")
+
+    def test_skips_versions_missing_integration(self):
+        """Kibana-compatible versions whose schema lacks the integration are skipped for a later one."""
+        # Mirrors a data stream added in a later package (e.g. azure aadgraphactivitylogs in 1.37.0):
+        # older packages still install on the stack but predate the data stream.
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.12.0"),
+                "1.5.0": _manifest("^8.12.0"),
+                "1.9.0": _manifest("^8.12.0"),
+            }
+        }
+        schemas = {
+            "pkg": {
+                "1.0.0": {"existing_ds": {}},
+                "1.5.0": {"existing_ds": {}},
+                "1.9.0": {"existing_ds": {}, "new_ds": {}},
+            }
+        }
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas):
+            # 1.0.0/1.5.0 are kibana-compatible but lack new_ds; 1.9.0 is the oldest that has it.
+            self.assertEqual(find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests), "^1.9.0")
+            # An integration present in every version is unaffected and still resolves to the oldest.
+            self.assertEqual(find_least_compatible_version("pkg", "existing_ds", "8.12.0", manifests), "^1.0.0")
+
+    def test_no_schema_data_falls_back_to_kibana_only(self):
+        """Versions without schema data are not filtered; kibana compatibility alone decides."""
+        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0"), "1.5.0": _manifest("^8.12.0")}}
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value={}):
+            self.assertEqual(find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests), "^1.0.0")
+
+    def test_all_compatible_versions_missing_integration_raises(self):
+        """Raise when every kibana-compatible version's schema lacks the requested integration."""
+        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0"), "1.5.0": _manifest("^8.12.0")}}
+        schemas = {"pkg": {"1.0.0": {"existing_ds": {}}, "1.5.0": {"existing_ds": {}}}}
+        with (
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
+            self.assertRaises(ValueError),
+        ):
+            find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests)
