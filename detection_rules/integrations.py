@@ -293,7 +293,9 @@ def find_least_compatible_version(
     # the data streams present per package version, so use them to skip versions that predate the
     # integration. Only filter when schema data exists for a version, otherwise fall back to kibana
     # compatibility alone (e.g. for synthetic manifests in tests).
-    package_schemas = load_integrations_schemas().get(package, {})
+    # Loaded only when an integration is specified, to avoid decompressing the schemas for
+    # package-only lookups where the schema check is never consulted.
+    package_schemas = load_integrations_schemas().get(package, {}) if integration else {}
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(
