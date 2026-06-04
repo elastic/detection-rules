@@ -295,7 +295,7 @@ def find_least_compatible_version(
     # compatibility alone (e.g. for synthetic manifests in tests).
     # Loaded only when an integration is specified, to avoid decompressing the schemas for
     # package-only lookups where the schema check is never consulted.
-    package_schemas = load_integrations_schemas().get(package, {}) if integration else {}
+    package_schemas: dict[str, Any] = load_integrations_schemas().get(package, {}) if integration else {}
 
     # filter integration_manifests to only the latest major entries
     major_versions = sorted(
