@@ -1583,14 +1583,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
         for integration in rule_integrations:
-            ineligible_integrations = [
-                *definitions.NON_DATASET_PACKAGES,
-                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-            ]
-            if (
-                integration in ineligible_integrations
-                or isinstance(data, MachineLearningRuleData)
-                or (isinstance(data, ESQLRuleData) and _esql_metadata_package_row_needed(integration, datasets))
+            ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+            if isinstance(data, MachineLearningRuleData):
+                packaged_integrations.append({"package": integration, "integration": None})
+            elif integration in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(integration, datasets):
+                    packaged_integrations.append({"package": integration, "integration": None})
+            elif integration.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
             ):
                 packaged_integrations.append({"package": integration, "integration": None})
 
@@ -1894,13 +1894,17 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     return sorted({str(f) for f in parsed if isinstance(f, (eql.ast.Field | kql.ast.Field))})  # type: ignore[reportUnknownVariableType]
 
 
-def _esql_metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
-    """Return True when an ES|QL rule needs a metadata-only package row."""
-    # Metadata tags the package name; ES|QL datasets use package.stream (e.g. azure.signinlogs).
+def _metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
+    """Return True when a metadata-only package row is still required."""
+    # Metadata tags the package name; query datasets use package.stream (e.g. endpoint.events.api).
     if integration in datasets:
         return False
     prefix = f"{integration}."
     return not any(dataset.startswith(prefix) for dataset in datasets)
+
+
+# Backward-compatible alias for ES|QL export tests and callers.
+_esql_metadata_package_row_needed = _metadata_package_row_needed
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:

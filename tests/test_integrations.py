@@ -483,6 +483,43 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
         self.assertEqual(floor_versions[0], "1.37.0")
 
 
+class TestMetadataPackageRowDedupe(unittest.TestCase):
+    """Skip redundant metadata package rows when query datasets already cover the package."""
+
+    def test_metadata_package_row_needed_helper(self):
+        from detection_rules.rule import _metadata_package_row_needed
+
+        self.assertFalse(_metadata_package_row_needed("azure", {"azure.signinlogs"}))
+        self.assertFalse(_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
+        self.assertFalse(_metadata_package_row_needed("endpoint", {"endpoint.events.api"}))
+        self.assertFalse(_metadata_package_row_needed("windows", {"windows.sysmon_operational"}))
+        self.assertTrue(_metadata_package_row_needed("azure", set()))
+        self.assertTrue(_metadata_package_row_needed("aws_bedrock", set()))
+        self.assertTrue(_metadata_package_row_needed("endpoint", set()))
+
+    def test_non_dataset_package_skips_metadata_row_when_query_has_datasets(self):
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.rule_loader import RuleCollection
+
+        manifests = load_integrations_manifests()
+        rule = RuleCollection().load_file(Path("rules/windows/persistence_sysmon_wmi_event_subscription.toml"))
+        packaged = TOMLRuleContents.get_packaged_integrations(rule.contents.data, rule.contents.metadata, manifests)
+        packages = [entry["package"] for entry in packaged]
+        self.assertEqual(packages.count("endpoint"), 1)
+        self.assertEqual(packages.count("windows"), 1)
+
+        api = rule.contents.to_api_format()
+        endpoint_rows = [row for row in api["related_integrations"] if row["package"] == "endpoint"]
+        windows_rows = [row for row in api["related_integrations"] if row["package"] == "windows"]
+        self.assertEqual(len(endpoint_rows), 1)
+        self.assertEqual(len(windows_rows), 1)
+        self.assertEqual(endpoint_rows[0]["version"], "^8.7.0 || ^9.0.0 || ^10.0.0")
+        self.assertEqual(windows_rows[0]["version"], "^1.0.0 || ^3.0.0 || ^4.0.0")
+
+
 class TestEsqlPackagedIntegrations(unittest.TestCase):
     """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
 
