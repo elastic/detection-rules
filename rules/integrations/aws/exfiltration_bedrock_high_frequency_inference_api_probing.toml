@@ -101,7 +101,7 @@ type = "esql"
 
 query = '''
 from logs-aws.cloudtrail-*
-
+ 
 // Bedrock runtime inference APIs (CloudTrail management events, logged by default) used to probe at scale
 | where
   event.provider == "bedrock.amazonaws.com"
@@ -114,25 +114,53 @@ from logs-aws.cloudtrail-*
   and event.outcome == "success"
   and aws.cloudtrail.user_identity.arn IS NOT NULL
   and aws.cloudtrail.request_parameters IS NOT NULL
-
+ 
 | grok aws.cloudtrail.request_parameters """modelId=(?<Esql.model_id>[^,}\]]+)"""
 | where Esql.model_id IS NOT NULL
-
-| stats
-    Esql.inference_call_count = count(*)
-  by
-    aws.cloudtrail.user_identity.arn,
-    cloud.account.id,
-    Esql.model_id
-
-| where Esql.inference_call_count >= 500
-
+ 
+// preserve the grouping keys plus the ECS context fields collected via VALUES() below
 | keep
   aws.cloudtrail.user_identity.arn,
   cloud.account.id,
   Esql.model_id,
-  Esql.inference_call_count
-
+  event.action,
+  source.ip,
+  user_agent.original,
+  aws.cloudtrail.user_identity.type,
+  aws.cloudtrail.user_identity.access_key_id,
+  cloud.region,
+  source.as.organization.name
+ 
+// aggregate per principal + account + model, capturing analyst context with VALUES()
+| stats
+    Esql.inference_call_count = count(*),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name)
+  by
+    aws.cloudtrail.user_identity.arn,
+    cloud.account.id,
+    Esql.model_id
+ 
+| where Esql.inference_call_count >= 500
+ 
+| keep
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  Esql.model_id,
+  Esql.inference_call_count,
+  Esql.event_action_values,
+  Esql.source_ip_values,
+  Esql.user_agent_original_values,
+  Esql.aws_cloudtrail_user_identity_type_values,
+  Esql.aws_cloudtrail_user_identity_access_key_id_values,
+  Esql.cloud_region_values,
+  Esql.source_as_organization_name_values
+ 
 | sort Esql.inference_call_count desc
 '''
 
