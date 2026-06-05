@@ -1896,9 +1896,7 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
 
 def _esql_metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
     """Return True when an ES|QL rule needs a metadata-only package row."""
-    # ES|QL extracts package.integration strings from the query while metadata tags the
-    # package name alone (e.g. azure). The old "integration not in datasets" check treated
-    # those as uncovered and appended a redundant package-only row alongside parse_datasets.
+    # Metadata tags the package name; ES|QL datasets use package.stream (e.g. azure.signinlogs).
     if integration in datasets:
         return False
     prefix = f"{integration}."

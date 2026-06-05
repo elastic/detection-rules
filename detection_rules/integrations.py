@@ -285,10 +285,8 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 # Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
 
-# Cap stack majors collected from an unbounded Kibana clause (``>=X.Y.Z``). EPR caret/tilde
-# ranges are always bounded today; this only applies if EPR ever emits an open-ended requirement.
-# The exact value is not critical: ``find_compatible_version_range`` intersects with
-# ``_shipped_stack_majors()`` so only backport lines we ship rules to are kept.
+# Cap majors walked for unbounded Kibana clauses (``>=X.Y.Z``). Intersection with
+# ``_shipped_stack_majors()`` keeps only backport lines we ship rules to.
 _MAX_UNBOUNDED_STACK_MAJOR_SPAN = 10
 
 
@@ -410,10 +408,7 @@ def _build_compatible_version_range(anchors: list[str]) -> CompatibleVersionRang
 
     sorted_anchors = tuple(sorted(set(anchors), key=Version.parse))
     top_major = max(Version.parse(anchor).major for anchor in sorted_anchors)
-    # Forward sentinel: no manifest entry exists yet for (top_major + 1). Kibana accepts
-    # the caret and it prevents immediate incompatibility when a new package major ships
-    # before the next manifest refresh. Trade-off: breaking changes in that major would
-    # not surface until manifests/schemas update.
+    # Forward sentinel for the next integration major (no manifest entry yet).
     forward_anchor = f"{top_major + 1}.0.0"
     range_parts = [f"^{anchor}" for anchor in sorted_anchors] + [f"^{forward_anchor}"]
     return CompatibleVersionRange(
@@ -490,22 +485,25 @@ def _collect_compatible_anchors(
     return anchors
 
 
+def _integration_schema_floor(
+    package: str,
+    integration: str | None,
+    package_schemas: dict[str, Any],
+) -> str | None:
+    """Oldest package version whose schema includes integration, when schemas are loaded."""
+    if not integration or not package_schemas:
+        return None
+    return minimum_schema_package_version(package, integration, {package: package_schemas})
+
+
 def find_compatible_version_range(
     package: str,
     packages_manifest: dict[str, Any],
     integration: str | None = None,
 ) -> CompatibleVersionRange:
     """Return a stack-invariant OR'd caret range for related_integrations.version."""
-    # Resolve anchors from EPR manifests alone (no build-time stack version), OR the
-    # carets together, and append a forward sentinel for the next integration major.
-    #
-    # When integration is set, the manifest kibana condition only tells us whether the
-    # *package* installs on a stack, not whether a particular data stream exists yet
-    # (e.g. azure added aadgraphactivitylogs in 1.37.0 while 1.0.0 already installs
-    # on 8.19). integration-schemas.json.gz records streams per package version; skip
-    # versions that predate the stream when schema data exists, otherwise fall back to
-    # kibana compatibility alone (e.g. synthetic manifests in tests). Schemas are loaded
-    # lazily only when integration is set.
+    # One anchor per shipped stack major (no build-time stack), OR'd carets, forward sentinel.
+    # With integration set, filter by integration-schemas when present (data-stream floor).
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -513,9 +511,9 @@ def find_compatible_version_range(
     package_schemas: dict[str, Any] = {}
     if integration:
         package_schemas = load_integrations_schemas().get(package, {})
+    schema_floor = _integration_schema_floor(package, integration, package_schemas)
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
-    # Only walk stack majors we ship prebuilt rules to (stack-schema-map backport lines).
     stack_majors = _stack_majors_supported_by_package(integration_manifests) & _shipped_stack_majors()
 
     if not stack_majors:
@@ -524,19 +522,15 @@ def find_compatible_version_range(
     anchors = _collect_compatible_anchors(integration_manifests, stack_majors, integration, package_schemas)
 
     if not anchors:
-        if integration and package_schemas:
-            schema_floor = minimum_schema_package_version(package, integration, {package: package_schemas})
-            if schema_floor:
-                baseline = find_compatible_version_range(package, packages_manifest)
-                return apply_schema_version_floor(baseline, schema_floor)
+        if schema_floor:
+            baseline = find_compatible_version_range(package, packages_manifest)
+            return apply_schema_version_floor(baseline, schema_floor)
         package_label = f"{package}:{integration}" if integration else package
         raise ValueError(f"no compatible version for integration {package_label}")
 
     result = _build_compatible_version_range(anchors)
-    if integration and package_schemas:
-        schema_floor = minimum_schema_package_version(package, integration, {package: package_schemas})
-        if schema_floor:
-            result = apply_schema_version_floor(result, schema_floor)
+    if schema_floor:
+        result = apply_schema_version_floor(result, schema_floor)
     return result
 
 

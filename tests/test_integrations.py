@@ -426,11 +426,7 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             self.assertEqual(result.range, "^1.37.0 || ^2.0.0")
 
     def test_azure_aadgraphactivitylogs_schema_floor(self):
-        """aadgraphactivitylogs first appears in azure 1.37.0 and bumps RI anchors.
-
-        Pinned to the committed integration-schemas.json.gz; update if the stream
-        introduction version shifts.
-        """
+        """aadgraphactivitylogs floor is azure 1.37.0 (bundled integration-schemas.json.gz)."""
         from detection_rules.integrations import load_integrations_manifests, load_integrations_schemas
 
         schemas = load_integrations_schemas()
