@@ -20,7 +20,35 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd Override Configuration File Created"
-note = """
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd Override Configuration File Created
+
+This alert fires when a new systemd service override file appears in standard system or user service directories, which can silently change how a service starts and make malicious behavior survive reboots or user logins. An attacker might drop an override for sshd.service or a common daemon to add an ExecStartPre or timer-triggered command that launches a backdoor every boot while leaving the original unit intact.
+
+### Possible investigation steps
+
+- Open the new override and compare it with the base unit and any recent approved change, focusing on directives like ExecStart, ExecStartPre, ExecStartPost, Environment, User, WorkingDirectory, OnCalendar, and WantedBy that could introduce persistence or alter privileges.
+- Trace the creation back to the initiating binary, parent process chain, account, and session context to determine whether it originated from expected package management or configuration automation versus an interactive shell, script, or unknown tool.
+- Review nearby host activity for `systemctl daemon-reload`, `enable`, `start`, `restart`, or timer operations, then verify whether the affected service or timer loaded the override and launched any newly referenced command.
+- Examine any scripts, binaries, environment files, sockets, or network destinations referenced by the override for newly dropped or suspicious content, and hunt for similar override files on the same host and peer systems to assess spread.
+
+### False positive analysis
+
+- A system administrator may legitimately create `/etc/systemd/system/<service>.d/override.conf` during maintenance to change startup order, resource limits, or environment settings for a supported service, so verify a corresponding approved change and confirm the creating process and user session map to expected administrative activity.
+- A user or root account may create a user-level `override.conf` under `~/.config/systemd/user/` or `~/.local/share/systemd/user/` to customize a legitimate per-user service, so confirm the file owner matches the affected account and that any `Exec*` or `Environment` entries reference the expected application path and business use.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while keeping it powered on, preserve the malicious `override.conf`, the base unit file, any referenced scripts or binaries, and the output of `systemctl cat <service>` and `systemctl status <service>` for evidence and scoping.
+- Remove attacker persistence by disabling and stopping the altered service or timer, deleting the malicious drop-in directory or `override.conf`, reversing any added `Exec*`, `Environment`, or `OnCalendar` directives, and running `systemctl daemon-reload` before confirming the unit now matches the approved baseline.
+- Search the host and peer systems for additional drop-ins under `/etc/systemd/system`, `/usr/lib/systemd/system`, and user service paths, then quarantine any newly referenced payloads, kill related processes, and block their hashes or paths in endpoint controls.
+- Restore the system to a known-good state by reinstalling or replacing any modified unit files, scripts, and binaries from trusted packages or backups, rotating credentials and secrets used by the affected service account, and rebuilding the host if integrity cannot be confidently verified.
+- Escalate to incident response immediately if the override modified a high-value service such as `sshd`, a security agent, or a network-facing daemon, if root-level user service paths were abused, or if the same persistence appears on multiple hosts, because these signs indicate broader compromise.
+- Harden the environment by restricting write access to systemd service directories, tightening sudo and configuration-management permissions, enforcing file integrity monitoring on `*.service.d/override.conf`, and alerting on unauthorized `systemctl enable`, `daemon-reload`, and service or timer changes.
 """
 risk_score = 47
 rule_id = "9e8c185c-8237-4b13-a4da-4a8d4e9bb6ef"
@@ -76,7 +104,7 @@ not process.executable in (
     "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/dnf5",
     "/usr/bin/apt", "/bin/podman", "/usr/bin/podman", "/usr/bin/puppet", "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet",
     "/usr/bin/chef-client", "/bin/chef-client", "/usr/bin/pamac-daemon", "/bin/pamac-daemon", "/usr/local/bin/dockerd",
-    "/usr/bin/crio",  "/usr/local/bin/dockerd", "/usr/bin/podman", "./usr/bin/podman", "/usr/bin/tdnf"
+    "/usr/bin/crio",  "/usr/local/bin/dockerd", "/usr/bin/podman", "./usr/bin/podman", "/usr/bin/tdnf", "/usr/bin/pacman"
 )
 '''
 
