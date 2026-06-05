@@ -11,12 +11,17 @@ import unittest.mock
 from semver import Version
 
 from detection_rules.integrations import (
+    _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
+    _find_least_compatible_for_stack,
+    _majors_overlapping_kibana_clause,
     _parse_clause,
     _parse_kibana_range,
     _satisfies_kibana_range,
+    _stack_majors_supported_by_package,
+    find_compatible_version_range,
     find_latest_compatible_version,
-    find_least_compatible_version,
 )
+from detection_rules.schemas import get_stack_versions
 
 
 def _manifest(kibana_version: str) -> dict:
@@ -216,53 +221,187 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
             find_latest_compatible_version("missing", "missing", Version(9, 1, 0), {})
 
 
-class TestFindLeastCompatibleVersion(unittest.TestCase):
-    """Behavior coverage for ``find_least_compatible_version``."""
+class TestFindCompatibleVersionRange(unittest.TestCase):
+    """Behavior coverage for ``find_compatible_version_range``."""
 
-    def test_picks_oldest_compatible_in_latest_major(self):
-        """Returns the oldest manifest in the latest major whose range admits the stack."""
+    def test_emits_or_range_across_majors(self):
+        """Emits oldest anchor per shipped stack major plus a forward-looking next-major anchor."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^8.12.0"),
-                "1.5.0": _manifest("^8.12.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.5.0": _manifest("^8.0.0"),
                 "2.0.0": _manifest("^9.0.0"),
-                "2.1.0": _manifest("^9.1.0"),
                 "2.5.0": _manifest("^9.1.0"),
             }
         }
-        # 2.0.0 (^9.0.0) is the oldest 9.x manifest that admits a 9.1.0 stack.
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "9.1.0", manifests), "^2.0.0")
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^1.0.0 || ^2.0.0 || ^3.0.0")
+        self.assertEqual(result.anchors, ("1.0.0", "2.0.0"))
+        self.assertEqual(result.forward_anchor, "3.0.0")
 
-    def test_no_compatible_in_any_major_raises(self):
-        """When neither the latest nor any prior major admits the stack, raise."""
+    def test_stack_invariance(self):
+        """Range result does not depend on build stack version."""
         manifests = {
             "pkg": {
-                "1.0.0": _manifest("^8.12.0"),
-                "2.0.0": _manifest("^9.4.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
+            }
+        }
+        first = find_compatible_version_range("pkg", manifests)
+        second = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(first, second)
+
+    def test_single_major_appends_forward_anchor(self):
+        """A single integration major still appends the forward-looking anchor."""
+        manifests = {"pkg": {"9.0.0": _manifest("^9.0.0")}}
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^9.0.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ("9.0.0",))
+        self.assertEqual(result.forward_anchor, "10.0.0")
+
+    def test_three_majors_endpoint_shape(self):
+        """Synthetic endpoint-like majors on shipped stack lines (8.x and 9.x)."""
+        manifests = {
+            "endpoint": {
+                "7.17.0": _manifest("^7.17.0"),
+                "8.2.0": _manifest("^8.2.0"),
+                "9.0.0": _manifest("^9.0.0"),
+            }
+        }
+        result = find_compatible_version_range("endpoint", manifests)
+        self.assertEqual(result.range, "^8.2.0 || ^9.0.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ("8.2.0", "9.0.0"))
+        self.assertEqual(result.forward_anchor, "10.0.0")
+
+    def test_skips_majors_with_no_overlap(self):
+        """Majors without stack overlap are omitted from anchors."""
+        manifests = {
+            "pkg": {
+                "7.10.0": _manifest("^7.10.0"),
+                "9.4.0": _manifest("=9.4.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.range, "^9.4.0 || ^10.0.0")
+        self.assertEqual(result.anchors, ("9.4.0",))
+
+    def test_raises_when_no_compatible_major(self):
+        """When no stack line can be resolved, raise."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest(">=99.0.0 <99.0.0"),
             }
         }
         with self.assertRaises(ValueError):
-            find_least_compatible_version("pkg", "pkg", "9.1.0", manifests)
+            find_compatible_version_range("pkg", manifests)
 
-    def test_cross_major_fallback(self):
-        """Falls back to an earlier major when the latest major is incompatible."""
+    def test_returns_anchor_list_for_policy_template_lookup(self):
+        """Anchors and forward anchor are exposed for policy template union."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ("1.0.0", "2.0.0"))
+        self.assertEqual(result.forward_anchor, "3.0.0")
+
+    def test_unbounded_kibana_range_collects_multiple_stack_majors(self):
+        """``>=8.12.0`` (unbounded upper) must collect every overlapping stack major."""
+        manifests = {"pkg": {"1.0.0": _manifest(">=8.12.0")}}
+        stack_majors = _stack_majors_supported_by_package(manifests["pkg"])
+        lo_major = 8
+        expected = set(range(lo_major, lo_major + _MAX_UNBOUNDED_STACK_MAJOR_SPAN + 1))
+        self.assertEqual(stack_majors, expected)
+
+    def test_bounded_kibana_range_includes_upper_major(self):
+        """``>=8.12.0 <9.1.0`` overlaps stack major 9 (9.0.x) and must include it."""
+        majors = _majors_overlapping_kibana_clause(
+            Version(8, 12, 0),
+            Version(9, 1, 0),
+            ">=8.12.0 <9.1.0",
+        )
+        self.assertIn(8, majors)
+        self.assertIn(9, majors)
+        self.assertNotIn(10, majors)
+
+    def test_non_aligned_package_covers_shipped_stack_majors(self):
+        """Non-aligned packages emit one anchor per shipped backport stack major."""
         manifests = {
             "pkg": {
                 "1.0.0": _manifest("^8.12.0"),
-                "2.0.0": _manifest("^9.4.0"),
+                "1.1.0": _manifest("^9.0.0"),
+                "1.2.0": _manifest("^10.0.0"),
             }
         }
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "8.12.0", manifests), "^1.0.0")
+        result = find_compatible_version_range("pkg", manifests)
+        # Stack 10 is not a shipped backport line; only 8.x and 9.x majors from stack-schema-map.
+        self.assertEqual(result.anchors, ("1.0.0", "1.1.0"))
+        self.assertEqual(result.range, "^1.0.0 || ^1.1.0 || ^2.0.0")
 
-    def test_or_clause(self):
-        """OR'd clauses are honored by the least-compatible search."""
-        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0 || ^9.0.0")}}
-        self.assertEqual(find_least_compatible_version("pkg", "pkg", "9.1.0", manifests), "^1.0.0")
+    def test_excludes_unshipped_stack_majors(self):
+        """Manifest stack lines outside shipped backports (e.g. Kibana 7.x) are not walked."""
+        manifests = {
+            "pkg": {
+                "0.0.2": _manifest("^7.9.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.22.0": _manifest("^9.0.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ("1.0.0", "1.22.0"))
+        self.assertNotIn("0.0.2", result.anchors)
+        self.assertEqual(result.range, "^1.0.0 || ^1.22.0 || ^2.0.0")
+
+    def test_keeps_zero_major_when_only_stable_option_missing(self):
+        """Keep 0.x anchors when no major >= 1 anchor exists."""
+        manifests = {"pkg": {"0.5.0": _manifest("^8.0.0")}}
+        result = find_compatible_version_range("pkg", manifests)
+        self.assertEqual(result.anchors, ("0.5.0",))
+
+    def test_anchors_cover_each_shipped_stack_export(self):
+        """Each per-stack least-compatible anchor must appear in the OR range (Kibana semver.satisfies)."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.2.0"),
+                "3.0.0": _manifest("^9.4.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        for stack_version_str in get_stack_versions():
+            stack_version = Version.parse(stack_version_str)
+            expected = _find_least_compatible_for_stack(stack_version, manifests["pkg"])
+            if expected is None:
+                continue
+            self.assertIn(
+                expected,
+                result.anchors,
+                f"stack {stack_version_str} exported ^{expected} but anchors are {result.anchors}",
+            )
+
+    def test_aws_range_includes_late_stack_anchors(self):
+        """AWS 5.x/6.x require Kibana ^9.2+; walking 9.0.0 per major missed them."""
+        from detection_rules.integrations import load_integrations_manifests
+
+        manifests = load_integrations_manifests()
+        result = find_compatible_version_range("aws", manifests)
+        self.assertIn("5.0.0", result.anchors)
+        self.assertIn("6.0.0", result.anchors)
+        self.assertNotIn("1.5.0", result.anchors)
+        for stack_version_str in get_stack_versions():
+            stack_version = Version.parse(stack_version_str)
+            expected = _find_least_compatible_for_stack(stack_version, manifests["aws"])
+            self.assertIsNotNone(expected)
+            self.assertIn(expected, result.anchors, stack_version_str)
+
+
+class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
+    """Schema-aware data stream filtering ported from #6251 into OR-range export."""
 
     def test_skips_versions_missing_integration(self):
         """Kibana-compatible versions whose schema lacks the integration are skipped for a later one."""
-        # Mirrors a data stream added in a later package (e.g. azure aadgraphactivitylogs in 1.37.0):
-        # older packages still install on the stack but predate the data stream.
         manifests = {
             "pkg": {
                 "1.0.0": _manifest("^8.12.0"),
@@ -278,16 +417,20 @@ class TestFindLeastCompatibleVersion(unittest.TestCase):
             }
         }
         with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas):
-            # 1.0.0/1.5.0 are kibana-compatible but lack new_ds; 1.9.0 is the oldest that has it.
-            self.assertEqual(find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests), "^1.9.0")
-            # An integration present in every version is unaffected and still resolves to the oldest.
-            self.assertEqual(find_least_compatible_version("pkg", "existing_ds", "8.12.0", manifests), "^1.0.0")
+            new_ds = find_compatible_version_range("pkg", manifests, integration="new_ds")
+            self.assertIn("1.9.0", new_ds.anchors)
+            self.assertNotIn("1.0.0", new_ds.anchors)
+            self.assertNotIn("1.5.0", new_ds.anchors)
+
+            existing_ds = find_compatible_version_range("pkg", manifests, integration="existing_ds")
+            self.assertEqual(existing_ds.anchors, ("1.0.0",))
 
     def test_no_schema_data_falls_back_to_kibana_only(self):
         """Versions without schema data are not filtered; kibana compatibility alone decides."""
         manifests = {"pkg": {"1.0.0": _manifest("^8.12.0"), "1.5.0": _manifest("^8.12.0")}}
         with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value={}):
-            self.assertEqual(find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests), "^1.0.0")
+            result = find_compatible_version_range("pkg", manifests, integration="new_ds")
+            self.assertEqual(result.anchors, ("1.0.0",))
 
     def test_all_compatible_versions_missing_integration_raises(self):
         """Raise when every kibana-compatible version's schema lacks the requested integration."""
@@ -297,4 +440,93 @@ class TestFindLeastCompatibleVersion(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
             self.assertRaises(ValueError),
         ):
-            find_least_compatible_version("pkg", "new_ds", "8.12.0", manifests)
+            find_compatible_version_range("pkg", manifests, integration="new_ds")
+
+    def test_schema_floor_excludes_legacy_zero_major(self):
+        """Schema-floor fallback must not retain 0.x anchors from the package baseline."""
+        manifests = {
+            "pkg": {
+                "0.0.2": _manifest("^7.9.0"),
+                "1.0.0": _manifest("^8.0.0"),
+                "1.37.0": _manifest("^9.0.0"),
+            }
+        }
+        schemas = {
+            "pkg": {
+                "0.0.2": {"other_ds": {}},
+                "1.0.0": {"other_ds": {}},
+                "1.37.0": {"aadgraphactivitylogs": {}},
+            }
+        }
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas):
+            result = find_compatible_version_range("pkg", manifests, integration="aadgraphactivitylogs")
+            self.assertEqual(result.anchors, ("1.37.0",))
+            self.assertEqual(result.range, "^1.37.0 || ^2.0.0")
+
+    def test_azure_aadgraphactivitylogs_schema_floor(self):
+        """aadgraphactivitylogs floor is azure 1.37.0 (bundled integration-schemas.json.gz)."""
+        from detection_rules.integrations import load_integrations_manifests, load_integrations_schemas
+
+        schemas = load_integrations_schemas()
+        manifests = load_integrations_manifests()
+        result = find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
+        self.assertIn("1.37.0", result.anchors)
+        self.assertNotIn("1.0.0", result.anchors)
+        self.assertNotIn("0.0.2", result.anchors)
+        self.assertIn("^1.37.0", result.range)
+        self.assertEqual(result.range, "^1.37.0 || ^2.0.0")
+        floor_versions = [
+            version
+            for version in sorted(schemas["azure"], key=Version.parse)
+            if "aadgraphactivitylogs" in schemas["azure"][version]
+        ]
+        self.assertEqual(floor_versions[0], "1.37.0")
+
+
+class TestMetadataPackageRowDedupe(unittest.TestCase):
+    """Skip redundant metadata package rows when query datasets already cover the package."""
+
+    def test_metadata_package_row_needed_helper(self):
+        from detection_rules.rule import _metadata_package_row_needed
+
+        self.assertFalse(_metadata_package_row_needed("azure", {"azure.signinlogs"}))
+        self.assertFalse(_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
+        self.assertFalse(_metadata_package_row_needed("endpoint", {"endpoint.events.api"}))
+        self.assertFalse(_metadata_package_row_needed("windows", {"windows.sysmon_operational"}))
+        self.assertTrue(_metadata_package_row_needed("azure", set()))
+        self.assertTrue(_metadata_package_row_needed("aws_bedrock", set()))
+        self.assertTrue(_metadata_package_row_needed("endpoint", set()))
+
+    def test_non_dataset_package_skips_metadata_row_when_query_has_datasets(self):
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.rule_loader import RuleCollection
+
+        manifests = load_integrations_manifests()
+        rule = RuleCollection().load_file(Path("rules/windows/persistence_sysmon_wmi_event_subscription.toml"))
+        packaged = TOMLRuleContents.get_packaged_integrations(rule.contents.data, rule.contents.metadata, manifests)
+        packages = [entry["package"] for entry in packaged]
+        self.assertEqual(packages.count("endpoint"), 1)
+        self.assertEqual(packages.count("windows"), 1)
+
+        api = rule.contents.to_api_format()
+        endpoint_rows = [row for row in api["related_integrations"] if row["package"] == "endpoint"]
+        windows_rows = [row for row in api["related_integrations"] if row["package"] == "windows"]
+        self.assertEqual(len(endpoint_rows), 1)
+        self.assertEqual(len(windows_rows), 1)
+        self.assertEqual(endpoint_rows[0]["version"], "^8.7.0 || ^9.0.0 || ^10.0.0")
+        self.assertEqual(windows_rows[0]["version"], "^1.0.0 || ^3.0.0 || ^4.0.0")
+
+
+class TestEsqlPackagedIntegrations(unittest.TestCase):
+    """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
+
+    def test_metadata_package_row_needed_helper(self):
+        from detection_rules.rule import _esql_metadata_package_row_needed
+
+        self.assertFalse(_esql_metadata_package_row_needed("azure", {"azure.signinlogs"}))
+        self.assertFalse(_esql_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
+        self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
+        self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
