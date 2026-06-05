@@ -5,7 +5,7 @@ maturity = "production"
 updated_date = "2026/05/20"
 
 [rule]
-author = ["descambiado"]
+author = ["Elastic","descambiado"]
 description = """
 Identifies modifications to OAuth application redirect URIs (ReplyUrls) in Entra ID. Adding an
 attacker-controlled redirect URI to an existing trusted application allows interception of OAuth
@@ -61,6 +61,7 @@ application retains all existing user consents.
 """
 references = [
     "https://learn.microsoft.com/en-us/entra/identity-platform/reply-url",
+    "https://www.microsoft.com/en-us/security/blog/2026/03/02/oauth-redirection-abuse-enables-phishing-malware-delivery/",
 ]
 risk_score = 47
 rule_id = "8efcd3da-103b-4a65-8ab2-6a3a9df7ba8b"
@@ -82,8 +83,8 @@ type = "query"
 query = '''
 data_stream.dataset: "azure.auditlogs" and
 azure.auditlogs.operation_name: "Update application" and
-azure.auditlogs.properties.target_resources: *ReplyUrls* and
-event.outcome: (Success or success)
+event.outcome: ("Success" or "success") and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: "AppAddress"
 '''
 
 [[rule.threat]]
