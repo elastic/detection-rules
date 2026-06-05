@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/06/04"
+creation_date = "2026/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/04"
+updated_date = "2026/06/05"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,8 @@ ingesting attacker-controlled documents (IngestKnowledgeBaseDocuments, StartInge
 (DeleteKnowledgeBaseDocuments), or repointing/altering the data source itself (CreateDataSource, UpdateDataSource,
 DeleteDataSource, UpdateKnowledgeBase). Because downstream applications and users trust model answers grounded in this
 stored data, tampering with the corpus is a stored data manipulation that can drive misinformation, fraud, or
-manipulated decisions at inference time.
+manipulated decisions at inference time. This is a New Terms rule that looks for the first time a given identity ARN
+performs one of these knowledge base or data source mutations within the history window.
 """
 false_positives = [
     """
@@ -100,7 +101,7 @@ tags = [
     "Tactic: Impact",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset: "aws.cloudtrail" and
@@ -155,3 +156,10 @@ field_names = [
     "aws.cloudtrail.response_elements",
 ]
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
