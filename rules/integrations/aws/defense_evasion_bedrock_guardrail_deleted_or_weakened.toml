@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects deletion, weakening, or version management of AWS Bedrock guardrails via the DeleteGuardrail, UpdateGuardrail,
+DeleteEnforcedGuardrailConfiguration, or PutEnforcedGuardrailConfiguration APIs. Bedrock
+guardrails enforce content, topic, word, and sensitive-information policies on model invocations. Deleting a guardrail,
+loosening its policies, removing or overwriting the organization-enforced guardrail configuration, or creating a new
+version to enforce a weakened configuration allows an adversary to bypass these protections — the cloud control-plane
+equivalent of disabling a security tool. This activity should be validated against approved change management and the
+responsible identity.
+"""
+false_positives = [
+  """
+  Platform or ML engineering teams may legitimately tune, iterate on, or decommission guardrails as part of normal
+  development. If this is expected in your environment, the responsible identities can be exempted from the rule.
+  """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Guardrail Deleted or Weakened"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Guardrail Deleted or Weakened
+
+AWS Bedrock guardrails enforce content, topic, word, and sensitive-information policies on model
+invocations. Adversaries who gain access to the Bedrock control plane may delete a guardrail (`DeleteGuardrail`),
+loosen its policies (`UpdateGuardrail`), remove or overwrite the organization-enforced guardrail
+configuration (`DeleteEnforcedGuardrailConfiguration` / `PutEnforcedGuardrailConfiguration`) to then enforce it on
+model deployments. This detection identifies those control-plane changes so responders can confirm
+intent before accepting the change.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`,
+    `aws.cloudtrail.user_identity.access_key_id`, `source.ip`, and `user_agent.original`.
+  - Confirm a related change request exists and that the identity is authorized to manage guardrails.
+- **Validate the change**
+  - For `UpdateGuardrail` / `PutEnforcedGuardrailConfiguration`, inspect
+    `aws.cloudtrail.flattened.request_parameters` and `aws.cloudtrail.response_elements` to determine
+    which content, topic, word, or sensitive-information policies were removed or weakened.
+  - For `DeleteGuardrail` / `DeleteEnforcedGuardrailConfiguration`, identify the targeted guardrail
+    or org configuration and whether protected workloads still reference it.
+- **Correlate activity**
+  - Look for surrounding Bedrock `InvokeModel` / `Converse` activity and other defense-impairing
+    actions (e.g., logging or detector changes) from the same identity.
+  - Check for prior enumeration such as `ListGuardrails` or `GetGuardrail`.
+
+### Response and remediation
+
+- If unauthorized, restore the guardrail and/or org-enforced configuration to its approved state and
+  re-associate it with affected Bedrock workloads.
+- Disable the access key in `aws.cloudtrail.user_identity.access_key_id` and review the actor's
+  recent activity; rotate credentials if compromise is suspected.
+- Restrict `bedrock:DeleteGuardrail`, `bedrock:UpdateGuardrail`, and the enforced-configuration
+  permissions to a small set of admin roles, and enforce guardrail state via AWS Config or SCPs.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteGuardrail.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_UpdateGuardrail.html",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html"
+]
+risk_score = 47
+rule_id = "cdf7b922-909c-440c-8df0-0efe72aa7bea"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "bedrock.amazonaws.com"
+    and event.action: (
+        "DeleteGuardrail" or
+        "UpdateGuardrail" or
+        "DeleteEnforcedGuardrailConfiguration" or
+        "PutEnforcedGuardrailConfiguration"
+    ) and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
