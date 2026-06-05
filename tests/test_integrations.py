@@ -447,3 +447,53 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             if "aadgraphactivitylogs" in schemas["azure"][version]
         ]
         self.assertEqual(floor_versions[0], "1.37.0")
+
+
+class TestEsqlPackagedIntegrations(unittest.TestCase):
+    """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
+
+    def test_metadata_package_row_needed_helper(self):
+        from detection_rules.rule import _esql_metadata_package_row_needed
+
+        self.assertFalse(_esql_metadata_package_row_needed("azure", {"azure.signinlogs"}))
+        self.assertFalse(_esql_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
+        self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
+        self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
+
+    def test_esql_skips_metadata_package_when_query_names_data_stream(self):
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.utils import load_rule_contents
+
+        path = Path("rules/integrations/azure/credential_access_entra_id_brute_force_activity.toml")
+        rule = TOMLRuleContents.from_dict(load_rule_contents(path, single_only=True)[0])
+        packaged = TOMLRuleContents.get_packaged_integrations(rule.data, rule.metadata, load_integrations_manifests())
+        self.assertEqual(packaged, [{"package": "azure", "integration": "signinlogs"}])
+
+    def test_kql_signinlogs_rule_unchanged(self):
+        from pathlib import Path
+
+        from detection_rules.integrations import load_integrations_manifests
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.utils import load_rule_contents
+
+        path = Path("rules/integrations/azure/persistence_entra_id_suspicious_adrs_token_request.toml")
+        rule = TOMLRuleContents.from_dict(load_rule_contents(path, single_only=True)[0])
+        packaged = TOMLRuleContents.get_packaged_integrations(rule.data, rule.metadata, load_integrations_manifests())
+        self.assertEqual(packaged, [{"package": "azure", "integration": "signinlogs"}])
+
+    def test_esql_export_emits_one_related_integration_for_aadgraph_rule(self):
+        from pathlib import Path
+
+        from detection_rules.rule import TOMLRuleContents
+        from detection_rules.utils import load_rule_contents
+
+        path = Path("rules/integrations/azure/discovery_aad_graph_roadrecon_aitohttp_enumeration.toml")
+        rule = TOMLRuleContents.from_dict(load_rule_contents(path, single_only=True)[0])
+        related = rule.to_api_format().get("related_integrations", [])
+        self.assertEqual(len(related), 1)
+        self.assertEqual(related[0]["package"], "azure")
+        self.assertEqual(related[0]["integration"], "aadgraphactivitylogs")
+        self.assertIn("^1.37.0", related[0]["version"])

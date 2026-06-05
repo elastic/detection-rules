@@ -1590,7 +1590,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             if (
                 integration in ineligible_integrations
                 or isinstance(data, MachineLearningRuleData)
-                or (isinstance(data, ESQLRuleData) and integration not in datasets)
+                or (isinstance(data, ESQLRuleData) and _esql_metadata_package_row_needed(integration, datasets))
             ):
                 packaged_integrations.append({"package": integration, "integration": None})
 
@@ -1892,6 +1892,17 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
             else eql.parse_query(query)  # type: ignore[reportUnknownMemberType]
         )
     return sorted({str(f) for f in parsed if isinstance(f, (eql.ast.Field | kql.ast.Field))})  # type: ignore[reportUnknownVariableType]
+
+
+def _esql_metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
+    """Return True when an ES|QL rule needs a metadata-only package row."""
+    # ES|QL extracts package.integration strings from the query while metadata tags the
+    # package name alone (e.g. azure). The old "integration not in datasets" check treated
+    # those as uncovered and appended a redundant package-only row alongside parse_datasets.
+    if integration in datasets:
+        return False
+    prefix = f"{integration}."
+    return not any(dataset.startswith(prefix) for dataset in datasets)
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
