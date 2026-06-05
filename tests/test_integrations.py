@@ -12,6 +12,7 @@ from semver import Version
 
 from detection_rules.integrations import (
     _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
+    _find_least_compatible_for_stack,
     _majors_overlapping_kibana_clause,
     _parse_clause,
     _parse_kibana_range,
@@ -20,6 +21,7 @@ from detection_rules.integrations import (
     find_compatible_version_range,
     find_latest_compatible_version,
 )
+from detection_rules.schemas import get_stack_versions
 
 
 def _manifest(kibana_version: str) -> dict:
@@ -357,6 +359,42 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         manifests = {"pkg": {"0.5.0": _manifest("^8.0.0")}}
         result = find_compatible_version_range("pkg", manifests)
         self.assertEqual(result.anchors, ("0.5.0",))
+
+    def test_anchors_cover_each_shipped_stack_export(self):
+        """Each per-stack least-compatible anchor must appear in the OR range (Kibana semver.satisfies)."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.2.0"),
+                "3.0.0": _manifest("^9.4.0"),
+            }
+        }
+        result = find_compatible_version_range("pkg", manifests)
+        for stack_version_str in get_stack_versions():
+            stack_version = Version.parse(stack_version_str)
+            expected = _find_least_compatible_for_stack(stack_version, manifests["pkg"])
+            if expected is None:
+                continue
+            self.assertIn(
+                expected,
+                result.anchors,
+                f"stack {stack_version_str} exported ^{expected} but anchors are {result.anchors}",
+            )
+
+    def test_aws_range_includes_late_stack_anchors(self):
+        """AWS 5.x/6.x require Kibana ^9.2+; walking 9.0.0 per major missed them."""
+        from detection_rules.integrations import load_integrations_manifests
+
+        manifests = load_integrations_manifests()
+        result = find_compatible_version_range("aws", manifests)
+        self.assertIn("5.0.0", result.anchors)
+        self.assertIn("6.0.0", result.anchors)
+        self.assertNotIn("1.5.0", result.anchors)
+        for stack_version_str in get_stack_versions():
+            stack_version = Version.parse(stack_version_str)
+            expected = _find_least_compatible_for_stack(stack_version, manifests["aws"])
+            self.assertIsNotNone(expected)
+            self.assertIn(expected, result.anchors, stack_version_str)
 
 
 class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):

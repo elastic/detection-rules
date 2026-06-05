@@ -375,23 +375,6 @@ def _find_least_compatible_for_stack(
     return None
 
 
-def _stack_version_for_major(stack_major: int, integration_manifests: dict[str, Any]) -> Version:
-    """Earliest stack version in stack_major that satisfies any manifest range."""
-    major_lo = Version(stack_major, 0, 0)
-    major_hi = Version(stack_major + 1, 0, 0)
-    candidates: list[Version] = []
-
-    for manifest in integration_manifests.values():
-        for lo, hi in _parse_kibana_range(manifest["conditions"]["kibana"]["version"]):
-            if hi is not None and hi <= major_lo:
-                continue
-            if lo >= major_hi:
-                continue
-            candidates.append(max(lo, major_lo))
-
-    return min(candidates) if candidates else major_lo
-
-
 @dataclass(frozen=True)
 class CompatibleVersionRange:
     """Stack-invariant related integration compatibility range."""
@@ -471,11 +454,14 @@ def _collect_compatible_anchors(
     integration: str | None,
     package_schemas: dict[str, Any],
 ) -> list[str]:
-    """Oldest compatible integration version per shipped stack major."""
+    """Oldest compatible integration version per shipped stack version line."""
     anchors: list[str] = []
-    for stack_major in sorted(stack_majors):
+    for stack_version_str in get_stack_versions():
+        stack_version = Version.parse(stack_version_str)
+        if stack_version.major not in stack_majors:
+            continue
         anchor = _find_least_compatible_for_stack(
-            _stack_version_for_major(stack_major, integration_manifests),
+            stack_version,
             integration_manifests,
             integration,
             package_schemas,
@@ -502,7 +488,7 @@ def find_compatible_version_range(
     integration: str | None = None,
 ) -> CompatibleVersionRange:
     """Return a stack-invariant OR'd caret range for related_integrations.version."""
-    # One anchor per shipped stack major (no build-time stack), OR'd carets, forward sentinel.
+    # One anchor per shipped stack version line (no build-time stack), OR'd carets, forward sentinel.
     # With integration set, filter by integration-schemas when present (data-stream floor).
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
