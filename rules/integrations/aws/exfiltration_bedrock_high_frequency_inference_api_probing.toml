@@ -133,8 +133,13 @@ from logs-aws.cloudtrail-*
 | sort Esql.inference_call_count desc
 '''
 
-
-
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.user_identity.arn"]
+missing_fields_strategy = "suppress"
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60
+  
 [rule.investigation_fields]
 field_names = ["aws.cloudtrail.user_identity.arn", "cloud.account.id", "Esql.model_id", "Esql.inference_call_count"]
 
