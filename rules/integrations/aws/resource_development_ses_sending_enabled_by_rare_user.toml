@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2026/06/06"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/06"
+
+[rule]
+author = ["Aryu Zaw"]
+description = """
+Identifies the first time an IAM identity enables Amazon Simple Email Service (SES) account-level sending, requests
+production access, or verifies and creates a sending identity within a lookback window. Adversaries who obtain leaked or
+stolen long-term AWS access keys frequently weaponize SES to send phishing, business email compromise (BEC), or spam
+from trusted AWS infrastructure that passes SPF, DKIM, and DMARC checks. This is a New Terms rule that flags when the
+`cloud.account.id` and `user.name` pair has not performed these SES sending-setup actions in the configured history
+window.
+"""
+false_positives = [
+    """
+    Marketing, transactional email, or notification platforms and infrastructure-as-code automation may legitimately
+    enable SES sending, request production access, or verify new sending identities, particularly during initial SES
+    onboarding. Validate the calling identity, user agent, and source IP against known automation accounts and expected
+    activity before taking action, and add exceptions for approved principals.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SES Sending Enabled or Identity Verified by Rare User"
+note = """## Triage and analysis
+
+### Investigating AWS SES Sending Enabled or Identity Verified by Rare User
+
+Amazon Simple Email Service (SES) is a managed email-sending service. Because mail sent through SES originates from AWS infrastructure and can be DKIM-signed and aligned to SPF and DMARC, it is attractive to adversaries who want their phishing, BEC, or spam to bypass reputation- and authentication-based controls. A common pattern is the compromise of long-term IAM access keys leaked in source code, `.env` files, container images, or public storage, followed by the attacker enabling SES sending and standing up sender identities in an account that has never used SES before.
+
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule) rule that flags the first time a given `cloud.account.id` and `user.name` pair performs SES sending-enablement or identity-setup actions within the history window.
+
+### Possible investigation steps
+
+- Identify the actor by reviewing `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id`. Activity originating from a long-term IAM user access key (an `AKIA`-prefixed key) is more suspicious than activity from an established role used by automation.
+- Determine the action performed via `event.action` and inspect `aws.cloudtrail.request_parameters`:
+    - `UpdateAccountSendingEnabled` and `PutAccountSendingAttributes` set account-wide sending to enabled.
+    - `PutAccountDetails` requests production access, moving the account out of the SES sandbox so it can email arbitrary recipients.
+    - `VerifyEmailIdentity`, `VerifyDomainIdentity`, and `CreateEmailIdentity` register new sender identities. Examine the email address or domain being verified for spoofed or look-alike branding.
+- Review `user_agent.original` to determine whether the call came from the AWS CLI, an SDK, or the console. Programmatic calls from an unfamiliar user agent are common in this activity.
+- Confirm the origin by inspecting `source.ip`, `source.geo`, and `source.as` and comparing them against known administrative locations. Requests from hosting or VPS providers are a common indicator.
+- Look for the surrounding chain in CloudTrail for the same identity, such as SES reconnaissance (`GetAccount`, `GetSendQuota`, `GetAccountSendingEnabled`, `ListIdentities`, `GetIdentityVerificationAttributes`), requests to raise the sending quota, and the same actions repeated across multiple regions.
+- Determine whether the account historically uses SES at all. New SES activity in an account or region with no prior SES footprint is a strong signal.
+
+### False positive analysis
+
+- Marketing, transactional, or notification platforms and infrastructure-as-code pipelines may legitimately enable sending and verify identities, especially during initial SES onboarding. Correlate with change-management records and the principal's normal behavior.
+- Some AWS solutions provision SES identities on a customer's behalf. Confirm whether the actor is a service-linked or automation role rather than an interactive user.
+- If a principal is expected to manage SES, add an exception scoped by `aws.cloudtrail.user_identity.arn`, ideally combined with `user_agent.original` and `source.ip`.
+
+### Response and remediation
+
+- If the activity is unauthorized, disable or rotate the implicated access key (`aws.cloudtrail.user_identity.access_key_id`) and review the principal's permissions to enforce least privilege.
+- Review SES for attacker-created identities, raised sending quotas, and the account-level sending state, and revert unauthorized changes. Consider disabling account sending while investigating.
+- Inspect SES sending statistics and any configured event destinations for evidence of mail already sent, and notify recipients or downstream parties if phishing was delivered.
+- Search CloudTrail for additional activity from the same identity, including other regions, to scope the compromise, and rotate any other credentials the identity could have exposed.
+"""
+references = [
+    "https://permiso.io/blog/s/aws-ses-pionage-detecting-ses-abuse/",
+    "https://www.datadoghq.com/blog/detect-phishing-activity-amazon-ses/",
+    "https://securelist.com/amazon-ses-phishing-and-bec-attacks/119623/",
+    "https://www.bleepingcomputer.com/news/security/amazon-ses-increasingly-abused-in-phishing-to-evade-detection/",
+    "https://docs.aws.amazon.com/ses/latest/dg/logging-using-cloudtrail.html",
+]
+risk_score = 21
+rule_id = "0fa96502-4150-47ab-af46-900c16c4b6e7"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SES",
+    "Use Case: Threat Detection",
+    "Tactic: Resource Development",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ses.amazonaws.com"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and event.action: (
+        "UpdateAccountSendingEnabled" or "PutAccountSendingAttributes" or "PutAccountDetails"
+        or "VerifyEmailIdentity" or "VerifyDomainIdentity" or "CreateEmailIdentity"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1584"
+name = "Compromise Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1584/"
+[[rule.threat.technique.subtechnique]]
+id = "T1584.006"
+name = "Web Services"
+reference = "https://attack.mitre.org/techniques/T1584/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+[[rule.threat.technique.subtechnique]]
+id = "T1496.004"
+name = "Cloud Service Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+
