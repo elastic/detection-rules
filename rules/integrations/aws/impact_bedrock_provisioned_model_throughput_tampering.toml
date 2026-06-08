@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation, modification, or deletion of AWS Bedrock Provisioned Model Throughput via the
+CreateProvisionedModelThroughput, UpdateProvisionedModelThroughput, and DeleteProvisionedModelThroughput APIs.
+Provisioned Throughput reserves dedicated, billed model capacity for Amazon Bedrock. An adversary who scales this
+capacity up can drive large, unauthorized cost (cloud resource/bill hijacking), while deleting reserved throughput can
+cause denial of service to production workloads that depend on that committed capacity. These control-plane changes
+should be validated against approved capacity-planning and change-management processes.
+"""
+false_positives = [
+    """
+    Provisioned Throughput changes may be performed by platform, ML, or FinOps teams as part of capacity planning,
+    scaling for production demand, or cost optimization. Infrastructure-as-code pipelines and automation roles may also
+    create, update, or delete provisioned throughput during deployments. Verify that the user identity, user agent, and
+    source IP correspond to known administrators or automation and that a corresponding change request exists. If known
+    behavior is causing false positives, it can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Provisioned Model Throughput Tampering"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Provisioned Model Throughput Tampering
+
+Amazon Bedrock Provisioned Throughput reserves dedicated, billed model capacity for foundation models.
+Because this capacity is committed and metered, adversaries can abuse it in two ways: scaling capacity up to
+incur large, unauthorized cloud spend (resource/bill hijacking), or deleting reserved throughput to deny
+service to production workloads that rely on committed capacity. This rule identifies
+`CreateProvisionedModelThroughput`, `UpdateProvisionedModelThroughput`, and `DeleteProvisionedModelThroughput`
+calls so responders can confirm whether the change was authorized.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`,
+    `aws.cloudtrail.user_identity.access_key_id`, `user_agent.original`, and `source.ip`.
+  - Determine whether the identity is an approved administrator, ML/platform engineer, or automation role.
+  - Confirm a corresponding change request or capacity-planning ticket exists.
+- **Validate the request details**
+  - Inspect `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements` for the model ID,
+    commitment duration, and requested model units. Unusually large model-unit counts or long commitment
+    terms on a Create/Update may indicate cost-driven abuse.
+  - For `DeleteProvisionedModelThroughput`, identify which provisioned model was removed and whether any
+    production workload depended on it.
+- **Correlate activity**
+  - Review other Bedrock control-plane actions (e.g., model invocation logging changes, guardrail changes)
+    and IAM/STS activity from the same identity around the same time.
+  - Check `cloud.account.id` and `cloud.region` for whether the activity occurred in an expected account/region.
+
+### False positive analysis
+
+- **Capacity planning**: Platform, ML, or FinOps teams may legitimately create, update, or delete provisioned
+  throughput. Validate against change tickets and standard capacity-management procedures.
+- **Automation**: IaC or deployment pipelines may manage provisioned throughput on bootstrap or teardown.
+  Confirm the source IP and ARN match expected automation infrastructure.
+
+### Response and remediation
+
+- If unauthorized, immediately disable the offending access key or role and revert the change (delete
+  unauthorized provisioned throughput, or recreate deleted reserved capacity required by production).
+- Review billing and Cost Explorer for unexpected Bedrock provisioned-throughput charges.
+- Audit the actor's recent activity and rotate credentials if compromise is suspected.
+- Restrict `bedrock:CreateProvisionedModelThroughput`, `bedrock:UpdateProvisionedModelThroughput`, and
+  `bedrock:DeleteProvisionedModelThroughput` to a small set of administrative roles and enforce approval
+  workflows and budget alarms.
+
+### Additional information
+
+- **[Amazon Bedrock Provisioned Throughput](https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html)**
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateProvisionedModelThroughput.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteProvisionedModelThroughput.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_UpdateProvisionedModelThroughput.html"
+]
+risk_score = 47
+rule_id = "42b5e06d-b297-4286-a004-ae0da92c5b81"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: (
+        "CreateProvisionedModelThroughput" or
+        "UpdateProvisionedModelThroughput" or
+        "DeleteProvisionedModelThroughput"
+    ) and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1496.004"
+name = "Cloud Service Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/004/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
