@@ -7,13 +7,14 @@ updated_date = "2026/06/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects deactivation of an Anthropic organization SSO connection. Disabling SSO can force fallback authentication
-paths and weaken access controls for Claude organization accounts.
+Single sign-on connections in Anthropic route users through an identity provider for authentication. Deactivating an
+SSO connection can force users onto alternate sign-in methods and weaken centralized authentication controls. An
+adversary may deactivate SSO while maintaining access through another account or method.
 """
 false_positives = [
     """
-    Administrators may deactivate SSO connections during IdP migrations or maintenance. Validate actor identity,
-    change tickets, and whether SSO was re-enabled.
+    Administrators deactivate SSO connections during identity provider migrations, certificate rotation, or
+    maintenance. Validate the actor, `anthropic.audit.connection_id`, and whether SSO was restored after the change.
     """,
 ]
 from = "now-9m"
@@ -25,13 +26,27 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic SSO Connection Deactivated
 
-SSO deactivation may indicate an adversary preparing for credential-based access after compromising an administrator.
+SSO changes affect how every user in the organization authenticates to Claude. Unexpected deactivation should be
+reviewed alongside other identity changes in the same period.
 
 #### Possible investigation steps
 
 - Review `user.email`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `source.ip`.
-- Check for companion changes such as magic link settings, admin role grants, or invite link regeneration.
-- Confirm the IdP team authorized the change."""
+- Search for related events such as admin role grants, invite link changes, or magic link setting updates.
+- Confirm with the identity team that an IdP migration or maintenance window was scheduled.
+
+### False positive analysis
+
+- Planned IdP work often includes temporarily deactivating a connection. Match the event to the maintenance ticket.
+
+### Response and remediation
+
+- If unauthorized, reactivate SSO and review accounts that signed in while SSO was disabled.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -43,10 +58,9 @@ tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
-    "Use Case: Threat Detection",
-    "Resources: Investigation Guide",
-    "Tactic: Defense Evasion",
     "Use Case: Identity and Access Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -77,8 +91,7 @@ field_names = [
     "organization.id",
     "user.email",
     "user.id",
-    "user.target.id",
-    "user.target.roles",
+    "anthropic.audit.connection_id",
     "source.ip",
     "user_agent.original",
     "anthropic.audit.actor.type",

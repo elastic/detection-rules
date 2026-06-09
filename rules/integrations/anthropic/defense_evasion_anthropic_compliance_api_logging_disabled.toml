@@ -7,14 +7,16 @@ updated_date = "2026/06/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when Anthropic organization compliance API logging is disabled. Compliance activity logs feed the
-anthropic.audit dataset used by Anthropic detections. Disabling logging can blind defenders during follow-on abuse
-of Claude org settings, API keys, or exports.
+Anthropic organization compliance API logging delivers admin and activity events into the anthropic.audit dataset.
+Disabling this logging stops new compliance activity events from being collected. An adversary with administrative
+access may disable logging before changing API keys, exports, or authentication settings to avoid leaving an audit
+trail in downstream analytics.
 """
 false_positives = [
     """
-    Security or platform administrators may disable compliance logging during onboarding or integration changes.
-    Validate the actor, change ticket, and whether logging was re-enabled promptly.
+    Platform or security administrators may disable compliance logging during onboarding, integration testing, or log
+    pipeline migrations. Verify the actor, source IP, and whether logging was re-enabled promptly. Planned changes can
+    be exempted from this rule.
     """,
 ]
 from = "now-9m"
@@ -26,14 +28,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance API Logging Disabled
 
-Compliance API logging is the telemetry source for the `anthropic.audit` dataset. Disabling it is analogous to
-disabling Bedrock model invocation logging — a single control-plane change can neutralize downstream detections.
+Compliance API logging feeds the `logs-anthropic.audit-*` indices used by Anthropic audit detections. Disabling it
+reduces visibility into subsequent administrative activity even if other logging remains in place.
 
 #### Possible investigation steps
 
-- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
-- Confirm whether `anthropic.audit.compliance_api_logging_enabled` changed from true to false.
-- Correlate with admin API key creation, exports, IAM changes, or SSO modifications in the same window."""
+- Review `user.email`, `user.id`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
+- Confirm `anthropic.audit.compliance_api_logging_enabled` is false on the event.
+- Pivot on the same actor and organization for admin role grants, admin API key creation, exports, or SSO changes.
+- Determine whether a change ticket or integration project authorized the update.
+
+### False positive analysis
+
+- Validate planned integration work with the team that manages the Anthropic Fleet policy.
+
+### Response and remediation
+
+- Re-enable compliance API logging and confirm events resume ingestion into `logs-anthropic.audit-*`.
+- Review configuration changes made between logging disable and re-enable.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -45,10 +62,10 @@ tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
+    "Use Case: Log Auditing",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Defense Evasion",
-    "Use Case: Log Auditing",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -85,8 +102,8 @@ field_names = [
     "organization.id",
     "user.email",
     "user.id",
-    "user.target.id",
-    "user.target.roles",
+    "anthropic.audit.compliance_api_logging_enabled",
+    "anthropic.audit.compliance_api_enabled",
     "source.ip",
     "user_agent.original",
     "anthropic.audit.actor.type",
