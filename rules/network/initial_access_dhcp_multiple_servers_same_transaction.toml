@@ -8,16 +8,21 @@ updated_date = "2026/06/09"
 author = ["Elastic"]
 description = """
 This rule identifies two or more distinct DHCP servers sending an OFFER or ACK for the same DHCP transaction ID (xid)
-within a short window — a rogue DHCP server racing the legitimate one to deliver its response first. This is the network
-precondition for CVE-2026-44815, a stack-based buffer overflow in the Windows DHCP Client service triggered by a
-malformed DHCP OFFER/ACK with crafted option fields, leading to remote code execution on the client. The same structural
-anomaly also covers classic DHCP spoofing / adversary-in-the-middle (T1557.003).
+within a short window, potentially a rogue DHCP server racing the legitimate one to deliver its response first. This is
+often rogue-DHCP / adversary-in-the-middle precondition (T1557.003) and is operating-system agnostic: the detection
+observes server-side behavior on the wire and does not depend on the victim client's platform. Any client acquiring or
+renewing a lease on the segment is in scope, including Windows, Linux, macOS, iOS, and IoT/embedded devices.
+
+Winning the race lets an attacker hand the client a hostile gateway/DNS (traffic interception), inject routes to bypass
+a VPN (TunnelVision, CVE-2024-3661, affecting Windows/Linux/macOS/iOS), or deliver a malformed OFFER/ACK that overflows
+the client's DHCP parser for remote code execution, for example CVE-2026-44815 (Windows DHCP Client) or CVE-2018-5732
+(ISC dhclient on Linux/Unix). The same structural anomaly covers all of these regardless of the target OS.
 
 Field note: the strongest theoretical signal is two different source MAC addresses for the same xid, but neither the
 network_traffic (Packetbeat) nor the Zeek DHCP schema exposes the responding server's Ethernet source MAC. The Zeek
 dhcp data stream additionally does not carry the transaction ID at all. This rule therefore keys on the distinct server
-source IP per transaction ID using the network_traffic.dhcpv4 data stream, which does expose dhcpv4.transaction_id and
-the server identity.
+source IP per transaction ID using the network_traffic dhcpv4 data stream, which does expose the transaction ID and the
+server identity.
 """
 from = "now-9m"
 language = "esql"
@@ -30,11 +35,11 @@ note = """## Triage and analysis
 
 ### Investigating Multiple DHCP Servers Responding to the Same Transaction
 
-DHCP is plaintext UDP and fully visible to any sensor on the broadcast segment. CVE-2026-44815 is a stack overflow in
-the Windows DHCP Client, exploited by a rogue server (or an injected response on the victim's L2 broadcast domain)
-sending a malformed OFFER/ACK. The defining precondition is a second server answering a transaction that the legitimate
-server already owns. This rule flags exactly that: two or more distinct server source IPs producing an OFFER/ACK for one
-transaction ID inside the same 30-second window.
+DHCP is plaintext UDP and fully visible to any sensor on the broadcast segment. A rogue server (or an injected response
+on the victim's L2 broadcast domain) that answers a transaction the legitimate server already owns is the defining
+precondition for DHCP-based adversary-in-the-middle and for malformed-option client exploits. This rule flags exactly
+that: two or more distinct server source IPs producing an OFFER/ACK for one transaction ID inside the same 30-second
+window, and is operating-system agnostic, since it keys only on server behavior observed on the wire.
 
 ### Possible investigation steps
 
@@ -45,8 +50,10 @@ transaction ID inside the same 30-second window.
 - Inspect the rogue OFFER/ACK options for an oversized or malformed payload (the overflow trigger) and for hostile
   configuration such as an attacker-controlled default gateway (option 3), DNS server (option 6), WPAD/proxy
   auto-config (option 252), or classless static routes (option 121, TunnelVision-style VPN bypass).
-- Check whether targeted Windows clients are unpatched for CVE-2026-44815 and review their endpoint telemetry for DHCP
-  client service crashes or follow-on code execution.
+- Identify the client(s) acquiring leases on the segment (any OS, including Windows, Linux, macOS, iOS, IoT) and review their
+  endpoint telemetry for DHCP client service crashes, unexpected route/DNS/gateway changes, or follow-on code execution.
+  Where the target OS and DHCP client are known, check whether they are unpatched for the relevant CVE (e.g.
+  CVE-2026-44815 on Windows, CVE-2018-5732 on ISC dhclient).
 
 ### False positive analysis
 
@@ -55,28 +62,31 @@ transaction ID inside the same 30-second window.
   load-balancing architecture genuinely does this, add its server IPs to an exception.
 - DHCP relay agents forward responses but the relayed source is the relay, and a single server still owns each
   transaction. Anycast/VIP DHCP designs that present multiple real backend IPs on the wire are rare and would be a known
-  architectural fact — except those IPs.
+  architectural fact, which can be excepted by those IPs.
 
 ### Response and remediation
 
-- Remove the rogue DHCP server from the segment and apply the June 2026 Patch Tuesday update for CVE-2026-44815 on
-  Windows clients.
+- Remove the rogue DHCP server from the segment, then patch the affected client DHCP stacks (e.g. June 2026 Patch
+  Tuesday for CVE-2026-44815 on Windows, or the fixed ISC dhclient for CVE-2018-5732 on Linux/Unix).
 - Enable DHCP snooping on managed switches and restrict DHCP server responses to authorized server ports/MACs as a
-  compensating control.
+  compensating control, which protects clients of every OS and also mitigates TunnelVision-style route injection.
 """
 references = [
-    "https://nvd.nist.gov/vuln/detail/CVE-2026-44815",
-    "https://msrc.microsoft.com/update-guide",
     "https://attack.mitre.org/techniques/T1557/003/",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-44815",
+    "https://nvd.nist.gov/vuln/detail/CVE-2024-3661",
+    "https://www.leviathansecurity.com/blog/tunnelvision",
+    "https://nvd.nist.gov/vuln/detail/CVE-2018-5732",
+    "https://msrc.microsoft.com/update-guide",
 ]
 risk_score = 73
 rule_id = "44b8d933-8fed-485d-a0af-bd97d0093439"
 setup = """## Setup
 
 This rule requires the Elastic network_traffic (Packetbeat) integration capturing DHCP (UDP 67/68) on the broadcast
-segment where Windows clients acquire/renew leases — either Packetbeat running on the segment or a SPAN/mirror feeding
-it. A sensor not on the same L2 broadcast domain (or not behind the relevant DHCP relay) will not observe competing
-OFFER/ACK packets.
+segment where clients acquire/renew leases — either Packetbeat running on the segment or a SPAN/mirror feeding it. A
+sensor not on the same L2 broadcast domain (or not behind the relevant DHCP relay) will not observe competing OFFER/ACK
+packets.
 
 Zeek is intentionally not supported: the zeek.dhcp data stream does not expose a transaction ID and aggregates a full
 DORA exchange into one record, so the per-transaction server-count comparison cannot be expressed on it.
