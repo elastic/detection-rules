@@ -31,8 +31,9 @@ reviewed alongside other identity changes in the same period.
 
 #### Possible investigation steps
 
-- Review `user.email`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `source.ip`.
-- Search for related events such as admin role grants, invite link changes, or magic link setting updates.
+- Review `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for related events such as admin role grants or invite link changes.
 - Confirm with the identity team that an IdP migration or maintenance window was scheduled.
 
 ### False positive analysis
@@ -67,6 +68,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
     event.action: "org_sso_connection_deactivated"
 '''
 
@@ -89,10 +91,6 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
     "anthropic.audit.connection_id",
-    "source.ip",
-    "user_agent.original",
     "anthropic.audit.actor.type",
 ]

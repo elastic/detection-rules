@@ -31,7 +31,8 @@ the process has progressed.
 
 #### Possible investigation steps
 
-- Identify the actor using `user.email`, `user.id`, and `anthropic.audit.actor.type`.
+- Identify the actor using `anthropic.audit.actor.type` and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Review the action value:
   - `org_deletion_requested` indicates deletion was requested.
   - `org_bulk_delete_initiated` and `org_deleted_via_bulk` indicate bulk delete activity.
@@ -71,6 +72,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
     event.action: ("org_deletion_requested" or "org_bulk_delete_initiated" or "org_deleted_via_bulk")
 '''
 
@@ -98,9 +100,5 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
-    "source.ip",
-    "user_agent.original",
     "anthropic.audit.actor.type",
 ]

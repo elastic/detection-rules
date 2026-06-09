@@ -30,7 +30,8 @@ Exports can take time to prepare. The start event is often followed by access or
 
 #### Possible investigation steps
 
-- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
+- Review `anthropic.audit.actor.type` and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Search for `org_data_export_accessed` or `org_data_export_completed` events for the same organization.
 - Correlate with recent admin role grants, admin API key creation, or authentication changes.
 - Confirm the export aligns with an approved audit, migration, or offboarding request.
@@ -67,6 +68,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "anthropic.audit" and
+    event.category: "file" and
     event.action: "org_data_export_started"
 '''
 
@@ -89,9 +91,5 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
-    "source.ip",
-    "user_agent.original",
     "anthropic.audit.actor.type",
 ]
