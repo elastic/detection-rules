@@ -91,6 +91,7 @@ NON_DATASET_PACKAGES = [
     "apm",
     "auditd_manager",
     "cloud_defend",
+    "corelight",
     "endpoint",
     "jamf_protect",
     "network_traffic",
