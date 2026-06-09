@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2026/06/03"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
+maturity = "production"
+updated_date = "2026/06/03"
+
+[rule]
+author = ["Aryu Zaw"]
+description = """
+Identifies the Windows Error Reporting Protected Process Light (PPL) binary WerFaultSecure.exe being started by a
+process other than the Windows Error Reporting service, with command-line arguments used to take a secure memory dump of
+a target process. Because MiniDumpWriteDump suspends all threads of the target while the dump is produced, an attacker
+can suspend WerFaultSecure.exe mid-dump to leave the targeted EDR or antivirus suspended ("frozen") without ever
+terminating it, a defense-evasion technique publicly known as EDR-Freeze.
+"""
+false_positives = [
+    """
+    Specialized crash-analysis, debugging, or diagnostics tooling that invokes WerFaultSecure.exe directly to capture a
+    secure process dump. Validate the parent process, its code signature, and the targeted process before adding an
+    exception.
+    """,
+]
+from = "now-9m"
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.process-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential EDR-Freeze via WerFaultSecure Abuse"
+note = """## Triage and analysis
+
+### Investigating Potential EDR-Freeze via WerFaultSecure Abuse
+
+`WerFaultSecure.exe` is the Protected Process Light (PPL) variant of Windows Error Reporting, normally launched by the WER service hosted in `svchost.exe` to capture secure crash dumps of protected processes. Because it runs as a PPL and can read the memory of other protected processes, adversaries abuse it to dump or freeze security software.
+
+In the EDR-Freeze technique, an attacker starts `WerFaultSecure.exe` from their own process and directs it to dump a security process (for example `MsMpEng.exe`). `MiniDumpWriteDump` suspends every thread of the target while the dump is produced; the attacker then suspends `WerFaultSecure.exe` itself at that moment, leaving the EDR or antivirus frozen in a "coma" without ever terminating it, so traditional process-termination and tamper alerts never fire.
+
+This rule identifies `WerFaultSecure.exe` started by a parent other than the WER service with command-line arguments characteristic of a secure process memory dump (`/pid` and `/encfile`). Legitimate secure dumps are initiated by the WER service, so an abnormal parent process is the primary signal of abuse.
+
+### Possible investigation steps
+
+- Identify the parent process via `process.parent.name`, `process.parent.executable`, and `process.parent.command_line`. Launches from shells, scripting engines, `rundll32.exe`, or unsigned binaries in user-writable paths are highly suspicious.
+- Resolve the target process from the `/pid` argument value and determine whether it corresponds to a security product (EDR or antivirus such as `MsMpEng.exe`), `lsass.exe`, or another sensitive process.
+- Review the full command line for the dump-type value (the public proof of concept uses `/type 268310`, a full dump) and for the `/cancel` event handle, which together with `/encfile` indicate a full secure memory dump.
+- Look for a ProcessAccess event (Sysmon Event ID 10) or an Elastic Defend API event in which `WerFaultSecure.exe` is opened with `PROCESS_SUSPEND_RESUME` (access mask `0x800` / `2048`) by a non-WER process shortly after this execution. This is the act that freezes the dumper and keeps the target suspended.
+- Check whether the targeted security agent stopped reporting telemetry (a heartbeat gap) around the time of the alert.
+- Examine the parent process for prevalence, code signature, on-disk location, and any preceding download, injection, or privilege-escalation activity.
+- Review activity for the user and host over the preceding 24-48 hours for related defense-evasion, credential-access, or lateral-movement behavior.
+
+### False positive analysis
+
+- This activity is highly unusual: secure WER dumps are normally initiated by the WER service in `svchost.exe`, not by interactive or third-party processes, so benign matches are rare.
+- Specialized crash-analysis, debugging, or enterprise diagnostics tooling could invoke `WerFaultSecure.exe` directly. If such a tool is confirmed and authorized, add an exception scoped to its `process.parent.executable` and code signature.
+
+### Response and remediation
+
+- Isolate the affected host to prevent further post-compromise activity while the EDR or antivirus may be suspended.
+- Verify the state of the targeted security agent and restart or resume it, then confirm that protection and telemetry have been restored.
+- Terminate the suspicious `WerFaultSecure.exe` process and its parent, preserving command lines, handles, and any dump files for analysis.
+- Investigate the parent process and its origin to determine the initial access vector and scope of compromise, and search the environment for the same parent binary or behavior on other hosts.
+- Reset credentials that may have been exposed while the security agent was disabled, and run a full scan once protection is restored.
+- Escalate to incident response when the targeted process is a security control, as a successful freeze indicates a hands-on-keyboard defense-evasion attempt.
+"""
+references = [
+    "https://www.zerosalarium.com/2025/09/EDR-Freeze-Puts-EDRs-Antivirus-Into-Coma.html",
+    "https://binarydefense.com/resources/blog/dont-freeze-me-out-bro-arc-labs-technical-analysis-of-edr-freeze",
+    "https://www.bleepingcomputer.com/news/security/new-edr-freeze-tool-uses-windows-wer-to-suspend-security-software/",
+]
+risk_score = 73
+rule_id = "7b75c162-d439-472d-b39f-2eb0d4d2d318"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : "WerFaultSecure.exe" and
+
+  /* WerFaultSecure secure dumps are normally initiated by the WER service hosted in svchost.exe */
+  process.parent.name != null and
+  not process.parent.name : ("svchost.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe") and
+
+  /* arguments used to take a secure memory dump of a target process (e.g. /pid <target> /encfile <handle> /type 268310) */
+  process.args : "/pid" and process.args : "/encfile"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
