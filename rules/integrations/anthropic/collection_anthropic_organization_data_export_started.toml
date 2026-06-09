@@ -7,13 +7,14 @@ updated_date = "2026/06/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an Anthropic organization data export is started. Adversaries with administrative access may export
-organization data for collection or exfiltration after compromising a Claude tenant.
+Organization data exports in Anthropic can include chats, projects, user metadata, and configuration for a tenant.
+Starting an export is a common step when an administrator needs a full copy of organization data. An adversary may
+start an export after gaining admin access to collect data for exfiltration.
 """
 false_positives = [
     """
-    Compliance, legal, and platform teams may start organization data exports for audits, migrations, or offboarding.
-    Validate the actor and business justification before escalating.
+    Compliance, legal, and platform teams start organization data exports for audits, migrations, litigation holds, or
+    offboarding. Validate the actor and business justification before escalating.
     """,
 ]
 from = "now-9m"
@@ -25,19 +26,27 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Data Export Started
 
-Organization data exports can contain chats, projects, user metadata, and configuration. This activity is a common
-post-compromise collection step following admin privilege abuse.
+Exports can take time to prepare. The start event is often followed by access or completion events for the same job.
 
 #### Possible investigation steps
 
 - Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
+- Search for `org_data_export_accessed` or `org_data_export_completed` events for the same organization.
 - Correlate with recent admin role grants, admin API key creation, or authentication changes.
-- Check whether `org_data_export_accessed` or `org_data_export_completed` follow shortly after.
-- Confirm the export aligns with an authorized audit or migration request.
+- Confirm the export aligns with an approved audit, migration, or offboarding request.
 
 ### False positive analysis
 
-- Legitimate exports during contract termination or compliance reviews are expected in some environments."""
+- Exports during contract termination or regulatory review are expected in some environments.
+
+### Response and remediation
+
+- If unauthorized, revoke administrative access for the actor and determine whether exported data left the organization.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",

@@ -6,10 +6,15 @@ updated_date = "2026/06/09"
 
 [rule]
 author = ["Elastic"]
-description = """Detects invalid GitHub Enterprise webhook signatures for Anthropic Claude GitHub integrations. This may indicate webhook tampering, misconfiguration, or spoofed delivery attempts."""
+description = """
+Anthropic Claude GitHub Enterprise integrations rely on signed webhooks to validate inbound events from GitHub. A
+webhook delivery that fails signature validation may indicate tampering, misconfiguration, or an attempt to deliver
+spoofed content to the integration.
+"""
 false_positives = [
     """
-    GitHub Enterprise configuration changes or proxy TLS inspection can cause signature mismatches during maintenance.
+    GitHub Enterprise configuration changes, secret rotation, or TLS inspection proxies can cause signature validation
+    failures during maintenance. Review recent webhook secret updates and infrastructure changes.
     """,
 ]
 from = "now-9m"
@@ -19,7 +24,30 @@ license = "Elastic License v2"
 name = "Anthropic GitHub Enterprise Webhook Signature Invalid"
 note = """## Triage and analysis
 
-Review `anthropic.audit.ghe_configuration_id`, `source.ip`, and recent GitHub integration activity."""
+### Investigating Anthropic GitHub Enterprise Webhook Signature Invalid
+
+Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery for the configured integration.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.ghe_configuration_id`, `source.ip`, and `organization.id`.
+- Search for recent `ghe_configuration_created`, `ghe_configuration_updated`, or
+  `claude_code_security_webhook_secret_updated` events for the same configuration.
+- Confirm with the GitHub Enterprise administrator whether secrets or endpoints changed.
+- Review GitHub audit logs for unexpected webhook or repository configuration changes.
+
+### False positive analysis
+
+- Signature failures during secret rotation are common if both sides were not updated at the same time.
+
+### Response and remediation
+
+- Rotate webhook secrets if compromise is suspected and verify only trusted repositories remain connected.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -51,11 +79,6 @@ id = "T1195"
 name = "Supply Chain Compromise"
 reference = "https://attack.mitre.org/techniques/T1195/"
 
-[[rule.threat.technique]]
-id = "T1554"
-name = "Compromise Client Software Binary"
-reference = "https://attack.mitre.org/techniques/T1554/"
-
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
@@ -67,10 +90,7 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
-    "user.target.id",
-    "user.target.roles",
+    "anthropic.audit.ghe_configuration_id",
     "source.ip",
     "user_agent.original",
     "anthropic.audit.actor.type",

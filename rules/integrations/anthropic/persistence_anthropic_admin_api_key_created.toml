@@ -7,13 +7,14 @@ updated_date = "2026/06/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects creation of an Anthropic admin API key. Admin API keys can programmatically manage organization settings,
-access compliance data, and persist access after console compromise.
+Admin API keys in Anthropic provide programmatic access to organization and compliance APIs. Creating a new admin
+API key grants persistent access that is not tied to an interactive user session. An adversary may create a key after
+gaining administrative access to maintain control of the tenant.
 """
 false_positives = [
     """
-    Security, platform, and observability teams create admin API keys during initial integration setup or key rotation.
-    Validate the actor, scopes in `anthropic.audit.scopes`, and whether the key creation aligns with a change ticket.
+    Platform, security, and observability teams create admin API keys during integration setup or scheduled key
+    rotation. Verify the actor, `anthropic.audit.scopes`, and whether the creation matches an approved change.
     """,
 ]
 from = "now-9m"
@@ -25,19 +26,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Admin API Key Created
 
-Admin API keys provide programmatic access to organization and compliance APIs. After console takeover, adversaries
-often create keys to maintain persistence independent of user sessions.
+Admin API keys can read compliance activity and manage organization settings depending on the scopes assigned at
+creation time.
 
 #### Possible investigation steps
 
 - Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `anthropic.audit.scopes`.
-- Identify whether the actor recently received admin privileges or transferred primary ownership.
-- Search for follow-on compliance API access, exports, or configuration changes using the same actor or organization.
-- Confirm the key is documented in your secrets management or integration inventory.
+- Note `anthropic.audit.admin_api_key_id` for correlation with later API activity.
+- Determine whether the actor recently received admin privileges or transferred primary ownership.
+- Search for exports, SSO changes, or other configuration updates from the same organization in the same window.
+- Confirm the key appears in your approved credentials inventory.
 
 ### False positive analysis
 
-- Expected during Elastic Agent or SIEM onboarding when configuring the Anthropic integration."""
+- Key creation is expected when standing up logging or security monitoring for a new Anthropic organization.
+
+### Response and remediation
+
+- If unauthorized, revoke the key through Anthropic administration and rotate other administrative credentials.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -49,10 +60,9 @@ tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
-    "Use Case: Threat Detection",
-    "Resources: Investigation Guide",
-    "Tactic: Persistence",
     "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"

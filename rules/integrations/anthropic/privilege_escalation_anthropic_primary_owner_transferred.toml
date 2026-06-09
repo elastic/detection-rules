@@ -6,10 +6,15 @@ updated_date = "2026/06/09"
 
 [rule]
 author = ["Elastic"]
-description = """Detects transfer of Anthropic organization primary ownership. Primary owners control billing, membership, and org-wide security settings."""
+description = """
+The primary owner in Anthropic Claude for Enterprise controls billing, membership, and organization-wide settings.
+Transferring primary ownership to another user is a high-privilege change. An adversary who compromises an admin
+account may transfer ownership to retain long-term control of the tenant.
+"""
 false_positives = [
     """
-    Legitimate ownership transfers during reorganizations or administrator departures may occur. Verify both previous and new owner identities.
+    Organizations transfer primary ownership during reorganizations, administrator departures, or vendor transitions.
+    Verify both the previous and new owner with internal stakeholders before treating the event as malicious.
     """,
 ]
 from = "now-9m"
@@ -19,7 +24,32 @@ license = "Elastic License v2"
 name = "Anthropic Primary Owner Transferred"
 note = """## Triage and analysis
 
-Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, `user.email`, and `source.ip`. Hunt for API key or role changes by the new owner."""
+### Investigating Anthropic Primary Owner Transferred
+
+Primary ownership is the highest level of administrative control in an Anthropic organization. This change should
+be rare and is often preceded by formal approval outside the application.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, `user.email`, and `user.id`.
+- Identify the actor through `anthropic.audit.actor.type`, `source.ip`, and `user_agent.original`.
+- Determine whether the new owner recently received admin privileges or accepted a new invite.
+- Search for related events from the same actor, including admin API key creation, exports, or SSO changes.
+- Contact the previous owner and the new owner to confirm the transfer was expected.
+
+### False positive analysis
+
+- Validate the transfer against HR records, offboarding plans, or IT change tickets.
+
+### Response and remediation
+
+- If unauthorized, work with Anthropic support and internal IT to recover ownership and review all changes made by
+  the new owner account.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -31,10 +61,9 @@ tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
-    "Use Case: Threat Detection",
-    "Resources: Investigation Guide",
-    "Tactic: Privilege Escalation",
     "Use Case: Identity and Access Audit",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -65,8 +94,8 @@ field_names = [
     "organization.id",
     "user.email",
     "user.id",
-    "user.target.id",
-    "user.target.roles",
+    "anthropic.audit.previous_owner_id",
+    "anthropic.audit.new_owner_id",
     "source.ip",
     "user_agent.original",
     "anthropic.audit.actor.type",

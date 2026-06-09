@@ -7,13 +7,14 @@ updated_date = "2026/06/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when Anthropic organization deletion is requested, a bulk organization delete is initiated, or a bulk delete
-completes. These are rare, high-impact administrative actions that remove tenant data and access for all members.
+Organization deletion and bulk delete operations in Anthropic Claude for Enterprise remove tenant data and access
+for members. An adversary with sufficient privileges may request deletion or initiate a bulk delete to cause impact
+or conceal earlier data theft.
 """
 false_positives = [
     """
-    Planned tenant offboarding, sandbox teardown, or contract termination may trigger this activity. Confirm with change
-    management records and the named administrator before escalating.
+    Planned tenant offboarding, sandbox teardown, or contract termination can produce these events. Confirm the actor
+    and timing against change management or offboarding records before escalating.
     """,
 ]
 from = "now-9m"
@@ -25,26 +26,31 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Destructive Action
 
-Organization deletion and bulk delete events represent the highest-impact configuration changes available in Claude
-for Enterprise. An adversary with administrative access may use these actions for sabotage or to cover tracks after
-data theft.
+This rule matches organization deletion requests and bulk delete activity. The `event.action` value indicates how far
+the process has progressed.
 
 #### Possible investigation steps
 
-- Identify the actor via `user.email`, `user.id`, and `anthropic.audit.actor.type`.
-- Determine the stage: `org_deletion_requested` precedes execution; `org_bulk_delete_initiated` and
-  `org_deleted_via_bulk` indicate active or completed destruction.
-- Correlate with preceding IAM changes (admin role grants, primary owner transfer), API key creation, or org data
-  exports in the same window.
-- Confirm whether a change ticket or offboarding project authorized the action.
+- Identify the actor using `user.email`, `user.id`, and `anthropic.audit.actor.type`.
+- Review the action value:
+  - `org_deletion_requested` indicates deletion was requested.
+  - `org_bulk_delete_initiated` and `org_deleted_via_bulk` indicate bulk delete activity.
+- Search for preceding admin role grants, primary owner transfers, admin API key creation, or data exports.
+- Confirm with platform owners whether offboarding or decommissioning was scheduled.
 
 ### False positive analysis
 
-- Validate planned decommissioning with IT or platform owners before closing as benign.
+- Match the event time and actor to an approved offboarding or lab teardown project.
 
 ### Response and remediation
 
-- If unauthorized, revoke admin sessions, rotate admin API keys, and engage Anthropic support immediately."""
+- If the activity was unauthorized, engage Anthropic support and internal incident response immediately.
+- Preserve remaining audit logs and rotate administrative credentials for the organization.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
     "https://www.elastic.co/docs/reference/integrations/anthropic",
@@ -94,7 +100,6 @@ field_names = [
     "organization.id",
     "user.email",
     "user.id",
-    "user.target.id",
     "source.ip",
     "user_agent.original",
     "anthropic.audit.actor.type",
