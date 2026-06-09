@@ -33,8 +33,9 @@ This rule identifies when the admin role is granted through a `role_assignment_g
 
 #### Possible investigation steps
 
-- Identify the actor and target using `user.email`, `user.id`, `user.target.id`, and `user.target.roles`.
+- Identify the target user using `user.target.id`, `user.target.roles`, and `related.user`.
 - Review `anthropic.audit.resource_type`, `anthropic.audit.resource_id`, and `anthropic.audit.actor.type`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Determine whether the target user was recently invited or had other role changes in the same window.
 - Search for related activity from the same actor, such as admin API key creation, exports, or SSO changes.
 - Review the last 48 hours of audit events for the target user after the role assignment.
@@ -74,6 +75,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
     event.action: "role_assignment_granted" and
     user.target.roles: "admin"
 '''
@@ -120,13 +122,10 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
     "user.target.id",
     "user.target.roles",
+    "related.user",
     "anthropic.audit.resource_id",
     "anthropic.audit.resource_type",
-    "source.ip",
-    "user_agent.original",
     "anthropic.audit.actor.type",
 ]
