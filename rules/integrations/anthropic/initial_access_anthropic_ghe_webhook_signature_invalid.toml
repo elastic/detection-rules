@@ -1,0 +1,77 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """Detects invalid GitHub Enterprise webhook signatures for Anthropic Claude GitHub integrations. This may indicate webhook tampering, misconfiguration, or spoofed delivery attempts."""
+false_positives = [
+    """
+    GitHub Enterprise configuration changes or proxy TLS inspection can cause signature mismatches during maintenance.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic GitHub Enterprise Webhook Signature Invalid"
+note = """## Triage and analysis
+
+Review `anthropic.audit.ghe_configuration_id`, `source.ip`, and recent GitHub integration activity."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "8a05c511-85fa-47e9-9479-cd56215eaaea"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "ghe_webhook_signature_invalid"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+
+[[rule.threat.technique]]
+id = "T1554"
+name = "Compromise Client Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "user.target.id",
+    "user.target.roles",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]

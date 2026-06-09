@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Anthropic organization compliance API logging is disabled. Compliance activity logs feed the
+anthropic.audit dataset used by Anthropic detections. Disabling logging can blind defenders during follow-on abuse
+of Claude org settings, API keys, or exports.
+"""
+false_positives = [
+    """
+    Security or platform administrators may disable compliance logging during onboarding or integration changes.
+    Validate the actor, change ticket, and whether logging was re-enabled promptly.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Compliance API Logging Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance API Logging Disabled
+
+Compliance API logging is the telemetry source for the `anthropic.audit` dataset. Disabling it is analogous to
+disabling Bedrock model invocation logging — a single control-plane change can neutralize downstream detections.
+
+#### Possible investigation steps
+
+- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
+- Confirm whether `anthropic.audit.compliance_api_logging_enabled` changed from true to false.
+- Correlate with admin API key creation, exports, IAM changes, or SSO modifications in the same window."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "6f079e3f-8891-41a5-9bfe-2e11156f7de0"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Use Case: Log Auditing",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "org_compliance_api_settings_updated" and
+    anthropic.audit.compliance_api_logging_enabled: false
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "user.target.id",
+    "user.target.roles",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]

@@ -1,0 +1,88 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an Anthropic organization data export is started. Adversaries with administrative access may export
+organization data for collection or exfiltration after compromising a Claude tenant.
+"""
+false_positives = [
+    """
+    Compliance, legal, and platform teams may start organization data exports for audits, migrations, or offboarding.
+    Validate the actor and business justification before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Organization Data Export Started"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Data Export Started
+
+Organization data exports can contain chats, projects, user metadata, and configuration. This activity is a common
+post-compromise collection step following admin privilege abuse.
+
+#### Possible investigation steps
+
+- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `organization.id`.
+- Correlate with recent admin role grants, admin API key creation, or authentication changes.
+- Check whether `org_data_export_accessed` or `org_data_export_completed` follow shortly after.
+- Confirm the export aligns with an authorized audit or migration request.
+
+### False positive analysis
+
+- Legitimate exports during contract termination or compliance reviews are expected in some environments."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 47
+rule_id = "98ed041d-77ae-4be7-a757-d1dad88359a7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "org_data_export_started"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]

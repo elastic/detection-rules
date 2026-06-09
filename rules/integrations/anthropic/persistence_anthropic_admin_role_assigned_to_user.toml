@@ -1,0 +1,79 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """Detects when an Anthropic workspace admin role is granted to a user. Admin roles enable org-wide configuration changes, integrations, and security controls."""
+false_positives = [
+    """
+    IT administrators may assign admin roles during onboarding or incident response. Confirm the target user should hold admin privileges.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Admin Role Assigned to User"
+note = """## Triage and analysis
+
+Inspect `user.target.id`, `user.email`, `anthropic.audit.resource_type`, and `user.target.roles`. Correlate with recent login anomalies or API key creation."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "98355c7c-53d2-498f-81df-2a94069bfc75"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+    "Use Case: Identity and Access Audit",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "role_assignment_granted" and
+    user.target.roles: "admin"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "user.target.id",
+    "user.target.roles",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]

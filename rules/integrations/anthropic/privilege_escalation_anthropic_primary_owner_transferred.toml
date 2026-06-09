@@ -1,0 +1,73 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """Detects transfer of Anthropic organization primary ownership. Primary owners control billing, membership, and org-wide security settings."""
+false_positives = [
+    """
+    Legitimate ownership transfers during reorganizations or administrator departures may occur. Verify both previous and new owner identities.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Primary Owner Transferred"
+note = """## Triage and analysis
+
+Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, `user.email`, and `source.ip`. Hunt for API key or role changes by the new owner."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "239408ff-5473-43bd-a9f5-ccfe9fa787b6"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
+    "Use Case: Identity and Access Audit",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "primary_owner_transferred"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "user.target.id",
+    "user.target.roles",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
