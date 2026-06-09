@@ -2,14 +2,14 @@
 creation_date = "2026/06/09"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/09"
+updated_date = "2026/06/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Anthropic Claude GitHub Enterprise integrations rely on signed webhooks to validate inbound events from GitHub. A
-webhook delivery that fails signature validation may indicate tampering, misconfiguration, or an attempt to deliver
-spoofed content to the integration.
+Anthropic Claude GitHub Enterprise integrations rely on signed webhooks to validate inbound events from GitHub. An
+adversary who can deliver spoofed or tampered webhook payloads, or who exploits misconfigured secrets, may attempt to
+inject malicious content into the integration pipeline before signature validation rejects the delivery.
 """
 false_positives = [
     """
@@ -26,7 +26,9 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic GitHub Enterprise Webhook Signature Invalid
 
-Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery for the configured integration.
+Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery for the configured integration. This
+may indicate secret mismatch during maintenance, but repeated failures or activity near integration changes can also
+signal supply chain tampering attempts.
 
 #### Possible investigation steps
 
@@ -49,8 +51,10 @@ Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery 
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
+    "https://attack.mitre.org/techniques/T1195/",
+    "https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
-    "https://www.elastic.co/docs/reference/integrations/anthropic",
 ]
 risk_score = 73
 rule_id = "8a05c511-85fa-47e9-9479-cd56215eaaea"
