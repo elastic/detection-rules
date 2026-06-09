@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2026/06/09"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects deactivation of an Anthropic organization SSO connection. Disabling SSO can force fallback authentication
+paths and weaken access controls for Claude organization accounts.
+"""
+false_positives = [
+    """
+    Administrators may deactivate SSO connections during IdP migrations or maintenance. Validate actor identity,
+    change tickets, and whether SSO was re-enabled.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic SSO Connection Deactivated"
+note = """## Triage and analysis
+
+### Investigating Anthropic SSO Connection Deactivated
+
+SSO deactivation may indicate an adversary preparing for credential-based access after compromising an administrator.
+
+#### Possible investigation steps
+
+- Review `user.email`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `source.ip`.
+- Check for companion changes such as magic link settings, admin role grants, or invite link regeneration.
+- Confirm the IdP team authorized the change."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 47
+rule_id = "8b1072e0-52ea-420f-8e25-92b1c5d76d2a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Use Case: Identity and Access Audit",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "org_sso_connection_deactivated"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "user.target.id",
+    "user.target.roles",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
