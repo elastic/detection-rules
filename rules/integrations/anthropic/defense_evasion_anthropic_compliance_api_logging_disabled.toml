@@ -9,8 +9,8 @@ author = ["Elastic"]
 description = """
 Compliance API logging feeds the anthropic.audit dataset that powers Anthropic audit detections. An adversary with
 administrative access may disable it as a preparatory step so subsequent role grants, API key creation, exports, and
-authentication changes stop reaching downstream SIEM analytics. Like disabling cloud audit logging elsewhere, this single
-control-plane change can blind the detection stack while the attacker completes follow-on actions.
+authentication changes stop reaching this compliance API data source. This rule detects the disable action itself; events
+after logging stops may not appear in `logs-anthropic.audit-*`.
 """
 false_positives = [
     """
@@ -29,7 +29,8 @@ note = """## Triage and analysis
 ### Investigating Anthropic Compliance API Logging Disabled
 
 Compliance API logging feeds the `logs-anthropic.audit-*` indices used by Anthropic audit detections. Disabling it
-reduces visibility into subsequent administrative activity even if other logging remains in place.
+reduces visibility into subsequent administrative activity even if other logging remains in place. This rule detects
+the disable action itself; activity after logging stops may not reach this data source.
 
 #### Possible investigation steps
 

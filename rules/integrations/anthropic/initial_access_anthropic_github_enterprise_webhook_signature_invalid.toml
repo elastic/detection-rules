@@ -7,10 +7,11 @@ updated_date = "2026/06/10"
 [rule]
 author = ["Elastic"]
 description = """
-Anthropic Claude GitHub Enterprise integrations accept repository events only when webhook signatures validate against
-a shared secret. Failed signature checks may indicate an adversary probing the endpoint with forged payloads to inject
-malicious repository activity into Claude Code Security workflows, test for secret misconfiguration after a partial
-compromise, or disrupt the integration during a supply chain attack against connected repositories.
+Anthropic Claude GitHub Enterprise integrations reject webhook deliveries when the HMAC signature does not match the
+configured secret. This activity event records that validation failure; it does not mean a payload was accepted or that
+repository content reached Claude Code Security workflows. Repeated failures may indicate secret mismatch during
+maintenance, misconfigured GitHub Enterprise delivery settings, or an adversary probing the endpoint with forged
+requests before or during a supply chain attack against connected repositories.
 """
 false_positives = [
     """
@@ -27,13 +28,15 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic GitHub Enterprise Webhook Signature Invalid
 
-Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery for the configured integration. This
-may indicate secret mismatch during maintenance, but repeated failures or activity near integration changes can also
-signal supply chain tampering attempts.
+Invalid webhook signatures mean Anthropic rejected a GitHub Enterprise delivery for the configured integration. The
+audit event confirms validation failed; triage should focus on whether the failure is expected maintenance or
+unexpected probing near integration changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.ghe_configuration_id`, `source.ip`, and `organization.id`.
+- Review `anthropic.audit.ghe_configuration_id`, `anthropic.audit.actor.type`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original` as the
+  administrative session tied to the audit record. These fields do not identify the webhook delivery source IP.
 - Search for recent `ghe_configuration_created`, `ghe_configuration_updated`, or
   `claude_code_security_webhook_secret_updated` events for the same configuration.
 - Confirm with the GitHub Enterprise administrator whether secrets or endpoints changed.
@@ -57,9 +60,9 @@ references = [
     "https://www.elastic.co/security-labs/elastic-advances-llm-security",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "14290b38-a8dd-474d-bfd7-cce282f4f745"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
@@ -97,9 +100,5 @@ field_names = [
     "event.id",
     "organization.id",
     "anthropic.audit.ghe_configuration_id",
-    "user.email",
-    "user.id",
-    "source.ip",
-    "user_agent.original",
     "anthropic.audit.actor.type",
 ]

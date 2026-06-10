@@ -33,8 +33,9 @@ be rare and is often preceded by formal approval outside the application.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, `user.email`, and `user.id`.
-- Identify the actor through `anthropic.audit.actor.type`, `source.ip`, and `user_agent.original`.
+- Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, and `organization.id`.
+- Identify the actor who initiated the transfer using `anthropic.audit.actor.type`. When the actor is a `user_actor`,
+  review `user.email`, `user.id`, `source.ip`, and `user_agent.original`. These actor fields are not the new owner.
 - Determine whether the new owner recently received admin privileges or accepted a new invite.
 - Search for related events from the same actor, including admin API key creation, exports, or SSO changes.
 - Contact the previous owner and the new owner to confirm the transfer was expected.
@@ -97,11 +98,11 @@ field_names = [
     "event.action",
     "event.id",
     "organization.id",
-    "user.email",
-    "user.id",
     "anthropic.audit.previous_owner_id",
     "anthropic.audit.new_owner_id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
     "source.ip",
     "user_agent.original",
-    "anthropic.audit.actor.type",
 ]
