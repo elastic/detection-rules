@@ -35,7 +35,7 @@ from logs-azure.signinlogs*
     and event.category == "authentication"
     and source.as.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
     and event.outcome != "success"
-    and azure.signinlogs.properties.status.error_code in (50053, 50126, 50055, 50056, 50064, 50144)
+    and azure.signinlogs.properties.status.error_code::STRING in ("50053", "50126", "50055", "50056", "50064", "50144")
     and (
         to_lower(user_agent.original) LIKE "%go-http-client/1.1%" or
         to_lower(user_agent.original) LIKE "%fasthttp%" or
@@ -55,7 +55,7 @@ from logs-azure.signinlogs*
         to_lower(user_agent.original) LIKE "%curio%" or
         to_lower(user_agent.original) LIKE "%hyper%" or
         to_lower(user_agent.original) LIKE "%kali%" or
-        to_lower(user_agent.original) LIKE "%hydra%" or
+        to_lower(user_agent.original) LIKE "%hydra%"
     )
 // count the number of unique user login attempts
 | stats
