@@ -81,7 +81,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset:azure.activitylogs and
@@ -90,6 +90,17 @@ data_stream.dataset:azure.activitylogs and
         "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/VIRTUALMACHINES/RUNCOMMAND/ACTION"
     ) and event.outcome:(Success or success)
 '''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.resource.name",
+    "source.as.number"
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 
 [[rule.threat]]
@@ -104,16 +115,3 @@ reference = "https://attack.mitre.org/techniques/T1651/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[rule.alert_suppression]
-group_by = [
-    "azure.activitylogs.identity.authorization.evidence.principal_id",
-    "azure.activitylogs.identity.claims.appid",
-    "azure.resource.name"
-]
-missing_fields_strategy = "suppress"
-
-[rule.alert_suppression.duration]
-unit = "h"
-value = 1
-
