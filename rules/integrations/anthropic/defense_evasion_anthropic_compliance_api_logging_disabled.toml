@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Compliance API logging feeds the anthropic.audit dataset that powers Anthropic audit detections. An adversary with
+administrative access may disable it as a preparatory step so subsequent role grants, API key creation, exports, and
+authentication changes stop reaching downstream SIEM analytics. Like disabling cloud audit logging elsewhere, this single
+control-plane change can blind the detection stack while the attacker completes follow-on actions.
+"""
+false_positives = [
+    """
+    Platform or security administrators may disable compliance logging during onboarding, integration testing, or log
+    pipeline migrations. Verify the actor, source IP, and whether logging was re-enabled promptly. Planned changes can
+    be exempted from this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Compliance API Logging Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance API Logging Disabled
+
+Compliance API logging feeds the `logs-anthropic.audit-*` indices used by Anthropic audit detections. Disabling it
+reduces visibility into subsequent administrative activity even if other logging remains in place.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.actor.type`, `organization.id`, and `anthropic.audit.compliance_api_logging_enabled`.
+- When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Pivot on the same organization for admin role grants, admin API key creation, exports, or SSO changes.
+- Determine whether a change ticket or integration project authorized the update.
+
+### False positive analysis
+
+- Validate planned integration work with the team that manages the Anthropic Fleet policy.
+
+### Response and remediation
+
+- Re-enable compliance API logging and confirm events resume ingestion into `logs-anthropic.audit-*`.
+- Review configuration changes made between logging disable and re-enable.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1562/008/",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "4890f6d3-709f-440e-9135-d22403516ef7"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "org_compliance_api_settings_updated" and
+    anthropic.audit.compliance_api_logging_enabled: false
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.compliance_api_logging_enabled",
+    "anthropic.audit.compliance_api_enabled",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+]

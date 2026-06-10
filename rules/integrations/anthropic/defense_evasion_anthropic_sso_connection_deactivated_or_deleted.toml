@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+SSO routes Anthropic authentication through the corporate identity provider. An adversary who deactivates or deletes an
+SSO connection can shift users to alternate sign-in paths where IdP-enforced MFA, conditional access, and session
+policies no longer apply. Deletion removes the IdP binding entirely, while deactivation pauses it. Both help the
+attacker sign in with password or magic-link accounts they control and operate while IdP-driven account lockout cannot
+reach the tenant.
+"""
+false_positives = [
+    """
+    Administrators deactivate or delete SSO connections during identity provider migrations, certificate rotation, or
+    maintenance. Validate the actor, `anthropic.audit.connection_id`, and whether SSO was restored after the change.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic SSO Connection Deactivated or Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic SSO Connection Deactivated or Deleted
+
+SSO changes affect how every user in the organization authenticates to Claude. Unexpected deactivation or deletion
+should be reviewed alongside other identity changes in the same period. Deletion is more severe because the IdP
+connection must be re-established rather than re-enabled.
+
+#### Possible investigation steps
+
+- Review `event.action`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for related events such as admin role grants, magic link second factor changes, or invite link changes.
+- Confirm with the identity team that an IdP migration or maintenance window was scheduled.
+
+### False positive analysis
+
+- Planned IdP work often includes temporarily deactivating or removing a connection before a replacement is configured.
+
+### Response and remediation
+
+- If unauthorized, restore or reconfigure SSO and review accounts that signed in while SSO was unavailable.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1556/",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "b0b81938-a2d3-4222-977b-56f9c81afcf7"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
+    event.action: ("org_sso_connection_deactivated" or "org_sso_connection_deleted")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.connection_id",
+    "anthropic.audit.actor.type",
+]

@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Admin API keys grant programmatic access to organization and compliance APIs outside an interactive browser session.
+An adversary who creates one after compromise can automate follow-on changes such as role grants, exports, and logging
+tampering without maintaining a user session subject to SSO timeout. The key can also survive password resets and
+corporate IdP lockout if defenders revoke the interactive account but miss the API credential.
+"""
+false_positives = [
+    """
+    Platform, security, and observability teams create admin API keys during integration setup or scheduled key
+    rotation. Verify the actor, `anthropic.audit.scopes`, and whether the creation matches an approved change.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Admin API Key Created"
+note = """## Triage and analysis
+
+### Investigating Anthropic Admin API Key Created
+
+Admin API keys can read compliance activity and manage organization settings depending on the scopes assigned at
+creation time.
+
+#### Possible investigation steps
+
+- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `anthropic.audit.scopes`.
+- Note `anthropic.audit.admin_api_key_id` for correlation with later API activity.
+- Determine whether the actor recently received admin privileges or transferred primary ownership.
+- Search for exports, SSO changes, or other configuration updates from the same organization in the same window.
+- Confirm the key appears in your approved credentials inventory.
+
+### False positive analysis
+
+- Key creation is expected when standing up logging or security monitoring for a new Anthropic organization.
+
+### Response and remediation
+
+- If unauthorized, revoke the key through Anthropic administration and rotate other administrative credentials.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1098/001/",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "4051e709-03b6-4782-aae3-e58dde33642b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
+    event.action: "admin_api_key_created"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "anthropic.audit.admin_api_key_id",
+    "anthropic.audit.scopes",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]

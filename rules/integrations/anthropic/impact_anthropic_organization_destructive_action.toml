@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Organization deletion and bulk delete remove tenant data, projects, and member access in a single administrative
+action. An adversary may use this to disrupt AI-assisted workflows as an impact technique, ransom or extort the
+organization, or destroy evidence after completing a data export. Once deletion progresses, recovery options are
+limited and earlier exfiltration activity may be harder to reconstruct from the tenant itself.
+"""
+false_positives = [
+    """
+    Planned tenant offboarding, sandbox teardown, or contract termination can produce these events. Confirm the actor
+    and timing against change management or offboarding records before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Organization Destructive Action"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Destructive Action
+
+This rule matches organization deletion requests and bulk delete activity. The `event.action` value indicates how far
+the process has progressed.
+
+#### Possible investigation steps
+
+- Identify the actor using `anthropic.audit.actor.type` and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Review the action value:
+  - `org_deletion_requested` indicates deletion was requested.
+  - `org_bulk_delete_initiated` and `org_deleted_via_bulk` indicate bulk delete activity.
+- Search for preceding admin role grants, primary owner transfers, admin API key creation, or data exports.
+- Confirm with platform owners whether offboarding or decommissioning was scheduled.
+
+### False positive analysis
+
+- Match the event time and actor to an approved offboarding or lab teardown project.
+
+### Response and remediation
+
+- If the activity was unauthorized, engage Anthropic support and internal incident response immediately.
+- Preserve remaining audit logs and rotate administrative credentials for the organization.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1485/",
+    "https://attack.mitre.org/techniques/T1531/",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "11347993-e71f-4659-a903-e9a0e8bd55de"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: ("org_deletion_requested" or "org_bulk_delete_initiated" or "org_deleted_via_bulk")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.actor.type",
+]
