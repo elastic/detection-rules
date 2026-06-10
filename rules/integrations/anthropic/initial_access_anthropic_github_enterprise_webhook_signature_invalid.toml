@@ -2,14 +2,15 @@
 creation_date = "2026/06/09"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/02"
+updated_date = "2026/06/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Anthropic Claude GitHub Enterprise integrations rely on signed webhooks to validate inbound events from GitHub. An
-adversary who can deliver spoofed or tampered webhook payloads, or who exploits misconfigured secrets, may attempt to
-inject malicious content into the integration pipeline before signature validation rejects the delivery.
+Anthropic Claude GitHub Enterprise integrations accept repository events only when webhook signatures validate against
+a shared secret. Failed signature checks may indicate an adversary probing the endpoint with forged payloads to inject
+malicious repository activity into Claude Code Security workflows, test for secret misconfiguration after a partial
+compromise, or disrupt the integration during a supply chain attack against connected repositories.
 """
 false_positives = [
     """
