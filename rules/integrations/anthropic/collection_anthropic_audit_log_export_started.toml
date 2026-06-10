@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Compliance audit log exports produce a downloadable archive of anthropic.audit activity for a chosen time range. An
+adversary with administrative access may start this export to review what defenders can see, identify gaps in coverage,
+or exfiltrate the audit trail before disabling logging or making other control-plane changes. This is distinct from
+organization data exports and targets the telemetry source these detections rely on.
+"""
+false_positives = [
+    """
+    Security, compliance, and platform teams export audit logs for investigations, regulatory requests, or integration
+    validation. Validate the actor, export time range, and whether the activity aligns with an approved ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Compliance Audit Log Export Started"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance Audit Log Export Started
+
+This export covers compliance activity events rather than organization chat or project content. It is often used by
+security teams but is also valuable to an adversary preparing to evade detection.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for `audit_log_export_accessed` events for the same organization shortly after the start event.
+- Correlate with compliance logging changes, admin role grants, admin API key creation, or SSO modifications.
+- Determine whether the export window covers recent suspicious administrative activity.
+
+### False positive analysis
+
+- Planned audit exports for compliance reviews or SIEM onboarding are expected in some environments.
+
+### Response and remediation
+
+- If unauthorized, revoke access for the actor and determine whether the exported audit data left the organization.
+- Review whether compliance API logging was disabled or modified around the same time.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://attack.mitre.org/techniques/T1562/008/",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "file" and
+    event.action: "audit_log_export_started"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.from_date",
+    "anthropic.audit.to_date",
+    "anthropic.audit.actor.type",
+]
