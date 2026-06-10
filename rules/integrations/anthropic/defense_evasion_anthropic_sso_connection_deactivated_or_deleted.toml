@@ -15,6 +15,11 @@ reach the tenant.
 """
 false_positives = [
     """
+    Identity provider directory sync and SCIM provisioning can deactivate or delete SSO connections during IdP
+    migrations, directory attribute changes, or connector maintenance. When `anthropic.audit.actor.type` is
+    `scim_directory_sync_actor`, correlate with WorkOS or Okta change windows before escalating.
+    """,
+    """
     Administrators deactivate or delete SSO connections during identity provider migrations, certificate rotation, or
     maintenance. Validate the actor, `anthropic.audit.connection_id`, and whether SSO was restored after the change.
     """,
@@ -32,9 +37,15 @@ SSO changes affect how every user in the organization authenticates to Claude. U
 should be reviewed alongside other identity changes in the same period. Deletion is more severe because the IdP
 connection must be re-established rather than re-enabled.
 
+Many organizations receive these events from `scim_directory_sync_actor` during routine IdP directory sync rather than
+from an interactive administrator session.
+
 #### Possible investigation steps
 
 - Review `event.action`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `organization.id`.
+- When the actor is `scim_directory_sync_actor`, review `anthropic.audit.actor.directory_id`,
+  `anthropic.audit.actor.workos_event_id`, and `anthropic.audit.actor.idp_connection_type`, then confirm with the IdP
+  team whether directory sync or connector maintenance caused the change.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Search for related events such as admin role grants, magic link second factor changes, or invite link changes.
 - Confirm with the identity team that an IdP migration or maintenance window was scheduled.
@@ -99,4 +110,7 @@ field_names = [
     "organization.id",
     "anthropic.audit.connection_id",
     "anthropic.audit.actor.type",
+    "anthropic.audit.actor.directory_id",
+    "anthropic.audit.actor.workos_event_id",
+    "anthropic.audit.actor.idp_connection_type",
 ]

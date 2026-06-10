@@ -7,10 +7,10 @@ updated_date = "2026/06/10"
 [rule]
 author = ["Elastic"]
 description = """
-Organization IP restrictions limit Anthropic administrative access to approved network ranges. An adversary who deletes
-an IP restriction can administer the tenant from attacker-controlled infrastructure outside corporate egress controls,
-bypassing a common compensating control after credential compromise. This is often paired with admin API key creation
-or SSO weakening to maintain access from new locations.
+Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting a restriction
+widens where a compromised admin session or API key can be used, but the audit event may not include the deleted CIDR
+or restriction identifier. Treat this as an early signal and pivot to adjacent IP restriction create or update events
+for the same organization.
 """
 false_positives = [
     """
@@ -28,12 +28,15 @@ note = """## Triage and analysis
 ### Investigating Anthropic Organization IP Restriction Deleted
 
 IP restrictions are a network-layer guardrail for administrative access to Anthropic organization settings. Removing
-them expands where a compromised admin session or API key can be used.
+them expands where a compromised admin session or API key can be used, but the delete event may only identify the
+organization and actor type rather than the removed range.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.actor.type` and `organization.id`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- When the actor is `anthropic_actor`, pivot on `organization.id` for nearby `org_ip_restriction_created` or
+  `org_ip_restriction_updated` events to recover the restriction details.
 - Search for related `org_ip_restriction_created` or `org_ip_restriction_updated` events before or after the deletion.
 - Correlate with admin role grants, admin API key creation, SSO changes, or exports in the same window.
 - Confirm with the network or security team whether an IP allowlist change was planned.
