@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw"]
+integration = ["network_traffic", "panw", "zeek"]
 maturity = "production"
-updated_date = "2026/04/24"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ systems. It should almost never be directly exposed to the Internet, as it is fr
 threat actors as an initial access or backdoor vector or for data exfiltration.
 """
 from = "now-9m"
-index = ["logs-network_traffic.*", "logs-panw.panos*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-zeek.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMB (Windows File Sharing) Activity to the Internet"
@@ -27,12 +27,13 @@ tags = ["Tactic: Initial Access",
         "Use Case: Threat Detection",
         "Data Source: PAN-OS",
         "Data Source: Network Traffic",
+        "Data Source: Zeek",
         "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-(data_stream.dataset:network_traffic.flow or event.category:(network or network_traffic))
+(data_stream.dataset:(network_traffic.flow or zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping) or event.category:(network or network_traffic))
   and network.transport:tcp and destination.port:(139 or 445)
   and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
   and not destination.ip:(10.0.0.0/8
