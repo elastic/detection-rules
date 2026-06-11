@@ -10,7 +10,7 @@ description = """
 This rule detects attempts to abuse Redis CONFIG SET commands to redirect the database save directory to a cron
 directory on Linux hosts. Attackers issue CONFIG SET dir to a cron path such as /etc/cron.d or /var/spool/cron,
 set a filename via CONFIG SET dbfilename, write a cron payload via SET, and then call BGSAVE to flush it to
-disk, establishing persistence for cryptominer (XMRig) execution.
+disk, establishing persistence for execution of an XMRig cryptominer.
 """
 from = "now-9m"
 index = ["logs-network_traffic.redis*"]
@@ -91,7 +91,10 @@ type = "eql"
 query = '''
 network where data_stream.dataset == "network_traffic.redis" and
   network_traffic.redis.query like~ "*CONFIG SET dir*" and
-  network_traffic.redis.query like~ "*/cron*"
+  (
+    network_traffic.redis.query like~ "*/etc/cron*" or
+    network_traffic.redis.query like~ "*/var/spool/cron*"
+  )
 '''
 
 
