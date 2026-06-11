@@ -24,12 +24,12 @@ note = """## Triage and analysis
 
 ### Investigating Potential Redis Lua Use-After-Free RCE Attempt (CVE-2025-49844 / RediShell)
 
-CVE-2025-49844 is a use-after-free in the Redis Lua interpreter. An authenticated attacker sends an EVAL command whose Lua script calls `string.rep()` to create memory pressure, then `collectgarbage('collect')` to force GC, triggering the use-after-free to achieve RCE. This rule matches on the `query` field populated by the network_traffic (Packetbeat) Redis protocol module.
+CVE-2025-49844 is a use-after-free in the Redis Lua interpreter. An authenticated attacker sends an EVAL command whose Lua script calls `string.rep()` to create memory pressure, then `collectgarbage('collect')` to force GC, triggering the use-after-free to achieve RCE. This rule matches on the `network_traffic.redis.query` field populated by the network_traffic (Packetbeat) Redis protocol module.
 
 ### Possible investigation steps
 
 - Identify the source IP and determine whether it is a known trusted host or an internet address. Internet-exposed Redis (port 6379) with this pattern is almost certainly malicious.
-- Confirm the destination Redis version. If unpatched (< 6.2.20, < 7.2.11, < 7.4.6, < 8.0.4, < 8.2.2), treat the alert as a high-confidence exploitation attempt.
+- Confirm the destination Redis version. If unpatched (6.2.x branch: < 6.2.20; 7.2.x branch: < 7.2.11; 7.4.x branch: < 7.4.6; 8.0.x branch: < 8.0.4; 8.2.x branch: < 8.2.2), treat the alert as a high-confidence exploitation attempt.
 - Review surrounding Redis commands (AUTH, CONFIG, SLAVEOF, DEBUG) from the same source IP for evidence of post-exploitation configuration tampering.
 - Examine the destination host for evidence of reverse-shell establishment: outbound connections from the Redis process, new listening ports, or child process spawning (bash -i, nc, /dev/tcp patterns).
 - Pivot to endpoint telemetry on the Redis host for process execution anomalies at or after the alert time.
@@ -41,7 +41,7 @@ CVE-2025-49844 is a use-after-free in the Redis Lua interpreter. An authenticate
 
 ### Response and remediation
 
-- Immediately patch affected Redis instances to Redis >= 6.2.20, 7.2.11, 7.4.6, 8.0.4, or 8.2.2.
+- Immediately patch affected Redis instances: 6.2.x >= 6.2.20, 7.2.x >= 7.2.11, 7.4.x >= 7.4.6, 8.0.x >= 8.0.4, 8.2.x >= 8.2.2.
 - Restrict Redis network access to trusted hosts only. Redis should never be directly reachable from the internet.
 - Require authentication (`requirepass` or ACL) and rotate credentials if exploitation is suspected.
 - If Lua scripting is not required, restrict EVAL via ACLs (`ACL SETUSER <user> -eval`).
