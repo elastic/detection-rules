@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/05/30"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/05/30"
+
+[rule]
+author = ["Spyced Concepts Ltd."]
+description = """
+Detects execution of a base64-decoded payload piped directly to bash or sh on a Linux CI runner host.
+This is the payload delivery pattern used by both Megalodon variants to execute the exfiltration script at
+runtime, avoiding storing the malicious payload in plaintext in the workflow file.
+
+The specific chain `echo <base64> | base64 -d | bash` (or equivalent with --decode) was observed in
+compromised Megalodon workflow files. This rule fires on process creation events at the runner OS level.
+
+Apply to self-hosted GitHub Actions runners and any CI runner where process telemetry is available.
+GitHub-hosted runners do not expose process-level telemetry by default — network-layer detection via the
+companion C2 outbound rule is recommended for those environments.
+
+Intelligence: IoC data sourced from SafeDep.io original Megalodon research (see references).
+Detection rule logic is original work by Spyced Concepts Ltd.
+"""
+false_positives = [
+    """
+    Some legitimate CI workflows use base64-decoded execution for configuration injection or secret
+    handling. Review the decoded payload before treating as confirmed malicious.
+    """,
+    """
+    Package manager post-install scripts on some distributions use similar patterns. The filter on
+    apt, dpkg, and snap parent processes reduces this noise, but tune for your environment.
+    """,
+    """
+    Docker layer scripts and container entrypoint injection may produce similar command lines.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Megalodon - Base64-Decoded Shell Execution on CI Runner"
+note = """## Triage and analysis
+
+### Investigating Megalodon Base64 Exec on CI Runner
+
+This rule detects the Megalodon payload delivery pattern. If this fires alongside the C2 outbound rule,
+treat as confirmed Megalodon execution.
+
+### Possible investigation steps
+
+- Review `process.command_line` in full — decode the base64 payload to inspect its contents.
+- Check `process.parent.name` and `process.parent.command_line` — was this spawned by a GitHub Actions
+  runner process?
+- Identify `host.name` — which runner host was affected?
+- Correlate with the Megalodon C2 outbound rule (destination.ip: 216.126.225.129, port 8443) —
+  if both fire in the same session, treat as confirmed exfiltration.
+- Review GitHub Actions run logs for the associated repository and time window.
+- Identify the workflow file that triggered the run — apply YARA rules to confirm Megalodon IoCs.
+
+### False positive analysis
+
+- Review the decoded base64 payload — legitimate payloads will be recognisable configuration or
+  scripting; the Megalodon payload exfiltrates environment variables and secrets.
+- If the parent process is a known package manager or build tool, validate against the filter list.
+
+### Response and remediation
+
+- Preserve the raw command line and decoded payload for forensics before remediating.
+- Assume all CI secrets accessible during the run have been exfiltrated — rotate immediately.
+- Remove the malicious workflow file from the repository.
+- Audit the repository's Actions run history for all executions of the malicious workflow.
+"""
+references = [
+    "https://safedep.io/megalodon-mass-github-repo-backdooring-ci-workflows/",
+    "https://github.com/Spyced-Concepts/detection-rules",
+]
+risk_score = 73
+rule_id = "b96865e9-44f0-4b1a-80f2-4a03f28223cf"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:linux and event.category:process and
+process.command_line:(*base64* and (*"-d"* or *"--decode"*)) and
+process.command_line:(*"| bash"* or *"| sh"* or *"|bash"* or *"|sh"*) and
+not process.parent.executable:(*apt* or *dpkg* or *snap*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
