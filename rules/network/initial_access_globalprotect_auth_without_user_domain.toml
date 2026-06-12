@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/06/12"
+integration = ["panw"]
+maturity = "production"
+updated_date = "2026/06/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a successful GlobalProtect VPN gateway connection from a Windows client where the user credential
+field is empty or absent. When a domain-joined Windows endpoint authenticates to GlobalProtect, the source_user field is
+populated with DOMAIN\\username from the Windows credential store. A successful gateway connection where this field is
+missing or empty indicates the client either bypassed normal credential population, as occurs with authentication
+bypass exploits such as CVE-2026-0257, or is connecting without user-level authentication.
+"""
+false_positives = [
+    """
+    Windows endpoints configured for certificate-only GlobalProtect authentication without user authentication will
+    generate connections without a domain user field. Baseline the rate of domain-absent successful sessions in your
+    environment and tune the threshold accordingly, or scope exceptions to known certificate-only client IP ranges.
+    """,
+]
+from = "now-9m"
+index = ["logs-panw.panos*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GlobalProtect Successful VPN Authentication Without User Domain"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating GlobalProtect Successful VPN Authentication Without User Domain
+
+This rule fires when a PAN-OS GlobalProtect gateway records a successful connection from a Windows
+client where the `panw.panos.source.user` field is null or empty. In a healthy environment, Windows
+clients authenticating to GlobalProtect always supply `DOMAIN\\username` from the Windows credential
+store. An absent or empty user field on an otherwise-successful connection is an indicator of
+authentication bypass (CVE-2026-0257) or misconfigured certificate-only authentication.
+
+The Windows OS scope (`panw.panos.client.os_version: Microsoft Windows*`) limits false positives
+from mobile and non-domain devices that legitimately authenticate without domain context.
+
+### Possible investigation steps
+
+- Check `panw.panos.src.mac` against known synthetic scanner MACs (`aa:bb:cc:dd:ee:ff`,
+  `00:11:22:33:44:55`). Co-occurrence with a hardcoded MAC is a high-confidence confirmation of
+  CVE-2026-0257 exploitation.
+- Review `source.ip` and cross-reference against the known CVE-2026-0257 scanning IPs published by
+  Unit 42: 23.128.228.6, 104.207.144.154, 146.19.216.119-120/125, 179.43.172.213, 185.195.232.139,
+  198.12.106.60, 202.144.192.47.
+- Examine `panw.panos.client.os_version` for the exact string "Microsoft Windows 10 Pro 64-bit"
+  (without a build number), which is a hardcoded value used in exploit tooling.
+- Determine whether the source IP has any prior successful GlobalProtect sessions with a valid domain
+  user. A first-seen IP with no domain user on a Windows client is more suspicious than a known device
+  that may have a cert-only policy applied.
+- Verify the PAN-OS firmware version on the gateway and confirm whether it has been patched for
+  CVE-2026-0257.
+
+### False positive analysis
+
+- Windows endpoints enrolled in certificate-only GlobalProtect profiles without user authentication
+  will produce domain-absent connections. Identify these devices by IP or certificate CN and add them
+  to an exception list, or tune the rule to exclude their known source IP ranges.
+- SAML or OAuth-authenticated GlobalProtect sessions may present the user in UPN format
+  (user@domain.com) rather than DOMAIN\\username. Verify whether your environment uses UPN auth and
+  adjust exceptions accordingly.
+
+### Response and remediation
+
+- If co-occurring with a synthetic MAC or known exploit source IP, treat as active exploitation:
+  block the source IP, terminate the session, and escalate to incident response.
+- If no other exploit artifacts are present, investigate whether the source IP is an authorized
+  certificate-only client and document the finding.
+- Patch the GlobalProtect gateway to a firmware version that addresses CVE-2026-0257.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-0257",
+    "https://unit42.paloaltonetworks.com/active-exploitation-of-pan-os-cve-2026-0257/",
+    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    "https://attack.mitre.org/techniques/T1190/",
+    "https://attack.mitre.org/techniques/T1133/",
+]
+risk_score = 47
+rule_id = "d388bba9-b38d-4fff-957f-798659b6d5e8"
+setup = """## Setup
+
+This rule requires the Elastic PANW integration forwarding GlobalProtect gateway session logs to
+Elasticsearch. Confirm that `panw.panos` data stream events with the action
+`globalprotect-gateway-connected` are being ingested and that the `panw.panos.source.user` and
+`panw.panos.client.os_version` fields are populated in those events.
+
+Baseline the rate of domain-absent successful sessions in your environment before enabling this rule
+in production. Environments with certificate-only GlobalProtect profiles will require exception tuning.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: PAN-OS",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.action : "globalprotect-gateway-connected"
+  and panw.panos.client.os_version : "Microsoft Windows*"
+  and (
+    not panw.panos.source.user : *
+    or panw.panos.source.user : ""
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
