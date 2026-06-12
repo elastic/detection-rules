@@ -7,18 +7,19 @@ updated_date = "2026/06/12"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects repeated stalled TLS handshakes from the same source where the ClientHello advertises the acme-tls/1
-ALPN extension but no session is established. Adversaries abuse this ALPN value to open many connections that never
-complete, exhausting goroutines or worker slots in reverse proxies and TLS servers as a denial-of-service technique. The
-acme-tls/1 ALPN value is legitimately used only during ACME TLS-ALPN-01 certificate validation; repeated stalled
-sessions using it are anomalous.
+This rule detects two ALPN-based denial-of-service patterns against TLS servers. The first identifies repeated stalled
+handshakes advertising the acme-tls/1 ALPN extension with no session established, indicating potential goroutine or
+worker exhaustion in reverse proxies. The second matches connections where a malformed ALPN extension triggers TLS
+alerts such as decode_error or illegal_parameter, consistent with zero-length ALPN list exploitation. Both patterns are
+anomalous outside of scheduled ACME TLS-ALPN-01 certificate validation activity.
 """
 false_positives = [
     """
     Legitimate ACME certificate renewal agents (cert-manager, Certbot, Caddy) use acme-tls/1 during TLS-ALPN-01
     challenges. A single stalled challenge due to a network timeout can occur normally, but five or more stalled
-    sessions from the same source within the detection window is abnormal even for misconfigured ACME clients. Suppress
-    by adding known ACME client source IPs or ACME CA validation IP ranges to an exception list.
+    sessions from the same source within the detection window is abnormal even for misconfigured ACME clients. TLS
+    decode_error or illegal_parameter alerts can also be produced by buggy TLS clients or misconfigured load balancers.
+    Suppress by adding known ACME client source IPs or ACME CA validation IP ranges to an exception list.
     """,
 ]
 from = "now-9m"
@@ -130,10 +131,18 @@ timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-tls.detailed.client_hello.extensions.application_layer_protocol_negotiation : "acme-tls/1"
-  and tls.established : false
-  and network.bytes < 1024
-  and event.duration >= 10000000000
+(
+  tls.detailed.client_hello.extensions.application_layer_protocol_negotiation : "acme-tls/1"
+    and tls.established : false
+    and network.bytes < 1024
+    and event.duration >= 10000000000
+) or (
+  tls.detailed.client_hello.extensions._unparsed_ : *alpn*
+    and (
+      tls.detailed.alert_types : (decode_error or illegal_parameter)
+      or event.reason : (*ALPN* and (*zero* or *malformed* or *decode*))
+    )
+)
 '''
 
 
