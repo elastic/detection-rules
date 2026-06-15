@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first observed deployment of a VM extension to a given Azure virtual machine or VM scale set
+("MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" or the scale set equivalent) within the history window, keyed on
+the extension resource name (which encodes both the host and the extension). VM extensions such as CustomScript, DSC,
+RunCommand, and VMAccess execute with high privilege on the guest (SYSTEM on Windows, root on Linux), so an extension
+appearing on a host that has not run it recently can indicate code execution via custom extension, credential resets, or
+persistence. Routine platform-managed and security agents (Microsoft Defender for Endpoint, AKS node agents, monitoring,
+antimalware, guest configuration) are excluded so the rule surfaces the extension families adversaries actually abuse.
+"""
+false_positives = [
+    """
+    Legitimate provisioning, patching, and configuration-management automation may deploy CustomScript, DSC, RunCommand,
+    or VMAccess extensions to a host for the first time. The first occurrence per host/extension pairing will alert.
+    Baseline expected automation and exclude verified-benign extension names or hosts. Platform-managed and security
+    agents are already excluded in the query.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Azure VM Extension Installed on a Virtual Machine"
+note = """## Triage and analysis
+
+### Investigating Unusual Azure VM Extension Installed on a Virtual Machine
+
+VM and VM scale set extensions run on the guest with high privilege via the Azure guest agent (`WaAppAgent.exe` /
+`walinuxagent`). This rule uses a new terms approach keyed on `azure.resource.name` (which is `<host>/EXTENSIONS/<type>`),
+so it fires the first time a given host has a given extension deployed within the history window. Platform-managed and
+security agents (Defender for Endpoint, AKS, monitoring, antimalware, guest configuration) are excluded, so a hit
+generally represents an execution-capable extension family (CustomScript, DSC, RunCommand, VMAccess) appearing on a host
+that has not recently run it.
+
+### Triage checklist
+
+- Inspect `azure.resource.name` and `azure.resource.id` to identify the host and the extension type. CustomScript, DSC,
+  and VMAccess warrant the closest review.
+- Identify the acting principal via `azure.activitylogs.identity.authorization.evidence.principal_id` and
+  `...principal_type` (User vs ServicePrincipal) and `azure.activitylogs.identity.claims.appid`.
+- Review the source: `source.ip`, `source.as.number`, `source.as.organization.name`, `source.geo.country_name`.
+- Was this preceded by a Run Command invocation, role assignment, or other VM operations by the same principal?
+- Correlate with endpoint telemetry on the target host: process activity parented by the Azure guest agent
+  (`WaAppAgent.exe` / `walinuxagent`) within ~120 seconds of the write timestamp.
+
+### Possible investigation steps
+
+- Review the principal's Entra ID sign-in logs and RBAC role assignments on the subscription, resource group, and VM.
+- Retrieve the extension settings/protected settings from the VM (the activity log does not contain the script body) to
+  assess intent.
+- Pivot on the VM for credential access, new local accounts, or outbound C2 connections following the deployment.
+
+### Response and remediation
+
+- If unauthorized, remove the extension, isolate the VM, rotate credentials reachable from it, and review RBAC on the
+  affected scope.
+- Collect endpoint and activity log artifacts per incident procedures.
+"""
+references = [
+    "https://www.netspi.com/blog/technical-blog/adversary-simulation/7-ways-to-execute-command-on-azure-virtual-machine-virtual-machine-scale-sets/",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-windows",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/overview",
+    "https://blog.pwnedlabs.io/diving-deep-into-azure-vm-attack-vectors",
+    "https://www.sysdig.com/blog/the-expendable-extension-name-azure-vmaccess-naming-chaos-password-resets-and-a-detection-gap",
+]
+risk_score = 47
+rule_id = "d29b0a67-178d-4381-92c5-02e9fd9a6ef6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+data_stream.dataset:azure.activitylogs and
+    event.action:(
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/EXTENSIONS/WRITE"
+    ) and event.outcome:(Success or success) and
+    azure.resource.name:(* and not (
+        *AKSLINUXEXTENSION* or
+        *AKSWINDOWSEXTENSION* or
+        *AZUREMONITORLINUXAGENT* or
+        *AZUREMONITORWINDOWSAGENT* or
+        *AZUREPOLICYFORLINUX* or
+        *AZUREPOLICYFORWINDOWS* or
+        *DEPENDENCYAGENT* or
+        *GUESTCONFIGURATION* or
+        *IAASANTIMALWARE* or
+        *MDE.LINUX* or
+        *MDE.WINDOWS* or
+        *MICROSOFTMONITORINGAGENT* or
+        *NETWORKWATCHER* or
+        *OMSAGENTFORLINUX*
+    ))
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.outcome",
+    "azure.activitylogs.operation_name",
+    "azure.resource.name",
+    "azure.resource.id",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.activitylogs.identity.authorization.evidence.principal_type",
+    "azure.activitylogs.identity.claims.appid",
+    "azure.subscription_id",
+    "azure.activitylogs.tenant_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.resource.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
