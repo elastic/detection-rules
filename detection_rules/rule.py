@@ -32,7 +32,8 @@ from .config import load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
-    find_least_compatible_version,
+    UNKNOWN_PACKAGE_INTEGRATION,
+    find_compatible_version_range,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -403,6 +404,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     meta: dict[str, Any] | None = None
     note: definitions.Markdown | None = None
     references: list[str] | None = None
+    response_actions: list[dict[str, Any]] | None = None
     risk_score_mapping: list[RiskScoreMapping] | None = None
     rule_name_override: str | None = None
     severity_mapping: list[SeverityMapping] | None = None
@@ -682,6 +684,8 @@ class QueryValidator:
 
         required: list[dict[str, Any]] = []
         unique_fields: list[str] = self.unique_fields or []
+        if isinstance(self, ESQLValidator):
+            unique_fields = [f for f in unique_fields if not f.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES)]
 
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
@@ -1425,7 +1429,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
-            current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name) and isinstance(
                 self.data, QueryRuleData | MachineLearningRuleData
@@ -1443,22 +1446,26 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         return
 
                     for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
-                            package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
-                            packages_manifest=packages_manifest,
+                        integration = package.get("integration")
+                        integration_name = (
+                            integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
                         )
+                        result = find_compatible_version_range(
+                            package=package["package"],
+                            packages_manifest=packages_manifest,
+                            integration=integration_name,
+                        )
+                        package["version"] = result.range
 
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            version_data = packages_manifest.get(package["package"], {}).get(
-                                package["version"].strip("^"), {}
-                            )
-                            policy_templates = version_data.get("policy_templates", [])
+                        # Union policy templates across manifest-backed anchors only.
+                        # forward_anchor has no manifest entry and is excluded by design.
+                        policy_templates: set[str] = set()
+                        for anchor in result.anchors:
+                            version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
+                            policy_templates.update(version_data.get("policy_templates", []))
 
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                        if package["integration"] not in policy_templates:
+                            del package["integration"]
 
                 # remove duplicate entries
                 package_integrations = list({json.dumps(d, sort_keys=True): d for d in package_integrations}.values())
@@ -1576,14 +1583,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
         for integration in rule_integrations:
-            ineligible_integrations = [
-                *definitions.NON_DATASET_PACKAGES,
-                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-            ]
-            if (
-                integration in ineligible_integrations
-                or isinstance(data, MachineLearningRuleData)
-                or (isinstance(data, ESQLRuleData) and integration not in datasets)
+            ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+            if isinstance(data, MachineLearningRuleData):
+                packaged_integrations.append({"package": integration, "integration": None})
+            elif integration in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(integration, datasets):
+                    packaged_integrations.append({"package": integration, "integration": None})
+            elif integration.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
             ):
                 packaged_integrations.append({"package": integration, "integration": None})
 
@@ -1887,6 +1894,19 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     return sorted({str(f) for f in parsed if isinstance(f, (eql.ast.Field | kql.ast.Field))})  # type: ignore[reportUnknownVariableType]
 
 
+def _metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
+    """Return True when a metadata-only package row is still required."""
+    # Metadata tags the package name; query datasets use package.stream (e.g. endpoint.events.api).
+    if integration in datasets:
+        return False
+    prefix = f"{integration}."
+    return not any(dataset.startswith(prefix) for dataset in datasets)
+
+
+# Backward-compatible alias for ES|QL export tests and callers.
+_esql_metadata_package_row_needed = _metadata_package_row_needed
+
+
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations: list[dict[str, Any]] = []
@@ -1894,7 +1914,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
 
-        integration = "Unknown"
+        integration = UNKNOWN_PACKAGE_INTEGRATION
         if "." in value:
             package, integration = value.split(".", 1)
             # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)

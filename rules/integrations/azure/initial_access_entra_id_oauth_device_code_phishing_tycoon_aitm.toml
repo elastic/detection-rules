@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Microsoft Entra ID sign-ins that use the OAuth device code authentication protocol with the
+Microsoft Authentication Broker client requesting first-party Office API resources (Exchange Online, Microsoft Graph,
+or SharePoint) while flagged as interactive. This pattern is associated with adversary-in-the-middle (AiTM) phishing kits
+such as Tycoon 2FA, where victims complete device code flows that ultimately broker tokens for mail and collaboration
+APIs.
+"""
+false_positives = [
+    """
+    Rare legitimate interactive device code flows that use the Microsoft Authentication Broker against Exchange, Graph,
+    or Yammer may match, for example during troubleshooting or specialized kiosk setups. Document approved scenarios and
+    exclude known principals or networks.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID OAuth Device Code Phishing via AiTM"
+note = """## Triage and analysis
+
+### Investigating Entra ID OAuth Device Code Phishing via AiTM
+
+Review `azure.signinlogs.properties.user_principal_name`, `azure.signinlogs.properties.session_id`, `source.ip`,
+`user_agent.original`, and `azure.signinlogs.properties.resource_display_name` for context around the device code
+completion.
+
+Confirm whether the user knowingly entered a device code (for example on a shared or headless device) and whether
+broker-mediated access to Exchange, Graph, or Yammer is expected for that account.
+
+### Possible investigation steps
+
+- Interview the user about recent links, QR codes, or prompts to approve a device code.
+- Correlate with `azure.signinlogs` and Microsoft 365 audit logs for mailbox, Teams, or file access from the same
+  session or IP shortly after the event.
+- Review conditional access and MFA satisfaction details for the same `session_id`.
+
+### Response and remediation
+
+- If malicious, revoke refresh tokens for the user, reset credentials per policy, and review application consent.
+- Block or monitor the source IP and escalate per incident procedures.
+"""
+references = [
+    "https://any.run/malware-trends/tycoon/",
+    "https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-authentication-flows",
+    "https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/",
+]
+risk_score = 73
+rule_id = "e5420ced-bc42-4783-a8df-99320567e090"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Threat Detection",
+    "Threat: Tycoon2FA",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"azure.signinlogs" and event.category:"authentication" and event.action:"Sign-in activity" and
+event.outcome:success and azure.signinlogs.properties.app_id:"29d9ed98-a469-4536-ade2-f981bc1d605e" and
+azure.signinlogs.properties.authentication_protocol:deviceCode and
+azure.signinlogs.properties.resource_id:(
+    "00000002-0000-0ff1-ce00-000000000000" or
+    "00000003-0000-0ff1-ce00-000000000000" or
+    "00000005-0000-0ff1-ce00-000000000000"
+) and azure.signinlogs.properties.is_interactive:true
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "event.outcome",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.session_id",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.resource_id",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.authentication_protocol",
+    "azure.signinlogs.properties.is_interactive",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -2,7 +2,7 @@
 creation_date = "2020/11/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,42 +21,7 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Incoming DCOM Lateral Movement via MSHTA"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Incoming DCOM Lateral Movement via MSHTA
-
-DCOM allows software components to communicate over a network, enabling remote execution of applications like MSHTA, which runs HTML applications. Adversaries exploit this by executing commands remotely, bypassing traditional security measures. The detection rule identifies suspicious MSHTA activity by monitoring process starts and network traffic, focusing on unusual port usage and remote IP addresses, indicating potential lateral movement attempts.
-
-### Possible investigation steps
-
-- Review the process start event for mshta.exe on the affected host to gather details such as the process entity ID, command-line arguments, and parent process information to understand how mshta.exe was executed.
-- Analyze the network traffic associated with the mshta.exe process, focusing on the source and destination IP addresses and ports, to identify any unusual or unauthorized remote connections.
-- Check the source IP address involved in the network event to determine if it is known or associated with any previous suspicious activity or if it belongs to an internal or external network.
-- Investigate the timeline of events on the host to identify any preceding or subsequent suspicious activities that might indicate a broader attack pattern or lateral movement attempts.
-- Correlate the findings with other security logs and alerts from the same host or network segment to identify any additional indicators of compromise or related malicious activities.
-- Assess the risk and impact of the detected activity by considering the host's role within the network and any sensitive data or systems it may have access to.
-
-### False positive analysis
-
-- Legitimate administrative tasks using MSHTA for remote management can trigger the rule. Identify and document these tasks, then create exceptions for known administrative IP addresses or specific user accounts.
-- Automated software updates or deployments that utilize MSHTA may appear as suspicious activity. Monitor and whitelist the IP addresses and ports associated with these updates to prevent false positives.
-- Internal network scanning tools or security assessments might mimic lateral movement behavior. Coordinate with IT and security teams to recognize these activities and exclude them from triggering alerts.
-- Custom applications that leverage MSHTA for inter-process communication could be flagged. Review these applications and exclude their known processes or network patterns from the detection rule.
-- Remote desktop or support tools that use MSHTA for legitimate purposes should be identified. Whitelist these tools by their process names or associated network traffic to reduce unnecessary alerts.
-
-### Response and remediation
-
-- Isolate the affected host immediately from the network to prevent further lateral movement and potential data exfiltration.
-- Terminate the mshta.exe process on the affected host to stop any ongoing malicious activity.
-- Conduct a thorough examination of the affected host to identify any additional malicious files or processes, focusing on those initiated around the time of the alert.
-- Reset credentials for any accounts that were active on the affected host during the time of the alert to prevent unauthorized access.
-- Review and restrict DCOM permissions and configurations on the affected host and other critical systems to limit the potential for similar attacks.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if other systems have been compromised.
-- Update detection mechanisms and threat intelligence feeds to enhance monitoring for similar DCOM-based lateral movement attempts in the future."""
-references = ["https://codewhitesec.blogspot.com/2018/07/lethalhta.html"]
+references = ["https://code-white.com/blog/2018-07-lethalhta/"]
 risk_score = 73
 rule_id = "622ecb68-fa81-4601-90b5-f8cd661e4520"
 severity = "high"
@@ -82,6 +47,152 @@ sequence with maxspan=1m
   ] by host.id, process.entity_id
 '''
 
+note = """## Triage and analysis
+
+### Investigating Incoming DCOM Lateral Movement via MSHTA
+
+#### Investigation steps
+
+- Do recovered source events show remote COM activation of mshta on this host?
+  - Focus: alert `host.id` and `process.entity_id`; recover `process.command_line` plus matching network `source.ip`, `source.port`, `destination.port`, and `network.direction`.
+  - Implication: escalate when the COM-server process receives incoming non-loopback RPC-style TCP from an unconfirmed source; lower only when telemetry and exact confirmation tie source, target, and COM-server launch to recurring distribution or helpdesk activity. Missing source events leave the alert unresolved.
+
+- Is mshta the expected Windows COM server, not a staged or masqueraded copy?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.parent.executable`.
+  - Implication: escalate when mshta runs from a user-writable or non-Windows path, has an unexpected signer, or lacks a service/DCOM-style parent such as "svchost.exe"; Microsoft identity lowers only masquerade risk because source and retrieval still decide the case.
+
+- Do source, account, and logon context support the same confirmed workflow?
+  - Focus: recovered `source.ip`, target-side `user.id`, and session bridge `process.Ext.authentication_id`, `winlog.event_data.TargetLogonId`, and `winlog.event_data.AuthenticationPackageName`.
+  - Implication: escalate when source, account, session type, or auth package conflict with the source-event workflow; lower only when telemetry and exact confirmation identify a legitimate source-to-host relationship. Missing Windows Security telemetry leaves origin and auth method unresolved, not benign.
+
+- Does same-process DNS/connection data show remote script retrieval?
+  - Why: HTA COM can load remote script content into "mshta.exe"; same-process retrieval is direct corroboration.
+  - Focus: same-process DNS `dns.question.name` and `dns.resolved_ip`, then connection `destination.ip` and `destination.port`. $investigate_0
+  - Hint: map `dns.question.name` to `dns.resolved_ip` before tying later `destination.ip` to retrieval.
+  - Implication: escalate when mshta resolves or connects to public, rare, or mismatched content hosts; lower only when the destination maps to the same recognized internal or vendor workflow as the source. Missing DNS or connection telemetry leaves retrieval unresolved, not benign.
+
+- Do file artifacts show cached HTA content or staged payloads?
+  - Focus: same-host file events tied to `host.id` and mshta or follow-on `process.entity_id`, especially `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and `file.Ext.original.path`. $investigate_1
+  - Range: start with the alert window; expand after the first suspicious write to confirm later execution.
+  - Implication: escalate when the chain writes HTA/script/payload content to temp, downloads, ADS-like, systemprofile "INetCache", or extensionless paths, or when the artifact later executes; lower when artifacts stay in one recurring deployment path. Missing file telemetry is unresolved, not benign.
+
+- Does mshta stay in-process or hand off execution?
+  - Why: LethalHTA can run JScript/VBScript, DotNetToJScript, CLR, or beacon code inside "mshta.exe"; absence of child processes does not clear the alert.
+  - Focus: child process starts from recovered mshta `process.entity_id`. $investigate_2
+  - Library: same-process `dll.path`, `dll.code_signature.subject_name`, `dll.code_signature.trusted`, and `dll.Ext.relative_file_creation_time`. $investigate_3
+  - Implication: escalate when mshta spawns shells, downloaders, proxy-execution utilities, or loads recent/untrusted libraries from writable or nonstandard paths; narrow only when no follow-on execution appears and earlier source, session, and retrieval fit one recognized workflow. Missing library telemetry leaves in-process payload review unresolved, not benign.
+
+- Do related alerts change scope?
+  - Focus: related lateral-movement, proxy-execution, or follow-on delivery alerts for `host.id` in the prior 48h. $investigate_4
+  - Hint: use the host-scoped transform first; search recovered `source.ip`, `dns.question.name`, or `destination.ip` across other targets only if local evidence remains suspicious or unresolved.
+  - Implication: escalate scope when the host shows adjacent lateral-movement, proxy-execution, or follow-on delivery alerts, or when the source touches additional targets; keep the case local when the alert is isolated and earlier evidence fits one stable workflow.
+
+- Escalate unauthorized DCOM HTA execution when source-event chain, source/session fit, retrieval, artifacts/libraries, child execution, or related-alert scope remain suspicious; close only when pivots bind one recognized host workflow without contradictory retrieval, artifact, or follow-on activity; if answers stay mixed or incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Management tooling (software distribution, enrollment, or helpdesk launchers) can legitimately activate the HTA COM object. Confirm `source.ip` is the management host, mshta identity and `process.parent.executable` match that tool, DNS/destination pattern serves it, and artifacts, children, or libraries do not contradict it. Telemetry that cannot prove legitimacy needs change, distribution, asset, or owner confirmation.
+- Do not close on partial context: known admin subnet, Microsoft-signed "mshta.exe", or familiar user alone. If any evidence dimension contradicts the expected workflow, or neither telemetry nor exact confirmation proves it, treat the alert as suspicious or unresolved.
+- Anchor exceptions on the minimum confirmed workflow: recognized `source.ip`, stable `process.parent.executable`, recovered `process.command_line`, specific benign `dns.question.name` or `destination.ip`, and relevant `host.id`. Avoid exceptions on `process.name` of "mshta.exe", incoming high ports, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document source, target host, mshta identity, parent context, destination pattern, and artifact evidence confirming the recognized workflow. Create an exception only for the exact pattern confirmed by telemetry and supporting records or owner confirmation.
+- If suspicious but unconfirmed, preserve Timeline source events, mshta identity and command line, remote source and high-port pair, DNS and destination evidence, cached/staged files, child processes, suspicious libraries, and relevant case exports before containment or cleanup.
+- Apply reversible containment first: restrict DCOM or web retrieval between the target and recovered source/destination, increase monitoring on `host.id` and `user.id`, or isolate the endpoint only when retrieval, child execution, or library evidence indicates active payload execution and the host role permits isolation.
+- If confirmed malicious, isolate the target endpoint and contain the recovered source system or account when in scope. Block malicious domains, destinations, and hashes; record process and artifact IDs before killing processes or deleting files.
+- Scope other hosts reached by the same recovered `source.ip`, `dns.question.name`, `destination.ip`, or `process.command_line` pattern before destructive eradication, credential removal, or broad DCOM changes.
+- Eradicate only identified HTA, HTML, script, DLL, cached content, or staged payloads, then remediate the DCOM exposure, application workflow, or credentials that enabled remote execution.
+- Post-incident hardening: restrict DCOM exposure to recognized management paths, keep Windows Firewall or equivalent RPC controls enabled for the host class, limit HTA use to recognized workflows, retain process/network/file/library telemetry, and record SMB/named-pipe delivery if found during scoping.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Sysmon Event ID 3 - Network Connection](https://ela.st/sysmon-event-3-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "process.entity_id",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Network events for the mshta process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the mshta process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the mshta process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Library events for the mshta process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "library", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
