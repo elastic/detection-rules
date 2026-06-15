@@ -10,8 +10,8 @@ description = """
 This rule detects a successful GlobalProtect VPN gateway connection from a Windows client where the user credential
 field is empty or absent. When a domain-joined Windows endpoint authenticates to GlobalProtect, the source_user field is
 populated with DOMAIN\\username from the Windows credential store. A successful gateway connection where this field is
-missing or empty indicates the client either bypassed normal credential population, as occurs with authentication
-bypass exploits such as CVE-2026-0257, or is connecting without user-level authentication.
+missing or empty indicates the client either bypassed normal credential population, as occurs with authentication bypass
+exploits such as CVE-2026-0257, or is connecting without user-level authentication.
 """
 false_positives = [
     """
@@ -108,10 +108,7 @@ type = "query"
 query = '''
 event.action : "globalprotect-gateway-connected"
   and panw.panos.client.os_version : "Microsoft Windows*"
-  and (
-    not panw.panos.source.user : *
-    or panw.panos.source.user : ""
-  )
+  and panw.panos.source.user : ("" or not *)
 '''
 
 
