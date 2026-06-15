@@ -27,10 +27,10 @@ from = "now-9m"
 index = ["logs-azure.activitylogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Unusual Azure VM Extension Installed on a Virtual Machine"
+name = "Unusual Azure VM Extension Installed"
 note = """## Triage and analysis
 
-### Investigating Unusual Azure VM Extension Installed on a Virtual Machine
+### Investigating Unusual Azure VM Extension Installed
 
 VM and VM scale set extensions run on the guest with high privilege via the Azure guest agent (`WaAppAgent.exe` /
 `walinuxagent`). This rule uses a new terms approach keyed on `azure.resource.name` (which is `<host>/EXTENSIONS/<type>`),
@@ -85,6 +85,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 data_stream.dataset:azure.activitylogs and
     event.action:(
@@ -109,6 +110,32 @@ data_stream.dataset:azure.activitylogs and
     ))
 '''
 
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
@@ -130,33 +157,8 @@ field_names = [
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["azure.resource.name"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1651"
-name = "Cloud Administration Command"
-reference = "https://attack.mitre.org/techniques/T1651/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1037"
-name = "Boot or Logon Initialization Scripts"
-reference = "https://attack.mitre.org/techniques/T1037/"
-
-[rule.threat.tactic]
-id = "TA0003"
-name = "Persistence"
-reference = "https://attack.mitre.org/tactics/TA0003/"
