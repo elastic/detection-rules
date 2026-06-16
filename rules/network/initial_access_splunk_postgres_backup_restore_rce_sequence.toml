@@ -20,7 +20,7 @@ false_positives = [
     suppressing the rule entirely.
     """,
 ]
-from = "now-9m"
+from = "now-20m"
 language = "esql"
 license = "Elastic License v2"
 max_signals = 5
@@ -104,8 +104,8 @@ plaintext HTTP on non-standard ports through protocol detection when their HTTP 
 For TLS deployments, the sensor must observe decrypted HTTP, sit downstream of TLS termination, or use
 proxy or load balancer logs that expose the HTTP path, method, and status code.
 
-The 15-minute aggregation window requires events from the same run window to be present in the data
-stream before the rule fires. Ensure `event.ingested` is populated and `timestamp_override` is set.
+The rule uses a 20-minute lookback and verifies that the first and last matching recovery events are
+no more than 15 minutes apart. Ensure `event.ingested` is populated and `timestamp_override` is set.
 """
 severity = "high"
 tags = [
@@ -132,7 +132,6 @@ from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
   )
 | eval Esql.is_backup = case(url.path like "*/backup", 1, 0)
 | eval Esql.is_restore = case(url.path like "*/restore", 1, 0)
-| eval Esql.time_window = DATE_TRUNC(15 minutes, @timestamp)
 | stats
     Esql.backup_count = SUM(Esql.is_backup),
     Esql.restore_count = SUM(Esql.is_restore),
@@ -141,8 +140,10 @@ from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
     Esql.statuses = VALUES(http.response.status_code),
     Esql.auth_usernames = VALUES(url.username),
     Esql.auth_empty_password = COUNT_DISTINCT(source.ip) where zeek.http.captured_password == false and url.username IS NOT NULL
-  by source.ip, destination.ip, Esql.time_window
+  by source.ip, destination.ip
+| eval Esql.duration_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
 | where Esql.backup_count >= 1 and Esql.restore_count >= 1
+  and Esql.duration_minutes <= 15
 | keep source.ip, destination.ip, Esql.*
 '''
 
