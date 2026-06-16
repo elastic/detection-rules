@@ -7,11 +7,11 @@ updated_date = "2026/06/15"
 [rule]
 author = ["Elastic"]
 description = """
-Detects CVE-2026-20253 exploit artifacts against the Splunk Enterprise PostgreSQL sidecar recovery endpoints via two
-complementary signals. Where endpoint, Network Packet Capture, WAF, or reverse-proxy request-body logging is available,
-the rule matches PostgreSQL connection-string injection keywords, suspicious `backupFile` destinations, and known
-filesystem artifacts used to pivot from backup/restore primitives to file write or RCE. It also detects vulnerable
-recovery endpoint probing and empty-password Basic auth credentials observed in public exploit tooling.
+Detects CVE-2026-20253 exploit artifacts against the Splunk Enterprise PostgreSQL sidecar recovery endpoints via
+complementary signals. Where endpoint or Network Packet Capture request-body logging is available, the rule matches
+PostgreSQL connection-string injection keywords, suspicious `backupFile` destinations, and known filesystem artifacts
+used to pivot from backup/restore primitives to file write or RCE. It also detects vulnerable recovery endpoint probing
+and empty-password Basic auth credentials observed in public exploit tooling.
 """
 false_positives = [
     """
@@ -22,7 +22,6 @@ false_positives = [
 ]
 from = "now-9m"
 index = [
-    "logs-*",
     "logs-endpoint.events.network*",
     "logs-network_traffic.http*",
     "logs-zeek.http*",
@@ -115,9 +114,6 @@ This rule covers two detection paths with different telemetry requirements:
   events at the endpoint level
 - Network Packet Capture (`logs-network_traffic.http*`) with HTTP body capture enabled for the
   Splunk recovery paths
-- WAF products (AWS WAF, ModSecurity, Azure Application Gateway WAF) configured to log request
-  bodies — forwarded to `logs-*` via custom ingest pipelines (no standard Elastic integration)
-- Reverse proxies (nginx, HAProxy) with explicit request-body capture — same custom path
 
 Avoid enabling broad request-body logging without masking or filtering — bodies can contain
 credentials and PII. Scope capture to specific URL paths (e.g., `*/splunkd/*`) where possible.
