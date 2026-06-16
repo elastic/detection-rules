@@ -116,9 +116,12 @@ type = "esql"
 query = '''
 from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
 | where http.request.method == "POST"
-  and url.path like "%splunkd/__raw/v1/postgres/recovery/%"
-| eval Esql.is_backup = case(url.path like "%/backup%", 1, 0)
-| eval Esql.is_restore = case(url.path like "%/restore%", 1, 0)
+  and (
+    url.path like "*splunkd/__raw/v1/postgres/recovery/*" or
+    url.path like "/v1/postgres/recovery/*"
+  )
+| eval Esql.is_backup = case(url.path like "*/backup", 1, 0)
+| eval Esql.is_restore = case(url.path like "*/restore", 1, 0)
 | eval Esql.time_window = DATE_TRUNC(15 minutes, @timestamp)
 | stats
     Esql.backup_count = SUM(Esql.is_backup),
