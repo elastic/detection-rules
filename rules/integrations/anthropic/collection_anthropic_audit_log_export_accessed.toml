@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
 updated_date = "2026/06/15"
@@ -7,36 +7,34 @@ updated_date = "2026/06/15"
 [rule]
 author = ["Elastic"]
 description = """
-Compliance audit log exports produce a downloadable archive of anthropic.audit activity for a chosen time range. An
-adversary with administrative access may start this export to review what defenders can see, identify gaps in coverage,
-or exfiltrate the audit trail before disabling logging or making other control-plane changes. This is distinct from
-organization data exports and targets the telemetry source these detections rely on.
+Accessing a compliance audit log export archive confirms the actor downloaded anthropic.audit activity for review or
+exfiltration. Adversaries may retrieve audit exports to understand defender visibility, identify detection gaps, or
+remove telemetry evidence before making other control-plane changes.
 """
 false_positives = [
     """
-    Security, compliance, and platform teams export audit logs for investigations, regulatory requests, or integration
-    validation. Validate the actor, export time range, and whether the activity aligns with an approved ticket.
+    Security and compliance teams download audit log exports for investigations, regulatory requests, or SIEM
+    validation. Validate the actor and whether the activity aligns with an approved ticket.
     """,
 ]
 from = "now-9m"
 index = ["logs-anthropic.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Anthropic Compliance Audit Log Export Started"
+name = "Anthropic Compliance Audit Log Export Accessed"
 note = """## Triage and analysis
 
-### Investigating Anthropic Compliance Audit Log Export Started
+### Investigating Anthropic Compliance Audit Log Export Accessed
 
-This export covers compliance activity events rather than organization chat or project content. It is often used by
-security teams but is also valuable to an adversary preparing to evade detection.
+This event confirms the audit export archive was accessed or downloaded. Correlate with `audit_log_export_started`
+for the same organization and review whether the download followed recent suspicious administrative activity.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Search for `audit_log_export_accessed` events for the same organization shortly after the start event.
-- Correlate with compliance logging changes, admin role grants, admin API key creation, or SSO modifications.
-- Determine whether the export window covers recent suspicious administrative activity.
+- Search for a preceding `audit_log_export_started` event and whether the export window covers recent IAM changes.
+- Correlate with compliance logging changes, admin role grants, or data exports in the same period.
 
 ### False positive analysis
 
@@ -57,13 +55,12 @@ references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 47
-rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
+rule_id = "754f378f-5828-4ab7-ba3c-01ad4365b474"
 severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
-    "Use Case: Configuration Audit",
     "Use Case: Log Auditing",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
@@ -75,7 +72,7 @@ type = "query"
 query = '''
 data_stream.dataset: "anthropic.audit" and
     event.category: "file" and
-    event.action: "audit_log_export_started"
+    event.action: "audit_log_export_accessed"
 '''
 
 
@@ -118,5 +115,9 @@ field_names = [
     "anthropic.audit.from_date",
     "anthropic.audit.to_date",
     "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
 ]
 

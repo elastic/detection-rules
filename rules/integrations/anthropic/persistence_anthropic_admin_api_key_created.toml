@@ -2,13 +2,13 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Admin API keys grant programmatic access to organization and compliance APIs outside an interactive browser session.
-An adversary who creates one after compromise can automate follow-on changes such as role grants, exports, and logging
+Admin API keys grant programmatic access to organization and compliance APIs outside an interactive browser session. An
+adversary who creates one after compromise can automate follow-on changes such as role grants, exports, and logging
 tampering without maintaining a user session subject to SSO timeout. The key can also survive password resets and
 corporate IdP lockout if defenders revoke the interactive account but miss the API credential.
 """
@@ -75,18 +75,19 @@ data_stream.dataset: "anthropic.audit" and
     event.action: "admin_api_key_created"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.001"
 name = "Additional Cloud Credentials"
 reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -107,3 +108,4 @@ field_names = [
     "user_agent.original",
     "anthropic.audit.actor.type",
 ]
+

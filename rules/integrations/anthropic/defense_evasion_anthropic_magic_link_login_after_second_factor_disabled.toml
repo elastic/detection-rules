@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Disabling magic link second factor removes an additional authentication step for passwordless sign-in. An adversary who
+weakens this control and then observes a successful magic link login in the same organization may be abusing a stolen or
+attacker-controlled mailbox for interactive access outside corporate SSO enforcement.
+"""
+false_positives = [
+    """
+    Authentication policy migrations may temporarily disable magic link second factor while users continue signing in
+    with magic links during testing. Validate the change window with the identity team.
+    """,
+]
+from = "now-4h"
+index = ["logs-anthropic.audit-*"]
+interval = "2h"
+language = "eql"
+license = "Elastic License v2"
+name = "Anthropic Magic Link Login After Second Factor Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Magic Link Login After Second Factor Disabled
+
+This rule correlates org-wide magic link second factor disablement with a subsequent successful magic link login for
+the same organization within four hours. Review both events alongside other identity control changes.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.enabled` on the configuration event and `user.email` on the login event.
+- Determine whether the login user was expected to authenticate via magic link rather than SSO.
+- Search for related SSO deactivation, admin role grants, or invite activity in the same window.
+- Confirm with the identity team whether the authentication policy change was authorized.
+
+### False positive analysis
+
+- Planned authentication migrations may disable second factor temporarily while users validate magic link flows.
+
+### Response and remediation
+
+- If unauthorized, re-enable magic link second factor and revoke sessions for affected users.
+- Review other weakened authentication settings in the same period.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1556/006/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "262d7454-c9ae-4fde-8201-f3a99d72501a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by organization.id with maxspan=4h
+  [configuration where data_stream.dataset == "anthropic.audit" and
+      event.action == "org_magic_link_second_factor_toggled" and
+      anthropic.audit.enabled == false]
+  [any where data_stream.dataset == "anthropic.audit" and
+      event.action == "magic_link_login_succeeded"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.enabled",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
