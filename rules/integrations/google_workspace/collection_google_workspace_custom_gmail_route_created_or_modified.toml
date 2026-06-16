@@ -2,51 +2,56 @@
 creation_date = "2022/09/13"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a custom Gmail route is added or modified in Google Workspace. Adversaries can add a custom e-mail route
-for outbound mail to route these e-mails to their own inbox of choice for data gathering. This allows adversaries to
-capture sensitive information from e-mail and potential attachments, such as invoices or payment documents. By default,
-all email from current Google Workspace users with accounts are routed through a domain's mail server for inbound and
-outbound mail.
+Detects when a Gmail routing, mail-forwarding, or custom mail-host setting is created or modified in Google Workspace.
+Adversaries with administrative access can add Routing rules (also deliver to / change envelope recipient), recipient
+address map forwarding, or mail hosts and outbound gateways to copy or redirect sensitive email for collection.
 """
 false_positives = [
     """
-    Administrators may create custom email routes in Google Workspace based on organizational policies, administrative
-    preference or for security purposes regarding spam.
+    Administrators may create or change Gmail routing, dual-delivery, address maps, or mail hosts for migrations,
+    journaling, spam handling, or partner integrations.
     """,
 ]
-from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+from = "now-20m"
+index = ["logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace Custom Gmail Route Created or Modified"
+name = "Google Workspace Gmail Routing or Forwarding Rule Created or Modified"
 note = """## Triage and analysis
 
-### Investigating Google Workspace Custom Gmail Route Created or Modified
+### Investigating Google Workspace Gmail Routing or Forwarding Rule Created or Modified
 
-Gmail is a popular cloud-based email service developed and managed by Google. Gmail is one of many services available for users with Google Workspace accounts.
+Gmail administrators can change where mail is delivered using several Admin console areas under Apps > Google Workspace > Gmail:
 
-Threat actors often send phishing emails containing malicious URL links or attachments to corporate Gmail accounts. Google Workspace identity relies on the corporate user Gmail account and if stolen, allows threat actors to further their intrusion efforts from valid user accounts.
+- Routing — specialized rules (modify message, change route, also deliver to, change envelope recipient). Audit: `UNIFIED_MAIL_ROUTING` or `MESSAGE_SECURITY_RULE` (legacy); `google_workspace.admin.setting.metadata.rule.type` may repeat the legacy type on `RuleState` rows.
+- Email forwarding using recipient address map — rewrite or forward by address mapping. Audit: `ALIAS_TABLE`.
+- Hosts / Outbound gateway — custom SMTP routes. Audit: `EMAIL_ROUTE`.
 
-This rule identifies the creation of a custom global Gmail route by an administrator from the Google Workspace admin console. Custom email routes could indicate an attempt to secretly forward sensitive emails to unintentional recipients.
+Google may emit multiple admin audit events per single save (legacy `CREATE_GMAIL_SETTING`, new `CREATE_APPLICATION_SETTING`, rule body, and rule enabled state). Expect duplicate documents at the same `@timestamp`; correlate on `user.name`, `google_workspace.admin.USER_DEFINED_SETTING_NAME` (rule id), and `event.id`.
 
-#### Possible investigation steps
+### Possible investigation steps
 
-- Identify the user account that created the custom email route and verify that they should have administrative privileges.
-- Review the added recipients from the custom email route and confidentiality of potential email contents.
-- Identify the user account, then review `event.action` values for related activity within the last 48 hours.
-- If the Google Workspace license is Enterprise Plus or Education Plus, search for emails matching the route filters. To find the Gmail event logs, go to `Reporting > Audit and investigation > Gmail log events`.
-- If existing emails have been sent and match the custom route criteria, review the sender and contents for malicious URL links and attachments.
-- Identified URLs or attachments can be submitted to VirusTotal for reputational services.
+- Identify the administrator (`user.name`, `user.email`) and confirm the change was authorized.
+- In Admin console, review the rule matching `google_workspace.admin.USER_DEFINED_SETTING_NAME`:
+  - Routing (`UNIFIED_MAIL_ROUTING`, `MESSAGE_SECURITY_RULE`): Apps > Gmail > Routing
+  - Recipient address map (`ALIAS_TABLE`): Apps > Gmail > Default routing > Email forwarding using recipient address map
+  - Mail hosts / outbound gateway (`EMAIL_ROUTE`): Apps > Gmail > Hosts
+- Map the alert to the admin area using `google_workspace.admin.setting.name` and `google_workspace.admin.setting.metadata.rule.type`
+- Review whether the rule adds also deliver to, change envelope recipient, or routes to an external mail host or domain.
+- Review related `event.action` values for the same administrator in the last 48 hours.
+- If licensed for Gmail log events (BigQuery / Enterprise Plus), use Reporting > Audit and investigation > Gmail log events to confirm messages were delivered per the rule (`message_info.flattened_destinations`, `triggered_rule_info`).
+- Submit suspicious URLs or attachments from affected mail to reputational services as needed.
 
 ### False positive analysis
 
-- This rule searches for domain-wide custom email routes created in the admin console of Google Workspace. Administrators might create custom email routes to fulfill organizational requirements.
+- Legitimate mail migrations, journaling, compliance archiving, and internal dual-delivery are common.
+- Tune with exceptions for known administrator accounts, rule ids (`USER_DEFINED_SETTING_NAME`), or approved external domains.
 
 ### Response and remediation
 
@@ -66,16 +71,14 @@ This rule identifies the creation of a custom global Gmail route by an administr
 
 ## Setup
 
-The Google Workspace Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule.
+The Google Workspace Fleet integration with the Admin data stream (`logs-google_workspace.admin-*`) is required for this rule.
 
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
-- This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
-- To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
-- By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
+- This rule uses `timestamp_override = event.ingested` and is configured to run every 10 minutes with a lookback of 20 minutes, aligned with the integration's default Admin poll interval (`interval`: 15m) and lag time (`lag_time`: 3m).
 - See the following references for further information:
   - https://support.google.com/a/answer/7061566
-  - https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-google_workspace.html"""
+  - https://www.elastic.co/docs/reference/integrations/google_workspace"""
 references = [
     "https://support.google.com/a/answer/2685650?hl=en",
     "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
@@ -94,9 +97,35 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"google_workspace.admin" and event.action:("CREATE_GMAIL_SETTING" or "CHANGE_GMAIL_SETTING")
-  and google_workspace.event.type:"EMAIL_SETTINGS" and google_workspace.admin.setting.name:("EMAIL_ROUTE" or "MESSAGE_SECURITY_RULE")
+data_stream.dataset:"google_workspace.admin" and event.action:(
+  "CREATE_GMAIL_SETTING" or "CHANGE_GMAIL_SETTING"
+  or "CREATE_APPLICATION_SETTING" or "CHANGE_APPLICATION_SETTING"
+)
+and (
+  google_workspace.admin.setting.name:(
+    "UNIFIED_MAIL_ROUTING"
+    or "ALIAS_TABLE"
+    or "EMAIL_ROUTE"
+    or "MESSAGE_SECURITY_RULE"
+  )
+  or google_workspace.admin.setting.metadata.rule.type:(
+    "UNIFIED_MAIL_ROUTING"
+    or "ALIAS_TABLE"
+    or "EMAIL_ROUTE"
+  )
+)
 '''
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.org_unit.name",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.setting.metadata.rule.type",
+    "google_workspace.admin.USER_DEFINED_SETTING_NAME",
+]
 
 
 [[rule.threat]]
@@ -116,4 +145,3 @@ reference = "https://attack.mitre.org/techniques/T1114/003/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
