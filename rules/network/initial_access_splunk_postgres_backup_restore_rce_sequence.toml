@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/06/15"
-integration = ["network_traffic", "zeek", "corelight", "suricata"]
+integration = ["network_traffic", "zeek", "suricata"]
 maturity = "production"
 updated_date = "2026/06/15"
 
@@ -88,11 +88,9 @@ setup = """## Setup
 
 This rule requires HTTP request metadata with `url.path` and `http.request.method` populated from
 one of the following sources visible to the sensor without TLS decryption:
-- Zeek (`logs-zeek.http*`) or Corelight (`logs-corelight.*`) where Splunk Web traffic is cleartext
-  or the sensor is downstream of TLS termination. Corelight normalizes via its own ECS mapping
-  pipelines and writes to `logs-corelight.*`, not `logs-zeek.*`. The `url.username`, `url.password`,
-  and `zeek.http.captured_password` auth enrichment fields are available from Zeek; verify whether
-  your Corelight ECS mapping populates equivalent fields before relying on the auth columns.
+- Zeek (`logs-zeek.http*`) where Splunk Web traffic is cleartext or the sensor is downstream of TLS
+  termination. The `url.username`, `url.password`, and `zeek.http.captured_password` auth enrichment
+  fields are available from Zeek.
 - Suricata (`logs-suricata.eve*`) in the same deployment conditions
 - Elastic Agent `network_traffic` integration (`logs-network_traffic.http*`) with HTTP parsing enabled
 
@@ -106,7 +104,8 @@ tags = [
     "Use Case: Vulnerability",
     "Use Case: Network Security Monitoring",
     "Tactic: Initial Access",
-    "Data Source: Corelight",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
     "Data Source: Zeek",
     "Data Source: Suricata",
     "Resources: Investigation Guide",
@@ -115,7 +114,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.http*, logs-zeek.http*, logs-corelight.*, logs-suricata.eve*
+from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
 | where http.request.method == "POST"
   and url.path like "%splunkd/__raw/v1/postgres/recovery/%"
 | eval Esql.is_backup = case(url.path like "%/backup%", 1, 0)

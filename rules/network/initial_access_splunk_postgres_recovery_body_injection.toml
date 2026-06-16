@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/06/15"
-integration = ["endpoint", "zeek", "corelight", "cisco_ftd"]
+integration = ["endpoint", "network_traffic", "zeek", "cisco_ftd"]
 maturity = "production"
 updated_date = "2026/06/15"
 
@@ -8,10 +8,10 @@ updated_date = "2026/06/15"
 author = ["Elastic"]
 description = """
 Detects CVE-2026-20253 exploit artifacts against the Splunk Enterprise PostgreSQL sidecar recovery endpoints via two
-complementary signals. Where endpoint, WAF, or reverse-proxy request-body logging is available, the rule matches
+complementary signals. Where endpoint, Network Packet Capture, WAF, or reverse-proxy request-body logging is available, the rule matches
 PostgreSQL connection-string injection keywords (`hostaddr=`, `host=`, `passfile=`, `dbname=template1`), path traversal
-in the `backupFile` parameter, and known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). Where Zeek or
-Corelight HTTP logging is available, it matches the empty-password Basic auth credentials
+in the `backupFile` parameter, and known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). Where Zeek HTTP
+logging is available, it matches the empty-password Basic auth credentials
 hardcoded in published exploit tooling — all known PoC variants use no password, causing Zeek to record an empty
 `url.password` field.
 """
@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-*", "logs-endpoint.events.network*", "logs-zeek.http*", "logs-corelight.*", "logs-cisco_ftd.*"]
+index = ["logs-*", "logs-endpoint.events.network*", "logs-network_traffic.http*", "logs-zeek.http*", "logs-cisco_ftd.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Splunk Enterprise PostgreSQL Recovery Endpoint Injection Artifacts"
@@ -42,7 +42,7 @@ PostgreSQL connection-string keywords (`hostaddr=`, `host=`, `passfile=`, `dbnam
 string, so attacker-supplied keywords override the hardcoded local configuration. The `backupFile`
 parameter controls the dump file path, enabling arbitrary file placement.
 
-**Auth credential artifact** (Zeek/Corelight sources): A POST to the recovery endpoints
+**Auth credential artifact** (Zeek sources): A POST to the recovery endpoints
 with an empty password in the HTTP Basic auth header (`url.password : ""`). The exploit passes the
 Basic auth username directly to `pg_dump` as a PostgreSQL username — any value works, so this branch
 does not filter on specific usernames. All known PoC variants use an empty password because no real
@@ -98,6 +98,8 @@ This rule covers two detection paths with different telemetry requirements:
 **Body injection branch** (`http.request.body.content`): Populated by:
 - Elastic Defend (`logs-endpoint.events.network*`) on the Splunk host, capturing HTTP network
   events at the endpoint level
+- Network Packet Capture (`logs-network_traffic.http*`) with HTTP body capture enabled for the
+  Splunk recovery paths
 - WAF products (AWS WAF, ModSecurity, Azure Application Gateway WAF) configured to log request
   bodies — forwarded to `logs-*` via custom ingest pipelines (no standard Elastic integration)
 - Reverse proxies (nginx, HAProxy) with explicit request-body capture — same custom path
@@ -107,7 +109,6 @@ credentials and PII. Scope capture to specific URL paths (e.g., `*/splunkd/*`) w
 
 **Auth artifact branch** (`url.password`, `url.username`): Populated by:
 - Zeek (`logs-zeek.http*`) - parses HTTP Basic auth headers natively, no additional configuration
-- Corelight (`logs-corelight.*`) - same parsing capability via its Zeek-based HTTP analyzer
 
 Use the companion rules "Splunk Enterprise PostgreSQL Recovery Endpoint Access" and
 "Splunk Enterprise PostgreSQL Backup-to-Restore RCE Sequence" for detections that work without
@@ -121,7 +122,8 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Tactic: Initial Access",
     "Data Source: Elastic Defend",
-    "Data Source: Corelight",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
     "Data Source: Zeek",
     "Resources: Investigation Guide",
 ]
@@ -143,7 +145,7 @@ http.request.method : "POST"
     )
     or
     (
-      data_stream.dataset : ("zeek.http" or "corelight.http")
+      data_stream.dataset : "zeek.http"
       and url.password : ""
     )
   )
