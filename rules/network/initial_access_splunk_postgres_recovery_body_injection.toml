@@ -129,6 +129,17 @@ credentials and PII. Scope capture to specific URL paths (e.g., `*/splunkd/*`) w
 Capture, Zeek, Suricata, Azure Application Gateway, and GCP Load Balancing where HTTP response
 metadata is visible to the sensor.
 
+Splunk Web listens on TCP port 8000 by default (`web.conf` `httpport`), which is included in the
+default Network Packet Capture/Packetbeat HTTP port list. Add any custom Splunk Web `httpport` value
+to the HTTP protocol configuration. Splunk's management service defaults to TCP port 8089
+(`mgmtHostPort`) and commonly uses TLS; add 8089 only if management/API traffic is directly exposed or
+visible to the sensor after decryption. If the PostgreSQL sidecar is directly exposed or monitored
+locally on TCP port 5435, add port 5435 as an HTTP port as well. Zeek and Suricata can identify
+plaintext HTTP on non-standard ports through protocol detection when their HTTP analyzers are enabled.
+For TLS deployments, the sensor must observe decrypted HTTP, sit downstream of TLS termination, or use
+proxy or load balancer logs that expose the HTTP path, method, and status code. Body-content detection
+still requires request-body capture for the Splunk recovery paths.
+
 Use the companion rules "Splunk Enterprise PostgreSQL Recovery Endpoint Access" and
 "Splunk Enterprise PostgreSQL Backup-to-Restore RCE Sequence" for detections that work without
 either body capture or auth header logging.
