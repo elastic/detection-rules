@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/06/15"
-integration = ["endpoint", "network_traffic", "zeek", "cisco_ftd"]
+integration = ["endpoint", "network_traffic", "zeek", "cisco_ftd", "suricata", "azure", "gcp"]
 maturity = "production"
 updated_date = "2026/06/16"
 
@@ -21,7 +21,16 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-*", "logs-endpoint.events.network*", "logs-network_traffic.http*", "logs-zeek.http*", "logs-cisco_ftd.*"]
+index = [
+    "logs-*",
+    "logs-endpoint.events.network*",
+    "logs-network_traffic.http*",
+    "logs-zeek.http*",
+    "logs-cisco_ftd.*",
+    "logs-suricata.eve*",
+    "logs-azure.application_gateway*",
+    "logs-gcp.loadbalancing_logs*",
+]
 language = "kuery"
 license = "Elastic License v2"
 name = "Splunk Enterprise PostgreSQL Recovery Endpoint Injection Artifacts"
@@ -117,6 +126,10 @@ credentials and PII. Scope capture to specific URL paths (e.g., `*/splunkd/*`) w
 **Auth artifact branch** (`url.password`, `url.username`): Populated by:
 - Zeek (`logs-zeek.http*`) - parses HTTP Basic auth headers natively, no additional configuration
 
+**Vulnerable endpoint probing branch** (`http.response.status_code`): Populated by Network Packet
+Capture, Zeek, Suricata, Azure Application Gateway, and GCP Load Balancing where HTTP response
+metadata is visible to the sensor.
+
 Use the companion rules "Splunk Enterprise PostgreSQL Recovery Endpoint Access" and
 "Splunk Enterprise PostgreSQL Backup-to-Restore RCE Sequence" for detections that work without
 either body capture or auth header logging.
@@ -128,10 +141,14 @@ tags = [
     "Use Case: Vulnerability",
     "Use Case: Network Security Monitoring",
     "Tactic: Initial Access",
+    "Data Source: Azure",
     "Data Source: Elastic Defend",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
     "Data Source: Network Packet Capture",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
+    "Data Source: Suricata",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
