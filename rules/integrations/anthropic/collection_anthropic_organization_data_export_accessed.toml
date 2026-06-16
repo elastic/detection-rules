@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Starting an organization data export only signals intent. Accessing the export archive via its signed URL confirms the
+actor downloaded chats, projects, user metadata, and configuration. An adversary with administrative access may retrieve
+the archive after starting an export to exfiltrate intellectual property and credentials at scale.
+"""
+false_positives = [
+    """
+    Compliance, legal, and platform teams download organization data exports after scheduled audits, migrations, or
+    litigation holds. Validate the actor and business justification before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Organization Data Export Accessed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Data Export Accessed
+
+This event confirms the export archive was accessed or downloaded, not merely requested. Correlate with
+`org_data_export_started` and `org_data_export_completed` for the same organization.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.actor.type` and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for a preceding `org_data_export_started` event and whether the download occurred outside an approved window.
+- Correlate with admin role grants, admin API key creation, compliance logging changes, or SSO modifications.
+- Determine whether exported data left approved storage or corporate networks.
+
+### False positive analysis
+
+- Planned audit or offboarding exports commonly include a download step by authorized staff.
+
+### Response and remediation
+
+- If unauthorized, revoke administrative access for the actor and determine whether the archive left the organization.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://www.papermtn.co.uk/detecting-misuse-with-the-claude-compliance-api-the-threat-is-in-the-content/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "00955b87-ed85-4977-8ab1-9140f85b9d6c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "file" and
+    event.action: "org_data_export_accessed"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

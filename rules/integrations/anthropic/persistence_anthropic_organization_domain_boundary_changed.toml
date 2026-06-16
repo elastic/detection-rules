@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Verified organization domains control which email addresses can join or be captured into an Anthropic tenant. An
+adversary who verifies, claims, adds, or removes a domain can expand or shift the tenant boundary to include
+attacker-controlled mailboxes or exclude legitimate corporate domains. These events are infrequent and affect
+organization-wide membership trust.
+"""
+false_positives = [
+    """
+    IT and identity teams verify or add corporate domains during tenant onboarding, mergers, or DNS migrations. Confirm
+    the domain and actor against change management records.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Organization Domain Boundary Changed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Domain Boundary Changed
+
+Domain events change which email domains are trusted for the organization. Review `event.action` to determine
+whether a domain was verified, added, removed, or claimed.
+
+#### Possible investigation steps
+
+- Review `event.action`, `anthropic.audit.domain`, `anthropic.audit.actor.type`, and `organization.id`.
+- `anthropic.audit.domain` may be empty on `org_domain_add_initiated` or `domain_claim_initiated`; pivot on
+  `organization.id` and nearby domain events when the field is missing.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- For `domain_claim_initiated`, confirm whether a domain capture attempt was expected.
+- Search for related invite, SSO, or membership changes in the same window.
+
+### False positive analysis
+
+- Planned domain verification during onboarding is expected in new Enterprise deployments.
+
+### Response and remediation
+
+- If unauthorized, revert the domain change with Anthropic administration and review users added under the affected domain.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://www.papermtn.co.uk/detecting-misuse-with-the-claude-compliance-api-the-threat-is-in-the-content/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "fb3b43e2-0358-4bd0-b8b6-569d7c2baed1"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: (
+        "org_domain_verified" or
+        "org_domain_removed" or
+        "org_domain_add_initiated" or
+        "domain_claim_initiated"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.domain",
+    "anthropic.audit.actor.type",
+]
+

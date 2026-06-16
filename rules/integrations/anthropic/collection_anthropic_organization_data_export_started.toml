@@ -2,7 +2,7 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
@@ -51,16 +51,16 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1530/",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "a304c107-e0f0-4042-aa6c-5332ce6ca967"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
+    "Use Case: Configuration Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Collection",
@@ -74,13 +74,14 @@ data_stream.dataset: "anthropic.audit" and
     event.action: "org_data_export_started"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1530"
 name = "Data from Cloud Storage"
 reference = "https://attack.mitre.org/techniques/T1530/"
+
 
 [rule.threat.tactic]
 id = "TA0009"
@@ -88,10 +89,5 @@ name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
 
 [rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "event.id",
-    "organization.id",
-    "anthropic.audit.actor.type",
-]
+field_names = ["@timestamp", "event.action", "event.id", "organization.id", "anthropic.audit.actor.type"]
+

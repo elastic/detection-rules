@@ -1,0 +1,115 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/06/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies the first occurrence of a failed Anthropic magic link or SSO sign-in from a source IP not seen in the last 14
+days. Adversaries may probe authentication paths with stolen or sprayed credentials after weakening MFA or SSO controls.
+This building block surfaces new failure sources for correlation with auth control changes and successful login
+activity.
+"""
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Occurrence of Anthropic Authentication Failure from IP Address"
+note = """## Triage and analysis
+
+### Investigating First Occurrence of Anthropic Authentication Failure from IP Address
+
+This building block alerts when a source IP triggers `magic_link_login_failed` or `sso_login_failed` for the first
+time in 14 days. It is intended for hunt and correlation workflows, not standalone escalation.
+
+#### Possible investigation steps
+
+- Review `event.action`, `source.ip`, `user.email`, `user.id`, and `user_agent.original`.
+- Determine whether the IP belongs to a corporate VPN, IdP proxy, or unexpected geography.
+- Search for related auth control changes such as SSO deactivation or magic link second factor disablement.
+- Correlate with successful `magic_link_login_succeeded` or `sso_login_succeeded` events from the same IP or user.
+- Compare against known password spray or AiTM campaigns targeting SaaS admin portals.
+
+### False positive analysis
+
+- New corporate egress IPs, VPN pools, or IdP infrastructure changes can appear as first-seen failure sources.
+- Users mistyping credentials from a new device or location may trigger a single failure before success.
+
+### Response and remediation
+
+- If spray or takeover is suspected, block or challenge the source IP and review affected user accounts.
+- Reset credentials and MFA factors for targeted users when failures cluster before a successful login.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1110/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 21
+rule_id = "ff3e1a0f-1761-4e15-b22b-36b59cb04a00"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: UEBA",
+    "Tactic: Initial Access",
+    "Rule Type: BBR",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: ("magic_link_login_failed" or "sso_login_failed") and
+    source.ip:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1110"
+name = "Brute Force"
+reference = "https://attack.mitre.org/techniques/T1110/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "event.action"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+

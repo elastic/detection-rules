@@ -2,15 +2,15 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Organization deletion and bulk delete remove tenant data, projects, and member access in a single administrative
-action. An adversary may use this to disrupt AI-assisted workflows as an impact technique, ransom or extort the
-organization, or destroy evidence after completing a data export. Once deletion progresses, recovery options are
-limited and earlier exfiltration activity may be harder to reconstruct from the tenant itself.
+Organization deletion and bulk delete remove tenant data, projects, and member access in a single administrative action.
+An adversary may use this to disrupt AI-assisted workflows as an impact technique, ransom or extort the organization, or
+destroy evidence after completing a data export. Once deletion progresses, recovery options are limited and earlier
+exfiltration activity may be harder to reconstruct from the tenant itself.
 """
 false_positives = [
     """
@@ -56,7 +56,6 @@ required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1485/",
     "https://attack.mitre.org/techniques/T1531/",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -79,9 +78,9 @@ data_stream.dataset: "anthropic.audit" and
     event.action: ("org_deletion_requested" or "org_bulk_delete_initiated" or "org_deleted_via_bulk")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1485"
 name = "Data Destruction"
@@ -92,16 +91,12 @@ id = "T1531"
 name = "Account Access Removal"
 reference = "https://attack.mitre.org/techniques/T1531/"
 
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "event.id",
-    "organization.id",
-    "anthropic.audit.actor.type",
-]
+field_names = ["@timestamp", "event.action", "event.id", "organization.id", "anthropic.audit.actor.type"]
+

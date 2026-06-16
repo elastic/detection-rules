@@ -2,15 +2,15 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
 description = """
 Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting a restriction
-widens where a compromised admin session or API key can be used, but the audit event may not include the deleted CIDR
-or restriction identifier. Treat this as an early signal and pivot to adjacent IP restriction create or update events
-for the same organization.
+widens where a compromised admin session or API key can be used, but the audit event may not include the deleted CIDR or
+restriction identifier. Treat this as an early signal and pivot to adjacent IP restriction create or update events for
+the same organization.
 """
 false_positives = [
     """
@@ -56,8 +56,6 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1562/007/",
-    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
-    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -80,18 +78,19 @@ data_stream.dataset: "anthropic.audit" and
     event.action: "org_ip_restriction_deleted"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1562.007"
 name = "Disable or Modify Cloud Firewall"
 reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
@@ -99,10 +98,5 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "event.id",
-    "organization.id",
-    "anthropic.audit.actor.type",
-]
+field_names = ["@timestamp", "event.action", "event.id", "organization.id", "anthropic.audit.actor.type"]
+

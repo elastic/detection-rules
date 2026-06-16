@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Inviting a user with the admin role grants organization control without modifying an existing account. An adversary who
+compromises an administrator or admin API key can invite a mailbox they control and accept the invite to obtain
+administrative access. This is an alternate path to `role_assignment_granted` for net-new privileged users.
+"""
+false_positives = [
+    """
+    IT administrators invite new admins during onboarding or staffing changes. Verify the invited email address and that
+    a hiring or access request exists.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Admin User Invite Sent"
+note = """## Triage and analysis
+
+### Investigating Anthropic Admin User Invite Sent
+
+This rule matches `org_user_invite_sent` when `anthropic.audit.invited_role` is `admin`. The invited email is in
+`user.target.email`.
+
+#### Possible investigation steps
+
+- Review `user.target.email`, `anthropic.audit.invited_role`, and `anthropic.audit.actor.type`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
+- Search for `org_user_invite_accepted` for the same `anthropic.audit.invite_id` if present in related events.
+
+### False positive analysis
+
+- Planned admin onboarding is expected when staffing a new Claude Enterprise deployment.
+
+### Response and remediation
+
+- If unauthorized, revoke the invite and review other IAM changes by the same actor.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1098/003/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "590b6961-e9d5-4ca9-ade0-978c1755a944"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
+    event.action: "org_user_invite_sent" and
+    anthropic.audit.invited_role: "admin"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.target.email",
+    "anthropic.audit.invited_role",
+    "anthropic.audit.actor.type",
+]
+

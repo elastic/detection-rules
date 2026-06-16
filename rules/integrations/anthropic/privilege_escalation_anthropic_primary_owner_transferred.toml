@@ -2,15 +2,15 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
 description = """
 Primary ownership is the highest administrative authority in an Anthropic organization, including billing, membership,
 and organization-wide settings. An adversary who transfers ownership to an account they control can lock out the
-legitimate administrator from recovery paths that depend on the original owner and cement long-term tenant control.
-This is often used after role escalation to prevent defenders from reversing earlier privilege changes through normal
+legitimate administrator from recovery paths that depend on the original owner and cement long-term tenant control. This
+is often used after role escalation to prevent defenders from reversing earlier privilege changes through normal
 administration or vendor support workflows.
 """
 false_positives = [
@@ -55,8 +55,6 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1098/",
-    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
-    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-two",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -79,13 +77,14 @@ data_stream.dataset: "anthropic.audit" and
     event.action: "primary_owner_transferred"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+
 
 [rule.threat.tactic]
 id = "TA0004"
@@ -106,3 +105,4 @@ field_names = [
     "source.ip",
     "user_agent.original",
 ]
+
