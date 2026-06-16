@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2023/03/04"
-integration = ["endpoint", "sentinel_one_cloud_funnel"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/01"
 
 [transform]
 [[transform.osquery]]
@@ -39,7 +39,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["endgame-*", "logs-endpoint.events.process*", "logs-sentinel_one_cloud_funnel.*"]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Child Execution via Web Server"
@@ -134,44 +134,121 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Initial Access",
-    "Data Source: Elastic Endgame",
     "Use Case: Vulnerability",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Defend",
-    "Data Source: SentinelOne",
+    "Data Source: Elastic Defend"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and process.parent.executable != null and (
-  process.parent.name like (
-    "apache", "nginx", "apache2", "httpd", "lighttpd", "caddy", "php-fpm*", "mongrel_rails", "haproxy",
-    "gunicorn", "uwsgi", "openresty", "cherokee", "h2o", "resin", "puma", "unicorn", "traefik", "uvicorn",
-    "tornado", "hypercorn", "daphne", "twistd", "yaws", "webfsd", "httpd.worker", "flask", "rails", "mongrel",
-    "php-cgi", "php-fcgi", "php-cgi.cagefs", "catalina.sh", "hiawatha", "lswsctrl"
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
+  process.parent.name in (
+    "nginx", "apache2", "httpd", "caddy", "mongrel_rails", "uwsgi", "daphne", "httpd.worker", "flask",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs", "lswsctrl", "varnishd", "uvicorn", "waitress-serve", "starman",
+    "frankenphp", "zabbix_server", "asterisk", "sw-engine-fpm"
   ) or
-  user.name in ("apache", "www-data", "httpd", "nginx", "lighttpd", "tomcat", "tomcat8", "tomcat9") or
-  user.id in ("33", "498", "48") or
-  (process.name == "java" and ?process.working_directory like "/u0?/*")
+  process.parent.name like ("php-fpm*", "gunicorn*", "*.cgi", "*.fcgi") or
+  (
+    process.parent.name like "ruby*" and
+    process.parent.command_line like~ ("*puma*", "*rails*", "*passenger*")
+  ) or
+  (
+    process.parent.name like "python*" and
+    process.parent.command_line like~ (
+      "*hypercorn*", "*flask*", "*uvicorn*", "*django*", "*app.py*", "*server.py*", "*wsgi.py*", "*asgi.py*"
+    )
+  ) or
+  (process.parent.name like "perl*" and process.parent.command_line like~ "*plackup*") or
+  (
+    process.parent.name == "java" and (
+      process.parent.args like~ (
+        /* Tomcat */
+        "org.apache.catalina.startup.Bootstrap", "-Dcatalina.base=*",
+
+        /* Jetty */
+        "org.eclipse.jetty.start.Main", "-Djetty.home=*",
+
+        /* WildFly / JBoss */
+        "org.jboss.modules.Main", "-Djboss.home.dir=*",
+
+        /* WebLogic */
+        "weblogic.Server", "-Dweblogic.Name=*", "*weblogic-launcher.jar*",
+
+        /* WebSphere traditional + Liberty */
+        "com.ibm.ws.runtime.WsServer", "com.ibm.ws.kernel.boot.cmdline.Bootstrap",
+
+        /* GlassFish */
+        "com.sun.enterprise.glassfish.bootstrap.ASMain",
+
+        /* Resin */
+        "com.caucho.server.resin.Resin",
+
+        /* Spring Boot */
+        "org.springframework.boot.loader.*",
+
+        /* Quarkus */
+        "*quarkus-run.jar*", "io.quarkus.runner.GeneratedMain",
+
+        /* Micronaut */
+        "io.micronaut.runtime.Micronaut",
+
+        /* Dropwizard */
+        "io.dropwizard.cli.ServerCommand",
+
+        /* Play */
+        "play.core.server.ProdServerStart",
+
+        /* Helidon */
+        "io.helidon.microprofile.server.Main", "io.helidon.webserver*",
+
+        /* Vert.x */
+        "io.vertx.core.Launcher",
+
+        /* Keycloak */
+        "org.keycloak*",
+
+        /* Apereo CAS */
+        "org.apereo.cas*",
+
+        /* Elasticsearch */
+        "org.elasticsearch.bootstrap.Elasticsearch",
+
+        /* Atlassian / Gerrit */
+        "com.atlassian.jira.startup.Launcher", "*BitbucketServerLauncher*", "com.google.gerrit.pgm.Daemon",
+
+        /* Solr */
+        "*-Dsolr.solr.home=*",
+
+        /* Jenkins */
+        "*jenkins.war*"
+      ) or
+      ?process.working_directory like "/u0?/*"
+    )
+  )
 ) and (
   process.executable like (
     "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "/lost+found/*",
-    "/proc/*", "/var/mail/*", "/var/www/*", "/home/*", "/root/*" 
+    "/proc/*", "/var/mail/*", "/var/www/*", "/home/*/*", "/root/*" 
   ) or
   process.name like~ (
     // Hidden processes
     ".*",
+
     // Suspicious file formats
-    "*.elf", "*.sh", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", ".js",
-    // Scheduled tasks
-    "systemd", "cron", "crond",
+    "*.elf", "*.sh", "*.py", "*.rb", "*.pl", "*.lua*", "*.php*", ".js", "*.bin", "*.jar", "*.mjs",
+
     // Network utilities often used for reverse shells
     "nc", "netcat", "ncat", "telnet", "socat", "openssl", "nc.openbsd", "ngrok", "nc.traditional",
+
     // Cloud CLI
-    "az", "gcloud", "aws",
+    "az", "gcloud", "aws", "kubectl", "helm", "docker", "ctr", "crictl",
+
     // Misc. tools
     "whoami", "ifconfig", "ip", "ss", "top", "htop", "df", "du", "lsblk", "lsof", "tcpdump",
-    "strace", "ltrace", "curl", "wget", "dig", "nslookup", "host", "nmap", "arp", "traceroute"
+    "strace", "ltrace", "curl", "wget", "dig", "nslookup", "host", "nmap", "arp", "traceroute",
+    "cat", "touch", "cp", "mv", "rm", "mkdir", "ln", "chmod", "sudo", "xxd", "base64", "basez",
+    "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16", "chpasswd",
+    "passwd"
   ) 
 )
 '''
