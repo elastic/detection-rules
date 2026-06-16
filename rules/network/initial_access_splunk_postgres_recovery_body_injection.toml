@@ -2,24 +2,22 @@
 creation_date = "2026/06/15"
 integration = ["endpoint", "network_traffic", "zeek", "cisco_ftd"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects CVE-2026-20253 exploit artifacts against the Splunk Enterprise PostgreSQL sidecar recovery endpoints via two
-complementary signals. Where endpoint, Network Packet Capture, WAF, or reverse-proxy request-body logging is available, the rule matches
-PostgreSQL connection-string injection keywords (`hostaddr=`, `host=`, `passfile=`, `dbname=template1`), path traversal
-in the `backupFile` parameter, and known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). Where Zeek HTTP
-logging is available, it matches the empty-password Basic auth credentials
-hardcoded in published exploit tooling — all known PoC variants use no password, causing Zeek to record an empty
-`url.password` field.
+complementary signals. Where endpoint, Network Packet Capture, WAF, or reverse-proxy request-body logging is available,
+the rule matches PostgreSQL connection-string injection keywords, suspicious `backupFile` destinations, and known
+filesystem artifacts used to pivot from backup/restore primitives to file write or RCE. It also detects vulnerable
+recovery endpoint probing and empty-password Basic auth credentials observed in public exploit tooling.
 """
 false_positives = [
     """
     Authorized red-team or penetration testing tooling exercising the CVE-2026-20253 exploit chain. Legitimate Splunk
-    user activity should never produce PostgreSQL connection-string keywords or path traversal strings in requests to
-    these endpoints.
+    user activity should not produce PostgreSQL connection-string keywords, suspicious filesystem targets, empty Basic
+    auth credentials, or unauthenticated 400 responses on the recovery endpoints.
     """,
 ]
 from = "now-9m"
@@ -34,33 +32,42 @@ note = """## Triage and analysis
 
 ### Investigating Splunk Enterprise PostgreSQL Recovery Endpoint Injection Artifacts
 
-This rule fires on two distinct signals from the CVE-2026-20253 exploit chain:
+This rule fires on distinct signals from the CVE-2026-20253 exploit chain and closely related recovery endpoint abuse:
 
-**Body injection** (endpoint/WAF/proxy sources): A POST to the recovery endpoints with a body containing
-PostgreSQL connection-string keywords (`hostaddr=`, `host=`, `passfile=`, `dbname=template1`),
-`backupFile` path traversal, or known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). The `database` JSON field is passed directly to `pg_dump` or `pg_restore` as a connection
-string, so attacker-supplied keywords override the hardcoded local configuration. The `backupFile`
-parameter controls the dump file path, enabling arbitrary file placement.
+**Body injection** (endpoint/WAF/proxy sources): A POST to the recovery endpoints with a body
+containing PostgreSQL connection-string keywords (`hostaddr=`, `host=`, `port=`, `passfile=`,
+`dbname=`, `user=`, `password=`, `sslmode=`, or `service=`), `backupFile` path traversal, suspicious
+absolute destinations (`/tmp/`, `/var/tmp/`, `/dev/shm/`, `/opt/splunk/etc/apps/`, cron paths, or SSH
+authorized keys), or known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). The `database`
+JSON field is passed directly to `pg_dump` or `pg_restore` as a connection string, so
+attacker-supplied keywords override the hardcoded local configuration. The `backupFile` parameter
+controls the dump file path, enabling arbitrary file placement.
 
-**Auth credential artifact** (Zeek sources): A POST to the recovery endpoints
-with an empty password in the HTTP Basic auth header (`url.password : ""`). The exploit passes the
-Basic auth username directly to `pg_dump` as a PostgreSQL username — any value works, so this branch
-does not filter on specific usernames. All known PoC variants use an empty password because no real
-PostgreSQL credential is needed; Zeek parses this into `url.password: ""` natively. The `url.username`
-field will surface whatever username the tooling used and is available for triage.
+**Auth credential artifact** (Zeek sources): A POST to the recovery endpoints with an empty password
+in the HTTP Basic auth header (`url.password : ""`). The exploit passes the Basic auth username
+directly to `pg_dump` or `pg_restore` as a PostgreSQL username — any value works, so this branch does
+not filter on specific usernames.
+
+**Vulnerable endpoint probing**: A POST to `/v1/postgres/recovery/backup` or
+`/v1/postgres/recovery/restore` returning HTTP 400. Public probes use this response distinction because
+vulnerable handlers parse the request and return 400, while patched or protected paths return 401.
 
 ### Possible investigation steps
 
 - Check `http.response.status_code`. A `400` indicates the request reached the vulnerable sidecar
-  handler; a `401` indicates access was blocked or the host is patched. A `400` with injection
-  content in the body is a high-confidence indicator of active exploitation.
+  handler; a `401` indicates access was blocked or the host is patched. A `400` on the backup or
+  restore path is consistent with probing, and a `400` with injection content in the body is a
+  high-confidence indicator of active exploitation.
 - Identify which injection artifact triggered the rule:
   - `hostaddr=` or `host=` in `database` → server-side database pivot; check for outbound connections
     from the Splunk host to port 5432 or the attacker-supplied `port=` value.
+  - `port=`, `user=`, `password=`, `sslmode=`, or `service=` in `database` → generic libpq connection
+    string smuggling; review the full body for remote database or credential manipulation.
   - `passfile=/opt/splunk/var/packages/data/postgres/.pgpass` → local PostgreSQL credential reuse;
     this exact string is the public restore-chain artifact from watchTowr.
-  - `backupFile` with `../` traversal, or `/opt/splunk/etc/apps/` anywhere in the body →
-    arbitrary file placement; check for new or modified files at those paths.
+  - `backupFile` with `../` traversal or suspicious absolute paths (`/tmp/`, `/var/tmp/`, `/dev/shm/`,
+    `/opt/splunk/etc/apps/`, cron paths, or SSH authorized keys) → arbitrary file placement; check for
+    new or modified files at those paths.
   - `dbname=template1` with `passfile=` → the published two-stage restore payload.
 - Correlate with host telemetry: new files under `/opt/splunk/etc/apps/`, `/opt/splunk/var/packages/`,
   or `/tmp/` created around the request time.
@@ -132,21 +139,59 @@ type = "query"
 
 query = '''
 http.request.method : "POST"
-  and url.path : "*splunkd/__raw/v1/postgres/recovery/*"
+  and url.path : (
+    "*splunkd/__raw/v1/postgres/recovery/*" or
+    "/v1/postgres/recovery/*"
+  )
   and (
     (
-      http.request.body.content : "*\"database\"*hostaddr=*"
-      or http.request.body.content : "*\"database\"*host=*"
-      or http.request.body.content : "*\"database\"*passfile=*"
-      or http.request.body.content : "*\"database\"*dbname=template1*"
-      or http.request.body.content : "*\"backupFile\"*../*"
-      or http.request.body.content : "*/opt/splunk/var/packages/data/postgres/.pgpass*"
-      or http.request.body.content : "*/opt/splunk/etc/apps/*"
+      http.request.body.content : (
+        "*\"database\"*hostaddr=*"
+        or "*\"database\"*host=*"
+        or "*\"database\"*port=*"
+        or "*\"database\"*passfile=*"
+        or "*\"database\"*dbname=*"
+        or "*\"database\"*user=*"
+        or "*\"database\"*password=*"
+        or "*\"database\"*sslmode=*"
+        or "*\"database\"*service=*"
+      )
+    )
+    or
+    (
+      http.request.body.content : (
+        "*\"backupFile\"*../*"
+        or "*\"backupFile\"*/tmp/*"
+        or "*\"backupFile\"*/var/tmp/*"
+        or "*\"backupFile\"*/dev/shm/*"
+        or "*\"backupFile\"*/opt/splunk/etc/apps/*"
+        or "*\"backupFile\"*/opt/splunk/bin/scripts/*"
+        or "*\"backupFile\"*/etc/cron*"
+        or "*\"backupFile\"*/root/*"
+        or "*\"backupFile\"*/home/*/.ssh/*"
+        or "*\"backupFile\"*authorized_keys*"
+      )
+    )
+    or
+    (
+      http.request.body.content : (
+        "*/opt/splunk/var/packages/data/postgres/.pgpass*"
+        or "*/opt/splunk/etc/apps/*"
+      )
     )
     or
     (
       data_stream.dataset : "zeek.http"
       and url.password : ""
+    )
+    or (
+      url.path : (
+        "*splunkd/__raw/v1/postgres/recovery/backup" or
+        "*splunkd/__raw/v1/postgres/recovery/restore" or
+        "/v1/postgres/recovery/backup" or
+        "/v1/postgres/recovery/restore"
+      )
+      and http.response.status_code : 400
     )
   )
 '''
