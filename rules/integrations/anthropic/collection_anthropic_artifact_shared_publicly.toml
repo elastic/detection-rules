@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/06/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Claude artifacts can be shared with specific audiences. Making an artifact public exposes its contents to
+unauthenticated viewers on the internet. An adversary with access to sensitive artifacts may publish them publicly to
+exfiltrate intellectual property, credentials embedded in prompts, or other confidential material outside organizational
+controls.
+"""
+false_positives = [
+    """
+    Users may intentionally publish artifacts for demos, documentation, or external collaboration. Validate the
+    artifact, actor, and business justification before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Artifact Shared Publicly"
+note = """## Triage and analysis
+
+### Investigating Anthropic Artifact Shared Publicly
+
+This rule matches `claude_artifact_sharing_updated` when `anthropic.audit.access_level` is `public`. Review what artifact was
+exposed and whether publication was authorized.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.claude_artifact_id`, `anthropic.audit.access_level`, and `anthropic.audit.actor.type`.
+  `anthropic.audit.audience` may appear when populated but use `access_level: public` as the authoritative sharing state.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Determine whether the artifact contains credentials, customer data, or proprietary content.
+- Search for related chat access failures or data exports involving the same actor.
+
+### False positive analysis
+
+- Marketing, developer relations, or training teams may publish artifacts intentionally for external audiences.
+
+### Response and remediation
+
+- If unauthorized, revoke public sharing for the artifact and review other artifacts modified by the same actor.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "14290b38-a8dd-474d-bfd7-cce282f4f745"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "claude_artifact_sharing_updated" and
+    anthropic.audit.access_level: "public"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.claude_artifact_id",
+    "anthropic.audit.access_level",
+    "anthropic.audit.audience",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

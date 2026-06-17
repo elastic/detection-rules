@@ -2,7 +2,7 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,8 @@ this alongside other identity control changes in the same period. The query matc
 
 - Review `anthropic.audit.enabled`, `anthropic.audit.actor.type`, and `organization.id`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Search for related SSO deactivation, admin role grants, or magic link login activity for the organization.
+- Search for related SSO deactivation, admin role grants, or `magic_link_login_succeeded` activity for the organization.
+- Correlate with **Anthropic Magic Link Login After Second Factor Disabled** when a login follows within four hours.
 - Confirm with the identity team whether an authentication policy change was authorized.
 
 ### False positive analysis
@@ -104,5 +105,9 @@ field_names = [
     "organization.id",
     "anthropic.audit.enabled",
     "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
 ]
 

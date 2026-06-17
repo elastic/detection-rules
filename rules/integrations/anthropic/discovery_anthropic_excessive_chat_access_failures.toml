@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/06/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a single authenticated user generates an unusually high number of denied Claude chat access attempts
+within a short window. This may indicate automated chat enumeration or unauthorized attempts to reach conversations
+outside the actor's permissions. Events from `unauthenticated_user_actor` lack `user.id` and are excluded.
+"""
+false_positives = [
+    """
+    Users browsing many stale or revoked shared chat links during incident response or legal review can produce bursts
+    of access failures. Validate whether the activity aligns with an approved investigation before escalating.
+    """,
+]
+from = "now-10m"
+index = ["logs-anthropic.audit-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Excessive Chat Access Failures"
+note = """## Triage and analysis
+
+### Investigating Anthropic Excessive Chat Access Failures
+
+This threshold rule fires when one authenticated user (`user.id` present) accumulates at least 50
+`claude_chat_access_failed` events in 10 minutes for the same organization. Unauthenticated shared-link failures map
+`unauthenticated_email_address` to `user.email` but do not populate `user.id`, so they are out of scope. The alert
+document aggregates events — pivot to raw `logs-anthropic.audit-*` logs for individual failures and targeted chat IDs.
+
+#### Possible investigation steps
+
+- Pivot on `user.email`, `user.id`, `organization.id`, and the alert time window for
+  `event.action: "claude_chat_access_failed"`.
+- Review `anthropic.audit.claude_chat_id` values in Timeline. Sequential or patterned IDs suggest scripted enumeration;
+  scattered IDs may indicate shared-link browsing.
+- Compare failure volume to `claude_chat_viewed` events from the same actor in the same window. A high failure-to-success
+  ratio supports enumeration rather than casual link exploration.
+- Review `source.ip`, `user_agent.original`, and `anthropic.audit.actor.type` for signs of automation or a compromised
+  session.
+- Correlate with IAM changes such as admin role grants, SSO weakening, or compliance key creation in the same period.
+- Check whether any failures were followed by successful `claude_chat_viewed` events for the same chat IDs.
+
+### False positive analysis
+
+- Legal, HR, or security teams reviewing large sets of revoked shared links can generate high failure counts.
+- Broken bookmarks or automation that retries expired shared URLs may look like enumeration.
+
+### Response and remediation
+
+- If unauthorized enumeration is confirmed, revoke active sessions for the actor and review recently accessed chats.
+- Determine whether exposed shared links should be rotated or org sharing policies tightened.
+- Correlate with data export or artifact sharing activity from the same user.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1619/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "a304c107-e0f0-4042-aa6c-5332ce6ca967"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.action: "claude_chat_access_failed" and
+    user.id:*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1619"
+name = "Cloud Storage Object Discovery"
+reference = "https://attack.mitre.org/techniques/T1619/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "anthropic.audit.claude_chat_id",
+    "anthropic.audit.claude_project_id",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
+
+[rule.threshold]
+field = ["user.id", "organization.id"]
+value = 50

@@ -2,7 +2,7 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,8 @@ This rule matches `api_key_created` events where the key receives compliance rea
 - Review `anthropic.audit.api_key_id`, `anthropic.audit.scopes`, and `anthropic.audit.actor.type`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
-- Search for subsequent `compliance_api_accessed` events using the new key.
+- Hunt for subsequent `compliance_api_accessed` events using `anthropic.audit.api_key_id` to confirm programmatic use.
+  There is no standalone production rule for that activity type; use it as a manual correlation pivot.
 - Confirm the creation aligns with an approved integration or investigation project.
 
 ### False positive analysis
@@ -52,7 +53,6 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1098/001/",
-    "https://www.papermtn.co.uk/detecting-misuse-with-the-claude-compliance-api-the-threat-is-in-the-content/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 47
@@ -105,6 +105,7 @@ field_names = [
     "anthropic.audit.api_key_id",
     "anthropic.audit.scopes",
     "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
     "user.email",
     "user.id",
     "source.ip",

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -29,8 +29,11 @@ time in 14 days. It is intended for hunt and correlation workflows, not standalo
 #### Possible investigation steps
 
 - Review `event.action`, `source.ip`, `user.email`, `user.id`, and `user_agent.original`.
+- For `sso_login_failed`, `user.email` is often empty because the actor is `unauthenticated_user_actor`; pivot on
+  `source.ip` and `event.action` instead.
 - Determine whether the IP belongs to a corporate VPN, IdP proxy, or unexpected geography.
-- Search for related auth control changes such as SSO deactivation or magic link second factor disablement.
+- Search for related auth control changes such as **Anthropic SSO Disabled or Connection Removed** or magic link
+  second factor disablement.
 - Correlate with successful `magic_link_login_succeeded` or `sso_login_succeeded` events from the same IP or user.
 - Compare against known password spray or AiTM campaigns targeting SaaS admin portals.
 
@@ -104,6 +107,19 @@ reference = "https://attack.mitre.org/techniques/T1110/"
 id = "TA0006"
 name = "Credential Access"
 reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "source.ip",
+    "user.email",
+    "user.id",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
 
 [rule.new_terms]
 field = "new_terms_fields"

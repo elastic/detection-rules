@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -28,23 +28,31 @@ note = """## Triage and analysis
 ### Investigating Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action
 
 This rule correlates compliance API logging disablement with high-risk follow-on activity in the same organization
-within 24 hours. The second event may be the last activity visible in this data source if logging remains disabled.
+within 24 hours. The sequence keys on `organization.id` only — the disable and follow-on events may involve different
+actors. The follow-on event may be the last activity visible in this data source if logging remains disabled.
 
 #### Possible investigation steps
 
-- Review the actor for both events using `anthropic.audit.actor.type`, `user.email`, and `source.ip`.
+- Review both events in the alert timeline. For each, check `anthropic.audit.actor.type`, `user.email`, `source.ip`,
+  and `user_agent.original`. When the actor is `admin_api_key_actor`, pivot on `anthropic.audit.actor.admin_api_key_id`.
 - Determine whether logging was re-enabled and whether intermediate activity is missing from `logs-anthropic.audit-*`.
-- Inspect the follow-on action (`admin_api_key_created`, scoped `api_key_created`, or export started).
-- Correlate with SSO changes, role grants, or primary owner transfers outside this sequence.
+- Inspect the follow-on `event.action`. This rule matches:
+  - `admin_api_key_created` — programmatic admin access.
+  - `api_key_created` — review `anthropic.audit.scopes` for compliance read permissions.
+  - `org_data_export_started`, `org_data_export_accessed` — organization content export lifecycle.
+  - `audit_log_export_started`, `audit_log_export_accessed` — audit telemetry export lifecycle.
+- Search the same `organization.id` for SSO changes, role grants, primary owner transfers, or IP restriction changes
+  that may have occurred during the blind window but are absent from this index.
+- Correlate with the standalone **Anthropic Compliance API Logging Disabled** rule if only the first event fired.
 
 ### False positive analysis
 
-- Planned Fleet onboarding may disable logging briefly, create credentials, and start validation exports.
+- Planned Fleet onboarding may disable logging briefly, create credentials, and start or download validation exports.
 
 ### Response and remediation
 
 - Re-enable compliance API logging immediately and preserve any locally cached audit data from the blind window.
-- Revoke unauthorized keys and review export activity during the exposure period.
+- Revoke unauthorized keys and review export download activity during the exposure period.
 
 ## Setup
 
@@ -129,6 +137,8 @@ field_names = [
     "organization.id",
     "anthropic.audit.compliance_api_logging_enabled",
     "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+    "anthropic.audit.scopes",
     "user.email",
     "user.id",
     "source.ip",

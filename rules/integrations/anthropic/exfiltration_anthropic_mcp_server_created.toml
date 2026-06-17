@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/06/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Model Context Protocol (MCP) server integrations add external data pathways into Claude. An adversary who registers an
+unapproved MCP server can expose organizational data to third-party infrastructure or establish a channel for staged
+exfiltration. New MCP integrations should be verified against an approved connector inventory, especially when created
+outside routine platform administration.
+"""
+false_positives = [
+    """
+    Teams enable approved MCP connectors for data platforms, ticketing systems, and internal tools during Claude
+    rollouts. Validate the server name, actor, and whether the integration matches an approved request.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic MCP Server Created"
+note = """## Triage and analysis
+
+### Investigating Anthropic MCP Server Created
+
+Each MCP server is a new external integration surface. Review whether the connector was expected and who authorized it.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.mcp_server_name`, `anthropic.audit.mcp_server_id`, and `anthropic.audit.actor.type`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Determine whether the actor has created MCP servers before or is an external contractor.
+- Search for related `mcp_server_updated` or `mcp_server_deleted` events for the same `anthropic.audit.mcp_server_id`.
+- Search for related data exports, artifact sharing changes, or admin role grants in the same window.
+
+### False positive analysis
+
+- MCP adoption during Claude pilots commonly produces new server creation events from platform or integration teams.
+
+### Response and remediation
+
+- If unauthorized, remove the MCP server and review data accessed through the connector.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1567/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Exfiltration",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "mcp_server_created"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.mcp_server_id",
+    "anthropic.audit.mcp_server_name",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
