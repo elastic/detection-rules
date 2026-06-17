@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects deletion or modification of AWS Bedrock Automated Reasoning policies via the DeleteAutomatedReasoningPolicy,
+UpdateAutomatedReasoningPolicy, or UpdateAutomatedReasoningPolicyAnnotations CloudTrail actions. Automated Reasoning
+policies are a Bedrock safety and validation control that constrains model outputs against formal rules. An adversary
+who deletes a policy or alters the policy definition or its annotations weakens an enforced output-validation defense,
+potentially allowing unsafe or non-compliant model responses to pass unchecked. Benign build, test-workflow, and
+test-case CRUD operations are intentionally excluded as they have no coherent abuse path.
+"""
+false_positives = [
+    """
+    Policy administrators, ML platform engineers, or infrastructure-as-code pipelines may legitimately update or remove
+    Automated Reasoning policies during model governance changes, policy tuning, or environment teardown. Verify that
+    the user identity, source IP, and user agent correspond to an approved change and that a corresponding change
+    request exists. Known automation roles can be exempted if they generate recurring noise.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Automated Reasoning Safety Policy Tampering"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Automated Reasoning Safety Policy Tampering
+
+AWS Bedrock Automated Reasoning policies enforce formal, rule-based validation of model outputs, acting as a
+safety control that constrains what a model is permitted to return. Deleting a policy or modifying its
+definition or annotations directly weakens this control. Adversaries who have gained access to the Bedrock
+control plane may tamper with these policies to evade output-validation defenses, enabling unsafe, manipulated,
+or non-compliant model behavior. This detection identifies `DeleteAutomatedReasoningPolicy`,
+`UpdateAutomatedReasoningPolicy`, and `UpdateAutomatedReasoningPolicyAnnotations` calls so responders can
+confirm whether the change was authorized.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`,
+    `aws.cloudtrail.user_identity.access_key_id`, `source.ip`, and `user_agent.original`.
+  - Determine whether the identity normally administers Bedrock safety policies and whether the action aligns
+    with an approved change request.
+- **Review the specific action**
+  - For `DeleteAutomatedReasoningPolicy`, identify the deleted policy in
+    `aws.cloudtrail.flattened.request_parameters` and confirm whether a replacement control exists.
+  - For `UpdateAutomatedReasoningPolicy` / `UpdateAutomatedReasoningPolicyAnnotations`, inspect
+    `aws.cloudtrail.request_parameters` and `aws.cloudtrail.response_elements` to understand what was changed
+    and whether the change loosens validation constraints.
+- **Correlate surrounding activity**
+  - Look for other Defense Evasion or Bedrock control-plane activity from the same identity in the surrounding
+    window (model invocation changes, guardrail modifications, logging changes).
+  - Check `cloud.account.id` and `cloud.region` to scope blast radius across the environment.
+
+### False positive analysis
+
+- **Planned policy maintenance**: Governance teams may legitimately tune or retire Automated Reasoning
+  policies. Validate against change tickets and standard templates.
+- **Automation**: IaC or CI/CD pipelines may update policies during deployments. Confirm the actor maps to
+  known automation infrastructure.
+
+### Response and remediation
+
+- If the change is unauthorized, restore the prior policy definition or recreate the deleted policy from a
+  known-good configuration.
+- Revoke or rotate the credentials in `aws.cloudtrail.user_identity.access_key_id` if compromise is suspected.
+- Review all Bedrock control-plane activity from the same identity in the preceding window for further
+  defense-impairing actions.
+- Restrict `bedrock:DeleteAutomatedReasoningPolicy` and `bedrock:UpdateAutomatedReasoningPolicy*` permissions
+  to a small set of administrative roles and enforce approval workflows.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/automated-reasoning.html"
+]
+risk_score = 47
+rule_id = "2d7822a5-418c-4cde-a96e-e337d77b67e7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: (
+        "DeleteAutomatedReasoningPolicy" or
+        "UpdateAutomatedReasoningPolicy" or
+        "UpdateAutomatedReasoningPolicyAnnotations"
+    ) and event.outcome:success
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
