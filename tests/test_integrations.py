@@ -22,6 +22,7 @@ from detection_rules.integrations import (
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
 )
+from detection_rules.rule_validators import KQLValidator
 from detection_rules.schemas import get_stack_versions
 
 
@@ -259,6 +260,35 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
                 manifests,
                 package_schemas=schemas,
             )
+
+    def test_required_fields_uses_patch_floor_for_integration_schema(self):
+        """Required fields resolve integration schemas using a non-zero patch floor when needed."""
+        package = "pkg"
+        integration = "new_ds"
+        field_name = "pkg.new_ds.some_field"
+        manifests = {
+            package: {
+                "1.0.0": _manifest("^9.0.0"),
+                "1.1.0": _manifest("~9.2.1 || ^9.3.0"),
+            }
+        }
+        schemas = {
+            package: {
+                "1.0.0": {"old_ds": {}},
+                "1.1.0": {integration: {field_name: "keyword"}},
+            }
+        }
+        validator = KQLValidator(f"data_stream.dataset:{package}.{integration} and {field_name}:*")
+
+        with (
+            unittest.mock.patch("detection_rules.rule.load_current_package_version", return_value="9.2.0"),
+            unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+        ):
+            required_fields = validator.get_required_fields([])
+
+        self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
 
 
 class TestFindCompatibleVersionRange(unittest.TestCase):
