@@ -37,7 +37,7 @@ This rule fires when a DLL with a name matching a known Windows System32 library
 
 - Legitimate third-party software occasionally ships DLLs with names that collide with System32 libraries (e.g. security vendors, game engines, virtualization software, and enterprise tooling). Validate the publisher via `dll.code_signature.subject_name` and cross-reference against known software installed on the host.
 - Installer and update workflows may briefly stage DLLs in temp paths before moving them to their final location — check whether the loading process is a known installer (`msiexec.exe`, `setup.exe`, vendor updaters) and whether the DLL path disappears after a short window.
-- DismHost.exe staging certain DLLs under `C:\Windows\Temp\` during servicing operations is a known benign pattern already excluded in the query.
+- DismHost.exe staging certain DLLs under `C:\\Windows\\Temp\\` during servicing operations is a known benign pattern already excluded in the query.
 
 ### Related rules
 
@@ -50,7 +50,7 @@ This rule fires when a DLL with a name matching a known Windows System32 library
 - Initiate the incident response process based on triage outcome. If the DLL is confirmed malicious, treat the host as compromised.
 - Isolate the affected host and preserve a memory dump and disk image before remediation to retain forensic evidence.
 - Delete the malicious DLL and any associated files identified during investigation.
-- If DLL Search Order Hijacking is confirmed, identify the vulnerable application and remediate by patching, applying a safe DLL search mode (`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\SafeDllSearchMode`), or restricting write permissions on directories in the application's search path.
+- If DLL Search Order Hijacking is confirmed, identify the vulnerable application and remediate by patching, applying a safe DLL search mode (`HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\SafeDllSearchMode`), or restricting write permissions on directories in the application's search path.
 - If a legitimate binary was backdoored and resigned, treat all binaries delivered via the same channel as suspect and investigate the supply chain.
 - Block identified file hashes and signer certificates as appropriate at the endpoint and perimeter.
 - Hunt for lateral movement or persistence mechanisms established after the DLL was loaded — check scheduled tasks, services, registry run keys, and WMI subscriptions created around the same timeframe.
