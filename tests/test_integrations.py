@@ -20,6 +20,7 @@ from detection_rules.integrations import (
     _stack_majors_supported_by_package,
     find_compatible_version_range,
     find_latest_compatible_version,
+    find_latest_integration_patch_for_minor,
 )
 from detection_rules.schemas import get_stack_versions
 
@@ -219,6 +220,45 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         """Unknown package raises ``ValueError``."""
         with self.assertRaises(ValueError):
             find_latest_compatible_version("missing", "missing", Version(9, 1, 0), {})
+
+    def test_skips_schema_versions_missing_integration_after_patch_floor(self):
+        """A non-zero patch floor can select a package version that contains the requested data stream."""
+        package = "pkg"
+        integration = "new_ds"
+        older_version = "1.0.0"
+        newer_version = "1.1.0"
+        manifests = {
+            package: {
+                older_version: _manifest("^9.0.0"),
+                newer_version: _manifest("~9.2.1 || ^9.3.0"),
+            }
+        }
+        schemas = {
+            older_version: {"old_ds": {}},
+            newer_version: {"old_ds": {}, integration: {}},
+        }
+
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests):
+            patch_floor = find_latest_integration_patch_for_minor({package}, 9, 2)
+        self.assertGreater(patch_floor, 0)
+
+        version, _ = find_latest_compatible_version(
+            package,
+            integration,
+            Version(9, 2, patch_floor),
+            manifests,
+            package_schemas=schemas,
+        )
+        self.assertEqual(version, newer_version)
+
+        with self.assertRaises(ValueError):
+            find_latest_compatible_version(
+                package,
+                integration,
+                Version(9, 2, 0),
+                manifests,
+                package_schemas=schemas,
+            )
 
 
 class TestFindCompatibleVersionRange(unittest.TestCase):
