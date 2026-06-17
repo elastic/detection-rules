@@ -2,16 +2,16 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-SSO routes Anthropic authentication through the corporate identity provider. An adversary who deactivates or deletes an
-SSO connection can shift users to alternate sign-in paths where IdP-enforced MFA, conditional access, and session
-policies no longer apply. Deletion removes the IdP binding entirely, while deactivation pauses it. Both help the
-attacker sign in with password or magic-link accounts they control and operate while IdP-driven account lockout cannot
-reach the tenant.
+SSO routes Anthropic authentication through the corporate identity provider. An adversary who disables SSO, deactivates,
+or deletes an SSO connection can shift users to alternate sign-in paths where IdP-enforced MFA, conditional access, and
+session policies no longer apply. Toggling SSO off, deactivating a connection, or deleting it all weaken corporate
+identity enforcement and help an attacker sign in with password or magic-link accounts they control while IdP-driven
+account lockout cannot reach the tenant.
 """
 false_positives = [
     """
@@ -28,21 +28,25 @@ from = "now-9m"
 index = ["logs-anthropic.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Anthropic SSO Connection Deactivated or Deleted"
+name = "Anthropic SSO Disabled or Connection Removed"
 note = """## Triage and analysis
 
-### Investigating Anthropic SSO Connection Deactivated or Deleted
+### Investigating Anthropic SSO Disabled or Connection Removed
 
-SSO changes affect how every user in the organization authenticates to Claude. Unexpected deactivation or deletion
-should be reviewed alongside other identity changes in the same period. Deletion is more severe because the IdP
-connection must be re-established rather than re-enabled.
+SSO changes affect how every user in the organization authenticates to Claude. Unexpected toggles off, deactivation, or
+deletion should be reviewed alongside other identity changes in the same period. Connection deletion is more severe
+because the IdP binding must be re-established rather than re-enabled.
 
 Many organizations receive these events from `scim_directory_sync_actor` during routine IdP directory sync rather than
 from an interactive administrator session.
 
 #### Possible investigation steps
 
-- Review `event.action`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, and `organization.id`.
+- Review `event.action`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, `anthropic.audit.enabled`,
+  and `organization.id`. This rule matches three paths:
+  - `org_sso_toggled` with `anthropic.audit.enabled: false` — SSO turned off org-wide.
+  - `org_sso_connection_deactivated` — a specific IdP connection was deactivated.
+  - `org_sso_connection_deleted` — a specific IdP connection was removed.
 - When the actor is `scim_directory_sync_actor`, review `anthropic.audit.actor.directory_id`,
   `anthropic.audit.actor.workos_event_id`, and `anthropic.audit.actor.idp_connection_type`, then confirm with the IdP
   team whether directory sync or connector maintenance caused the change.
@@ -83,8 +87,10 @@ type = "query"
 
 query = '''
 data_stream.dataset: "anthropic.audit" and
-    event.category: "iam" and
-    event.action: ("org_sso_connection_deactivated" or "org_sso_connection_deleted")
+    event.category: "iam" and (
+        event.action: ("org_sso_connection_deactivated" or "org_sso_connection_deleted") or
+        (event.action: "org_sso_toggled" and anthropic.audit.enabled: false)
+    )
 '''
 
 
@@ -108,9 +114,14 @@ field_names = [
     "event.id",
     "organization.id",
     "anthropic.audit.connection_id",
+    "anthropic.audit.enabled",
     "anthropic.audit.actor.type",
     "anthropic.audit.actor.directory_id",
     "anthropic.audit.actor.workos_event_id",
     "anthropic.audit.actor.idp_connection_type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
 ]
 

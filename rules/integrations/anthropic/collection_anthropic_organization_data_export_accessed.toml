@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -27,13 +27,15 @@ note = """## Triage and analysis
 ### Investigating Anthropic Organization Data Export Accessed
 
 This event confirms the export archive was accessed or downloaded, not merely requested. Correlate with
-`org_data_export_started` and `org_data_export_completed` for the same organization.
+`org_data_export_started` and `org_data_export_completed` for the same `organization.id` to reconstruct the full
+export lifecycle.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.actor.type` and `organization.id`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Search for a preceding `org_data_export_started` event and whether the download occurred outside an approved window.
+- Search for preceding `org_data_export_started` and `org_data_export_completed` events and whether the download
+  occurred outside an approved window or without a matching started event.
 - Correlate with admin role grants, admin API key creation, compliance logging changes, or SSO modifications.
 - Determine whether exported data left approved storage or corporate networks.
 
@@ -51,7 +53,6 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1530/",
-    "https://www.papermtn.co.uk/detecting-misuse-with-the-claude-compliance-api-the-threat-is-in-the-content/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 47

@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -26,14 +26,19 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance Audit Log Export Accessed
 
-This event confirms the audit export archive was accessed or downloaded. Correlate with `audit_log_export_started`
-for the same organization and review whether the download followed recent suspicious administrative activity.
+This event confirms the audit export archive was accessed or downloaded. Adversaries may download audit exports to
+map defender visibility, identify detection gaps, or stage evidence removal before other control-plane changes.
+Correlate with `audit_log_export_started` for the same `organization.id`.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
+  The export window shows which administrative activity the actor reviewed.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Search for a preceding `audit_log_export_started` event and whether the export window covers recent IAM changes.
+- Search for a preceding `audit_log_export_started` event and whether the export window covers recent IAM or logging
+  changes.
+- Determine whether the download preceded compliance logging disablement, SSO changes, or data exports — a common
+  reconnaissance pattern before further intrusion.
 - Correlate with compliance logging changes, admin role grants, or data exports in the same period.
 
 ### False positive analysis

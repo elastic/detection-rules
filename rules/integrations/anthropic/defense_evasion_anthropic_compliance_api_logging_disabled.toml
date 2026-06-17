@@ -2,7 +2,7 @@
 creation_date = "2026/06/10"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,9 @@ the disable action itself; activity after logging stops may not reach this data 
 - Review `anthropic.audit.actor.type`, `organization.id`, and `anthropic.audit.compliance_api_logging_enabled`.
 - When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Pivot on the same organization for admin role grants, admin API key creation, exports, or SSO changes.
+- Pivot on the same `organization.id` for admin role grants, admin API key creation, exports, or SSO changes.
+- Correlate with **Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action** when high-risk activity
+  follows within 24 hours.
 - Determine whether a change ticket or integration project authorized the update.
 
 ### False positive analysis
@@ -109,5 +111,9 @@ field_names = [
     "anthropic.audit.compliance_api_enabled",
     "anthropic.audit.actor.type",
     "anthropic.audit.actor.admin_api_key_id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
 ]
 

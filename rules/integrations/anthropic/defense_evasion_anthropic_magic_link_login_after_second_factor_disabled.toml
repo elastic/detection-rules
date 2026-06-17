@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/16"
 
 [rule]
 author = ["Elastic"]
@@ -28,13 +28,19 @@ note = """## Triage and analysis
 ### Investigating Anthropic Magic Link Login After Second Factor Disabled
 
 This rule correlates org-wide magic link second factor disablement with a subsequent successful magic link login for
-the same organization within four hours. Review both events alongside other identity control changes.
+the same organization within four hours. The sequence keys on `organization.id` only — the user who disabled second
+factor and the user who signed in may differ. Review both events alongside other identity control changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.enabled` on the configuration event and `user.email` on the login event.
-- Determine whether the login user was expected to authenticate via magic link rather than SSO.
-- Search for related SSO deactivation, admin role grants, or invite activity in the same window.
+- Review `anthropic.audit.enabled` on the `org_magic_link_second_factor_toggled` event and `user.email`, `user.id`,
+  `source.ip`, and `user_agent.original` on the `magic_link_login_succeeded` event.
+- Determine whether the login user was expected to authenticate via magic link rather than SSO, and whether that user
+  matches the actor who changed the policy.
+- Search for related SSO deactivation, admin role grants, invite activity, or authentication failures from the login
+  user's `source.ip` in the same window.
+- Correlate with the standalone **Anthropic Magic Link Second Factor Disabled** rule if only the configuration event
+  fired.
 - Confirm with the identity team whether the authentication policy change was authorized.
 
 ### False positive analysis
