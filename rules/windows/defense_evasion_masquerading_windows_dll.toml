@@ -16,6 +16,46 @@ index = ["logs-endpoint.events.library-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Masquerading as System32 DLL"
+note = """## Triage and analysis
+
+### Investigating Potential Masquerading as System32 DLL
+
+This rule fires when a DLL with a name matching a known Windows System32 library is loaded from an unexpected path, is unsigned or signed by a non-Microsoft certificate, and was recently created or modified (within the last hour). This pattern is consistent with DLL Search Order Hijacking, DLL planting, or backdooring/resigning of legitimate system DLLs — all common defense evasion and persistence techniques used by both commodity malware and sophisticated threat actors.
+
+#### Possible investigation steps
+
+- Examine the full `dll.path` to determine where the suspicious DLL was loaded from. Paths under user-writable directories (`AppData`, `Temp`, `Downloads`, `ProgramData`) or application directories are high-fidelity indicators.
+- Review `dll.code_signature` fields — check whether the DLL is unsigned, self-signed, or signed by an unexpected publisher. A trusted signature from a legitimate vendor may indicate a false positive; an invalid or absent signature warrants deeper investigation.
+- Check `dll.Ext.relative_file_creation_time` and `dll.Ext.relative_file_name_modify_time` — a DLL dropped and loaded within seconds or minutes of each other strongly suggests staged execution.
+- Identify the loading process (`process.name`, `process.executable`, `process.pid`) and examine its parent chain for unusual ancestry (e.g. Office spawning a loader, or a browser dropping a DLL).
+- Retrieve the DLL and hash it with `Get-FileHash -Algorithm SHA256`. Search the hash across VirusTotal, Hybrid-Analysis, MalwareBazaar, and CISCO Talos.
+- Check whether other hosts in the environment have loaded the same DLL path or hash — a single host is likely targeted or hands-on, widespread hits may indicate a worm or supply chain issue.
+- Correlate with process creation events around the same timestamp to identify what dropped the DLL (downloaders, document macros, installers, etc.).
+- Inspect the directory containing the DLL for other recently created files, scripts, or executables that may be part of the same drop.
+
+### False positive analysis
+
+- Legitimate third-party software occasionally ships DLLs with names that collide with System32 libraries (e.g. security vendors, game engines, virtualization software, and enterprise tooling). Validate the publisher via `dll.code_signature.subject_name` and cross-reference against known software installed on the host.
+- Installer and update workflows may briefly stage DLLs in temp paths before moving them to their final location — check whether the loading process is a known installer (`msiexec.exe`, `setup.exe`, vendor updaters) and whether the DLL path disappears after a short window.
+- DismHost.exe staging certain DLLs under `C:\Windows\Temp\` during servicing operations is a known benign pattern already excluded in the query.
+
+### Related rules
+
+- Suspicious DLL Loaded for Persistence via Desktop File - c4818812-d44f-47be-aaef-4cfb2f9cc799
+- Suspicious Process from Conhost - 28896382-7d4f-4d50-9b72-67091901fd26
+- Potential DLL Side-Loading via Trusted Microsoft Programs - 1160dcdb-0a0a-4a79-91d8-9b84af7e0240
+
+### Response and remediation
+
+- Initiate the incident response process based on triage outcome. If the DLL is confirmed malicious, treat the host as compromised.
+- Isolate the affected host and preserve a memory dump and disk image before remediation to retain forensic evidence.
+- Delete the malicious DLL and any associated files identified during investigation.
+- If DLL Search Order Hijacking is confirmed, identify the vulnerable application and remediate by patching, applying a safe DLL search mode (`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\SafeDllSearchMode`), or restricting write permissions on directories in the application's search path.
+- If a legitimate binary was backdoored and resigned, treat all binaries delivered via the same channel as suspect and investigate the supply chain.
+- Block identified file hashes and signer certificates as appropriate at the endpoint and perimeter.
+- Hunt for lateral movement or persistence mechanisms established after the DLL was loaded — check scheduled tasks, services, registry run keys, and WMI subscriptions created around the same timeframe.
+- Determine the initial access vector and remediate to prevent reinfection.
+"""
 risk_score = 73
 rule_id = "fb01d790-9f74-4e76-97dd-b4b0f7bf6435"
 severity = "high"
@@ -25,7 +65,8 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Tactic: Persistence"
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
