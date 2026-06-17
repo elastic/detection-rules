@@ -5,7 +5,13 @@
 ## Metadata
 
 - **Author:** Elastic
-- **Description:** Hunts for TLS connections using a certificate serial number associated with a Mythic C2 server observed during active exploitation of Cisco Catalyst SD-WAN Manager vulnerabilities (CVE-2026-20122, CVE-2026-20128, CVE-2026-20133). Multiple threat clusters, including the suspected state-nexus actor UAT-8616, exploited these vulnerabilities beginning in early March 2026 following publication of proof-of-concept code. Post-exploitation activity included deployment of Mythic C2, Sliver, and AdaptixC2 implants. The Mythic C2 instance used a static TLS certificate with a known serial number, making it a high-fidelity, low-FP indicator that does not rely on IP addresses and remains valid until the attacker rotates the certificate.
+- **Description:** Hunts for TLS connections using a certificate serial number associated with a Mythic C2 server observed during active
+exploitation of Cisco Catalyst SD-WAN Manager vulnerabilities (CVE-2026-20122, CVE-2026-20128, CVE-2026-20133).
+Multiple threat clusters, including the suspected state-nexus actor UAT-8616, exploited these vulnerabilities beginning
+in early March 2026 following publication of proof-of-concept code. Post-exploitation activity included deployment of
+Mythic C2, Sliver, and AdaptixC2 implants. The Mythic C2 instance used a static TLS certificate with a known serial
+number, making it a high-fidelity, low-FP indicator that does not rely on IP addresses and remains valid until the
+attacker rotates the certificate.
 
 - **UUID:** `d15e4732-114b-40fe-bb9c-8fb37e3c94bb`
 - **Integration:** [network_traffic](https://docs.elastic.co/integrations/network_traffic)
