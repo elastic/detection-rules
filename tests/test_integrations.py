@@ -10,6 +10,7 @@ import unittest.mock
 
 from semver import Version
 
+from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
     _find_least_compatible_for_stack,
@@ -228,10 +229,15 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         integration = "new_ds"
         older_version = "1.0.0"
         newer_version = "1.1.0"
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        required_patch = current_version.patch + 1
         manifests = {
             package: {
-                older_version: _manifest("^9.0.0"),
-                newer_version: _manifest("~9.2.1 || ^9.3.0"),
+                older_version: _manifest(f"^{current_version.major}.0.0"),
+                newer_version: _manifest(
+                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
+                    f"^{current_version.major}.{current_version.minor + 1}.0"
+                ),
             }
         }
         schemas = {
@@ -240,13 +246,17 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         }
 
         with unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests):
-            patch_floor = find_latest_integration_patch_for_minor({package}, 9, 2)
-        self.assertGreater(patch_floor, 0)
+            patch_floor = find_latest_integration_patch_for_minor(
+                {package},
+                current_version.major,
+                current_version.minor,
+            )
+        self.assertGreater(patch_floor, current_version.patch)
 
         version, _ = find_latest_compatible_version(
             package,
             integration,
-            Version(9, 2, patch_floor),
+            Version(current_version.major, current_version.minor, patch_floor),
             manifests,
             package_schemas=schemas,
         )
@@ -256,7 +266,7 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
             find_latest_compatible_version(
                 package,
                 integration,
-                Version(9, 2, 0),
+                current_version,
                 manifests,
                 package_schemas=schemas,
             )
@@ -266,10 +276,15 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         package = "pkg"
         integration = "new_ds"
         field_name = "pkg.new_ds.some_field"
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        required_patch = current_version.patch + 1
         manifests = {
             package: {
-                "1.0.0": _manifest("^9.0.0"),
-                "1.1.0": _manifest("~9.2.1 || ^9.3.0"),
+                "1.0.0": _manifest(f"^{current_version.major}.0.0"),
+                "1.1.0": _manifest(
+                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
+                    f"^{current_version.major}.{current_version.minor + 1}.0"
+                ),
             }
         }
         schemas = {
@@ -281,7 +296,6 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         validator = KQLValidator(f"data_stream.dataset:{package}.{integration} and {field_name}:*")
 
         with (
-            unittest.mock.patch("detection_rules.rule.load_current_package_version", return_value="9.2.0"),
             unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
             unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
             unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
