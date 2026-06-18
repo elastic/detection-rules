@@ -29,28 +29,22 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function High-Frequency Invocation by a Single Principal
 
-A principal issuing a high volume of direct Lambda invocations in a short window can indicate function abuse for
-resource hijacking or cryptomining, a denial-of-wallet cost attack, or behavioral enumeration. Because Lambda data
-events record only the invocation metadata (caller, function, source) and not the function's internal behavior, this
-rule is purely volumetric and should be treated as corroborating signal.
+A principal issuing a high volume of direct Lambda invocations in a short window can indicate function abuse for resource hijacking or cryptomining, a denial-of-wallet cost attack, or behavioral enumeration. Because Lambda data events record only the invocation metadata (caller, function, source) and not the function's internal behavior, this rule is purely volumetric and should be treated as corroborating signal.
 
 #### Possible investigation steps
 
-- Identify the principal in `aws.cloudtrail.user_identity.arn` and determine whether the volume exceeds its historical
-  baseline.
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and determine whether the volume exceeds its historical baseline.
 - Determine whether the principal is a known high-throughput application or automation identity, or an unexpected user.
 - Review `source.ip` / `user_agent.original` and recent credential activity for signs of compromise.
 - Correlate with billing/concurrency metrics and with other Lambda or IAM activity by the same principal.
 
 ### False positive analysis
 
-- High-throughput apps, batch processing, and load tests routinely exceed fixed thresholds. Tune the threshold and
-  exclude known high-volume identities after validation.
+- High-throughput apps, batch processing, and load tests routinely exceed fixed thresholds. Tune the threshold and exclude known high-volume identities after validation.
 
 ### Response and remediation
 
-- If abuse is confirmed, throttle or disable the affected functions (reserved concurrency), rotate or restrict the
-  principal's credentials, and review function code and execution-role permissions.
+- If abuse is confirmed, throttle or disable the affected functions (reserved concurrency), rotate or restrict the principal's credentials, and review function code and execution-role permissions.
 - Apply per-function reserved concurrency and account-level guardrails to bound cost and blast radius.
 
 ### Additional information
