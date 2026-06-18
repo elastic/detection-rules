@@ -32,34 +32,23 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function Invoked by an Unusual Principal
 
-Most Lambda invocations are driven by event sources (S3, EventBridge, SQS, API Gateway, etc.), which CloudTrail records
-with `aws.cloudtrail.user_identity.invoked_by` set to the calling service. A principal invoking a function **directly**
-(via the SDK, CLI, or console) is comparatively rare and, when it comes from an identity that does not normally do so,
-can indicate lateral movement, credential abuse, or data retrieval from a function. This rule uses a new terms approach
-to surface the first time a given principal directly invokes a function in an account within the prior 14 days.
+Most Lambda invocations are driven by event sources (S3, EventBridge, SQS, API Gateway, etc.), which CloudTrail records with `aws.cloudtrail.user_identity.invoked_by` set to the calling service. A principal invoking a function **directly** (via the SDK, CLI, or console) is comparatively rare and, when it comes from an identity that does not normally do so, can indicate lateral movement, credential abuse, or data retrieval from a function. This rule uses a new terms approach to surface the first time a given principal directly invokes a function in an account within the prior 14 days.
 
 #### Possible investigation steps
 
-- Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and
-  `aws.cloudtrail.user_identity.access_key_id` to identify the actor, and `source.ip` / `user_agent.original` to
-  determine how the call was made.
-- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and
-  sensitivity.
-- Determine whether the principal is expected to invoke functions directly and whether the activity aligns with an
-  approved operation, test, or deployment.
-- Correlate with recent activity by the same principal or access key, such as credential issuance, role assumption, or
-  other data-plane access, and check whether the credential was recently seen from an unusual source.
+- Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id` to identify the actor, and `source.ip` / `user_agent.original` to determine how the call was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and sensitivity.
+- Determine whether the principal is expected to invoke functions directly and whether the activity aligns with an approved operation, test, or deployment.
+- Correlate with recent activity by the same principal or access key, such as credential issuance, role assumption, or other data-plane access, and check whether the credential was recently seen from an unusual source.
 
 ### False positive analysis
 
-- Direct invocation is a normal operational and testing activity. Confirm whether the principal is a known operator or
-  automation identity and exclude it on `aws.cloudtrail.user_identity.arn` after validation.
+- Direct invocation is a normal operational and testing activity. Confirm whether the principal is a known operator or automation identity and exclude it on `aws.cloudtrail.user_identity.arn` after validation.
 
 ### Response and remediation
 
 - If the invocation is unauthorized, review what the function returns and accesses, and assess data exposure.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:InvokeFunction` to
-  the identities and services that require it.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:InvokeFunction` to the identities and services that require it.
 
 ### Additional information
 
