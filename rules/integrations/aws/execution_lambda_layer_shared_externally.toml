@@ -32,38 +32,27 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Layer Shared Externally
 
-AWS Lambda layers bundle code and dependencies that are loaded into the runtime of any function referencing them.
-`AddLayerVersionPermission` modifies a layer version's permission policy to allow another AWS account, an organization,
-or the public (`principal=*`) to use it. This can expose code or secrets contained in the layer and can act as a
-supply-chain vector for any function that consumes the layer.
+AWS Lambda layers bundle code and dependencies that are loaded into the runtime of any function referencing them. `AddLayerVersionPermission` modifies a layer version's permission policy to allow another AWS account, an organization, or the public (`principal=*`) to use it. This can expose code or secrets contained in the layer and can act as a supply-chain vector for any function that consumes the layer.
 
-This rule detects successful `AddLayerVersionPermission` calls. Public grants (`principal=*`) are the highest concern;
-specific cross-account grants should be validated against approved sharing.
+This rule detects successful `AddLayerVersionPermission` calls. Public grants (`principal=*`) are the highest concern; specific cross-account grants should be validated against approved sharing.
 
 #### Possible investigation steps
 
-- Inspect `aws.cloudtrail.request_parameters` for the `layerName`, version number, `action`, and the granted
-  `principal` (a specific account id, an organization id, or `*` for public).
-- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review
-  `source.ip` and `user_agent.original` to understand how the grant was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `layerName`, version number, `action`, and the granted `principal` (a specific account id, an organization id, or `*` for public).
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to understand how the grant was made.
 - Determine whether the layer contains sensitive code or secrets and whether external sharing was intended and approved.
 - Identify which functions reference the layer and whether the grant could influence their runtime.
-- Correlate with other activity by the same principal, such as layer publication (`PublishLayerVersion`) or function
-  changes.
+- Correlate with other activity by the same principal, such as layer publication (`PublishLayerVersion`) or function changes.
 
 ### False positive analysis
 
-- Shared utility layers distributed across an organization's accounts or to partners are a legitimate pattern. Confirm
-  the grant is approved and exclude known distribution accounts or layers on `aws.cloudtrail.user_identity.arn` or the
-  layer name after validation.
+- Shared utility layers distributed across an organization's accounts or to partners are a legitimate pattern. Confirm the grant is approved and exclude known distribution accounts or layers on `aws.cloudtrail.user_identity.arn` or the layer name after validation.
 
 ### Response and remediation
 
-- If the sharing is unauthorized, remove the layer permission (`RemoveLayerVersionPermission`) and rotate any secrets
-  that may have been exposed in the layer.
+- If the sharing is unauthorized, remove the layer permission (`RemoveLayerVersionPermission`) and rotate any secrets that may have been exposed in the layer.
 - Review which accounts accessed or copied the layer while the grant was in place and assess potential exposure.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain
-  `lambda:AddLayerVersionPermission` to a small set of trusted roles.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:AddLayerVersionPermission` to a small set of trusted roles.
 
 ### Additional information
 
