@@ -30,33 +30,23 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function Invoked from an Unusual Source ASN
 
-Lambda execution-role credentials and user credentials are frequently abused after theft (for example via SSRF or RCE
-against a function, or leaked access keys). When such credentials are replayed from attacker infrastructure, the
-resulting direct `Invoke` calls originate from a network the legitimate principal has not used. This rule uses a new
-terms approach over the source ASN organization and the principal, excluding common cloud provider networks, to surface
-invocation from unfamiliar external networks.
+Lambda execution-role credentials and user credentials are frequently abused after theft (for example via SSRF or RCE against a function, or leaked access keys). When such credentials are replayed from attacker infrastructure, the resulting direct `Invoke` calls originate from a network the legitimate principal has not used. This rule uses a new terms approach over the source ASN organization and the principal, excluding common cloud provider networks, to surface invocation from unfamiliar external networks.
 
 #### Possible investigation steps
 
-- Review `source.ip`, `source.as.organization.name`, and `source.geo` for the invoking network and determine whether it
-  is expected for the principal in `aws.cloudtrail.user_identity.arn`.
+- Review `source.ip`, `source.as.organization.name`, and `source.geo` for the invoking network and determine whether it is expected for the principal in `aws.cloudtrail.user_identity.arn`.
 - Inspect `aws.cloudtrail.request_parameters` for the `functionName` and `user_agent.original` for the client used.
-- Determine whether the credential (`aws.cloudtrail.user_identity.access_key_id`) was recently seen used elsewhere or
-  outside the Lambda runtime, which would corroborate credential theft.
-- Correlate with other activity by the same principal from the same network, including data-plane access, IAM, or STS
-  calls.
+- Determine whether the credential (`aws.cloudtrail.user_identity.access_key_id`) was recently seen used elsewhere or outside the Lambda runtime, which would corroborate credential theft.
+- Correlate with other activity by the same principal from the same network, including data-plane access, IAM, or STS calls.
 
 ### False positive analysis
 
-- New legitimate networks (offices, VPNs, home IPs, new egress) will generate this alert. Confirm the principal and
-  network are expected and exclude known operator networks or identities after validation.
+- New legitimate networks (offices, VPNs, home IPs, new egress) will generate this alert. Confirm the principal and network are expected and exclude known operator networks or identities after validation.
 
 ### Response and remediation
 
-- If credential abuse is confirmed, rotate or revoke the affected credentials and execution-role permissions, and review
-  what the invoked function accessed or returned.
-- Constrain `lambda:InvokeFunction` to expected identities and, where possible, restrict invocation to known networks
-  using IAM conditions.
+- If credential abuse is confirmed, rotate or revoke the affected credentials and execution-role permissions, and review what the invoked function accessed or returned.
+- Constrain `lambda:InvokeFunction` to expected identities and, where possible, restrict invocation to known networks using IAM conditions.
 
 ### Additional information
 
