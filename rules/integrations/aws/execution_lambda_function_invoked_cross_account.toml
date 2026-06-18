@@ -30,30 +30,22 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function Invoked Cross-Account
 
-A Lambda function invoked by a principal from a different AWS account indicates cross-account invocation - the data-plane
-realization of a cross-account resource-policy grant. CloudTrail data events record the invoking principal's ARN (which
-contains the caller's account) and the function's owning account. When these differ, an external account executed the
-function. This can be a legitimate multi-account integration or an adversary using granted or attacker-controlled
-cross-account access.
+A Lambda function invoked by a principal from a different AWS account indicates cross-account invocation - the data-plane realization of a cross-account resource-policy grant. CloudTrail data events record the invoking principal's ARN (which contains the caller's account) and the function's owning account. When these differ, an external account executed the function. This can be a legitimate multi-account integration or an adversary using granted or attacker-controlled cross-account access.
 
 #### Possible investigation steps
 
-- Review `Esql.caller_account` (the invoking principal's account) versus `Esql.function_account` (the invoked
-  function's owning account) and confirm whether the caller account is a known, trusted account.
+- Review `Esql.caller_account` (the invoking principal's account) versus `Esql.function_account` (the invoked function's owning account) and confirm whether the caller account is a known, trusted account.
 - Identify the principal in `aws.cloudtrail.user_identity.arn` and the functions invoked (`Esql.functions`).
-- Determine whether a corresponding `AddPermission` cross-account grant exists for the function and whether it was
-  expected (correlate with the cross-account resource-policy rule).
+- Determine whether a corresponding `AddPermission` cross-account grant exists for the function and whether it was expected (correlate with the cross-account resource-policy rule).
 - Review `Esql.source_ips` and recent activity from the caller account for other cross-account actions.
 
 ### False positive analysis
 
-- Cross-account invocation is common in multi-account architectures and partner integrations. Confirm the caller account
-  is approved and exclude known trusted accounts or identities after validation.
+- Cross-account invocation is common in multi-account architectures and partner integrations. Confirm the caller account is approved and exclude known trusted accounts or identities after validation.
 
 ### Response and remediation
 
-- If the cross-account access is unauthorized, remove the function's cross-account resource-policy statement
-  (`RemovePermission`) and review what the function accessed or returned.
+- If the cross-account access is unauthorized, remove the function's cross-account resource-policy statement (`RemovePermission`) and review what the function accessed or returned.
 - Constrain `lambda:InvokeFunction` grants to approved accounts and review the function's execution-role permissions.
 
 ### Additional information
