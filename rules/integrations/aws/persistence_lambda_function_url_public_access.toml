@@ -31,39 +31,27 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function URL Created with Public Access
 
-A Lambda function URL is a dedicated HTTPS endpoint for a function. When configured with `authType=NONE`, anyone on the
-internet can invoke the function without AWS authentication. Adversaries use this to create a public, persistent entry
-point for command and control, data exfiltration, or running attacker-controlled code without needing AWS credentials.
+A Lambda function URL is a dedicated HTTPS endpoint for a function. When configured with `authType=NONE`, anyone on the internet can invoke the function without AWS authentication. Adversaries use this to create a public, persistent entry point for command and control, data exfiltration, or running attacker-controlled code without needing AWS credentials.
 
-This rule detects successful `CreateFunctionUrlConfig` and `UpdateFunctionUrlConfig` calls where the auth type is set to
-NONE.
+This rule detects successful `CreateFunctionUrlConfig` and `UpdateFunctionUrlConfig` calls where the auth type is set to NONE.
 
 #### Possible investigation steps
 
-- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review
-  `source.ip` and `user_agent.original` to determine how the change was made.
-- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and the auth type, and review
-  `aws.cloudtrail.response_elements` for the resulting `functionUrl`.
-- Determine whether the function is intended to be public and whether the owning team requested an unauthenticated
-  endpoint.
-- Review the function's code, execution role, and recent changes (`UpdateFunctionCode`, `UpdateFunctionConfiguration`,
-  `AddPermission`) for signs of tampering.
-- Correlate with other activity by the same principal, and check the function's invocation and access logs for traffic
-  from unexpected sources after the URL was exposed.
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine how the change was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and the auth type, and review `aws.cloudtrail.response_elements` for the resulting `functionUrl`.
+- Determine whether the function is intended to be public and whether the owning team requested an unauthenticated endpoint.
+- Review the function's code, execution role, and recent changes (`UpdateFunctionCode`, `UpdateFunctionConfiguration`, `AddPermission`) for signs of tampering.
+- Correlate with other activity by the same principal, and check the function's invocation and access logs for traffic from unexpected sources after the URL was exposed.
 
 ### False positive analysis
 
-- Public webhooks, simple APIs, and front-end integrations sometimes use unauthenticated function URLs intentionally.
-  Confirm the exposure is approved and exclude known public endpoints on `functionName` or
-  `aws.cloudtrail.user_identity.arn` after validation.
+- Public webhooks, simple APIs, and front-end integrations sometimes use unauthenticated function URLs intentionally. Confirm the exposure is approved and exclude known public endpoints on `functionName` or `aws.cloudtrail.user_identity.arn` after validation.
 
 ### Response and remediation
 
-- If the exposure is unauthorized, change the function URL auth type to `AWS_IAM` or delete the function URL
-  configuration, and review the function code and execution role for compromise.
+- If the exposure is unauthorized, change the function URL auth type to `AWS_IAM` or delete the function URL configuration, and review the function code and execution role for compromise.
 - Examine invocation logs for unauthenticated requests received while the URL was public and assess potential impact.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain
-  `lambda:CreateFunctionUrlConfig` and `lambda:UpdateFunctionUrlConfig` to trusted roles.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:CreateFunctionUrlConfig` and `lambda:UpdateFunctionUrlConfig` to trusted roles.
 
 ### Additional information
 
