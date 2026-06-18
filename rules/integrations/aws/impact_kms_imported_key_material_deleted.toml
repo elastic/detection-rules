@@ -33,42 +33,26 @@ note = """## Triage and analysis
 
 ### Investigating AWS KMS Imported Key Material Deleted
 
-AWS KMS keys can be created with an external key material origin (BYOK), where the customer imports the cryptographic
-material rather than having KMS generate it. "DeleteImportedKeyMaterial" removes that material, immediately transitioning
-the key to a "PendingImport" state where it can no longer encrypt or decrypt. All data protected by the key becomes
-inaccessible until the exact same material is re-imported. Unlike "ScheduleKeyDeletion", there is no pending window, so
-the impact is instant and, for an adversary who controls and withholds the original material, effectively irreversible.
+AWS KMS keys can be created with an external key material origin (BYOK), where the customer imports the cryptographic material rather than having KMS generate it. "DeleteImportedKeyMaterial" removes that material, immediately transitioning the key to a "PendingImport" state where it can no longer encrypt or decrypt. All data protected by the key becomes inaccessible until the exact same material is re-imported. Unlike "ScheduleKeyDeletion", there is no pending window, so the impact is instant and, for an adversary who controls and withholds the original material, effectively irreversible.
 
-Because this action only applies to external-origin keys and is uncommon in normal operations, it should be treated as a
-high-risk, destructive action when performed unexpectedly. Adversaries may delete imported key material to sabotage
-recovery, destroy data, or hold encrypted resources for ransom.
+Because this action only applies to external-origin keys and is uncommon in normal operations, it should be treated as a high-risk, destructive action when performed unexpectedly. Adversaries may delete imported key material to sabotage recovery, destroy data, or hold encrypted resources for ransom.
 
 ### Possible investigation steps
 
-- Identify the actor and authentication context in "aws.cloudtrail.user_identity.arn",
-  "aws.cloudtrail.user_identity.access_key_id", and "aws.cloudtrail.user_identity.type", and review "source.ip" and
-  "user_agent.original" to determine whether the action came from an expected network path or automation platform.
-- Identify the affected key from "aws.cloudtrail.resources.arn" or the "keyId" in "aws.cloudtrail.request_parameters",
-  and determine which services and data depend on it (S3, EBS, RDS, Secrets Manager, etc.).
-- Determine whether the same material was re-imported shortly after ("ImportKeyMaterial") or whether the key was left
-  unusable.
-- Correlate with surrounding activity by the same principal, such as KMS key policy changes, scheduled key deletions,
-  S3 or EBS destructive actions, or credential changes that may indicate a broader sabotage or ransom attempt.
+- Identify the actor and authentication context in "aws.cloudtrail.user_identity.arn", "aws.cloudtrail.user_identity.access_key_id", and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" to determine whether the action came from an expected network path or automation platform.
+- Identify the affected key from "aws.cloudtrail.resources.arn" or the "keyId" in "aws.cloudtrail.request_parameters", and determine which services and data depend on it (S3, EBS, RDS, Secrets Manager, etc.).
+- Determine whether the same material was re-imported shortly after ("ImportKeyMaterial") or whether the key was left unusable.
+- Correlate with surrounding activity by the same principal, such as KMS key policy changes, scheduled key deletions, S3 or EBS destructive actions, or credential changes that may indicate a broader sabotage or ransom attempt.
 
 ### False positive analysis
 
-- Organizations with BYOK/HYOK requirements may delete and re-import key material during planned rotation, migration, or
-  decommissioning. Confirm the change is expected and exclude known administration roles or automation on
-  "aws.cloudtrail.user_identity.arn" after validation.
+- Organizations with BYOK/HYOK requirements may delete and re-import key material during planned rotation, migration, or decommissioning. Confirm the change is expected and exclude known administration roles or automation on "aws.cloudtrail.user_identity.arn" after validation.
 
 ### Response and remediation
 
-- If the deletion is unauthorized, re-import the original key material if it is securely retained, and restore access to
-  affected services.
-- Treat any encrypted data whose key material cannot be re-imported as potentially unrecoverable, and engage incident
-  response and data owners to assess impact.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain
-  "kms:DeleteImportedKeyMaterial" and "kms:ImportKeyMaterial" to a small set of trusted administrators.
+- If the deletion is unauthorized, re-import the original key material if it is securely retained, and restore access to affected services.
+- Treat any encrypted data whose key material cannot be re-imported as potentially unrecoverable, and engage incident response and data owners to assess impact.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain "kms:DeleteImportedKeyMaterial" and "kms:ImportKeyMaterial" to a small set of trusted administrators.
 - Use AWS Organizations SCPs to limit who can manage imported key material in production accounts.
 
 ### Additional information
