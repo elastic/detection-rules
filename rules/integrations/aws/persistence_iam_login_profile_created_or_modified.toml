@@ -32,42 +32,26 @@ note = """## Triage and analysis
 
 ### Investigating AWS IAM Login Profile Created or Modified for an IAM User
 
-A login profile enables password-based AWS console access for an IAM user. "CreateLoginProfile" adds a console password
-to a user that did not have one, and "UpdateLoginProfile" changes the password of an existing profile. An adversary
-operating with stolen programmatic credentials can use "CreateLoginProfile" to establish persistent interactive access,
-or "UpdateLoginProfile" to reset a privileged user's password and hijack the account, retaining access even if the
-compromised access keys are later disabled.
+A login profile enables password-based AWS console access for an IAM user. "CreateLoginProfile" adds a console password to a user that did not have one, and "UpdateLoginProfile" changes the password of an existing profile. An adversary operating with stolen programmatic credentials can use "CreateLoginProfile" to establish persistent interactive access, or "UpdateLoginProfile" to reset a privileged user's password and hijack the account, retaining access even if the compromised access keys are later disabled.
 
-Because IAM-user console access is commonly provisioned through federation or IAM Identity Center rather than these APIs
-directly, unexpected use is a meaningful signal. Note that a user changing their own password uses ChangePassword, not
-UpdateLoginProfile, so UpdateLoginProfile typically reflects an administrative (or adversarial) reset of another user.
+Because IAM-user console access is commonly provisioned through federation or IAM Identity Center rather than these APIs directly, unexpected use is a meaningful signal. Note that a user changing their own password uses ChangePassword, not UpdateLoginProfile, so UpdateLoginProfile typically reflects an administrative (or adversarial) reset of another user.
 
 ### Possible investigation steps
 
-- Identify the actor in "aws.cloudtrail.user_identity.arn", "aws.cloudtrail.user_identity.type", and
-  "aws.cloudtrail.user_identity.session_context.session_issuer.arn", and review "source.ip", "source.as.organization.name",
-  and "user_agent.original" to determine whether the action came from an expected network path or automation platform.
-- Identify the target user in "aws.cloudtrail.request_parameters" and determine whether that user normally has console
-  access and how privileged it is.
-- Check "aws.cloudtrail.request_parameters" for "passwordResetRequired"; a value of false (or omitted) may indicate the
-  actor set a password they intend to reuse.
-- Correlate with surrounding activity by the same principal, such as CreateAccessKey, AttachUserPolicy, PutUserPolicy,
-  virtual MFA registration, or a subsequent ConsoleLogin for the target user, which may indicate persistence or account
-  takeover.
+- Identify the actor in "aws.cloudtrail.user_identity.arn", "aws.cloudtrail.user_identity.type", and "aws.cloudtrail.user_identity.session_context.session_issuer.arn", and review "source.ip", "source.as.organization.name", and "user_agent.original" to determine whether the action came from an expected network path or automation platform.
+- Identify the target user in "aws.cloudtrail.request_parameters" and determine whether that user normally has console access and how privileged it is.
+- Check "aws.cloudtrail.request_parameters" for "passwordResetRequired"; a value of false (or omitted) may indicate the actor set a password they intend to reuse.
+- Correlate with surrounding activity by the same principal, such as CreateAccessKey, AttachUserPolicy, PutUserPolicy, virtual MFA registration, or a subsequent ConsoleLogin for the target user, which may indicate persistence or account takeover.
 
 ### False positive analysis
 
-- Onboarding, password resets, and break-glass procedures legitimately use these APIs. Confirm the change is expected and
-  exclude known administration roles or provisioning automation on "aws.cloudtrail.user_identity.arn" after validation.
+- Onboarding, password resets, and break-glass procedures legitimately use these APIs. Confirm the change is expected and exclude known administration roles or provisioning automation on "aws.cloudtrail.user_identity.arn" after validation.
 
 ### Response and remediation
 
-- If the change is unauthorized, delete the login profile or reset the affected user's password, and revoke active
-  console sessions for that user.
-- Rotate or restrict credentials for the acting principal if compromise is suspected, and review any IAM permission
-  changes or access keys created by the same session.
-- Restrict "iam:CreateLoginProfile" and "iam:UpdateLoginProfile" to a small set of trusted administrators, and prefer
-  federation or IAM Identity Center for console access.
+- If the change is unauthorized, delete the login profile or reset the affected user's password, and revoke active console sessions for that user.
+- Rotate or restrict credentials for the acting principal if compromise is suspected, and review any IAM permission changes or access keys created by the same session.
+- Restrict "iam:CreateLoginProfile" and "iam:UpdateLoginProfile" to a small set of trusted administrators, and prefer federation or IAM Identity Center for console access.
 
 ### Additional information
 
