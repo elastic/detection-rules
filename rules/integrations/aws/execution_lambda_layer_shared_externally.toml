@@ -25,7 +25,7 @@ false_positives = [
 from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
 interval = "5m"
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Lambda Layer Shared Externally"
 note = """## Triage and analysis
@@ -87,13 +87,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "query"
 
 query = '''
-any where data_stream.dataset == "aws.cloudtrail"
-    and event.provider == "lambda.amazonaws.com"
-    and event.outcome == "success"
-    and event.action : "AddLayerVersionPermission*"
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: AddLayerVersionPermission*
+    and event.outcome: "success"
 '''
 
 
