@@ -31,39 +31,27 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function Deletion
 
-Deleting an AWS Lambda function removes its code, configuration, published versions, and aliases. This can be a
-destructive action that disrupts serverless workloads and automation, or a cleanup step an adversary uses to remove a
-backdoor function and erase evidence after their objective is met.
+Deleting an AWS Lambda function removes its code, configuration, published versions, and aliases. This can be a destructive action that disrupts serverless workloads and automation, or a cleanup step an adversary uses to remove a backdoor function and erase evidence after their objective is met.
 
-This rule detects successful `DeleteFunction` calls. Investigate whether the principal and the deleted function are
-expected, and whether the deletion correlates with other suspicious activity.
+This rule detects successful `DeleteFunction` calls. Investigate whether the principal and the deleted function are expected, and whether the deletion correlates with other suspicious activity.
 
 #### Possible investigation steps
 
-- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review
-  `source.ip` and `user_agent.original` to determine how the deletion was performed (console, CLI, SDK, automation).
-- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and
-  environment (prod, staging, dev).
-- Determine whether the deletion aligns with an approved change, decommissioning, or infrastructure-as-code destroy
-  operation by comparing `@timestamp` against deployment and change-management records.
-- Correlate with recent activity by the same principal or access key, such as `CreateFunction`, `UpdateFunctionCode`,
-  `AddPermission`, `CreateEventSourceMapping`, log-group deletions, or other destructive or evasive actions.
-- Verify whether multiple functions were deleted in a short window, which may indicate broad disruption rather than a
-  single planned change.
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine how the deletion was performed (console, CLI, SDK, automation).
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and environment (prod, staging, dev).
+- Determine whether the deletion aligns with an approved change, decommissioning, or infrastructure-as-code destroy operation by comparing `@timestamp` against deployment and change-management records.
+- Correlate with recent activity by the same principal or access key, such as `CreateFunction`, `UpdateFunctionCode`, `AddPermission`, `CreateEventSourceMapping`, log-group deletions, or other destructive or evasive actions.
+- Verify whether multiple functions were deleted in a short window, which may indicate broad disruption rather than a single planned change.
 
 ### False positive analysis
 
-- Function deletions are common during decommissioning and infrastructure-as-code apply/destroy cycles. Deletions by
-  approved deployment roles, CI/CD pipelines, or platform automation are expected. Tune on
-  `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
+- Function deletions are common during decommissioning and infrastructure-as-code apply/destroy cycles. Deletions by approved deployment roles, CI/CD pipelines, or platform automation are expected. Tune on `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
 
 ### Response and remediation
 
-- If the deletion is unauthorized, restore the function from source control or an infrastructure-as-code definition and
-  confirm its code, configuration, and execution role match a known-good state.
+- If the deletion is unauthorized, restore the function from source control or an infrastructure-as-code definition and confirm its code, configuration, and execution role match a known-good state.
 - Review CloudTrail for related destructive or evasive actions by the same actor and assess operational impact.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:DeleteFunction` to a
-  small set of trusted roles.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:DeleteFunction` to a small set of trusted roles.
 
 ### Additional information
 
