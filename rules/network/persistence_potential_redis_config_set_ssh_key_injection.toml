@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/06/11"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects attempts to abuse Redis CONFIG SET commands to inject SSH authorized keys on Linux hosts.
+Attackers targeting unauthenticated Redis instances issue CONFIG SET dir to an SSH directory such as
+/root/.ssh, set the filename to authorized_keys via CONFIG SET dbfilename, write an attacker-controlled
+public key via SET, and call BGSAVE to flush it to disk, establishing persistent SSH access as root.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.redis*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Redis CONFIG SET SSH Authorized Key Injection"
+note = """## Triage and analysis
+
+### Investigating Potential Redis CONFIG SET SSH Authorized Key Injection
+
+Redis's CONFIG SET command allows runtime reconfiguration of the server, including the working directory (`dir`) and database filename (`dbfilename`). Attackers targeting unauthenticated Redis instances exploit this to redirect BGSAVE output into `/root/.ssh/authorized_keys`, injecting their own SSH public key and establishing persistent root shell access without credentials.
+
+The full attack chain is:
+1. `CONFIG SET dir /root/.ssh` — redirects the save path to the SSH directory
+2. `CONFIG SET dbfilename authorized_keys` — sets the output filename
+3. `SET key "\n\nssh-rsa ATTACKER_KEY\n\n"` — writes the public key with surrounding newlines
+4. `BGSAVE` — flushes the in-memory dataset (including the injected key) to disk
+
+A related variant targets cron persistence (`CONFIG SET dir /etc/cron.d`) for cryptominer deployment, as used by the RedisRaider campaign.
+
+### Possible investigation steps
+
+- Identify the source IP and determine whether it is an expected Redis client or an external/unknown address. Any external IP issuing CONFIG SET to an SSH directory should be treated as malicious.
+- Check whether the destination Redis instance requires authentication (`requirepass` or ACL). Unauthenticated instances are the prerequisite for this attack.
+- Review subsequent Redis commands from the same source IP for `SET` (key write) and `BGSAVE` (flush to disk), which complete the injection chain.
+- Examine `/root/.ssh/authorized_keys` and other user SSH directories on the Redis host for unexpected or recently modified entries at or after the alert time.
+- Check SSH login events on the Redis host for successful logins from unknown keys or source IPs shortly after the alert.
+- Review outbound connections from the Redis host for lateral movement or C2 activity following a successful key injection.
+
+### False positive analysis
+
+- `CONFIG SET dir` is a legitimate administrative command, but pointing it to any `/.ssh` directory has no legitimate use case. A match on this pattern has an extremely low false positive rate.
+- `CONFIG SET dbfilename authorized_keys` has no legitimate operational use. Any match should be investigated immediately.
+- Automated deployment tooling (Ansible, Chef, Puppet) will never target SSH directories via Redis CONFIG SET — this combination is exclusively malicious.
+
+### Response and remediation
+
+- Immediately inspect `/root/.ssh/authorized_keys` and all user `~/.ssh/authorized_keys` files on the Redis host for unauthorized entries and remove them.
+- Rotate SSH host keys and audit all active SSH sessions on the affected host.
+- Require authentication on all Redis instances (`requirepass` or ACL). Unauthenticated Redis reachable from any network is the root cause.
+- Restrict `CONFIG SET` permissions using Redis ACLs: `ACL SETUSER <user> -config`.
+- Block inbound access to Redis port 6379 from untrusted networks at the host firewall or perimeter.
+- Consider enabling Redis's protected mode, which rejects connections from non-loopback addresses when no authentication is configured.
+"""
+references = [
+    "https://redis.io/docs/latest/operate/oss_and_stack/management/security/",
+    "https://attack.mitre.org/techniques/T1098/004/",
+    "https://attack.mitre.org/techniques/T1190/",
+]
+risk_score = 73
+rule_id = "39ab0f66-efa0-4649-9c9c-8c64682f5fdd"
+setup = """## Setup
+
+This rule requires the Elastic **network_traffic** integration (Packetbeat via Elastic Agent) with the Redis
+protocol module enabled.
+
+### Enabling the Redis module
+
+In the Elastic Agent `network_traffic` integration policy:
+1. Add or confirm **Redis** in the protocols list with `enabled: true`.
+2. Set **ports** to include `6379` (or the custom port your Redis instances listen on).
+3. Deploy the sensor on the Redis host, on a SPAN/mirror port, or on a gateway that receives Redis traffic.
+
+### TLS limitation
+
+This rule requires unencrypted Redis traffic. Redis uses plaintext by default (port 6379). If TLS is configured,
+Packetbeat cannot inspect the payload without TLS decryption.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where data_stream.dataset == "network_traffic.redis" and
+  (
+    (
+      network_traffic.redis.query like~ "*CONFIG SET dir*" and
+      network_traffic.redis.query like~ "*/.ssh*"
+    ) or
+    (
+      network_traffic.redis.query like~ "*CONFIG SET dbfilename*" and
+      network_traffic.redis.query like~ "*authorized_keys*"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
