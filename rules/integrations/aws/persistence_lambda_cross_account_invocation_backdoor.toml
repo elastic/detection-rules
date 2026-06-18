@@ -33,38 +33,27 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Function Policy Updated to Allow Cross-Account Invocation
 
-AWS Lambda resource policies control which principals may invoke a function. `AddPermission` granting
-`lambda:InvokeFunction` to a principal in another AWS account creates a cross-account invocation path. Adversaries use
-this to maintain execution access or to relay function output to infrastructure they control, without changing the
-function code that defenders typically scrutinize.
+AWS Lambda resource policies control which principals may invoke a function. `AddPermission` granting `lambda:InvokeFunction` to a principal in another AWS account creates a cross-account invocation path. Adversaries use this to maintain execution access or to relay function output to infrastructure they control, without changing the function code that defenders typically scrutinize.
 
-This rule detects grants of invoke permission to a specific external account, excluding public grants (handled by the
-related public-invocation rule) and AWS service principals used for normal event triggers.
+This rule detects grants of invoke permission to a specific external account, excluding public grants (handled by the related public-invocation rule) and AWS service principals used for normal event triggers.
 
 #### Possible investigation steps
 
-- Inspect `aws.cloudtrail.request_parameters` for the `functionName`, the `action` granted, and the `principal` account
-  id receiving access; confirm whether that account is known and trusted.
-- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review
-  `source.ip` and `user_agent.original` to understand how the change was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName`, the `action` granted, and the `principal` account id receiving access; confirm whether that account is known and trusted.
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to understand how the change was made.
 - Determine whether the function processes or has access to sensitive data that the external account could now reach.
-- Correlate with other activity by the same principal, including function code or configuration changes and additional
-  policy modifications.
+- Correlate with other activity by the same principal, including function code or configuration changes and additional policy modifications.
 - Verify whether the cross-account grant aligns with an approved integration or change request.
 
 ### False positive analysis
 
-- Multi-account architectures and partner integrations legitimately grant cross-account invoke permissions. Confirm the
-  grant is approved and exclude known trusted account ids or service roles on `aws.cloudtrail.user_identity.arn` after
-  validation.
+- Multi-account architectures and partner integrations legitimately grant cross-account invoke permissions. Confirm the grant is approved and exclude known trusted account ids or service roles on `aws.cloudtrail.user_identity.arn` after validation.
 
 ### Response and remediation
 
-- If the grant is unauthorized, remove the statement from the function's resource policy (`RemovePermission`) and review
-  the function's code, configuration, and execution role.
+- If the grant is unauthorized, remove the statement from the function's resource policy (`RemovePermission`) and review the function's code, configuration, and execution role.
 - Determine whether the external account invoked the function while the grant was in place and assess data exposure.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:AddPermission` to a
-  small set of trusted roles.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:AddPermission` to a small set of trusted roles.
 
 ### Additional information
 
