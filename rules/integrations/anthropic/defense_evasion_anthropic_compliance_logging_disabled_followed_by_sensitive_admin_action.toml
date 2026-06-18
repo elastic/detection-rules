@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Disabling compliance API logging reduces visibility into subsequent administrative activity in `logs-anthropic.audit-*`.
+An adversary may disable logging and immediately create API keys or start exports before defenders can correlate the
+control change with data collection. This sequence identifies that blind-then-act pattern within a single organization.
+"""
+false_positives = [
+    """
+    Integration testing may temporarily disable compliance logging while validating Fleet connectivity, then create keys
+    or run test exports. Validate the actor and change ticket before escalating.
+    """,
+]
+from = "now-24h"
+index = ["logs-anthropic.audit-*"]
+interval = "12h"
+language = "eql"
+license = "Elastic License v2"
+name = "Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action
+
+This rule correlates compliance API logging disablement with high-risk follow-on activity in the same organization
+within 24 hours. The sequence keys on `organization.id` only — the disable and follow-on events may involve different
+actors. The follow-on event may be the last activity visible in this data source if logging remains disabled.
+
+#### Possible investigation steps
+
+- Review both events in the alert timeline. For each, check `anthropic.audit.actor.type`, `user.email`, `source.ip`,
+  and `user_agent.original`. When the actor is `admin_api_key_actor`, pivot on `anthropic.audit.actor.admin_api_key_id`.
+- Determine whether logging was re-enabled and whether intermediate activity is missing from `logs-anthropic.audit-*`.
+- Inspect the follow-on `event.action`. This rule matches:
+  - `admin_api_key_created` — programmatic admin access.
+  - `api_key_created` — review `anthropic.audit.scopes` for compliance read permissions.
+  - `org_data_export_started`, `org_data_export_accessed` — organization content export lifecycle.
+  - `audit_log_export_started`, `audit_log_export_accessed` — audit telemetry export lifecycle.
+- Search the same `organization.id` for SSO changes, role grants, primary owner transfers, or IP restriction changes
+  that may have occurred during the blind window but are absent from this index.
+- Correlate with the standalone **Anthropic Compliance API Logging Disabled** rule if only the first event fired.
+
+### False positive analysis
+
+- Planned Fleet onboarding may disable logging briefly, create credentials, and start or download validation exports.
+
+### Response and remediation
+
+- Re-enable compliance API logging immediately and preserve any locally cached audit data from the blind window.
+- Revoke unauthorized keys and review export download activity during the exposure period.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1562/008/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 99
+rule_id = "07f7966d-37f8-4b1c-805e-943b050727c9"
+severity = "critical"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by organization.id with maxspan=24h
+  [configuration where data_stream.dataset == "anthropic.audit" and
+      event.action == "org_compliance_api_settings_updated" and
+      anthropic.audit.compliance_api_logging_enabled == false]
+  [any where data_stream.dataset == "anthropic.audit" and event.action in (
+      "admin_api_key_created",
+      "api_key_created",
+      "org_data_export_started",
+      "audit_log_export_started",
+      "org_data_export_accessed",
+      "audit_log_export_accessed"
+  )]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.compliance_api_logging_enabled",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+    "anthropic.audit.scopes",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

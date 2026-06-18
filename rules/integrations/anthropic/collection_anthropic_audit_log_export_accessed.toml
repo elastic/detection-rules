@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Accessing a compliance audit log export archive confirms the actor downloaded anthropic.audit activity for review or
+exfiltration. Adversaries may retrieve audit exports to understand defender visibility, identify detection gaps, or
+remove telemetry evidence before making other control-plane changes.
+"""
+false_positives = [
+    """
+    Security and compliance teams download audit log exports for investigations, regulatory requests, or SIEM
+    validation. Validate the actor and whether the activity aligns with an approved ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Compliance Audit Log Export Accessed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance Audit Log Export Accessed
+
+This event confirms the audit export archive was accessed or downloaded. Adversaries may download audit exports to
+map defender visibility, identify detection gaps, or stage evidence removal before other control-plane changes.
+Correlate with `audit_log_export_started` for the same `organization.id`.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
+  The export window shows which administrative activity the actor reviewed.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for a preceding `audit_log_export_started` event and whether the export window covers recent IAM or logging
+  changes.
+- Determine whether the download preceded compliance logging disablement, SSO changes, or data exports — a common
+  reconnaissance pattern before further intrusion.
+- Correlate with compliance logging changes, admin role grants, or data exports in the same period.
+
+### False positive analysis
+
+- Planned audit exports for compliance reviews or SIEM onboarding are expected in some environments.
+
+### Response and remediation
+
+- If unauthorized, revoke access for the actor and determine whether the exported audit data left the organization.
+- Review whether compliance API logging was disabled or modified around the same time.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://attack.mitre.org/techniques/T1562/008/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "754f378f-5828-4ab7-ba3c-01ad4365b474"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "file" and
+    event.action: "audit_log_export_accessed"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.from_date",
+    "anthropic.audit.to_date",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

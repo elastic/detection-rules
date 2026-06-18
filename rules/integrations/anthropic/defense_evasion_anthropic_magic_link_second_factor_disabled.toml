@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Magic link second factor adds an additional authentication step for passwordless sign-in to Anthropic. An adversary with
+administrative access may disable this control so magic link logins no longer require the second factor, making it
+easier to use stolen or attacker-controlled email accounts for interactive access. This is commonly paired with SSO
+weakening when the attacker needs a fallback authentication path outside the corporate IdP.
+"""
+false_positives = [
+    """
+    Administrators may disable magic link second factor during authentication policy changes or troubleshooting. Verify
+    the actor and whether the setting was re-enabled or replaced with an equivalent control.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Magic Link Second Factor Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Magic Link Second Factor Disabled
+
+Disabling magic link second factor reduces authentication assurance for users who sign in through magic links. Review
+this alongside other identity control changes in the same period. The query matches the post-change state where
+`anthropic.audit.enabled` is false.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.enabled`, `anthropic.audit.actor.type`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Search for related SSO deactivation, admin role grants, or `magic_link_login_succeeded` activity for the organization.
+- Correlate with **Anthropic Magic Link Login After Second Factor Disabled** when a login follows within four hours.
+- Confirm with the identity team whether an authentication policy change was authorized.
+
+### False positive analysis
+
+- Planned authentication migrations may temporarily disable magic link second factor during testing.
+
+### Response and remediation
+
+- If unauthorized, re-enable magic link second factor and review recent magic link sign-ins.
+- Correlate with other weakened authentication settings in the same window.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1556/006/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "58ad16ae-4c96-424e-9cd2-c151ac79e8ea"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "org_magic_link_second_factor_toggled" and
+    anthropic.audit.enabled: false
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.enabled",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

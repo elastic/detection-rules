@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting a restriction
+widens where a compromised admin session or API key can be used, but the audit event may not include the deleted CIDR or
+restriction identifier. Treat this as an early signal and pivot to adjacent IP restriction create or update events for
+the same organization.
+"""
+false_positives = [
+    """
+    Network or security teams remove IP restrictions during office moves, VPN migrations, or policy redesigns. Validate
+    the actor and confirm replacement restrictions were applied if the control remains required.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Organization IP Restriction Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization IP Restriction Deleted
+
+IP restrictions are a network-layer guardrail for administrative access to Anthropic organization settings. Removing
+them expands where a compromised admin session or API key can be used, but the delete event may only identify the
+organization and actor type rather than the removed range.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.actor.type` and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- When the actor is `anthropic_actor`, pivot on `organization.id` for nearby `org_ip_restriction_created` or
+  `org_ip_restriction_updated` events to recover the restriction details.
+- Search for related `org_ip_restriction_created` or `org_ip_restriction_updated` events before or after the deletion.
+- Correlate with admin role grants, admin API key creation, SSO changes, or exports in the same window.
+- Confirm with the network or security team whether an IP allowlist change was planned.
+
+### False positive analysis
+
+- Planned migrations may require temporarily removing outdated IP restrictions before new ranges are applied.
+
+### Response and remediation
+
+- If unauthorized, restore the required IP restrictions and review administrative activity from non-corporate source IPs.
+- Rotate admin credentials and API keys used during the exposure window.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1562/007/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "ae472523-3854-4b2b-868d-a001c764a136"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "org_ip_restriction_deleted"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

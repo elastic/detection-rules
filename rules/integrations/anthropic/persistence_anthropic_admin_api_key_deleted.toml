@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/06/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/06/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Admin API keys grant programmatic access to organization and compliance APIs. An adversary may delete legitimate admin
+API keys to disrupt security monitoring, break integrations, or cover tracks after creating replacement credentials they
+control. Deletion without a nearby rotation event may indicate sabotage rather than routine key hygiene.
+"""
+false_positives = [
+    """
+    Platform and security teams delete admin API keys during scheduled rotation or decommissioning. Verify whether a
+    nearby `admin_api_key_created` event or approved change ticket explains the deletion.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic Admin API Key Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic Admin API Key Deleted
+
+Unexpected admin API key deletion can disrupt logging pipelines and administrative automation. Correlate with key
+creation, role grants, and logging changes in the same window.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.actor.type`, `anthropic.audit.admin_api_key_id`, and `organization.id`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id` and whether that key was
+  recently created.
+- Search for a nearby `admin_api_key_created` event to determine whether this is rotation or standalone deletion.
+- Determine whether deletion disrupted Fleet ingestion or other compliance logging integrations.
+- Correlate with compliance logging changes, exports, or SSO modifications in the same period.
+
+### False positive analysis
+
+- Key rotation commonly pairs deletion with creation by the same actor during maintenance windows.
+
+### Response and remediation
+
+- If unauthorized, restore required integrations with new keys and review other administrative changes by the actor.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1098/001/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "590b6961-e9d5-4ca9-ade0-978c1755a944"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "iam" and
+    event.action: "admin_api_key_deleted"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "anthropic.audit.admin_api_key_id",
+    "anthropic.audit.actor.admin_api_key_id",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
+
