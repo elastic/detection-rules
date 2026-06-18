@@ -30,36 +30,24 @@ note = """## Triage and analysis
 
 ### Investigating AWS IAM Inline Policy Added to a Group
 
-`PutGroupPolicy` embeds an inline permissions policy directly on an IAM group. Because the policy applies to all members
-of the group, it is an effective way to broadly grant permissions — and, for an adversary, to escalate privileges or
-persist while drawing less attention than attaching a well-known managed policy such as `AdministratorAccess`. Group
-inline policies are relatively rare, which makes their creation a useful signal.
+`PutGroupPolicy` embeds an inline permissions policy directly on an IAM group. Because the policy applies to all members of the group, it is an effective way to broadly grant permissions — and, for an adversary, to escalate privileges or persist while drawing less attention than attaching a well-known managed policy such as `AdministratorAccess`. Group inline policies are relatively rare, which makes their creation a useful signal.
 
 #### Possible investigation steps
 
-- Identify the actor in `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and
-  `aws.cloudtrail.user_identity.session_context.session_issuer.arn`, and review `source.ip` / `user_agent.original` to
-  determine how the change was made.
-- Inspect `aws.cloudtrail.request_parameters` for the targeted `groupName`, the `policyName`, and the
-  `policyDocument` to assess what permissions were granted (look for broad `Action`/`Resource` of `*`, IAM, or
-  data-access permissions).
-- Enumerate the group's current members to understand who immediately gains the new permissions, and whether the actor
-  is or could become a member.
+- Identify the actor in `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.session_context.session_issuer.arn`, and review `source.ip` / `user_agent.original` to determine how the change was made.
+- Inspect `aws.cloudtrail.request_parameters` for the targeted `groupName`, the `policyName`, and the `policyDocument` to assess what permissions were granted (look for broad `Action`/`Resource` of `*`, IAM, or data-access permissions).
+- Enumerate the group's current members to understand who immediately gains the new permissions, and whether the actor is or could become a member.
 - Confirm whether the change aligns with an approved access request, onboarding, or deployment.
-- Correlate with recent activity by the same principal, such as group creation, adding users to the group, or other IAM
-  modifications that may form an escalation chain.
+- Correlate with recent activity by the same principal, such as group creation, adding users to the group, or other IAM modifications that may form an escalation chain.
 
 ### False positive analysis
 
-- Approved access governance and infrastructure-as-code may add group inline policies. Confirm the change is expected
-  and exclude known administration roles or automation on `aws.cloudtrail.user_identity.arn` after validation.
+- Approved access governance and infrastructure-as-code may add group inline policies. Confirm the change is expected and exclude known administration roles or automation on `aws.cloudtrail.user_identity.arn` after validation.
 
 ### Response and remediation
 
-- If the change is unauthorized, remove the inline policy from the group (`DeleteGroupPolicy`) and review which members
-  used the granted permissions while it was in place.
-- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `iam:PutGroupPolicy` to a
-  small set of trusted administrators.
+- If the change is unauthorized, remove the inline policy from the group (`DeleteGroupPolicy`) and review which members used the granted permissions while it was in place.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `iam:PutGroupPolicy` to a small set of trusted administrators.
 
 ### Additional information
 
