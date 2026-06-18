@@ -305,6 +305,64 @@ class TestSchemas(unittest.TestCase):
         contents = build_rule(response_actions)
         self.assertEqual(contents.to_api_format()["response_actions"], response_actions)
 
+    def test_system_actions_no_frequency_injection(self) -> None:
+        """System actions (e.g. .cases, .workflows) must not get a frequency.throttle null injected."""
+        base_fields: dict[str, Any] = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-endpoint.events.*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "process.name:test.query",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+
+        def build_rule(actions: list[dict[str, Any]]) -> TOMLRuleContents:
+            """Helper function to build a TOMLRuleContents object with actions."""
+            metadata = {
+                "creation_date": "1970/01/01",
+                "updated_date": "1970/01/01",
+                "min_stack_version": load_current_package_version(),
+            }
+            data = base_fields.copy()
+            data["actions"] = actions
+            return TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+        # A standard connector action gets the frequency.throttle null injected,
+        # while system actions (.cases, .workflows) must be left untouched.
+        actions = [
+            {
+                "action_type_id": ".slack",
+                "id": "slack-connector-id",
+                "group": "default",
+                "params": {"message": "test"},
+            },
+            {
+                "action_type_id": ".cases",
+                "id": "system-connector-.cases",
+                "params": {"subAction": "run", "subActionParams": {"timeWindow": "7d"}},
+            },
+            {
+                "action_type_id": ".workflows",
+                "id": "system-connector-.workflows",
+                "params": {"subAction": "run", "subActionParams": {"workflowId": "abc123"}},
+            },
+        ]
+        api_actions = build_rule(actions).to_api_format()["actions"]
+        by_type = {action["action_type_id"]: action for action in api_actions}
+
+        # The standard connector should have the throttle null added.
+        self.assertIn("frequency", by_type[".slack"])
+        self.assertIsNone(by_type[".slack"]["frequency"]["throttle"])
+
+        # System actions should not have a frequency injected.
+        self.assertNotIn("frequency", by_type[".cases"])
+        self.assertNotIn("frequency", by_type[".workflows"])
+
 
 class TestVersionLockSchema(unittest.TestCase):
     """Test that the version lock has proper entries."""
@@ -363,6 +421,15 @@ class TestVersions(unittest.TestCase):
 
 class TestESQLValidation(unittest.TestCase):
     """Test ESQL rule validation"""
+
+    def setUp(self):
+        """Force local validation for these tests."""
+        # These cases exercise local AST/semantic validation (KEEP/METADATA checks). Routing them
+        # through remote validation is possible, but the explicit goal of these is to use local vs remote,
+        # so we patch the environment variable to force local validation regardless of other settings.
+        patcher = unittest.mock.patch.dict(os.environ, {"DR_REMOTE_ESQL_VALIDATION": ""})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_esql_data_validation(self):
         """Test ESQL rule data validation"""
