@@ -2,7 +2,7 @@
 creation_date = "2022/09/06"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
@@ -34,12 +34,13 @@ Disabling Bitlocker on an endpoint decrypts data at rest and makes it accessible
 
 This rule identifies a user with administrative privileges and access to the admin console, disabling BitLocker for Windows endpoints.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
+- Review `google_workspace.admin.org_unit.name`, `google_workspace.admin.setting.name`, and `google_workspace.admin.old_value` / `new_value` to confirm BitLocker was disabled and for which OU.
 - After identifying the user, verify if the user should have administrative privileges to disable BitLocker on Windows endpoints.
-- From the Google Workspace admin console, review `Reporting > Audit` and `Investigation > Device` logs, filtering on the user email identified from the alert.
-    - If a Google Workspace user logged into their account using a potentially compromised account, this will create an `Device sync event` event.
+- Review Admin and Device logs, filtering on the user email identified from the alert.
+- Confirm the policy change under `Devices` (Windows device management) or the relevant Chrome/Windows endpoint settings area for the affected OU.
 
 ### False positive analysis
 
@@ -93,10 +94,21 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING" and event.category:(iam or configuration)
+data_stream.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING"
     and google_workspace.admin.new_value:"Disabled" and google_workspace.admin.setting.name:BitLocker*
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.org_unit.name",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.old_value",
+    "google_workspace.admin.new_value",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
