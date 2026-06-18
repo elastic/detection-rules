@@ -33,41 +33,27 @@ note = """## Triage and analysis
 
 ### Investigating AWS Lambda Event Source Mapping Creation
 
-AWS Lambda event source mappings poll an event source (Amazon SQS, Kinesis or DynamoDB streams, Amazon MSK or
-self-managed Kafka, or Amazon MQ) and invoke a target function as records arrive. Creating a mapping is a low-frequency,
-high-impact configuration change: it can establish event-driven persistence and execution, or quietly relay sensitive
-records from a stream or queue into attacker-controlled code.
+AWS Lambda event source mappings poll an event source (Amazon SQS, Kinesis or DynamoDB streams, Amazon MSK or self-managed Kafka, or Amazon MQ) and invoke a target function as records arrive. Creating a mapping is a low-frequency, high-impact configuration change: it can establish event-driven persistence and execution, or quietly relay sensitive records from a stream or queue into attacker-controlled code.
 
-This rule detects successful `CreateEventSourceMapping` calls. Investigate whether the principal, the target function,
-and the event source are expected for the environment.
+This rule detects successful `CreateEventSourceMapping` calls. Investigate whether the principal, the target function, and the event source are expected for the environment.
 
 #### Possible investigation steps
 
-- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review
-  `source.ip` and `user_agent.original` to determine whether the call came from the console, CLI, SDK, or automation.
-- Inspect `aws.cloudtrail.request_parameters` for the `functionName`/`functionArn` and the `eventSourceArn` to identify
-  the target function and the source queue, stream, topic, or broker.
-- Determine whether the target function and the event source belong to the same application and account, and whether the
-  function code, role, and recent changes are trusted (correlate with `CreateFunction`, `UpdateFunctionCode`, and
-  `AddPermission`).
-- Review whether the event source contains sensitive data (for example a DynamoDB stream or SQS queue carrying business
-  records) that the mapping could be used to exfiltrate.
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine whether the call came from the console, CLI, SDK, or automation.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName`/`functionArn` and the `eventSourceArn` to identify the target function and the source queue, stream, topic, or broker.
+- Determine whether the target function and the event source belong to the same application and account, and whether the function code, role, and recent changes are trusted (correlate with `CreateFunction`, `UpdateFunctionCode`, and `AddPermission`).
+- Review whether the event source contains sensitive data (for example a DynamoDB stream or SQS queue carrying business records) that the mapping could be used to exfiltrate.
 - Pivot on the same principal and access key for other recent Lambda, IAM, or data-plane activity.
 
 ### False positive analysis
 
-- Event source mappings are a normal building block of serverless data pipelines and queue/stream consumers. Mappings
-  created by approved deployment roles, CI/CD pipelines, or application teams are expected. Tune on
-  `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
+- Event source mappings are a normal building block of serverless data pipelines and queue/stream consumers. Mappings created by approved deployment roles, CI/CD pipelines, or application teams are expected. Tune on `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
 
 ### Response and remediation
 
-- If the mapping is unauthorized, disable or delete it (`DeleteEventSourceMapping`) and review the target function's
-  code, configuration, and execution role.
-- Determine whether records were processed by the function while the mapping was active and assess potential data
-  exposure.
-- Rotate or restrict credentials for the principal that created the mapping if compromise is suspected, and constrain
-  `lambda:CreateEventSourceMapping` to a small set of trusted roles.
+- If the mapping is unauthorized, disable or delete it (`DeleteEventSourceMapping`) and review the target function's code, configuration, and execution role.
+- Determine whether records were processed by the function while the mapping was active and assess potential data exposure.
+- Rotate or restrict credentials for the principal that created the mapping if compromise is suspected, and constrain `lambda:CreateEventSourceMapping` to a small set of trusted roles.
 
 ### Additional information
 
