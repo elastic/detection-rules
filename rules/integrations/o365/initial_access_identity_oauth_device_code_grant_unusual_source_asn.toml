@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2026/06/01"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/06/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft 365 OAuth device code grant ("Cmsi:Cmsi") with application Microsoft Authentication Broker
+("29d9ed98-a469-4536-ade2-f981bc1d605e") for Microsoft Graph from a source ASN not previously observed for that user in
+a historical window. Phishing kits leveraging device code phishing complete the full login (password and MFA) at the
+genuine Microsoft endpoint and harvest the resulting token by polling, so MFA does not stop them and the authorization
+commonly originates from attacker-controlled residential proxy or hosting infrastructure rather than the user's normal
+network.
+"""
+false_positives = [
+    """
+    A user authenticating via the device code flow for the first time from a new but legitimate network, such as travel,
+    a new home or office ISP, a corporate VPN, or a mobile carrier. Device code authentication is expected when
+    enrolling or signing in on input-constrained devices (smart TVs, kiosks, IoT, conference room devices) and for some
+    CLI or headless developer workflows. Review the source ASN, geolocation, and the user's prior device code history to
+    confirm whether the origin is plausible before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Identity Device Code Grant with Unusual User and ASN"
+note = """## Triage and analysis
+
+### Investigating M365 Identity Device Code Grant with Unusual User and ASN
+
+This rule detects a user completing an OAuth device code grant (`Cmsi:Cmsi`) to the Microsoft Authentication Broker for Microsoft Graph from a source ASN not seen for that user within the rule's historical window (defined by the new terms history setting). A match means the user has not authenticated via this flow from that ASN during the lookback window, not necessarily that it has never happened. Device code phishing kits (for example Kali365, Storm-2372 tradecraft) drive the device code flow against the genuine Microsoft endpoint and poll the token endpoint in the background, so the victim satisfies MFA while the attacker harvests a fully MFA-satisfied token. The grant therefore frequently appears from residential proxy or hosting/datacenter infrastructure the user has not authenticated from during the window.
+
+### Possible investigation steps
+
+- Review `o365.audit.UserId` to identify the impacted account and confirm whether the user expected to perform a device code sign-in.
+- Inspect `source.as.number` and `source.as.organization.name` for the source ASN. Hosting, VPN, or datacenter providers (for example Tencent, Alibaba, DigitalOcean) are unusual for interactive user authentication.
+- Review `source.ip`, `source.geo.country_name`, and `source.geo.city_name` and compare with the user's normal sign-in locations.
+- Examine `o365.audit.DeviceProperties` and `user_agent.original` for non-managed devices and automation or headless-browser patterns.
+- Confirm `o365.audit.ApplicationId` is the Microsoft Authentication Broker (`29d9ed98-a469-4536-ade2-f981bc1d605e`) and `o365.audit.Target.ID` is Microsoft Graph (`00000003-0000-0000-c000-000000000000`).
+- Pivot to `azure.signinlogs` for the corresponding `deviceCode` sign-in, including `is_interactive`, conditional access decisions, and any concurrent non-interactive token-issuance legs from a different ASN (the kit's polling backend).
+- Pivot to `azure.graphactivitylogs` for follow-up Graph activity (`/me` recon, mailbox or file enumeration) from the same or related ASNs.
+- Check `azure.auditlogs` for subsequent device registration events on the user, which device code phishing kits use to establish Primary Refresh Token persistence.
+
+### False positive analysis
+
+- A legitimate first-time device code sign-in from a new ISP, mobile carrier, corporate VPN, or while traveling.
+- Provisioning of input-constrained devices (smart TVs, kiosks, IoT, conference room devices).
+- CLI or headless developer workflows that use the device code flow against the Authentication Broker.
+- If a source ASN is confirmed benign and recurring for the environment, suppress it via a rule exception rather than broadening the query.
+
+### Response and remediation
+
+- Contact the user to confirm whether they initiated the device code sign-in or may have entered a code presented on a phishing page.
+- If unauthorized, revoke all refresh tokens for the user and reset credentials to invalidate the harvested token.
+- Review and remove any unauthorized device registrations to cut off Primary Refresh Token persistence.
+- Review recent Microsoft Graph, Exchange, SharePoint, and Teams activity for the user for signs of recon or exfiltration.
+- Restrict device code authentication to only the users and applications that require it via Conditional Access authentication flow policies.
+- Educate users on device code phishing and the risk of entering codes presented by unsolicited documents or messages.
+"""
+references = [
+    "https://arcticwolf.com/resources/blog/token-bingo-dont-let-your-code-be-the-winner/",
+    "https://arcticwolf.com/resources/blog/kali365-expands-into-aws-microsoft-okta-xerox-max-messenger/",
+    "https://www.ic3.gov/PSA/2026/PSA260521",
+    "https://www.volexity.com/blog/2025/02/13/multiple-russian-threat-actors-targeting-microsoft-device-code-authentication/",
+    "https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/",
+]
+risk_score = 73
+rule_id = "ed2461e1-d6bf-4550-87b9-c008d6ac15f4"
+setup = """#### Required Microsoft 365 Audit Logs
+This rule requires the Microsoft 365 integration with unified audit logs (Azure AD / Entra sign-in events surfaced in the Microsoft 365 audit log) enabled and shipping to Elastic.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "o365.audit"
+    and o365.audit.ExtendedProperties.RequestType: "Cmsi:Cmsi"
+    and o365.audit.Actor.Type: (0 or 2 or 3 or 5 or 10)
+    and o365.audit.ApplicationId: "29d9ed98-a469-4536-ade2-f981bc1d605e"
+    and o365.audit.Target.ID: "00000003-0000-0000-c000-000000000000"
+    and o365.audit.DeviceProperties.Value: "False"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
