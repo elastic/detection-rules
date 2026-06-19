@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/06/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of an AWS Backup plan or backup selection via DeleteBackupPlan or DeleteBackupSelection. A backup
+plan defines the schedule and rules that automatically create recovery points, and a backup selection defines which
+resources the plan protects. Deleting either silently stops future backups for the affected resources, degrading
+recovery capability over time. Adversaries may delete plans or selections to disable backups ahead of a destructive or
+ransomware operation. These changes are infrequent and should align with approved maintenance.
+"""
+false_positives = [
+    """
+    Infrastructure-as-code and platform teams routinely create and delete backup plans and selections during
+    provisioning and refactoring. Verify the principal in "aws.cloudtrail.user_identity.arn" and confirm the change
+    aligns with an approved deployment. Known automation roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Plan or Selection Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Plan or Selection Deleted
+
+Backup plans and selections drive AWS Backup's automated protection. "DeleteBackupPlan" removes a plan (and its schedules and rules), and "DeleteBackupSelection" removes the resource assignment from a plan. Either change stops new recovery points from being created for the affected resources, so existing backups age out and recovery silently degrades. Adversaries may disable backups this way before destroying or encrypting data.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin or tool.
+- Identify the affected plan or selection in "aws.cloudtrail.request_parameters" and which resources lose protection.
+- Determine whether a replacement plan/selection was created shortly after, or whether protection was simply removed.
+- Correlate with adjacent destructive or evasion activity by the same principal (recovery point deletion, vault changes, resource deletions).
+
+### False positive analysis
+
+- IaC churn legitimately creates and deletes plans and selections. Confirm the change is expected and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, restore the backup plan and selections to resume protection, and verify no recovery points were deleted while protection was disabled.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:DeleteBackupPlan" and "backup:DeleteBackupSelection" to trusted administrators.
+
+### Additional information
+
+- [DeleteBackupPlan API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupPlan.html)
+- [DeleteBackupSelection API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupSelection.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupPlan.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupSelection.html",
+]
+risk_score = 47
+rule_id = "5e38a3dc-0b39-46c7-8e6f-015564d0c5cc"
+setup = """The AWS Fluentd or AWS Beats integration, CloudTrail logging, and a configured CloudTrail trail are required for this rule. See the AWS integration documentation: https://docs.elastic.co/integrations/aws/cloudtrail"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: ("DeleteBackupPlan" or "DeleteBackupSelection")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
