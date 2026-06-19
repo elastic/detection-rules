@@ -35,7 +35,7 @@ A Lambda function invoked by a principal from a different AWS account indicates 
 #### Possible investigation steps
 
 - Review `Esql.caller_account` (the invoking principal's account) versus `Esql.function_account` (the invoked function's owning account) and confirm whether the caller account is a known, trusted account.
-- Identify the principal in `aws.cloudtrail.user_identity.arn` and the functions invoked (`Esql.functions`).
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and pivot to the raw CloudTrail events (for the same principal/time window) to identify the invoked function(s) in `aws.cloudtrail.request_parameters`.
 - Determine whether a corresponding `AddPermission` cross-account grant exists for the function and whether it was expected (correlate with the cross-account resource-policy rule).
 - Review `Esql.source_ips` and recent activity from the caller account for other cross-account actions.
 
