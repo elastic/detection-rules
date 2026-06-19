@@ -34,6 +34,7 @@ from .esql_errors import EsqlSemanticError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     find_compatible_version_range,
+    find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -673,12 +674,22 @@ class QueryValidator:
         package_integrations = parse_datasets(list(datasets), packages_manifest)
         int_schema: dict[str, Any] = {}
         data = {"notify": False}
+        patch_floor = find_latest_integration_patch_for_minor(
+            {pk_int["package"] for pk_int in package_integrations},
+            current_version.major,
+            current_version.minor,
+        )
+        min_stack = Version(
+            current_version.major,
+            current_version.minor,
+            max(current_version.patch, patch_floor),
+        )
 
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
             schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, current_version, packages_manifest, {}, data
+                integrations_schemas, package, integration, min_stack, packages_manifest, {}, data
             )
             int_schema.update(schema)
 
