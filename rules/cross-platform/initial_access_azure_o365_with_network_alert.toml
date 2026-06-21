@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/22"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,8 @@ false_positives = [
     Custom network security rules that triggers on a proxy or gateway used by users to access Azure or O365.
     """,
 ]
-from = "now-60m"
+from = "now-8h"
+interval="1h"
 language = "esql"
 license = "Elastic License v2"
 name = "M365 or Entra ID Identity Sign-in from a Suspicious Source"
@@ -78,8 +79,6 @@ type = "esql"
 
 query = '''
 from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
-// query runs every 1 hour looking for activities occurred during last 8 hours to match on disparate events
-| where @timestamp > now() - 8 hours
 // filter for azure or m365 sign-in and external alerts with source.ip not null
 | where to_ip(source.ip) is not null
   and (data_stream.dataset in ("o365.audit", "azure.signinlogs") or kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa")
@@ -97,9 +96,9 @@ from logs-o365.audit-*, logs-azure.signinlogs-*, .alerts-security.*
 
 // classify each source ip based on alert type
 | eval
-  Esql.source_ip_mail_access_case = case(data_stream.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_azure_signin_case = case(data_stream.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip), null),
-  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not data_stream.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip), null)
+  Esql.source_ip_mail_access_case = case(data_stream.dataset == "o365.audit" and event.action == "MailItemsAccessed" and event.outcome == "success", to_ip(source.ip)),
+  Esql.source_ip_azure_signin_case = case(data_stream.dataset == "azure.signinlogs" and event.outcome == "success", to_ip(source.ip)),
+  Esql.source_ip_network_alert_case = case(kibana.alert.rule.rule_id == "eb079c62-4481-4d6e-9643-3ca499df7aaa" and not data_stream.dataset in ("o365.audit", "azure.signinlogs"), to_ip(source.ip))
 
 // aggregate by source ip
 | stats
