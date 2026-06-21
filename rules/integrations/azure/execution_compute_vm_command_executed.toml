@@ -2,15 +2,16 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies command execution on a virtual machine (VM) in Azure. A Virtual Machine Contributor role lets you manage
-virtual machines, but not access them, nor access the virtual network or storage account they’re connected to. However,
-commands can be run via PowerShell on the VM, which execute as System. Other roles, such as certain Administrator roles
-may be able to execute commands on a VM as well.
+Identifies synchronous command execution on a virtual machine (VM) or virtual machine scale set (VMSS) in Azure via the
+action-based Run Command ("runCommand/action"). A Virtual Machine Contributor role lets you manage virtual machines, but
+not access them, nor access the virtual network or storage account they’re connected to. However, commands can be run on
+the VM via the Run Command feature, which execute as System (Windows) or root (Linux). Other roles, such as certain
+Administrator roles, may be able to execute commands on a VM as well.
 """
 false_positives = [
     """
@@ -27,16 +28,14 @@ license = "Elastic License v2"
 name = "Azure Compute VM Command Executed"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
 ### Investigating Azure Compute VM Command Executed
 
 Azure Virtual Machines (VMs) allow users to run applications and services in the cloud. While roles like Virtual Machine Contributor can manage VMs, they typically can't access them directly. However, commands can be executed remotely via PowerShell, running as System. Adversaries may exploit this to execute unauthorized commands. The detection rule monitors Azure activity logs for command execution events, flagging successful operations to identify potential misuse.
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the specific user or service principal that initiated the command execution event, focusing on the operation_name "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION".
+- Review the Azure activity logs to identify the specific user or service principal that initiated the command execution event, focusing on the operation_name values "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION" and "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/VIRTUALMACHINES/RUNCOMMAND/ACTION".
+- Identify the VM in question via the `azure.resource.name` field. This can aid with pivoting into endpoint analysis of the commands executed.
 - Check the event.outcome field to confirm the success of the command execution and gather details about the command executed.
 - Investigate the role and permissions of the user or service principal involved to determine if they have legitimate reasons to execute commands on the VM.
 - Analyze the context of the command execution, including the time and frequency of the events, to identify any unusual patterns or anomalies.
@@ -60,25 +59,51 @@ Azure Virtual Machines (VMs) allow users to run applications and services in the
 - Implement additional monitoring and alerting for similar command execution activities, ensuring that any future unauthorized attempts are detected promptly.
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems or data may have been compromised.
 - Review and update access control policies and role assignments to ensure that only necessary permissions are granted, reducing the risk of similar incidents in the future.
-
-## Setup
-
-The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+"""
 references = [
     "https://adsecurity.org/?p=4277",
     "https://posts.specterops.io/attacking-azure-azure-ad-and-introducing-powerzure-ca70b330511a",
     "https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#virtual-machine-contributor",
+    "https://www.netspi.com/blog/technical-blog/adversary-simulation/7-ways-to-execute-command-on-azure-virtual-machine-virtual-machine-scale-sets/",
+    "https://hackingthe.cloud/azure/run-command-abuse/",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/windows/run-command-managed",
 ]
 risk_score = 47
 rule_id = "60884af6-f553-4a6c-af13-300047455491"
 severity = "medium"
-tags = ["Domain: Cloud", "Data Source: Azure", "Use Case: Log Auditing", "Tactic: Execution", "Resources: Investigation Guide"]
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
-data_stream.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION" and event.outcome:(Success or success)
+data_stream.dataset:azure.activitylogs and
+    azure.activitylogs.operation_name:(
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/VIRTUALMACHINES/RUNCOMMAND/ACTION"
+    ) and event.outcome:(Success or success) and
+    azure.activitylogs.identity.authorization.evidence.principal_id: * and
+    source.as.number: * and
+    azure.resource.name: *
 '''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.resource.name",
+    "source.as.number"
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 
 [[rule.threat]]
@@ -93,4 +118,3 @@ reference = "https://attack.mitre.org/techniques/T1651/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
