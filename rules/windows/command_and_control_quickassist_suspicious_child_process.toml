@@ -1,0 +1,330 @@
+[metadata]
+creation_date = "2026/06/20"
+integration = [
+  "endpoint",
+  "windows",
+  "sentinel_one_cloud_funnel",
+  "m365_defender",
+  "system",
+  "crowdstrike",
+]
+maturity = "production"
+updated_date = "2026/06/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious processes spawned by Microsoft Quick Assist. Adversaries may abuse Quick Assist during social
+engineering attacks to obtain remote control and launch follow-on tooling, scripts, installers, or tunneling utilities.
+"""
+from = "now-9m"
+index = [
+  "endgame-*",
+  "logs-crowdstrike.fdr*",
+  "logs-endpoint.events.process-*",
+  "logs-m365_defender.event-*",
+  "logs-sentinel_one_cloud_funnel.*",
+  "logs-system.security*",
+  "logs-windows.forwarded*",
+  "logs-windows.sysmon_operational-*",
+  "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Microsoft Quick Assist Child Process"
+references = [
+  "https://www.microsoft.com/en-us/security/blog/2024/05/15/threat-actors-misusing-quick-assist-in-social-engineering-attacks-leading-to-ransomware/",
+  "https://redcanary.com/blog/threat-intelligence/storm-1811-black-basta/",
+]
+risk_score = 47
+rule_id = "ddee23ae-4f7d-44c7-ad03-60ab8b47833d"
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Tactic: Execution",
+  "Tactic: Defense Evasion",
+  "Tactic: Persistence",
+  "Resources: Investigation Guide",
+  "Data Source: Elastic Endgame",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Data Source: Microsoft Defender XDR",
+  "Data Source: Windows Security Event Logs",
+  "Data Source: Crowdstrike",
+  "Data Source: Sysmon",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.parent.name : "QuickAssist.exe" and
+  process.name : (
+    "bitsadmin.exe", "certreq.exe", "certutil.exe", "cmd.exe",
+    "cmstp.exe", "cscript.exe", "curl.exe", "installutil.exe",
+    "mshta.exe", "msiexec.exe", "powershell.exe", "powershell_ise.exe",
+    "pwsh.exe", "reg.exe", "regsvr32.exe", "rundll32.exe", "sc.exe",
+    "schtasks.exe", "scp.exe", "ssh.exe", "whoami.exe", "wmic.exe",
+    "wscript.exe"
+  )
+'''
+
+note = """## Triage and analysis
+
+#### Possible investigation steps
+- Does the alert identify an actual Quick Assist child process execution on the expected host and account?
+  - Focus: Use $investigate_0 to review `@timestamp`, `host.name`, `user.name`, `process.parent.name`, and `process.name`.
+  - Implication: The alert is bounded to one process start where `QuickAssist.exe` spawned a listed child. If the exact child command and account map to a verified Quick Assist support session for this host, continue checking child behavior before closure; if the parent or child does not match the rule logic, preserve the mismatch for rule-owner review.
+- What did the matched child command attempt to do?
+  - Focus: Review `process.command_line`, `process.args`, `process.executable`, `process.working_directory`, and `process.hash.sha256`.
+  - Implication: Treat download, script execution, service or task changes, tunneling, remote shell, or proxy-execution arguments as suspicious. A benign branch requires the same command, executable hash when present, host, and user to match a verified support workflow for this Quick Assist session.
+- Was the Quick Assist parent part of a coherent support session or a staging point for additional child activity?
+  - Focus: Use $investigate_1 to compare `process.parent.entity_id`, `process.parent.command_line`, `process.name`, `process.command_line`, and `user.name`.
+  - Implication: Multiple listed children from the same Quick Assist parent, inconsistent account context, or follow-on shell and transfer utilities increase suspicion. A bounded benign path requires the parent session and every listed child in the same session to align with verified owner confirmation for the same host, account, and time window.
+- Did the matched process create process-scoped network activity that supports transfer, tunneling, or remote control?
+  - Focus: Recover network events by `host.id` and `process.entity_id`; review `destination.ip`, `destination.port`, and `network.direction` when present.
+  - Implication: Network fields may come from separate endpoint network events and may be absent on the alert event. Missing network telemetry is unresolved, not benign. Connections from curl, scp, ssh, PowerShell, or similar matched children to unexpected infrastructure support escalation; no recovered connections only narrows evidence if command content and session ownership are otherwise verified.
+- Did the matched child spawn follow-on processes or persistence commands?
+  - Focus: Use $investigate_2 to review `process.parent.entity_id`, `process.name`, `process.command_line`, `process.executable`, and `process.Ext.relative_file_creation_time`.
+  - Implication: Child descendants that run `sc.exe`, `schtasks.exe`, `reg.exe`, script hosts, installers, or transfer tools support persistence or staged execution. A benign explanation requires those descendants to remain within the same verified Quick Assist support action on the same host and account; unrelated child chains are suspicious.
+- If local evidence is suspicious or unresolved, has the same Quick Assist child pattern appeared again on this host?
+  - Focus: Use $investigate_3 to compare `host.name`, `process.parent.name`, `process.name`, `process.command_line`, and `user.name`.
+  - Implication: Repeated `QuickAssist.exe` launches of the same listed child on the host support a recurring remote-assistance abuse hypothesis and expand response scoping to the host and account over the lookback window. Absence of repeats does not prove benign; close only when local command, parent session, account, and owner-confirmation evidence all support the exact expected workflow.
+Disposition: Escalate when the Quick Assist child command, session activity, network or process evidence, or recurrence remains suspicious; close only when recovered evidence proves the exact expected support workflow on the same host and account; preserve and escalate mixed or incomplete cases for more context before final disposition.
+
+### False positive analysis
+- Legitimate Quick Assist support may spawn `cmd.exe`, `powershell.exe`, `msiexec.exe`, or other listed tools during a verified support session. Treat this as benign only when the exact `process.parent.name`, `process.name`, `process.command_line`, `host.name`, and `user.name` match the support record or owner confirmation, and no process-scoped network, descendant, or recurrence evidence extends beyond that scope.
+- Exception candidates should be narrow and durable: same `process.parent.name`, exact child `process.name`, exact `process.command_line` pattern or executable and hash when available through `process.executable` and `process.hash.sha256`, and the specific `host.name` and `user.name` population. Do not use missing network telemetry or lack of related alerts as the sole benign reason.
+
+### Response and remediation
+- If malicious activity is suspected or confirmed, first preserve or export case evidence plus volatile process state, memory captures when feasible, executable copies, hashes, command lines, and file-system artifacts that could be lost before isolation, process termination, cleanup, or other disruptive action.
+- Scope the incident around the same host, user, Quick Assist parent session, matched child process, descendants, and recovered network indicators before disruptive action. Review whether listed utilities performed transfer, tunneling, service or task creation, registry changes, or script execution.
+- Contain with the least disruptive reversible control that preserves evidence, such as network isolation after collection, then terminate malicious processes, remove persistence, clean transferred files, and rotate affected credentials as evidence supports.
+- Record confirmed child commands, hashes, infrastructure, and any logging or detection gaps for the responsible detection or logging owners after scoping and containment.
+"""
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+  "@timestamp",
+  "host.name",
+  "host.id",
+  "user.name",
+  "user.domain",
+  "process.entity_id",
+  "process.pid",
+  "process.name",
+  "process.executable",
+  "process.command_line",
+  "process.args",
+  "process.hash.sha256",
+  "process.parent.entity_id",
+  "process.parent.name",
+  "process.parent.executable",
+  "process.parent.command_line",
+  "process.working_directory",
+  "process.Ext.relative_file_creation_time",
+]
+
+[[transform.investigate]]
+label = "Matched process context"
+description = "Find the alert process event on the same host by process entity ID to validate the Quick Assist child execution."
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Quick Assist session activity"
+description = "Find the Quick Assist parent process and sibling child processes from the same parent entity on the host."
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-2h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process descendants"
+description = "Find processes launched by the matched child process on the same host after the alert."
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-2h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Repeated Quick Assist child pattern"
+description = "Find recurrence of the same child process spawned by Quick Assist on the same host across the lookback window."
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
+    { excluded = false, field = "process.parent.name", queryType = "phrase", value = "{{process.parent.name}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "{{process.name}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.003"
+name = "CMSTP"
+reference = "https://attack.mitre.org/techniques/T1218/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.004"
+name = "InstallUtil"
+reference = "https://attack.mitre.org/techniques/T1218/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.010"
+name = "Regsvr32"
+reference = "https://attack.mitre.org/techniques/T1218/010/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1047"
+name = "Windows Management Instrumentation"
+reference = "https://attack.mitre.org/techniques/T1047/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.005"
+name = "Scheduled Task"
+reference = "https://attack.mitre.org/techniques/T1053/005/"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.003"
+name = "Windows Service"
+reference = "https://attack.mitre.org/techniques/T1543/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
