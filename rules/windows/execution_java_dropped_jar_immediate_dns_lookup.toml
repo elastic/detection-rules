@@ -77,7 +77,7 @@ sequence by process.entity_id with maxspan=1m
    (process.args_count == 3 and process.args : "-jar") or
    (process.args_count == 4 and process.args : ("-cp", "-classpath") and process.command_line : " *.* ")
   )]
- [network where event.action: "lookup_requested"]
+ [network where host.os.type == "windows" and event.action: "lookup_requested"]
 '''
 
 
@@ -93,8 +93,7 @@ field_names = [
     "process.parent.executable",
     "process.Ext.relative_file_creation_time",
     "process.Ext.relative_file_name_modify_time",
-    "dns.question.name",
-    "dns.resolved_ip"
+    "message"
 ]
 
 [[rule.threat]]
