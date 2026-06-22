@@ -5,6 +5,7 @@
 
 import unittest
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,10 +22,62 @@ from detection_rules.misc import (
 )
 from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
+from detection_rules.rule_validators import ESQLValidator
 from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
+
+
+class TestESQLRemoteValidation(unittest.TestCase):
+    """Unit tests for ES|QL remote validation behavior that mock remote services."""
+
+    def test_remote_validation_uses_patch_floor_for_prepare_mappings(self):
+        """ES|QL remote validation prepares mappings with patch-adjusted stack versions."""
+        query = """
+        FROM logs-pkg.new_ds-* metadata _id, _version, _index
+        | WHERE data_stream.dataset == "pkg.new_ds"
+        | KEEP _id, _version, _index
+        """
+        metadata = SimpleNamespace(integration=["pkg"])
+        prepared_stack_versions: list[str] = []
+
+        def prepare_mappings_side_effect(*args):
+            prepared_stack_versions.append(args[4])
+            return {}, {}, {}
+
+        def patch_floor_side_effect(packages, major, minor):
+            self.assertIn("pkg", packages)
+            return 4 if (major, minor) == (9, 2) else 0
+
+        validator = ESQLValidator(query)
+        with (
+            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.2.0"),
+            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.2.0", "9.3.0"]),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
+                side_effect=patch_floor_side_effect,
+            ),
+            unittest.mock.patch("detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect),
+            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.execute_query_against_indices",
+                return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
+            ),
+            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
+        ):
+            response = validator.remote_validate_rule(
+                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.2.0"}}),
+                elastic_client=object(),
+                query=query,
+                metadata=metadata,
+                rule_id="test-rule",
+            )
+
+        self.assertEqual(response, {"ok": True})
+        self.assertIn("9.2.0", prepared_stack_versions)
+        self.assertIn("9.2.4", prepared_stack_versions)
+        self.assertIn("9.3.0", prepared_stack_versions)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
