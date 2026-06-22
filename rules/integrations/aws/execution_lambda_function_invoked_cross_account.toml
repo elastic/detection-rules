@@ -96,7 +96,8 @@ from logs-aws.cloudtrail-*
 
 | stats
     Esql.invocation_count = count(*),
-    Esql.source_ips = values(source.ip)
+    Esql.source_ips = values(source.ip),
+    Esql.function_arns = values(aws.cloudtrail.resources.arn)
   by
     aws.cloudtrail.user_identity.arn,
     Esql.caller_account,
@@ -106,6 +107,7 @@ from logs-aws.cloudtrail-*
     aws.cloudtrail.user_identity.arn,
     Esql.caller_account,
     Esql.function_account,
+    Esql.function_arns,
     Esql.invocation_count,
     Esql.source_ips
 
