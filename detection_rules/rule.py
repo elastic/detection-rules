@@ -1444,6 +1444,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             if self.check_restricted_field_version(field_name) and isinstance(
                 self.data, QueryRuleData | MachineLearningRuleData
             ):  # type: ignore[reportUnnecessaryIsInstance]
+                resolved_package_integrations: list[dict[str, Any]] = []
                 if (self.data.get("language") is not None and self.data.get("language") != "lucene") or self.data.get(
                     "type"
                 ) == "machine_learning":
@@ -1461,11 +1462,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         integration_name = (
                             integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
                         )
-                        result = find_compatible_version_range(
-                            package=package["package"],
-                            packages_manifest=packages_manifest,
-                            integration=integration_name,
-                        )
+                        try:
+                            result = find_compatible_version_range(
+                                package=package["package"],
+                                packages_manifest=packages_manifest,
+                                integration=integration_name,
+                            )
+                        except ValueError as exc:
+                            if str(exc).startswith("no compatible version for integration "):
+                                continue
+                            raise
                         package["version"] = result.range
 
                         # Union policy templates across manifest-backed anchors only.
@@ -1476,9 +1482,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
                         if package["integration"] not in policy_templates:
                             del package["integration"]
+                        resolved_package_integrations.append(package)
 
                 # remove duplicate entries
-                package_integrations = list({json.dumps(d, sort_keys=True): d for d in package_integrations}.values())
+                package_integrations = list(
+                    {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
+                )
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
