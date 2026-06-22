@@ -345,6 +345,40 @@ class TestFindCompatibleVersionRangeEnvGate(unittest.TestCase):
         self.assertEqual(result.anchors, ("1.0.0", "2.0.0"))
         self.assertEqual(result.forward_anchor, "3.0.0")
 
+    def test_package_build_uses_current_stack_single_anchor(self):
+        """Package docs use the default current-stack caret and vary it by stack version."""
+        from pathlib import Path
+
+        from detection_rules.packaging import Package
+        from detection_rules.rule_loader import RuleCollection
+
+        rule_path = Path("rules/windows/persistence_sysmon_wmi_event_subscription.toml")
+        rule = RuleCollection().load_file(rule_path)
+
+        def build_related_integrations(stack_version: str) -> dict[str, str]:
+            with (
+                unittest.mock.patch.dict(os.environ, {}, clear=False),
+                unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value=stack_version),
+                unittest.mock.patch("detection_rules.rule.load_current_package_version", return_value=stack_version),
+            ):
+                os.environ.pop(STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV, None)
+                package = Package(RuleCollection([rule]), "test-package", verbose=False)
+                _, importable_docs = package.create_bulk_index_body()
+
+            self.assertEqual(len(importable_docs), 1)
+            return {
+                integration["package"]: integration["version"]
+                for integration in importable_docs[0]["related_integrations"]
+            }
+
+        stack_8_versions = build_related_integrations("8.19.0")
+        stack_9_versions = build_related_integrations("9.1.0")
+
+        self.assertEqual(stack_8_versions["endpoint"], "^8.7.0")
+        self.assertEqual(stack_9_versions["endpoint"], "^9.0.0")
+        self.assertEqual(stack_8_versions["windows"], "^3.0.0")
+        self.assertEqual(stack_9_versions["windows"], "^3.0.0")
+
 
 @unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"})
 class TestFindCompatibleVersionRange(unittest.TestCase):
