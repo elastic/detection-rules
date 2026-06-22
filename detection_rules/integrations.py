@@ -22,7 +22,6 @@ from semver import Version
 
 from . import ecs
 from .beats import flatten_ecs_schema
-from .config import load_current_package_version
 from .schemas import definitions, get_stack_versions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
@@ -525,6 +524,7 @@ def find_latest_compatible_version(
     integration: str,
     rule_stack_version: Version,
     packages_manifest: dict[str, Any],
+    package_schemas: dict[str, Any] | None = None,
 ) -> tuple[str, list[str]]:
     """Finds latest compatible version for specified integration based on stack version supplied."""
 
@@ -547,6 +547,12 @@ def find_latest_compatible_version(
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
 
         if _satisfies_kibana_range(rule_stack_version, version_requirement):
+            if (
+                integration
+                and package_schemas is not None
+                and not _package_version_has_integration(version, integration, package_schemas)
+            ):
+                continue
             if newest_skipped is not None:
                 skipped_version, skipped_floor = newest_skipped
                 integration_label = f" {integration.strip()}" if integration else ""
@@ -630,16 +636,23 @@ def get_integration_schema_data(
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping["ecs"]
             endgame_version = mapping["endgame"]
+            parsed_stack_version = Version.parse(stack_version)
+            patch_floor = find_latest_integration_patch_for_minor(
+                {pk_int["package"] for pk_int in package_integrations},
+                parsed_stack_version.major,
+                parsed_stack_version.minor,
+            )
+            min_stack = Version(
+                parsed_stack_version.major,
+                parsed_stack_version.minor,
+                max(parsed_stack_version.patch, patch_floor),
+            )
 
             ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
 
             for pk_int in package_integrations:
                 package = pk_int["package"]
                 integration = pk_int["integration"]
-
-                # Use the minimum stack version from the package not the rule
-                min_stack = meta.min_stack_version or load_current_package_version()
-                min_stack = Version.parse(min_stack, optional_minor_and_patch=True)
 
                 # Extract the integration schema fields
                 integration_schema, package_version = get_integration_schema_fields(
@@ -674,7 +687,14 @@ def get_integration_schema_fields(  # noqa: PLR0913
 ) -> tuple[dict[str, Any], str]:
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     """Extracts the integration fields to schema based on package integrations."""
-    package_version, notice = find_latest_compatible_version(package, integration, min_stack, packages_manifest)
+    package_schemas = integrations_schemas.get(package, {}) if integration else None
+    package_version, notice = find_latest_compatible_version(
+        package,
+        integration,
+        min_stack,
+        packages_manifest,
+        package_schemas=package_schemas,
+    )
     notify_user_if_update_available(data, notice, integration)
 
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)

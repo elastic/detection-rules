@@ -2,13 +2,15 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a custom admin role or its permissions are modified. An adversary may modify a custom admin role in order
-to elevate the permissions of other user accounts and persist in their target’s environment.
+Detects when a custom admin role or its privileges are modified in Google Workspace. Adversaries may add or expand
+privileges on an existing role to elevate access for assigned users or groups without creating a new role or directly
+assigning a well-known admin role. Because privilege changes take effect for all principals assigned the role, modifying
+role permissions can silently expand access across multiple accounts.
 """
 false_positives = [
     """
@@ -26,45 +28,62 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Role Modified
 
-Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grant users access to the Google Admin console, where more domain-wide settings are accessible. Google Workspace contains prebuilt admin roles for performing business functions related to users, groups, and services. Custom administrator roles can be created where prebuilt roles are not preferred. Each Google Workspace service has a set of custodial privileges that can be added to custom roles.
+Google Workspace allows administrators to modify custom admin roles by adding, removing, or updating privileges across
+services such as Users, Groups, Gmail, Drive, and Security. Threat actors may expand privileges on an existing role to
+establish persistence or escalate access for accounts already assigned that role, without triggering role assignment
+alerts. Selecting a privilege category in the Admin console (for example, Organization Units) can add multiple related
+privilege groups in a single action, each logged as a separate `ADD_PRIVILEGE` event.
 
-Roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Threat actors might modify existing roles with new privileges to advance their intrusion efforts and laterally move throughout the organization. Users with unexpected privileges might also cause operational dysfunction if unfamiliar settings are adjusted without warning.
+This rule identifies when a Google Workspace role is modified via `ADD_PRIVILEGE` or `UPDATE_ROLE` events. Alert
+suppression groups alerts by `user.email`, `google_workspace.admin.role.name`, and `source.ip` within a 130-minute window
+(matching the rule lookback) so analysts receive one alert per role modification session instead of one alert per privilege.
 
-This rule identifies when a Google Workspace role is modified.
+### Possible investigation steps
 
-#### Possible investigation steps
-
-- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
-- Identify the role modified by reviewing the `google_workspace.admin.role.name` field in the alert.
-- Identify the privilege that was added or removed by reviewing the `google_workspace.admin.privilege.name` field in the alert.
-- After identifying the involved user, verify administrative privileges are scoped properly.
-- To identify other users with this role, search for `event.action: ASSIGN_ROLE`
-  - Add `google_workspace.admin.role.name` with the role added as an additional filter.
-  - Adjust the relative time accordingly to identify all users that were assigned this role.
-- Identify if the user account was recently created by searching for `event.action: CREATE_USER`.
-- If a privilege was added, monitor users assigned this role for the next 24 hours and look for attempts to use the new privilege.
-  - The `event.provider` field will help filter for specific services in Google Workspace such as Drive or Admin.
-  - The `event.action` field will help trace actions that are being taken by users.
+- Identify the initiating (actor) account that modified the role by reviewing `user.email` or `user.name`, and note the `source.ip` and `event.ingested` timestamps.
+- Identify the role modified by reviewing `google_workspace.admin.role.name`.
+- Identify the privilege changed by reviewing `google_workspace.admin.privilege.name`. Because suppression may group multiple events, search for all related changes in the same session (see Kibana steps below).
+- Determine whether the modification is expected and authorized:
+  - Validate there is an approved change request/ticket and that the actor account is authorized to modify admin roles.
+  - If the actor account or source IP is unusual, treat the alert as higher priority until proven benign.
+- Review role permissions in the Google Admin console:
+  - Navigate to Account > Admin roles.
+  - Locate the role name from `google_workspace.admin.role.name` and select it to open the role details.
+  - Review the Privileges tab to confirm which permissions were added or removed and whether they align with the organization's delegation model.
+  - Review the Admins tab to identify which users or groups currently hold the role and will inherit the modified privileges.
+- Search Kibana for all privileges changed in the session:
+  - In Discover (or the alert investigation workflow), search Google Workspace admin logs with a time range centered on the alert timestamp (±5 minutes).
+  - Use the following KQL example, replacing `<ROLE_NAME>` with the value from `google_workspace.admin.role.name`:
+    ```
+    data_stream.dataset: "google_workspace.admin" and event.action: ("ADD_PRIVILEGE" or "UPDATE_ROLE") and google_workspace.admin.role.name: "<ROLE_NAME>"
+    ```
+  - Optionally filter on the actor with `user.email` to isolate changes from the same administrator.
+  - Review all `google_workspace.admin.privilege.name` values returned to understand the full scope of the modification.
+- Search Kibana for principals recently assigned the role to determine blast radius:
+  - Use the following KQL example:
+    ```
+    data_stream.dataset: "google_workspace.admin" and event.action: "ASSIGN_ROLE" and google_workspace.admin.role.name: "<ROLE_NAME>"
+    ```
+  - Review `user.target.email` and `user.target.name` for user/group assignments.
+- Scope for related activity by searching for the same `user.email` (actor) performing other IAM or security actions such as `ASSIGN_ROLE`, `CREATE_ROLE`, `CREATE_USER`, or security policy changes within the last 48 hours.
+- Evaluate whether principals assigned the modified role performed suspicious activity after the change:
+  - Review admin/audit events for security control changes, user or group changes, and Gmail configuration changes.
 
 ### False positive analysis
 
-- After identifying the user account that modified the role, verify the action was intentional.
-- Verify that the user is expected to have administrative privileges in Google Workspace to modify roles.
-- Review organizational units or groups the role might have been added to and ensure the new privileges align properly.
-- Use the `user.name` to filter for `event.action` where `ADD_PRIVILEGE` or `UPDATE_ROLE` has been seen before to check if these actions are new or historical.
+- Verify the role modification aligns with approved administrative duties, an authorized change window, and the organization's access governance process.
+- Confirm the initiating admin account is legitimate and not modifying roles from unusual IPs, devices, or locations.
+- Selecting a privilege category in the Admin console can add multiple related privileges in one action; alert suppression should consolidate these into a single alert.
+- Compare the modified role's privileges against the stated business need; overly broad privileges warrant closer review even if the change was authorized.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Initiate the incident response process based on triage findings.
+- If the modification is not clearly authorized, revert the role privileges to their prior state and/or remove the role assignment from affected users or groups while the investigation proceeds.
+- For suspected compromise of the initiating admin account:
+  - Reset credentials, revoke active sessions, enforce MFA re-enrollment, and review delegation/OAuth grants for persistence.
+  - Validate recovery email/phone settings and account security posture.
+- Review whether principals assigned the modified role require the new privileges, and replace broad custom roles with narrower delegated roles where feasible.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -95,6 +114,7 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -103,6 +123,20 @@ query = '''
 data_stream.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:(ADD_PRIVILEGE or UPDATE_ROLE)
 '''
 
+[rule.alert_suppression]
+group_by = ["user.email", "google_workspace.admin.role.name", "source.ip"]
+duration = {value = 130, unit = "m"} # match lookback window
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.role.name",
+    "google_workspace.admin.privilege.name",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
