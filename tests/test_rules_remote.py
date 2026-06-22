@@ -58,7 +58,9 @@ class TestESQLRemoteValidation(unittest.TestCase):
                 "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
                 side_effect=patch_floor_side_effect,
             ),
-            unittest.mock.patch("detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect
+            ),
             unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
             unittest.mock.patch(
                 "detection_rules.rule_validators.execute_query_against_indices",
