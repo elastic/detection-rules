@@ -118,7 +118,7 @@ FROM logs-azure.activitylogs-*
         Esql.source_country_values = VALUES(source.geo.country_name),
         Esql.subscription_id_values = VALUES(azure.subscription_id)
         BY Esql.vm_name, Esql.extension_name
-// new terms emulation: fire only when the host's CustomScript is the single occurrence in the
+// new terms emulation: fire only when the (host, extension name) pair is the single occurrence in the
 // 7-day window (event_count == 1) and it is recent (within the schedule interval + ingest-lag buffer)
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
 | WHERE Esql.recent_minutes <= 10 AND Esql.event_count == 1
