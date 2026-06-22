@@ -332,28 +332,84 @@ class TestFindCompatibleVersionRangeEnvGate(unittest.TestCase):
 
     def test_env_var_enables_stack_invariant_or_range(self):
         """The env var opts in to one anchor per shipped stack major plus the forward anchor."""
+        shipped_majors = sorted({Version.parse(version).major for version in get_stack_versions()})
+        self.assertGreater(len(shipped_majors), 0)
+        manifests = {
+            "pkg": {
+                f"{idx}.0.0": _manifest(f"^{stack_major}.0.0")
+                for idx, stack_major in enumerate(shipped_majors, 1)
+            }
+        }
+        with unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"}):
+            result = find_compatible_version_range("pkg", manifests)
+
+        expected_anchors = tuple(f"{idx}.0.0" for idx in range(1, len(shipped_majors) + 1))
+        expected_forward_anchor = f"{len(shipped_majors) + 1}.0.0"
+        expected_range = " || ".join([*(f"^{anchor}" for anchor in expected_anchors), f"^{expected_forward_anchor}"])
+        self.assertEqual(result.range, expected_range)
+        self.assertEqual(result.anchors, expected_anchors)
+        self.assertEqual(result.forward_anchor, expected_forward_anchor)
+
+    def test_default_caret_varies_with_current_stack(self):
+        """Default single-caret population follows the current package stack version."""
         manifests = {
             "pkg": {
                 "1.0.0": _manifest("^8.0.0"),
                 "2.0.0": _manifest("^9.0.0"),
             }
         }
-        with unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"}):
-            result = find_compatible_version_range("pkg", manifests)
 
-        self.assertEqual(result.range, "^1.0.0 || ^2.0.0 || ^3.0.0")
-        self.assertEqual(result.anchors, ("1.0.0", "2.0.0"))
-        self.assertEqual(result.forward_anchor, "3.0.0")
+        def resolve_for_stack(stack_version: str) -> str:
+            with (
+                unittest.mock.patch.dict(os.environ, {}, clear=False),
+                unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value=stack_version),
+            ):
+                os.environ.pop(STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV, None)
+                return find_compatible_version_range("pkg", manifests).range
+
+        self.assertEqual(resolve_for_stack("8.19.0"), "^1.0.0")
+        self.assertEqual(resolve_for_stack("9.1.0"), "^2.0.0")
 
     def test_package_build_uses_current_stack_single_anchor(self):
-        """Package docs use the default current-stack caret and vary it by stack version."""
+        """Package docs use the default current-stack caret for stack versions available on the branch."""
         from pathlib import Path
 
+        from detection_rules.integrations import UNKNOWN_PACKAGE_INTEGRATION, load_integrations_manifests
         from detection_rules.packaging import Package
+        from detection_rules.rule import TOMLRuleContents
         from detection_rules.rule_loader import RuleCollection
 
         rule_path = Path("rules/windows/persistence_sysmon_wmi_event_subscription.toml")
         rule = RuleCollection().load_file(rule_path)
+
+        def representative_stack_versions() -> list[str]:
+            versions_by_major: dict[int, str] = {}
+            for version in sorted(get_stack_versions(), key=Version.parse):
+                versions_by_major[Version.parse(version).major] = version
+            return list(versions_by_major.values())
+
+        def expected_related_integrations(stack_version: str) -> dict[str, str]:
+            packages_manifest = load_integrations_manifests()
+            package_integrations = TOMLRuleContents.get_packaged_integrations(
+                rule.contents.data,
+                rule.contents.metadata,
+                packages_manifest,
+            )
+            expected: dict[str, str] = {}
+            with (
+                unittest.mock.patch.dict(os.environ, {}, clear=False),
+                unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value=stack_version),
+            ):
+                os.environ.pop(STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV, None)
+                for package in package_integrations:
+                    integration = package.get("integration")
+                    integration_name = integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
+                    expected[package["package"]] = find_compatible_version_range(
+                        package=package["package"],
+                        packages_manifest=packages_manifest,
+                        integration=integration_name,
+                    ).range
+            return expected
 
         def build_related_integrations(stack_version: str) -> dict[str, str]:
             with (
@@ -371,13 +427,8 @@ class TestFindCompatibleVersionRangeEnvGate(unittest.TestCase):
                 for integration in importable_docs[0]["related_integrations"]
             }
 
-        stack_8_versions = build_related_integrations("8.19.0")
-        stack_9_versions = build_related_integrations("9.1.0")
-
-        self.assertEqual(stack_8_versions["endpoint"], "^8.7.0")
-        self.assertEqual(stack_9_versions["endpoint"], "^9.0.0")
-        self.assertEqual(stack_8_versions["windows"], "^3.0.0")
-        self.assertEqual(stack_9_versions["windows"], "^3.0.0")
+        for stack_version in representative_stack_versions():
+            self.assertEqual(build_related_integrations(stack_version), expected_related_integrations(stack_version))
 
 
 @unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"})
