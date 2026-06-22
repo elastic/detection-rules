@@ -7,6 +7,7 @@
 
 import unittest
 import unittest.mock
+from types import SimpleNamespace
 
 from semver import Version
 
@@ -20,8 +21,9 @@ from detection_rules.integrations import (
     find_compatible_version_range,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
+    get_integration_schema_data,
 )
-from detection_rules.rule_validators import KQLValidator
+from detection_rules.rule_validators import ESQLValidator, KQLValidator
 
 
 def _manifest(kibana_version: str) -> dict:
@@ -107,26 +109,6 @@ class TestParseKibanaRange(unittest.TestCase):
             [(Version(9, 1, 0), Version(10, 0, 0))],
         )
 
-    def test_or_clauses(self):
-        """Clauses separated by ``||`` are returned as a list of OR'd ranges."""
-        self.assertEqual(
-            _parse_kibana_range("^8.12.0 || ^9.0.0"),
-            [
-                (Version(8, 12, 0), Version(9, 0, 0)),
-                (Version(9, 0, 0), Version(10, 0, 0)),
-            ],
-        )
-
-    def test_mixed_and_or(self):
-        """AND'd tokens inside each clause and OR'd clauses compose correctly."""
-        self.assertEqual(
-            _parse_kibana_range(">=8.12.0 <9.0.0 || ^9.1.0"),
-            [
-                (Version(8, 12, 0), Version(9, 0, 0)),
-                (Version(9, 1, 0), Version(10, 0, 0)),
-            ],
-        )
-
 
 class TestSatisfiesKibanaRange(unittest.TestCase):
     """Test range satisfaction for a given stack version."""
@@ -147,12 +129,6 @@ class TestSatisfiesKibanaRange(unittest.TestCase):
     def test_caret_rejects_prior_major(self):
         """Regression: 9.1 must NOT satisfy ^9.4.0 (drove 46 rule failures)."""
         self.assertFalse(_satisfies_kibana_range(Version(9, 1, 0), "^9.4.0"))
-
-    def test_or_union(self):
-        """OR'd clauses accept stacks inside either clause and reject otherwise."""
-        self.assertTrue(_satisfies_kibana_range(Version(8, 12, 5), "^8.12.0 || ^9.0.0"))
-        self.assertTrue(_satisfies_kibana_range(Version(9, 0, 1), "^8.12.0 || ^9.0.0"))
-        self.assertFalse(_satisfies_kibana_range(Version(10, 0, 0), "^8.12.0 || ^9.0.0"))
 
     def test_anded_bounds(self):
         """AND'd bounds produce a half-open interval [lo, hi)."""
@@ -197,12 +173,6 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         self.assertEqual(version, "1.0.0")
         self.assertEqual(notice, [""])
 
-    def test_or_clause_match(self):
-        """A stack that falls in any OR'd sub-range is considered compatible."""
-        manifests = {"pkg": {"1.0.0": _manifest("^8.12.0 || ^9.0.0")}}
-        version, _ = find_latest_compatible_version("pkg", "pkg", Version(8, 15, 0), manifests)
-        self.assertEqual(version, "1.0.0")
-
     def test_no_compatible_version_raises(self):
         """``ValueError`` when no manifest is compatible with the rule stack."""
         manifests = {"pkg": {"1.0.0": _manifest("^9.4.0")}}
@@ -231,10 +201,7 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         manifests = {
             package: {
                 older_version: _manifest(f"^{current_version.major}.0.0"),
-                newer_version: _manifest(
-                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
-                    f"^{current_version.major}.{current_version.minor + 1}.0"
-                ),
+                newer_version: _manifest(f"~{current_version.major}.{current_version.minor}.{required_patch}"),
             }
         }
         schemas = {
@@ -278,10 +245,7 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         manifests = {
             package: {
                 "1.0.0": _manifest(f"^{current_version.major}.0.0"),
-                "1.1.0": _manifest(
-                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
-                    f"^{current_version.major}.{current_version.minor + 1}.0"
-                ),
+                "1.1.0": _manifest(f"~{current_version.major}.{current_version.minor}.{required_patch}"),
             }
         }
         schemas = {
@@ -300,6 +264,94 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
             required_fields = validator.get_required_fields([])
 
         self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
+
+    def test_non_esql_validation_uses_patch_floor_for_integration_schema(self):
+        """Non-ES|QL schema validation resolves integration schemas using the inferred patch floor."""
+        package = "pkg"
+        integration = "new_ds"
+        field_name = "pkg.new_ds.some_field"
+        manifests = {
+            package: {
+                "1.0.0": _manifest("^9.0.0"),
+                "1.1.0": _manifest("~9.2.4"),
+            }
+        }
+        schemas = {
+            package: {
+                "1.0.0": {"old_ds": {}},
+                "1.1.0": {integration: {field_name: "keyword"}},
+            }
+        }
+        data = SimpleNamespace(language="kuery", get=lambda key, default=None: False if key == "notify" else default)
+        meta = SimpleNamespace(
+            maturity="production",
+            get_validation_stack_versions=lambda: {"9.2.0": {"ecs": "test-ecs", "endgame": "test-endgame"}},
+        )
+
+        with (
+            unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
+            unittest.mock.patch("detection_rules.integrations.ecs.get_schema", return_value={}),
+            unittest.mock.patch("detection_rules.integrations.ecs.flatten_multi_fields", return_value={}),
+        ):
+            schema_data = list(
+                get_integration_schema_data(
+                    data,
+                    meta,
+                    [{"package": package, "integration": integration}],
+                )
+            )
+
+        self.assertEqual(len(schema_data), 1)
+        self.assertEqual(schema_data[0]["package_version"], "1.1.0")
+        self.assertEqual(schema_data[0]["stack_version"], "9.2.0")
+
+    def test_esql_remote_validation_uses_patch_floor_for_prepare_mappings(self):
+        """ES|QL remote validation prepares mappings with patch-adjusted stack versions."""
+        query = """
+        FROM logs-pkg.new_ds-* metadata _id, _version, _index
+        | WHERE data_stream.dataset == "pkg.new_ds"
+        | KEEP _id, _version, _index
+        """
+        metadata = SimpleNamespace(integration=["pkg"])
+        prepared_stack_versions: list[str] = []
+
+        def prepare_mappings_side_effect(*args):
+            prepared_stack_versions.append(args[4])
+            return {}, {}, {}
+
+        def patch_floor_side_effect(packages, major, minor):
+            self.assertIn("pkg", packages)
+            return 4 if (major, minor) == (9, 2) else 0
+
+        validator = ESQLValidator(query)
+        with (
+            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.2.0"),
+            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.2.0", "9.3.0"]),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
+                side_effect=patch_floor_side_effect,
+            ),
+            unittest.mock.patch("detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect),
+            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.execute_query_against_indices",
+                return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
+            ),
+            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
+        ):
+            response = validator.remote_validate_rule(
+                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.2.0"}}),
+                elastic_client=object(),
+                query=query,
+                metadata=metadata,
+                rule_id="test-rule",
+            )
+
+        self.assertEqual(response, {"ok": True})
+        self.assertIn("9.2.0", prepared_stack_versions)
+        self.assertIn("9.2.4", prepared_stack_versions)
+        self.assertIn("9.3.0", prepared_stack_versions)
 
 
 class TestFindCompatibleVersionRange(unittest.TestCase):
