@@ -8,6 +8,7 @@
 import fnmatch
 import gzip
 import json
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from semver import Version
 
 from . import ecs
 from .beats import flatten_ecs_schema
+from .config import load_current_package_version
 from .schemas import definitions, get_stack_versions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
@@ -32,9 +34,15 @@ if TYPE_CHECKING:
 MANIFEST_FILE_PATH = get_etc_path(["integration-manifests.json.gz"])
 DEFAULT_MAX_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
+STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV = "DR_ENABLE_STACK_INVARIANT_INTEGRATION_VERSION_RANGES"
 
 
 _notified_integrations: set[str] = set()
+
+
+def stack_invariant_integration_version_ranges_enabled() -> bool:
+    """Return True when related integration versions should use stack-invariant OR ranges."""
+    return os.environ.get(STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV) is not None
 
 
 @cached
@@ -481,14 +489,33 @@ def _integration_schema_floor(
     return minimum_schema_package_version(package, integration, {package: package_schemas})
 
 
+def _find_legacy_compatible_version_range(
+    package: str,
+    integration: str | None,
+    integration_manifests: dict[str, Any],
+    package_schemas: dict[str, Any],
+) -> CompatibleVersionRange:
+    """Return the current-stack single caret range used before stack-invariant population."""
+    current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    anchor = _find_least_compatible_for_stack(
+        current_stack,
+        integration_manifests,
+        integration,
+        package_schemas,
+    )
+    if anchor is None:
+        package_label = f"{package}:{integration}" if integration else package
+        raise ValueError(f"no compatible version for integration {package_label}")
+
+    return CompatibleVersionRange(range=f"^{anchor}", anchors=(anchor,), forward_anchor="")
+
+
 def find_compatible_version_range(
     package: str,
     packages_manifest: dict[str, Any],
     integration: str | None = None,
 ) -> CompatibleVersionRange:
-    """Return a stack-invariant OR'd caret range for related_integrations.version."""
-    # One anchor per shipped stack version line (no build-time stack), OR'd carets, forward sentinel.
-    # With integration set, filter by integration-schemas when present (data-stream floor).
+    """Return the related_integrations.version compatibility range."""
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -496,9 +523,14 @@ def find_compatible_version_range(
     package_schemas: dict[str, Any] = {}
     if integration:
         package_schemas = load_integrations_schemas().get(package, {})
-    schema_floor = _integration_schema_floor(package, integration, package_schemas)
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
+    if not stack_invariant_integration_version_ranges_enabled():
+        return _find_legacy_compatible_version_range(package, integration, integration_manifests, package_schemas)
+
+    # One anchor per shipped stack version line (no build-time stack), OR'd carets, forward sentinel.
+    # With integration set, filter by integration-schemas when present (data-stream floor).
+    schema_floor = _integration_schema_floor(package, integration, package_schemas)
     stack_majors = _stack_majors_supported_by_package(integration_manifests) & _shipped_stack_majors()
 
     if not stack_majors:

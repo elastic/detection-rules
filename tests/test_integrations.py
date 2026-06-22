@@ -5,6 +5,7 @@
 
 """Test integration version resolution against EPR manifest ranges."""
 
+import os
 import unittest
 import unittest.mock
 
@@ -13,6 +14,7 @@ from semver import Version
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
+    STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV,
     _find_least_compatible_for_stack,
     _majors_overlapping_kibana_clause,
     _parse_clause,
@@ -305,6 +307,46 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
 
 
+class TestFindCompatibleVersionRangeEnvGate(unittest.TestCase):
+    """Env-gated behavior for related integration version population."""
+
+    def test_default_uses_current_stack_single_anchor(self):
+        """Without the env var, related integrations keep the current-stack single caret range."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
+            }
+        }
+        current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        expected = _find_least_compatible_for_stack(current_stack, manifests["pkg"])
+        self.assertIsNotNone(expected)
+
+        with unittest.mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV, None)
+            result = find_compatible_version_range("pkg", manifests)
+
+        self.assertEqual(result.range, f"^{expected}")
+        self.assertEqual(result.anchors, (expected,))
+        self.assertEqual(result.forward_anchor, "")
+
+    def test_env_var_enables_stack_invariant_or_range(self):
+        """The env var opts in to one anchor per shipped stack major plus the forward anchor."""
+        manifests = {
+            "pkg": {
+                "1.0.0": _manifest("^8.0.0"),
+                "2.0.0": _manifest("^9.0.0"),
+            }
+        }
+        with unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"}):
+            result = find_compatible_version_range("pkg", manifests)
+
+        self.assertEqual(result.range, "^1.0.0 || ^2.0.0 || ^3.0.0")
+        self.assertEqual(result.anchors, ("1.0.0", "2.0.0"))
+        self.assertEqual(result.forward_anchor, "3.0.0")
+
+
+@unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"})
 class TestFindCompatibleVersionRange(unittest.TestCase):
     """Behavior coverage for ``find_compatible_version_range``."""
 
@@ -481,6 +523,7 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             self.assertIn(expected, result.anchors, stack_version_str)
 
 
+@unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"})
 class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
     """Schema-aware data stream filtering ported from #6251 into OR-range export."""
 
@@ -567,6 +610,7 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
         self.assertEqual(floor_versions[0], "1.37.0")
 
 
+@unittest.mock.patch.dict(os.environ, {STACK_INVARIANT_INTEGRATION_VERSION_RANGES_ENV: "1"})
 class TestMetadataPackageRowDedupe(unittest.TestCase):
     """Skip redundant metadata package rows when query datasets already cover the package."""
 
