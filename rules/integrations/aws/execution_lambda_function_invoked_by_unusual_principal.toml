@@ -34,7 +34,7 @@ note = """## Triage and analysis
 
 Most Lambda invocations are driven by event sources (S3, EventBridge, SQS, API Gateway, etc.), which CloudTrail records with `aws.cloudtrail.user_identity.invoked_by` set to the calling service. A principal invoking a function **directly** (via the SDK, CLI, or console) is comparatively rare and, when it comes from an identity that does not normally do so, can indicate lateral movement, credential abuse, or data retrieval from a function. This rule uses a new terms approach to surface the first time a given principal directly invokes a function in an account within the prior 14 days.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id` to identify the actor, and `source.ip` / `user_agent.original` to determine how the call was made.
 - Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and sensitivity.
@@ -86,6 +86,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: Invoke*
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.invoked_by: *
+    and aws.cloudtrail.user_identity.arn: *
 '''
 
 
@@ -126,6 +127,6 @@ field = "new_terms_fields"
 value = ["cloud.account.id", "aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-7d"
 
 
