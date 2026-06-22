@@ -96,7 +96,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule = deepcopy(original_production_rule)[0]
         # Non-aggregate queries must include _id, _version, _index in keep when keep is not exactly "*"
         base = "from logs-aws.cloudtrail* metadata _id, _version, _index\n"
-        base += '| where event.action == "start"\n | eval Esql.entity_type = cloud.target.entity.type\n | keep '
+        base += '| where event.action == "start"\n | eval Esql.entity_type = cloud.target.machine.type\n | keep '
         keep_star_queries = [
             base + "*",
             base + "Esql.*, _id, _version, _index",

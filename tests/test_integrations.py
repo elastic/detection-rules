@@ -505,6 +505,44 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
         self.assertNotIn(" || ", endpoint_rows[0]["version"])
         self.assertNotIn(" || ", windows_rows[0]["version"])
 
+    def test_unsupported_generated_related_integration_row_is_skipped(self):
+        """Generated rows for data streams unavailable on the package stack should not block API conversion."""
+        from pathlib import Path
+
+        from detection_rules.rule_loader import RuleCollection
+
+        class VersionRange:
+            range = ">=1.0.0"
+            anchors = ("1.0.0",)
+
+        def compatible_side_effect(package, packages_manifest, integration=None):
+            if package == "unsupported":
+                raise ValueError(f"no compatible version for integration {package}:{integration}")
+            return VersionRange()
+
+        packages_manifest = {"endpoint": {"1.0.0": {"policy_templates": ["endpoint"]}}}
+        packaged_integrations = [
+            {"package": "endpoint", "integration": "endpoint"},
+            {"package": "unsupported", "integration": "new_ds"},
+        ]
+        rule = RuleCollection().load_file(Path("rules/windows/persistence_sysmon_wmi_event_subscription.toml"))
+
+        with (
+            unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=packages_manifest),
+            unittest.mock.patch(
+                "detection_rules.rule.TOMLRuleContents.get_packaged_integrations",
+                return_value=packaged_integrations,
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule.find_compatible_version_range",
+                side_effect=compatible_side_effect,
+            ),
+            unittest.mock.patch("detection_rules.rule.QueryRuleData.get_required_fields", return_value=[]),
+        ):
+            related_integrations = rule.contents.to_api_format()["related_integrations"]
+
+        self.assertEqual(related_integrations, [{"package": "endpoint", "integration": "endpoint", "version": ">=1.0.0"}])
+
 
 class TestEsqlPackagedIntegrations(unittest.TestCase):
     """ES|QL must not emit a redundant metadata package row when datasets cover the package."""
