@@ -20,7 +20,7 @@ false_positives = [
     context, and tune the threshold to the environment.
     """,
 ]
-from = "now-60m"
+from = "now-61m"
 interval = "60m"
 language = "esql"
 license = "Elastic License v2"
@@ -31,7 +31,7 @@ note = """## Triage and analysis
 
 A principal issuing a high volume of direct Lambda invocations in a short window can indicate function abuse for resource hijacking or cryptomining, a denial-of-wallet cost attack, or behavioral enumeration. Because Lambda data events record only the invocation metadata (caller, function, source) and not the function's internal behavior, this rule is purely volumetric and should be treated as corroborating signal.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - Identify the principal in `aws.cloudtrail.user_identity.arn` and determine whether the volume exceeds its historical baseline.
 - Determine whether the principal is a known high-throughput application or automation identity, or an unexpected user.
@@ -93,8 +93,7 @@ from logs-aws.cloudtrail-*
     Esql.invocation_count = count(*),
     Esql.source_ips = values(source.ip)
   by
-    aws.cloudtrail.user_identity.arn,
-    cloud.account.id
+    aws.cloudtrail.user_identity.arn
 
 // Threshold is environment-dependent — tune to the deployment
 | where Esql.invocation_count >= 1000
