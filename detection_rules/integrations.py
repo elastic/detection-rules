@@ -284,6 +284,7 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 # Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
+RELATED_INTEGRATION_GTE_MIN_STACK = Version(9, 5, 0)
 
 
 def _package_version_has_integration(
@@ -336,12 +337,17 @@ class CompatibleVersionRange:
     anchors: tuple[str, ...]
 
 
+def _related_integration_version_operator(stack_version: Version) -> str:
+    """Return the semver operator for related_integrations.version on the current stack."""
+    return ">=" if stack_version >= RELATED_INTEGRATION_GTE_MIN_STACK else "^"
+
+
 def find_compatible_version_range(
     package: str,
     packages_manifest: dict[str, Any],
     integration: str | None = None,
 ) -> CompatibleVersionRange:
-    """Return the legacy current-stack related_integrations.version caret range."""
+    """Return the legacy current-stack related_integrations.version range."""
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -357,7 +363,8 @@ def find_compatible_version_range(
         package_label = f"{package}:{integration}" if integration else package
         raise ValueError(f"no compatible version for integration {package_label}")
 
-    return CompatibleVersionRange(range=f"^{anchor}", anchors=(anchor,))
+    operator = _related_integration_version_operator(current_stack)
+    return CompatibleVersionRange(range=f"{operator}{anchor}", anchors=(anchor,))
 
 
 def find_latest_compatible_version(

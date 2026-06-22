@@ -15,6 +15,7 @@ from detection_rules.integrations import (
     _find_least_compatible_for_stack,
     _parse_clause,
     _parse_kibana_range,
+    _related_integration_version_operator,
     _satisfies_kibana_range,
     find_compatible_version_range,
     find_latest_compatible_version,
@@ -312,6 +313,7 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
                 "1.5.0": _manifest("^8.0.0"),
                 "2.0.0": _manifest("^9.0.0"),
                 "2.5.0": _manifest("^9.1.0"),
+                "3.0.0": _manifest("^10.0.0"),
             }
         }
 
@@ -319,11 +321,23 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             stack_8 = find_compatible_version_range("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
             stack_9 = find_compatible_version_range("pkg", manifests)
+        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
+            stack_95 = find_compatible_version_range("pkg", manifests)
+        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.6.0"):
+            stack_96 = find_compatible_version_range("pkg", manifests)
+        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
+            stack_10 = find_compatible_version_range("pkg", manifests)
 
         self.assertEqual(stack_8.range, "^1.0.0")
         self.assertEqual(stack_8.anchors, ("1.0.0",))
         self.assertEqual(stack_9.range, "^2.0.0")
         self.assertEqual(stack_9.anchors, ("2.0.0",))
+        self.assertEqual(stack_95.range, ">=2.0.0")
+        self.assertEqual(stack_95.anchors, ("2.0.0",))
+        self.assertEqual(stack_96.range, ">=2.0.0")
+        self.assertEqual(stack_96.anchors, ("2.0.0",))
+        self.assertEqual(stack_10.range, ">=3.0.0")
+        self.assertEqual(stack_10.anchors, ("3.0.0",))
 
     def test_keeps_zero_major_when_only_stable_option_missing(self):
         """Keep 0.x anchors when no major >= 1 anchor exists."""
@@ -436,9 +450,10 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
                 find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
             return
 
+        operator = _related_integration_version_operator(current_version)
         result = find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
         self.assertEqual(result.anchors, (expected,))
-        self.assertEqual(result.range, f"^{expected}")
+        self.assertEqual(result.range, f"{operator}{expected}")
         floor_versions = [
             version
             for version in sorted(schemas["azure"], key=Version.parse)
@@ -480,8 +495,8 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
         windows_rows = [row for row in api["related_integrations"] if row["package"] == "windows"]
         self.assertEqual(len(endpoint_rows), 1)
         self.assertEqual(len(windows_rows), 1)
-        self.assertTrue(endpoint_rows[0]["version"].startswith("^"))
-        self.assertTrue(windows_rows[0]["version"].startswith("^"))
+        self.assertRegex(endpoint_rows[0]["version"], r"^(?:\^|>=)")
+        self.assertRegex(windows_rows[0]["version"], r"^(?:\^|>=)")
         self.assertNotIn(" || ", endpoint_rows[0]["version"])
         self.assertNotIn(" || ", windows_rows[0]["version"])
 
