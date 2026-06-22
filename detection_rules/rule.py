@@ -1469,7 +1469,6 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         package["version"] = result.range
 
                         # Union policy templates across manifest-backed anchors only.
-                        # forward_anchor has no manifest entry and is excluded by design.
                         policy_templates: set[str] = set()
                         for anchor in result.anchors:
                             version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
