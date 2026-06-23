@@ -11,7 +11,7 @@ license = "Elastic License v2"
 notes = [
     "Review `okta.debug_context.debug_data.flattened.grantType` to identify if the grant type is `client_credentials`",
     "Ignore `okta.debug_context.debug_data.flattened.requestedScopes` values that indicate read-only access",
-    "Review `user.full_name` to identify the public client app that attempted to retrieve the access token. This may help identify the compromised client credentials.",
+    "Review `okta.actor.display_name` to identify the public client app that attempted to retrieve the access token. This may help identify the compromised client credentials.",
     "Filter on the public client app and aggregate by `event.action` to determine what actions were taken by the public client app after the access token was granted."
 ]
 mitre = ['T1550.001']
@@ -32,10 +32,10 @@ from logs-okta.system*
     and okta.actor.type == "PublicClientApp"
 
     // ignore Elastic Okta integration and DataDog actors
-    and not (user.full_name LIKE "Okta*" or user.full_name LIKE "Datadog*")
+    and not (okta.actor.display_name LIKE "Okta*" or okta.actor.display_name LIKE "Datadog*")
 
 // count the number of access tokens granted by the same public client app in a day
-| stats token_granted_count = count(*), unique_client_ip = count_distinct(source.ip) by target_time_window, user.full_name
+| stats token_granted_count = count(*), unique_client_ip = count_distinct(okta.client.ip) by target_time_window, okta.actor.display_name
 
 // filter where access tokens were granted on the same day but client addresses are different
 | where unique_client_ip >= 2 and token_granted_count >= 2

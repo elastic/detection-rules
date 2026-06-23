@@ -9,7 +9,7 @@ name = "Rare Occurrence of Domain with User Authentication Events"
 language = ["ES|QL"]
 license = "Elastic License v2"
 notes = [
-    "Pivot into potential compromised accounts by searching for the `user.name` in `okta.target` where `event.action` is `user.lifecycle.create`. This would identify when the user account was created. The `user.name` of this event will also be the potential compromised account.",
+    "Pivot into potential compromised accounts by searching for the `okta.actor.alternate_id` in `okta.target` where `event.action` is `user.lifecycle.create`. This would identify when the user account was created. The `okta.actor.alternate_id` of this event will also be the potential compromised account.",
 ]
 mitre = ['T1078.004']
 query = ['''
@@ -17,11 +17,11 @@ from logs-okta*
 | where @timestamp > NOW() - 7 day
 | where
     // Filter for user authentication events
-    user.name is not null
+    okta.actor.alternate_id is not null
     and event.action LIKE "user.authentication*"
 
 // Extract the top-level domain (TLD) from the user's email address
-| dissect user.name "%{}@%{tld}"
+| dissect okta.actor.alternate_id "%{}@%{tld}"
 
 // Count the number of user authentication events for each TLD
 | stats tld_auth_counts = count(*) by tld

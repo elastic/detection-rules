@@ -13,7 +13,7 @@ notes = [
     "Device Code Flow authentication is particularly suspicious for non-kiosk, non-IoT devices.",
     "Analyze `source.as.organization.name` to identify if the authentication originated from a known hosting provider, VPN, or anonymization service you are not expecting",
     "Investigate `source.address` to determine if the IP address has been previously flagged for suspicious activity.",
-    "Pivot on `user.name` to check for additional authentication attempts from different IPs, ASNs, or unusual geolocations.",
+    "Pivot on `azure.signinlogs.properties.user_principal_name` to check for additional authentication attempts from different IPs, ASNs, or unusual geolocations.",
     "Correlate findings with `azure.signinlogs.properties.authentication_processing_details` to check if legacy protocols, token replay, or bypass mechanisms were involved.",
     "Look for associated Conditional Access policy decisions in `azure.signinlogs.properties.applied_conditional_access_policies` to determine if the authentication attempt was blocked or allowed.",
     "Check `azure.signinlogs.properties.device_detail.browser` to see if the user agent is consistent with expected authentication patterns.",
@@ -77,7 +77,7 @@ FROM logs-azure.signinlogs-*
 // aggregate authentication attempts by tenant, user principal name, authentication protocol, category, ASN organization name, and source address
 | STATS asn_count = count(*) by
     azure.tenant_id,
-    user.name,
+    azure.signinlogs.properties.user_principal_name,
     azure.signinlogs.properties.authentication_protocol,
     azure.signinlogs.category,
     source.as.organization.name,

@@ -11,10 +11,10 @@ license = "Elastic License v2"
 notes = [
     "Review `azure.signinlogs.properties.authentication_protocol` to verify the authentication method used. Non-interactive SFA is typically reserved for automated processes or legacy authentication methods.",
     "Review `azure.signinlogs.properties.error_code` to identify the specific error codes associated with the failed authentication attempts. Common error codes include `50053` for account lockouts, `50126` for invalid credentials, and `50055` for expired passwords.",
-    "Investigate `user.name` to determine whether the user typically authenticates using SFA. Unusual use by regular accounts may indicate compromise.",
+    "Investigate `azure.signinlogs.properties.user_principal_name` to determine whether the user typically authenticates using SFA. Unusual use by regular accounts may indicate compromise.",
     "Analyze `source.as.organization.name` to determine if the request originated from a known hosting provider, VPN, or anonymization service that is unexpected in your environment.",
     "Examine `source.address` to check if the IP address is associated with previous suspicious activity, high-risk geolocations, or known threat infrastructure.",
-    "Pivot on `user.name` to identify any other high-risk activities within the same session.",
+    "Pivot on `azure.signinlogs.properties.user_principal_name` to identify any other high-risk activities within the same session.",
     "Correlate findings with `azure.signinlogs.properties.authentication_processing_details` to identify possible legacy protocol usage, token replay, permission scopes or bypass mechanisms.",
     "Review `user_agent.original` to identify the user agent used in the authentication request. Determine if this user agent is expected in your environment or if it is associated with known malicious activity.",
 ]
@@ -35,7 +35,7 @@ from logs-azure.signinlogs*
     user_agent.original,
     azure.signinlogs.category,
     event.outcome,
-    user.name,
+    azure.signinlogs.properties.user_principal_name,
     source.ip
 | WHERE
     event.dataset == "azure.signinlogs"
@@ -67,7 +67,7 @@ from logs-azure.signinlogs*
 // count the number of unique user login attempts
 | stats
     unique_user_app_login_count = count(*) by
-        user.name,
+        azure.signinlogs.properties.user_principal_name,
         azure.signinlogs.properties.authentication_requirement,
         azure.signinlogs.properties.app_id
 | sort unique_user_app_login_count asc

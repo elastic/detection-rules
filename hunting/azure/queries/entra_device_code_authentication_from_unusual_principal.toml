@@ -15,7 +15,7 @@ notes = [
     "Device code flow IS MFA-capable. Single-factor authentication on a device code grant is meaningful — it indicates either no Conditional Access policy targeted the resource, or the policy excludes device code, or no MFA baseline exists. Treat SFA on these grants as elevated risk, not expected behavior.",
     "Missing `azure.signinlogs.properties.device_detail.*` fields indicate the authenticating endpoint is not Entra-joined, not Intune-enrolled, and not compliant — consistent with an attacker-controlled host completing the flow on the victim's behalf.",
     "Pivot on `azure.signinlogs.properties.correlation_id`, `session_id`, and `unique_token_identifier` to correlate with subsequent Microsoft Graph activity (`azure.graphactivitylogs-*`), Azure activity (`azure.activitylogs-*`), and M365 audit events (`o365.audit-*`) to map post-compromise actions on the same identity.",
-    "Pivot on `user.id` against detection alerts on the same cluster to surface stacked alerts on the identity (rare app ID, rare authentication requirement, OAuth phishing first-party app, high-risk sign-in).",
+    "Pivot on `azure.signinlogs.properties.user_id` against detection alerts on the same cluster to surface stacked alerts on the identity (rare app ID, rare authentication requirement, OAuth phishing first-party app, high-risk sign-in).",
     "Investigate `user_agent.original` for forged or anomalous tokens (offensive tooling like python-requests, httpx, fasthttp, kali, axiom, nuclei, msal-python, or deliberately silly forged UAs are high-confidence indicators). Real browsers in standard form are not exonerating but do reduce immediate priority.",
     "Inspect `source.as.organization.name` and `source.geo.country_iso_code` against the user's normal sign-in pattern. Sudden non-Microsoft hosting providers, residential VPNs, or unexpected geographies on these flows are high-priority.",
     "Microsoft-owned ASNs (MICROSOFT-CORP-MSN-AS-BLOCK / AS8075) are excluded by default but can be re-enabled for tenants where Azure-hosted infrastructure abuse is in scope.",
@@ -103,7 +103,7 @@ FROM logs-azure.signinlogs-*
     correlation_ids = VALUES(azure.signinlogs.properties.correlation_id),
     session_ids = VALUES(azure.signinlogs.properties.session_id)
   BY
-    user.name,
+    azure.signinlogs.properties.user_principal_name,
     azure.signinlogs.properties.app_display_name,
     azure.signinlogs.properties.resource_display_name,
     azure.signinlogs.properties.authentication_requirement
