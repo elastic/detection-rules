@@ -2,15 +2,16 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Assigning the administrative role to a user will grant them access to the Google Admin console and grant them
-administrator privileges which allow them to access and manage various resources and applications. An adversary may
-create a new administrator account for persistence or apply the admin role to an existing user to carry out further
-intrusion efforts. Users with super-admin privileges can bypass single-sign on if enabled in Google Workspace.
+Assigning an administrative role to a user or group grants elevated privileges within Google Workspace, including
+access to the Google Admin console and the ability to manage domain resources and applications. Adversaries may assign
+administrator roles to an existing account or a newly created account/group to establish persistence, facilitate
+privilege escalation, and enable follow-on actions across the tenant. In particular, users with Super Admin privileges
+can bypass single sign-on (SSO) if it is enabled in Google Workspace.
 """
 false_positives = [
     """
@@ -19,52 +20,57 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace Admin Role Assigned to a User"
+name = "Google Workspace Admin Role Assigned to a User or Group"
 note = """## Triage and analysis
 
-### Investigating Google Workspace Admin Role Assigned to a User
+### Investigating Google Workspace Admin Role Assigned to a User or Group
 
-Google Workspace roles allow administrators to assign specific permissions to users or groups. These assignments should follow the principle of least privilege (PoLP). Admin roles in Google Workspace grant users access to the Google Admin console, where more domain-wide settings are accessible. Google Workspace contains prebuilt administrator roles for performing business functions related to users, groups, and services. Custom administrator roles can be created when prebuilt roles are not sufficient.
+Google Workspace roles allow administrators to assign specific permissions to users or groups. Because these roles can
+grant broad administrative control over identity, devices, and security settings, role assignments should follow the
+principle of least privilege (PoLP) and be carefully controlled. Threat actors may assign high-privilege roles (for
+example, Super Admin or other *_ADMIN_ROLE roles) to establish persistence, expand access, and perform follow-on actions
+such as creating OAuth tokens, modifying security controls, changing mail routing, or altering SSO settings. Unexpected
+admin privileges can also lead to operational impact if changes are made unintentionally.
 
-Administrator roles assigned to users will grant them additional permissions and privileges within the Google Workspace domain. Administrative roles also give users access to the admin console, where domain-wide settings can be adjusted. Threat actors might rely on these new privileges to advance their intrusion efforts and laterally move throughout the organization. Users with unexpected administrative privileges may also cause operational dysfunction if unfamiliar settings are adjusted without warning.
+This rule identifies when a Google Workspace administrative role is assigned to a user or a group.
 
-This rule identifies when a Google Workspace administrative role is assigned to a user.
+### Possible investigation steps
 
-#### Possible investigation steps
-
-- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
-  - The `user.target.email` field contains the user who received the admin role.
-- Identify the role given to the user by reviewing the `google_workspace.admin.role.name` field in the alert.
-- After identifying the involved user, verify their administrative privileges are scoped properly.
-- To identify other users with this role, search the alert for `event.action: ASSIGN_ROLE`.
-  - Add `google_workspace.admin.role.name` with the role added as an additional filter.
-  - Adjust the relative time accordingly to identify all users that were assigned this admin role.
-- Identify if the user account was recently created by searching for `event.action: CREATE_USER`.
-  - Add `user.email` with the target user account that recently received this new admin role.
-- After identifying the involved user, create a filter with their `user.name` or `user.target.email`. Review the last 48 hours of their activity for anything that may indicate a compromise.
+- Identify the initiating (actor) account that performed the change by reviewing `user.email` or `user.name`, and note the `source.ip` and `event.ingested` timestamps.
+- Identify the target principal that received the role assignment:
+  - For assignments, review `user.target.email` and `user.target.name`.
+  - For group assignments, determine which users are members of that group at the time of assignment.
+- Identify the role assigned by reviewing `google_workspace.admin.role.name`.
+- Determine whether the assignment is expected and authorized:
+  - Validate there is an approved change request/ticket and that the actor account is authorized to grant this level of access.
+  - If the role is high privilege (for example, Super Admin), treat as urgent until proven benign.
+- Scope for additional role assignments by searching for `event.action: ASSIGN_ROLE` over an expanded time window and filtering on:
+  - The same `user.email` (actor) to find other role changes performed by the same account.
+  - The same `google_workspace.admin.role.name` to identify other principals granted the role.
+  - The same target (`user.target.email`) to identify multiple roles granted to the same principal.
+- Evaluate whether the target user (or group members) performed suspicious activity after receiving the role:
+  - Review the last 48 hours of admin/audit events for security control changes, user or group changes, and Gmail configuration changes.
+  - If available, correlate with sign-in events for unusual geolocation, impossible travel, unfamiliar devices, or sign-ins from the `source.ip`.
+- Determine whether the target user account was recently created by searching for `event.action: CREATE_USER` and filtering for `user.target.email`.
 
 ### False positive analysis
 
-- After identifying user account that added the admin role, verify the action was intentional.
-- Verify that the target user who was assigned the admin role should have administrative privileges in Google Workspace.
-- Review organizational units or groups the target user might have been added to and ensure the admin role permissions align.
+- Verify the role assignment aligns with approved administrative duties, an authorized change window, and the organization’s access governance process.
+- Confirm the initiating admin account is legitimate and not performing role assignments from unusual IPs, devices, or locations.
+- For group assignments, verify the group is intended for administrative delegation and validate recent membership changes that could expand who effectively received the privilege.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Initiate the incident response process based on triage findings.
+- If the assignment is not clearly authorized, remove the role assignment from the user/group and/or place the target account(s) under administrative restriction while the investigation proceeds.
+- For suspected compromise of the initiating admin account:
+  - Reset credentials, revoke active sessions, enforce MFA re-enrollment, and review delegation/OAuth grants for persistence.
+  - Validate recovery email/phone settings and account security posture.
+- Review the permissions assigned to the implicated user/group to ensure PoLP is being followed, and consider replacing broad roles with narrower delegated roles where feasible.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -94,16 +100,27 @@ tags = [
     "Data Source: Google Workspace",
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"google_workspace.admin" and event.category:"iam" and event.action:"ASSIGN_ROLE"
-  and google_workspace.event.type:"DELEGATED_ADMIN_SETTINGS" and google_workspace.admin.role.name : *_ADMIN_ROLE
+data_stream.dataset:"google_workspace.admin" and event.action:"ASSIGN_ROLE"
+  and google_workspace.admin.role.name : *_ADMIN_ROLE
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.role.name",
+    "user.target.name",
+    "user.target.email",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
