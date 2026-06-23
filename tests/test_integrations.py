@@ -18,10 +18,10 @@ from detection_rules.integrations import (
     _parse_kibana_range,
     _related_integration_version_operator,
     _satisfies_kibana_range,
-    find_compatible_version_range,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
+    resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
 
@@ -307,11 +307,11 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         self.assertEqual(schema_data[0]["stack_version"], "9.2.0")
 
 
-class TestFindCompatibleVersionRange(unittest.TestCase):
-    """Behavior coverage for ``find_compatible_version_range``."""
+class TestResolveRelatedIntegrationVersion(unittest.TestCase):
+    """Behavior coverage for ``resolve_related_integration_version``."""
 
-    def test_uses_current_stack_single_anchor(self):
-        """Returns only the least compatible anchor for the current package stack."""
+    def test_uses_current_stack_single_manifest_version(self):
+        """Returns only the least compatible manifest version for the current package stack."""
         manifests = {
             "pkg": {
                 "1.0.0": _manifest("^8.0.0"),
@@ -323,33 +323,33 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
         }
 
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
-            stack_8 = find_compatible_version_range("pkg", manifests)
+            stack_8 = resolve_related_integration_version("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
-            stack_9 = find_compatible_version_range("pkg", manifests)
+            stack_9 = resolve_related_integration_version("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
-            stack_95 = find_compatible_version_range("pkg", manifests)
+            stack_95 = resolve_related_integration_version("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.6.0"):
-            stack_96 = find_compatible_version_range("pkg", manifests)
+            stack_96 = resolve_related_integration_version("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
-            stack_10 = find_compatible_version_range("pkg", manifests)
+            stack_10 = resolve_related_integration_version("pkg", manifests)
 
-        self.assertEqual(stack_8.range, "^1.0.0")
-        self.assertEqual(stack_8.anchors, ("1.0.0",))
-        self.assertEqual(stack_9.range, "^2.0.0")
-        self.assertEqual(stack_9.anchors, ("2.0.0",))
-        self.assertEqual(stack_95.range, ">=2.0.0")
-        self.assertEqual(stack_95.anchors, ("2.0.0",))
-        self.assertEqual(stack_96.range, ">=2.0.0")
-        self.assertEqual(stack_96.anchors, ("2.0.0",))
-        self.assertEqual(stack_10.range, ">=3.0.0")
-        self.assertEqual(stack_10.anchors, ("3.0.0",))
+        self.assertEqual(stack_8.expression, "^1.0.0")
+        self.assertEqual(stack_8.manifest_versions, ("1.0.0",))
+        self.assertEqual(stack_9.expression, "^2.0.0")
+        self.assertEqual(stack_9.manifest_versions, ("2.0.0",))
+        self.assertEqual(stack_95.expression, ">=2.0.0")
+        self.assertEqual(stack_95.manifest_versions, ("2.0.0",))
+        self.assertEqual(stack_96.expression, ">=2.0.0")
+        self.assertEqual(stack_96.manifest_versions, ("2.0.0",))
+        self.assertEqual(stack_10.expression, ">=3.0.0")
+        self.assertEqual(stack_10.manifest_versions, ("3.0.0",))
 
     def test_keeps_zero_major_when_only_stable_option_missing(self):
-        """Keep 0.x anchors when no major >= 1 anchor exists."""
+        """Keep 0.x manifest versions when no major >= 1 option exists."""
         manifests = {"pkg": {"0.5.0": _manifest("^8.0.0")}}
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
-            result = find_compatible_version_range("pkg", manifests)
-        self.assertEqual(result.anchors, ("0.5.0",))
+            result = resolve_related_integration_version("pkg", manifests)
+        self.assertEqual(result.manifest_versions, ("0.5.0",))
 
     def test_raises_when_current_stack_is_incompatible(self):
         """Raises when the current package stack cannot use any manifest version."""
@@ -358,11 +358,11 @@ class TestFindCompatibleVersionRange(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"),
             self.assertRaises(ValueError),
         ):
-            find_compatible_version_range("pkg", manifests)
+            resolve_related_integration_version("pkg", manifests)
 
 
-class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
-    """Schema-aware data stream filtering ported from #6251 into OR-range export."""
+class TestResolveRelatedIntegrationVersionSchemaAware(unittest.TestCase):
+    """Schema-aware data stream filtering for related integration version resolution."""
 
     def test_skips_versions_missing_integration(self):
         """Kibana-compatible versions whose schema lacks the integration are skipped for a later one."""
@@ -384,13 +384,13 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.12.0"),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
         ):
-            new_ds = find_compatible_version_range("pkg", manifests, integration="new_ds")
-            self.assertIn("1.9.0", new_ds.anchors)
-            self.assertNotIn("1.0.0", new_ds.anchors)
-            self.assertNotIn("1.5.0", new_ds.anchors)
+            new_ds = resolve_related_integration_version("pkg", manifests, integration="new_ds")
+            self.assertIn("1.9.0", new_ds.manifest_versions)
+            self.assertNotIn("1.0.0", new_ds.manifest_versions)
+            self.assertNotIn("1.5.0", new_ds.manifest_versions)
 
-            existing_ds = find_compatible_version_range("pkg", manifests, integration="existing_ds")
-            self.assertEqual(existing_ds.anchors, ("1.0.0",))
+            existing_ds = resolve_related_integration_version("pkg", manifests, integration="existing_ds")
+            self.assertEqual(existing_ds.manifest_versions, ("1.0.0",))
 
     def test_no_schema_data_falls_back_to_kibana_only(self):
         """Versions without schema data are not filtered; kibana compatibility alone decides."""
@@ -399,8 +399,8 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.12.0"),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value={}),
         ):
-            result = find_compatible_version_range("pkg", manifests, integration="new_ds")
-            self.assertEqual(result.anchors, ("1.0.0",))
+            result = resolve_related_integration_version("pkg", manifests, integration="new_ds")
+            self.assertEqual(result.manifest_versions, ("1.0.0",))
 
     def test_all_compatible_versions_missing_integration_raises(self):
         """Raise when every kibana-compatible version's schema lacks the requested integration."""
@@ -411,7 +411,7 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
             self.assertRaises(ValueError),
         ):
-            find_compatible_version_range("pkg", manifests, integration="new_ds")
+            resolve_related_integration_version("pkg", manifests, integration="new_ds")
 
     def test_schema_filter_excludes_legacy_zero_major(self):
         """Schema filtering must not retain older versions without the requested integration."""
@@ -433,9 +433,9 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.0.0"),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
         ):
-            result = find_compatible_version_range("pkg", manifests, integration="aadgraphactivitylogs")
-            self.assertEqual(result.anchors, ("1.37.0",))
-            self.assertEqual(result.range, "^1.37.0")
+            result = resolve_related_integration_version("pkg", manifests, integration="aadgraphactivitylogs")
+            self.assertEqual(result.manifest_versions, ("1.37.0",))
+            self.assertEqual(result.expression, "^1.37.0")
 
     def test_azure_aadgraphactivitylogs_schema_filter(self):
         """aadgraphactivitylogs resolution matches current-stack compatibility plus bundled schemas."""
@@ -452,13 +452,13 @@ class TestFindCompatibleVersionRangeSchemaAware(unittest.TestCase):
         )
         if expected is None:
             with self.assertRaises(ValueError):
-                find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
+                resolve_related_integration_version("azure", manifests, integration="aadgraphactivitylogs")
             return
 
         operator = _related_integration_version_operator(current_version)
-        result = find_compatible_version_range("azure", manifests, integration="aadgraphactivitylogs")
-        self.assertEqual(result.anchors, (expected,))
-        self.assertEqual(result.range, f"{operator}{expected}")
+        result = resolve_related_integration_version("azure", manifests, integration="aadgraphactivitylogs")
+        self.assertEqual(result.manifest_versions, (expected,))
+        self.assertEqual(result.expression, f"{operator}{expected}")
         floor_versions = [
             version
             for version in sorted(schemas["azure"], key=Version.parse)
@@ -511,14 +511,14 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
 
         from detection_rules.rule_loader import RuleCollection
 
-        class VersionRange:
-            range = ">=1.0.0"
-            anchors = ("1.0.0",)
+        class RelatedIntegrationVersionStub:
+            expression = ">=1.0.0"
+            manifest_versions = ("1.0.0",)
 
         def compatible_side_effect(package, packages_manifest, integration=None):
             if package == "unsupported":
                 raise ValueError(f"no compatible version for integration {package}:{integration}")
-            return VersionRange()
+            return RelatedIntegrationVersionStub()
 
         packages_manifest = {"endpoint": {"1.0.0": {"policy_templates": ["endpoint"]}}}
         packaged_integrations = [
@@ -534,7 +534,7 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
                 return_value=packaged_integrations,
             ),
             unittest.mock.patch(
-                "detection_rules.rule.find_compatible_version_range",
+                "detection_rules.rule.resolve_related_integration_version",
                 side_effect=compatible_side_effect,
             ),
             unittest.mock.patch("detection_rules.rule.QueryRuleData.get_required_fields", return_value=[]),

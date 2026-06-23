@@ -33,11 +33,11 @@ from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
-    find_compatible_version_range,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
+    resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -1463,7 +1463,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
                         )
                         try:
-                            result = find_compatible_version_range(
+                            result = resolve_related_integration_version(
                                 package=package["package"],
                                 packages_manifest=packages_manifest,
                                 integration=integration_name,
@@ -1472,12 +1472,12 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                             if str(exc).startswith("no compatible version for integration "):
                                 continue
                             raise
-                        package["version"] = result.range
+                        package["version"] = result.expression
 
-                        # Union policy templates across manifest-backed anchors only.
+                        # Union policy templates across manifest-backed versions only.
                         policy_templates: set[str] = set()
-                        for anchor in result.anchors:
-                            version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
+                        for manifest_version in result.manifest_versions:
+                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
                             policy_templates.update(version_data.get("policy_templates", []))
 
                         if package["integration"] not in policy_templates:

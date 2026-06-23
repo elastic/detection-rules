@@ -284,7 +284,7 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 # Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
-RELATED_INTEGRATION_GTE_MIN_STACK = Version(9, 5, 0)
+RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
 
 
 def _package_version_has_integration(
@@ -330,24 +330,24 @@ def _find_least_compatible_for_stack(
 
 
 @dataclass(frozen=True)
-class CompatibleVersionRange:
-    """Current-stack related integration compatibility range."""
+class RelatedIntegrationVersion:
+    """Resolved related_integrations.version value for the current package stack."""
 
-    range: str
-    anchors: tuple[str, ...]
+    expression: str
+    manifest_versions: tuple[str, ...]
 
 
 def _related_integration_version_operator(stack_version: Version) -> str:
     """Return the semver operator for related_integrations.version on the current stack."""
-    return ">=" if stack_version >= RELATED_INTEGRATION_GTE_MIN_STACK else "^"
+    return ">=" if stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK else "^"
 
 
-def find_compatible_version_range(
+def resolve_related_integration_version(
     package: str,
     packages_manifest: dict[str, Any],
     integration: str | None = None,
-) -> CompatibleVersionRange:
-    """Return the legacy current-stack related_integrations.version range."""
+) -> RelatedIntegrationVersion:
+    """Return the current-stack related_integrations.version expression."""
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -358,13 +358,13 @@ def find_compatible_version_range(
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
     current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    anchor = _find_least_compatible_for_stack(current_stack, integration_manifests, integration, package_schemas)
-    if anchor is None:
+    manifest_version = _find_least_compatible_for_stack(current_stack, integration_manifests, integration, package_schemas)
+    if manifest_version is None:
         package_label = f"{package}:{integration}" if integration else package
         raise ValueError(f"no compatible version for integration {package_label}")
 
     operator = _related_integration_version_operator(current_stack)
-    return CompatibleVersionRange(range=f"{operator}{anchor}", anchors=(anchor,))
+    return RelatedIntegrationVersion(expression=f"{operator}{manifest_version}", manifest_versions=(manifest_version,))
 
 
 def find_latest_compatible_version(
