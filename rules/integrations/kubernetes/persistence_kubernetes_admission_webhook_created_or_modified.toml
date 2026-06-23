@@ -2,7 +2,7 @@
 creation_date = "2026/05/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/26"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,7 @@ MutatingWebhookConfiguration and ValidatingWebhookConfiguration objects by ident
 ### Possible investigation steps
 
 - Confirm the webhook resource and operation:
-  - kubernetes.audit.objectRef.resource and kubernetes.audit.verb
+  - orchestrator.resource.type and event.action
   - kubernetes.audit.objectRef.name (the webhook configuration name)
 - Attribute the actor and access path:
   - user.name (human vs service account vs node identity)
@@ -84,9 +84,9 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-kubernetes.audit.objectRef.resource:("mutatingwebhookconfigurations" or "validatingwebhookconfigurations") and
-kubernetes.audit.verb:("create" or "update" or "patch" or "delete") and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and 
+orchestrator.resource.type:("mutatingwebhookconfigurations" or "validatingwebhookconfigurations") and
+event.action:("create" or "update" or "patch" or "delete") and
+event.outcome:"success" and 
 user.name:(* and not 
   (system\:kube-controller-manager or
   system\:kube-scheduler or

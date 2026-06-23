@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,7 @@ Azure Event Hub Authorization Rules manage access to Event Hubs via cryptographi
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service principal associated with the operation by examining the `azure.activitylogs.operation_name` and `event.outcome` fields.
+- Review the Azure activity logs to identify the user or service principal associated with the operation by examining the `event.action` and `event.outcome` fields.
 - Check the timestamp of the event to determine when the authorization rule was created or updated, and correlate this with any other suspicious activities around the same time.
 - Investigate the specific Event Hub namespace affected by the rule change to understand its role and importance within the organization.
 - Verify if the `RootManageSharedAccessKey` or any other high-privilege authorization rule was involved, as these carry significant risk if misused.
@@ -72,7 +72,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.EVENTHUB/NAMESPACES/AUTHORIZATIONRULES/WRITE" and event.outcome:(Success or success)
+data_stream.dataset:azure.activitylogs and event.action:"MICROSOFT.EVENTHUB/NAMESPACES/AUTHORIZATIONRULES/WRITE" and event.outcome:(success)
 '''
 
 

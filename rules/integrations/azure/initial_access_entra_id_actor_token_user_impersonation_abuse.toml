@@ -2,7 +2,7 @@
 creation_date = "2025/09/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ This rule detects when Microsoft services use actor tokens to perform operations
 
 ### Possible investigation steps
 
-- Review the `azure.auditlogs.properties.initiated_by.user.userPrincipalName` field to identify which service principals are exhibiting this behavior.
+- Review the `user.name` field to identify which service principals are exhibiting this behavior.
 - Check the `azure.auditlogs.properties.initiated_by.user.displayName` to confirm these are legitimate Microsoft services.
 - Analyze the actions performed by these service principals - look for privilege escalations, permission grants, or unusual administrative operations.
 - Review the timing and frequency of these events to identify potential attack patterns or automated exploitation.
@@ -89,9 +89,9 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
     "Office 365 SharePoint Online",
     "Microsoft Dynamics ERP"
   ) and
-  not azure.auditlogs.operation_name like "*group*" and
-  azure.auditlogs.operation_name != "Set directory feature on tenant"
-  and azure.auditlogs.properties.initiated_by.user.userPrincipalName rlike ".+@[A-Za-z0-9.]+\\.[A-Za-z]{2,}"
+  not event.action like "*group*" and
+  event.action != "Set directory feature on tenant"
+  and user.name rlike ".+@[A-Za-z0-9.]+\\.[A-Za-z]{2,}"
 | keep
     @timestamp,
     azure.*,

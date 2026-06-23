@@ -2,7 +2,7 @@
 creation_date = "2025/06/16"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ note = """## Triage and analysis
 This rule detects when a Microsoft Entra ID user signs in from a device that is not typically used by the user, which may indicate potential compromise or unauthorized access attempts. This rule detects unusual sign-in activity by comparing the device used for the sign-in against the user's typical device usage patterns. Adversaries may create and register a new device to obtain a Primary Refresh Token (PRT) and maintain persistent access.
 
 ### Possible investigation steps
-- Review the `azure.signinlogs.properties.user_principal_name` field to identify the user associated with the sign-in.
+- Review the `user.name` field to identify the user associated with the sign-in.
 - Check the `azure.signinlogs.properties.device_detail.device_id` field to identify the device used for the sign-in.
 - Review `azure.signinlogs.properties.incoming_token_type` to determine what tpe of security token was used for the sign-in, such as a Primary Refresh Token (PRT).
 - Examine `azure.signinlogs.category` to determine if these were non-interactive or interactive sign-ins.
@@ -79,7 +79,7 @@ data_stream.dataset: "azure.signinlogs" and
     azure.signinlogs.properties.token_protection_status_details.sign_in_session_status: "unbound" and
     not azure.signinlogs.properties.device_detail.is_managed: true and
     not azure.signinlogs.properties.device_detail.device_id: "" and
-    azure.signinlogs.properties.user_principal_name: *
+    user.name: *
 '''
 
 
@@ -121,7 +121,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.investigation_fields]
 field_names = [
-    "azure.signinlogs.properties.user_principal_name",
+    "user.name",
     "azure.signinlogs.properties.device_detail.device_id",
     "azure.signinlogs.properties.incoming_token_type",
     "azure.signinlogs.category",
@@ -137,7 +137,7 @@ field_names = [
 [rule.new_terms]
 field = "new_terms_fields"
 value = [
-    "azure.signinlogs.properties.user_principal_name",
+    "user.name",
     "azure.signinlogs.properties.device_detail.device_id",
 ]
 [[rule.new_terms.history_window_start]]

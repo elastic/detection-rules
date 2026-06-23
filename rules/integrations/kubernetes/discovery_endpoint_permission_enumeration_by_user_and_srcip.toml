@@ -2,7 +2,7 @@
 creation_date = "2026/02/02"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/03/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -61,32 +61,32 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 from logs-kubernetes.audit_logs-* metadata _id, _index, _version
-| where kubernetes.audit.stage == "ResponseComplete" and kubernetes.audit.verb in ("get", "list", "watch", "create", "update", "patch")
+| where kubernetes.audit.stage == "ResponseComplete" and event.action in ("get", "list", "watch", "create", "update", "patch")
 | stats
   Esql.document_count = count(),
-  Esql.kubernetes_audit_annotations_authorization_k8s_io_decision_count_distinct = count_distinct(`kubernetes.audit.annotations.authorization_k8s_io/decision`),
-  Esql.kubernetes_audit_verb_count_distinct = count_distinct(kubernetes.audit.verb),
+  Esql.kubernetes_audit_annotations_authorization_k8s_io_decision_count_distinct = count_distinct(`event.outcome`),
+  Esql.kubernetes_audit_verb_count_distinct = count_distinct(event.action),
   Esql.kubernetes_audit_requestURI_count_distinct = count_distinct(kubernetes.audit.requestURI),
-  Esql.kubernetes_audit_objectRef_resource_count_distinct = count_distinct(kubernetes.audit.objectRef.resource),
+  Esql.kubernetes_audit_objectRef_resource_count_distinct = count_distinct(orchestrator.resource.type),
   
   Esql.kubernetes_audit_responseStatus_message_values = values(kubernetes.audit.responseStatus.message),
-  Esql.kubernetes_audit_verb_values = values(kubernetes.audit.verb),
+  Esql.kubernetes_audit_verb_values = values(event.action),
   Esql.kubernetes_audit_responseStatus_code_values = values(kubernetes.audit.responseStatus.code),
-  Esql.kubernetes_audit_objectRef_resource_values = values(kubernetes.audit.objectRef.resource),
-  Esql.kubernetes_audit_objectRef_namespace_values = values(kubernetes.audit.objectRef.namespace),
-  Esql.kubernetes_audit_user_username_values = values(kubernetes.audit.user.username),
+  Esql.kubernetes_audit_objectRef_resource_values = values(orchestrator.resource.type),
+  Esql.kubernetes_audit_objectRef_namespace_values = values(orchestrator.namespace),
+  Esql.kubernetes_audit_user_username_values = values(user.name),
   Esql.kubernetes_audit_user_groups_values = values(kubernetes.audit.user.groups),
   Esql.kubernetes_audit_requestURI_values = values(kubernetes.audit.requestURI),
   Esql.user_agent_original_values = values(user_agent.original),
   Esql.data_stream_namespace_values = values(data_stream.namespace)
   
-  by kubernetes.audit.user.username, kubernetes.audit.sourceIPs
+  by user.name, source.ip
 | where
   Esql.kubernetes_audit_annotations_authorization_k8s_io_decision_count_distinct == 2 and
   Esql.kubernetes_audit_requestURI_count_distinct > 5 and
   Esql.kubernetes_audit_objectRef_resource_count_distinct > 3 and
   Esql.document_count < 75
-| keep Esql.*, kubernetes.audit.user.username, kubernetes.audit.sourceIPs
+| keep Esql.*, user.name, source.ip
 '''
 
 [[rule.threat]]

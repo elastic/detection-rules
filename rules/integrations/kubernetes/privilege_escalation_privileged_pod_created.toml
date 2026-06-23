@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -37,10 +37,10 @@ Kubernetes allows for the creation of privileged pods, which can access the host
 
 ### Possible investigation steps
 
-- Review the Kubernetes audit logs to identify the user or service account responsible for creating the privileged pod by examining the `kubernetes.audit.annotations.authorization_k8s_io/decision` and `kubernetes.audit.verb:create` fields.
+- Review the Kubernetes audit logs to identify the user or service account responsible for creating the privileged pod by examining the `event.outcome` and `event.action:create` fields.
 - Investigate the context of the privileged pod creation by checking the `kubernetes.audit.requestObject.spec.containers.image` field to determine if the image used is known or potentially malicious.
 - Assess the necessity and legitimacy of the privileged pod by consulting with the relevant development or operations teams to understand if there was a valid reason for its creation.
-- Examine the `kubernetes.audit.objectRef.resource:pods` field to identify the specific pod and its associated namespace, and verify if it aligns with expected deployment patterns or environments.
+- Examine the `orchestrator.resource.type:pods` field to identify the specific pod and its associated namespace, and verify if it aligns with expected deployment patterns or environments.
 - Check for any subsequent suspicious activities or anomalies in the Kubernetes environment that may indicate further exploitation attempts, such as lateral movement or data exfiltration, following the creation of the privileged pod.
 
 ### False positive analysis
@@ -81,8 +81,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset : "kubernetes.audit_logs" and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:create and kubernetes.audit.requestObject.spec.containers.securityContext.privileged:true and
+data_stream.dataset : "kubernetes.audit_logs" and event.outcome:"success" and
+orchestrator.resource.type:pods and event.action:create and kubernetes.audit.requestObject.spec.containers.securityContext.privileged:true and
 not kubernetes.audit.requestObject.spec.containers.image: (
   *amazonaws.com/betsie/pipeline/pipeline-core* or mirror.gcr.io/aquasec/trivy* or rancher/mirrored-longhornio-longhorn-instance-manager* or quay.io/calico* or
   rancher/system-agent* or openebs/m-exporter* or openebs/cstor-istgt* or ghcr.io/kubereboot/kured* or registry.k8s.io/sig-storage/csi-node-driver-registrar* or

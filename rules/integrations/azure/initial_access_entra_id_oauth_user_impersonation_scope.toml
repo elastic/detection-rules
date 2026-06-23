@@ -2,7 +2,7 @@
 creation_date = "2025/07/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 
 ### Possible investigation steps
 
-- Review the `azure.signinlogs.properties.user_principal_name` field to identify the user principal involved in the OAuth workflow.
+- Review the `user.name` field to identify the user principal involved in the OAuth workflow.
 - Check the `azure.signinlogs.properties.authentication_processing_details.Oauth Scope Info` field for the presence of `user_impersonation`. This scope is commonly used in OAuth flows to allow applications to access user resources on behalf of the user.
 - Confirm that the `azure.signinlogs.properties.authentication_requirement` is set to `singleFactorAuthentication`, indicating that the sign-in did not require multi-factor authentication (MFA). This can be a red flag, as MFA is a critical security control that helps prevent unauthorized access.
 - Review the `azure.signinlogs.properties.app_display_name` or `azure.signinlogs.properties.app_id` to identify the application involved in the OAuth workflow. Check if this application is known and trusted, or if it appears suspicious or unauthorized. FOCI applications are commonly abused by adversaries to evade security controls or conditional access policies.
@@ -120,7 +120,7 @@ field_names = [
     "azure.signinlogs.properties.device_detail.operating_system",
     "azure.signinlogs.properties.is_interactive",
     "azure.signinlogs.properties.session_id",
-    "azure.signinlogs.properties.user_principal_name",
+    "user.name",
     "azure.signinlogs.properties.user_type",
     "azure.signinlogs.result_signature",
     "azure.tenant_id",
@@ -171,7 +171,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.signinlogs.properties.user_principal_name", "azure.signinlogs.properties.app_id"]
+value = ["user.name", "azure.signinlogs.properties.app_id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"

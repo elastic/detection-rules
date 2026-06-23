@@ -2,7 +2,7 @@
 creation_date = "2026/05/26"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/26"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -49,9 +49,9 @@ modified properties record the registered device characteristics:
 
 ### Possible investigation steps
 
-- Confirm the registering identity via `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and determine
+- Confirm the registering identity via `user.name` and determine
 whether that user is expected to register a new device.
-- Review `azure.auditlogs.identity` to confirm the `Device Registration Service` initiated the request, and use
+- Review `user.full_name` to confirm the `Device Registration Service` initiated the request, and use
 `azure.correlation_id` to pivot across the full registration flow (`Add device`, `Add registered users to device`,
 `Add registered owner to device`).
 - Inspect the device name in `azure.auditlogs.properties.target_resources.0.display_name`; default `DESKTOP-` names that
@@ -131,12 +131,12 @@ field_names = [
     "@timestamp",
     "event.action",
     "event.outcome",
-    "azure.auditlogs.identity",
-    "azure.auditlogs.operation_name",
+    "user.full_name",
+    "event.action",
     "azure.auditlogs.properties.target_resources.0.display_name",
     "azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value",
     "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value",
-    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "user.name",
     "azure.auditlogs.properties.initiated_by.user.ipAddress",
     "azure.correlation_id",
 ]

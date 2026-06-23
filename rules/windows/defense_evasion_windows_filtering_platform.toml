@@ -2,7 +2,7 @@
 creation_date = "2023/12/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ The Windows Filtering Platform (WFP) is a set of API and system services that pr
 
 - Review the specific network events that triggered the alert, focusing on the event.action values "windows-firewall-packet-block" and "windows-firewall-packet-drop" to understand which processes were blocked.
 - Identify the process names involved in the alert from the process.name field and verify if they are related to known endpoint security software, as listed in the query.
-- Check the winlog.computer_name field to determine which systems are affected and assess if multiple systems are involved, indicating a broader issue.
+- Check the host.name field to determine which systems are affected and assess if multiple systems are involved, indicating a broader issue.
 - Investigate the recent changes to the Windows Filtering Platform rules on the affected systems to identify any unauthorized or suspicious modifications.
 - Correlate the blocked events with any recent security incidents or alerts to determine if there is a pattern or ongoing attack.
 - Consult system logs and security software logs on the affected systems for additional context or anomalies around the time of the alert.
@@ -78,7 +78,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by winlog.computer_name with maxspan=1m
+sequence by host.name with maxspan=1m
  [network where host.os.type == "windows" and
   event.action : ("windows-firewall-packet-block", "windows-firewall-packet-drop") and
   process.name : (

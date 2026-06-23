@@ -2,7 +2,7 @@
 creation_date = "2025/05/01"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ The rule aggregates events by user, application, and resource, requiring both `O
 
 ### Possible investigation steps
 
-- Review `o365.audit.UserId` to identify the affected user and determine if they are a high-value target.
+- Review `user.id` to identify the affected user and determine if they are a high-value target.
 - Analyze `Esql.source_ip_values` to see all unique IP addresses used within the 30-minute window. Determine whether these originate from different geographic regions, cloud providers (AWS, Azure, GCP), or anonymizing infrastructure (Tor, VPNs).
 - Use `Esql.time_window_date_trunc` to pivot into raw events and reconstruct the full sequence of resource access events with exact timestamps.
 - Check `Esql.source_as_organization_name_values` for unfamiliar ASN organizations that may indicate attacker infrastructure.
@@ -88,7 +88,7 @@ from logs-o365.audit-*
     data_stream.dataset == "o365.audit" and
     event.action == "UserLoggedIn" and
     source.ip is not null and
-    o365.audit.UserId is not null and
+    user.id is not null and
     o365.audit.ApplicationId is not null and
     o365.audit.UserType in ("0", "2", "3", "10") and
     (
@@ -151,12 +151,12 @@ from logs-o365.audit-*
     Esql.time_window_date_trunc = date_trunc(30 minutes, @timestamp),
     Esql.oauth_authorize_user_id_case = case(
         o365.audit.ExtendedProperties.RequestType == "OAuth2:Authorize" and o365.audit.ExtendedProperties.ResultStatusDetail == "Redirect",
-        o365.audit.UserId,
+        user.id,
         null
     ),
     Esql.oauth_token_user_id_case = case(
         o365.audit.ExtendedProperties.RequestType == "OAuth2:Token",
-        o365.audit.UserId,
+        user.id,
         null
     )
 | stats
@@ -167,7 +167,7 @@ from logs-o365.audit-*
     Esql.oauth_token_count_distinct = count_distinct(Esql.oauth_token_user_id_case),
     Esql.oauth_authorize_count_distinct = count_distinct(Esql.oauth_authorize_user_id_case)
   by
-    o365.audit.UserId,
+    user.id,
     Esql.time_window_date_trunc,
     o365.audit.ApplicationId,
     o365.audit.ObjectId

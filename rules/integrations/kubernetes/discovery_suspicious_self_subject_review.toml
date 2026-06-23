@@ -2,7 +2,7 @@
 creation_date = "2022/06/30"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -34,8 +34,8 @@ Kubernetes uses APIs like selfsubjectaccessreview and selfsubjectrulesreview to 
 
 ### Possible investigation steps
 
-- Review the Kubernetes audit logs to identify the specific service account or node that triggered the alert by examining the kubernetes.audit.user.username or kubernetes.audit.impersonatedUser.username fields.
-- Check the context of the API call by analyzing the kubernetes.audit.objectRef.resource field to confirm whether it involved selfsubjectaccessreviews or selfsubjectrulesreviews.
+- Review the Kubernetes audit logs to identify the specific service account or node that triggered the alert by examining the user.name or user.target.name fields.
+- Check the context of the API call by analyzing the orchestrator.resource.type field to confirm whether it involved selfsubjectaccessreviews or selfsubjectrulesreviews.
 - Investigate the source of the API request by looking at the IP address and user agent in the audit logs to determine if the request originated from a known or expected source.
 - Assess the recent activity of the implicated service account or node to identify any unusual patterns or deviations from normal behavior.
 - Verify if there have been any recent changes to the permissions or roles associated with the service account or node to understand if the access level has been altered.
@@ -80,11 +80,11 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 data_stream.dataset : "kubernetes.audit_logs" and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.verb:"create" and
-kubernetes.audit.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and (
-  kubernetes.audit.user.username:(system\:serviceaccount\:* or system\:node\:*) or
-  kubernetes.audit.impersonatedUser.username:(system\:serviceaccount\:* or system\:node\:*)
+event.outcome:"success" and
+event.action:"create" and
+orchestrator.resource.type:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and (
+  user.name:(system\:serviceaccount\:* or system\:node\:*) or
+  user.target.name:(system\:serviceaccount\:* or system\:node\:*)
 ) and user_agent.original:(* and not (*kubernetes/$Format))
 '''
 

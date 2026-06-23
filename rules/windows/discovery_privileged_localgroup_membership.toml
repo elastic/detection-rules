@@ -2,7 +2,7 @@
 creation_date = "2020/10/15"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [transform]
 [[transform.osquery]]
@@ -110,11 +110,11 @@ query = '''
 host.os.type:windows and event.category:iam and event.action:user-member-enumerated and 
   (
     group.name:(*Admin* or "RemoteDesktopUsers") or
-    winlog.event_data.TargetSid:("S-1-5-32-544" or "S-1-5-32-555")
+    user.target.id:("S-1-5-32-544" or "S-1-5-32-555")
   ) and 
   not (
-    winlog.event_data.SubjectUserName: *$ or
-    winlog.event_data.SubjectUserSid: ("S-1-5-19" or "S-1-5-20") or 
+    user.name: *$ or
+    user.id: ("S-1-5-19" or "S-1-5-20") or 
     winlog.event_data.CallerProcessName:("-" or 
                                        C\:\\Windows\\System32\\VSSVC.exe or 
                                        C\:\\Windows\\System32\\SearchIndexer.exe or 

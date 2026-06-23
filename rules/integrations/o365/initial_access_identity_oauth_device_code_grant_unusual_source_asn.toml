@@ -2,7 +2,7 @@
 creation_date = "2026/06/01"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/06/01"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,7 @@ This rule detects a user completing an OAuth device code grant (`Cmsi:Cmsi`) to 
 
 ### Possible investigation steps
 
-- Review `o365.audit.UserId` to identify the impacted account and confirm whether the user expected to perform a device code sign-in.
+- Review `user.id` to identify the impacted account and confirm whether the user expected to perform a device code sign-in.
 - Inspect `source.as.number` and `source.as.organization.name` for the source ASN. Hosting, VPN, or datacenter providers (for example Tencent, Alibaba, DigitalOcean) are unusual for interactive user authentication.
 - Review `source.ip`, `source.geo.country_name`, and `source.geo.city_name` and compare with the user's normal sign-in locations.
 - Examine `o365.audit.DeviceProperties` and `user_agent.original` for non-managed devices and automation or headless-browser patterns.
@@ -145,7 +145,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.as.number"]
+value = ["user.id", "source.as.number"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

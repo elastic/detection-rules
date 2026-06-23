@@ -11,7 +11,7 @@ license = "Elastic License v2"
 notes = [
     "Review `okta.debug_context.debug_data.flattened.grantType` to identify if the grant type is `client_credentials`",
     "Ignore `okta.debug_context.debug_data.flattened.requestedScopes` values that indicate read-only access",
-    "Review `okta.actor.display_name` to identify the public client app that attempted to retrieve the access token. This may help identify the compromised client credentials.",
+    "Review `user.full_name` to identify the public client app that attempted to retrieve the access token. This may help identify the compromised client credentials.",
     "Pivot for successful access token retrieval by the same public client app by searching `event.action` equal to `app.oauth2.as.token.grant.access_token` where the display name is the same."
 ]
 mitre = ['T1550.001']
@@ -24,16 +24,16 @@ from logs-okta.system*
     // filter on failed access token grant requests where source is a public client app
     and event.action == "app.oauth2.as.token.grant"
     and okta.actor.type == "PublicClientApp"
-    and okta.outcome.result == "FAILURE"
+    and event.outcome == "FAILURE"
 
     // filter out known Okta and Datadog actors
     and not (
-        okta.actor.display_name LIKE "Okta%"
-        or okta.actor.display_name LIKE "Datadog%"
+        user.full_name LIKE "Okta%"
+        or user.full_name LIKE "Datadog%"
     )
 
     // filter for scopes that are not implicitly granted
-    and okta.outcome.reason == "no_matching_scope"
+    and event.reason == "no_matching_scope"
 
-| keep @timestamp, event.action, okta.actor.type, okta.outcome.result, okta.outcome.reason, okta.actor.display_name
+| keep @timestamp, event.action, okta.actor.type, event.outcome, event.reason, user.full_name
 ''']

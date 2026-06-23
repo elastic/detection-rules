@@ -2,7 +2,7 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -50,8 +50,8 @@ note = """## Triage and analysis
   - Focus: `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, `winlog.event_data.OperationType`, `winlog.event_data.ObjectDN`, and `winlog.event_data.ObjectGUID` confirm the 5136 "gPCMachineExtensionNames" GPO change.
   - Implication: escalate when the value enables Security CSE GUID "827D319E-6EAC-11D2-A4EA-00C04F79F83A" plus Computer Restricted Groups GUID "803E14A0-B4FB-11D0-A0D0-00A0C90F574B" on an unexpected GPO; lower concern only when artifacts/scope confirm a recognized hardening refresh.
 - Who changed the GPO, and from where?
-  - Focus: identify the writer: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectLogonId`, and `winlog.computer_name`.
-  - Hint: on `winlog.computer_name`, find "4624" where `winlog.event_data.TargetLogonId` equals the 5136 `winlog.event_data.SubjectLogonId`; search "4648" on `winlog.event_data.SubjectLogonId` for explicit credentials, then check `source.ip`, `winlog.logon.type`, `winlog.event_data.TargetUserName`, and `winlog.event_data.TargetServerName`. Missing logon telemetry is unresolved, not benign.
+  - Focus: identify the writer: `user.id`, `user.name`, `winlog.event_data.SubjectLogonId`, and `host.name`.
+  - Hint: on `host.name`, find "4624" where `winlog.event_data.TargetLogonId` equals the 5136 `winlog.event_data.SubjectLogonId`; search "4648" on `winlog.event_data.SubjectLogonId` for explicit credentials, then check `source.ip`, `winlog.logon.type`, `user.target.name`, and `winlog.event_data.TargetServerName`. Missing logon telemetry is unresolved, not benign.
     - $investigate_0
     - $investigate_1
   - Implication: escalate when the writer is outside GPO admin cohort, uses an unusual source or direct domain-controller session, or shows alternate-credential use; lower concern when account/session match a recognized GPO administration path.
@@ -62,7 +62,7 @@ note = """## Triage and analysis
   - Implication: escalate when the operation touches other sensitive GPO attributes or combines this privilege path with GPO execution or persistence; lower concern when the 5136 set stays narrow and artifact/scope checks confirm one recognized security-template task.
 - What grants and recipients does the SYSVOL template define?
   - Why: the alert proves machine security extensions were enabled; rights or local group membership live in "GptTmpl.inf" under the SYSVOL policy folder.
-  - Focus: use the policy GUID from the CN portion of `winlog.event_data.ObjectDN` with `winlog.event_data.DSName` to inspect "Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf"; map SIDs/groups to admin tier, service-account role, and whether `winlog.event_data.SubjectUserSid` benefits. Treat `winlog.event_data.ObjectGUID` as the AD object pivot, not the SYSVOL folder name, unless it matches the CN.
+  - Focus: use the policy GUID from the CN portion of `winlog.event_data.ObjectDN` with `winlog.event_data.DSName` to inspect "Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf"; map SIDs/groups to admin tier, service-account role, and whether `user.id` benefits. Treat `winlog.event_data.ObjectGUID` as the AD object pivot, not the SYSVOL folder name, unless it matches the CN.
   - Hint: if SYSVOL is unavailable, preserve `winlog.event_data.ObjectDN`, `winlog.event_data.ObjectGUID`, `winlog.event_data.DSName`, and expected policy path; suspicious writer/session or companion 5136 evidence makes the missing grant an evidence gap.
   - Implication: escalate when "[Privilege Rights]" grants high-impact rights ("SeDebugPrivilege", "SeTakeOwnershipPrivilege", "SeEnableDelegationPrivilege", or "SeImpersonatePrivilege"), when "[Group Membership]" adds broad/unexpected identities to local Administrators ("S-1-5-32-544"), or when the writer benefits; lower concern when entries and recipients match the recognized baseline for that GPO.
 - Which computers consume the changed GPO?
@@ -89,7 +89,7 @@ note = """## Triage and analysis
 ### Response and remediation
 
 - If confirmed benign, reverse temporary containment and document writer SID, GPO object, logon/correlation IDs, recovered "GptTmpl.inf", and OU/host scope matching the workflow. Keep exceptions narrow and tied to that stable pattern.
-- If suspicious but unconfirmed, preserve the "5136" event, object and writer/session IDs, `winlog.event_data.OpCorrelationID`, `winlog.computer_name`, exported "GptTmpl.inf", available SYSVOL metadata, linked "4624"/"4648" events, and related activity before containment. Use reversible controls first: restrict affected-GPO edits, limit the writer's GPO admin path, or monitor linked systems during scoping. Disable accounts or roll back GPOs only if follow-on abuse or malicious grants are confirmed.
+- If suspicious but unconfirmed, preserve the "5136" event, object and writer/session IDs, `winlog.event_data.OpCorrelationID`, `host.name`, exported "GptTmpl.inf", available SYSVOL metadata, linked "4624"/"4648" events, and related activity before containment. Use reversible controls first: restrict affected-GPO edits, limit the writer's GPO admin path, or monitor linked systems during scoping. Disable accounts or roll back GPOs only if follow-on abuse or malicious grants are confirmed.
 - If confirmed malicious, preserve evidence first, remove unauthorized "[Privilege Rights]" or "[Group Membership]" entries, roll the GPO back to known-good state, and verify exported SYSVOL metadata before forcing policy refresh. Use identity/endpoint response to contain the writer account and admin workstation identified by `source.ip` or `winlog.logon.type`; if unavailable, escalate with writer/session, GPO, correlation, and SYSVOL artifacts.
 - Review linked OUs and affected computers before deleting artifacts or forcing "gpupdate"; complete scoping before evidence changes.
 - Harden: restrict GPO edit rights to dedicated admin tiers, retain "5136" auditing, keep security-template baselines, and document abuse variants or visibility gaps for detection engineering.
@@ -105,8 +105,8 @@ Setup instructions: https://ela.st/audit-directory-service-changes
 field_names = [
     "@timestamp",
     "user.id",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectLogonId",
     "winlog.event_data.ObjectDN",
     "winlog.event_data.ObjectGUID",
@@ -116,7 +116,7 @@ field_names = [
     "winlog.event_data.OpCorrelationID",
     "winlog.event_data.DSName",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
 ]
 
 [transform]
@@ -126,7 +126,7 @@ label = "Linked logon for the GPO writer"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
     { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
   ]
@@ -139,7 +139,7 @@ label = "Explicit-credential events for the GPO writer"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
   ]
@@ -152,12 +152,12 @@ label = "5136 events in this GPO change operation"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
     { excluded = false, field = "winlog.event_data.OpCorrelationID", queryType = "phrase", value = "{{winlog.event_data.OpCorrelationID}}", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
   ]

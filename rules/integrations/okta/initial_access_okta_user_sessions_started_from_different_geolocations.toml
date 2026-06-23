@@ -2,7 +2,7 @@
 creation_date = "2023/11/18"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -23,17 +23,17 @@ note = """## Triage and analysis
 This rule detects when a specific Okta actor has multiple sessions started from different geolocations. Adversaries may attempt to launch an attack by using a list of known usernames and passwords to gain unauthorized access to user accounts from different locations.
 
 #### Possible investigation steps:
-- Since this is an ESQL rule, the `okta.actor.alternate_id` and `okta.client.id` values can be used to pivot into the raw authentication events related to this alert.
-- Identify the users involved in this action by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
-- Determine the device client used for these actions by analyzing `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Since this is an ESQL rule, the `user.name` and `okta.client.id` values can be used to pivot into the raw authentication events related to this alert.
+- Identify the users involved in this action by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields.
+- Determine the device client used for these actions by analyzing `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - With Okta end users identified, review the `okta.debug_context.debug_data.dt_hash` field.
     - Historical analysis should indicate if this device token hash is commonly associated with the user.
-- Review the `okta.event_type` field to determine the type of authentication event that occurred.
+- Review the `event.action` field to determine the type of authentication event that occurred.
     - If the event type is `user.authentication.sso`, the user may have legitimately started a session via a proxy for security or privacy reasons.
     - If the event type is `user.authentication.password`, the user may be using a proxy to access multiple accounts for password spraying.
     - If the event type is `user.session.start`, the source may have attempted to establish a session via the Okta authentication API.
 - Review the past activities of the actor(s) involved in this action by checking their previous actions.
-- Evaluate the actions that happened just before and after this event in the `okta.event_type` field to help understand the full context of the activity.
+- Evaluate the actions that happened just before and after this event in the `event.action` field to help understand the full context of the activity.
     - This may help determine the authentication and authorization actions that occurred between the user, Okta and application.
 
 ### False positive analysis:
@@ -51,7 +51,7 @@ This rule detects when a specific Okta actor has multiple sessions started from 
         - Reset passwords and reset MFA for the user.
 - If this is a false positive, consider adding the `okta.debug_context.debug_data.dt_hash` field to the `exceptions` list in the rule.
     - This will prevent future occurrences of this event for this device from triggering the rule.
-    - Alternatively adding `okta.client.ip` or a CIDR range to the `exceptions` list can prevent future occurrences of this event from triggering the rule.
+    - Alternatively adding `source.ip` or a CIDR range to the `exceptions` list can prevent future occurrences of this event from triggering the rule.
         - This should be done with caution as it may prevent legitimate alerts from being generated.
 """
 references = [
@@ -82,18 +82,18 @@ from logs-okta*
     data_stream.dataset == "okta.system" and
     (event.action like "user.authentication.*" or event.action == "user.session.start") and
     okta.security_context.is_proxy != true and
-    okta.actor.id != "unknown" and
+    client.user.id != "unknown" and
     event.outcome == "success"
 | keep
     event.action,
     okta.security_context.is_proxy,
-    okta.actor.id,
-    okta.actor.alternate_id,
+    client.user.id,
+    user.name,
     event.outcome,
     client.geo.country_name
 | stats
     Esql.client_geo_country_name_count_distinct = count_distinct(client.geo.country_name)
-    by okta.actor.id, okta.actor.alternate_id
+    by client.user.id, user.name
 | where
     Esql.client_geo_country_name_count_distinct >= 2
 | sort

@@ -2,7 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -77,11 +77,11 @@ type = "query"
 
 query = '''
 data_stream.dataset: "azure.auditlogs" and
-    (azure.auditlogs.operation_name: "Disable Strong Authentication" or
+    (event.action: "Disable Strong Authentication" or
     (
-        azure.auditlogs.operation_name: "User deleted security info" and
+        event.action: "User deleted security info" and
         azure.auditlogs.properties.additional_details.key: "AuthenticationMethod"
-    )) and event.outcome: (Success or success)
+    )) and event.outcome: (success)
 '''
 
 [[rule.threat]]

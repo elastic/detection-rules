@@ -2,7 +2,7 @@
 creation_date = "2022/09/20"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -67,17 +67,17 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset: kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.verb: create and kubernetes.audit.objectRef.resource: pods and
+data_stream.dataset: kubernetes.audit_logs and event.outcome:"success" and
+event.action: create and orchestrator.resource.type: pods and
 kubernetes.audit.requestObject.spec.containers.securityContext.capabilities.add: ("BPF" or "DAC_READ_SEARCH"  or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO"  or "SYSLOG") and
 not (
   kubernetes.audit.requestObject.spec.containers.image : (docker.elastic.co/beats/elastic-agent* or rancher/klipper-lb* or "") or
-  kubernetes.audit.objectRef.namespace:"kube-system" or
-  (kubernetes.audit.objectRef.namespace:datadog and kubernetes.audit.requestObject.spec.containers.image:*datadog-agent*) or
-  (kubernetes.audit.objectRef.namespace:kubearmor and kubernetes.audit.requestObject.spec.containers.image:(*kubearmor\:kubearmor* or kubearmor/kubearmor-snitch*)) or
-  (kubernetes.audit.objectRef.namespace:defender and kubernetes.audit.requestObject.spec.containers.image:*fp-prisma\:defender-defender*) or
-  (kubernetes.audit.objectRef.namespace:metallb-system and kubernetes.audit.requestObject.spec.containers.image:(quay.io/frrouting* or quay.io/metallb/speaker*)) or
-  (kubernetes.audit.objectRef.namespace:longhorn-system and kubernetes.audit.requestObject.spec.containers.image:rancher/mirrored-longhornio*)
+  orchestrator.namespace:"kube-system" or
+  (orchestrator.namespace:datadog and kubernetes.audit.requestObject.spec.containers.image:*datadog-agent*) or
+  (orchestrator.namespace:kubearmor and kubernetes.audit.requestObject.spec.containers.image:(*kubearmor\:kubearmor* or kubearmor/kubearmor-snitch*)) or
+  (orchestrator.namespace:defender and kubernetes.audit.requestObject.spec.containers.image:*fp-prisma\:defender-defender*) or
+  (orchestrator.namespace:metallb-system and kubernetes.audit.requestObject.spec.containers.image:(quay.io/frrouting* or quay.io/metallb/speaker*)) or
+  (orchestrator.namespace:longhorn-system and kubernetes.audit.requestObject.spec.containers.image:rancher/mirrored-longhornio*)
 )
 '''
 

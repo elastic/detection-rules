@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -49,7 +49,7 @@ take effect.
   - Determine whether this identity has any legitimate reason to manage Bedrock resource policies. A denial for an
     identity that should never touch these APIs is more suspicious than one from an admin with a transient gap.
 - **Assess the attempt**
-  - Inspect `aws.cloudtrail.error_code` and `aws.cloudtrail.error_message` to confirm the denial reason.
+  - Inspect `error.code` and `aws.cloudtrail.error_message` to confirm the denial reason.
   - For `PutResourcePolicy`, review `aws.cloudtrail.request_parameters` and
     `aws.cloudtrail.flattened.request_parameters` for the target resource ARN and the attempted policy document.
     Look for `Principal` values referencing external AWS account IDs, `"*"`, or unfamiliar roles.
@@ -101,7 +101,7 @@ data_stream.dataset: "aws.cloudtrail" and
     event.provider: "bedrock.amazonaws.com" and
     event.action: ("PutResourcePolicy" or "DeleteResourcePolicy") and
     event.outcome: "failure" and
-    aws.cloudtrail.error_code: (
+    error.code: (
         "AccessDenied" or
         "AccessDeniedException"
     )
@@ -132,7 +132,7 @@ field_names = [
     "event.action",
     "event.provider",
     "event.outcome",
-    "aws.cloudtrail.error_code",
+    "error.code",
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",

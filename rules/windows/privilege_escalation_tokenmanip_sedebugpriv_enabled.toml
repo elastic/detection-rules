@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,8 +28,8 @@ SeDebugPrivilege is a powerful Windows privilege allowing processes to debug and
 ### Possible investigation steps
 
 - Review the event logs for the specific event.provider "Microsoft-Windows-Security-Auditing" and event.action "Token Right Adjusted Events" to gather more details about the process that enabled SeDebugPrivilege.
-- Identify the process name from winlog.event_data.ProcessName and determine if it is known or expected in the environment. Investigate any unknown or suspicious processes.
-- Check the winlog.event_data.SubjectUserSid to identify the user account associated with the process. Investigate if this account has a history of suspicious activity or if it should have the ability to enable SeDebugPrivilege.
+- Identify the process name from process.executable and determine if it is known or expected in the environment. Investigate any unknown or suspicious processes.
+- Check the user.id to identify the user account associated with the process. Investigate if this account has a history of suspicious activity or if it should have the ability to enable SeDebugPrivilege.
 - Analyze the parent process of the suspicious process to understand how it was initiated and if it was spawned by a legitimate or malicious process.
 - Correlate the timestamp of the event with other security events or alerts to identify any related activities or patterns that could indicate a broader attack or compromise.
 - Investigate the network activity of the suspicious process to determine if it is communicating with any known malicious IP addresses or domains.
@@ -81,9 +81,9 @@ any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Secur
  winlog.event_data.EnabledPrivilegeList : "SeDebugPrivilege" and
 
  /* exclude processes with System Integrity  */
- not winlog.event_data.SubjectUserSid : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+ not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
 
- not winlog.event_data.ProcessName : (
+ not process.executable : (
         "?:\\Program Files (x86)\\*",
         "?:\\Program Files\\*",
         "?:\\Users\\*\\AppData\\Local\\Temp\\*-*\\DismHost.exe",

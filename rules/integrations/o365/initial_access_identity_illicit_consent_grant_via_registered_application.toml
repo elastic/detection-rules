@@ -2,7 +2,7 @@
 creation_date = "2025/03/24"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,7 @@ This rule identifies a new consent grant to an application using Microsoft 365 a
   - Check the `Publisher` and `Verified` status.
 
 - **Assess the user who granted consent**:
-  - Investigate `o365.audit.UserId` (e.g., `terrance.dejesus@...`) for signs of phishing or account compromise.
+  - Investigate `user.id` (e.g., `terrance.dejesus@...`) for signs of phishing or account compromise.
   - Check if the user was targeted in recent phishing simulations or campaigns.
   - Review the user’s sign-in logs for suspicious geolocation, IP, or device changes.
 
@@ -97,7 +97,7 @@ data_stream.dataset: "o365.audit"
   and event.action: "Consent to application."
   and event.outcome: "success"
   and o365.audit.Target.Type: (0 or 2 or 3 or 9 or 10)
-  and o365.audit.UserId: *
+  and user.id: *
   and o365.audit.ObjectId: *
 '''
 
@@ -150,7 +150,7 @@ field_names = [
     "@timestamp",
     "event.action",
     "event.outcome",
-    "o365.audit.UserId",
+    "user.id",
     "o365.audit.ObjectId",
     "o365.audit.Actor.Type",
     "o365.audit.Target.Type",
@@ -161,7 +161,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "o365.audit.ObjectId"]
+value = ["user.id", "o365.audit.ObjectId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -21,13 +21,13 @@ note = """## Triage and analysis
 This rule detects events where Okta behavior detection has identified a new authentication behavior such as a new device or location.
 
 #### Possible investigation steps:
-- Identify the user involved in this action by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
+- Identify the user involved in this action by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields.
 - Determine the authentication anomaly by examining the `okta.debug_context.debug_data.risk_behaviors` and `okta.debug_context.debug_data.flattened` fields.
-- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Determine the client used by the actor. Review the `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - If the client is a device, check the `okta.device.id`, `okta.device.name`, `okta.device.os_platform`, `okta.device.os_version`, and `okta.device.managed` fields.
 - Review the past activities of the actor involved in this action by checking their previous actions.
 - Examine the `okta.request.ip_chain` field to potentially determine if the actor used a proxy or VPN to perform this action.
-- Evaluate the actions that happened just before and after this event in the `okta.event_type` field to help understand the full context of the activity.
+- Evaluate the actions that happened just before and after this event in the `event.action` field to help understand the full context of the activity.
 
 ### False positive analysis:
 - A user may be using a new device or location to sign in.
@@ -39,7 +39,7 @@ This rule detects events where Okta behavior detection has identified a new auth
     - If MFA is already enabled, consider resetting MFA for the user.
 - If the user is not legitimate, consider deactivating the user's account.
 - If this is a false positive, consider adjusting the Okta behavior detection settings.
-- Block the IP address or device used in the attempts if they appear suspicious, using the data from the `okta.client.ip` and `okta.device.id` fields.
+- Block the IP address or device used in the attempts if they appear suspicious, using the data from the `source.ip` and `okta.device.id` fields.
 - Conduct a review of Okta policies and ensure they are in accordance with security best practices.
 
 ## Setup

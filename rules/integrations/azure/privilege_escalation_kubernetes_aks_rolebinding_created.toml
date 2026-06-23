@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Austin Songer"]
@@ -27,7 +27,7 @@ Azure Kubernetes role bindings are crucial for managing access control within Ku
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service account associated with the role binding creation event. Focus on the `event.dataset` and `azure.activitylogs.operation_name` fields to confirm the specific operation.
+- Review the Azure activity logs to identify the user or service account associated with the role binding creation event. Focus on the `event.dataset` and `event.action` fields to confirm the specific operation.
 - Check the `event.outcome` field to ensure the operation was successful and not a failed attempt, which might indicate a misconfiguration or testing.
 - Investigate the permissions and roles assigned to the identified user or service account to determine if they have legitimate reasons to create role bindings or cluster role bindings.
 - Examine the context of the role binding creation, such as the time of the event and any related activities, to identify any unusual patterns or correlations with other suspicious activities.
@@ -73,10 +73,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:azure.activitylogs and azure.activitylogs.operation_name:
+data_stream.dataset:azure.activitylogs and event.action:
 	("MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/ROLEBINDINGS/WRITE" or
 	 "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/RBAC.AUTHORIZATION.K8S.IO/CLUSTERROLEBINDINGS/WRITE") and
-event.outcome:(Success or success)
+event.outcome:(success)
 '''
 
 

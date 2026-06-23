@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,7 @@ This rule detects Bedrock control-plane calls that enable model access at the ac
 ### Possible investigation steps
 
 - Identify the principal by reviewing `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id`, and determine whether the identity has any legitimate reason to manage Bedrock model access. A denial for an identity that should never touch these APIs is more suspicious than one from an admin with a transient permission gap.
-- Inspect `aws.cloudtrail.error_code` and `aws.cloudtrail.error_message` to confirm the denial reason, and review `event.action` to determine which model-access action was attempted.
+- Inspect `error.code` and `aws.cloudtrail.error_message` to confirm the denial reason, and review `event.action` to determine which model-access action was attempted.
 - Verify the `source.ip` and `user_agent.original` of the request. An unexpected IP, geolocation, or automation user agent is suspicious.
 - Confirm the `cloud.account.id` and `cloud.region` are expected for Bedrock usage in your environment.
 - Correlate with recent activity from the same principal, such as new access key creation, IAM permission changes, or repeated denials across Bedrock/IAM APIs, which can indicate permission enumeration or escalation attempts.
@@ -92,7 +92,7 @@ data_stream.dataset: "aws.cloudtrail"
         "CreateFoundationModelAgreement"
     )
     and event.outcome: "failure"
-    and aws.cloudtrail.error_code: (
+    and error.code: (
         "AccessDenied" or
         "AccessDeniedException"
     )
@@ -121,7 +121,7 @@ field_names = [
     "aws.cloudtrail.user_identity.access_key_id",
     "event.action",
     "event.outcome",
-    "aws.cloudtrail.error_code",
+    "error.code",
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",

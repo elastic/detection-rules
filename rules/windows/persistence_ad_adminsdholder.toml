@@ -2,7 +2,7 @@
 creation_date = "2022/01/31"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,7 @@ note = """## Triage and analysis
 
 - What did the correlated 5136 operation contain?
   - Why: one alert document may show only part of a logical directory change; `winlog.event_data.OpCorrelationID` reconstructs the rest of the operation.
-  - Focus: review same-controller `5136` events for the same `host.id`, `winlog.computer_name`, and `winlog.event_data.OpCorrelationID`; compare attribute, value, and operation type. $investigate_0
+  - Focus: review same-controller `5136` events for the same `host.id`, `host.name`, and `winlog.event_data.OpCorrelationID`; compare attribute, value, and operation type. $investigate_0
   - Implication: escalate when the operation adds multiple ACL changes, touches unrelated sensitive attributes, or suggests a staged AdminSDHolder template rewrite; lower concern only when bounded to one expected non-security update on the same object.
 
 - Does the recovered value grant or preserve access that SDProp can stamp onto protected identities?
@@ -63,15 +63,15 @@ note = """## Triage and analysis
   - Implication: escalate when the value adds a SID, DN, ACE, owner path, Full Control, Modify, WriteDacl, WriteOwner, or GenericAll outside the expected tier-0 admin set; truncated or opaque values keep permission impact unresolved and require preserving raw change data.
 
 - Who initiated the modification, and where did the session originate?
-  - Focus: identify the writer and controller with `user.id`, `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectLogonId`, and `winlog.computer_name`.
-  - Hint: on the same `winlog.computer_name`, match `5136` `winlog.event_data.SubjectLogonId` to `4624` `winlog.event_data.TargetLogonId`; search `4648` for the same `winlog.event_data.SubjectLogonId` when explicit credentials matter, then read `source.ip` and `winlog.event_data.AuthenticationPackageName`. Missing linked authentication records or `source.ip` leaves origin unresolved, not benign.
+  - Focus: identify the writer and controller with `user.id`, `user.id`, `winlog.event_data.SubjectLogonId`, and `host.name`.
+  - Hint: on the same `host.name`, match `5136` `winlog.event_data.SubjectLogonId` to `4624` `winlog.event_data.TargetLogonId`; search `4648` for the same `winlog.event_data.SubjectLogonId` when explicit credentials matter, then read `source.ip` and `winlog.event_data.AuthenticationPackageName`. Missing linked authentication records or `source.ip` leaves origin unresolved, not benign.
     - $investigate_1
     - $investigate_2
   - Implication: escalate when the writer is unexpected, source or auth method does not fit tier-0 administration, or origin remains unresolved with a security-relevant change; do not wait on auth pivots when the attribute/value and change set already prove unauthorized rights.
 
 - Did the template change propagate or get forced onto protected objects?
   - Why: SDProp can apply the AdminSDHolder template to protected accounts and groups, so impact may appear after the initial directory-change event.
-  - Focus: on the same `winlog.event_data.DSName` or `winlog.computer_name`, review later `5136` events for object, attribute, writer, and time on protected users or groups.
+  - Focus: on the same `winlog.event_data.DSName` or `host.name`, review later `5136` events for object, attribute, writer, and time on protected users or groups.
   - Hint: if the logging controller has no follow-on records, search the same `winlog.event_data.DSName` across domain controllers; absence on one controller does not clear propagation. $investigate_3
   - Implication: escalate when later events show security-descriptor, owner, or trustee changes on protected identities after the AdminSDHolder edit; no follow-on `5136` visibility leaves propagation unresolved, not benign.
 
@@ -82,7 +82,7 @@ note = """## Triage and analysis
 ### False positive analysis
 
 - AdminSDHolder ACL hardening, delegated-directory cleanup, security-baseline tooling, or migration automation are narrow tier-0 exceptions, not routine administration. Confirm the exact attribute/value/operation for `winlog.event_data.ObjectDN`, expected admin or service-account session, bounded `winlog.event_data.OpCorrelationID`, matching controller/template rollout, and no unrelated actor or controller alerts. If change records, automation inventory, or deployment records exist, require alignment; otherwise prove the current actor/action or service-account/template fit from telemetry first, then use prior recurrence only to support exception stability.
-- Before creating an exception, validate recurrence of the same `user.id` or `winlog.event_data.SubjectUserSid`, specific attribute, object, `winlog.event_data.DSName`, bounded operation shape, and controller pattern across prior alerts from this rule. Build the exception from that minimum confirmed workflow only after the current event is fully explained, and avoid exceptions on AdminSDHolder changes, Windows Security event "5136", or the rule name alone.
+- Before creating an exception, validate recurrence of the same `user.id` or `user.id`, specific attribute, object, `winlog.event_data.DSName`, bounded operation shape, and controller pattern across prior alerts from this rule. Build the exception from that minimum confirmed workflow only after the current event is fully explained, and avoid exceptions on AdminSDHolder changes, Windows Security event "5136", or the rule name alone.
 
 ### Response and remediation
 
@@ -103,8 +103,8 @@ Setup instructions: https://ela.st/audit-directory-service-changes
 field_names = [
     "@timestamp",
     "user.id",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectLogonId",
     "winlog.event_data.ObjectDN",
     "winlog.event_data.ObjectClass",
@@ -114,7 +114,7 @@ field_names = [
     "winlog.event_data.OpCorrelationID",
     "winlog.event_data.DSName",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
 ]
 
 [transform]
@@ -137,7 +137,7 @@ label = "Linked logon for the modifying session"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
   ]
@@ -150,7 +150,7 @@ label = "Explicit credential events for the modifying session"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
   ]
@@ -167,7 +167,7 @@ providers = [
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" }
   ]
 ]

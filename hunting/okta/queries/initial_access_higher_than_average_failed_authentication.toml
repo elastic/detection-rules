@@ -9,7 +9,7 @@ name = "Identify High Average of Failed Daily Authentication Attempts"
 language = ["ES|QL"]
 license = "Elastic License v2"
 notes = [
-    "Pivot to users by only keeping the first stats statement where `okta.actor.alternate_id` is the targeted accounts.",
+    "Pivot to users by only keeping the first stats statement where `user.name` is the targeted accounts.",
     "Pivot for successful logins from the same source IP by searching for `event.action` equal to `user.session.start` or `user.authentication.verify` where the outcome is `SUCCESS`.",
     "User agents can be used to identify anomalous behavior, such as a user agent that is not associated with a known application or user.",
     "Another `WHERE` count can be added to the query if activity has been baseline to filter out known behavior."
@@ -25,13 +25,13 @@ from logs-okta*
 
     // filter for invalid credential authentication events
     event.action == "user.session.start"
-    and okta.outcome.result == "FAILURE"
-    and okta.outcome.reason == "INVALID_CREDENTIALS"
+    and event.outcome == "FAILURE"
+    and event.reason == "INVALID_CREDENTIALS"
     and okta.actor.type == "User"
 
 | stats
     // count the number of daily failed logins for each day and user
-    failed_daily_logins = count(*) by target_time_window, okta.actor.alternate_id
+    failed_daily_logins = count(*) by target_time_window, user.name
 
 | stats
     // calculate the average number of daily failed logins for each day

@@ -2,7 +2,7 @@
 creation_date = "2026/06/16"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -89,7 +89,7 @@ data_stream.dataset:azure.activitylogs and
     event.action:(
         "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMANDS/WRITE" or
         "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/VIRTUALMACHINES/RUNCOMMANDS/WRITE"
-    ) and event.outcome:(success or Success) and
+    ) and event.outcome:(success) and
     azure.activitylogs.identity.authorization.evidence.principal_id: *
 '''
 
@@ -97,11 +97,11 @@ data_stream.dataset:azure.activitylogs and
 field_names = [
     "@timestamp",
     "event.outcome",
-    "azure.activitylogs.operation_name",
+    "event.action",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
     "azure.activitylogs.identity.authorization.evidence.principal_type",
     "azure.activitylogs.identity.claims.appid",
-    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "user.name",
     "azure.resource.id",
     "azure.resource.name",
     "source.ip",

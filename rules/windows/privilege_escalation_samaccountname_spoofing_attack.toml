@@ -2,7 +2,7 @@
 creation_date = "2021/12/12"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -53,27 +53,27 @@ note = """## Triage and analysis
 #### Possible investigation steps
 
 - What computer-account rename did the alert capture?
-  - Focus: `winlog.event_data.OldTargetUserName`, `winlog.event_data.NewTargetUserName`, `winlog.event_data.TargetSid`, `winlog.event_data.TargetDomainName`, and `winlog.computer_name`.
-  - Implication: escalate when one `winlog.event_data.TargetSid` moves from a "$"-suffixed computer name to a name matching or imitating the logging controller or another controller-style identity; lower concern only when the object, names, domain, and controller match a lab or patch-validation object.
+  - Focus: `winlog.event_data.OldTargetUserName`, `winlog.event_data.NewTargetUserName`, `user.target.id`, `winlog.event_data.TargetDomainName`, and `host.name`.
+  - Implication: escalate when one `user.target.id` moves from a "$"-suffixed computer name to a name matching or imitating the logging controller or another controller-style identity; lower concern only when the object, names, domain, and controller match a lab or patch-validation object.
 
 - Which account and session initiated the rename?
-  - Focus: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `user.id`.
+  - Focus: `user.id`, `user.name`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `user.id`.
   - Hint: modifying-session authentication events. $investigate_0
   - Implication: escalate when the modifier is a standard user, non-tier-0 administrator, unexpected service account, or session unrelated to directory management; lower concern only when the SID, account, domain, and logon session match the same recognized test or repair workflow.
 
 - Was the same object restored or prepared with surrounding directory changes?
   - Why: rename-back on the same object after ticket activity is common noPac-style tradecraft.
-  - Focus: follow-on account-management or directory-change events for `winlog.event_data.TargetSid`, `winlog.event_data.OldTargetUserName`, `winlog.event_data.NewTargetUserName`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue`.
+  - Focus: follow-on account-management or directory-change events for `user.target.id`, `winlog.event_data.OldTargetUserName`, `winlog.event_data.NewTargetUserName`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue`.
   - Hint: look for sAMAccountName rewrites, authentication-related attribute changes, and a final return to the expected "$"-suffixed name.
   - Implication: escalate when the object is restored after suspicious ticket activity, renamed repeatedly, or has authentication-related attribute changes around the rename; lower concern only when the restore is prompt, complete, and tied to the same recognized test or repair workflow.
 
 - Did the spoofed identity request Kerberos tickets or log on after the rename?
-  - Focus: Windows Security authentication events for the spoofed name, especially `winlog.event_data.TargetUserName`, `event.code`, `winlog.event_data.AuthenticationPackageName`, `source.ip`, and `winlog.computer_name`.
-  - Hint: use the alert `@timestamp`, `winlog.computer_name`, and `winlog.event_data.NewTargetUserName` to scope authentication review. $investigate_1 Missing Kerberos or logon coverage is unresolved, not benign.
+  - Focus: Windows Security authentication events for the spoofed name, especially `user.target.name`, `event.code`, `winlog.event_data.AuthenticationPackageName`, `source.ip`, and `host.name`.
+  - Hint: use the alert `@timestamp`, `host.name`, and `winlog.event_data.NewTargetUserName` to scope authentication review. $investigate_1 Missing Kerberos or logon coverage is unresolved, not benign.
   - Implication: escalate when the new name requests Kerberos tickets, authenticates from an unexpected `source.ip`, or appears in privileged access flows; lack of follow-on use lowers concern only when rename and restore evidence fit one confirmed benign workflow.
 
 - If local evidence is suspicious or unresolved, does the same modifier or object appear in related directory abuse?
-  - Focus: related Windows Security events or alerts for the same `winlog.event_data.SubjectUserSid` and `winlog.event_data.TargetSid`, especially Active Directory manipulation, Kerberos abuse, credential access, or privilege-escalation activity.
+  - Focus: related Windows Security events or alerts for the same `user.id` and `user.target.id`, especially Active Directory manipulation, Kerberos abuse, credential access, or privilege-escalation activity.
   - Hint: modifier-SID related events. $investigate_2
   - Hint: renamed-object related events. $investigate_3
   - Implication: broaden scope when either SID appears in related directory or privilege-abuse activity; keep localized only when related scope is clean and local evidence supports a confirmed benign workflow.
@@ -82,15 +82,15 @@ note = """## Triage and analysis
 
 ### False positive analysis
 
-- Controlled CVE-2021-42278 testing, patch validation, and rare tier-0 directory repair are the realistic benign paths. Confirm that `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectLogonId`, `winlog.event_data.TargetSid`, old/new names, and `winlog.computer_name` match one test or repair path; the same `winlog.event_data.TargetSid` is restored to the expected "$"-suffixed name; and Kerberos/logon events show no spoofed-name use outside that path. Without workflow records or owner confirmation, keep unresolved rather than closing on telemetry shape alone. If the target name, modifier, restore behavior, or follow-on usage drifts, do not close as benign.
-- Before creating an exception, validate that the same subject SID, target SID, old/new names, controller, restore sequence, and no-spoofed-authentication pattern recur across prior alerts from this rule after a benign workflow has been confirmed. Build the exception from that minimum workflow pattern, not `event.action`, `winlog.event_data.NewTargetUserName`, or `winlog.event_data.TargetSid` alone.
+- Controlled CVE-2021-42278 testing, patch validation, and rare tier-0 directory repair are the realistic benign paths. Confirm that `user.id`, `user.name`, `winlog.event_data.SubjectLogonId`, `user.target.id`, old/new names, and `host.name` match one test or repair path; the same `user.target.id` is restored to the expected "$"-suffixed name; and Kerberos/logon events show no spoofed-name use outside that path. Without workflow records or owner confirmation, keep unresolved rather than closing on telemetry shape alone. If the target name, modifier, restore behavior, or follow-on usage drifts, do not close as benign.
+- Before creating an exception, validate that the same subject SID, target SID, old/new names, controller, restore sequence, and no-spoofed-authentication pattern recur across prior alerts from this rule after a benign workflow has been confirmed. Build the exception from that minimum workflow pattern, not `event.action`, `winlog.event_data.NewTargetUserName`, or `user.target.id` alone.
 
 ### Response and remediation
 
 - If confirmed benign, preserve the evidence set that proved the workflow, then reverse any temporary containment and document the exact subject SID, target SID, old/new name sequence, controller, restore sequence, and follow-on authentication pattern. Create an exception only after the same workflow pattern recurs across prior alerts from this rule.
 - If suspicious but unconfirmed, preserve the alert document, Windows Security rename event, related account-management and directory-change events, Kerberos/logon events for the spoofed name, and related pivots before altering the object. Apply reversible containment only after weighing AD service impact with AD owners, such as temporarily disabling the renamed computer account or restoring the original sAMAccountName after evidence capture.
 - If confirmed malicious, preserve the same rename, controller, directory-change, Kerberos, and source-origin evidence first, then disable the renamed computer object or restore its original sAMAccountName, reset the machine-account secret or re-establish the expected trust path, and contain the modifying account and suspected source host. Escalate to broader account or host containment when ticket use, rename-back staging, or related privilege abuse shows active exploitation.
-- Before destructive cleanup or final object restoration, review the same `winlog.event_data.SubjectUserSid` and `winlog.event_data.TargetSid` across domain-controller Security logs for additional renames, spoofed-name authentication, or related directory abuse so scope is known before evidence changes.
+- Before destructive cleanup or final object restoration, review the same `user.id` and `user.target.id` across domain-controller Security logs for additional renames, spoofed-name authentication, or related directory abuse so scope is known before evidence changes.
 - If the spoofed identity obtained privileged tickets or was used for directory replication, treat the case as potential domain compromise: review issued Kerberos tickets, reset exposed accounts according to ticket and access evidence, and coordinate domain-recovery actions such as krbtgt rotation only when ticket abuse or replication access is confirmed.
 - Post-incident hardening: patch domain controllers for CVE-2021-42278 and related Kerberos fixes, retain account-management, directory-change, and Kerberos auditing on controllers, and record the final subject SID / target SID / old-new name / restore / follow-on-authentication pattern for future triage.
 """
@@ -107,15 +107,15 @@ field_names = [
     "event.action",
     "event.code",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
     "user.id",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectDomainName",
     "winlog.event_data.SubjectLogonId",
     "winlog.event_data.OldTargetUserName",
     "winlog.event_data.NewTargetUserName",
-    "winlog.event_data.TargetSid",
+    "user.target.id",
     "winlog.event_data.TargetDomainName",
 ]
 
@@ -143,15 +143,15 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4768", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.TargetUserName", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
+    { excluded = false, field = "user.target.name", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4769", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.TargetUserName", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
+    { excluded = false, field = "user.target.name", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.TargetUserName", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
+    { excluded = false, field = "user.target.name", queryType = "phrase", value = "{{winlog.event_data.NewTargetUserName}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"
@@ -162,7 +162,7 @@ label = "Events associated with the modifying account"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"
@@ -173,7 +173,7 @@ label = "Events associated with the renamed object"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.event_data.TargetSid", queryType = "phrase", value = "{{winlog.event_data.TargetSid}}", valueType = "string" }
+    { excluded = false, field = "user.target.id", queryType = "phrase", value = "{{user.target.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"

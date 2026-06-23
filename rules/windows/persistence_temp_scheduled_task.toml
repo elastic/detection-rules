@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ Scheduled tasks in Windows environments automate routine tasks, but adversaries 
 
 ### Possible investigation steps
 
-- Review the winlog.computer_name field to identify the affected system and determine if it is a critical asset or part of a sensitive network segment.
+- Review the host.name field to identify the affected system and determine if it is a critical asset or part of a sensitive network segment.
 - Examine the winlog.event_data.TaskName to understand the nature of the task created and deleted, and assess if it aligns with known legitimate tasks or appears suspicious.
 - Investigate the user.name associated with the task creation and deletion events to determine if the activity was performed by a legitimate user or potentially compromised account.
 - Check for any related events or logs around the same timeframe on the affected system to identify any additional suspicious activities or anomalies.
@@ -66,7 +66,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
+sequence by host.name, winlog.event_data.TaskName with maxspan=5m
    [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$"]
    [iam where host.os.type == "windows" and event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''

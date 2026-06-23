@@ -2,7 +2,7 @@
 creation_date = "2025/05/23"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -52,7 +52,7 @@ note = """## Triage and analysis
   - Hint: if the operation ID is incomplete, query 5136 on `host.id` plus `winlog.event_data.SubjectLogonId` for same-session dMSA or privileged-object changes.
   - Implication: escalate on standalone link write, unexpected value replacement, or unrelated ACL, delegation, SPN, or service-account changes; lower suspicion when same-operation or same-session changes stay bounded to one expected migration pair.
 - Who wrote the link, and does the identity fit dMSA management?
-  - Focus: use `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `winlog.computer_name` to identify writer, controller session, and service vs human.
+  - Focus: use `user.id`, `user.name`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `host.name` to identify writer, controller session, and service vs human.
   - Implication: escalate when the writer is an unfamiliar human, helpdesk account, or low-privilege service identity for dMSA management; keep unresolved when a recognized writer is not tied to the exact dMSA pair.
 - Did the writer session originate from an expected source and logon type?
   - Focus: pivot from `winlog.event_data.SubjectLogonId` and `host.id` to authentication where `winlog.event_data.TargetLogonId` matches; review `source.ip`, `winlog.logon.type`, and `winlog.event_data.AuthenticationPackageName`. $investigate_1
@@ -60,7 +60,7 @@ note = """## Triage and analysis
   - Implication: escalate when the session starts from an unexpected host, uses unusual interactive/RDP logon, or shows explicit-credential behavior outside the writer's role; expected source and logon type support closure only after link target and operation cohere.
 - Did the linked dMSA or superseded account authenticate from unexpected systems after the change?
   - Why: risk peaks when the new dMSA relationship is exercised from hosts that should not use the inherited service account.
-  - Focus: derive dMSA and superseded account names from `winlog.event_data.ObjectDN` and `winlog.event_data.AttributeValue`, then review authentication by `winlog.event_data.TargetUserName`, `source.ip`, and `winlog.logon.type`.
+  - Focus: derive dMSA and superseded account names from `winlog.event_data.ObjectDN` and `winlog.event_data.AttributeValue`, then review authentication by `user.target.name`, `source.ip`, and `winlog.logon.type`.
   - Hint: missing authentication telemetry is unresolved, not benign; an unused link still needs disposition from link target, writer, and sequence.
   - Implication: escalate when either account authenticates from a new host, admin workstation, or service path after the change; unchanged or absent use does not clear suspicion.
 - If still suspicious or unresolved, do recent writer or dMSA alerts show broader abuse?
@@ -72,15 +72,15 @@ note = """## Triage and analysis
 
 ### False positive analysis
 
-- Planned dMSA migration by identity/service-account admins may set "msDS-ManagedAccountPrecededByLink". Confirm `winlog.event_data.ObjectDN`, planned `winlog.event_data.AttributeValue`, paired `winlog.event_data.OpCorrelationID`, `winlog.event_data.SubjectUserSid`, recovered `source.ip`, and `winlog.logon.type` match migration account/host path. Telemetry-only closure requires anchors proving one bounded migration; otherwise require records, tickets, or identity-admin confirmation for the exact dMSA pair and writer. Do not close from recurrence or role assumptions.
-- Lab validation or staged service-account modernization may trigger. Confirm `winlog.event_data.ObjectDN` and `winlog.event_data.AttributeValue` stay in the authorized test/staging OU, session avoids unrelated privileged objects, and follow-on `winlog.event_data.TargetUserName` or `source.ip` is limited to test hosts. Telemetry-only closure requires test OU, writer, bounded change set, and follow-on hosts proving lab scope; otherwise require test records or lab owner confirmation.
-- Before exception, confirm the exact workflow: `winlog.event_data.SubjectUserSid`, `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeValue`, bounded `winlog.event_data.OpCorrelationID`, and recovered controller or source path. Use exceptions only when that verified workflow should repeat; avoid exceptions on the attribute, 5136, or all dMSA changes.
+- Planned dMSA migration by identity/service-account admins may set "msDS-ManagedAccountPrecededByLink". Confirm `winlog.event_data.ObjectDN`, planned `winlog.event_data.AttributeValue`, paired `winlog.event_data.OpCorrelationID`, `user.id`, recovered `source.ip`, and `winlog.logon.type` match migration account/host path. Telemetry-only closure requires anchors proving one bounded migration; otherwise require records, tickets, or identity-admin confirmation for the exact dMSA pair and writer. Do not close from recurrence or role assumptions.
+- Lab validation or staged service-account modernization may trigger. Confirm `winlog.event_data.ObjectDN` and `winlog.event_data.AttributeValue` stay in the authorized test/staging OU, session avoids unrelated privileged objects, and follow-on `user.target.name` or `source.ip` is limited to test hosts. Telemetry-only closure requires test OU, writer, bounded change set, and follow-on hosts proving lab scope; otherwise require test records or lab owner confirmation.
+- Before exception, confirm the exact workflow: `user.id`, `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeValue`, bounded `winlog.event_data.OpCorrelationID`, and recovered controller or source path. Use exceptions only when that verified workflow should repeat; avoid exceptions on the attribute, 5136, or all dMSA changes.
 
 ### Response and remediation
 
 - If confirmed benign, reverse containment and record: writer SID, dMSA DN, superseded account DN, bounded sequence, recovered source path, and external confirmation for the change. Create an exception only when that workflow should repeat.
 - If suspicious but unconfirmed, export the triggering 5136 record, same-operation change sequence, writer-session auth records, explicit-credential evidence, and related alerts before destructive changes. Apply reversible containment first: restrict the recovered source host from domain controllers or monitor the writer, modified dMSA, and superseded account. Disable the writer or isolate the source host only if additional privileged changes, unexpected follow-on authentication, or related alerts appear.
-- If confirmed malicious, preserve directory-change and session evidence first, then use endpoint response to isolate the recovered source host and disable/reset the malicious dMSA, compromised writer, and affected superseded service account. If endpoint response is unavailable on the source system, escalate with preserved `source.ip`, `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectLogonId`, `winlog.event_data.ObjectGUID`, and related 5136, 4624, or 4648 evidence to responders. Review hosts/services that used the same superseded account or new dMSA before cleanup, verify rollback replication across domain controllers, and only then remove the unauthorized `winlog.event_data.AttributeValue` link, roll back related migration/SPN/delegation changes in the same `winlog.event_data.OpCorrelationID` sequence, and rotate affected secrets or restore service bindings.
+- If confirmed malicious, preserve directory-change and session evidence first, then use endpoint response to isolate the recovered source host and disable/reset the malicious dMSA, compromised writer, and affected superseded service account. If endpoint response is unavailable on the source system, escalate with preserved `source.ip`, `user.id`, `winlog.event_data.SubjectLogonId`, `winlog.event_data.ObjectGUID`, and related 5136, 4624, or 4648 evidence to responders. Review hosts/services that used the same superseded account or new dMSA before cleanup, verify rollback replication across domain controllers, and only then remove the unauthorized `winlog.event_data.AttributeValue` link, roll back related migration/SPN/delegation changes in the same `winlog.event_data.OpCorrelationID` sequence, and rotate affected secrets or restore service bindings.
 - Post-incident hardening: restrict dMSA creation/migration rights, verify domain-controller retention for 5136, 4624, and 4648, and record the migration workflow or BadSuccessor evidence for reuse.
 """
 
@@ -94,8 +94,8 @@ Setup instructions: https://ela.st/audit-directory-service-changes
 field_names = [
     "@timestamp",
     "event.code",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectDomainName",
     "winlog.event_data.SubjectLogonId",
     "winlog.event_data.ObjectDN",
@@ -106,7 +106,7 @@ field_names = [
     "winlog.event_data.OperationType",
     "winlog.event_data.OpCorrelationID",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
 ]
 
 [transform]
@@ -146,7 +146,7 @@ providers = [
   ],
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"
@@ -166,7 +166,7 @@ relativeTo = "now"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["winlog.event_data.SubjectUserName"]
+value = ["user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

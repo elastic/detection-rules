@@ -2,7 +2,7 @@
 creation_date = "2025/10/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -83,21 +83,21 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset: azure.activitylogs and
-    azure.activitylogs.operation_name: "MICROSOFT.COMPUTE/SNAPSHOTS/DELETE" and
+    event.action: "MICROSOFT.COMPUTE/SNAPSHOTS/DELETE" and
     azure.activitylogs.properties.status_code: "Accepted" and
-    azure.activitylogs.identity.claims_initiated_by_user.name: *
+    user.name: *
 '''
 
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "user.name",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
     "azure.activitylogs.identity.claims.appid",
     "azure.activitylogs.identity.claims.sid",
     "azure.resource.name",
     "azure.resource.group",
-    "azure.activitylogs.operation_name",
+    "event.action",
     "azure.subscription_id",
     "azure.activitylogs.tenant_id",
     "source.ip",
@@ -124,7 +124,7 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.activitylogs.identity.claims_initiated_by_user.name", "azure.resource.group"]
+value = ["user.name", "azure.resource.group"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

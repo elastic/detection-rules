@@ -2,7 +2,7 @@
 creation_date = "2022/01/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -46,11 +46,11 @@ note = """## Triage and analysis
 #### Possible investigation steps
 
 - What account was changed, and what krbtgt delegation value did the alert preserve?
-  - Focus: alert 4738 evidence in `winlog.event_data.TargetSid`, `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, `winlog.event_data.AllowedToDelegateTo`, and `winlog.computer_name`.
+  - Focus: alert 4738 evidence in `user.target.id`, `user.target.name`, `winlog.event_data.TargetDomainName`, `winlog.event_data.AllowedToDelegateTo`, and `host.name`.
   - Implication: Escalate when the target now lists a krbtgt service target such as "krbtgt/DOMAIN"; lower suspicion only when the target, value, and controller match a time-boxed security validation or emergency delegation repair explicitly naming krbtgt, which is not routine delegation.
 
 - Who initiated the account change?
-  - Focus: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, and `winlog.event_data.SubjectLogonId`.
+  - Focus: `user.id`, `user.name`, `winlog.event_data.SubjectDomainName`, and `winlog.event_data.SubjectLogonId`.
   - Implication: Escalate when a human admin, newly introduced service identity, or unexpected controller-local context made the change; lower suspicion only when the same stable tier-0 identity owns this exact delegation-maintenance path.
 
 - What source and authentication method created the modifying session?
@@ -59,23 +59,23 @@ note = """## Triage and analysis
   - Implication: Escalate for an unusual source, remote-interactive access, unexpected NTLM, or explicit credentials; lower suspicion when the session maps to the expected tier-0 admin path for this controller.
 
 - Did surrounding directory changes prepare, repeat, or roll back the krbtgt delegation?
-  - Focus: surrounding 4738 records for the same `winlog.event_data.TargetSid`, plus 5136 records on the same `winlog.computer_name` and modifying subject/session; use `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue` to identify the affected object and value.
+  - Focus: surrounding 4738 records for the same `user.target.id`, plus 5136 records on the same `host.name` and modifying subject/session; use `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue` to identify the affected object and value.
   - Hint: reconstruct the burst from same-target 4738 and same-controller directory-service changes; if 5136 grouping is thin, use `winlog.record_id` order on the same controller plus subject/session and object DN. Absent 5136 evidence leaves prerequisite and rollback context unresolved, not benign.
     - $investigate_2
     - $investigate_3
   - Implication: Escalate when `winlog.event_data.AttributeLDAPDisplayName` and `winlog.event_data.AttributeValue` show delegation-enabling changes, repeated msDS-AllowedToDelegateTo writes, or no rollback; prompt removal narrows the persistence window but does not clear actor or session intent.
 
 - Does the same actor or target touch other delegation-relevant accounts in the case window?
-  - Focus: run this only if earlier answers are suspicious or unresolved; search 4738 and 5136 records for the same modifying subject/session or `winlog.event_data.TargetSid`, then compare `winlog.event_data.TargetUserName`, `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue`.
+  - Focus: run this only if earlier answers are suspicious or unresolved; search 4738 and 5136 records for the same modifying subject/session or `user.target.id`, then compare `user.target.name`, `winlog.event_data.ObjectDN`, `winlog.event_data.AttributeLDAPDisplayName`, and `winlog.event_data.AttributeValue`.
   - Implication: Broaden scope when the same actor or target appears in additional delegation writes across objects or controllers; keep it narrow when changes stay confined to one exact target and resolved maintenance path. $investigate_4
 
 - Escalate when a non-routine actor/session adds krbtgt delegation, supporting directory changes show setup, the value remains, or same-actor/target scope expands; close only when the modified account, krbtgt value, actor/session, source/authentication context, surrounding changes, rollback, and scope all align with one tightly controlled authorized workflow; preserve raw 4738, authentication, and directory-change evidence and escalate when findings stay mixed or incomplete.
 
 ### False positive analysis
 
-- Authorized security validation or emergency delegation repair can trigger this rule only when krbtgt delegation is the explicit planned action. Confirm the target (`winlog.event_data.TargetSid` plus `winlog.event_data.AllowedToDelegateTo`), actor/session (`winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectLogonId`, and recovered authentication context), controller, and surrounding attribute evidence all align. If change records are unavailable, telemetry-only closure must still bind one exact workflow with no contradictions; prior benign recurrence strengthens confidence but is not required.
+- Authorized security validation or emergency delegation repair can trigger this rule only when krbtgt delegation is the explicit planned action. Confirm the target (`user.target.id` plus `winlog.event_data.AllowedToDelegateTo`), actor/session (`user.id`, `winlog.event_data.SubjectLogonId`, and recovered authentication context), controller, and surrounding attribute evidence all align. If change records are unavailable, telemetry-only closure must still bind one exact workflow with no contradictions; prior benign recurrence strengthens confidence but is not required.
 - Do not close generic service onboarding, migration, or constrained-delegation cutover as benign unless outside confirmation explicitly names krbtgt delegation and telemetry matches that exact target, actor, session, and controller path. A normal service-delegation explanation that does not account for the krbtgt value is incomplete.
-- Before creating an exception, validate that the same `winlog.event_data.SubjectUserSid`, `winlog.event_data.TargetSid`, exact `winlog.event_data.AllowedToDelegateTo`, `winlog.computer_name`, and recovered session pattern identify the authorized workflow across prior benign cases or a tightly controlled test plan. Build the exception from that minimum confirmed pattern, and avoid exceptions on "krbtgt", event 4738, or "msDS-AllowedToDelegateTo" alone.
+- Before creating an exception, validate that the same `user.id`, `user.target.id`, exact `winlog.event_data.AllowedToDelegateTo`, `host.name`, and recovered session pattern identify the authorized workflow across prior benign cases or a tightly controlled test plan. Build the exception from that minimum confirmed pattern, and avoid exceptions on "krbtgt", event 4738, or "msDS-AllowedToDelegateTo" alone.
 
 ### Response and remediation
 
@@ -98,18 +98,18 @@ field_names = [
     "@timestamp",
     "user.name",
     "user.id",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectDomainName",
     "winlog.event_data.SubjectLogonId",
     "winlog.logon.id",
-    "winlog.event_data.TargetUserName",
-    "winlog.event_data.TargetSid",
+    "user.target.name",
+    "user.target.id",
     "winlog.event_data.TargetDomainName",
     "winlog.event_data.AllowedToDelegateTo",
     "host.name",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
 ]
 
 [transform]
@@ -146,7 +146,7 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4738", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.TargetSid", queryType = "phrase", value = "{{winlog.event_data.TargetSid}}", valueType = "string" }
+    { excluded = false, field = "user.target.id", queryType = "phrase", value = "{{user.target.id}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4738", valueType = "string" },
@@ -162,13 +162,13 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
     { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-24h/h"
@@ -180,11 +180,11 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4738", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"

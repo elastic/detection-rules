@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/05/06"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -76,7 +76,7 @@ data_stream.dataset:o365.audit and
     event.action:UserLoggedIn and
     event.outcome:success and
     o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
-    o365.audit.UserId:(* and not "Not Available") and
+    user.id:(* and not "Not Available") and
     source.geo.country_name:* and
     source.geo.region_name:* and
     not o365.audit.ApplicationId:(
@@ -123,7 +123,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 field_names = [
     "@timestamp",
     "organization.id",
-    "o365.audit.UserId",
+    "user.id",
     "o365.audit.ActorIpAddress",
     "o365.audit.ApplicationId",
     "o365.audit.ExtendedProperties.RequestType",
@@ -134,7 +134,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.geo.country_name", "source.geo.region_name"]
+value = ["user.id", "source.geo.country_name", "source.geo.region_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

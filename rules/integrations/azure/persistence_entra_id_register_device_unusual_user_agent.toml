@@ -2,7 +2,7 @@
 creation_date = "2026/05/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/15"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Register Device with Unusual User Agent (Azure AD Join)
 
-Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName`, source IP fields on the audit event,
+Review `user.name`, source IP fields on the audit event,
 `azure.auditlogs.properties.target_resources.0.display_name` for the device name, and
 `azure.correlation_id` for related audit entries.
 
@@ -67,7 +67,7 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 data_stream.dataset:"azure.auditlogs" and event.action:"Register device" and
-event.outcome:(success or Success) and
+event.outcome:(success) and
 azure.auditlogs.properties.userAgent:(* and not (Dsreg* or DeviceRegistrationClient or Dalvik*)) and
 azure.auditlogs.properties.additional_details.value:"Azure AD join"
 '''
@@ -79,7 +79,7 @@ field_names = [
     "event.outcome",
     "azure.auditlogs.properties.userAgent",
     "azure.auditlogs.properties.additional_details.value",
-    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "user.name",
     "azure.auditlogs.properties.initiated_by.user.ipAddress",
     "azure.auditlogs.properties.target_resources.0.display_name",
     "azure.auditlogs.properties.target_resources.0.id",

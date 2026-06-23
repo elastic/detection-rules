@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2026/02/03"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,9 @@ This rule detects failed authentication attempts specifically targeting the Okta
 Threat actors like ShinyHunters have been observed probing for valid admin credentials as part of their attack chain. Failed Admin Console access attempts often precede successful compromise through vishing (voice phishing) or credential harvesting.
 
 #### Possible investigation steps:
-- Identify the user involved by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
-- Review the `okta.outcome.reason` field to understand why the authentication failed (e.g., invalid credentials, MFA failure, policy violation).
-- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Identify the user involved by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields.
+- Review the `event.reason` field to understand why the authentication failed (e.g., invalid credentials, MFA failure, policy violation).
+- Determine the client used by the actor. Review the `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - Check if the source IP is associated with known malicious activity, VPN/proxy services, or unusual geolocations.
 - Examine the `okta.request.ip_chain` field to determine if the actor used a proxy or VPN.
 - Correlate with other failed login attempts from the same IP or user to identify patterns.
@@ -75,7 +75,7 @@ query = '''
 event.dataset: "okta.system"
     and event.category: "authentication"
     and okta.target.alternate_id: "Okta Admin Console"
-    and okta.outcome.result: "FAILURE"
+    and event.outcome: "failure"
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2025/10/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -42,7 +42,7 @@ unusual in normal operations and highly suspicious when observed.
 
 ### Possible investigation steps
 
-- Identify the user account responsible for the deletions by examining the `azure.activitylogs.identity.claims_initiated_by_user.name` or `user.name` field in the alerts.
+- Identify the user account responsible for the deletions by examining the `user.name` or `user.name` field in the alerts.
 - Review all deletion events from this user in the specified time window to determine the scope and scale of the activity.
 - Check the `azure.resource.id` and `azure.resource.name` fields to identify which Restore Point Collections were deleted and assess their criticality to business operations.
 - Verify whether the user account has legitimate administrative access and whether these deletions were authorized through change management or documented maintenance activities.
@@ -105,7 +105,7 @@ type = "threshold"
 query = '''
 data_stream.dataset: azure.activitylogs and
     event.action: "MICROSOFT.COMPUTE/RESTOREPOINTCOLLECTIONS/DELETE" and
-    event.outcome: (Success or success)
+    event.outcome: (success)
 '''
 
 
@@ -123,7 +123,7 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.threshold]
-field = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+field = ["user.name"]
 value = 1
 [[rule.threshold.cardinality]]
 field = "azure.activitylogs.resource.id"

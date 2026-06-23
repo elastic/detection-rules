@@ -2,7 +2,7 @@
 creation_date = "2025/04/23"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,12 +30,12 @@ The rule uses split detection logic: developer tools (Azure CLI, VSCode, PowerSh
 
 ### Possible investigation steps
 
-- Review `o365.audit.UserId` to identify the impacted account and validate whether the user expected to authorize the application.
+- Review `user.id` to identify the impacted account and validate whether the user expected to authorize the application.
 - Check `o365.audit.ActorIpAddress` for unexpected IPs, especially outside corporate ranges or from proxy/VPN networks.
 - Examine `user_agent.original` and `o365.audit.DeviceProperties` for suspicious patterns (automation tools, headless browsers, unusual browser/OS combinations).
 - Confirm `o365.audit.Target.ID` to identify the resource being accessed. Legacy AAD (`00000002-0000-0000-c000-000000000000`) access is unusual for most users.
 - Review `o365.audit.ExtendedProperties.RequestType` and `ResultStatusDetail` - `OAuth2:Authorize` with `Redirect` indicates the OAuth code was exposed to the user.
-- Look for subsequent `OAuth2:Token` events from different IPs using the same `o365.audit.UserId`, which indicates token exchange from attacker infrastructure.
+- Look for subsequent `OAuth2:Token` events from different IPs using the same `user.id`, which indicates token exchange from attacker infrastructure.
 - Pivot to `azure.graphactivitylogs` to check for follow-up Graph API activity (mailbox enumeration, file access) from unfamiliar locations.
 - Correlate with `azure.signinlogs` for additional sign-in context and device details.
 

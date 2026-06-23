@@ -2,7 +2,7 @@
 creation_date = "2024/10/14"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic", "Matteo Potito Giorgio"]
@@ -25,7 +25,7 @@ This rule detects the first instance of a user authenticating via the DeviceCode
 
 ### Possible investigation steps
 
-- Review `azure.signinlogs.properties.user_principal_name` and `azure.signinlogs.properties.user_id` to identify the user involved.
+- Review `user.name` and `user.id` to identify the user involved.
 - Confirm that `azure.signinlogs.properties.authentication_protocol` is set to `deviceCode`.
 - Verify the application through `azure.signinlogs.properties.app_display_name` and `azure.signinlogs.properties.app_id` to determine if it is expected.
 - Check `source.ip` and compare it with previous authentication logs to determine whether the login originated from a trusted location.
@@ -153,7 +153,7 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.signinlogs.properties.user_principal_name"]
+value = ["user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

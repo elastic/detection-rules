@@ -2,7 +2,7 @@
 creation_date = "2023/12/04"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -33,9 +33,9 @@ type = "eql"
 query = '''
 authentication where
  host.os.type : "windows" and winlog.event_data.LogonProcessName : "Advapi*" and
- winlog.logon.type == "Interactive" and winlog.event_data.SubjectUserSid : ("S-1-5-21*", "S-1-12-*") and
- winlog.event_data.TargetUserSid : ("S-1-5-21*", "S-1-12-*")  and process.executable : "C:\\*" and
- not startswith~(winlog.event_data.SubjectUserSid, winlog.event_data.TargetUserSid) and
+ winlog.logon.type == "Interactive" and user.id : ("S-1-5-21*", "S-1-12-*") and
+ user.target.id : ("S-1-5-21*", "S-1-12-*")  and process.executable : "C:\\*" and
+ not startswith~(user.id, user.target.id) and
  not process.executable :
             ("?:\\Windows\\System32\\winlogon.exe",
              "?:\\Windows\\System32\\wininit.exe",
@@ -52,20 +52,20 @@ note = """## Triage and analysis
 #### Possible investigation steps
 
 - Did Advapi create an interactive logon for a different target identity?
-  - Focus: `winlog.logon.type`, `winlog.event_data.LogonProcessName`, `winlog.event_data.SubjectUserSid`, `winlog.event_data.TargetUserSid`, and `host.id`.
+  - Focus: `winlog.logon.type`, `winlog.event_data.LogonProcessName`, `user.id`, `user.target.id`, and `host.id`.
   - Implication: escalate when Advapi creates a different Target session without recognized credential-switch use; lower suspicion only for bounded runas or helper use on this host. Subject initiated the action; Target received the session or token.
 - Which process requested the alternate-credential session?
-  - Focus: `process.executable`, `process.name`, `process.pid`, `winlog.event_data.SubjectUserName`, and `winlog.event_data.SubjectDomainName`.
+  - Focus: `process.executable`, `process.name`, `process.pid`, `user.name`, and `winlog.event_data.SubjectDomainName`.
   - Implication: escalate when the requester is user-writable, temporary, renamed, or unrelated to credential switching; lower suspicion only for System32 runas.exe or a recognized helper tied to the same Subject. Process identity alone does not clear token creation.
 - Did the Target session create privileged or linked-token access?
-  - Focus: `winlog.event_data.TargetUserSid`, `winlog.event_data.TargetLogonId`, `winlog.event_data.TargetLinkedLogonId`, `winlog.event_data.ElevatedToken`, and `winlog.event_data.ImpersonationLevel`.
+  - Focus: `user.target.id`, `winlog.event_data.TargetLogonId`, `winlog.event_data.TargetLinkedLogonId`, `winlog.event_data.ElevatedToken`, and `winlog.event_data.ImpersonationLevel`.
   - Implication: escalate on a privileged or unusual Target account, elevated token, linked session, or impersonation-capable token. Keep unresolved when the Target cannot be tied to the requesting Subject and process; a recognized requester does not clear elevated Target token state.
 - Did explicit-credential records show who supplied Target credentials?
-  - Focus: same-host 4648 records using `winlog.event_data.SubjectLogonId`; read `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, `winlog.event_data.TargetServerName`, and `source.ip`.
+  - Focus: same-host 4648 records using `winlog.event_data.SubjectLogonId`; read `user.target.name`, `winlog.event_data.TargetDomainName`, `winlog.event_data.TargetServerName`, and `source.ip`.
   - Hint: make-token tooling may leave only Advapi, different Subject/Target SIDs, and Target session fields; do not require endpoint command-line evidence before escalation. $investigate_0
   - Implication: escalate when 4648 shows the same Subject session presenting Target credentials to an unexpected server or non-local origin. Local or absent `source.ip` can occur in make-token cases and must be weighed with requester, identity pair, and token state; missing Security telemetry is unresolved, not benign.
 - Did the created Target session show follow-on success or authentication-method signals?
-  - Focus: same-host 4624 and 4634 records using `winlog.event_data.TargetLogonId`; read `winlog.event_data.TargetUserSid`, `winlog.event_data.AuthenticationPackageName`, and `source.ip`.
+  - Focus: same-host 4624 and 4634 records using `winlog.event_data.TargetLogonId`; read `user.target.id`, `winlog.event_data.AuthenticationPackageName`, and `source.ip`.
   - Implication: escalate on unexpected authentication package use, repeated successful session activity, or a non-local origin that contradicts local workflow; absent or local source details should be weighed with Target-token evidence. Missing 4624/4634 telemetry is unresolved, not benign.
     - $investigate_1
     - $investigate_2
@@ -83,7 +83,7 @@ note = """## Triage and analysis
 ### False positive analysis
 
 - Recognized runas, enterprise PAM or credential-broker helpers, and authorized assessment can trigger this rule from monitored admin hosts. Confirm `process.executable`, Subject and Target identities, `host.id`, and explicit-credential or session records bind to the same workflow or validation scope; contradictory Target token details block benign closure.
-- Build exceptions only from the minimum confirmed pattern, such as `process.executable` plus `winlog.event_data.SubjectUserSid`, `winlog.event_data.TargetUserSid`, and a bounded `host.id` or host group. Avoid exceptions on `process.name`, `user.name`, or the Target account alone.
+- Build exceptions only from the minimum confirmed pattern, such as `process.executable` plus `user.id`, `user.target.id`, and a bounded `host.id` or host group. Avoid exceptions on `process.name`, `user.name`, or the Target account alone.
 
 ### Response and remediation
 
@@ -111,10 +111,10 @@ field_names = [
     "winlog.event_data.LogonProcessName",
     "winlog.event_data.ImpersonationLevel",
     "winlog.event_data.ElevatedToken",
-    "winlog.event_data.SubjectUserSid",
-    "winlog.event_data.SubjectUserName",
+    "user.id",
+    "user.name",
     "winlog.event_data.SubjectLogonId",
-    "winlog.event_data.TargetUserSid",
+    "user.target.id",
     "winlog.event_data.TargetLogonId",
     "winlog.event_data.TargetLinkedLogonId",
 ]
@@ -194,11 +194,11 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"
@@ -210,11 +210,11 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.TargetUserSid", queryType = "phrase", value = "{{winlog.event_data.TargetUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.target.id", queryType = "phrase", value = "{{user.target.id}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "user.id", queryType = "phrase", value = "{{winlog.event_data.TargetUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.target.id}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"

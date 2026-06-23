@@ -2,7 +2,7 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -15,15 +15,15 @@ note = """## Triage and analysis
 
 ### Investigating First Occurrence of Okta User Session Started via Proxy
 
-This rule detects the first occurrence of an Okta user session started via a proxy. This rule is designed to help identify suspicious authentication behavior that may be indicative of an attacker attempting to gain access to an Okta account while remaining anonymous. This rule leverages the New Terms rule type feature where the `okta.actor.id` value is checked against the previous 7 days of data to determine if the value has been seen before for this activity.
+This rule detects the first occurrence of an Okta user session started via a proxy. This rule is designed to help identify suspicious authentication behavior that may be indicative of an attacker attempting to gain access to an Okta account while remaining anonymous. This rule leverages the New Terms rule type feature where the `client.user.id` value is checked against the previous 7 days of data to determine if the value has been seen before for this activity.
 
 #### Possible investigation steps:
-- Identify the user involved in this action by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
-- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Identify the user involved in this action by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields.
+- Determine the client used by the actor. Review the `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - Examine the `okta.debug_context.debug_data.flattened` field for more information about the proxy used.
 - Review the `okta.request.ip_chain` field for more information about the geographic location of the proxy.
 - Review the past activities of the actor involved in this action by checking their previous actions.
-- Evaluate the actions that happened just before and after this event in the `okta.event_type` field to help understand the full context of the activity.
+- Evaluate the actions that happened just before and after this event in the `event.action` field to help understand the full context of the activity.
 
 ### False positive analysis:
 - A user may have legitimately started a session via a proxy for security or privacy reasons.
@@ -62,14 +62,14 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset:okta.system and
-    okta.event_type: (
+    event.action: (
         user.session.start or
         user.authentication.verify or
         user.authentication.sso or
         user.authentication.auth_via_mfa
     ) and
     okta.security_context.is_proxy:true and
-    not okta.actor.id: okta*
+    not client.user.id: okta*
 '''
 
 
@@ -98,7 +98,7 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["okta.actor.id", "cloud.account.id"]
+value = ["client.user.id", "cloud.account.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

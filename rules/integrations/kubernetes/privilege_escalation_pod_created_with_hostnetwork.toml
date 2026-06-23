@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -81,8 +81,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset:kubernetes.audit_logs and kubernetes.audit.annotations.authorization_k8s_io/decision:allow and
-kubernetes.audit.objectRef.resource:pods and kubernetes.audit.verb:(create or patch or update) and
+data_stream.dataset:kubernetes.audit_logs and event.outcome:success and
+orchestrator.resource.type:pods and event.action:(create or patch or update) and
 kubernetes.audit.requestObject.spec.hostNetwork:true and
 not (
   kubernetes.audit.requestObject.spec.containers.image:(
@@ -91,7 +91,7 @@ not (
     quay.io/frrouting/frr* or quay.io/metallb/speaker* or quay.io/prometheus/node-exporter* or rancher/system-agent* or
     registry.crowdstrike.com/falcon-sensor* or registry.k8s.io/sig-storage/csi-node-driver-registrar*
   ) or
-  kubernetes.audit.objectRef.namespace:(
+  orchestrator.namespace:(
     calico or calico-system or cilium or elastic or ingress-nginx or kube-system or noname-security-posture or openebs or sysdig-agent
   )
 )

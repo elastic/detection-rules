@@ -9,8 +9,8 @@ name = "Multi-Factor Authentication (MFA) Push Notification Bombing"
 language = ["ES|QL"]
 license = "Elastic License v2"
 notes = [
-    "`okta.actor.alternate_id` would be target of the threat adversary",
-    "Pivoting into a potential compromise requires an additional search for `okta.outcome.result` being `SUCCESS` for any `user.authentication*` value for `okta.event_type`",
+    "`user.name` would be target of the threat adversary",
+    "Pivoting into a potential compromise requires an additional search for `event.outcome` being `SUCCESS` for any `user.authentication*` value for `event.action`",
     "For a smaller window (rapid denies), reduce from 1 hour to 30 minutes or lower"
 ]
 mitre = ['T1556.006']
@@ -25,7 +25,7 @@ from logs-okta.system*
 | eval hourly_count = date_trunc(1 hour, event.ingested)
 
 // Count the number of deny push notifications for each user every hour
-| stats hourly_denies = count(*) by okta.actor.alternate_id, hourly_count
+| stats hourly_denies = count(*) by user.name, hourly_count
 
 // Filter for users who deny more than 5 push notifications in a single hour
 | where hourly_denies > 5

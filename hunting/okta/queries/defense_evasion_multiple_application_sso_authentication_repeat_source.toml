@@ -33,7 +33,7 @@ from logs-okta*
 | dissect okta.debug_context.debug_data.request_uri"%{?}/app/%{target_application}/"
 
 // count the number of unique applications per source IP and user in a 5-minute window
-| stats application_count = count_distinct(target_application), window_count = count(*) by target_time_window, source.ip, okta.actor.alternate_id
+| stats application_count = count_distinct(target_application), window_count = count(*) by target_time_window, source.ip, user.name
 
 // filter for at least 15 distinct applications authenticated from a single source IP
 | where application_count > 15

@@ -2,7 +2,7 @@
 creation_date = "2023/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -29,13 +29,13 @@ Adversaries may attempt to add an unauthorized IdP to an Okta tenant to gain acc
 - Identify the third-party IdP by examining the `okta.authentication_context.issuer.id` field.
 - Once the third-party IdP is identified, determine if this IdP is authorized to be used by the tenant.
 - If the IdP is unauthorized, deactivate it immediately via the Okta console.
-- Identify the actor associated with the IdP creation by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields in historical data.
+- Identify the actor associated with the IdP creation by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields in historical data.
     - The `New Okta Identity Provider (IdP) Added by Admin` rule may be helpful in identifying the actor and the IdP creation event.
-- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Determine the client used by the actor. Review the `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - If the client is a device, check the `okta.device.id`, `okta.device.name`, `okta.device.os_platform`, `okta.device.os_version`, and `okta.device.managed` fields.
 - Review the past activities of the actor involved in this action by checking their previous actions logged in the `okta.target` field.
 - Examine the `okta.request.ip_chain` field to potentially determine if the actor used a proxy or VPN to perform this action.
-- Evaluate the actions that happened just before and after this event in the `okta.event_type` field to help understand the full context of the activity.
+- Evaluate the actions that happened just before and after this event in the `event.action` field to help understand the full context of the activity.
 
 ### False positive analysis:
 - It might be a false positive if this IdP is authorized to be used by the tenant.
@@ -49,7 +49,7 @@ Adversaries may attempt to add an unauthorized IdP to an Okta tenant to gain acc
 - If the actor is unauthorized, deactivate their account via the Okta console.
 - If the actor is authorized, ensure that the actor's account is not compromised.
 
-- Block the IP address or device used in the attempts if they appear suspicious, using the data from the `okta.client.ip` and `okta.device.id` fields.
+- Block the IP address or device used in the attempts if they appear suspicious, using the data from the `source.ip` and `okta.device.id` fields.
 - Conduct a review of Okta policies and ensure they are in accordance with security best practices.
 - If the deactivated IdP was crucial to the organization, consider adding a new IdP and removing the unauthorized IdP.
 
@@ -90,8 +90,8 @@ data_stream.dataset: "okta.system"
         )
         or (
             event.action: "user.authentication.auth_via_IDP"
-            and okta.outcome.result: "FAILURE"
-            and okta.outcome.reason: (
+            and event.outcome: "failure"
+            and event.reason: (
                 "A SAML assert with the same ID has already been processed by Okta for a previous request"
                 or "Unable to match transformed username"
                 or "Unable to resolve IdP endpoint"

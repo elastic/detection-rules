@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ Okta network zones can be configured to limit or restrict access to a network ba
 
 #### Possible investigation steps:
 
-- Identify the actor associated with the alert by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, or `okta.actor.display_name` fields.
+- Identify the actor associated with the alert by examining the `client.user.id`, `okta.actor.type`, `user.name`, or `user.full_name` fields.
 - Examine the `event.action` field to confirm the deletion of a network zone.
 - Investigate the `okta.target.id`, `okta.target.type`, `okta.target.alternate_id`, or `okta.target.display_name` fields to identify the network zone that was deleted.
 - Review the `event.time` field to understand when the event happened.
@@ -37,7 +37,7 @@ Okta network zones can be configured to limit or restrict access to a network ba
 
 ### False positive analysis:
 
-- Verify the `okta.client.user_agent.raw_user_agent` field to understand the device and software used by the actor. If these match the actor's typical behavior, it might be a false positive.
+- Verify the `user_agent.original` field to understand the device and software used by the actor. If these match the actor's typical behavior, it might be a false positive.
 - Check if the actor is a known administrator or a member of the IT team who might have a legitimate reason to delete a network zone.
 - Cross-verify the actor's actions with any known planned changes or maintenance activities.
 

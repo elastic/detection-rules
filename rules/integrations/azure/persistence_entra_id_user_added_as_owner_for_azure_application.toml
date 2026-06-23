@@ -2,7 +2,7 @@
 creation_date = "2020/08/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ Azure applications often require specific permissions for functionality, managed
 
 ### Possible investigation steps
 
-- Review the Azure audit logs to confirm the operation by filtering for event.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to application" with a successful outcome.
+- Review the Azure audit logs to confirm the operation by filtering for event.dataset:azure.auditlogs and event.action:"Add owner to application" with a successful outcome.
 - Identify the user account that was added as an owner and the account that performed the operation to determine if they are legitimate or potentially compromised.
 - Check the history of activities associated with both the added owner and the account that performed the operation to identify any suspicious behavior or patterns.
 - Verify the application's current configuration and permissions to assess any changes made after the new owner was added.
@@ -62,7 +62,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:azure.auditlogs and azure.auditlogs.operation_name:"Add owner to application" and event.outcome:(Success or success)
+data_stream.dataset:azure.auditlogs and event.action:"Add owner to application" and event.outcome:(success)
 '''
 
 

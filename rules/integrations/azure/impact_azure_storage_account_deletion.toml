@@ -2,7 +2,7 @@
 creation_date = "2025/10/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -79,8 +79,8 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset: azure.activitylogs and
-    azure.activitylogs.operation_name: "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE" and
-    azure.activitylogs.identity.claims_initiated_by_user.name: *
+    event.action: "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE" and
+    user.name: *
 '''
 
 
@@ -104,7 +104,7 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+value = ["user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

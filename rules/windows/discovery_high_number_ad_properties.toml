@@ -2,7 +2,7 @@
 creation_date = "2023/01/29"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ LDAP (Lightweight Directory Access Protocol) is crucial for querying and modifyi
 ### Possible investigation steps
 
 - Review the event logs for the specific event code 4662 to gather details about the suspicious read access, focusing on the winlog.event_data.Properties field to understand which attributes were accessed.
-- Identify the user associated with the suspicious activity by examining the winlog.event_data.SubjectUserSid field, and determine if this user has a legitimate reason to access a high number of Active Directory object attributes.
+- Identify the user associated with the suspicious activity by examining the user.id field, and determine if this user has a legitimate reason to access a high number of Active Directory object attributes.
 - Check the user's recent activity and login history to identify any unusual patterns or anomalies that could indicate compromised credentials or unauthorized access.
 - Investigate the source machine from which the LDAP queries originated to determine if it is a known and trusted device or if it shows signs of compromise or unauthorized use.
 - Correlate this event with other security alerts or logs to identify if this activity is part of a larger pattern of reconnaissance or privilege escalation attempts within the network.
@@ -71,7 +71,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where host.os.type == "windows" and event.code == "4662" and not winlog.event_data.SubjectUserSid : "S-1-5-18" and
+any where host.os.type == "windows" and event.code == "4662" and not user.id : "S-1-5-18" and
  winlog.event_data.AccessMaskDescription == "Read Property" and length(winlog.event_data.Properties) >= 2000
 '''
 

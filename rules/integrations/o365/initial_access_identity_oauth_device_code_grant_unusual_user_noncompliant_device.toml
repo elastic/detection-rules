@@ -2,7 +2,7 @@
 creation_date = "2026/06/02"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/06/02"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,7 @@ This rule detects a user completing an OAuth device code grant (`Cmsi:Cmsi`) fro
 
 ### Possible investigation steps
 
-- Review `o365.audit.UserId` to identify the impacted account and confirm whether the user expected to perform a device code sign-in.
+- Review `user.id` to identify the impacted account and confirm whether the user expected to perform a device code sign-in.
 - Examine `o365.audit.DeviceProperties` to understand the device posture (compliance, management state, OS, browser) and whether the device is recognized for this user.
 - Confirm `o365.audit.ApplicationId` and `o365.audit.Target.ID` to identify the application and resource the grant was for. Authentication Broker (`29d9ed98-a469-4536-ade2-f981bc1d605e`) and developer tooling (Azure CLI, PowerShell) are commonly abused.
 - Inspect `source.as.number`, `source.as.organization.name`, `source.ip`, and `source.geo.*` and compare with the user's normal sign-in origins. Hosting, VPN, or datacenter providers are unusual for interactive user authentication.
@@ -144,7 +144,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId"]
+value = ["user.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

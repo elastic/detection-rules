@@ -2,7 +2,7 @@
 creation_date = "2026/02/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/27"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -64,11 +64,11 @@ type = "esql"
 query = '''
 FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE
-  kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
-  kubernetes.audit.verb in ("create", "update", "patch") and
-  `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+  orchestrator.resource.type in ("roles", "clusterroles") and
+  event.action in ("create", "update", "patch") and
+  `event.outcome` == "allow" and
   kubernetes.audit.level == "RequestResponse" and kubernetes.audit.stage == "ResponseComplete" and
-  not kubernetes.audit.sourceIPs in ("::1", "127.0.0.1") and 
+  not source.ip in ("::1", "127.0.0.1") and 
   not (user.name like "eks:*" and kubernetes.audit.objectRef.name like "eks:*") and 
   not (user.name == "aksService" and event.action == "create" and kubernetes.audit.objectRef.name like "aks:*") and 
   not (user.name == "system:serviceaccount:kube-system:clusterrole-aggregation-controller" and  kubernetes.audit.objectRef.name in ("admin", "edit") and event.action == "patch") and 
@@ -83,7 +83,7 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
     KQL(""" kubernetes.audit.responseObject.rules.verbs: ("*" or "create" or "patch" or "update") and kubernetes.audit.responseObject.rules.resources:("*" or "clusterroles" or "clusterrolebindings" or "roles" or "rolebindings" or "pods/exec" or "serviceaccounts/token" or "nodes/proxy" or "daemonsets") """) or 
     KQL(""" kubernetes.audit.responseObject.rules.verbs: ("*" or "get" or "list") and kubernetes.audit.responseObject.rules.resources:("*" or "secrets") """)
   )
-| keep user.name, user_agent.original, event.action, source.ip, kubernetes.audit.verb, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, kubernetes.audit.user.username, kubernetes.audit.user.groups, `kubernetes.audit.annotations.authorization_k8s_io/decision`, event.original, _id, _version, _index, data_stream.namespace
+| keep user.name, user_agent.original, event.action, source.ip, event.action, orchestrator.resource.type, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, user.name, kubernetes.audit.user.groups, `event.outcome`, event.original, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]

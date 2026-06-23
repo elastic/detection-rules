@@ -11,10 +11,10 @@ license = "Elastic License v2"
 notes = [
     "Review `azure.signinlogs.properties.authentication_protocol` to verify the authentication method used. Non-interactive SFA is typically reserved for automated processes or legacy authentication methods.",
     "Review `azure.signinlogs.properties.error_code` to identify the specific error codes associated with the failed authentication attempts. Common error codes include `50053` for account lockouts, `50126` for invalid credentials, and `50055` for expired passwords.",
-    "Investigate `azure.signinlogs.properties.user_principal_name` to determine whether the user typically authenticates using SFA. Unusual use by regular accounts may indicate compromise.",
+    "Investigate `user.name` to determine whether the user typically authenticates using SFA. Unusual use by regular accounts may indicate compromise.",
     "Analyze `source.as.organization.name` to determine if the request originated from a known hosting provider, VPN, or anonymization service that is unexpected in your environment.",
     "Examine `source.address` to check if the IP address is associated with previous suspicious activity, high-risk geolocations, or known threat infrastructure.",
-    "Pivot on `azure.signinlogs.properties.user_principal_name` to identify any other high-risk activities within the same session.",
+    "Pivot on `user.name` to identify any other high-risk activities within the same session.",
     "Correlate findings with `azure.signinlogs.properties.authentication_processing_details` to identify possible legacy protocol usage, token replay, permission scopes or bypass mechanisms.",
 ]
 mitre = ['T1078.004','T1110.003']
@@ -34,7 +34,7 @@ from logs-azure.signinlogs*
     source.as.organization.name,
     azure.signinlogs.category,
     event.outcome,
-    azure.signinlogs.properties.user_principal_name,
+    user.name,
     source.ip
 // truncate the timestamp to a 10-minute window
 | eval target_time_window = DATE_TRUNC(10 minutes, @timestamp)
@@ -48,7 +48,7 @@ from logs-azure.signinlogs*
   and azure.signinlogs.properties.status.error_code in (50053, 50126, 50055, 50056, 50064, 50144)
 // count the number of unique user login attempts
 | stats
-    unique_user_login_count = count_distinct(azure.signinlogs.properties.user_principal_name) by target_time_window, azure.signinlogs.properties.status.error_code
+    unique_user_login_count = count_distinct(user.name) by target_time_window, azure.signinlogs.properties.status.error_code
 // filter for >= 30 failed SFA auth attempts with the same error codes
 | where unique_user_login_count >= 30
 '''

@@ -2,7 +2,7 @@
 creation_date = "2026/05/07"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/07"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -63,10 +63,10 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 data_stream.dataset:"kubernetes.audit_logs" and 
-kubernetes.audit.objectRef.resource:"pods" and
+orchestrator.resource.type:"pods" and
 kubernetes.audit.objectRef.subresource:"ephemeralcontainers" and
-kubernetes.audit.verb:("update" or "patch") and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+event.action:("update" or "patch") and
+event.outcome:"success" and
 not user.name:(
   system\:node\:* or
   system\:serviceaccount\:kube-system\:*

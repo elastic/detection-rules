@@ -22,7 +22,7 @@ from logs-system.security-*
   /* noisy failure status codes often associated to authentication misconfiguration */
   not (event.action == "logon-failed" and winlog.event_data.Status in ("0xC000015B", "0XC000005E", "0XC0000133", "0XC0000192"))
 | eval failed = case(event.action == "logon-failed", source.ip, null), success = case(event.action == "logged-in", source.ip, null)
-| stats count_failed = count(failed), count_success = count(success), count_user = count_distinct(winlog.event_data.TargetUserName) by source.ip
+| stats count_failed = count(failed), count_success = count(success), count_user = count_distinct(user.target.name) by source.ip
  /* below threshold should be adjusted to your env logon patterns */
 | where count_failed >= 100 and count_success <= 10 and count_user >= 20
 '''

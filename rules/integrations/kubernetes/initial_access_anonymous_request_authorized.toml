@@ -2,7 +2,7 @@
 creation_date = "2022/09/13"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,7 @@ Kubernetes, a container orchestration platform, manages workloads and services. 
 ### Possible investigation steps
 
 - Review the audit logs for the specific event.dataset:kubernetes.audit_logs to identify the context and details of the anonymous request.
-- Examine the kubernetes.audit.user.username field to confirm if the request was made by "system:anonymous" or "system:unauthenticated" and assess the potential risk associated with these accounts.
+- Examine the user.name field to confirm if the request was made by "system:anonymous" or "system:unauthenticated" and assess the potential risk associated with these accounts.
 - Analyze the kubernetes.audit.requestURI to determine the target of the request and verify if it is outside the excluded endpoints (/healthz, /livez, /readyz), which could indicate suspicious activity.
 - Investigate the source IP address and other network metadata associated with the request to identify the origin and assess if it aligns with known or expected traffic patterns.
 - Check for any subsequent or related activities in the audit logs that might indicate further unauthorized actions or attempts to exploit the cluster.
@@ -79,8 +79,8 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 data_stream.dataset:"kubernetes.audit_logs" and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.user.username:("system:anonymous" or "system:unauthenticated" or not *) and
+event.outcome:"success" and
+user.name:("system:anonymous" or "system:unauthenticated" or not *) and
 user_agent.original:(* and not (*kubernetes/$Format)) and
 not kubernetes.audit.requestURI:(/healthz* or /livez* or /readyz* or /version or /.well-known/oauth-authorization-server)
 '''

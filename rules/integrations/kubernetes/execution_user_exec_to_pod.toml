@@ -2,7 +2,7 @@
 creation_date = "2022/05/17"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -38,8 +38,8 @@ Kubernetes allows users to execute commands within a pod using the 'exec' comman
 ### Possible investigation steps
 
 - Review the Kubernetes audit logs to identify the user who executed the 'exec' command by examining the event.dataset field for "kubernetes.audit_logs".
-- Check the kubernetes.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed and determine if the user had legitimate access.
-- Investigate the kubernetes.audit.objectRef.resource and kubernetes.audit.objectRef.subresource fields to verify that the action involved a pod and the 'exec' subresource.
+- Check the event.outcome field to confirm that the action was allowed and determine if the user had legitimate access.
+- Investigate the orchestrator.resource.type and kubernetes.audit.objectRef.subresource fields to verify that the action involved a pod and the 'exec' subresource.
 - Analyze the context of the pod involved, including its purpose and the data it has access to, to assess the potential impact of the unauthorized access.
 - Correlate the event with other logs or alerts to identify any suspicious patterns or repeated unauthorized access attempts by the same user or IP address.
 - Review the user's activity history to determine if there are other instances of unusual or unauthorized access attempts within the Kubernetes environment.
@@ -81,22 +81,22 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where data_stream.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb in ("get", "create") and
+any where data_stream.dataset == "kubernetes.audit_logs" and event.action in ("get", "create") and
 kubernetes.audit.objectRef.subresource == "exec" and kubernetes.audit.stage in ("ResponseComplete", "ResponseStarted") and
-kubernetes.audit.level == "Request" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+kubernetes.audit.level == "Request" and `event.outcome` == "allow" and
 not (
-  (kubernetes.audit.objectRef.namespace == "trident" and kubernetes.audit.objectRef.name like "trident-controller-*") or
-  (kubernetes.audit.objectRef.namespace == "vuls" and kubernetes.audit.requestURI like "/api/v1/namespaces/vuls/pods/vuls-*/exec?command=sh&command=-c&command=*+%2Fvuls%2Fresults*") or
-  (kubernetes.audit.objectRef.namespace == "git-runners" and kubernetes.audit.requestURI like (
+  (orchestrator.namespace == "trident" and kubernetes.audit.objectRef.name like "trident-controller-*") or
+  (orchestrator.namespace == "vuls" and kubernetes.audit.requestURI like "/api/v1/namespaces/vuls/pods/vuls-*/exec?command=sh&command=-c&command=*+%2Fvuls%2Fresults*") or
+  (orchestrator.namespace == "git-runners" and kubernetes.audit.requestURI like (
      "/api/v1/namespaces/git-runners/pods/runner-*/exec?command=sh&command=-c&command=if+%5B+-x+%2Fusr%2Flocal%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fusr%2Flocal%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fusr%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fusr%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fusr%2Flocal%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fusr%2Flocal%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fusr%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fusr%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fbusybox%2Fsh+%5D%3B+then%0A%09exec+%2Fbusybox%2Fsh+%0Aelse%0A%09echo+shell+not+found%0A%09exit+1%0Afi%0A%0A&container=*&container=*&stderr=true&stdin=true&stdout=true",
      "/api/v1/namespaces/git-runners/pods/runner-*/exec?command=gitlab-runner-helper&command=read-logs&command=--path&command=%2Flogs-*%2Foutput.log&command=--offset&command=0&command=--wait-file-timeout&command=1m0s&container=*&container=*&stderr=true&stdout=true"
   )) or
-  (kubernetes.audit.objectRef.namespace == "elasticsearch-cluster" and kubernetes.audit.requestURI like (
+  (orchestrator.namespace == "elasticsearch-cluster" and kubernetes.audit.requestURI like (
     "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=elasticsearch&stdin=true&stdout=true&tty=true",
     "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=elasticsearch&stderr=true&stdout=true",
     "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=kibana&stderr=true&stdout=true"
   )) or
-  (kubernetes.audit.objectRef.namespace == "kube-system" and kubernetes.audit.requestURI like (
+  (orchestrator.namespace == "kube-system" and kubernetes.audit.requestURI like (
     "/api/v1/namespaces/kube-system/pods/*/exec?command=%2Fproxy-agent&command=--help&container=konnectivity-agent&stderr=true&stdout=true",
     "api/v1/namespaces/kube-system/pods/*/exec?command=cilium&command=endpoint&command=list&command=-o&command=json&container=cilium-agent&stderr=true&stdout=true",
     "/api/v1/namespaces/kube-system/pods/*/exec?command=cilium&command=status&command=-o&command=json&container=cilium-agent&stderr=true&stdout=true",

@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/20"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -73,9 +73,9 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 data_stream.dataset:azure.activitylogs and
-azure.activitylogs.operation_name:"MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" and
+event.action:"MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" and
 azure.activitylogs.identity.authorization.evidence.principal_type:User and
-event.outcome:(success or Success) and
+event.outcome:(success) and
 azure.resource.id:(
     *VMACCESSAGENT* or
     *CUSTOMSCRIPTEXTENSION* or
@@ -90,10 +90,10 @@ azure.resource.id:(
 field_names = [
     "@timestamp",
     "event.outcome",
-    "azure.activitylogs.operation_name",
+    "event.action",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
     "azure.activitylogs.identity.authorization.evidence.principal_type",
-    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "user.name",
     "azure.resource.id",
     "azure.resource.name",
     "source.ip",

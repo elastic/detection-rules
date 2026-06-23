@@ -2,7 +2,7 @@
 creation_date = "2025/10/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ Azure Storage Accounts are critical infrastructure components that store applica
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service principal that initiated the multiple storage account deletions by examining the principal ID, UPN and user agent fields in `azure.activitylogs.identity.claims_initiated_by_user.name`.
+- Review the Azure activity logs to identify the user or service principal that initiated the multiple storage account deletions by examining the principal ID, UPN and user agent fields in `user.name`.
 - Check the specific storage account names in `azure.resource.name` to understand which storage resources were deleted and assess the overall business impact.
 - Investigate the timing and sequence of deletions to determine if they followed a pattern consistent with automated malicious activity or manual destruction.
 - Examine the user's recent activity history including authentication events, privilege changes, and other Azure resource modifications to identify signs of account compromise.
@@ -83,8 +83,8 @@ type = "threshold"
 
 query = '''
 data_stream.dataset: azure.activitylogs and
-    azure.activitylogs.operation_name: "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE" and
-    azure.activitylogs.identity.claims_initiated_by_user.name: *
+    event.action: "MICROSOFT.STORAGE/STORAGEACCOUNTS/DELETE" and
+    user.name: *
 '''
 
 
@@ -107,7 +107,7 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.threshold]
-field = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+field = ["user.name"]
 value = 1
 
 [[rule.threshold.cardinality]]

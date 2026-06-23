@@ -2,7 +2,7 @@
 creation_date = "2022/11/09"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ The msPKIAccountCredentials attribute in Active Directory stores encrypted crede
 ### Possible investigation steps
 
 - Review the event logs for the specific event code 5136 to gather details about the modification event, including the timestamp and the user account involved.
-- Examine the winlog.event_data.SubjectUserSid field to identify the user who attempted the modification, ensuring it is not the system account (S-1-5-18).
+- Examine the user.id field to identify the user who attempted the modification, ensuring it is not the system account (S-1-5-18).
 - Investigate the history and behavior of the identified user account to determine if there are any previous suspicious activities or anomalies.
 - Check for any recent changes or anomalies in the affected Active Directory User Object, focusing on the msPKIAccountCredentials attribute.
 - Assess the potential impact of the modification by identifying any files or systems that may have been affected by the altered credentials.
@@ -81,7 +81,7 @@ type = "query"
 query = '''
 event.code:"5136" and host.os.type:"windows" and winlog.event_data.AttributeLDAPDisplayName:"msPKIAccountCredentials" and
   winlog.event_data.OperationType:"%%14674" and
-  not winlog.event_data.SubjectUserSid : "S-1-5-18"
+  not user.id : "S-1-5-18"
 '''
 
 

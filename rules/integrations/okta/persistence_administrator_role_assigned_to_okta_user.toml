@@ -2,7 +2,7 @@
 creation_date = "2020/11/06"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -31,10 +31,10 @@ note = """## Triage and analysis
 Okta administrator roles provide elevated permissions to manage users, applications, policies, and security settings within the Okta environment. Adversaries who compromise Okta accounts may assign administrator privileges to establish persistence and maintain control over the identity infrastructure. This rule detects when administrator roles are granted to users or groups, which can indicate privilege escalation or persistence techniques.
 
 #### Possible investigation steps:
-- Identify the actor who performed the privilege grant by examining the `okta.actor.id`, `okta.actor.type`, `okta.actor.alternate_id`, and `okta.actor.display_name` fields.
+- Identify the actor who performed the privilege grant by examining the `client.user.id`, `okta.actor.type`, `user.name`, and `user.full_name` fields.
 - Determine the target user or group that received administrator privileges by reviewing the `okta.target` fields.
 - Review the specific administrator role granted by examining the `okta.debug_context.debug_data.flattened.privilegeGranted` field.
-- Determine the client used by the actor. Review the `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
+- Determine the client used by the actor. Review the `source.ip`, `user_agent.original`, `okta.client.zone`, `okta.client.device`, and `okta.client.id` fields.
 - Check if the source IP is associated with known malicious activity, VPN/proxy services, or unusual geolocations.
 - Examine the `okta.request.ip_chain` field to determine if the actor used a proxy or VPN.
 - Review the actor's recent authentication history and session activity for suspicious patterns.
