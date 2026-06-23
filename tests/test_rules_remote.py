@@ -42,8 +42,15 @@ class TestESQLRemoteValidation(unittest.TestCase):
         metadata = SimpleNamespace(integration=["pkg"])
         prepared_stack_versions: list[str] = []
 
-        def prepare_mappings_side_effect(*args):
-            prepared_stack_versions.append(args[4])
+        def prepare_mappings_side_effect(
+            _elastic_client,
+            _indices,
+            _event_dataset_integrations,
+            _metadata,
+            stack_version,
+            _log,
+        ):
+            prepared_stack_versions.append(stack_version)
             return {}, {}, {}
 
         def patch_floor_side_effect(packages, major, minor):

@@ -1469,7 +1469,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                                 integration=integration_name,
                             )
                         except ValueError as exc:
-                            if str(exc).startswith("no compatible version for integration "):
+                            message = exc.args[0] if exc.args and isinstance(exc.args[0], str) else None
+                            if message and message.startswith("no compatible version for integration "):
                                 continue
                             raise
                         package["version"] = result.expression
