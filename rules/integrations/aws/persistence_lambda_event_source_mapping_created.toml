@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of an AWS Lambda event source mapping, which connects an event source such as an Amazon SQS
+queue, an Amazon Kinesis or DynamoDB stream, an Amazon MSK or self-managed Apache Kafka topic, or an Amazon MQ broker to
+a Lambda function so the function is automatically invoked when new records arrive. Adversaries with
+"lambda:CreateEventSourceMapping" permissions can abuse this to establish stealthy, event-driven persistence and
+execution, or to continuously siphon records from a stream or queue into attacker-controlled function code. Because the
+function then runs on its own whenever the source produces events, this grants durable execution without any further
+interactive activity by the adversary.
+"""
+false_positives = [
+    """
+    Application teams and infrastructure-as-code pipelines routinely create event source mappings to wire data
+    pipelines, queue consumers, and stream processors to Lambda functions. Verify whether the principal in
+    `aws.cloudtrail.user_identity.arn`, the function, and the event source are expected for the workload. Known
+    deployment roles and automation can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Event Source Mapping Creation"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Event Source Mapping Creation
+
+AWS Lambda event source mappings poll an event source (Amazon SQS, Kinesis or DynamoDB streams, Amazon MSK or self-managed Kafka, or Amazon MQ) and invoke a target function as records arrive. Creating a mapping is a low-frequency, high-impact configuration change: it can establish event-driven persistence and execution, or quietly relay sensitive records from a stream or queue into attacker-controlled code.
+
+This rule detects successful `CreateEventSourceMapping` calls. Investigate whether the principal, the target function, and the event source are expected for the environment.
+
+#### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine whether the call came from the console, CLI, SDK, or automation.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName`/`functionArn` and the `eventSourceArn` to identify the target function and the source queue, stream, topic, or broker.
+- Determine whether the target function and the event source belong to the same application and account, and whether the function code, role, and recent changes are trusted (correlate with `CreateFunction`, `UpdateFunctionCode`, and `AddPermission`).
+- Review whether the event source contains sensitive data (for example a DynamoDB stream or SQS queue carrying business records) that the mapping could be used to exfiltrate.
+- Pivot on the same principal and access key for other recent Lambda, IAM, or data-plane activity.
+
+### False positive analysis
+
+- Event source mappings are a normal building block of serverless data pipelines and queue/stream consumers. Mappings created by approved deployment roles, CI/CD pipelines, or application teams are expected. Tune on `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
+
+### Response and remediation
+
+- If the mapping is unauthorized, disable or delete it (`DeleteEventSourceMapping`) and review the target function's code, configuration, and execution role.
+- Determine whether records were processed by the function while the mapping was active and assess potential data exposure.
+- Rotate or restrict credentials for the principal that created the mapping if compromise is suspected, and constrain `lambda:CreateEventSourceMapping` to a small set of trusted roles.
+
+### Additional information
+
+- [AWS Lambda event source mappings](https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html)
+- [CreateEventSourceMapping API](https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/invocation-eventsourcemapping.html",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_CreateEventSourceMapping.html",
+]
+risk_score = 21
+rule_id = "5619545b-9738-408c-bdb5-a2807e19133e"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: CreateEventSourceMapping*
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
