@@ -1702,7 +1702,4 @@ class TestNonEcsSchema(unittest.TestCase):
             )
 
         if redundant:
-            self.fail(
-                "Remove the following entries from non-ecs-schema.json:\n  - "
-                + "\n  - ".join(sorted(redundant))
-            )
+            self.fail("Remove the following entries from non-ecs-schema.json:\n  - " + "\n  - ".join(sorted(redundant)))
