@@ -14,8 +14,8 @@ from semver import Version
 
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
-    IntegrationVersionNotFoundError,
     RELATED_INTEGRATION_GTE_OPERATOR_ENV,
+    IntegrationVersionNotFoundError,
     _find_least_compatible_for_stack,
     _parse_clause,
     _parse_kibana_range,
@@ -336,7 +336,9 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
         }
 
         with unittest.mock.patch.dict(os.environ, {RELATED_INTEGRATION_GTE_OPERATOR_ENV: ""}):
-            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
+            with unittest.mock.patch(
+                "detection_rules.integrations.load_current_package_version", return_value="8.19.0"
+            ):
                 stack_8 = resolve_related_integration_version("pkg", manifests)
             with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
                 stack_9 = resolve_related_integration_version("pkg", manifests)
@@ -344,7 +346,9 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
                 stack_95 = resolve_related_integration_version("pkg", manifests)
             with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.6.0"):
                 stack_96 = resolve_related_integration_version("pkg", manifests)
-            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
+            with unittest.mock.patch(
+                "detection_rules.integrations.load_current_package_version", return_value="10.0.0"
+            ):
                 stack_10 = resolve_related_integration_version("pkg", manifests)
 
         self.assertEqual(stack_8.expression, "^1.0.0")
@@ -372,7 +376,9 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
                 stack_94 = resolve_related_integration_version("pkg", manifests)
             with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
                 stack_95 = resolve_related_integration_version("pkg", manifests)
-            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
+            with unittest.mock.patch(
+                "detection_rules.integrations.load_current_package_version", return_value="10.0.0"
+            ):
                 stack_10 = resolve_related_integration_version("pkg", manifests)
 
         self.assertEqual(stack_94.expression, "^2.0.0")
