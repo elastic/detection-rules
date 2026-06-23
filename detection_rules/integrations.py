@@ -358,7 +358,9 @@ def resolve_related_integration_version(
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
     current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    manifest_version = _find_least_compatible_for_stack(current_stack, integration_manifests, integration, package_schemas)
+    manifest_version = _find_least_compatible_for_stack(
+        current_stack, integration_manifests, integration, package_schemas
+    )
     if manifest_version is None:
         package_label = f"{package}:{integration}" if integration else package
         raise ValueError(f"no compatible version for integration {package_label}")
