@@ -33,6 +33,7 @@ from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
+    IntegrationVersionNotFoundError,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
@@ -1468,11 +1469,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                                 packages_manifest=packages_manifest,
                                 integration=integration_name,
                             )
-                        except ValueError as exc:
-                            message = exc.args[0] if exc.args and isinstance(exc.args[0], str) else None
-                            if message and message.startswith("no compatible version for integration "):
-                                continue
-                            raise
+                        except IntegrationVersionNotFoundError:
+                            continue
                         package["version"] = result.expression
 
                         # Union policy templates across manifest-backed versions only.

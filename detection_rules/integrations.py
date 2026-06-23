@@ -337,6 +337,10 @@ class RelatedIntegrationVersion:
     manifest_versions: tuple[str, ...]
 
 
+class IntegrationVersionNotFoundError(ValueError):
+    """Raised when a package has no compatible version for the requested stack/integration."""
+
+
 def _related_integration_version_operator(stack_version: Version) -> str:
     """Return the semver operator for related_integrations.version on the current stack."""
     return ">=" if stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK else "^"
@@ -363,7 +367,7 @@ def resolve_related_integration_version(
     )
     if manifest_version is None:
         package_label = f"{package}:{integration}" if integration else package
-        raise ValueError(f"no compatible version for integration {package_label}")
+        raise IntegrationVersionNotFoundError(f"no compatible version for integration {package_label}")
 
     operator = _related_integration_version_operator(current_stack)
     return RelatedIntegrationVersion(expression=f"{operator}{manifest_version}", manifest_versions=(manifest_version,))

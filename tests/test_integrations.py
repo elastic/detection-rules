@@ -13,6 +13,7 @@ from semver import Version
 
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
+    IntegrationVersionNotFoundError,
     _find_least_compatible_for_stack,
     _parse_clause,
     _parse_kibana_range,
@@ -107,6 +108,16 @@ class TestParseKibanaRange(unittest.TestCase):
         self.assertEqual(
             _parse_kibana_range("^9.1.0"),
             [(Version(9, 1, 0), Version(10, 0, 0))],
+        )
+
+    def test_or_clauses(self):
+        """OR'd clauses are parsed independently."""
+        self.assertEqual(
+            _parse_kibana_range("^8.0.0 || ^9.1.0"),
+            [
+                (Version(8, 0, 0), Version(9, 0, 0)),
+                (Version(9, 1, 0), Version(10, 0, 0)),
+            ],
         )
 
 
@@ -356,7 +367,7 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
         manifests = {"pkg": {"1.0.0": _manifest("^9.4.0")}}
         with (
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"),
-            self.assertRaises(ValueError),
+            self.assertRaises(IntegrationVersionNotFoundError),
         ):
             resolve_related_integration_version("pkg", manifests)
 
@@ -409,7 +420,7 @@ class TestResolveRelatedIntegrationVersionSchemaAware(unittest.TestCase):
         with (
             unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.12.0"),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
-            self.assertRaises(ValueError),
+            self.assertRaises(IntegrationVersionNotFoundError),
         ):
             resolve_related_integration_version("pkg", manifests, integration="new_ds")
 
@@ -451,7 +462,7 @@ class TestResolveRelatedIntegrationVersionSchemaAware(unittest.TestCase):
             schemas["azure"],
         )
         if expected is None:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(IntegrationVersionNotFoundError):
                 resolve_related_integration_version("azure", manifests, integration="aadgraphactivitylogs")
             return
 
@@ -517,7 +528,7 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
 
         def compatible_side_effect(package, packages_manifest, integration=None):
             if package == "unsupported":
-                raise ValueError(f"no compatible version for integration {package}:{integration}")
+                raise IntegrationVersionNotFoundError(f"no compatible version for integration {package}:{integration}")
             return RelatedIntegrationVersionStub()
 
         packages_manifest = {"endpoint": {"1.0.0": {"policy_templates": ["endpoint"]}}}
