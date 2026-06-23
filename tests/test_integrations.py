@@ -10,6 +10,7 @@ import unittest.mock
 
 from semver import Version
 
+from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     _MAX_UNBOUNDED_STACK_MAJOR_SPAN,
     _find_least_compatible_for_stack,
@@ -20,7 +21,9 @@ from detection_rules.integrations import (
     _stack_majors_supported_by_package,
     find_compatible_version_range,
     find_latest_compatible_version,
+    find_latest_integration_patch_for_minor,
 )
+from detection_rules.rule_validators import KQLValidator
 from detection_rules.schemas import get_stack_versions
 
 
@@ -219,6 +222,87 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         """Unknown package raises ``ValueError``."""
         with self.assertRaises(ValueError):
             find_latest_compatible_version("missing", "missing", Version(9, 1, 0), {})
+
+    def test_skips_schema_versions_missing_integration_after_patch_floor(self):
+        """A non-zero patch floor can select a package version that contains the requested data stream."""
+        package = "pkg"
+        integration = "new_ds"
+        older_version = "1.0.0"
+        newer_version = "1.1.0"
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        required_patch = current_version.patch + 1
+        manifests = {
+            package: {
+                older_version: _manifest(f"^{current_version.major}.0.0"),
+                newer_version: _manifest(
+                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
+                    f"^{current_version.major}.{current_version.minor + 1}.0"
+                ),
+            }
+        }
+        schemas = {
+            older_version: {"old_ds": {}},
+            newer_version: {"old_ds": {}, integration: {}},
+        }
+
+        with unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests):
+            patch_floor = find_latest_integration_patch_for_minor(
+                {package},
+                current_version.major,
+                current_version.minor,
+            )
+        self.assertGreater(patch_floor, current_version.patch)
+
+        version, _ = find_latest_compatible_version(
+            package,
+            integration,
+            Version(current_version.major, current_version.minor, patch_floor),
+            manifests,
+            package_schemas=schemas,
+        )
+        self.assertEqual(version, newer_version)
+
+        with self.assertRaises(ValueError):
+            find_latest_compatible_version(
+                package,
+                integration,
+                current_version,
+                manifests,
+                package_schemas=schemas,
+            )
+
+    def test_required_fields_uses_patch_floor_for_integration_schema(self):
+        """Required fields resolve integration schemas using a non-zero patch floor when needed."""
+        package = "pkg"
+        integration = "new_ds"
+        field_name = "pkg.new_ds.some_field"
+        current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        required_patch = current_version.patch + 1
+        manifests = {
+            package: {
+                "1.0.0": _manifest(f"^{current_version.major}.0.0"),
+                "1.1.0": _manifest(
+                    f"~{current_version.major}.{current_version.minor}.{required_patch} || "
+                    f"^{current_version.major}.{current_version.minor + 1}.0"
+                ),
+            }
+        }
+        schemas = {
+            package: {
+                "1.0.0": {"old_ds": {}},
+                "1.1.0": {integration: {field_name: "keyword"}},
+            }
+        }
+        validator = KQLValidator(f"data_stream.dataset:{package}.{integration} and {field_name}:*")
+
+        with (
+            unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+        ):
+            required_fields = validator.get_required_fields([])
+
+        self.assertIn({"name": field_name, "type": "keyword", "ecs": False}, required_fields)
 
 
 class TestFindCompatibleVersionRange(unittest.TestCase):
