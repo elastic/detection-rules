@@ -541,7 +541,9 @@ class TestMetadataPackageRowDedupe(unittest.TestCase):
         ):
             related_integrations = rule.contents.to_api_format()["related_integrations"]
 
-        self.assertEqual(related_integrations, [{"package": "endpoint", "integration": "endpoint", "version": ">=1.0.0"}])
+        self.assertEqual(
+            related_integrations, [{"package": "endpoint", "integration": "endpoint", "version": ">=1.0.0"}]
+        )
 
 
 class TestEsqlPackagedIntegrations(unittest.TestCase):
