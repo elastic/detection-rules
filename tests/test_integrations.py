@@ -5,6 +5,7 @@
 
 """Test integration version resolution against EPR manifest ranges."""
 
+import os
 import unittest
 import unittest.mock
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ from semver import Version
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     IntegrationVersionNotFoundError,
+    RELATED_INTEGRATION_GTE_OPERATOR_ENV,
     _find_least_compatible_for_stack,
     _parse_clause,
     _parse_kibana_range,
@@ -333,27 +335,49 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
             }
         }
 
-        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
-            stack_8 = resolve_related_integration_version("pkg", manifests)
-        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
-            stack_9 = resolve_related_integration_version("pkg", manifests)
-        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
-            stack_95 = resolve_related_integration_version("pkg", manifests)
-        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.6.0"):
-            stack_96 = resolve_related_integration_version("pkg", manifests)
-        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
-            stack_10 = resolve_related_integration_version("pkg", manifests)
+        with unittest.mock.patch.dict(os.environ, {RELATED_INTEGRATION_GTE_OPERATOR_ENV: ""}):
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
+                stack_8 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
+                stack_9 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
+                stack_95 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.6.0"):
+                stack_96 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
+                stack_10 = resolve_related_integration_version("pkg", manifests)
 
         self.assertEqual(stack_8.expression, "^1.0.0")
         self.assertEqual(stack_8.manifest_versions, ("1.0.0",))
         self.assertEqual(stack_9.expression, "^2.0.0")
         self.assertEqual(stack_9.manifest_versions, ("2.0.0",))
-        self.assertEqual(stack_95.expression, ">=2.0.0")
+        self.assertEqual(stack_95.expression, "^2.0.0")
         self.assertEqual(stack_95.manifest_versions, ("2.0.0",))
-        self.assertEqual(stack_96.expression, ">=2.0.0")
+        self.assertEqual(stack_96.expression, "^2.0.0")
         self.assertEqual(stack_96.manifest_versions, ("2.0.0",))
-        self.assertEqual(stack_10.expression, ">=3.0.0")
+        self.assertEqual(stack_10.expression, "^3.0.0")
         self.assertEqual(stack_10.manifest_versions, ("3.0.0",))
+
+    def test_env_override_allows_gte_on_min_stack(self):
+        """The >= operator is opt-in for package/unit-test workflows."""
+        manifests = {
+            "pkg": {
+                "2.0.0": _manifest("^9.0.0"),
+                "3.0.0": _manifest("^10.0.0"),
+            }
+        }
+
+        with unittest.mock.patch.dict(os.environ, {RELATED_INTEGRATION_GTE_OPERATOR_ENV: "True"}):
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.4.0"):
+                stack_94 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.5.0"):
+                stack_95 = resolve_related_integration_version("pkg", manifests)
+            with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="10.0.0"):
+                stack_10 = resolve_related_integration_version("pkg", manifests)
+
+        self.assertEqual(stack_94.expression, "^2.0.0")
+        self.assertEqual(stack_95.expression, ">=2.0.0")
+        self.assertEqual(stack_10.expression, ">=3.0.0")
 
     def test_keeps_zero_major_when_only_stable_option_missing(self):
         """Keep 0.x manifest versions when no major >= 1 option exists."""

@@ -8,6 +8,7 @@
 import fnmatch
 import gzip
 import json
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -284,6 +285,7 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 # Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
+RELATED_INTEGRATION_GTE_OPERATOR_ENV = "DR_RELATED_INTEGRATIONS_USE_GTE"
 RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
 
 
@@ -341,9 +343,16 @@ class IntegrationVersionNotFoundError(ValueError):
     """Raised when a package has no compatible version for the requested stack/integration."""
 
 
+def _related_integration_gte_operator_enabled() -> bool:
+    """Return True when CI/package builds opt into >= related integration versions."""
+    return os.getenv(RELATED_INTEGRATION_GTE_OPERATOR_ENV) == "True"
+
+
 def _related_integration_version_operator(stack_version: Version) -> str:
     """Return the semver operator for related_integrations.version on the current stack."""
-    return ">=" if stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK else "^"
+    if _related_integration_gte_operator_enabled() and stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK:
+        return ">="
+    return "^"
 
 
 def resolve_related_integration_version(
