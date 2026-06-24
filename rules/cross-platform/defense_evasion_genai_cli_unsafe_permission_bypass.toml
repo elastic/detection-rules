@@ -9,8 +9,8 @@ author = ["Elastic"]
 description = """
 Identifies GenAI agent CLIs started with permission-bypass or auto-approval flags that disable human-in-the-loop
 guardrails. These modes are intended for isolated sandboxes but are frequently misused on internet-connected developer
-workstations, allowing prompt injection, compromised dependencies, or malicious skills to execute commands, modify files,
-or reach sensitive paths without confirmation.
+workstations, allowing prompt injection, compromised dependencies, or malicious skills to execute commands, modify
+files, or reach sensitive paths without confirmation.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
@@ -143,20 +143,22 @@ process where event.type == "start" and event.action in ("exec", "start") and
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-  [rule.threat.tactic]
-  name = "Defense Evasion"
-  id = "TA0005"
-  reference = "https://attack.mitre.org/tactics/TA0005/"
 
-  [[rule.threat.technique]]
-  name = "Impair Defenses"
-  id = "T1562"
-  reference = "https://attack.mitre.org/techniques/T1562/"
 
-    [[rule.threat.technique.subtechnique]]
-    name = "Disable or Modify Tools"
-    id = "T1562.001"
-    reference = "https://attack.mitre.org/techniques/T1562/001/"
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
