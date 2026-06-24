@@ -33,11 +33,12 @@ from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
-    find_compatible_version_range,
+    IntegrationVersionNotFoundError,
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
+    resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -1444,6 +1445,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             if self.check_restricted_field_version(field_name) and isinstance(
                 self.data, QueryRuleData | MachineLearningRuleData
             ):  # type: ignore[reportUnnecessaryIsInstance]
+                resolved_package_integrations: list[dict[str, Any]] = []
                 if (self.data.get("language") is not None and self.data.get("language") != "lucene") or self.data.get(
                     "type"
                 ) == "machine_learning":
@@ -1461,25 +1463,30 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         integration_name = (
                             integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
                         )
-                        result = find_compatible_version_range(
-                            package=package["package"],
-                            packages_manifest=packages_manifest,
-                            integration=integration_name,
-                        )
-                        package["version"] = result.range
+                        try:
+                            result = resolve_related_integration_version(
+                                package=package["package"],
+                                packages_manifest=packages_manifest,
+                                integration=integration_name,
+                            )
+                        except IntegrationVersionNotFoundError:
+                            continue
+                        package["version"] = result.expression
 
-                        # Union policy templates across manifest-backed anchors only.
-                        # forward_anchor has no manifest entry and is excluded by design.
+                        # Union policy templates across manifest-backed versions only.
                         policy_templates: set[str] = set()
-                        for anchor in result.anchors:
-                            version_data = packages_manifest.get(package["package"], {}).get(anchor, {})
+                        for manifest_version in result.manifest_versions:
+                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
                             policy_templates.update(version_data.get("policy_templates", []))
 
                         if package["integration"] not in policy_templates:
                             del package["integration"]
+                        resolved_package_integrations.append(package)
 
                 # remove duplicate entries
-                package_integrations = list({json.dumps(d, sort_keys=True): d for d in package_integrations}.values())
+                package_integrations = list(
+                    {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
+                )
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
