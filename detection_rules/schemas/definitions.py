@@ -94,6 +94,7 @@ NON_DATASET_PACKAGES = [
     "endpoint",
     "jamf_protect",
     "network_traffic",
+    "pfsense",
     "system",
     "windows",
     "sentinel_one_cloud_funnel",
