@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/06/02"
+creation_date = "2026/06/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/02"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -77,20 +77,33 @@ process where event.type == "start" and event.action in ("exec", "start") and
     process.args in (
       "--dangerously-skip-permissions",
       "--allow-dangerously-skip-permissions",
-      "--permission-mode=bypassPermissions"
+      "--permission-mode=bypassPermissions",
+      "--permission-mode=dontAsk"
     ) or
-    (process.args == "--permission-mode" and process.args == "bypassPermissions")
+    (process.args == "--permission-mode" and process.args in ("bypassPermissions", "dontAsk"))
   ) and
   (
     process.name in ("claude", "claude.exe") or
-    process.executable : ("*/.local/share/claude/versions/*", "*/.claude/downloads/*") or
+    process.executable : (
+      "*/.local/share/claude/versions/*",
+      "*/.claude/downloads/*",
+      "*Caskroom/claude-code/*",
+      "*\\Claude\\versions\\*"
+    ) or
     (process.name in ("node", "node.exe") and process.args : "*@anthropic-ai/claude-code*")
   )
 ) or
 (
-  process.args in ("--dangerously-bypass-approvals-and-sandbox", "--yolo") and
   (
-    process.name in ("codex", "codex.exe", "codex-aarch64-apple-darwin", "codex-x86_64-apple-darwin") or
+    process.args in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto") or
+    process.command_line : ("*--sandbox*danger-full-access*", "*--ask-for-approval*never*")
+  ) and
+  (
+    process.name in (
+      "codex", "codex.exe", "codex-exec",
+      "codex-aarch64-apple-darwin", "codex-x86_64-apple-darwin",
+      "codex-linux-arm64", "codex-linux-x64"
+    ) or
     (process.name in ("node", "node.exe") and process.args : ("*@openai/codex*", "*/codex", "*\\codex*"))
   )
 ) or
@@ -107,12 +120,25 @@ process where event.type == "start" and event.action in ("exec", "start") and
 ) or
 (
   (
-    process.args == "--yolo" or
-    process.args in ("--allow-all", "--allow-all-tools", "--allow-all-paths", "--allow-all-urls")
+    process.args in (
+      "--yolo",
+      "--autopilot",
+      "--allow-all",
+      "--allow-all-tools",
+      "--allow-all-paths",
+      "--allow-all-urls"
+    )
   ) and
   (
     process.name in ("copilot", "copilot.exe") or
     (process.name in ("node", "node.exe") and process.args : ("*@github/copilot*", "*/copilot", "*\\copilot*"))
+  )
+) or
+(
+  process.args == "--dangerously-skip-permissions" and
+  (
+    process.name in ("opencode", "opencode.exe") or
+    (process.name in ("node", "node.exe") and process.args : ("*opencode-ai*", "*/opencode", "*\\opencode*"))
   )
 )
 '''
