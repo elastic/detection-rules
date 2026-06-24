@@ -2,25 +2,24 @@
 creation_date = "2026/06/15"
 integration = ["network_traffic", "zeek", "suricata"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects a POST to the Splunk Enterprise PostgreSQL backup endpoint followed by a POST to the restore endpoint from the
-same client to the same host within a 15-minute window, matching the public CVE-2026-20253 pre-authentication RCE chain.
-The exploit stages an attacker-controlled database dump via the backup path and then executes attacker-controlled SQL
-via the restore path to achieve code execution on the Splunk host.
+same client to the same host within a 15-minute window. This sequence is unusual and can align with the public
+CVE-2026-20253 pre-authentication RCE chain, where an attacker stages a database dump via the backup path and executes
+attacker-controlled SQL via the restore path.
 """
 false_positives = [
     """
     Legitimate PostgreSQL recovery operations performed by Splunk administrators through the backup and restore API.
-    These should be authenticated, rare, and originate from known management networks. If such operations occur in your
-    environment, scope exceptions by source IP or add a requirement for a valid authorization header rather than
-    suppressing the rule entirely.
+    These should be rare and originate from known management networks. If such operations occur in your environment,
+    scope exceptions by source IP or approved management network rather than suppressing the rule entirely.
     """,
 ]
-from = "now-20m"
+from = "now-19m"
 language = "esql"
 license = "Elastic License v2"
 max_signals = 5
@@ -33,12 +32,12 @@ note = """## Triage and analysis
 ### Investigating Splunk Enterprise PostgreSQL Backup-to-Restore Potential RCE Sequence
 
 This rule fires when the same source IP sends a POST to both the `/backup` and `/restore` recovery
-endpoints on the same Splunk host within 15 minutes. This two-step sequence maps directly to the
-watchTowr CVE-2026-20253 RCE chain: the backup request places an attacker-controlled PostgreSQL dump
-on the Splunk filesystem (using `backupFile` path traversal or absolute path injection), and the
-restore request loads that dump and executes attacker-controlled SQL through the local PostgreSQL
-instance. A backup-plus-restore pair from an unrecognized source IP on a production Splunk host
-should be treated as active exploitation until proven otherwise.
+endpoints on the same Splunk host within 15 minutes. This two-step sequence is unusual and aligns with
+the watchTowr CVE-2026-20253 RCE chain: the backup request can place an attacker-controlled
+PostgreSQL dump on the Splunk filesystem (using `backupFile` path traversal or absolute path
+injection), and the restore request can load that dump and execute attacker-controlled SQL through the
+local PostgreSQL instance. A backup-plus-restore pair from an unrecognized source IP on a production
+Splunk host should be investigated as potential exploitation.
 
 ### Possible investigation steps
 
@@ -82,15 +81,14 @@ references = [
     "https://labs.watchtowr.com/why-use-app-level-auth-when-every-database-has-auth-splunk-enterprise-cve-2026-20253-pre-auth-rce/",
     "https://attack.mitre.org/techniques/T1190/",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "7c7d2a89-b7e9-4e8d-bbf2-5a782fdcc803"
 setup = """## Setup
 
 This rule requires HTTP request metadata with `url.path` and `http.request.method` populated from
 one of the following sources visible to the sensor without TLS decryption:
 - Zeek (`logs-zeek.http*`) where Splunk Web traffic is cleartext or the sensor is downstream of TLS
-  termination. The `url.username`, `url.password`, and `zeek.http.captured_password` auth enrichment
-  fields are available from Zeek.
+  termination.
 - Suricata (`logs-suricata.eve*`) in the same deployment conditions
 - Elastic Agent `network_traffic` integration (`logs-network_traffic.http*`) with HTTP parsing enabled
 
@@ -104,10 +102,10 @@ plaintext HTTP on non-standard ports through protocol detection when their HTTP 
 For TLS deployments, the sensor must observe decrypted HTTP, sit downstream of TLS termination, or use
 proxy or load balancer logs that expose the HTTP path, method, and status code.
 
-The rule uses a 20-minute lookback and verifies that the first and last matching recovery events are
+The rule uses a 19-minute lookback and verifies that the first and last matching recovery events are
 no more than 15 minutes apart. Ensure `event.ingested` is populated and `timestamp_override` is set.
 """
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Network",
     "Use Case: Threat Detection",
@@ -137,9 +135,7 @@ from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
     Esql.restore_count = SUM(Esql.is_restore),
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp),
-    Esql.statuses = VALUES(http.response.status_code),
-    Esql.auth_usernames = VALUES(url.username),
-    Esql.auth_empty_password = COUNT_DISTINCT(source.ip) where zeek.http.captured_password == false and url.username IS NOT NULL
+    Esql.statuses = VALUES(http.response.status_code)
   by source.ip, destination.ip
 | eval Esql.duration_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
 | where Esql.backup_count >= 1 and Esql.restore_count >= 1
