@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of imported key material from an AWS KMS customer managed key via DeleteImportedKeyMaterial. Keys
+created with an external key material origin (BYOK) rely on key material that the customer imports. Deleting that
+material immediately makes the key unusable and renders all data encrypted under it inaccessible, with no recovery
+window. Unlike ScheduleKeyDeletion, which enforces a pending deletion period of 7 to 30 days, this action takes effect
+instantly, making it an attractive primitive for cloud ransomware and data-destruction attacks. Because this operation
+only applies to external-origin keys and is rare in normal operations, its use by an unexpected principal warrants
+prompt review.
+"""
+false_positives = [
+    """
+    Encryption or platform teams that operate keys with imported key material (BYOK/HYOK) may delete and re-import
+    material during key rotation, migration, or decommissioning. Verify the principal in
+    "aws.cloudtrail.user_identity.arn", confirm the change aligns with a planned key lifecycle activity, and check
+    whether material was re-imported shortly after. Known administration roles and automation can be excluded after
+    validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS KMS Imported Key Material Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS KMS Imported Key Material Deleted
+
+AWS KMS keys can be created with an external key material origin (BYOK), where the customer imports the cryptographic material rather than having KMS generate it. "DeleteImportedKeyMaterial" removes that material, immediately transitioning the key to a "PendingImport" state where it can no longer encrypt or decrypt. All data protected by the key becomes inaccessible until the exact same material is re-imported. Unlike "ScheduleKeyDeletion", there is no pending window, so the impact is instant and, for an adversary who controls and withholds the original material, effectively irreversible.
+
+Because this action only applies to external-origin keys and is uncommon in normal operations, it should be treated as a high-risk, destructive action when performed unexpectedly. Adversaries may delete imported key material to sabotage recovery, destroy data, or hold encrypted resources for ransom.
+
+### Possible investigation steps
+
+- Identify the actor and authentication context in "aws.cloudtrail.user_identity.arn", "aws.cloudtrail.user_identity.access_key_id", and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" to determine whether the action came from an expected network path or automation platform.
+- Identify the affected key from "aws.cloudtrail.resources.arn" or the "keyId" in "aws.cloudtrail.request_parameters", and determine which services and data depend on it (S3, EBS, RDS, Secrets Manager, etc.).
+- Determine whether the same material was re-imported shortly after ("ImportKeyMaterial") or whether the key was left unusable.
+- Correlate with surrounding activity by the same principal, such as KMS key policy changes, scheduled key deletions, S3 or EBS destructive actions, or credential changes that may indicate a broader sabotage or ransom attempt.
+
+### False positive analysis
+
+- Organizations with BYOK/HYOK requirements may delete and re-import key material during planned rotation, migration, or decommissioning. Confirm the change is expected and exclude known administration roles or automation on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If the deletion is unauthorized, re-import the original key material if it is securely retained, and restore access to affected services.
+- Treat any encrypted data whose key material cannot be re-imported as potentially unrecoverable, and engage incident response and data owners to assess impact.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain "kms:DeleteImportedKeyMaterial" and "kms:ImportKeyMaterial" to a small set of trusted administrators.
+- Use AWS Organizations SCPs to limit who can manage imported key material in production accounts.
+
+### Additional information
+
+- [DeleteImportedKeyMaterial API](https://docs.aws.amazon.com/kms/latest/APIReference/API_DeleteImportedKeyMaterial.html)
+- [Importing key material into AWS KMS keys](https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/kms/latest/APIReference/API_DeleteImportedKeyMaterial.html",
+    "https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html",
+]
+risk_score = 47
+rule_id = "f6fee40d-8a5e-4cc8-9f73-8688419c6d68"
+setup = """This rule requires AWS CloudTrail management events for AWS Backup and ingestion via the Elastic AWS CloudTrail integration. See https://docs.elastic.co/integrations/aws/cloudtrail."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS KMS",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "kms.amazonaws.com"
+    and event.action: "DeleteImportedKeyMaterial"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1485.001"
+name = "Lifecycle-Triggered Deletion"
+reference = "https://attack.mitre.org/techniques/T1485/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
