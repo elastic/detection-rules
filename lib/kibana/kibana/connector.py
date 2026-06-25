@@ -19,9 +19,9 @@ from elasticsearch import Elasticsearch
 
 _context = threading.local()
 
-# Environment variable that, when set to a truthy value, disables the custom
-# User-Agent header on outbound Kibana requests. When disabled, no additional
-# User-Agent string is sent and the underlying ``requests`` default applies.
+# Environment variable that, when set, disables the custom User-Agent header
+# on outbound Kibana requests. When disabled, no additional User-Agent string
+# is sent and the underlying ``requests`` default applies.
 USER_AGENT_DISABLE_ENV = "DR_USER_AGENT_DISABLED"
 
 # Static product name identifying requests originating from detection-rules
@@ -38,9 +38,8 @@ def _get_dist_version(dist: str) -> Optional[str]:
 
 
 def _env_disables_user_agent() -> bool:
-    """Return True when the disable env var is set to a truthy value."""
-    value = os.environ.get(USER_AGENT_DISABLE_ENV, "")
-    return value.strip().lower() in ("1", "true", "yes", "on")
+    """Return True when the disable env var is set."""
+    return os.environ.get(USER_AGENT_DISABLE_ENV) is not None
 
 
 def build_user_agent(user_agent: Optional[str] = None) -> Optional[str]:

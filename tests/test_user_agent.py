@@ -31,7 +31,7 @@ class TestUserAgent(unittest.TestCase):
 
     def test_user_agent_absent_when_disabled(self) -> None:
         """Setting the disable env var suppresses the custom User-Agent."""
-        os.environ[USER_AGENT_DISABLE_ENV] = "true"
+        os.environ[USER_AGENT_DISABLE_ENV] = "True"
         client = Kibana(kibana_url="https://example.com", api_key="abc")
         ua = client.session.headers.get("User-Agent")
         assert ua is None or ua.startswith("python-requests/")
