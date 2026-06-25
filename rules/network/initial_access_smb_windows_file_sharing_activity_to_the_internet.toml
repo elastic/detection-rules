@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw", "zeek"]
+integration = ["network_traffic", "panw", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/05/27"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ systems. It should almost never be directly exposed to the Internet, as it is fr
 threat actors as an initial access or backdoor vector or for data exfiltration.
 """
 from = "now-9m"
-index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-zeek.*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-pfsense.log-*", "logs-zeek.*", "logs-corelight.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMB (Windows File Sharing) Activity to the Internet"
@@ -25,8 +25,10 @@ tags = ["Tactic: Initial Access",
         "Tactic: Exfiltration",
         "Domain: Network",
         "Use Case: Threat Detection",
+        "Data Source: Corelight",
         "Data Source: PAN-OS",
         "Data Source: Network Traffic",
+        "Data Source: pfSense",
         "Data Source: Zeek",
         "Resources: Investigation Guide"]
 timestamp_override = "event.ingested"
