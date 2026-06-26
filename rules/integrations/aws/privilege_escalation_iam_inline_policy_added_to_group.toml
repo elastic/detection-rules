@@ -81,7 +81,8 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: "PutGroupPolicy"
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
-    and not aws.cloudtrail.user_identity.arn: *terraform*
+    and not user_agent.original: (*terraform* or *pulumi* or *ansible*)
+    and not aws.cloudtrail.user_identity.arn: (*terraform* or *pulumi* or *ansible*)
     and not source.as.organization.name: (Amazon* or AMAZON* or Google*)
     and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
 '''
