@@ -16,6 +16,7 @@ from typing import Any, TextIO
 
 import toml
 
+from .config import CUSTOM_RULES_DIR
 from .schemas import definitions
 from .utils import cached
 
@@ -238,19 +239,33 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
         return obj
 
-    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]) -> None:  # noqa: PLR0912
+    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]) -> None:  # noqa: PLR0912, PLR0915
         query = None
         threat_query = None
+        # Track whether a present-but-empty query / threat_query should still be emitted.
+        # Filter-only custom rules (e.g. indicator match rules without an indicator index query)
+        # carry an empty string here, and dropping it makes export/import lossy because the
+        # Kibana API requires the field to be present (see issues #6283 and #6167).
+        preserve_empty_query = False
+        preserve_empty_threat_query = False
 
         if _data == "rule":
+            missing = object()
+
             # - We want to avoid the encoder for the query and instead use kql-lint.
             # - Linting is done in rule.normalize() which is also called in rule.validate().
             # - Until lint has tabbing, this is going to result in all queries being flattened with no wrapping,
             #     but will at least purge extraneous white space
-            query = contents["rule"].pop("query", "").strip()
+            raw_query = contents["rule"].pop("query", missing)
+            if isinstance(raw_query, str):
+                query = raw_query.strip()
+                preserve_empty_query = bool(CUSTOM_RULES_DIR) and not query
 
             # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
-            threat_query = contents["rule"].pop("threat_query", "").strip()
+            raw_threat_query = contents["rule"].pop("threat_query", missing)
+            if isinstance(raw_threat_query, str):
+                threat_query = raw_threat_query.strip()
+                preserve_empty_threat_query = bool(CUSTOM_RULES_DIR) and not threat_query
 
         top: OrderedDict[str, Any] = OrderedDict()
         bottom: OrderedDict[str, Any] = OrderedDict()
@@ -305,9 +320,13 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
         if query:
             top.update({"query": "XXxXX"})  # type: ignore[reportUnknownMemberType]
+        elif preserve_empty_query:
+            top.update({"query": ""})  # type: ignore[reportUnknownMemberType]
 
         if threat_query:
             top.update({"threat_query": "XXxXX"})  # type: ignore[reportUnknownMemberType]
+        elif preserve_empty_threat_query:
+            top.update({"threat_query": ""})  # type: ignore[reportUnknownMemberType]
 
         top.update(bottom)  # type: ignore[reportUnknownMemberType]
         top_out = toml.dumps(OrderedDict({data: top}), encoder=encoder)  # type: ignore[reportUnknownMemberType]
