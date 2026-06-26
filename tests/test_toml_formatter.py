@@ -114,7 +114,7 @@ class TestRuleTomlFormatter(unittest.TestCase):
                 tmp_path.unlink()
 
     def test_empty_query_preserved_for_custom_rules(self):
-        """Empty query (filter-only KQL) survives export for custom rules (issue #6283)."""
+        """Empty query (filter-only KQL) survives export for custom rules (issue #6167)."""
         data = {
             "rule": {
                 "query": "",

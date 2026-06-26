@@ -281,6 +281,31 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(rule.data.query, "")
         self.assertIsNone(rule.data.validator)
 
+    def test_missing_kuery_with_filters_is_normalized_for_custom_rules(self):
+        """Missing filter-only KQL query is normalized to an empty string for export (issue #6167)."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": [{"meta": {"negate": False}, "query": {"match_phrase": {"host.name": "test-host"}}}],
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            rule = TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+        self.assertEqual(rule.data.query, "")
+        self.assertEqual(rule.to_dict()["rule"]["query"], "")
+
     def test_empty_kuery_with_filters_is_invalid_for_prebuilt_rules(self):
         """Empty KQL remains invalid outside custom filter-only rule loading."""
         metadata = {

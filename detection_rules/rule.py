@@ -812,8 +812,10 @@ class QueryRuleData(BaseRuleData):
         if query:
             return
         filter_only_allowed = data.get("language") == "kuery" and data.get("filters") and CUSTOM_RULES_DIR
-        if not filter_only_allowed:
-            raise ValidationError("Missing data for required field.", field_name="query")
+        if filter_only_allowed:
+            data["query"] = ""
+            return
+        raise ValidationError("Missing data for required field.", field_name="query")
 
 
 @dataclass(frozen=True, kw_only=True)
