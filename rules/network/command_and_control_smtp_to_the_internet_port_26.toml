@@ -7,21 +7,24 @@ updated_date = "2026/06/24"
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects events that may indicate use of SMTP on TCP port 26. This port is commonly used by several popular
-mail transfer agents to deconflict with the default SMTP port 25. This port has also been used by a malware family
-called BadPatch for command and control of Windows systems.
+This rule detects events that may indicate use of SMTP on TCP port 26 from an internal host to an external destination.
+This port is commonly used by several popular mail transfer agents to deconflict with the default SMTP port 25. This
+port has also been used by a malware family called BadPatch for command and control of Windows systems. The rule is
+scoped to outbound traffic (internal source to external destination) to focus on the command and control and
+exfiltration use cases, rather than benign internal mail relays or unrelated transit traffic observed by the sensor.
 """
 false_positives = [
     """
-    Servers that process email traffic may cause false positives and should be excluded from this rule as this is
-    expected behavior.
+    Internal hosts that legitimately send mail to external mail transfer agents listening on TCP port 26 may cause false
+    positives. Mail servers or applications with known external SMTP relays can be excluded by source or destination IP
+    address as this is expected behavior.
     """,
 ]
 from = "now-9m"
 index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-pfsense.log-*", "logs-zeek.*", "logs-corelight.*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "SMTP on Port 26/TCP"
+name = "SMTP to the Internet on Port 26/TCP"
 references = [
     "https://unit42.paloaltonetworks.com/unit42-badpatch/",
     "https://isc.sans.edu/forums/diary/Next+up+whats+up+with+TCP+port+26/25564/",
@@ -44,16 +47,44 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and network.transport:tcp and destination.port:26
+(data_stream.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and
+  network.transport:tcp and destination.port:26 and
+  source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
+  not destination.ip:(10.0.0.0/8
+    or 100.64.0.0/10
+    or 127.0.0.0/8
+    or 169.254.0.0/16
+    or 172.16.0.0/12
+    or 192.0.0.0/24
+    or 192.0.0.0/29
+    or 192.0.0.10/32
+    or 192.0.0.170/32
+    or 192.0.0.171/32
+    or 192.0.0.8/32
+    or 192.0.0.9/32
+    or 192.0.2.0/24
+    or 192.168.0.0/16
+    or 192.175.48.0/24
+    or 192.31.196.0/24
+    or 192.52.193.0/24
+    or 192.88.99.0/24
+    or 198.18.0.0/15
+    or 198.51.100.0/24
+    or 203.0.113.0/24
+    or 224.0.0.0/4
+    or 240.0.0.0/4
+    or "::1"
+    or "FE80::/10"
+    or "FF00::/8")
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating SMTP on Port 26/TCP
+### Investigating SMTP to the Internet on Port 26/TCP
 
-SMTP, typically operating on port 25, is crucial for email transmission. However, port 26 is often used to avoid conflicts or restrictions on port 25. Adversaries exploit this by using port 26 for covert command and control, as seen with the BadPatch malware. The detection rule identifies suspicious SMTP activity on port 26 by analyzing network traffic patterns, helping to uncover potential threats.
+SMTP, typically operating on port 25, is crucial for email transmission. However, port 26 is often used to avoid conflicts or restrictions on port 25. Adversaries exploit this by using port 26 for covert command and control, as seen with the BadPatch malware. The detection rule identifies suspicious SMTP activity on port 26 originating from an internal host to an external destination, helping to uncover potential command and control or exfiltration while suppressing benign internal mail traffic.
 
 ### Possible investigation steps
 
