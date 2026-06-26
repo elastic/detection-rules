@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-6m"
-index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+index = ["logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS IAM Login Profile Created or Modified for an IAM User"
@@ -52,11 +52,6 @@ Because IAM-user console access is commonly provisioned through federation or IA
 - If the change is unauthorized, delete the login profile or reset the affected user's password, and revoke active console sessions for that user.
 - Rotate or restrict credentials for the acting principal if compromise is suspected, and review any IAM permission changes or access keys created by the same session.
 - Restrict "iam:CreateLoginProfile" and "iam:UpdateLoginProfile" to a small set of trusted administrators, and prefer federation or IAM Identity Center for console access.
-
-### Additional information
-
-- [CreateLoginProfile API](https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateLoginProfile.html)
-- [UpdateLoginProfile API](https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateLoginProfile.html)
 """
 references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateLoginProfile.html",
@@ -85,7 +80,8 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: ("CreateLoginProfile" or "UpdateLoginProfile")
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
-    and not aws.cloudtrail.user_identity.arn: *terraform*
+    and not user_agent.original: (*terraform* or *pulumi* or *ansible*)
+    and not aws.cloudtrail.user_identity.arn: (*terraform* or *pulumi* or *ansible*)
     and not source.as.organization.name: (Amazon* or AMAZON* or Google*)
     and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
 '''
