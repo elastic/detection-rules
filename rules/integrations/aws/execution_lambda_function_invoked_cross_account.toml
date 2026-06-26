@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an AWS Lambda function invoked by a principal whose AWS account differs from the account that owns the
+function (a cross-account invocation). The caller's account is parsed from the invoking principal's ARN and compared to
+the function account. Adversaries who have been granted invoke permission on a function from an external account, or who
+operate from a separate attacker-controlled account, can use cross-account invocation to execute functions or retrieve
+the data they return. This is the data-plane counterpart to detecting the cross-account grant itself, and relies on AWS
+Lambda data event logging, which is not enabled by default.
+"""
+false_positives = [
+    """
+    Multi-account architectures and partner integrations legitimately invoke functions across account boundaries. Verify
+    the caller account, the principal in `aws.cloudtrail.user_identity.arn`, and the function against approved
+    cross-account access, and exclude known trusted accounts or identities after validation.
+    """,
+]
+from = "now-61m"
+interval = "60m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Lambda Function Invoked Cross-Account"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function Invoked Cross-Account
+
+A Lambda function invoked by a principal from a different AWS account indicates cross-account invocation - the data-plane realization of a cross-account resource-policy grant. CloudTrail data events record the invoking principal's ARN (which contains the caller's account) and the function's owning account. When these differ, an external account executed the function. This can be a legitimate multi-account integration or an adversary using granted or attacker-controlled cross-account access.
+
+#### Possible investigation steps
+
+- Review `Esql.caller_account` (the invoking principal's account) versus `Esql.function_account` (the invoked function's owning account) and confirm whether the caller account is a known, trusted account.
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and pivot to the raw CloudTrail events (for the same principal/time window) to identify the invoked function(s) in `aws.cloudtrail.request_parameters`.
+- Determine whether a corresponding `AddPermission` cross-account grant exists for the function and whether it was expected (correlate with the cross-account resource-policy rule).
+- Review `Esql.source_ips` and recent activity from the caller account for other cross-account actions.
+
+### False positive analysis
+
+- Cross-account invocation is common in multi-account architectures and partner integrations. Confirm the caller account is approved and exclude known trusted accounts or identities after validation.
+
+### Response and remediation
+
+- If the cross-account access is unauthorized, remove the function's cross-account resource-policy statement (`RemovePermission`) and review what the function accessed or returned.
+- Constrain `lambda:InvokeFunction` grants to approved accounts and review the function's execution-role permissions.
+
+### Additional information
+
+- [Lambda resource-based policies](https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html)
+- [Logging Lambda data events with CloudTrail](https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html",
+]
+risk_score = 47
+rule_id = "49002bbe-7aea-4146-91eb-b2b683bf5ed5"
+setup = """## Setup
+
+This rule requires AWS Lambda data events to be logged in CloudTrail and ingested via the AWS integration. Lambda
+invocation (`Invoke`) is a data-plane event and is NOT logged by default; enable data event logging for Lambda functions
+in the trail (optionally scoped to sensitive functions to manage volume).
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+
+| where
+    event.provider == "lambda.amazonaws.com"
+    and event.action like "Invoke*"
+    and event.outcome == "success"
+    and aws.cloudtrail.user_identity.arn IS NOT NULL
+    and aws.cloudtrail.user_identity.invoked_by IS NULL
+    and aws.cloudtrail.request_parameters IS NOT NULL
+
+| grok aws.cloudtrail.user_identity.arn """:(?<Esql.caller_account>[0-9]{12}):"""
+| grok aws.cloudtrail.request_parameters """functionName=arn:aws:lambda:[a-z0-9-]*:(?<Esql.function_account>[0-9]{12}):"""
+
+| where Esql.caller_account IS NOT NULL and Esql.function_account IS NOT NULL and Esql.caller_account != Esql.function_account
+
+| stats
+    Esql.invocation_count = count(*),
+    Esql.source_ips = values(source.ip),
+    Esql.function_arns = values(aws.cloudtrail.resources.arn)
+  by
+    aws.cloudtrail.user_identity.arn,
+    Esql.caller_account,
+    Esql.function_account
+
+| keep
+    aws.cloudtrail.user_identity.arn,
+    Esql.caller_account,
+    Esql.function_account,
+    Esql.function_arns,
+    Esql.invocation_count,
+    Esql.source_ips
+
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.arn",
+    "Esql.caller_account",
+    "Esql.function_account",
+    "Esql.function_arns",
+    "Esql.invocation_count",
+    "Esql.source_ips",
+]
+
