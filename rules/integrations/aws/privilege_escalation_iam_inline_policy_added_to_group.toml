@@ -32,7 +32,7 @@ note = """## Triage and analysis
 
 `PutGroupPolicy` embeds an inline permissions policy directly on an IAM group. Because the policy applies to all members of the group, it is an effective way to broadly grant permissions — and, for an adversary, to escalate privileges or persist while drawing less attention than attaching a well-known managed policy such as `AdministratorAccess`. Group inline policies are relatively rare, which makes their creation a useful signal.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - Identify the actor in `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.session_context.session_issuer.arn`, and review `source.ip` / `user_agent.original` to determine how the change was made.
 - Inspect `aws.cloudtrail.request_parameters` for the targeted `groupName`, the `policyName`, and the `policyDocument` to assess what permissions were granted (look for broad `Action`/`Resource` of `*`, IAM, or data-access permissions).
@@ -76,12 +76,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.dataset: "aws.cloudtrail"
+data_stream.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: "PutGroupPolicy"
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
-    and not aws.cloudtrail.user_identity.arn: arn*/terraform
+    and not aws.cloudtrail.user_identity.arn: *terraform*
     and not source.as.organization.name: (Amazon* or AMAZON* or Google*)
     and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
 '''
