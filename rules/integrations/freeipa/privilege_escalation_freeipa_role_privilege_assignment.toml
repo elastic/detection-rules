@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies FreeIPA API commands that assign members to roles, add permissions to privileges, or create new permissions.
+FreeIPA's RBAC model uses roles containing privileges containing permissions. Modifying this hierarchy is a privilege
+escalation path that should be closely monitored.
+"""
+false_positives = [
+    """
+    Authorized RBAC configuration changes during initial deployment or organizational restructuring may trigger
+    this rule. Verify the operation against a change management record.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA RBAC Role or Privilege Modification"
+note = """## Triage and analysis
+
+### Investigating FreeIPA RBAC Role or Privilege Modification
+
+FreeIPA implements a three-tier RBAC model: roles contain privileges, and privileges contain permissions. Permissions define the actual LDAP operations allowed. An adversary who can modify this hierarchy can grant themselves any level of access without directly adding themselves to the admins group.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` and determine if they have legitimate RBAC management privileges.
+- Check `event.action` to determine the specific operation performed.
+- Review `freeipa.api.parameters` to identify which role, privilege, or permission was modified and what was added.
+- Determine if the change grants access to sensitive operations (user management, password resets, certificate issuance).
+- Verify the change against a change management record.
+
+### Response and remediation
+
+- If unauthorized, revert the RBAC change using the corresponding remove command (e.g., `role_remove_member`, `privilege_remove_permission`).
+- Investigate the actor's account for compromise.
+- Review the RBAC delegation model and ensure only a minimal set of principals can modify roles and privileges.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1098/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 73
+rule_id = "16ff2674-a156-4e49-83b6-ec9e785d84ac"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.outcome == "success"
+    and event.action in ("role_add_member", "privilege_add_permission", "permission_add", "privilege_add_member")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]

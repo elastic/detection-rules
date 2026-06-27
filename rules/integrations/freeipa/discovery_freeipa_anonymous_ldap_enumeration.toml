@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects anonymous LDAP sessions returning large numbers of entries by joining RESULT events with the latest_bind
+transform to identify sessions that authenticated anonymously. Anonymous binds should not be performing bulk directory
+queries. A high total entry count across multiple RESULT events from an unauthenticated session indicates directory
+enumeration without credentials.
+"""
+false_positives = [
+    """
+    Some legacy LDAP monitoring tools or health checks may perform anonymous binds and read rootDSE or schema entries.
+    These typically return small result sets. Tune the threshold if anonymous monitoring is expected in the environment.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA Anonymous LDAP Enumeration"
+note = """## Triage and analysis
+
+### Investigating FreeIPA Anonymous LDAP Enumeration
+
+Anonymous LDAP access to FreeIPA exposes directory data without any authentication. While FreeIPA restricts anonymous access by default, misconfigurations or legacy settings may allow it. An attacker exploiting anonymous access can enumerate users, groups, hosts, and policies without credentials.
+
+### Possible investigation steps
+
+- Review `source.ip` to identify the origin of the anonymous queries.
+- Check whether anonymous access is intentionally enabled on the 389 Directory Server by reviewing `nsslapd-allow-anonymous-access` in cn=config.
+- Examine the `freeipa.directory.base_dn` and `freeipa.directory.filter` from correlated SRCH events on the same connection to understand what was queried.
+- Check `Esql.total_entries` to quantify the volume of data exposed.
+- Investigate whether the source IP has performed any other activity (Kerberos auth attempts, IPA API calls).
+
+### Response and remediation
+
+- Disable anonymous LDAP access by setting `nsslapd-allow-anonymous-access: rootdse` in cn=config.
+- Block the source IP if it is external or unauthorized.
+- Audit directory ACIs to ensure sensitive attributes are not exposed to anonymous users.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1087/002/",
+    "https://specterops.io/blog/2019/12/04/attacking-freeipa-part-ii-enumeration/",
+]
+risk_score = 47
+rule_id = "1e811e78-ea98-4a14-a135-ffa42bb8ff52"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - 389DS access: `/var/log/dirsrv/slapd-*/access` (directory_access data stream)
+
+This rule requires the `latest_bind` transform to be running. Verify the transform is running: `GET _transform/logs-freeipa-latest-bind/_stats`. The destination index must use `index.mode: lookup`. See the integration README for setup instructions.
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA Directory Server",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.directory_access-*
+| where freeipa.directory.operation == "BIND"
+    and freeipa.directory.bind_method == "SIMPLE"
+    and freeipa.directory.bind_dn == ""
+| stats Esql.anon_bind_count = count(*) by source.ip
+| where Esql.anon_bind_count >= 3
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "freeipa.directory.bind_dn",
+    "freeipa.directory.connection_id",
+    "freeipa.directory.entries_returned",
+    "Esql.total_entries",
+]

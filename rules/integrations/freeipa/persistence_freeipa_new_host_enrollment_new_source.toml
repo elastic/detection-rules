@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects host enrollment (host_add) from a source IP that has not previously enrolled hosts. Rogue host registration
+from unexpected locations may indicate an attacker expanding their foothold by adding unauthorized machines to the
+FreeIPA domain. Uses 30-day history to establish which source IPs normally enroll hosts.
+"""
+false_positives = [
+    """
+    Legitimate host enrollment from new infrastructure (new data center, cloud region, or provisioning server) will
+    trigger this rule. Correlate with change management records. Automated provisioning systems that rotate IPs may
+    also trigger — consider excluding known provisioning subnets.
+    """,
+]
+from = "now-9m"
+index = ["logs-freeipa.ipa_api-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "FreeIPA New Host Enrollment from New Source IP"
+note = """## Triage and analysis
+
+### Investigating FreeIPA New Host Enrollment from New Source IP
+
+Host enrollment in FreeIPA creates a host principal and keytab, granting the host authenticated access to domain services. In mature environments, host enrollment typically occurs from a small set of provisioning servers or management workstations. Enrollment from a new source IP may indicate an attacker registering rogue hosts to establish persistence.
+
+### Possible investigation steps
+
+- Identify the user performing the enrollment from `user.name` and the source from `source.ip`.
+- Review `freeipa.api.parameters` to identify the hostname being enrolled.
+- Verify the enrolled host is a legitimate machine in your inventory.
+- Check if a one-time password (OTP) was used for enrollment, which would indicate pre-authorized enrollment.
+- Investigate the source IP — is it a known provisioning server, jump box, or an unexpected location?
+
+### Response and remediation
+
+- If the enrollment is unauthorized, immediately delete the host with `ipa host-del <hostname>`.
+- Revoke the host's keytab and Kerberos principal.
+- Block the source IP if it is unauthorized.
+- Review who has host enrollment permissions and restrict them.
+- Audit recently enrolled hosts for other unauthorized additions.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1136/002/",
+    "https://freeipa.org/page/V4/Host_Enrollment",
+]
+risk_score = 47
+rule_id = "382dd854-3253-4ecc-9566-e58e7ba74b8e"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.dataset: "freeipa.ipa_api" and event.action: "host_add" and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1136/002/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-30d"

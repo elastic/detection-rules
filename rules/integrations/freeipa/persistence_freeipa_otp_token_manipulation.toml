@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/03/28"
+integration = ["freeipa"]
+maturity = "development"
+updated_date = "2026/03/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies FreeIPA API commands that add, delete, or modify OTP tokens. Adversaries who compromise a helpdesk or admin
+account can create new OTP tokens for target users to bypass two-factor authentication, or delete existing tokens to
+downgrade authentication to password-only. OTP token operations are rare and always security-relevant.
+"""
+false_positives = [
+    """
+    Legitimate helpdesk operations for OTP token provisioning or replacement will trigger this rule. Verify that
+    the operation corresponds to an authorized support ticket or enrollment workflow.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "FreeIPA OTP Token Created, Modified, or Deleted"
+note = """## Triage and analysis
+
+### Investigating FreeIPA OTP Token Created, Modified, or Deleted
+
+FreeIPA supports OTP two-factor authentication via TOTP and HOTP tokens. Creating a new token for a user effectively gives the creator a valid second factor. Deleting a user's last active token may downgrade them to password-only authentication. Both are high-value actions for an adversary with helpdesk privileges.
+
+### Possible investigation steps
+
+- Identify the actor from `user.name` — determine if they have helpdesk or admin privileges.
+- Identify the target user from `freeipa.api.parameters`.
+- Check `event.action` to determine the specific operation (otptoken_add, otptoken_del, otptoken_mod).
+- Verify the operation was authorized through a support ticket or enrollment process.
+- For token deletions, check if the target user still has active OTP tokens — deletion of the last token is the highest risk.
+- Review the actor's recent API activity for other suspicious operations.
+
+### Response and remediation
+
+- If unauthorized, immediately provision a new OTP token for the affected user and invalidate any tokens created by the attacker.
+- Investigate the actor's account for compromise.
+- Review who has the `Manage OTP Tokens` permission and apply least privilege.
+- Consider restricting OTP token management to require a separate approval workflow.
+"""
+references = [
+    "https://www.freeipa.org/page/V4/OTP",
+    "https://attack.mitre.org/techniques/T1556/006/",
+]
+risk_score = 73
+rule_id = "7be500eb-c743-44a3-bedf-3c6816837251"
+setup = """## Setup
+
+This rule requires the FreeIPA integration to be installed and configured to collect logs from FreeIPA servers.
+
+### FreeIPA Integration Setup
+1. Install the FreeIPA integration in Kibana Fleet.
+2. Add the integration to an Elastic Agent policy deployed on your FreeIPA server(s).
+3. Ensure the relevant log paths are accessible:
+   - IPA API: `/var/log/httpd/error_log` (ipa_api data stream)
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Data Source: FreeIPA",
+    "Data Source: FreeIPA API",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-freeipa.ipa_api-*
+| where event.action in ("otptoken_add", "otptoken_del", "otptoken_mod")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "source.ip",
+    "event.action",
+    "event.outcome",
+    "freeipa.api.parameters",
+]
