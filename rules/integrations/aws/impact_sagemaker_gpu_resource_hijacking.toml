@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies creation of Amazon SageMaker training jobs, notebook instances, transform jobs, hyperparameter tuning jobs,
+or processing jobs that request GPU-accelerated instance types (the ml.p2, ml.p3, ml.p4, ml.p5, ml.g4, ml.g5, and ml.g6
+families). GPU instances are expensive and are the primary target for resource-hijacking attacks, where an adversary
+with compromised credentials launches accelerated compute for unauthorized model training or cryptomining at the
+victim's expense. These actions both define and provision the compute, so they reflect an actual GPU launch. Endpoint
+configuration creation is intentionally excluded because it only defines settings without provisioning, and
+infrastructure-as-code recreates it frequently. Because GPU SageMaker compute is costly and launched deliberately, its
+creation by an unexpected principal should be reviewed.
+"""
+false_positives = [
+    """
+    Data science and MLOps teams legitimately launch GPU training jobs, notebooks, and processing jobs. Verify the
+    principal in "aws.cloudtrail.user_identity.arn", the instance type and resource in
+    "aws.cloudtrail.request_parameters", and whether the workload aligns with approved activity. Terraform deployment
+    roles and CloudFormation/Service Catalog provisioning are already excluded; additional known training pipelines and
+    roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SageMaker GPU Resource Hijacking"
+note = """## Triage and analysis
+
+### Investigating AWS SageMaker GPU Resource Hijacking
+
+SageMaker can provision GPU-accelerated instances (ml.p and ml.g families) for training jobs, notebooks, batch transforms, hyperparameter tuning, and processing jobs. These instances are expensive and are a prime target for resource hijacking: an adversary with stolen credentials launches accelerated compute for unauthorized model training or cryptomining, leaving the victim with the bill. Because GPU resources are costly and launched deliberately, an unexpected GPU provisioning event is a strong signal. Endpoint configuration creation is excluded because it only defines settings (the launch happens at CreateEndpoint) and is recreated frequently by infrastructure-as-code.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip", "source.as.organization.name", and "user_agent.original" for an unexpected origin.
+- Inspect "aws.cloudtrail.request_parameters" for the instance type, instance count, and the resource name, and assess the potential cost.
+- Determine whether this principal normally launches GPU SageMaker workloads and whether the request aligns with an approved project.
+- Correlate with adjacent activity by the same principal, such as creation of multiple GPU resources, lifecycle configuration changes, or credential anomalies.
+
+### False positive analysis
+
+- Legitimate ML training and inference use GPU instances. Confirm the workload is expected and exclude known training pipelines or roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, stop and delete the offending training jobs, notebooks, transform jobs, or processing jobs to halt compute charges.
+- Rotate or restrict credentials for the principal if compromise is suspected, and apply service quotas and SCPs limiting GPU instance types to approved roles.
+
+### Additional information
+
+- [CreateTrainingJob API](https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateTrainingJob.html)
+- [SageMaker instance types](https://aws.amazon.com/sagemaker/pricing/)
+"""
+references = ["https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateTrainingJob.html"]
+risk_score = 47
+rule_id = "c0025f8c-8123-45b0-b237-59ff1f738387"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SageMaker",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "sagemaker.amazonaws.com"
+    and event.action: ("CreateTrainingJob" or "CreateNotebookInstance" or "CreateTransformJob" or "CreateHyperParameterTuningJob" or "CreateProcessingJob")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not aws.cloudtrail.user_identity.arn: arn*/terraform
+    and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
+    and (
+        aws.cloudtrail.request_parameters: *ml.p2* or
+        aws.cloudtrail.request_parameters: *ml.p3* or
+        aws.cloudtrail.request_parameters: *ml.p4* or
+        aws.cloudtrail.request_parameters: *ml.p5* or
+        aws.cloudtrail.request_parameters: *ml.g4* or
+        aws.cloudtrail.request_parameters: *ml.g5* or
+        aws.cloudtrail.request_parameters: *ml.g6*
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+[[rule.threat.technique.subtechnique]]
+id = "T1496.001"
+name = "Compute Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
