@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies disabling of Amazon ECR image vulnerability scanning via PutImageScanningConfiguration with scan-on-push set
+to false. ECR scanning detects known vulnerabilities and, with enhanced scanning, malware in pushed images. Turning
+scan-on-push off for a repository lets an adversary publish a vulnerable or malicious image without it being flagged,
+and is often a precursor to a supply-chain implant. Scanning configuration changes are infrequent and should align with
+approved administration.
+"""
+false_positives = [
+    """
+    Platform teams may adjust scanning configuration during cost or workflow changes, sometimes via
+    infrastructure-as-code. Verify the principal in "aws.cloudtrail.user_identity.arn" and the new configuration in
+    "aws.cloudtrail.request_parameters", and confirm the change is approved. Known automation roles can be excluded
+    after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS ECR Image Scanning Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS ECR Image Scanning Disabled
+
+ECR image scanning flags known CVEs (basic scanning) and, with enhanced scanning via Amazon Inspector, malware in pushed images. "PutImageScanningConfiguration" with "scanOnPush=false" disables automatic scanning for a repository. Disabling scanning removes a control that would surface a vulnerable or backdoored image, and frequently precedes or accompanies a malicious image push.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin.
+- Inspect "aws.cloudtrail.request_parameters" to confirm the repository for which scan-on-push was disabled.
+- Check whether a "PutImage" by an unusual principal followed shortly after, indicating the scanning was disabled to hide a malicious push.
+- Correlate with other defense-evasion or supply-chain activity by the same principal.
+
+### False positive analysis
+
+- Scanning configuration may be changed for cost or workflow reasons, often via IaC. Confirm the change is expected and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, re-enable scan-on-push for the repository, and scan or rebuild images pushed while scanning was disabled.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "ecr:PutImageScanningConfiguration" to trusted administrators.
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html",
+    "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImageScanningConfiguration.html",
+]
+risk_score = 47
+rule_id = "72228aab-ac62-44fd-9870-878d1e22efd1"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS ECR",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ecr.amazonaws.com"
+    and event.action: "PutImageScanningConfiguration"
+    and event.outcome: "success"
+    and aws.cloudtrail.request_parameters: *scanOnPush=false*
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
