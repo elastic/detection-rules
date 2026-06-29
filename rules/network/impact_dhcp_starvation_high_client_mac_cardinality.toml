@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/06/25"
-integration = ["network_traffic", "suricata"]
+integration = ["network_traffic"]
 maturity = "production"
 updated_date = "2026/06/29"
 
@@ -61,10 +61,6 @@ setup = """## Setup
 This rule requires the Elastic network_traffic (Packetbeat) integration capturing DHCP (UDP 67/68) on the broadcast
 segment where clients acquire leases, either Packetbeat running on the segment or a SPAN/mirror feeding it.
 
-Suricata is also supported when the `suricata.eve` data stream includes raw DHCP events. In `suricata.yaml`, enable the
-EVE `dhcp` event type and set `extended: yes` so DISCOVER messages include full DHCP details such as `dhcp_type` and
-`client_mac`. This rule does not depend on a custom Suricata alert signature.
-
 Zeek and flow-only firewall sources are intentionally not supported: this rule requires per-DISCOVER DHCP transaction
 fields and client hardware address values (`client_mac`) to measure high client MAC cardinality in a short time window.
 """
@@ -75,20 +71,18 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Tactic: Impact",
     "Data Source: Network Traffic",
-    "Data Source: Suricata",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.dhcpv4-*, packetbeat-*, logs-suricata.*
+from logs-network_traffic.dhcpv4-*, packetbeat-*
 | eval
-    message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type, suricata.eve.dhcp.dhcp_type)),
-    client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac, suricata.eve.dhcp.client_mac),
-    Esql.observer = COALESCE(host.name, observer.hostname, observer.name, suricata.eve.in_iface)
-| where (data_stream.dataset != "suricata.eve" or suricata.eve.event_type == "dhcp") and
-  message_type == "discover" and client_mac is not null and Esql.observer is not null
+    message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type)),
+    client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac),
+    Esql.observer = COALESCE(host.name, observer.hostname)
+| where message_type == "discover" and client_mac is not null and Esql.observer is not null
 | eval Esql.time_window = DATE_TRUNC(1 minute, @timestamp)
 | stats
     Esql.count_discover = COUNT(*),
