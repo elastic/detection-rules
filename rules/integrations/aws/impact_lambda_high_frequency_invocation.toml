@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a single principal directly invoking AWS Lambda functions at a high volume within a one-hour window.
+Adversaries may drive excessive invocations to abuse functions for resource hijacking or cryptomining, to inflate costs
+in a denial-of-wallet attack, or to enumerate function behavior. This is a volumetric heuristic: the threshold is
+environment-dependent and high-throughput applications can exceed it, so tune it to the deployment. This rule relies on
+AWS Lambda data event logging, which is not enabled by default.
+"""
+false_positives = [
+    """
+    Legitimate high-throughput applications, batch jobs, load tests, and automation can invoke functions at high volume
+    and will exceed any fixed threshold. Validate the principal in `aws.cloudtrail.user_identity.arn` and the workload
+    context, and tune the threshold to the environment.
+    """,
+]
+from = "now-61m"
+interval = "60m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Lambda Function High-Frequency Invocation by a Single Principal"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function High-Frequency Invocation by a Single Principal
+
+A principal issuing a high volume of direct Lambda invocations in a short window can indicate function abuse for resource hijacking or cryptomining, a denial-of-wallet cost attack, or behavioral enumeration. Because Lambda data events record only the invocation metadata (caller, function, source) and not the function's internal behavior, this rule is purely volumetric and should be treated as corroborating signal.
+
+### Possible investigation steps
+
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and determine whether the volume exceeds its historical baseline.
+- Determine whether the principal is a known high-throughput application or automation identity, or an unexpected user.
+- Review `source.ip` / `user_agent.original` and recent credential activity for signs of compromise.
+- Correlate with billing/concurrency metrics and with other Lambda or IAM activity by the same principal.
+
+### False positive analysis
+
+- High-throughput apps, batch processing, and load tests routinely exceed fixed thresholds. Tune the threshold and exclude known high-volume identities after validation.
+
+### Response and remediation
+
+- If abuse is confirmed, throttle or disable the affected functions (reserved concurrency), rotate or restrict the principal's credentials, and review function code and execution-role permissions.
+- Apply per-function reserved concurrency and account-level guardrails to bound cost and blast radius.
+
+### Additional information
+
+- [Logging Lambda data events with CloudTrail](https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html)
+- [Lambda function scaling and concurrency](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html",
+]
+risk_score = 47
+rule_id = "55260656-76d6-427b-bd02-7acdde131b64"
+setup = """## Setup
+
+This rule requires AWS Lambda data events to be logged in CloudTrail and ingested via the AWS integration. Lambda
+invocation (`Invoke`) is a data-plane event and is NOT logged by default; enable data event logging for Lambda functions
+in the trail (optionally scoped to sensitive functions to manage volume). Tune the invocation-count threshold in the
+query to the environment before enabling.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+
+// Lambda invocation data events (data-plane; requires data event logging enabled)
+| where
+    event.provider == "lambda.amazonaws.com"
+    and event.action like "Invoke*"
+    and event.outcome == "success"
+    and aws.cloudtrail.user_identity.arn IS NOT NULL
+
+| stats
+    Esql.invocation_count = count(*),
+    Esql.source_ips = values(source.ip)
+  by
+    aws.cloudtrail.user_identity.arn
+
+// Threshold is environment-dependent — tune to the deployment
+| where Esql.invocation_count >= 1000
+
+| keep
+    aws.cloudtrail.user_identity.arn,
+    Esql.invocation_count,
+    Esql.source_ips
+
+| sort Esql.invocation_count desc
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = ["aws.cloudtrail.user_identity.arn", "cloud.account.id", "Esql.invocation_count", "Esql.source_ips"]
+
