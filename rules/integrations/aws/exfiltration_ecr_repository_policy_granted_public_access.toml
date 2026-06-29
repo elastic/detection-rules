@@ -74,11 +74,11 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | WHERE event.provider == "ecr.amazonaws.com"
   AND event.action IN ("SetRepositoryPolicy", "PutRegistryPolicy")
   AND event.outcome == "success"
-  AND aws.cloudtrail.user_identity.type != "AWSService"
-  AND aws.cloudtrail.request_parameters RLIKE """.*\"Effect\":\"Allow\".*"""
-  AND (aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\"\*\".*"""
-       OR aws.cloudtrail.request_parameters RLIKE """.*\"Principal\":\{\"AWS\":\"\*\"\}.*""")
-| KEEP _id, _version, _index, @timestamp, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type, source.ip, cloud.account.id, aws.cloudtrail.resources.arn, event.action, aws.cloudtrail.request_parameters
+  AND (aws.cloudtrail.user_identity.type IS NULL OR aws.cloudtrail.user_identity.type != "AWSService")
+  AND aws.cloudtrail.request_parameters RLIKE """.*\"Effect\": *\"Allow\".*"""
+  AND (aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": *\"\*\".*"""
+       OR aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": *\{ *\"AWS\": *\"\*\".*""")
+| KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
 '''
 
 
