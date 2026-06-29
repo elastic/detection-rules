@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of Amazon ECR container images or repositories via BatchDeleteImage or DeleteRepository. ECR stores
+the container images that back ECS, EKS, and Lambda workloads. Deleting images, or deleting an entire repository (which
+removes all of its images), destroys deployment artifacts and can break running and future deployments. Adversaries may
+delete images or repositories to cause impact, disrupt recovery, or remove evidence after tampering. These are
+destructive, infrequent operations and should align with approved cleanup or lifecycle management.
+"""
+false_positives = [
+    """
+    CI/CD pipelines and platform teams may delete images during cleanup or delete deprecated repositories during
+    decommissioning. Verify the principal in "aws.cloudtrail.user_identity.arn", the affected repository and images in
+    "aws.cloudtrail.request_parameters", and whether the deletion aligns with an approved change. Known automation roles
+    can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS ECR Container Image or Repository Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS ECR Container Image or Repository Deleted
+
+Amazon ECR repositories hold the container images deployed by ECS, EKS, and Lambda. "BatchDeleteImage" removes specific images (by tag or digest), and "DeleteRepository" removes a repository and, when "force" is set, all images within it. Either action destroys deployment artifacts: running tasks may fail to scale or recover, and deployments referencing the deleted images break. Adversaries delete images or repositories to cause impact, inhibit recovery, or erase a tampered image after use.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip", "source.as.organization.name", and "user_agent.original" for an unexpected origin.
+- Identify the affected repository and images from "aws.cloudtrail.request_parameters", and determine which workloads depend on them.
+- Determine whether multiple repositories or many images were affected in a short window, indicating broad destruction.
+- Correlate with adjacent activity by the same principal, such as repository policy changes, image pushes, or other destructive actions across services.
+
+### False positive analysis
+
+- CI/CD cleanup and repository decommissioning legitimately delete images and repositories. Confirm the deletion is expected and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, restore the affected images from another registry, cache, or build pipeline, and identify any workloads disrupted by the deletion.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "ecr:BatchDeleteImage" and "ecr:DeleteRepository" to a small set of trusted administrators and pipelines.
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepository.html",
+    "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchDeleteImage.html",
+]
+risk_score = 73
+rule_id = "9d766104-fa99-42c9-ab09-131bc0e9d963"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS ECR",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ecr.amazonaws.com"
+    and event.action: ("BatchDeleteImage" or "DeleteRepository")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not aws.cloudtrail.user_identity.invoked_by: "cloudformation.amazonaws.com"
+    and not user_agent.original: (*terraform* or *pulumi* or *ansible*)
+    and not aws.cloudtrail.user_identity.arn: (*terraform* or *pulumi* or *ansible*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
