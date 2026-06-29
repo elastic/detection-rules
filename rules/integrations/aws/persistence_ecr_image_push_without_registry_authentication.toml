@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a long-term IAM access key (AKIA prefix) pushing an image to Amazon ECR (PutImage) without a prior
+GetAuthorizationToken call in the same 12-hour window. Legitimate Docker push workflows always begin with a docker login
+step that calls GetAuthorizationToken to obtain a temporary registry password, and these tokens are valid for 12 hours.
+An AKIA key that pushes an image with pre-existing or hard-coded credentials, skipping the auth step, is a strong
+indicator of adversarial image implantation. Adversaries who compromise cloud credentials may push backdoored container
+images to internal ECR repositories, which are then pulled and executed by ECS tasks, EKS workloads, or Lambda container
+functions, establishing persistent code execution.
+"""
+false_positives = [
+    """
+    ECR image pushes using long-term access keys where GetAuthorizationToken was called more than 12 hours before the
+    push (for example, a multi-day pipeline that authenticated at the start of the day and pushes near the end). ECR
+    auth tokens are valid for 12 hours; this rule's window matches that lifetime, so the false-positive surface is
+    limited to pipelines spanning multiple calendar days. If legitimate pipelines trigger this rule, enforce IAM role
+    usage for all ECR operations.
+    """,
+]
+from = "now-12h"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS ECR Image Push Without Registry Authentication via Long-Term Key"
+note = """## Triage and analysis
+
+### Investigating AWS ECR Image Push Without Registry Authentication via Long-Term Key
+
+Legitimate Docker push workflows always call GetAuthorizationToken immediately before pushing. An AKIA key that pushes without this auth step has either pre-cached credentials or hard-coded registry credentials, patterns inconsistent with CI/CD pipelines but consistent with an adversary using a stolen key to implant a malicious image.
+
+### Possible investigation steps
+
+- Review "aws.cloudtrail.user_identity.access_key_id" and look it up in IAM to identify the owner. ECR push via a long-term key is already a misconfiguration; without auth it is highly suspicious.
+- Review CloudTrail for this key to find the repository name in "request_parameters". Determine which workloads pull from the affected repository and whether they have already relaunched.
+- Check for "latest" tag replacement, the most impactful implant strategy since all future container launches use the new image without requiring a configuration change.
+- If possible, pull the pushed image and scan for unexpected binaries, cron jobs, reverse shells, or mining software before any containers relaunch.
+- Search for follow-on deployment such as ECS UpdateService, EKS pod creation, or Lambda UpdateFunctionCode events shortly after the image push.
+
+### False positive analysis
+
+- Legitimate pipeline where GetAuthorizationToken was called more than 12 hours before the push. Verify the pipeline identity and confirm the image content is expected. Migrate to IAM roles for all ECR operations to eliminate this rule's primary false-positive surface.
+
+### Response and remediation
+
+- Rotate or deactivate the AKIA key immediately.
+- Pull and scan the pushed image before allowing any containers to launch from it.
+- Redeploy affected ECS/EKS workloads from a known-good image.
+- Restrict "ecr:PutImage" to dedicated deployment roles via IAM policy or SCP.
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImage.html",
+    "https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html",
+]
+risk_score = 47
+rule_id = "a1442a4b-c58d-476d-b583-122988dfa704"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS ECR",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+  AND event.provider == "ecr.amazonaws.com"
+  AND event.action IN ("PutImage", "GetAuthorizationToken")
+  AND event.outcome == "success"
+  AND aws.cloudtrail.user_identity.access_key_id LIKE "AKIA*"
+| STATS
+    Esql.aws_cloudtrail_put_image_sum = SUM(CASE(event.action == "PutImage", 1, 0)),
+    Esql.aws_cloudtrail_get_authorization_token_sum = SUM(CASE(event.action == "GetAuthorizationToken", 1, 0)),
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp)
+  BY aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, cloud.account.id
+| WHERE Esql.aws_cloudtrail_put_image_sum > 0 AND Esql.aws_cloudtrail_get_authorization_token_sum == 0
+| KEEP aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.access_key_id, cloud.account.id, Esql.aws_cloudtrail_put_image_sum, Esql.aws_cloudtrail_get_authorization_token_sum, Esql.timestamp_min, Esql.timestamp_max
+| SORT Esql.aws_cloudtrail_put_image_sum DESC
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1525"
+name = "Implant Internal Image"
+reference = "https://attack.mitre.org/techniques/T1525/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.003"
+name = "Malicious Image"
+reference = "https://attack.mitre.org/techniques/T1204/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "cloud.account.id",
+    "Esql.aws_cloudtrail_put_image_sum",
+    "Esql.aws_cloudtrail_get_authorization_token_sum",
+    "Esql.timestamp_min",
+    "Esql.timestamp_max",
+]
+
