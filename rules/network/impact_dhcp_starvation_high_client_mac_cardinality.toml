@@ -2,7 +2,7 @@
 creation_date = "2026/06/25"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/06/29"
+updated_date = "2026/06/25"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ same network capture sensor, which is the wire-level starvation pattern and does
 
 - Review `Esql.count_distinct_client_macs` and sample values in `Esql.values_client_macs` to confirm the burst is not a
   single client retrying with one address.
-- Identify the L2 segment or VLAN monitored by `host.name` and check DHCP server logs for pool exhaustion, NAK spikes,
+- Identify the L2 segment or VLAN monitored by `Esql.observer` and check DHCP server logs for pool exhaustion, NAK spikes,
   or lease-denial events during the same window.
 - Look for follow-on rogue DHCP OFFER/ACK activity on the segment, including the Multiple DHCP Servers Responding to the
   Same Transaction rule.
@@ -39,7 +39,7 @@ same network capture sensor, which is the wire-level starvation pattern and does
 ### False positive analysis
 
 - Large Wi-Fi reconnect or onboarding events can temporarily increase DISCOVER volume. Compare against historical
-  baselines for the same `host.name` and time of day before treating as malicious.
+  baselines for the same `Esql.observer` and time of day before treating as malicious.
 - Virtualization or VDI provisioning bursts may generate many distinct client MAC addresses during imaging. Exclude known
   provisioning VLANs or sensors when the workflow is confirmed.
 
