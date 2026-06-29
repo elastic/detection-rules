@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies creation or modification of an Amazon SageMaker notebook instance lifecycle configuration via
+CreateNotebookInstanceLifecycleConfig or UpdateNotebookInstanceLifecycleConfig. A lifecycle configuration is a shell
+script that SageMaker runs as root on the notebook instance when it is created (OnCreate) or started (OnStart). An
+adversary who can set a lifecycle configuration gains persistent code execution with the notebook's execution role every
+time the instance starts, making this a powerful backdoor and persistence primitive. Lifecycle configuration changes are
+infrequent and should align with approved notebook administration.
+"""
+false_positives = [
+    """
+    Platform and data science teams use lifecycle configurations to install packages or set up environments, often via
+    infrastructure-as-code. Verify the principal in "aws.cloudtrail.user_identity.arn", inspect the script in
+    "aws.cloudtrail.request_parameters", and confirm the change is approved. Known automation roles can be excluded
+    after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SageMaker Notebook Lifecycle Configuration Created or Modified"
+note = """## Triage and analysis
+
+### Investigating AWS SageMaker Notebook Lifecycle Configuration Created or Modified
+
+A SageMaker notebook lifecycle configuration is a shell script that runs as root on the notebook instance at create (OnCreate) or start (OnStart). It is the SageMaker analog of EC2 user data: whoever sets it obtains code execution with the notebook's IAM execution role, persistently, every time the instance starts. Adversaries use this to implant a backdoor, exfiltrate the execution role's credentials, or maintain access. The base64-encoded script is present in the request, so the content can be reviewed directly.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin.
+- Decode and inspect the OnCreate/OnStart script in "aws.cloudtrail.request_parameters" for reverse shells, credential access (IMDS or environment), package installs from untrusted sources, or data exfiltration.
+- Determine which notebook instances reference this configuration and whether they have started since the change.
+- Correlate with adjacent activity by the same principal, such as notebook creation, presigned URL generation, or credential use of the notebook's execution role outside SageMaker.
+
+### False positive analysis
+
+- Environment setup scripts are a legitimate use of lifecycle configurations. Confirm the script content is expected and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, remove the malicious lifecycle configuration, stop affected notebook instances, and rotate the notebook execution role's credentials.
+- Review any actions taken by the notebook execution role since the change, and restrict "sagemaker:CreateNotebookInstanceLifecycleConfig" and "sagemaker:UpdateNotebookInstanceLifecycleConfig" to trusted administrators.
+"""
+references = [
+    "https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html",
+    "https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateNotebookInstanceLifecycleConfig.html",
+]
+risk_score = 47
+rule_id = "4649ee56-6c21-47a2-881d-c17eed5ec394"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SageMaker",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "sagemaker.amazonaws.com"
+    and event.action: ("CreateNotebookInstanceLifecycleConfig" or "UpdateNotebookInstanceLifecycleConfig")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
