@@ -27,6 +27,15 @@ from .utils import (
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
 
+# Output threat-mapping selection (which framework/version is emitted as the API `threat`).
+# Defaults to MITRE ATT&CK v18 (the value stored in the rule `threat` field). Either may be
+# overridden via _config.yaml (`threat_mapping_framework` / `threat_mapping_version`) or the
+# environment variables below, with the environment taking precedence.
+DEFAULT_THREAT_MAPPING_FRAMEWORK = "MITRE ATT&CK"
+DEFAULT_THREAT_MAPPING_VERSION = "18"
+THREAT_MAPPING_FRAMEWORK_ENV = "DR_THREAT_MAPPING_FRAMEWORK"
+THREAT_MAPPING_VERSION_ENV = "DR_THREAT_MAPPING_VERSION"
+
 
 @dataclass
 class UnitTest:
@@ -208,7 +217,10 @@ class RulesConfig:
 
     action_dir: Path | None = None
     action_connector_dir: Path | None = None
+    attack_version_maps_dir: Path | None = None
     auto_gen_schema_file: Path | None = None
+    threat_mapping_framework: str = DEFAULT_THREAT_MAPPING_FRAMEWORK
+    threat_mapping_version: str = DEFAULT_THREAT_MAPPING_VERSION
     bbr_rules_dirs: list[Path] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
@@ -354,6 +366,29 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
     # no_tactic_filename
     contents["no_tactic_filename"] = loaded.get("no_tactic_filename", False)
+
+    # attack version mapping configs directory (used by `dev attack convert-threat-mappings`).
+    # Defaults to the stock etc/attack-version-maps directory; custom rules repos may point this at
+    # their own directory of per-pair mapping configs.
+    attack_maps_dir = loaded.get("attack_version_maps_dir")
+    if attack_maps_dir:
+        contents["attack_version_maps_dir"] = base_dir.joinpath(attack_maps_dir).resolve()
+    else:
+        default_maps_dir = Path(get_etc_path(["attack-version-maps"]))
+        contents["attack_version_maps_dir"] = default_maps_dir if default_maps_dir.exists() else None
+
+    # threat-mapping output selection (which framework/version is emitted as the API `threat`).
+    # Environment variables take precedence over the config file values.
+    contents["threat_mapping_framework"] = os.getenv(
+        THREAT_MAPPING_FRAMEWORK_ENV,
+        loaded.get("threat_mapping_framework", DEFAULT_THREAT_MAPPING_FRAMEWORK),
+    )
+    contents["threat_mapping_version"] = str(
+        os.getenv(
+            THREAT_MAPPING_VERSION_ENV,
+            loaded.get("threat_mapping_version", DEFAULT_THREAT_MAPPING_VERSION),
+        )
+    )
 
     # return the config
     try:

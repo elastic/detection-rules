@@ -7,6 +7,7 @@
 import copy
 import dataclasses
 import json
+import logging
 import os
 import re
 import time
@@ -57,6 +58,8 @@ from .version_lock import VersionLock, loaded_version_lock
 if typing.TYPE_CHECKING:
     from .remote_validation import RemoteValidator
 
+
+logger = logging.getLogger(__name__)
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
@@ -292,6 +295,27 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
     sub_technique_ids: list[str]
 
 
+@dataclass(frozen=True, kw_only=True)
+class VersionedThreatMapping(MarshmallowDataclassMixin):
+    """Mapping to a threat framework tagged with the framework version it targets."""
+
+    framework: Literal["MITRE ATT&CK", "MITRE ATLAS"]
+    version: str
+    threat: list[ThreatMapping]
+
+    @validates_schema
+    def validate_framework_agreement(self, data: dict[str, Any], **_: Any) -> None:
+        """Ensure inner threat entries use the same framework as the versioned wrapper."""
+        framework = data.get("framework")
+        for entry in data.get("threat") or []:
+            entry_framework = entry["framework"] if isinstance(entry, dict) else entry.framework
+            if entry_framework != framework:
+                raise ValidationError(
+                    f"threat_mappings entry for {framework} version {data.get('version')} contains a "
+                    f"threat with mismatched framework '{entry_framework}'"
+                )
+
+
 @dataclass(frozen=True)
 class AlertSuppressionDuration:
     """Mapping to alert suppression duration."""
@@ -412,6 +436,9 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     severity_mapping: list[SeverityMapping] | None = None
     tags: list[str] | None = None
     threat: list[ThreatMapping] | None = None
+    # additional framework/version-tagged mappings; the build emits one as the API `threat` and strips
+    # this field (see `_select_output_threat_mapping`)
+    threat_mappings: list[VersionedThreatMapping] | None = None
     throttle: str | None = None
     timeline_id: definitions.TimelineTemplateId | None = None
     timeline_title: definitions.TimelineTemplateTitle | None = None
@@ -504,6 +531,24 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 f"should not contain rules with `{error_message}` set."
             )
             raise ValidationError(msg)
+
+    @validates_schema
+    def validates_threat_mappings(self, data: dict[str, Any], **_: Any) -> None:
+        """Ensure versioned threat mappings have unique (framework, version) keys."""
+        threat_mappings = data.get("threat_mappings")
+        if not threat_mappings:
+            return
+
+        seen: set[tuple[str, str]] = set()
+        for entry in threat_mappings:
+            framework = entry["framework"] if isinstance(entry, dict) else entry.framework
+            version = entry["version"] if isinstance(entry, dict) else entry.version
+            key = (framework, version)
+            if key in seen:
+                raise ValidationError(
+                    f"Duplicate threat_mappings entry for framework '{framework}' version '{version}'"
+                )
+            seen.add(key)
 
 
 class DataValidator:
@@ -1284,11 +1329,60 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
+        # select which framework/version threat mapping is emitted as the API `threat`, then strip
+        # the repo-side `threat_mappings` field so it is never shipped to Kibana
+        self._select_output_threat_mapping(obj)
+
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
             threat_entry.setdefault("technique", [])
 
         return obj
+
+    @staticmethod
+    def _select_output_threat_mapping(obj: dict[str, Any]) -> None:
+        """Emit the configured framework/version mapping as `threat` and drop `threat_mappings`."""
+        from . import attack
+        from .config import DEFAULT_THREAT_MAPPING_FRAMEWORK, DEFAULT_THREAT_MAPPING_VERSION
+
+        threat_mappings = obj.pop("threat_mappings", None)
+
+        framework, version = attack.resolve_output_threat_version()
+
+        # The baseline framework/version lives in the `threat` field itself, so there is nothing to
+        # select or warn about when it is requested (the common case).
+        if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
+            return
+
+        if not threat_mappings:
+            if obj.get("threat"):
+                logger.warning(
+                    "No threat mapping for framework '%s' version '%s' on rule '%s'; "
+                    "emitting the default `threat` mapping instead.",
+                    framework,
+                    version,
+                    obj.get("name", obj.get("rule_id", "<unknown>")),
+                )
+            return
+
+        selected = next(
+            (
+                block
+                for block in threat_mappings
+                if block.get("framework") == framework and str(block.get("version")) == str(version)
+            ),
+            None,
+        )
+        if selected is not None:
+            obj["threat"] = selected.get("threat", [])
+        elif obj.get("threat"):
+            logger.warning(
+                "No threat mapping for framework '%s' version '%s' on rule '%s'; "
+                "emitting the default `threat` mapping instead.",
+                framework,
+                version,
+                obj.get("name", obj.get("rule_id", "<unknown>")),
+            )
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
