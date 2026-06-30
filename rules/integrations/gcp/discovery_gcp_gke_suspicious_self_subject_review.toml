@@ -57,13 +57,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.action:(
-  "io.k8s.authorization.v1.selfsubjectaccessreviews.create" or
-  "io.k8s.authorization.v1.selfsubjectrulesreviews.create"
-) and user.email:(system\:serviceaccount\:* or system\:node\:*) and not user.email:(
-  "system:serviceaccount:default:argo-argo-workflows-workflow-controller" or
-  "system:serviceaccount:default:argo-argo-workflows-server" or system\:serviceaccount\:*\:datadog-kube-state-metrics
-)
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.action:(io.k8s.authorization.v1.selfsubjectaccessreviews.create or io.k8s.authorization.v1.selfsubjectrulesreviews.create) and user.email:((system\:serviceaccount\:* or system\:node\:*) and not ("system:serviceaccount:default:argo-argo-workflows-server" or "system:serviceaccount:default:argo-argo-workflows-workflow-controller" or system\:serviceaccount\:*\:datadog-kube-state-metrics))
 '''
 
 [[rule.threat]]
