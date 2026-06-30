@@ -54,7 +54,10 @@ def build_user_agent(user_agent: Optional[str] = None) -> Optional[str]:
     dr_version = _get_dist_version("detection_rules")
     if dr_version:
         return f"{USER_AGENT_PRODUCT}/{dr_version} (DaC; kibana-lib {kibana_version})"
-    return f"{USER_AGENT_PRODUCT}/{kibana_version}"
+    # ``detection_rules`` distribution metadata isn't available (e.g. the lib is
+    # used standalone). Emit a distinct product token so the kibana-lib version
+    # isn't mislabeled as the detection-rules version server-side.
+    return f"{USER_AGENT_PRODUCT}-kibana/{kibana_version}"
 
 
 class Kibana:
