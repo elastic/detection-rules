@@ -165,6 +165,13 @@ class ParserTests(unittest.TestCase):
         # Quoted wildcard should be a String, not a Wildcard
         self.validate('field: "*text*"', FieldComparison(Field("field"), String("*text*")))
 
+    def test_escaped_colon_with_leading_slash_wildcard(self):
+        """Test that an escaped colon in a wildcard with a leading slash is unescaped in the value."""
+        self.validate(
+            r"process.args:/lockscreenurl\:http*",
+            FieldComparison(Field("process.args"), Wildcard("/lockscreenurl:http*")),
+        )
+
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
         # Triple NOT should optimize to single NOT
