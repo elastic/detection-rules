@@ -2,14 +2,14 @@
 creation_date = "2026/06/25"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/06/29"
+updated_date = "2026/06/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies sustained ICMP Echo traffic from an internal host to an external destination with a larger-than-typical
-transaction size. Covert channels and ICMP tunneling tools embed data in echo payloads that exceed normal OS ping
-behavior, which is usually limited to small fixed-size packets.
+Identifies ICMP Echo traffic from an internal host to an external destination with a larger-than-typical transaction
+size. Covert channels and ICMP tunneling tools embed data in echo payloads that exceed normal OS ping behavior, which is
+usually limited to small fixed-size packets.
 """
 from = "now-9m"
 index = ["logs-network_traffic.icmp-*"]
@@ -74,14 +74,14 @@ query = '''
 data_stream.dataset:network_traffic.icmp
   and (network_traffic.icmp.request.type:(8 or 128) or icmp.request.type:(8 or 128))
   and network.transport:(icmp or ipv6-icmp)
-  and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+  and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FC00::/7")
   and network.bytes >= 256
   and not destination.ip:(
     10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.168.0.0/16 or
     192.0.0.0/24 or 192.0.0.0/29 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.0.10/32 or 192.0.0.170/32 or
     192.0.0.171/32 or 192.0.2.0/24 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or
-    198.18.0.0/15 or 198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FE80::/10" or
-    "FF00::/8"
+    198.18.0.0/15 or 198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FC00::/7" or
+    "FE80::/10" or "FF00::/8"
   )
 '''
 
