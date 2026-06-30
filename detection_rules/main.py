@@ -173,9 +173,15 @@ def generate_rules_index(
 @click.option("--dates-import", "-di", is_flag=True, help="Parse created_at and updated_at from the rule content")
 @click.option(
     "--use-existing-rule-dirs",
+    "--load-rule-loading",
     "-lr",
+    "use_existing_rule_dirs",
     is_flag=True,
-    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
+    help=(
+        "Enable arbitrary rule loading from the rules directories (Can be very slow!). "
+        "This option was previously named --load-rule-loading; that name is kept as an alias "
+        "for backwards compatibility."
+    ),
 )
 def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     input_file: tuple[Path, ...] | None,

@@ -254,11 +254,15 @@ def kibana_import_rules(  # noqa: PLR0915
 )
 @click.option(
     "--use-existing-rule-dirs",
+    "--load-rule-loading",
     "-ud",
+    "-lr",
+    "use_existing_rule_dirs",
     is_flag=True,
     help=(
         "Enable arbitrary local rule path usage from config rules directories (Can be very slow!). "
-        "This option used to be referred to as --local-rule-loading. It is now renamed to be more descriptive."
+        "This option was previously named --load-rule-loading; that name is kept as an alias "
+        "for backwards compatibility."
     ),
 )
 @click.pass_context
