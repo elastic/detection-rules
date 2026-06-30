@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/06/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of an AWS Backup vault or removal of its Vault Lock configuration via DeleteBackupVault or
+DeleteBackupVaultLockConfiguration. A backup vault stores recovery points, and Vault Lock enforces WORM (write-once,
+read-many) immutability that prevents recovery points from being deleted before their retention expires. Removing the
+lock defeats the primary control designed to stop ransomware from destroying backups, and deleting the vault removes the
+backup container entirely. Both actions are strong anti-recovery signals and are rare in normal operations.
+"""
+false_positives = [
+    """
+    Platform or infrastructure-as-code teams may delete empty or deprecated vaults during decommissioning, or adjust
+    Vault Lock during a planned governance change (note that compliance-mode locks cannot be removed). Verify the
+    principal in "aws.cloudtrail.user_identity.arn" and confirm the change aligns with an approved request. Known
+    administration roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Vault Deleted or Vault Lock Removed"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Vault Deleted or Vault Lock Removed
+
+A backup vault is the container for AWS Backup recovery points, and Vault Lock applies immutability so recovery points cannot be deleted or shortened before retention expires. "DeleteBackupVaultLockConfiguration" removes that immutability (for governance-mode locks), and "DeleteBackupVault" deletes the vault itself. Adversaries remove the lock to enable subsequent deletion of otherwise-immutable recovery points, or delete the vault to destroy backups outright. These are high-impact, rare operations and should be deliberate and tightly controlled.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip", "source.as.organization.name", and "user_agent.original" for an unexpected origin.
+- Determine the affected vault from "aws.cloudtrail.request_parameters" and whether it held recovery points.
+- For lock removal, check whether DeleteRecoveryPoint or DeleteBackupVault followed shortly after, indicating a staged anti-recovery sequence.
+- Correlate with other destructive or evasion activity by the same principal (KMS key deletion, resource deletions, logging changes).
+
+### False positive analysis
+
+- Decommissioning of empty vaults or planned governance changes may match. Confirm the change is expected and exclude known administration roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, treat as a likely precursor to backup destruction: preserve remaining recovery points, re-apply Vault Lock (in compliance mode where appropriate), and engage incident response.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:DeleteBackupVault" and "backup:DeleteBackupVaultLockConfiguration" to break-glass roles via IAM and SCPs.
+
+### Additional information
+
+- [AWS Backup Vault Lock](https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html)
+- [DeleteBackupVault API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupVault.html)
+- [DeleteBackupVaultLockConfiguration API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupVaultLockConfiguration.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupVault.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupVaultLockConfiguration.html",
+]
+risk_score = 73
+rule_id = "4ddac6c1-e4be-4e2b-95b5-0654cb8d423c"
+setup = """This rule requires AWS CloudTrail management events for AWS Backup and ingestion via the Elastic AWS CloudTrail integration. See https://docs.elastic.co/integrations/aws/cloudtrail."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: ("DeleteBackupVault" or "DeleteBackupVaultLockConfiguration")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
