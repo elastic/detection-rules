@@ -359,6 +359,126 @@ class TestSchemas(unittest.TestCase):
         ):
             TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
 
+    def test_bbr_with_nonempty_kuery_and_filters_valid_for_custom_rules(self):
+        """Kuery rule with a non-empty query and filters loads successfully as a custom rule."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "event.category:(network or network_traffic)",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_bbr_with_empty_kuery_and_filters_valid_for_custom_rules(self):
+        """Filter-only kuery rule with empty query and filters loads successfully as a custom rule."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_empty_kuery_with_filters_invalid_without_custom_rules_dir(self):
+        """Filter-only kuery rule with empty query raises a ValidationError when CUSTOM_RULES_DIR is not set."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with (
+            unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", None),
+            self.assertRaises(ValidationError),
+        ):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
     def test_response_actions_validation(self) -> None:
         """Test that response actions are properly validated in the schema."""
         base_fields: dict[str, Any] = {
