@@ -256,7 +256,10 @@ def kibana_import_rules(  # noqa: PLR0915
     "--use-existing-rule-dirs",
     "-ud",
     is_flag=True,
-    help="Enable arbitrary local rule path usage from config rules directories (Can be very slow!)",
+    help=(
+        "Enable arbitrary local rule path usage from config rules directories (Can be very slow!). "
+        "This option used to be referred to as --local-rule-loading. It is now renamed to be more descriptive."
+    ),
 )
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
