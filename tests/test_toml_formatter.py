@@ -74,8 +74,8 @@ class TestRuleTomlFormatter(unittest.TestCase):
         """Test that the data remains unchanged from formatting."""
         self.compare_test_data(self.test_data[1:])
 
-    def test_empty_threat_query_preserved_for_custom_rules(self):
-        """Empty threat_query (filter-only indicator match) survives export for custom rules (issue #6283)."""
+    def test_empty_threat_query_always_preserved(self):
+        """Empty threat_query survives export regardless of CUSTOM_RULES_DIR (issue #6283)."""
         data = {
             "rule": {
                 "query": "host.name:*",
@@ -84,34 +84,16 @@ class TestRuleTomlFormatter(unittest.TestCase):
             }
         }
         tmp_path = Path(tmp_file)
-        try:
-            with unittest.mock.patch("detection_rules.rule_formatter.CUSTOM_RULES_DIR", "custom-rules-dir"):
-                toml_write(copy.deepcopy(data), tmp_path)
-            formatted = pytoml.loads(tmp_path.read_text())
-            self.assertIn("threat_query", formatted["rule"], "empty threat_query should be preserved for custom rules")
-            self.assertEqual(formatted["rule"]["threat_query"], "")
-        finally:
-            if tmp_path.exists():
-                tmp_path.unlink()
-
-    def test_empty_threat_query_dropped_without_custom_rules(self):
-        """Empty threat_query is still omitted outside custom rule exports (prebuilt behavior unchanged)."""
-        data = {
-            "rule": {
-                "query": "host.name:*",
-                "threat_query": "",
-                "threat_filters": [{"meta": {"negate": False}, "query": {"match_phrase": {"foo": "bar"}}}],
-            }
-        }
-        tmp_path = Path(tmp_file)
-        try:
-            with unittest.mock.patch("detection_rules.rule_formatter.CUSTOM_RULES_DIR", None):
-                toml_write(copy.deepcopy(data), tmp_path)
-            formatted = pytoml.loads(tmp_path.read_text())
-            self.assertNotIn("threat_query", formatted["rule"])
-        finally:
-            if tmp_path.exists():
-                tmp_path.unlink()
+        for custom_rules_dir in ("custom-rules-dir", None):
+            try:
+                with unittest.mock.patch("detection_rules.rule_formatter.CUSTOM_RULES_DIR", custom_rules_dir):
+                    toml_write(copy.deepcopy(data), tmp_path)
+                formatted = pytoml.loads(tmp_path.read_text())
+                self.assertIn("threat_query", formatted["rule"])
+                self.assertEqual(formatted["rule"]["threat_query"], "")
+            finally:
+                if tmp_path.exists():
+                    tmp_path.unlink()
 
     def test_empty_query_preserved_for_custom_rules(self):
         """Empty query (filter-only KQL) survives export for custom rules (issue #6167)."""
