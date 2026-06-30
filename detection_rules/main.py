@@ -192,7 +192,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
     local_creation_date: bool,
     local_updated_date: bool,
     dates_import: bool,
-    load_rule_loading: bool,
+    local_rule_loading: bool,
 ) -> None:
     """Import rules from json, toml, or yaml files containing Kibana exported rule(s)."""
     errors: list[str] = []
@@ -216,7 +216,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
         click.echo("Must specify at least one file!")
 
     raw_rule_collection = RawRuleCollection()
-    if load_rule_loading:
+    if local_rule_loading:
         raw_rule_collection = raw_rule_collection.default()
 
     exceptions_containers = {}

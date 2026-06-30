@@ -277,7 +277,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     local_updated_date: bool = False,
     custom_rules_only: bool = False,
     export_query: str | None = None,
-    load_rule_loading: bool = False,
+    local_rule_loading: bool = False,
 ) -> list[TOMLRule]:
     """Export rules from Kibana."""
 
@@ -292,7 +292,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
 
     raw_rule_collection = RawRuleCollection()
-    if load_rule_loading:
+    if local_rule_loading:
         raw_rule_collection = raw_rule_collection.default()
 
     with kibana:
@@ -384,7 +384,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
             save_path = directory / f"{rule_name}"
 
-            # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
+            # Get local rule data if local_rule_loading is enabled. If not enabled rules variable will be None.
             local_rule: dict[str, Any] = params.get("rule", {})
             input_rule_id: str | None = None
 
