@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an inline policy added to an IAM group via PutGroupPolicy. An inline policy attached to a group grants its
+permissions to every current and future member of that group. Adversaries can abuse this to escalate privileges (grant
+elevated permissions to a group they belong to, or will add themselves to) and to establish persistence through a
+durable, membership-based grant that is easy to overlook. Group inline policies are uncommon compared to managed-policy
+attachments, so their creation by an unexpected principal warrants review.
+"""
+false_positives = [
+    """
+    Identity and platform teams and infrastructure-as-code pipelines occasionally manage group inline policies as part
+    of normal access governance. Verify the principal in `aws.cloudtrail.user_identity.arn`, the targeted group, and the
+    policy document against approved change records. Known administration roles and deployment automation can be
+    excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Inline Policy Added to a Group"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Inline Policy Added to a Group
+
+`PutGroupPolicy` embeds an inline permissions policy directly on an IAM group. Because the policy applies to all members of the group, it is an effective way to broadly grant permissions — and, for an adversary, to escalate privileges or persist while drawing less attention than attaching a well-known managed policy such as `AdministratorAccess`. Group inline policies are relatively rare, which makes their creation a useful signal.
+
+### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.session_context.session_issuer.arn`, and review `source.ip` / `user_agent.original` to determine how the change was made.
+- Inspect `aws.cloudtrail.request_parameters` for the targeted `groupName`, the `policyName`, and the `policyDocument` to assess what permissions were granted (look for broad `Action`/`Resource` of `*`, IAM, or data-access permissions).
+- Enumerate the group's current members to understand who immediately gains the new permissions, and whether the actor is or could become a member.
+- Confirm whether the change aligns with an approved access request, onboarding, or deployment.
+- Correlate with recent activity by the same principal, such as group creation, adding users to the group, or other IAM modifications that may form an escalation chain.
+
+### False positive analysis
+
+- Approved access governance and infrastructure-as-code may add group inline policies. Confirm the change is expected and exclude known administration roles or automation on `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If the change is unauthorized, remove the inline policy from the group (`DeleteGroupPolicy`) and review which members used the granted permissions while it was in place.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `iam:PutGroupPolicy` to a small set of trusted administrators.
+
+### Additional information
+
+- [IAM identity-based policies (inline)](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html)
+- [PutGroupPolicy API](https://docs.aws.amazon.com/IAM/latest/APIReference/API_PutGroupPolicy.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_managed-vs-inline.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_PutGroupPolicy.html",
+]
+risk_score = 47
+rule_id = "87f8141e-4275-4d49-9e76-d215b4614a0b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: "PutGroupPolicy"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not user_agent.original: (*terraform* or *pulumi* or *ansible*)
+    and not aws.cloudtrail.user_identity.arn: (*terraform* or *pulumi* or *ansible*)
+    and not source.as.organization.name: (Amazon* or AMAZON* or Google*)
+    and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+

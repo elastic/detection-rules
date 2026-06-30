@@ -2,14 +2,15 @@
 creation_date = "2020/11/12"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/15"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a domain-wide delegation of authority is granted to a service account. Domain-wide delegation can be
-configured to grant third-party and internal applications to access the data of Google Workspace users. An adversary may
-configure domain-wide delegation to maintain access to their target’s data.
+Detects when a super administrator authorizes domain-wide delegation (DWD) API client access for a Google Cloud service
+account or OAuth client. DWD lets an application impersonate users and access Workspace APIs across the tenant.
+Adversaries with admin access may register or authorize a malicious client with broad scopes to maintain API-based
+persistence and access mail, drive, and directory data without relying on a single user's password alone.
 """
 false_positives = [
     """
@@ -17,8 +18,9 @@ false_positives = [
     configuration change was expected. Exceptions can be added to this rule to filter expected behavior.
     """,
 ]
-from = "now-9m"
-index = ["filebeat-*", "logs-google_workspace*"]
+from = "now-130m"
+interval = "10m"
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace API Access Granted via Domain-Wide Delegation"
@@ -26,32 +28,60 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace API Access Granted via Domain-Wide Delegation
 
-Domain-wide delegation is a feature that allows apps to access users' data across an organization's Google Workspace environment. Only super admins can manage domain-wide delegation, and they must specify each API scope that the application can access. Google Workspace services all have APIs that can be interacted with after domain-wide delegation is established with an OAuth2 client ID of the application. Typically, GCP service accounts and applications are created where the Google Workspace APIs are enabled, thus allowing the application to access resources and services in Google Workspace.
+Domain-wide delegation (DWD) allows a Google Cloud service account or OAuth client to access Workspace user data on
+behalf of users across the domain. Only super administrators can authorize DWD, and each grant specifies API scopes
+that define what the client can read or modify (for example Gmail, Drive, Directory, or Calendar APIs). Over-scoped DWD
+grants create durable third-party access paths that survive individual user password resets.
 
-Applications authorized to interact with Google Workspace resources and services through APIs have a wide range of capabilities depending on the scopes applied. If the principle of least privilege (PoLP) is not practiced when setting API scopes, threat actors could abuse additional privileges if the application is compromised. New applications created and given API access could indicate an attempt by a threat actor to register their malicious application with the Google Workspace domain in an attempt to establish a command and control foothold.
+This rule matches `AUTHORIZE_API_CLIENT_ACCESS` events in the `google_workspace.admin` data stream.
 
-This rule identifies when an application is authorized API client access.
+### Possible investigation steps
 
-#### Possible investigation steps
-
-- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
-  - Only users with super admin privileges can authorize API client access.
-- Identify the API client name by reviewing the `google_workspace.admin.api.client.name` field in the alert.
-  - If GCP audit logs are ingested, pivot to reviewing the last 48 hours of activity related to the service account ID.
-  - Search for the `google_workspace.admin.api.client.name` value with wildcards in the `gcp.audit.resource_name` field.
-  - Search for API client name and aggregated results on `event.action` to determine what the service account is being used for in GWS.
-- After identifying the involved user, verify super administrative privileges to access domain-wide delegation settings.
+- Identify the administrator who authorized access by reviewing `user.email` or `user.name`, and note `user.domain` and
+  `event.ingested` if present in the alert.
+- Identify the authorized client by reviewing `google_workspace.admin.api.client.name` and confirm the affected tenant
+  with `google_workspace.admin.domain.name`.
+- Review granted API scopes in `google_workspace.admin.api.scopes` against least-privilege expectations. Broad scopes
+  (for example full mail or drive access) warrant higher urgency.
+- Determine whether the change is expected and authorized:
+  - Validate there is an approved change request or vendor onboarding record for the client and scopes.
+  - If the actor account is unusual or the scopes exceed documented requirements, treat as higher priority until proven benign.
+- Review DWD configuration in the Google Admin console:
+  - Sign in to [admin.google.com](https://admin.google.com) with an authorized administrator account.
+  - Navigate to Security > Access and data control > API controls > Domain-wide delegation.
+  - Confirm the client ID, client name, and scopes match the alert fields.
+- Search Kibana for related admin activity:
+  - Find other DWD grants or revocations by the same administrator:
+    ```
+    data_stream.dataset: "google_workspace.admin" and user.email: "<ACTOR_EMAIL>" and event.action: ("AUTHORIZE_API_CLIENT_ACCESS" or "REVOKE_API_CLIENT_ACCESS")
+    ```
+  - Scope for all grants to the same API client:
+    ```
+    data_stream.dataset: "google_workspace.admin" and event.action: "AUTHORIZE_API_CLIENT_ACCESS" and google_workspace.admin.api.client.name: "<CLIENT_NAME>"
+    ```
+  - Correlate with other high-risk admin actions from the same actor in the last 48 hours:
+    ```
+    data_stream.dataset: "google_workspace.admin" and user.email: "<ACTOR_EMAIL>" and event.action: ("ASSIGN_ROLE" or "ADD_APPLICATION" or "CREATE_ROLE")
+    ```
+- If GCP audit logs are ingested, pivot on the service account or client:
+  - Search for the client name in `gcp.audit.resource_name` and review `event.action` over the last 48 hours to determine
+    how the service account is being used after authorization.
 
 ### False positive analysis
 
-- Changes to domain-wide delegation require super admin privileges. Check with the user to ensure these changes were expected.
-- Review scheduled maintenance notes related to expected API access changes.
+- Platform or security teams may authorize DWD for approved automation, backup, or migration tooling — validate against
+  known service accounts and documented scope requirements.
+- Vendor onboarding sometimes requires temporary broad scopes; confirm timing against change windows before closing as benign.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Review the scope of the authorized API client access in Google Workspace.
-- Disable or limit the account during the investigation and response.
+- Initiate the incident response process based on triage findings.
+- If the grant is not clearly authorized, revoke domain-wide delegation for the client under Security > Access and data
+  control > API controls > Domain-wide delegation while the investigation proceeds.
+- Rotate or disable the associated GCP service account keys if the client is suspected malicious.
+- If the initiating admin account is suspected compromised, reset credentials, revoke active sessions, and review
+  delegated admin roles assigned to that account.
+- Review activity performed with the authorized client based on scopes in `google_workspace.admin.api.scopes`.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
     - Assess the criticality of affected services and servers.
@@ -59,7 +89,7 @@ This rule identifies when an application is authorized API client access.
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Review the permissions assigned to the implicated administrator to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -70,6 +100,7 @@ The Google Workspace Fleet integration, Filebeat module, or similarly structured
 
 ### Important Information Regarding Google Workspace Event Lag Times
 - As per Google's documentation, Google Workspace administrators may observe lag times ranging from minutes up to 3 days between the time of an event's occurrence and the event being visible in the Google Workspace admin/audit logs.
+- This rule is configured to run every 10 minutes with a lookback time of 130 minutes.
 - To reduce the risk of false negatives, consider reducing the interval that the Google Workspace (formerly G Suite) Filebeat module polls Google's reporting API for new events.
 - By default, `var.interval` is set to 2 hours (2h). Consider changing this interval to a lower value, such as 10 minutes (10m).
 - See the following references for further information:
@@ -89,18 +120,26 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
 data_stream.dataset:google_workspace.admin
-  and event.provider:admin
-  and event.category:iam
   and event.action:AUTHORIZE_API_CLIENT_ACCESS
-  and event.outcome:success
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "user.email",
+    "user.domain",
+    "event.action",
+    "google_workspace.admin.api.client.name",
+    "google_workspace.admin.api.scopes",
+    "google_workspace.admin.domain.name",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
