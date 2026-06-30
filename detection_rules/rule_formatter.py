@@ -265,7 +265,7 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
             raw_threat_query = contents["rule"].pop("threat_query", missing)
             if isinstance(raw_threat_query, str):
                 threat_query = raw_threat_query.strip()
-                preserve_empty_threat_query = bool(CUSTOM_RULES_DIR) and not threat_query
+                preserve_empty_threat_query = not threat_query
 
         top: OrderedDict[str, Any] = OrderedDict()
         bottom: OrderedDict[str, Any] = OrderedDict()

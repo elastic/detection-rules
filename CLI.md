@@ -68,10 +68,10 @@ fields.
 
 Alternatively, you can manually place rule files in the directory and run tests to validate as well.
 
-> **Note:** KQL rules with an empty `query` (filter-only rules) and threat match rules with an empty `threat_query`
-> are only supported for custom rules. `CUSTOM_RULES_DIR` must be set when loading or exporting such rules;
-> without it, validation will reject an empty query. See the
-> [custom rules docs](docs-dev/custom-rules-management.md) for details.
+> **Note:** KQL rules with an empty `query` (filter-only rules) require `CUSTOM_RULES_DIR` to be set when
+> loading or exporting; without it, validation will reject an empty query. Threat match rules with an empty
+> `threat_query` (filter-only indicator queries) are always valid and serialized correctly regardless of
+> `CUSTOM_RULES_DIR`. See the [custom rules docs](docs-dev/custom-rules-management.md) for details.
 
 <a id="note">\* Note</a>: This is currently limited to flat fields and may not apply to nested values.<br>
 <a id="note-2">\** Note</a>: Additional fields are based on the current schema at the time the command is used.
