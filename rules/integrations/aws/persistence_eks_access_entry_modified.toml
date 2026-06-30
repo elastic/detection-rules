@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2026/05/06"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/05/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Amazon EKS Access Entries API operations that create, update, attach, detach, or delete authentication
+mappings between IAM principals and the cluster. Changes to access entries alter who can authenticate to Kubernetes and
+what Kubernetes-level permissions they receive, without requiring edits to in-cluster RBAC objects. Unexpected callers
+or timing may indicate persistence or privilege abuse. Common automation identities (service-linked roles, eksctl,
+Terraform, CloudFormation role patterns) are excluded to reduce noise; tune further for your deployment pipelines.
+"""
+false_positives = [
+    """
+    Cluster provisioning, GitOps, or approved platform automation may perform these APIs under IAM principals whose ARNs do
+    not match the exclusion patterns. Baseline expected roles and expand exclusions if needed.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Access Entry Modified"
+note = """## Triage and analysis
+
+### Investigating AWS EKS Access Entry Modified
+
+Review aws.cloudtrail.user_identity (ARN, type), user.name, source.ip, user_agent.original, cloud.account.id, and
+cloud.region. Map event.action to intent: new principal (CreateAccessEntry), policy binding changes (AssociateAccessPolicy,
+DisassociateAccessPolicy), metadata updates (UpdateAccessEntry), or removal (DeleteAccessEntry).
+
+### Possible investigation steps
+
+- Inspect aws.cloudtrail.request_parameters and response_elements for cluster name, principal ARN, and policy ARNs.
+- Compare against change management and infrastructure-as-code deploy windows.
+- Correlate with Kubernetes audit logs for subsequent API activity from identities tied to the affected access entry.
+- Pair with the higher-fidelity rule EKS Access Entry Granted Cluster Admin Policy when AssociateAccessPolicy fires.
+
+### Response and remediation
+
+- If unauthorized, revert access entry changes via AWS APIs or console; restrict eks:* permissions and review SCPs.
+- Rotate credentials for compromised IAM principals as appropriate.
+
+### Additional information
+
+- [Amazon EKS access entries](https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html",
+]
+risk_score = 47
+rule_id = "90c0ce77-3fb4-484f-a8ad-4648e12b35b1"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"aws.cloudtrail" and event.provider:"eks.amazonaws.com" and
+event.action:("CreateAccessEntry" or "AssociateAccessPolicy" or "UpdateAccessEntry" or "DisassociateAccessPolicy" or "DeleteAccessEntry") and
+event.outcome:"success" and
+not aws.cloudtrail.user_identity.arn:(*AWSServiceRoleForAmazonEKS* or *eksctl* or *terraform* or *AWSCloudFormation*)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

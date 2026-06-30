@@ -11,6 +11,10 @@ on:
       - closed
       - ready_for_review
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   get-branches:
     uses: ./.github/workflows/get-target-branches.yml
@@ -21,26 +25,26 @@ jobs:
       github.event.pull_request.state == 'open' && !github.event.pull_request.draft
     steps:
       - name: 'Apply default "backport: auto" label'
-        uses: actions/github-script@10b53a9ec6c222bb4ce97aa6bd2b5f739696b536 # v4
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         if: |
           !contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
           !contains(github.event.pull_request.labels.*.name, 'backport: skip')
         with:
           script: |
-            github.issues.addLabels({
+            github.rest.issues.addLabels({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               labels: ['backport: auto']
             })
       - name: 'Remove "backport: auto" if "backport: skip" is set'
-        uses: actions/github-script@10b53a9ec6c222bb4ce97aa6bd2b5f739696b536 # v4
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         if: |
           contains(github.event.pull_request.labels.*.name, 'backport: auto') &&
           contains(github.event.pull_request.labels.*.name, 'backport: skip')
         with:
           script: |
-            github.issues.removeLabel({
+            github.rest.issues.removeLabel({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -65,7 +69,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           token: ${{ secrets.WRITE_TRADEBOT_DETECTION_RULES_TOKEN }}
           ref: main
