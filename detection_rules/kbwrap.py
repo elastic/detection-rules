@@ -253,7 +253,7 @@ def kibana_import_rules(  # noqa: PLR0915
     ),
 )
 @click.option(
-    "--load-rule-loading",
+    "--local-rule-loading",
     "-lr",
     is_flag=True,
     help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",

@@ -172,7 +172,7 @@ def generate_rules_index(
 @click.option("--local-updated-date", "-lu", is_flag=True, help="Preserve the local updated date of the rule")
 @click.option("--dates-import", "-di", is_flag=True, help="Parse created_at and updated_at from the rule content")
 @click.option(
-    "--load-rule-loading",
+    "--local-rule-loading",
     "-lr",
     is_flag=True,
     help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
