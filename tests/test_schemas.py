@@ -482,9 +482,39 @@ class TestSchemas(unittest.TestCase):
     def test_threat_match_with_nonempty_threat_query_and_filters_valid(self):
         """Threat match rule with a non-empty threat_query and threat_filters loads successfully as a custom rule."""
         threat_filters = [
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.category", "negate": False, "type": "phrase", "params": {"query": "threat"}}, "query": {"match_phrase": {"event.category": "threat"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.kind", "negate": False, "type": "phrase", "params": {"query": "enrichment"}}, "query": {"match_phrase": {"event.kind": "enrichment"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.type", "negate": False, "type": "phrase", "params": {"query": "indicator"}}, "query": {"match_phrase": {"event.type": "indicator"}}},
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
         ]
         metadata = {
             "creation_date": "1970/01/01",
@@ -506,7 +536,9 @@ class TestSchemas(unittest.TestCase):
             "threat_index": ["filebeat-*", "logs-ti_*"],
             "threat_indicator_path": "threat.indicator",
             "threat_language": "kuery",
-            "threat_mapping": [{"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}],
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
             "threat_query": "event.category:threat",
             "type": "threat_match",
         }
@@ -515,9 +547,39 @@ class TestSchemas(unittest.TestCase):
     def test_threat_match_with_empty_threat_query_and_filters_valid(self):
         """Threat match filter-only rule with empty threat_query and threat_filters loads successfully."""
         threat_filters = [
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.category", "negate": False, "type": "phrase", "params": {"query": "threat"}}, "query": {"match_phrase": {"event.category": "threat"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.kind", "negate": False, "type": "phrase", "params": {"query": "enrichment"}}, "query": {"match_phrase": {"event.kind": "enrichment"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.type", "negate": False, "type": "phrase", "params": {"query": "indicator"}}, "query": {"match_phrase": {"event.type": "indicator"}}},
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
         ]
         metadata = {
             "creation_date": "1970/01/01",
@@ -539,7 +601,9 @@ class TestSchemas(unittest.TestCase):
             "threat_index": ["filebeat-*", "logs-ti_*"],
             "threat_indicator_path": "threat.indicator",
             "threat_language": "kuery",
-            "threat_mapping": [{"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}],
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
             "threat_query": "",
             "type": "threat_match",
         }
@@ -548,9 +612,39 @@ class TestSchemas(unittest.TestCase):
     def test_empty_threat_query_preserved_on_export_roundtrip(self):
         """Empty threat_query with threat_filters survives a to_dict → from_dict round-trip (issue #6283)."""
         threat_filters = [
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.category", "negate": False, "type": "phrase", "params": {"query": "threat"}}, "query": {"match_phrase": {"event.category": "threat"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.kind", "negate": False, "type": "phrase", "params": {"query": "enrichment"}}, "query": {"match_phrase": {"event.kind": "enrichment"}}},
-            {"$state": {"store": "appState"}, "meta": {"disabled": False, "key": "event.type", "negate": False, "type": "phrase", "params": {"query": "indicator"}}, "query": {"match_phrase": {"event.type": "indicator"}}},
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
         ]
         metadata = {
             "creation_date": "1970/01/01",
@@ -572,7 +666,9 @@ class TestSchemas(unittest.TestCase):
             "threat_index": ["filebeat-*", "logs-ti_*"],
             "threat_indicator_path": "threat.indicator",
             "threat_language": "kuery",
-            "threat_mapping": [{"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}],
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
             "threat_query": "",
             "type": "threat_match",
         }
