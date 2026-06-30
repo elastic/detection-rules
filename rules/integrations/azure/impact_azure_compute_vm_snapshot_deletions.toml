@@ -2,7 +2,7 @@
 creation_date = "2025/10/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ Azure disk snapshots are critical backup and recovery resources that enable orga
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service principal that initiated the multiple snapshot deletions by examining the principal ID, UPN and user agent fields in `azure.activitylogs.identity.claims_initiated_by_user.name`.
+- Review the Azure activity logs to identify the user or service principal that initiated the multiple snapshot deletions by examining the principal ID, UPN and user agent fields in `user.name`.
 - Check the specific snapshot names in `azure.resource.name` to understand which backups were deleted and assess the overall impact on recovery capabilities.
 - Investigate the timing and sequence of deletions to determine if they followed a pattern consistent with automated malicious activity or manual destruction.
 - Examine the user's recent activity history including authentication events, privilege changes, and other Azure resource modifications to identify signs of account compromise.
@@ -87,21 +87,21 @@ type = "threshold"
 
 query = '''
 data_stream.dataset: azure.activitylogs and
-    azure.activitylogs.operation_name: "MICROSOFT.COMPUTE/SNAPSHOTS/DELETE" and
+    event.action: "MICROSOFT.COMPUTE/SNAPSHOTS/DELETE" and
     azure.activitylogs.properties.status_code: "Accepted" and
-    azure.activitylogs.identity.claims_initiated_by_user.name: *
+    user.name: *
 '''
 
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "user.name",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
     "azure.activitylogs.identity.claims.appid",
     "azure.activitylogs.identity.claims.sid",
     "azure.resource.name",
     "azure.resource.group",
-    "azure.activitylogs.operation_name",
+    "event.action",
     "azure.subscription_id",
     "azure.activitylogs.tenant_id",
     "source.ip",
@@ -127,7 +127,7 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.threshold]
-field = ["azure.activitylogs.identity.claims_initiated_by_user.name"]
+field = ["user.name"]
 value = 1
 [[rule.threshold.cardinality]]
 field = "azure.resource.name"

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/10/11"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ type = "new_terms"
 
 query = '''
 event.dataset:"github.audit" and event.category:"configuration" and
-github.user_agent:* and github.hashed_token:* and
+user_agent.original:* and github.hashed_token:* and
 github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token")
 '''
 
@@ -72,7 +72,7 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["github.hashed_token", "github.user_agent"]
+value = ["github.hashed_token", "user_agent.original"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"

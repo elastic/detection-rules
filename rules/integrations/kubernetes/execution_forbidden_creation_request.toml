@@ -2,7 +2,7 @@
 creation_date = "2025/06/24"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,9 @@ Kubernetes, a container orchestration platform, manages applications across clus
 
 ### Possible investigation steps
 
-- Review the audit logs to identify the user or service account associated with the forbidden creation request by examining the `kubernetes.audit.user.username` field.
-- Check the `kubernetes.audit.objectRef.resource` field to determine which specific resource type the unauthorized creation attempt was targeting.
-- Investigate the `kubernetes.audit.sourceIPs` field to trace the source IP address of the request, which may help identify the origin of the unauthorized attempt.
+- Review the audit logs to identify the user or service account associated with the forbidden creation request by examining the `user.name` field.
+- Check the `orchestrator.resource.type` field to determine which specific resource type the unauthorized creation attempt was targeting.
+- Investigate the `source.ip` field to trace the source IP address of the request, which may help identify the origin of the unauthorized attempt.
 - Analyze the `kubernetes.audit.annotations.authorization_k8s_io/reason` field, if available, to understand why the request was forbidden, providing insights into potential misconfigurations or policy violations.
 - Cross-reference the user or service account with existing role bindings and cluster role bindings to verify if there are any misconfigurations or missing permissions that could have led to the forbidden request.
 - Review recent changes in the cluster's authorization policies or role assignments that might have inadvertently affected permissions, leading to the denied request.
@@ -67,8 +67,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where data_stream.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "create" and
-kubernetes.audit.stage == "ResponseComplete" and `kubernetes.audit.annotations.authorization_k8s_io/decision` == "forbid"
+any where data_stream.dataset == "kubernetes.audit_logs" and event.action == "create" and
+kubernetes.audit.stage == "ResponseComplete" and `event.outcome` == "forbid"
 '''
 
 [[rule.threat]]

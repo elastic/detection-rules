@@ -2,7 +2,7 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -85,10 +85,10 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset:azure.activitylogs and
-    azure.activitylogs.operation_name:(
+    event.action:(
         "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION" or
         "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/VIRTUALMACHINES/RUNCOMMAND/ACTION"
-    ) and event.outcome:(Success or success) and
+    ) and event.outcome:(success) and
     azure.activitylogs.identity.authorization.evidence.principal_id: * and
     source.as.number: * and
     azure.resource.name: *

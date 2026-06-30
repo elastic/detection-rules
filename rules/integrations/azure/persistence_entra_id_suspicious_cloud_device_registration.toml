@@ -2,7 +2,7 @@
 creation_date = "2025/06/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -35,7 +35,7 @@ This pattern has been observed in OAuth phishing and PRT abuse campaigns where a
 ### Possible investigation steps
 
 - Identify the user principal associated with the device registration.
-- Review the `azure.auditlogs.identity` field to confirm the Device Registration Service initiated the request.
+- Review the `user.full_name` field to confirm the Device Registration Service initiated the request.
 - Check the user-agent in `azure.auditlogs.properties.additional_details.value`. Known attack tooling signatures include:
   - `Dsreg/10.0 (Windows X.X.X)` - ROADtools Windows device registration
   - `DeviceRegistrationClient` - ROADtools MacOS/Android device registration
@@ -87,8 +87,8 @@ type = "eql"
 query = '''
 sequence by azure.correlation_id with maxspan=5m
 [any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.identity == "Device Registration Service" and
-    azure.auditlogs.operation_name == "Add device" and
+    user.full_name == "Device Registration Service" and
+    event.action == "Add device" and
     (
         azure.auditlogs.properties.additional_details.value like "Microsoft.OData.Client/*" or
         azure.auditlogs.properties.additional_details.value like "Dsreg/*" or
@@ -97,10 +97,10 @@ sequence by azure.correlation_id with maxspan=5m
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "CloudAccountEnabled" and
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value` == "[true]"]
 [any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered users to device" and
+    event.action == "Add registered users to device" and
     `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value` like "*urn:ms-drs:enterpriseregistration.windows.net*"]
 [any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered owner to device"]
+    event.action == "Add registered owner to device"]
 '''
 
 

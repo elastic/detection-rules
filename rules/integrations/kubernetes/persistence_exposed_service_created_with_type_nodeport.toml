@@ -2,7 +2,7 @@
 creation_date = "2022/07/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -40,8 +40,8 @@ Kubernetes NodePort services enable external access to cluster pods by opening a
 
 ### Possible investigation steps
 
-- Review the Kubernetes audit logs to identify the specific service that was created or modified with the type NodePort. Focus on entries where kubernetes.audit.objectRef.resource is "services" and kubernetes.audit.verb is "create", "update", or "patch".
-- Check the kubernetes.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed, ensuring that the service creation or modification was authorized.
+- Review the Kubernetes audit logs to identify the specific service that was created or modified with the type NodePort. Focus on entries where orchestrator.resource.type is "services" and event.action is "create", "update", or "patch".
+- Check the event.outcome field to confirm that the action was allowed, ensuring that the service creation or modification was authorized.
 - Identify the user or service account responsible for the action by examining the relevant fields in the audit logs, such as the user identity or service account name.
 - Investigate the context of the NodePort service by reviewing the associated pods and their labels to understand what applications or services are being exposed externally.
 - Assess the network security implications by determining if the NodePort service could potentially bypass existing firewalls or security controls, and evaluate the risk of unauthorized access or data interception.
@@ -82,9 +82,9 @@ type = "query"
 
 query = '''
 data_stream.dataset : "kubernetes.audit_logs"
-  and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow"
-  and kubernetes.audit.objectRef.resource:"services"
-  and kubernetes.audit.verb:("create" or "update" or "patch")
+  and event.outcome:"success"
+  and orchestrator.resource.type:"services"
+  and event.action:("create" or "update" or "patch")
   and kubernetes.audit.requestObject.spec.type:"NodePort"
 '''
 

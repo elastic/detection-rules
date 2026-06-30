@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/05"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic", "descambiado"]
@@ -85,12 +85,12 @@ query = '''
 data_stream.dataset: "azure.auditlogs" and
 (
     (
-        azure.auditlogs.operation_name: "User registered security info" and
-        azure.auditlogs.properties.result_reason: "User registered temporary access pass method"
+        event.action: "User registered security info" and
+        event.reason: "User registered temporary access pass method"
     ) or (
-        azure.auditlogs.operation_name: "Create Temporary Access Pass method for user"
+        event.action: "Create Temporary Access Pass method for user"
     ) or (
-        azure.auditlogs.operation_name: "Admin registered security info" and
+        event.action: "Admin registered security info" and
         azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: *TemporaryAccessPass*
     )
 ) and

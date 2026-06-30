@@ -2,7 +2,7 @@
 creation_date = "2026/02/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -67,13 +67,13 @@ type = "eql"
 query = '''
 sequence by user.name with maxspan=5m
   [any where data_stream.dataset == "kubernetes.audit_logs" and
-   `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
-    kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
-    kubernetes.audit.verb in ("create", "update", "patch")]
+   `event.outcome` == "allow" and
+    orchestrator.resource.type in ("roles", "clusterroles") and
+    event.action in ("create", "update", "patch")]
   [any where data_stream.dataset == "kubernetes.audit_logs" and
-   `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
-    kubernetes.audit.objectRef.resource in ("daemonsets", "deployments", "cronjobs") and
-    kubernetes.audit.verb in ("create", "patch") and
+   `event.outcome` == "allow" and
+    orchestrator.resource.type in ("daemonsets", "deployments", "cronjobs") and
+    event.action in ("create", "patch") and
     /* reduce control-plane / bootstrap noise */
     not kubernetes.audit.user.groups == "system:masters"
   ]

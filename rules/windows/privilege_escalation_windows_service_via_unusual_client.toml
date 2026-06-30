@@ -2,7 +2,7 @@
 creation_date = "2022/02/07"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -40,7 +40,7 @@ query = '''
 configuration where host.os.type == "windows" and
   event.action == "service-installed" and
   (winlog.event_data.ClientProcessId == "0" or winlog.event_data.ParentProcessId == "0") and
-  startswith~(user.domain, winlog.computer_name) and winlog.event_data.ServiceAccount == "LocalSystem" and 
+  startswith~(user.domain, host.name) and winlog.event_data.ServiceAccount == "LocalSystem" and 
   not winlog.event_data.ServiceFileName : (
     "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe*",
     "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
@@ -62,7 +62,7 @@ note = """## Triage and analysis
 
 - Which unusual service-control path did the alert preserve?
   - Why: Custom Service Control Manager RPC clients can create services without normal attribution; PID 0 is the path this alert needs interpreted.
-  - Focus: `winlog.event_data.ClientProcessId`, `winlog.event_data.ParentProcessId`, `user.domain`, `winlog.computer_name`, and `winlog.event_data.ServiceAccount`.
+  - Focus: `winlog.event_data.ClientProcessId`, `winlog.event_data.ParentProcessId`, `user.domain`, `host.name`, and `winlog.event_data.ServiceAccount`.
   - Implication: escalate when PID 0 attribution combines with a local-account domain and LocalSystem; lower suspicion only when exact host, account, service, and time match a recognized deployment or test explaining zeroed attribution.
 
 - What would the new service execute and how privileged is it?
@@ -71,7 +71,7 @@ note = """## Triage and analysis
   - Implication: escalate when the image path is user-writable, temporary, ProgramData, or system-masqueraded; type is driver; start type is boot, system, or disabled; or LocalSystem lacks a matching product. Lower suspicion when all service fields align with one recognized installer, endpoint agent, backup, or deployment tool.
 
 - Which account and logon session requested the service creation?
-  - Focus: service-install `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, and `winlog.event_data.SubjectLogonId`; 4624 `source.ip` and `winlog.logon.type`; 4648 explicit-credential context.
+  - Focus: service-install `user.id`, `user.name`, and `winlog.event_data.SubjectLogonId`; 4624 `source.ip` and `winlog.logon.type`; 4648 explicit-credential context.
   - Implication: escalate when the subject is an unexpected local admin or machine account, origin is remote or rare for the host, explicit credentials appear, or source is absent where remote administration is expected; lower suspicion when subject, logon type, source, and service target fit one recognized management session. Missing 4624/4648 or source fields leaves origin unresolved, not benign.
   - Hint: on `host.id`, search 4624 where `winlog.event_data.TargetLogonId` equals service-install `winlog.event_data.SubjectLogonId`; search 4648 where `winlog.event_data.SubjectLogonId` matches.
     - $investigate_0
@@ -83,9 +83,9 @@ note = """## Triage and analysis
   - Hint: inspect same-session 4697 records for clustered service creation. $investigate_2
 
 - Is the same service-install pattern recurring in a bounded cohort or spreading?
-  - Focus: historical Event ID 4697 records by `winlog.event_data.SubjectUserSid`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, and `winlog.computer_name`.
+  - Focus: historical Event ID 4697 records by `user.id`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, and `host.name`.
   - Implication: escalate when the same subject creates PID 0 LocalSystem services across unrelated hosts, or service names or paths rotate; lower suspicion when exact service fields recur in the same managed host cohort with a stable subject and no contradictory service metadata.
-  - Hint: query 4697 for the same subject or service fields, group by `winlog.computer_name`, `winlog.event_data.ServiceName`, and `winlog.event_data.ServiceFileName`, then compare PID 0 recurrence. $investigate_3
+  - Hint: query 4697 for the same subject or service fields, group by `host.name`, `winlog.event_data.ServiceName`, and `winlog.event_data.ServiceFileName`, then compare PID 0 recurrence. $investigate_3
 
 - Based on the Windows Security evidence, what disposition is supported?
   - Implication: escalate when PID 0, LocalSystem image, actor/session evidence, or 4697 recurrence does not bind to one recognized workflow; close only when the same fields prove one exact service deployment or test on this host and no contradictory Security evidence remains; if mixed, preserve service-install and logon records, then escalate.
@@ -93,7 +93,7 @@ note = """## Triage and analysis
 ### False positive analysis
 
 - Software deployment, endpoint agent, backup, configuration tools, or authorized service-control/RPC testing can trigger when Service Control Manager behavior leaves PID 0 attribution. Examples include Veeam, PDQ, CrowdStrike installer, SCCM/SMS, nsnetpush, or pbpsdeploy-style patterns. Confirm service name, file, account, subject SID, host cohort, logon session, and test timing align with one product or test workflow, with no contradictory Security records.
-- Before creating an exception, require stable recurrence for the same `winlog.event_data.SubjectUserSid`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceAccount`, and host cohort. Avoid broad exceptions on `user.name`, `host.name`, or service name alone.
+- Before creating an exception, require stable recurrence for the same `user.id`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceAccount`, and host cohort. Avoid broad exceptions on `user.name`, `host.name`, or service name alone.
 
 ### Response and remediation
 
@@ -124,10 +124,10 @@ field_names = [
     "@timestamp",
     "event.code",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
     "user.id",
     "user.domain",
-    "winlog.event_data.SubjectUserSid",
+    "user.id",
     "winlog.event_data.SubjectLogonId",
     "winlog.event_data.ServiceName",
     "winlog.event_data.ServiceFileName",
@@ -185,7 +185,7 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
-    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
   ],
   [
     { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },

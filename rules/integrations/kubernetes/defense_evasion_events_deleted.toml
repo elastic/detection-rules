@@ -2,7 +2,7 @@
 creation_date = "2025/06/27"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -25,10 +25,10 @@ Kubernetes, a container orchestration platform, logs events to track activities 
 
 ### Possible investigation steps
 
-- Review the audit logs to identify the source of the deletion request by examining the `kubernetes.audit.user.username` field to determine which user or service account initiated the delete action.
-- Check the `kubernetes.audit.sourceIPs` field to trace the IP address from which the deletion request originated, which can help identify potential unauthorized access.
-- Investigate the `kubernetes.audit.objectRef.namespace` field to understand which namespace the deleted events belonged to, as this can provide context on the affected applications or services.
-- Analyze the timeline of events leading up to the deletion by reviewing other audit logs with similar `kubernetes.audit.verb` values to identify any suspicious activities or patterns.
+- Review the audit logs to identify the source of the deletion request by examining the `user.name` field to determine which user or service account initiated the delete action.
+- Check the `source.ip` field to trace the IP address from which the deletion request originated, which can help identify potential unauthorized access.
+- Investigate the `orchestrator.namespace` field to understand which namespace the deleted events belonged to, as this can provide context on the affected applications or services.
+- Analyze the timeline of events leading up to the deletion by reviewing other audit logs with similar `event.action` values to identify any suspicious activities or patterns.
 - Assess the role and permissions of the user or service account involved in the deletion to determine if they had legitimate access or if there was a potential privilege escalation.
 - Cross-reference the deletion event with other security alerts or logs to identify any correlated activities that might indicate a broader attack or misconfiguration.
 
@@ -62,8 +62,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where data_stream.dataset == "kubernetes.audit_logs" and kubernetes.audit.verb == "delete" and
-kubernetes.audit.objectRef.resource == "events" and kubernetes.audit.stage == "ResponseComplete"
+any where data_stream.dataset == "kubernetes.audit_logs" and event.action == "delete" and
+orchestrator.resource.type == "events" and kubernetes.audit.stage == "ResponseComplete"
 '''
 
 [[rule.threat]]

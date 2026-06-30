@@ -2,7 +2,7 @@
 creation_date = "2025/05/08"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/21"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -103,7 +103,7 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
 
 | eval
     Esql.azure_signinlogs_properties_session_id_coalesce = coalesce(azure.signinlogs.properties.session_id, azure.graphactivitylogs.properties.c_sid),
-    Esql.azure_signinlogs_properties_user_id_coalesce = coalesce(azure.signinlogs.properties.user_id, azure.graphactivitylogs.properties.user_principal_object_id),
+    Esql.azure_signinlogs_properties_user_id_coalesce = coalesce(user.id, azure.graphactivitylogs.properties.user_principal_object_id),
     Esql.azure_signinlogs_properties_app_id_coalesce = coalesce(azure.signinlogs.properties.app_id, azure.graphactivitylogs.properties.app_id),
     Esql.source_ip = source.ip,
     Esql.@timestamp = @timestamp,
@@ -151,12 +151,12 @@ from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _vers
     user_agent.original,
     url.original,
     azure.graphactivitylogs.properties.scopes,
-    azure.signinlogs.properties.user_principal_name
+    user.name
 
 | stats
     Esql.azure_signinlogs_properties_user_id_coalesce_values = values(Esql.azure_signinlogs_properties_user_id_coalesce),
     Esql.azure_signinlogs_properties_session_id_coalesce_values = values(Esql.azure_signinlogs_properties_session_id_coalesce),
-    Esql_priv.azure_signinlogs_properties_user_principal_name_values = values(azure.signinlogs.properties.user_principal_name),
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values = values(user.name),
     Esql.source_ip_values = values(Esql.source_ip),
     Esql.source_ip_count_distinct = count_distinct(Esql.source_ip),
     Esql.source_as_organization_name_values = values(source.`as`.organization.name),

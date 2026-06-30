@@ -2,7 +2,7 @@
 creation_date = "2023/11/07"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -32,7 +32,7 @@ Okta is a widely used identity management service that facilitates secure user a
 - Review the Okta logs to identify the specific user account associated with the multiple session initiations and note the distinct session IDs.
 - Check the geographic locations and IP addresses associated with each session initiation to determine if there are any unusual or unexpected locations.
 - Investigate the timestamps of the session initiations to see if they align with the user's typical login patterns or if they suggest simultaneous logins from different locations.
-- Examine the okta.actor.id and okta.actor.display_name fields to ensure that the sessions were not initiated by legitimate Okta system actors.
+- Examine the client.user.id and user.full_name fields to ensure that the sessions were not initiated by legitimate Okta system actors.
 - Contact the user to verify if they recognize the session activity and if they have recently logged in from multiple devices or locations.
 - Assess if there are any other related security alerts or incidents involving the same user account that could indicate a broader compromise.
 
@@ -79,9 +79,9 @@ type = "threshold"
 
 query = '''
 data_stream.dataset:okta.system
-    and okta.event_type:user.session.start
+    and event.action:user.session.start
     and okta.authentication_context.external_session_id:*
-    and not (okta.actor.id: okta* or okta.actor.display_name: okta*)
+    and not (client.user.id: okta* or user.full_name: okta*)
 '''
 
 
@@ -104,7 +104,7 @@ name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.threshold]
-field = ["okta.actor.id"]
+field = ["client.user.id"]
 value = 1
 [[rule.threshold.cardinality]]
 field = "okta.authentication_context.external_session_id"

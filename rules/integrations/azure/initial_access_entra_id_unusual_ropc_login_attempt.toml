@@ -2,7 +2,7 @@
 creation_date = "2025/07/02"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ note = """## Triage and analysis
 This rule detects unusual login attempts using the Resource Owner Password Credentials (ROPC) flow in Microsoft Entra ID. ROPC allows applications to obtain tokens by directly providing user credentials, bypassing multi-factor authentication (MFA). This method is less secure and can be exploited by adversaries to gain access to user accounts, especially during enumeration or password spraying.
 
 ### Possible investigation steps
-- Review the `azure.signinlogs.properties.user_principal_name` field to identify the user principal involved in the ROPC login attempt. Check if this user is expected to use ROPC or if it is an unusual account for this type of authentication.
+- Review the `user.name` field to identify the user principal involved in the ROPC login attempt. Check if this user is expected to use ROPC or if it is an unusual account for this type of authentication.
 - Analyze the `azure.signinlogs.properties.authentication_protocol` field to confirm that the authentication protocol is indeed ROPC. This protocol is typically used in legacy applications or scripts that do not support modern authentication methods.
 - Check the `user_agent.original` field to identify potentially abused open-source tools or scripts that may be using ROPC for unauthorized access such as TeamFiltration or other enumeration tools.
 - Review the `azure.signinlogs.properties.app_display_name` or `azure.signinlogs.properties.app_id` to determine which application is attempting the ROPC login. FOCI applications are commonly used for enumeration and password spraying.
@@ -115,7 +115,7 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.signinlogs.properties.user_principal_name"]
+value = ["user.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-10d"

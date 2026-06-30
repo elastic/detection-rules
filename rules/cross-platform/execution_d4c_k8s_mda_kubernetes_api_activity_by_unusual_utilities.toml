@@ -4,7 +4,7 @@ integration = ["cloud_defend", "kubernetes"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -115,9 +115,9 @@ sequence with maxspan=1s
   [any where
      data_stream.dataset == "kubernetes.audit_logs" and
      kubernetes.audit.stage in ("ResponseStarted","ResponseComplete") and
-     kubernetes.audit.verb in ("get", "list", "watch", "create", "patch", "update") and
+     event.action in ("get", "list", "watch", "create", "patch", "update") and
      (
-       kubernetes.audit.objectRef.resource in (
+       orchestrator.resource.type in (
          "pods", "secrets", "serviceaccounts", "configmaps",
          "roles", "rolebindings", "clusterroles", "clusterrolebindings",
          "deployments", "daemonsets", "statefulsets", "jobs", "cronjobs",
@@ -125,7 +125,7 @@ sequence with maxspan=1s
          "selfsubjectaccessreviews", "selfsubjectrulesreviews", "subjectaccessreviews"
        )
        or (
-         kubernetes.audit.objectRef.resource == "pods" and
+         orchestrator.resource.type == "pods" and
          kubernetes.audit.objectRef.subresource in ("exec", "attach", "portforward", "log")
        )
      )

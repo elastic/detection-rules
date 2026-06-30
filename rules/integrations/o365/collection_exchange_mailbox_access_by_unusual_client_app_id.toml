@@ -2,7 +2,7 @@
 creation_date = "2023/07/18"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -36,11 +36,11 @@ note = """## Triage and Analysis
 This rule detects when a user accesses their mailbox using a client application that is not typically used by the user, which may indicate potential compromise or unauthorized access attempts. Adversaries may use custom or third-party applications to access mailboxes, bypassing standard security controls. First-party Microsoft applications are also abused after OAuth tokens are compromised, allowing adversaries to access mailboxes without raising suspicion.
 
 ### Possible investigation steps
-- Review the `o365.audit.UserId` field to identify the user associated with the mailbox access.
+- Review the `user.id` field to identify the user associated with the mailbox access.
 - Check the `o365.audit.ClientAppId` field to determine which client application was used for the mailbox access. Look for unusual or unexpected applications or determine which first-party Microsoft applications are being abused.
 - Review `o365.audit.ClientInfoString` to gather additional information about the client application used for the mailbox access.
 - Examine `o365.audit.Folders.Path` to identify the specific mailbox folders accessed by the client application. This can help determine if sensitive information was accessed or if the access was legitimate.
-- Ensure that `o365.audit.MailboxOwnerUPN` matches the `o365.audit.UserId` to confirm that the mailbox accessed belongs to the user identified in the `o365.audit.UserId` field.
+- Ensure that `o365.audit.MailboxOwnerUPN` matches the `user.id` to confirm that the mailbox accessed belongs to the user identified in the `user.id` field.
 - Review geolocation information to identify the location from which the mailbox access occurred. Look for any anomalies or unexpected locations that may indicate suspicious activity.
 - Examine `o365.audit.Folders.FolderItems.Id` to identify the specific items accessed within the mailbox folders. This can help determine if sensitive information was accessed or if the access was legitimate.
 

@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ Azure Automation webhooks enable automated task execution via HTTP requests, int
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service principal that initiated the webhook creation by examining the `event.dataset` and `azure.activitylogs.operation_name` fields.
+- Review the Azure activity logs to identify the user or service principal that initiated the webhook creation by examining the `event.dataset` and `event.action` fields.
 - Check the associated runbook linked to the created webhook to determine its purpose and inspect its content for any potentially malicious scripts or commands.
 - Investigate the source IP address and location from which the webhook creation request originated to identify any unusual or unauthorized access patterns.
 - Verify the legitimacy of the webhook by contacting the owner of the Azure Automation account or the relevant team to confirm if the webhook creation was expected and authorized.
@@ -69,12 +69,12 @@ type = "query"
 
 query = '''
 data_stream.dataset:azure.activitylogs and
-  azure.activitylogs.operation_name:
+  event.action:
     (
       "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/ACTION" or
       "MICROSOFT.AUTOMATION/AUTOMATIONACCOUNTS/WEBHOOKS/WRITE"
     ) and
-  event.outcome:(Success or success)
+  event.outcome:(success)
 '''
 
 [[rule.threat]]

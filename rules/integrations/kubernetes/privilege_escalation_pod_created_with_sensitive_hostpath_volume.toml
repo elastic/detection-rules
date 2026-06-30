@@ -2,7 +2,7 @@
 creation_date = "2022/07/11"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -39,9 +39,9 @@ Kubernetes allows containers to access host filesystems via hostPath volumes, wh
 
 - Review the Kubernetes audit logs to identify the specific pod creation or modification event that triggered the alert, focusing on the event.dataset field with the value "kubernetes.audit_logs".
 - Examine the kubernetes.audit.requestObject.spec.volumes.hostPath.path field to determine which sensitive hostPath was mounted and assess the potential risk associated with that specific path.
-- Check the kubernetes.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed, and verify the legitimacy of the authorization decision.
+- Check the event.outcome field to confirm that the action was allowed, and verify the legitimacy of the authorization decision.
 - Investigate the kubernetes.audit.requestObject.spec.containers.image field to identify the container image used, ensuring it is not a known or suspected malicious image, and cross-reference with any known vulnerabilities or security advisories.
-- Analyze the context of the pod creation or modification by reviewing the kubernetes.audit.verb field to understand whether the action was a create, update, or patch operation, and correlate this with recent changes or deployments in the environment.
+- Analyze the context of the pod creation or modification by reviewing the event.action field to understand whether the action was a create, update, or patch operation, and correlate this with recent changes or deployments in the environment.
 - Assess the potential impact on the cluster by identifying other pods or services that might be affected by the compromised pod, especially those with elevated privileges or access to sensitive data.
 
 ### False positive analysis
@@ -83,8 +83,8 @@ tags = [
 timestamp_override = "event.ingested"
 type = "query"
 query = '''
-data_stream.dataset : "kubernetes.audit_logs" and kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.objectRef.resource:"pods" and kubernetes.audit.verb:("create" or "update" or "patch") and
+data_stream.dataset : "kubernetes.audit_logs" and event.outcome:"success" and
+orchestrator.resource.type:"pods" and event.action:("create" or "update" or "patch") and
 kubernetes.audit.requestObject.spec.volumes.hostPath.path: (
   "/" or "/proc" or "/root" or "/var" or "/var/run" or "/var/run/docker.sock" or "/var/run/crio/crio.sock" or
   "/var/run/cri-dockerd.sock" or "/var/lib/kubelet" or "/var/lib/kubelet/pki" or "/var/lib/docker/overlay2" or

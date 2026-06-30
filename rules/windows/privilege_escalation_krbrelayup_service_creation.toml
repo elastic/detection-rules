@@ -2,7 +2,7 @@
 creation_date = "2022/04/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -38,7 +38,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by winlog.computer_name with maxspan=5m
+sequence by host.name with maxspan=5m
  [authentication where host.os.type == "windows" and
 
   /* event 4624 need to be logged */
@@ -59,30 +59,30 @@ note = """## Triage and analysis
 
 - Do the source events show a loopback Kerberos logon followed by service creation in the same session?
   - Why: sequence alerts merge fields; recover the 4624 and 4697 Timeline source events before interpreting grouped meaning.
-  - Focus: `winlog.computer_name`: 4624 `source.ip`, `winlog.logon.type`, `winlog.event_data.AuthenticationPackageName`, `winlog.event_data.TargetLogonId`; 4697 `winlog.event_data.SubjectLogonId`.
+  - Focus: `host.name`: 4624 `source.ip`, `winlog.logon.type`, `winlog.event_data.AuthenticationPackageName`, `winlog.event_data.TargetLogonId`; 4697 `winlog.event_data.SubjectLogonId`.
   - Implication: escalate when loopback Kerberos network logon and 4697 service install share the same logon ID; lower suspicion when recovery shows no matching 4697, non-loopback source, or a different session.
 - Which identity received the elevated loopback Kerberos session?
-  - Focus: 4624 `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, `winlog.event_data.TargetUserSid`, `user.id`, and `winlog.event_data.ElevatedToken`; Subject fields are the local initiator, not the authenticated identity.
+  - Focus: 4624 `user.target.name`, `winlog.event_data.TargetDomainName`, `user.target.id`, `user.id`, and `winlog.event_data.ElevatedToken`; Subject fields are the local initiator, not the authenticated identity.
   - Implication: escalate when the authenticated identity is an unexpected admin, service, or machine-account path for this host; lower suspicion only when the same identity and lab or deployment host cohort are recognized for this validation pattern.
 - What service did the recovered 4697 install?
   - Focus: 4697 `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `winlog.event_data.ServiceStartType`, and `winlog.event_data.ServiceType`.
   - Implication: escalate when the service uses a throwaway name, shell or script command, user-writable payload, or LocalSystem execution. Public tools may use "KrbSCM" or "UACBypassedService"; lower suspicion only when stable service metadata, account, and host cohort match the same authorized validation or owner-confirmed deployment workflow.
 - Do same-session Windows Security events show credential use, privilege activation, or additional service activity?
   - Focus: same-host Windows Security events surrounding the sequence, keyed on `winlog.event_data.SubjectLogonId`; read 4624, 4648, and additional 4697 records. $investigate_0
-  - Hint: query `winlog.computer_name` plus either recovered logon ID across the alert window first; expand only if source-event ordering is unclear.
+  - Hint: query `host.name` plus either recovered logon ID across the alert window first; expand only if source-event ordering is unclear.
   - Hint: Missing authentication telemetry is unresolved, not benign.
   - Implication: escalate when the same session shows explicit credentials or multiple service installs; keep scope local when evidence remains one recovered 4624-to-4697 chain with no contradictory activity.
 - If local evidence remains suspicious or unresolved, do related alerts show the same relay-to-service chain elsewhere?
-  - Focus: related alerts for `winlog.computer_name` in the last 48 hours that reuse the same service name or command, or show Kerberos or service-install abuse on this host. $investigate_1
+  - Focus: related alerts for `host.name` in the last 48 hours that reuse the same service name or command, or show Kerberos or service-install abuse on this host. $investigate_1
   - Hint: compare `user.id` only if the host view does not show whether one operator or account cohort is involved. $investigate_2
   - Implication: broaden scope when related alerts show the same host or user preparing, reusing, or expanding the service-creation chain; keep response local when related-alert review is quiet and source events already resolve the case.
 - Escalate when source recovery confirms loopback Kerberos followed by suspicious LocalSystem service creation; close only when the session, identity, service metadata, and surrounding Windows Security evidence fit one exact benign activity with corroborating owner or test records when telemetry cannot prove legitimacy; preserve and escalate when evidence is mixed.
 
 ### False positive analysis
 
-- Authorized exploit validation, red-team work, or security research can reproduce this rule on lab systems. Confirm the 4624-to-4697 chain, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `user.id`, and `winlog.computer_name` match test scope and timing. Without change or test records, close only when telemetry independently proves that validation scope; mark a one-off test as non-exceptionable instead of requiring recurrence.
-- Treat loopback Kerberos plus service creation as an operational anti-pattern outside authorized validation. A deployment or support claim is benign only when owner or runbook confirmation and source events prove this exact local SCM path, stable `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, `winlog.computer_name`, and no relay-prerequisite or follow-on alerts.
-- Before creating an exception, pin `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, and `winlog.computer_name`, and add an expiry or test-scope constraint for one-off validation. Avoid exceptions on loopback `source.ip`, event 4624, event 4697, or Kerberos alone because those conditions are broader than the confirmed workflow.
+- Authorized exploit validation, red-team work, or security research can reproduce this rule on lab systems. Confirm the 4624-to-4697 chain, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `user.id`, and `host.name` match test scope and timing. Without change or test records, close only when telemetry independently proves that validation scope; mark a one-off test as non-exceptionable instead of requiring recurrence.
+- Treat loopback Kerberos plus service creation as an operational anti-pattern outside authorized validation. A deployment or support claim is benign only when owner or runbook confirmation and source events prove this exact local SCM path, stable `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, `host.name`, and no relay-prerequisite or follow-on alerts.
+- Before creating an exception, pin `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, and `host.name`, and add an expiry or test-scope constraint for one-off validation. Avoid exceptions on loopback `source.ip`, event 4624, event 4697, or Kerberos alone because those conditions are broader than the confirmed workflow.
 
 ### Response and remediation
 
@@ -102,7 +102,7 @@ The following Windows audit policies must be enabled to generate the events used
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "winlog.computer_name",
+    "host.name",
     "host.id",
     "user.id",
     "event.code",
@@ -125,32 +125,32 @@ label = "Windows Security events for the same logon session"
 description = ""
 providers = [
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
   ],
   [
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" },
     { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
     { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" }
   ]
@@ -164,7 +164,7 @@ description = ""
 providers = [
   [
     { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
-    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" }
+    { excluded = false, field = "host.name", queryType = "phrase", value = "{{host.name}}", valueType = "string" }
   ]
 ]
 relativeFrom = "now-48h/h"

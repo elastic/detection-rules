@@ -2,7 +2,7 @@
 creation_date = "2026/03/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -31,7 +31,7 @@ Both events share the same `correlation_id` but neither includes the federation 
 
 ### Possible investigation steps
 
-- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `ipAddress` to identify who made the change and from where.
+- Review `user.name` and `ipAddress` to identify who made the change and from where.
 - For `"Set domain authentication"` events, check `azure.auditlogs.properties.target_resources.0.display_name` to identify which domain was federated.
 - Use `azure.correlation_id` to correlate the companion `"Set federation settings on domain"` event and establish the full context.
 - Query the Graph API to retrieve the actual federation configuration details, since they are not logged in the audit event: `Get-MgDomainFederationConfiguration -DomainId "<domain>"`.

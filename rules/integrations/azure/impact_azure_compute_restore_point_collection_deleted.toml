@@ -2,7 +2,7 @@
 creation_date = "2025/10/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -38,7 +38,7 @@ indicate unauthorized activity or a compromised account.
 
 ### Possible investigation steps
 
-- Review the `azure.activitylogs.identity.claims_initiated_by_user.name` field to identify the specific user who performed the deletion operation.
+- Review the `user.name` field to identify the specific user who performed the deletion operation.
 - Investigate the `azure.resource.id` or `azure.resource.name` fields to identify which Restore Point Collection was deleted and assess its criticality to business operations.
 - Review the timeline of the deletion event and correlate it with other security events or user activities to identify any suspicious patterns or related activities.
 - Verify whether the user account has legitimate access to perform this operation and whether this deletion was authorized through change management processes.
@@ -84,7 +84,7 @@ type = "new_terms"
 query = '''
 data_stream.dataset: azure.activitylogs and
     event.action: "MICROSOFT.COMPUTE/RESTOREPOINTCOLLECTIONS/DELETE" and
-    event.outcome: (Success or success)
+    event.outcome: (success)
 '''
 
 
@@ -103,7 +103,7 @@ reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.activitylogs.identity.claims_initiated_by_user.name", "azure.resource.group"]
+value = ["user.name", "azure.resource.group"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -46,7 +46,7 @@ iam where host.os.type == "windows" and event.action == "changed-computer-accoun
     winlog.event_data.DnsHostName : "??*" and
 
     /* exclude FPs where DnsHostName starts with the ComputerName that was changed */
-    not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
+    not startswith~(winlog.event_data.DnsHostName, substring(user.target.name, 0, length(user.target.name) - 1))
 '''
 
 note = """## Triage and analysis
@@ -56,25 +56,25 @@ note = """## Triage and analysis
 #### Possible investigation steps
 
 - What object, initiator, and DNS-name mismatch does the alert prove?
-  - Focus: `winlog.event_data.TargetUserName`, `winlog.event_data.TargetSid`, `winlog.event_data.DnsHostName`, `winlog.event_data.SubjectUserSid`, and `winlog.event_data.SubjectLogonId`.
+  - Focus: `user.target.name`, `user.target.id`, `winlog.event_data.DnsHostName`, `user.id`, and `winlog.event_data.SubjectLogonId`.
   - Implication: escalate or continue when the new DNS host name no longer matches the target computer account and points to another server namespace; lower suspicion only when target SID, subject SID, and logon session fit a recognized rename, promotion, re-binding, or authorized test.
 
 - Does the new DNS host name collide with a domain controller or other sensitive host?
   - Why: Certifried abuse makes a controlled computer account look like a trusted host before requesting or using a machine certificate.
-  - Focus: `winlog.event_data.DnsHostName`, `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, and `winlog.computer_name`.
-  - Implication: high risk when the value matches a real domain controller, CA, or privileged server different from `winlog.event_data.TargetUserName`; lower risk only when it belongs to the same object transition and does not collide with a privileged asset.
+  - Focus: `winlog.event_data.DnsHostName`, `user.target.name`, `winlog.event_data.TargetDomainName`, and `host.name`.
+  - Implication: high risk when the value matches a real domain controller, CA, or privileged server different from `user.target.name`; lower risk only when it belongs to the same object transition and does not collide with a privileged asset.
 
 - Who made the update, and does the source/session context fit that account's role?
-  - Focus: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `source.ip`.
+  - Focus: `user.id`, `user.name`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `source.ip`.
   - Implication: escalate when the subject is a standard user, non-tier-0 admin, unusual service account, machine account, or unexpected source for computer-account management; lower suspicion when subject, source when present, and logon session match a recognized AD management path.
 
 - Did the same object show SPN deletion, empty-SPN creation, or other preparation?
   - Why: successful DNS-name spoofing often requires removing FQDN service principal names or creating a computer account without them so SPN uniqueness checks do not block the DNS update.
-  - Focus: Windows Security account-management and directory-change events for `winlog.event_data.TargetSid`, especially `event.code`, `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, and `winlog.event_data.ObjectDN`.
+  - Focus: Windows Security account-management and directory-change events for `user.target.id`, especially `event.code`, `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, and `winlog.event_data.ObjectDN`.
   - Implication: escalate when the sequence removes servicePrincipalName values, creates or controls the computer object, or changes related attributes just before the DNS update; lower suspicion when the same change set follows a recognized promotion or re-binding path.
 
 - Did certificate-service or Kerberos activity use the spoofed identity after the update?
-  - Focus: post-alert Windows Security certificate enrollment and authentication events for `winlog.event_data.TargetUserName` or the spoofed host name, reading `event.code`, `winlog.event_data.AuthenticationPackageName`, `winlog.logon.type`, and `source.ip`.
+  - Focus: post-alert Windows Security certificate enrollment and authentication events for `user.target.name` or the spoofed host name, reading `event.code`, `winlog.event_data.AuthenticationPackageName`, `winlog.logon.type`, and `source.ip`.
   - Hint: missing certificate-service or Kerberos telemetry leaves post-update use unresolved, not benign.
   - Implication: escalate when the modified object requests or receives a machine certificate, uses Kerberos with the spoofed identity, authenticates from unexpected `source.ip` when present, or appears in privileged follow-on activity; absence of follow-on use lowers urgency only when object, initiator, and preparation evidence also align benignly.
 
@@ -89,7 +89,7 @@ note = """## Triage and analysis
 
 - Benign matches are uncommon because changing a computer account DNS host name to another host namespace is an AD identity anti-pattern. Authorized CVE-2022-26923 testing or patch validation explains the alert only when subject SID/logon, target SID/name, spoofed host name, event-origin controller, SPN/object-change sequence, and follow-on certificate or authentication events all match the same test scope. Without a test plan, close only when telemetry proves a bounded lab pattern; drift in initiator, hostname, or follow-on use keeps the alert suspicious.
 - Rare promotion, rename, migration, or re-binding explains the alert only when the same computer object intentionally assumes the new DNS identity, no privileged-host collision exists, and subject, target SID, new host name, controller, and bounded follow-on authentication path all align. Do not close if telemetry leaves object identity, collision, or follow-on use unresolved.
-- Build exceptions from the minimum confirmed workflow: stable `winlog.event_data.SubjectUserSid`, `winlog.event_data.TargetSid`, `winlog.event_data.TargetUserName`, `winlog.event_data.DnsHostName`, `winlog.computer_name`, and bounded follow-on `source.ip` or `event.code`. Avoid exceptions on `event.action`, `winlog.event_data.DnsHostName`, or `winlog.event_data.TargetSid` alone.
+- Build exceptions from the minimum confirmed workflow: stable `user.id`, `user.target.id`, `user.target.name`, `winlog.event_data.DnsHostName`, `host.name`, and bounded follow-on `source.ip` or `event.code`. Avoid exceptions on `event.action`, `winlog.event_data.DnsHostName`, or `user.target.id` alone.
 
 ### Response and remediation
 
@@ -114,18 +114,18 @@ field_names = [
     "user.name",
     "user.id",
     "user.domain",
-    "winlog.event_data.SubjectUserName",
-    "winlog.event_data.SubjectUserSid",
+    "user.name",
+    "user.id",
     "winlog.event_data.SubjectDomainName",
     "winlog.event_data.SubjectLogonId",
     "winlog.logon.id",
-    "winlog.event_data.TargetUserName",
-    "winlog.event_data.TargetSid",
+    "user.target.name",
+    "user.target.id",
     "winlog.event_data.TargetDomainName",
     "winlog.event_data.DnsHostName",
     "host.name",
     "host.id",
-    "winlog.computer_name",
+    "host.name",
 ]
 
 [transform]

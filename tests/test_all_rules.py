@@ -20,6 +20,11 @@ from semver import Version
 
 from detection_rules import atlas, attack
 from detection_rules.config import load_current_package_version
+from detection_rules.ecs import (
+    flatten,
+    get_non_ecs_schema,
+    get_schema,
+)
 from detection_rules.integrations import (
     find_latest_compatible_version,
     load_integrations_manifests,
@@ -1670,3 +1675,31 @@ class TestEQLEventFieldUsage(BaseRuleTest):
                 "check into a `process where` clause (e.g. via an EQL sequence) or use a field "
                 "that the dataset actually populates.\nOffenders:\n  - " + "\n  - ".join(offenders)
             )
+
+
+class TestNonEcsSchema(unittest.TestCase):
+    """Guardrails for detection_rules/etc/non-ecs-schema.json."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.non_ecs_schema = get_non_ecs_schema()
+        cls.ecs_field_names = set(get_schema().keys())
+
+    def test_static_fields_belong_in_non_ecs_schema(self):
+        """Static non-ecs entries must not duplicate ECS fields.
+
+        non-ecs-schema.json is for fields that validation cannot resolve elsewhere. Adding a
+        field here when it already exists in the ECS flat schema creates redundant maintenance
+        and masks the preferred field name in new rules.
+        """
+        redundant: list[str] = []
+
+        for index_pattern, fields in self.non_ecs_schema.items():
+            redundant.extend(
+                f"{index_pattern} -> {field_name} (already in ECS; use the ECS field in rules instead)"
+                for field_name in flatten(fields)
+                if field_name in self.ecs_field_names
+            )
+
+        if redundant:
+            self.fail("Remove the following entries from non-ecs-schema.json:\n  - " + "\n  - ".join(sorted(redundant)))

@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2026/05/04"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -34,9 +34,9 @@ type = "new_terms"
 query = '''
 event.dataset:"kubernetes.audit_logs" and
 kubernetes.audit.stage:"ResponseComplete" and
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
-kubernetes.audit.objectRef.resource:"pods" and
-kubernetes.audit.verb:"create" and
+event.outcome:"success" and
+orchestrator.resource.type:"pods" and
+event.action:"create" and
 kubernetes.audit.requestObject.spec.containers.image:(alpine* or busybox* or ubuntu\:* or debian\:* or *netshoot\:* or *network-multitool\:* or *curl\:*)
 '''
 

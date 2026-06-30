@@ -2,7 +2,7 @@
 creation_date = "2025/05/21"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic", "Willem D'Haese"]
@@ -22,10 +22,10 @@ This rule detects when a user in Microsoft Entra ID reports suspicious activity 
 
 ### Possible investigation steps
 
-- Review the `azure.auditlogs.identity` field to identify the reporting user.
+- Review the `user.full_name` field to identify the reporting user.
 - Confirm that `event.action` is `"Suspicious activity reported"` and the result was `"success"`.
 - Check the `azure.auditlogs.properties.additional_details` array for `AuthenticationMethod`, which shows how the login attempt was performed (e.g., `PhoneAppNotification`).
-- Look at the `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `displayName` to confirm which user reported the suspicious activity.
+- Look at the `user.name` and `displayName` to confirm which user reported the suspicious activity.
 - Investigate recent sign-in activity (`signinlogs`) for the same user. Focus on:
   - IP address geolocation and ASN.
   - Device, operating system, and browser.
@@ -71,7 +71,7 @@ type = "query"
 
 query = '''
 data_stream.dataset: "azure.auditlogs"
-    and azure.auditlogs.operation_name: "Suspicious activity reported"
+    and event.action: "Suspicious activity reported"
     and azure.auditlogs.properties.additional_details.key: "AuthenticationMethod"
     and azure.auditlogs.properties.target_resources.*.type: "User"
     and event.outcome: "success"

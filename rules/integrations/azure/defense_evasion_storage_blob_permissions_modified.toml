@@ -2,7 +2,7 @@
 creation_date = "2021/09/22"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Austin Songer"]
@@ -33,7 +33,7 @@ Azure Blob Storage is a service for storing large amounts of unstructured data. 
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to identify the user or service principal associated with the permission modification event by examining the relevant fields such as `event.dataset` and `azure.activitylogs.operation_name`.
+- Review the Azure activity logs to identify the user or service principal associated with the permission modification event by examining the relevant fields such as `event.dataset` and `event.action`.
 - Check the `event.outcome` field to confirm the success of the permission modification and gather details on the specific permissions that were altered.
 - Investigate the context of the modification by reviewing recent activities of the identified user or service principal to determine if the change aligns with their typical behavior or role.
 - Assess the potential impact of the permission change on the affected Azure Blob by evaluating the sensitivity of the data and the new access levels granted.
@@ -75,10 +75,10 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:azure.activitylogs and azure.activitylogs.operation_name:(
+data_stream.dataset:azure.activitylogs and event.action:(
      "MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/MANAGEOWNERSHIP/ACTION" or
      "MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/MODIFYPERMISSIONS/ACTION") and
-  event.outcome:(Success or success)
+  event.outcome:(success)
 '''
 
 

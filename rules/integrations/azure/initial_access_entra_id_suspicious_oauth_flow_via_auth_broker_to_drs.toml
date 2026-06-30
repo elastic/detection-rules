@@ -2,7 +2,7 @@
 creation_date = "2025/04/30"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ from logs-azure.signinlogs-* metadata _id, _version, _index
     event.outcome == "success" and
     azure.signinlogs.properties.user_type == "Member" and
     azure.signinlogs.identity is not null and
-    azure.signinlogs.properties.user_principal_name is not null and
+    user.name is not null and
     source.address is not null and
     azure.signinlogs.properties.app_id == "29d9ed98-a469-4536-ade2-f981bc1d605e" and  // MAB
     azure.signinlogs.properties.resource_id == "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9"  // DRS
@@ -109,7 +109,7 @@ from logs-azure.signinlogs-* metadata _id, _version, _index
 
 | stats
     Esql_priv.azure_signinlogs_properties_user_display_name_values = values(azure.signinlogs.properties.user_display_name),
-    Esql_priv.azure_signinlogs_properties_user_principal_name_values = values(azure.signinlogs.properties.user_principal_name),
+    Esql_priv.azure_signinlogs_properties_user_principal_name_values = values(user.name),
     Esql.azure_signinlogs_properties_session_id_values = values(azure.signinlogs.properties.session_id),
     Esql.azure_signinlogs_properties_unique_token_identifier_values = values(azure.signinlogs.properties.unique_token_identifier),
 
@@ -147,7 +147,7 @@ from logs-azure.signinlogs-* metadata _id, _version, _index
     Esql.event_count = count(*)
   by
     Esql.time_window_date_trunc,
-    azure.signinlogs.properties.user_principal_name,
+    user.name,
     azure.signinlogs.properties.session_id
 
 | keep

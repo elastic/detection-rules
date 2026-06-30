@@ -2,7 +2,7 @@
 creation_date = "2026/02/02"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -29,11 +29,11 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 any where data_stream.dataset == "kubernetes.audit_logs" and (
-    kubernetes.audit.user.username in ("system:anonymous", "system:unauthenticated") or
-    kubernetes.audit.user.username == null or
-    kubernetes.audit.user.username == ""
-  ) and kubernetes.audit.level in ("RequestResponse", "ResponseComplete", "Request") and kubernetes.audit.verb in ("create", "update", "patch") and
-kubernetes.audit.objectRef.resource == "pods"
+    user.name in ("system:anonymous", "system:unauthenticated") or
+    user.name == null or
+    user.name == ""
+  ) and kubernetes.audit.level in ("RequestResponse", "ResponseComplete", "Request") and event.action in ("create", "update", "patch") and
+orchestrator.resource.type == "pods"
 
 '''
 

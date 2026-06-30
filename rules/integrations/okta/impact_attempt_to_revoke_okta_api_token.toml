@@ -2,7 +2,7 @@
 creation_date = "2020/05/21"
 integration = ["okta"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -27,10 +27,10 @@ note = """## Triage and analysis
 The rule alerts when attempts are made to revoke an Okta API token. The API tokens are critical for integration services, and revoking them may lead to disruption in services. Therefore, it's important to validate these activities.
 
 #### Possible investigation steps:
-- Identify the actor associated with the API token revocation attempt. You can use the `okta.actor.alternate_id` field for this purpose.
-- Determine the client used by the actor. Review the `okta.client.device`, `okta.client.ip`, `okta.client.user_agent.raw_user_agent`, `okta.client.ip_chain.ip`, and `okta.client.geographical_context` fields.
+- Identify the actor associated with the API token revocation attempt. You can use the `user.name` field for this purpose.
+- Determine the client used by the actor. Review the `okta.client.device`, `source.ip`, `user_agent.original`, `source.ip_chain.ip`, and `okta.client.geographical_context` fields.
 - Verify if the API token revocation was authorized or part of some planned activity.
-- Check the `okta.outcome.result` and `okta.outcome.reason` fields to see if the attempt was successful or failed.
+- Check the `event.outcome` and `event.reason` fields to see if the attempt was successful or failed.
 - Analyze the past activities of the actor involved in this action. An actor who usually performs such activities may indicate a legitimate reason.
 - Evaluate the actions that happened just before and after this event. It can help understand the full context of the activity.
 

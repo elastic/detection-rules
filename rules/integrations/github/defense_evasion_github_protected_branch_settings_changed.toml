@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,7 @@ GitHub's protected branch settings are crucial for maintaining code integrity by
 
 ### Possible investigation steps
 
-- Review the GitHub audit logs to identify the specific changes made to the protected branch settings, focusing on entries where event.dataset is "github.audit" and github.category is "protected_branch".
+- Review the GitHub audit logs to identify the specific changes made to the protected branch settings, focusing on entries where event.dataset is "github.audit" and event.category is "protected_branch".
 - Determine the user account responsible for the changes by examining the audit log details, and verify if the account has a legitimate reason to modify branch protection settings.
 - Check the timing of the changes to see if they coincide with any other suspicious activities or known incidents within the organization.
 - Investigate the context of the change by reviewing recent pull requests or commits to the affected branch to assess if the changes align with ongoing development activities.
@@ -66,7 +66,7 @@ type = "eql"
 
 query = '''
 configuration where data_stream.dataset == "github.audit"
-  and github.category == "protected_branch" and event.type == "change"
+  and event.category == "protected_branch" and event.type == "change"
 '''
 
 

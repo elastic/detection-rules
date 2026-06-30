@@ -2,7 +2,7 @@
 creation_date = "2026/05/06"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/06"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -68,11 +68,11 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 data_stream.dataset:"kubernetes.audit_logs" and 
-kubernetes.audit.objectRef.resource:"configmaps" and 
+orchestrator.resource.type:"configmaps" and 
 kubernetes.audit.objectRef.name:"aws-auth" and 
-kubernetes.audit.verb:("update" or "patch" or "delete") and 
-kubernetes.audit.objectRef.namespace:"kube-system" and 
-kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+event.action:("update" or "patch" or "delete") and 
+orchestrator.namespace:"kube-system" and 
+event.outcome:"success" and
 not user.name:"eks:kms-storage-migrator"
 '''
 

@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ Windows services are crucial for running background processes. Adversaries explo
 - Check the winlog.logon.id to correlate the logon session with the service installation event, ensuring they are part of the same session.
 - Investigate the user account associated with the logon session to determine if the activity aligns with their typical behavior or role within the organization.
 - Examine the service file path from the service-installed event to identify if it is a known or legitimate application. Pay special attention to any paths not excluded in the query.
-- Look into the history of the computer where the service was installed (winlog.computer_name) for any previous suspicious activities or alerts.
+- Look into the history of the computer where the service was installed (host.name) for any previous suspicious activities or alerts.
 - Assess the timing and frequency of similar events to determine if this is an isolated incident or part of a broader pattern of suspicious behavior.
 
 ### False positive analysis
@@ -65,7 +65,7 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by winlog.logon.id, winlog.computer_name with maxspan=1m
+sequence by winlog.logon.id, host.name with maxspan=1m
 [authentication where host.os.type == "windows" and event.action == "logged-in" and winlog.logon.type : "Network" and
  event.outcome == "success" and source.ip != null and source.ip != "127.0.0.1" and source.ip != "::1"]
 [iam where host.os.type == "windows" and event.action == "service-installed" and

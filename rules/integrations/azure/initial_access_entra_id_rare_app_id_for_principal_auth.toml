@@ -2,7 +2,7 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -31,7 +31,7 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 ### Possible investigation steps
 
 - Identify the source IP address from which the failed login attempts originated by reviewing `source.ip`. Determine if the IP is associated with known malicious activity using threat intelligence sources or if it belongs to a corporate VPN, proxy, or automation process.
-- Analyze affected user accounts by reviewing `azure.signinlogs.properties.user_principal_name` to determine if they belong to privileged roles or high-value users. Look for patterns indicating multiple failed attempts across different users, which could suggest a password spraying attempt.
+- Analyze affected user accounts by reviewing `user.name` to determine if they belong to privileged roles or high-value users. Look for patterns indicating multiple failed attempts across different users, which could suggest a password spraying attempt.
 - Examine the authentication method used in `azure.signinlogs.properties.authentication_details` to identify which authentication protocols were attempted and why they failed. Legacy authentication methods may be more susceptible to brute-force attacks.
 - Review the authentication error codes found in `azure.signinlogs.properties.status.error_code` to understand why the login attempts failed. Common errors include `50126` for invalid credentials, `50053` for account lockouts, `50055` for expired passwords, and `50056` for users without a password.
 - Correlate failed logins with other sign-in activity by looking at `event.outcome`. Identify if there were any successful logins from the same user shortly after multiple failures or if there are different geolocations or device fingerprints associated with the same account.
@@ -45,13 +45,13 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 - User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
 - Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
 - Exclude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
-- Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
+- Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `user.name`.
 - Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
 
 ## Response and remediation
 
 - Block the source IP address in `source.ip` if determined to be malicious.
-- Reset passwords for all affected user accounts listed in `azure.signinlogs.properties.user_principal_name` and enforce stronger password policies.
+- Reset passwords for all affected user accounts listed in `user.name` and enforce stronger password policies.
 - Ensure basic authentication is disabled for all applications using legacy authentication protocols listed in `azure.signinlogs.properties.authentication_protocol`.
 - Enable multi-factor authentication (MFA) for impacted accounts to mitigate credential-based attacks.
 - Review conditional access policies to ensure they are correctly configured to block unauthorized access attempts recorded in `azure.signinlogs.properties.authentication_requirement`.
@@ -171,8 +171,8 @@ name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
-    "azure.signinlogs.properties.user_principal_name",
-    "azure.signinlogs.properties.user_id",
+    "user.name",
+    "user.id",
     "azure.signinlogs.properties.app_id",
     "azure.signinlogs.properties.app_display_name",
     "azure.signinlogs.properties.client_app_used",
@@ -190,7 +190,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.signinlogs.properties.user_principal_name", "azure.signinlogs.properties.app_id"]
+value = ["user.name", "azure.signinlogs.properties.app_id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

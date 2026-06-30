@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/05/20"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic", "descambiado"]
@@ -75,11 +75,11 @@ type = "query"
 
 query = '''
 data_stream.dataset: "azure.auditlogs" and
-azure.auditlogs.operation_name: "Update user" and
+event.action: "Update user" and
 azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: "UserType" and
 azure.auditlogs.properties.target_resources.*.modified_properties.*.old_value: *Guest* and
 azure.auditlogs.properties.target_resources.*.modified_properties.*.new_value: *Member* and
-event.outcome: (Success or success)
+event.outcome: (success)
 '''
 
 [[rule.threat]]

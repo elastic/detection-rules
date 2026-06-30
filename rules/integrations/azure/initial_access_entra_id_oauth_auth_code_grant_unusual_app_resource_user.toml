@@ -2,7 +2,7 @@
 creation_date = "2025/12/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ The rule is particularly effective at catching attacks where adversaries use sto
 
 ### Possible investigation steps
 
-- Review `azure.signinlogs.properties.user_principal_name` to identify the affected user and determine if they are a developer who would legitimately use these tools.
+- Review `user.name` to identify the affected user and determine if they are a developer who would legitimately use these tools.
 - Check `azure.signinlogs.properties.app_display_name` to confirm which application was used. Azure CLI or PowerShell access by non-technical users is suspicious.
 - Examine `azure.signinlogs.properties.resource_id` to identify the target resource. Legacy AAD (`00000002-0000-0000-c000-000000000000`) access is unusual for most users.
 - Analyze `source.ip` and `source.geo.*` for geographic anomalies. ConsentFix attackers exchange codes from different IPs than the victim.
@@ -204,7 +204,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
-    "azure.signinlogs.properties.user_principal_name",
+    "user.name",
     "azure.signinlogs.properties.app_id",
     "azure.signinlogs.properties.app_display_name",
     "azure.signinlogs.properties.resource_id",
@@ -221,7 +221,7 @@ field_names = [
 [rule.new_terms]
 field = "new_terms_fields"
 value = [
-    "azure.signinlogs.properties.user_principal_name",
+    "user.name",
     "azure.signinlogs.properties.app_id",
     "azure.signinlogs.properties.resource_id",
 ]

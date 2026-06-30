@@ -2,7 +2,7 @@
 creation_date = "2026/05/27"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/05/27"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -36,7 +36,7 @@ Because this rule uses ESQL `grok` and `keep`, review the original `o365.audit` 
 ### Possible investigation steps
 
 - Review `Esql.inbox_rule_name` and `o365.audit.ObjectId` to confirm the parsed rule identity and mailbox path.
-- Identify the actor using `o365.audit.UserId` and correlate with Entra ID sign-in logs for the same `source.ip`.
+- Identify the actor using `user.id` and correlate with Entra ID sign-in logs for the same `source.ip`.
 - Inspect `event.action` to determine whether the rule was newly created or modified.
 - Review kept forwarding and redirect parameters (`ForwardTo`, `ForwardAsAttachmentTo`, `ForwardingAddress`,
    `RedirectTo`, `RedirectToRecipients`) for external destinations outside `user.domain`.
@@ -91,7 +91,7 @@ from logs-o365.audit-* metadata _id, _version, _index
     _index,
     Esql.inbox_rule_name,
     o365.audit.ObjectId,
-    o365.audit.UserId,
+    user.id,
     o365.audit.ApplicationId,
     user.name,
     user.domain,
@@ -109,7 +109,7 @@ field_names = [
     "@timestamp",
     "Esql.inbox_rule_name",
     "o365.audit.ObjectId",
-    "o365.audit.UserId",
+    "user.id",
     "user.name",
     "user.domain",
     "event.action",

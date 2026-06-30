@@ -2,7 +2,7 @@
 creation_date = "2025/07/02"
 integration = ["azure", "o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -45,7 +45,7 @@ The detection is based on TeamFiltration's hardcoded user agent string and/or th
 ### Possible investigation steps
 
 - Confirm the tool used via `user_agent.original`.
-- Identify the `user.id`, `user.name`, or `azure.signinlogs.properties.user_principal_name` fields to determine which identity executed the API requests or sign-in attempts.
+- Identify the `user.id`, `user.name`, or `user.name` fields to determine which identity executed the API requests or sign-in attempts.
 - Review `app_id`, `app_display_name`, or `client_id` to identify the application context (e.g., Azure CLI, Graph Explorer, unauthorized app). TeamFiltration uses a list of FOCI compliant applications to perform enumeration and password spraying. TeamFiltration uses Microsoft Teams client ID `1fec8e78-bce4-4aaf-ab1b-5451cc387264` for enumeration.
 - Check `http.request.method`, `http.response.status_code`, and `event.action` for enumeration patterns (many successful GETs in a short period) if Graph API activity logs.
 - Investigate correlated sign-ins (`azure.signinlogs`) by the same user, IP, or app immediately preceding the API calls. Was MFA used? Is the location suspicious?

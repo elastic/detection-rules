@@ -2,7 +2,7 @@
 creation_date = "2026/05/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/05"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -32,12 +32,12 @@ note = """## Triage and analysis
 ### Investigating Kubernetes API Request Impersonating Privileged Identity
 
 Compare the real actor (user.name, groups, source.ip, user_agent.original) with impersonated
-fields (kubernetes.audit.impersonatedUser.username, kubernetes.audit.impersonatedUser.groups). Confirm whether
+fields (user.target.name, kubernetes.audit.impersonatedUser.groups). Confirm whether
 impersonation is authorized for that principal and target identity.
 
 ### Possible investigation steps
 
-- Review kubernetes.audit.requestURI, kubernetes.audit.verb, and kubernetes.audit.objectRef for the scope of the
+- Review kubernetes.audit.requestURI, event.action, and kubernetes.audit.objectRef for the scope of the
   operation performed while impersonating.
 - Determine whether the real user or service account should have impersonate rights against the impersonated user
   or group; inspect RBAC impersonate verb bindings and any recent changes.
@@ -69,10 +69,10 @@ timestamp_override = "event.ingested"
 type = "query"
 query = '''
 data_stream.dataset:kubernetes.audit_logs and 
-kubernetes.audit.impersonatedUser.username:(* and not ("eks-event-service:event-controller" or eks\:*)) and 
-kubernetes.audit.annotations.authorization_k8s_io/decision:allow and 
-kubernetes.audit.verb:(create or delete or get or list or patch or update) and 
-(kubernetes.audit.impersonatedUser.username:(admin or cluster-admin or kubernetes-admin or "system:admin" or "system:anonymous" or "system:apiserver" or "system:kube-controller-manager" or "system:kube-proxy" or "system:kube-scheduler" or "system:volume-scheduler" or system\:node\:* or system\:serviceaccount\:kube-system\:*) or kubernetes.audit.impersonatedUser.groups:(cluster-admin or "system:cluster-admins" or "system:masters")) and 
+user.target.name:(* and not ("eks-event-service:event-controller" or eks\:*)) and 
+event.outcome:success and 
+event.action:(create or delete or get or list or patch or update) and 
+(user.target.name:(admin or cluster-admin or kubernetes-admin or "system:admin" or "system:anonymous" or "system:apiserver" or "system:kube-controller-manager" or "system:kube-proxy" or "system:kube-scheduler" or "system:volume-scheduler" or system\:node\:* or system\:serviceaccount\:kube-system\:*) or kubernetes.audit.impersonatedUser.groups:(cluster-admin or "system:cluster-admins" or "system:masters")) and 
 not user.name:(acsService or aksService or masterclient or nodeclient or "system:kube-controller-manager" or "system:kube-scheduler" or arn\:aws\:iam\:*\:role/aws-service-role* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKS* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKSNodegroup* or eks\:* or system\:node\:* or system\:serviceaccount\:kube-system\:*)
 '''
 

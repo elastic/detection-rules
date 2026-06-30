@@ -2,7 +2,7 @@
 creation_date = "2026/06/07"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/07"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 data_stream.dataset:azure.activitylogs and
-  azure.activitylogs.operation_name:"MICROSOFT.SERIALCONSOLE/SERIALPORTS/CONNECT/ACTION" and
+  event.action:"MICROSOFT.SERIALCONSOLE/SERIALPORTS/CONNECT/ACTION" and
   event.outcome:("success" or "Success") and
   azure.activitylogs.identity.authorization.evidence.principal_id:* and
   source.as.number:*
@@ -97,10 +97,10 @@ data_stream.dataset:azure.activitylogs and
 field_names = [
     "@timestamp",
     "event.outcome",
-    "azure.activitylogs.operation_name",
+    "event.action",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
     "azure.activitylogs.identity.authorization.evidence.principal_type",
-    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "user.name",
     "azure.resource.id",
     "azure.resource.name",
     "source.ip",

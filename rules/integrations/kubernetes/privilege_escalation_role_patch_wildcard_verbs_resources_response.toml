@@ -2,7 +2,7 @@
 creation_date = "2026/04/27"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/27"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -65,15 +65,15 @@ type = "esql"
 query = '''
 from logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | where
-  kubernetes.audit.objectRef.resource in ("roles", "clusterroles") and
-  kubernetes.audit.verb in ("update", "patch") and
-  `kubernetes.audit.annotations.authorization_k8s_io/decision` == "allow" and
+  orchestrator.resource.type in ("roles", "clusterroles") and
+  event.action in ("update", "patch") and
+  `event.outcome` == "allow" and
   kubernetes.audit.level == "RequestResponse" and
   kubernetes.audit.stage == "ResponseComplete" and
-  kubernetes.audit.sourceIPs is not null and
-  not kubernetes.audit.sourceIPs in ("::1", "127.0.0.1") and
+  source.ip is not null and
+  not source.ip in ("::1", "127.0.0.1") and
   KQL(""" kubernetes.audit.responseObject.rules.verbs:"*" and kubernetes.audit.responseObject.rules.resources:"*" """)
-| keep user.name, user_agent.original, event.action, source.ip, kubernetes.audit.verb, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, kubernetes.audit.user.username, kubernetes.audit.user.groups, `kubernetes.audit.annotations.authorization_k8s_io/decision`, event.original, _id, _version, _index, data_stream.namespace
+| keep user.name, user_agent.original, event.action, source.ip, event.action, orchestrator.resource.type, kubernetes.audit.objectRef.name, kubernetes.audit.requestURI, user.name, kubernetes.audit.user.groups, `event.outcome`, event.original, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]

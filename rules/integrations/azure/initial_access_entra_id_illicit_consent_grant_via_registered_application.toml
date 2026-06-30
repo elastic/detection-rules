@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ This rule uses ES|QL aggregation-based new terms logic with a 7-day history wind
 #### Possible investigation steps
 
 - Review `azure.auditlogs.properties.additional_details.value` to identify the AppId and User-Agent values to determine which application was granted access and how the request was initiated. Pivot on the AppId in the Azure portal under Enterprise Applications to investigate further.
-- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` to identify the user who approved the application. Investigate their recent activity for signs of phishing, account compromise, or anomalous behavior during the timeframe of the consent.
+- Review `user.name` to identify the user who approved the application. Investigate their recent activity for signs of phishing, account compromise, or anomalous behavior during the timeframe of the consent.
 - Review `azure.auditlogs.properties.initiated_by.user.ipAddress` to assess the geographic source of the consent action. Unexpected locations or IP ranges may indicate adversary-controlled infrastructure.
 - Review `azure.auditlogs.properties.target_resources.display_name` to evaluate whether the application name is familiar, expected, or potentially spoofing a known service.
 - Review `azure.auditlogs.properties.target_resources.modified_properties.display_name` to inspect key indicators of elevated privilege or risk, including:
@@ -80,7 +80,7 @@ type = "esql"
 
 query = '''
 FROM logs-azure.auditlogs-* metadata _id, _version, _index
-| WHERE (azure.auditlogs.operation_name == "Consent to application"
+| WHERE (event.action == "Consent to application"
     OR event.action == "Consent to application")
   AND event.outcome == "success"
 
@@ -105,7 +105,7 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     Esql.tenant_id_values = VALUES(azure.tenant_id),
     Esql.correlation_id_values = VALUES(azure.auditlogs.properties.correlation_id),
     Esql.event_count = COUNT(*)
-    BY azure.auditlogs.properties.initiated_by.user.userPrincipalName, Esql.app_id
+    BY user.name, Esql.app_id
 
 | WHERE Esql.timestamp_first_seen >= NOW() - 9 minutes
     OR Esql.consent_reason_values LIKE "*Risky application detected*"
