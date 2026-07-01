@@ -589,7 +589,9 @@ class TestRuleTags(BaseRuleTest):
 
                 # Accept a primary-tactic tag matching the baseline or any versioned (e.g. v19)
                 # threat_mappings tactic name, since renamed tactics (e.g. Stealth) are still valid.
-                primary_tactic_candidates = {f"Tactic: {name}" for name in rule.contents.data.get_primary_tactic_names()}
+                primary_tactic_candidates = {
+                    f"Tactic: {name}" for name in rule.contents.data.get_primary_tactic_names()
+                }
 
                 # missing primary tactic
                 if not primary_tactic_candidates.intersection(rule.contents.data.tags):
