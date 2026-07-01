@@ -376,6 +376,104 @@ class TestThreatMappings(BaseRuleTest):
                     f"Flatten to a single entry per tactic"
                 )
 
+    def test_versioned_threat_mappings_tactic_technique_correlations(self):
+        """Validate threat_mappings entries against their declared version's ATT&CK data."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue  # no local data for this version; validation skipped
+
+                for entry in versioned_block.threat:
+                    tactic = entry.tactic
+                    techniques = entry.technique or []
+                    version_label = f"v{versioned_block.version}"
+
+                    if tactic.name not in lookups.tactics_map:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"unknown ATT&CK tactic '{tactic.name}'"
+                        )
+
+                    expected_tactic_id = lookups.tactics_map[tactic.name]
+                    self.assertEqual(
+                        expected_tactic_id,
+                        tactic.id,
+                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                        f"tactic ID mismatch for '{tactic.name}': "
+                        f"expected {expected_tactic_id}, got {tactic.id}",
+                    )
+
+                    mismatched = [t.id for t in techniques if t.id not in lookups.matrix.get(tactic.name, [])]
+                    if mismatched:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"techniques {mismatched} not under tactic '{tactic.name}' "
+                            f"in ATT&CK {version_label}"
+                        )
+
+                    for technique in techniques:
+                        if technique.id not in lookups.technique_lookup:
+                            self.fail(
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"unknown ATT&CK technique ID '{technique.id}'"
+                            )
+                        expected_name = lookups.technique_lookup[technique.id]["name"]
+                        self.assertEqual(
+                            expected_name,
+                            technique.name,
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"technique name mismatch for {technique.id}: "
+                            f"expected '{expected_name}', got '{technique.name}'",
+                        )
+
+                        for sub in technique.subtechnique or []:
+                            if sub.id not in lookups.technique_lookup:
+                                self.fail(
+                                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                    f"unknown ATT&CK subtechnique ID '{sub.id}'"
+                                )
+                            expected_sub_name = lookups.technique_lookup[sub.id]["name"]
+                            self.assertEqual(
+                                expected_sub_name,
+                                sub.name,
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"subtechnique name mismatch for {sub.id}: "
+                                f"expected '{expected_sub_name}', got '{sub.name}'",
+                            )
+
+    def test_versioned_threat_mappings_deprecations(self):
+        """Check that threat_mappings entries don't use techniques deprecated in their declared version."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue
+
+                bad: dict[str, str] = {}
+                for entry in versioned_block.threat:
+                    for technique in entry.technique or []:
+                        if technique.id in lookups.revoked or technique.id in lookups.deprecated:
+                            bad[technique.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
+
+                if bad:
+                    self.fail(
+                        f"{self.rule_str(rule)} threat_mappings v{versioned_block.version} "
+                        f"uses deprecated/revoked techniques: " + ", ".join(f"{k} ({v})" for k, v in bad.items())
+                    )
+
 
 @unittest.skipIf(os.environ.get("DR_BYPASS_TAGS_VALIDATION") is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
@@ -488,11 +586,16 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
+
+                # Accept a primary-tactic tag matching the baseline or any versioned (e.g. v19)
+                # threat_mappings tactic name, since renamed tactics (e.g. Stealth) are still valid.
+                primary_tactic_candidates = {
+                    f"Tactic: {name}" for name in rule.contents.data.get_primary_tactic_names()
+                }
 
                 # missing primary tactic
-                if primary_tactic not in rule.contents.data.tags:
-                    missing.append(primary_tactic)
+                if not primary_tactic_candidates.intersection(rule.contents.data.tags):
+                    missing.append(sorted(primary_tactic_candidates))
 
                 # listed tactic that is not in threat mapping
                 tag_tactics = set(rule_tags).intersection(tactics)
@@ -501,7 +604,7 @@ class TestRuleTags(BaseRuleTest):
                 if missing or missing_from_threat:
                     err_msg = self.rule_str(rule)
                     if missing:
-                        err_msg += f"\n    expected: {missing}"
+                        err_msg += f"\n    expected one of: {missing}"
                     if missing_from_threat:
                         err_msg += f"\n    unexpected (or missing from threat mapping): {missing_from_threat}"
 
@@ -641,11 +744,14 @@ class TestRuleFiles(BaseRuleTest):
             authors = rule.contents.data.author
 
             if threat and "Elastic" in authors:
-                primary_tactic = threat[0].tactic.name
-                tactic_str = primary_tactic.lower().replace(" ", "_")
+                # Accept the baseline tactic name or any versioned (e.g. v19) threat_mappings tactic
+                # name, so a rule isn't forced to rename its file until it's actually migrated.
+                primary_tactics = rule.contents.data.get_primary_tactic_names()
+                tactic_strs = [t.lower().replace(" ", "_") for t in primary_tactics]
 
-                if tactic_str != filename[: len(tactic_str)]:
-                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}")
+                if not any(filename.startswith(tactic_str) for tactic_str in tactic_strs):
+                    expected = " or ".join(tactic_strs)
+                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {expected}")
 
         if bad_name_rules:
             error_msg = "filename does not start with the primary tactic - update the tactic or the rule filename"

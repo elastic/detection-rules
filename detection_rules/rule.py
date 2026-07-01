@@ -7,6 +7,7 @@
 import copy
 import dataclasses
 import json
+import logging
 import os
 import re
 import time
@@ -15,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -57,6 +58,8 @@ from .version_lock import VersionLock, loaded_version_lock
 if typing.TYPE_CHECKING:
     from .remote_validation import RemoteValidator
 
+
+logger = logging.getLogger(__name__)
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
@@ -292,6 +295,27 @@ class FlatThreatMapping(MarshmallowDataclassMixin):
     sub_technique_ids: list[str]
 
 
+@dataclass(frozen=True, kw_only=True)
+class VersionedThreatMapping(MarshmallowDataclassMixin):
+    """Mapping to a threat framework tagged with the framework version it targets."""
+
+    framework: Literal["MITRE ATT&CK", "MITRE ATLAS"]
+    version: str
+    threat: list[ThreatMapping]
+
+    @validates_schema
+    def validate_framework_agreement(self, data: dict[str, Any], **_: Any) -> None:
+        """Ensure inner threat entries use the same framework as the versioned wrapper."""
+        framework = cast("str | None", data.get("framework"))
+        for entry in cast("list[dict[str, Any] | ThreatMapping]", data.get("threat") or []):
+            entry_framework = cast("str", entry["framework"] if isinstance(entry, dict) else entry.framework)
+            if entry_framework != framework:
+                raise ValidationError(
+                    f"threat_mappings entry for {framework} version {data.get('version')} contains a "
+                    f"threat with mismatched framework '{entry_framework}'"
+                )
+
+
 @dataclass(frozen=True)
 class AlertSuppressionDuration:
     """Mapping to alert suppression duration."""
@@ -412,6 +436,9 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     severity_mapping: list[SeverityMapping] | None = None
     tags: list[str] | None = None
     threat: list[ThreatMapping] | None = None
+    # additional framework/version-tagged mappings; the build emits one as the API `threat` and strips
+    # this field (see `_select_output_threat_mapping`)
+    threat_mappings: list[VersionedThreatMapping] | None = None
     throttle: str | None = None
     timeline_id: definitions.TimelineTemplateId | None = None
     timeline_title: definitions.TimelineTemplateTitle | None = None
@@ -504,6 +531,34 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 f"should not contain rules with `{error_message}` set."
             )
             raise ValidationError(msg)
+
+    @validates_schema
+    def validates_threat_mappings(self, data: dict[str, Any], **_: Any) -> None:
+        """Ensure versioned threat mappings have unique (framework, version) keys."""
+        threat_mappings = data.get("threat_mappings")
+        if not threat_mappings:
+            return
+
+        seen: set[tuple[str, str]] = set()
+        for entry in cast("list[dict[str, Any] | VersionedThreatMapping]", threat_mappings):
+            framework = cast("str", entry["framework"] if isinstance(entry, dict) else entry.framework)
+            version = cast("str", entry["version"] if isinstance(entry, dict) else entry.version)
+            key: tuple[str, str] = (framework, version)
+            if key in seen:
+                raise ValidationError(
+                    f"Duplicate threat_mappings entry for framework '{framework}' version '{version}'"
+                )
+            seen.add(key)
+
+    def get_primary_tactic_names(self) -> list[str]:
+        """Return the primary tactic name from the baseline threat and every threat_mappings block."""
+        names: list[str] = []
+        if self.threat:
+            names.append(self.threat[0].tactic.name)
+        for versioned_block in self.threat_mappings or []:
+            if versioned_block.threat and versioned_block.threat[0].tactic.name not in names:
+                names.append(versioned_block.threat[0].tactic.name)
+        return names
 
 
 class DataValidator:
@@ -1157,6 +1212,38 @@ AnyRuleData = (
 )
 
 
+def _normalize_threat_for_hash(threat: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strip name fields from threat entries so tactic/technique renames don't affect the hash.
+
+    ID and reference are kept, so adding, removing, or changing an ID still triggers a version bump.
+    """
+    result: list[dict[str, Any]] = []
+    for entry in threat:
+        normalized: dict[str, Any] = {"framework": cast("str | None", entry.get("framework"))}
+        tactic = cast("dict[str, Any]", entry.get("tactic") or {})
+        normalized["tactic"] = {
+            "id": cast("str | None", tactic.get("id")),
+            "reference": cast("str | None", tactic.get("reference")),
+        }
+        techniques: list[dict[str, Any]] = []
+        for tech in cast("list[dict[str, Any]]", entry.get("technique") or []):
+            t: dict[str, Any] = {
+                "id": cast("str | None", tech.get("id")),
+                "reference": cast("str | None", tech.get("reference")),
+            }
+            subs: list[dict[str, Any]] = [
+                {"id": cast("str | None", sub.get("id")), "reference": cast("str | None", sub.get("reference"))}
+                for sub in cast("list[dict[str, Any]]", tech.get("subtechnique") or [])
+            ]
+            if subs:
+                t["subtechnique"] = subs
+            techniques.append(t)
+        if techniques:
+            normalized["technique"] = techniques
+        result.append(normalized)
+    return result
+
+
 class BaseRuleContents(ABC):
     """Base contents object for shared methods between active and deprecated rules."""
 
@@ -1299,11 +1386,60 @@ class BaseRuleContents(ABC):
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
+        # select which framework/version threat mapping is emitted as the API `threat`, then strip
+        # the repo-side `threat_mappings` field so it is never shipped to Kibana
+        self._select_output_threat_mapping(obj)
+
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
             threat_entry.setdefault("technique", [])
 
         return obj
+
+    @staticmethod
+    def _select_output_threat_mapping(obj: dict[str, Any]) -> None:
+        """Emit the configured framework/version mapping as `threat` and drop `threat_mappings`."""
+        from . import attack
+        from .config import DEFAULT_THREAT_MAPPING_FRAMEWORK, DEFAULT_THREAT_MAPPING_VERSION
+
+        threat_mappings = obj.pop("threat_mappings", None)
+
+        framework, version = attack.resolve_output_threat_version()
+
+        # The baseline framework/version lives in the `threat` field itself, so there is nothing to
+        # select or warn about when it is requested (the common case).
+        if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
+            return
+
+        if not threat_mappings:
+            if obj.get("threat"):
+                logger.warning(
+                    "No threat mapping for framework '%s' version '%s' on rule '%s'; "
+                    "emitting the default `threat` mapping instead.",
+                    framework,
+                    version,
+                    obj.get("name", obj.get("rule_id", "<unknown>")),
+                )
+            return
+
+        selected = next(
+            (
+                block
+                for block in threat_mappings
+                if block.get("framework") == framework and str(block.get("version")) == str(version)
+            ),
+            None,
+        )
+        if selected is not None:
+            obj["threat"] = selected.get("threat", [])
+        elif obj.get("threat"):
+            logger.warning(
+                "No threat mapping for framework '%s' version '%s' on rule '%s'; "
+                "emitting the default `threat` mapping instead.",
+                framework,
+                version,
+                obj.get("name", obj.get("rule_id", "<unknown>")),
+            )
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
@@ -1339,6 +1475,12 @@ class BaseRuleContents(ABC):
         # non-deterministic (depend on integration schemas which vary by stack version)
         if self._uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
+
+        # Strip tactic/technique names so ATT&CK renames between versions (e.g. "Defense Evasion"
+        # -> "Stealth") don't trigger a version bump. ID and reference are preserved, so genuine
+        # mapping changes (added/removed entries, ID changes) still produce a new hash.
+        if hashable_dict.get("threat"):
+            hashable_dict["threat"] = _normalize_threat_for_hash(hashable_dict["threat"])
 
         return hashable_dict
 
