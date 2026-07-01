@@ -76,6 +76,19 @@ def create_test_config_content(enable_prebuilt_tests: bool) -> str:
     return "\n".join(lines)
 
 
+def get_stack_schema_map_entry_for_version(
+    stack_schema_map_content: dict[str, dict[str, str]],
+    kibana_version: str,
+) -> dict[str, dict[str, str]]:
+    """Return the stack-schema-map entry matching the requested custom rules package version."""
+    requested_version = Version.parse(kibana_version, optional_minor_and_patch=True)
+    for stack_version, schema_versions in stack_schema_map_content.items():
+        if Version.parse(stack_version, optional_minor_and_patch=True) == requested_version:
+            return {stack_version: schema_versions}
+
+    raise ValueError(f"No stack-schema-map entry found for custom rules package version {requested_version}")
+
+
 @custom_rules.command("setup-config")
 @click.argument("directory", type=Path)
 @click.argument("kibana-version", type=str, default=load_etc_dump(["packages.yaml"])["package"]["name"])
@@ -125,9 +138,8 @@ def setup_config(directory: Path, kibana_version: str, overwrite: bool, enable_p
 
     # Create the stack-schema-map.yaml file
     stack_schema_map_content = load_etc_dump(["stack-schema-map.yaml"])
-    latest_version = max(stack_schema_map_content.keys(), key=Version.parse)
-    latest_entry = {latest_version: stack_schema_map_content[latest_version]}
-    _ = stack_schema_map_config.write_text(yaml.safe_dump(latest_entry, default_flow_style=False))
+    stack_schema_map_entry = get_stack_schema_map_entry_for_version(stack_schema_map_content, kibana_version)
+    _ = stack_schema_map_config.write_text(yaml.safe_dump(stack_schema_map_entry, default_flow_style=False))
 
     # Create default packages.yaml
     package_content = {"package": {"name": kibana_version}}
