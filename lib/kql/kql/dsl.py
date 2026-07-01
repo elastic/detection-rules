@@ -16,14 +16,10 @@ from .errors import KqlCompileError
 _LUCENE_QUERY_STRING_SPECIALS = set('+-=&|><!(){}[]^"~*?:\\/')
 
 
-def _escape_query_string_wildcard(value) -> str:
+def _escape_query_string_wildcard(value: str) -> str:
     """Convert a KQL wildcard value into a Lucene query_string.query string."""
-
-    # Converts Python literal with `*` wildcards into a Lucene
-    # `query_string.query` string, escaping Lucene specials while preserving
-    # `*` as the wildcard marker. Mirrors Kibana's `toQueryStringQuery`.
-    if value is None:
-        return value
+    # Escapes Lucene specials while preserving `*` as the wildcard marker, mirroring
+    # Kibana's `toQueryStringQuery`. Only called for `Wildcard` nodes (always a string).
     escaped = []
     for char in value:
         if char == '*':
