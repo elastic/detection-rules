@@ -118,7 +118,9 @@ Options:
   -snv, --strip-none-values       Strip None values from the rule
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
-  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -di, --dates-import              Parse created_at and updated_at from the rule content
+  -lr, --use-existing-rule-dirs, --load-rule-loading
+                                  Enable arbitrary rule loading from the rules directories (Can be very slow!). `--load-rule-loading` is a deprecated alias kept for backwards compatibility.
   -h, --help                      Show this message and exit.
 ```
 
@@ -525,7 +527,8 @@ Options:
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -cro, --custom-rules-only       Only export custom rules
   -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
-  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -ud, -lr, --use-existing-rule-dirs, --load-rule-loading
+                                  Enable arbitrary local rule path usage from config rules directories (Can be very slow!). `--load-rule-loading` and `-lr` are deprecated aliases kept for backwards compatibility.
   -h, --help                      Show this message and exit.
 
 ```
