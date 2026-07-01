@@ -36,10 +36,13 @@ type = "esql"
 query = '''
 from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
 | where host.os.type == "windows" and winlog.provider_name == "MSSQLSERVER" and event.code == "33205" and
-  (
-    message RLIKE """.*CONVERT\\(INT,\\(SELECT (CHAR\\(\\d{1,3}\\)\\+){3,}.*""" or
-    message RLIKE """.*(CHAR\\(\\d{1,3}\\)\\+){3,}CHAR\\(\\d{1,3}\\).*""" or
-    message RLIKE """.*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*"""
+   (
+    message RLIKE ".*CONVERT\\(INT,\\(SELECT (CHAR\\(\\d{1,3}\\)\\+){3,}.*" or 
+    message RLIKE ".*(CHAR\\(\\d{1,3}\\)\\+){3,}CHAR\\(\\d{1,3}\\).*" or 
+    message RLIKE ".*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*" or
+    message RLIKE ".*WAITFOR DELAY \\'0:0:\\d+\\'.*" or
+    message RLIKE ".*;\\s*(EXEC|EXECUTE)\\s*\\(?\\s*(MASTER\\.)?\\.?XP_CMDSHELL.*" or
+    message RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*"
   )
 | eval Esql.original_message = message
 | keep
