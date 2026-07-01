@@ -56,9 +56,7 @@ def get_attack_file_path_for_version(version: str) -> Path:
         if path.name.split("-v", 1)[1][: -len(".json.gz")].split(".")[0] == major:
             return path
     available = [p.name.split("-v", 1)[1][: -len(".json.gz")] for p in attack_files]
-    raise FileNotFoundError(
-        f"No ATT&CK data file found for version {version!r}. Available: {available}"
-    )
+    raise FileNotFoundError(f"No ATT&CK data file found for version {version!r}. Available: {available}")
 
 
 _, _attack_path_base = str(get_attack_file_path()).split("-v")
@@ -122,8 +120,7 @@ sub_technique_id_list = [t for t in technique_lookup if "." in t]
 
 # Index of all ATT&CK gz files present in etc/, keyed by full version string (e.g. "18.1.0", "19.1").
 AVAILABLE_ATTACK_VERSIONS: dict[str, Path] = {
-    p.name.split("-v", 1)[1][: -len(".json.gz")]: p
-    for p in get_etc_glob_path(["attack-v*.json.gz"])
+    p.name.split("-v", 1)[1][: -len(".json.gz")]: p for p in get_etc_glob_path(["attack-v*.json.gz"])
 }
 
 

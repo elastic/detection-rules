@@ -238,8 +238,7 @@ class TestIdentityScaffold(unittest.TestCase):
                 self.assertEqual(
                     entry["name"],
                     expected,
-                    f"Scaffold technique {technique_id} has name '{entry['name']}' "
-                    f"instead of v19 name '{expected}'",
+                    f"Scaffold technique {technique_id} has name '{entry['name']}' instead of v19 name '{expected}'",
                 )
 
 

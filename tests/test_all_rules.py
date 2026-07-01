@@ -471,8 +471,7 @@ class TestThreatMappings(BaseRuleTest):
                 if bad:
                     self.fail(
                         f"{self.rule_str(rule)} threat_mappings v{versioned_block.version} "
-                        f"uses deprecated/revoked techniques: "
-                        + ", ".join(f"{k} ({v})" for k, v in bad.items())
+                        f"uses deprecated/revoked techniques: " + ", ".join(f"{k} ({v})" for k, v in bad.items())
                     )
 
 
