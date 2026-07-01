@@ -86,6 +86,69 @@ class ThreatMappingEnv:
             os.environ[THREAT_MAPPING_VERSION_ENV] = self._prev
 
 
+class TestThreatHashStability(unittest.TestCase):
+    """Hash stability: name changes must not trigger version bumps; ID changes must."""
+
+    def _load(self, rule_dict: dict[str, Any]):
+        return RuleCollection().load_dict({"metadata": _metadata(), "rule": rule_dict})
+
+    def _hash(self, rule_dict: dict[str, Any]) -> str:
+        return self._load(rule_dict).contents.get_hash()
+
+    def test_name_change_does_not_change_hash(self) -> None:
+        tactic_v18 = {
+            "id": "TA0005",
+            "name": "Defense Evasion",
+            "reference": "https://attack.mitre.org/tactics/TA0005/",
+        }
+        tactic_v19 = {"id": "TA0005", "name": "Stealth", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        rule_v18 = _rule()
+        rule_v18["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_v18, "technique": [tech]}]
+        rule_v19 = _rule()
+        rule_v19["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_v19, "technique": [tech]}]
+        self.assertEqual(self._hash(rule_v18), self._hash(rule_v19))
+
+    def test_tactic_id_change_changes_hash(self) -> None:
+        tactic_a = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tactic_b = {"id": "TA0002", "name": "Execution", "reference": "https://attack.mitre.org/tactics/TA0002/"}
+        tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        rule_a = _rule()
+        rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_a, "technique": [tech]}]
+        rule_b = _rule()
+        rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_b, "technique": [tech]}]
+        self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
+
+    def test_technique_id_change_changes_hash(self) -> None:
+        tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tech_a = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        tech_b = {"id": "T1027", "name": "Obfuscated Files", "reference": "https://attack.mitre.org/techniques/T1027/"}
+        rule_a = _rule()
+        rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_a]}]
+        rule_b = _rule()
+        rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_b]}]
+        self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
+
+    def test_technique_name_change_does_not_change_hash(self) -> None:
+        tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tech_old = {"id": "T1036", "name": "Old Name", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        tech_new = {"id": "T1036", "name": "New Name", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        rule_old = _rule()
+        rule_old["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_old]}]
+        rule_new = _rule()
+        rule_new["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_new]}]
+        self.assertEqual(self._hash(rule_old), self._hash(rule_new))
+
+    def test_removing_technique_changes_hash(self) -> None:
+        tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        with_tech = _rule()
+        with_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech]}]
+        without_tech = _rule()
+        without_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic}]
+        self.assertNotEqual(self._hash(with_tech), self._hash(without_tech))
+
+
 class TestVersionedThreatMappingSchema(unittest.TestCase):
     """Schema validation + build-time selection for `threat_mappings`."""
 

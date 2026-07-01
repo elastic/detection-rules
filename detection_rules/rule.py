@@ -1187,6 +1187,38 @@ AnyRuleData = (
 )
 
 
+def _normalize_threat_for_hash(threat: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Strip name fields from threat entries so tactic/technique renames don't affect the hash.
+
+    ID and reference are kept, so adding, removing, or changing an ID still triggers a version bump.
+    """
+    result: list[dict[str, Any]] = []
+    for entry in threat:
+        normalized: dict[str, Any] = {"framework": cast("str | None", entry.get("framework"))}
+        tactic = cast("dict[str, Any]", entry.get("tactic") or {})
+        normalized["tactic"] = {
+            "id": cast("str | None", tactic.get("id")),
+            "reference": cast("str | None", tactic.get("reference")),
+        }
+        techniques: list[dict[str, Any]] = []
+        for tech in cast("list[dict[str, Any]]", entry.get("technique") or []):
+            t: dict[str, Any] = {
+                "id": cast("str | None", tech.get("id")),
+                "reference": cast("str | None", tech.get("reference")),
+            }
+            subs: list[dict[str, Any]] = [
+                {"id": cast("str | None", sub.get("id")), "reference": cast("str | None", sub.get("reference"))}
+                for sub in cast("list[dict[str, Any]]", tech.get("subtechnique") or [])
+            ]
+            if subs:
+                t["subtechnique"] = subs
+            techniques.append(t)
+        if techniques:
+            normalized["technique"] = techniques
+        result.append(normalized)
+    return result
+
+
 class BaseRuleContents(ABC):
     """Base contents object for shared methods between active and deprecated rules."""
 
@@ -1418,6 +1450,12 @@ class BaseRuleContents(ABC):
         # non-deterministic (depend on integration schemas which vary by stack version)
         if self._uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
+
+        # Strip tactic/technique names so ATT&CK renames between versions (e.g. "Defense Evasion"
+        # -> "Stealth") don't trigger a version bump. ID and reference are preserved, so genuine
+        # mapping changes (added/removed entries, ID changes) still produce a new hash.
+        if hashable_dict.get("threat"):
+            hashable_dict["threat"] = _normalize_threat_for_hash(hashable_dict["threat"])
 
         return hashable_dict
 
