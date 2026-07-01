@@ -257,10 +257,17 @@ def kibana_import_rules(  # noqa: PLR0915
     ),
 )
 @click.option(
+    "--use-existing-rule-dirs",
     "--load-rule-loading",
+    "-ud",
     "-lr",
+    "use_existing_rule_dirs",
     is_flag=True,
-    help="Enable arbitrary rule loading from the rules directories (Can be very slow!)",
+    help=(
+        "Enable arbitrary local rule path usage from config rules directories (Can be very slow!). "
+        "This option was previously named --load-rule-loading; that name is kept as an alias "
+        "for backwards compatibility."
+    ),
 )
 @click.pass_context
 def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
@@ -281,7 +288,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
     local_updated_date: bool = False,
     custom_rules_only: bool = False,
     export_query: str | None = None,
-    load_rule_loading: bool = False,
+    use_existing_rule_dirs: bool = False,
 ) -> list[TOMLRule]:
     """Export rules from Kibana."""
 
@@ -296,7 +303,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
         raise click.UsageError("Cannot use --rule-id and --rule-name together. Please choose one.")
 
     raw_rule_collection = RawRuleCollection()
-    if load_rule_loading:
+    if use_existing_rule_dirs:
         raw_rule_collection = raw_rule_collection.default()
 
     with kibana:
@@ -388,7 +395,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 
             save_path = directory / f"{rule_name}"
 
-            # Get local rule data if load_rule_loading is enabled. If not enabled rules variable will be None.
+            # Get local rule data if use_existing_rule_dirs is enabled. If not enabled rules variable will be None.
             local_rule: dict[str, Any] = params.get("rule", {})
             input_rule_id: str | None = None
 
