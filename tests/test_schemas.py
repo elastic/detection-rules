@@ -255,6 +255,432 @@ class TestSchemas(unittest.TestCase):
                     process where process.pid == "some string field"
             """)
 
+    def test_empty_kuery_with_filters_is_valid_for_custom_rules(self):
+        """Filter-only KQL custom rules can load without a query (issue #6167)."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": [{"meta": {"negate": False}, "query": {"match_phrase": {"host.name": "test-host"}}}],
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            rule = TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+        self.assertEqual(rule.data.query, "")
+        self.assertIsNone(rule.data.validator)
+
+    def test_missing_kuery_with_filters_is_normalized_for_custom_rules(self):
+        """Missing filter-only KQL query is normalized to an empty string for export (issue #6167)."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": [{"meta": {"negate": False}, "query": {"match_phrase": {"host.name": "test-host"}}}],
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            rule = TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+        self.assertEqual(rule.data.query, "")
+        self.assertEqual(rule.to_dict()["rule"]["query"], "")
+
+    def test_empty_kuery_with_filters_is_invalid_for_prebuilt_rules(self):
+        """Empty KQL remains invalid outside custom filter-only rule loading."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": [{"meta": {"negate": False}, "query": {"match_phrase": {"host.name": "test-host"}}}],
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with (
+            unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", None),
+            self.assertRaises(ValidationError),
+        ):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_empty_kuery_without_filters_is_invalid_for_custom_rules(self):
+        """Custom KQL rules still require query text when no filters are present."""
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with (
+            unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"),
+            self.assertRaises(ValidationError),
+        ):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_kuery_with_nonempty_query_and_filters_valid(self):
+        """Kuery rule with a non-empty query and filters loads successfully as a custom rule."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "event.category:(network or network_traffic)",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_kuery_with_empty_query_and_filters_valid(self):
+        """Filter-only kuery rule with empty query and filters loads successfully as a custom rule."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", "custom-rules-dir"):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_empty_kuery_with_filters_invalid_without_custom_rules_dir(self):
+        """Filter-only kuery rule with empty query raises a ValidationError when CUSTOM_RULES_DIR is not set."""
+        filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "field": "Effective_process.pid",
+                    "index": "apm-*-transaction*,auditbeat-*,endgame-*,filebeat-*,logs-*,packetbeat-*,traces-apm*,winlogbeat-*,-*elastic-cloud-logs-*",
+                    "key": "Effective_process.pid",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "54321"},
+                },
+                "query": {"match_phrase": {"Effective_process.pid": "54321"}},
+            }
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "filters": filters,
+            "index": ["filebeat-*", "packetbeat-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "type": "query",
+        }
+        with (
+            unittest.mock.patch("detection_rules.rule.CUSTOM_RULES_DIR", None),
+            self.assertRaises(ValidationError),
+        ):
+            TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_threat_match_with_nonempty_threat_query_and_filters_valid(self):
+        """Threat match rule with a non-empty threat_query and threat_filters loads successfully as a custom rule."""
+        threat_filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "source.ip:* or destination.ip:*",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "threat_filters": threat_filters,
+            "threat_index": ["filebeat-*", "logs-ti_*"],
+            "threat_indicator_path": "threat.indicator",
+            "threat_language": "kuery",
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
+            "threat_query": "event.category:threat",
+            "type": "threat_match",
+        }
+        TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_threat_match_with_empty_threat_query_and_filters_valid(self):
+        """Threat match filter-only rule with empty threat_query and threat_filters loads successfully."""
+        threat_filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "source.ip:* or destination.ip:*",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "threat_filters": threat_filters,
+            "threat_index": ["filebeat-*", "logs-ti_*"],
+            "threat_indicator_path": "threat.indicator",
+            "threat_language": "kuery",
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
+            "threat_query": "",
+            "type": "threat_match",
+        }
+        TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+
+    def test_empty_threat_query_preserved_on_export_roundtrip(self):
+        """Empty threat_query with threat_filters survives a to_dict → from_dict round-trip (issue #6283)."""
+        threat_filters = [
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.category",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "threat"},
+                },
+                "query": {"match_phrase": {"event.category": "threat"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.kind",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "enrichment"},
+                },
+                "query": {"match_phrase": {"event.kind": "enrichment"}},
+            },
+            {
+                "$state": {"store": "appState"},
+                "meta": {
+                    "disabled": False,
+                    "key": "event.type",
+                    "negate": False,
+                    "type": "phrase",
+                    "params": {"query": "indicator"},
+                },
+                "query": {"match_phrase": {"event.type": "indicator"}},
+            },
+        ]
+        metadata = {
+            "creation_date": "1970/01/01",
+            "updated_date": "1970/01/01",
+            "min_stack_version": load_current_package_version(),
+        }
+        data = {
+            "author": ["Elastic"],
+            "description": "test description",
+            "index": ["filebeat-*", "logs-*"],
+            "language": "kuery",
+            "license": "Elastic License v2",
+            "name": "test rule",
+            "query": "source.ip:* or destination.ip:*",
+            "risk_score": 21,
+            "rule_id": str(uuid.uuid4()),
+            "severity": "low",
+            "threat_filters": threat_filters,
+            "threat_index": ["filebeat-*", "logs-ti_*"],
+            "threat_indicator_path": "threat.indicator",
+            "threat_language": "kuery",
+            "threat_mapping": [
+                {"entries": [{"field": "source.ip", "type": "mapping", "value": "threat.indicator.ip"}]}
+            ],
+            "threat_query": "",
+            "type": "threat_match",
+        }
+        rule = TOMLRuleContents.from_dict({"metadata": metadata, "rule": data})
+        self.assertEqual(rule.data.threat_query, "")
+
+        exported = rule.to_dict()
+        self.assertEqual(exported["rule"].get("threat_query"), "")
+
+        reimported = TOMLRuleContents.from_dict(exported)
+        self.assertEqual(reimported.data.threat_query, "")
+
     def test_response_actions_validation(self) -> None:
         """Test that response actions are properly validated in the schema."""
         base_fields: dict[str, Any] = {

@@ -131,13 +131,17 @@ def kibana_import_rules(  # noqa: PLR0915
         action_connector_validation_error = "Error validating create data"
         action_connector_type_error = "expected value of type [string] but got [undefined]"
         for error in response["errors"]:
-            error_message = error["error"]["message"]
-            click.echo(f" - {error['rule_id']}: ({error['error']['status_code']}) {error_message}")
+            error_details = error.get("error", {})
+            error_message = error_details.get("message", "<missing error message>")
+            status_code = error_details.get("status_code", "unknown status")
+            rule_id = error.get("rule_id")
+            display_rule_id = rule_id or "<unknown rule_id>"
+            click.echo(f" - {display_rule_id}: ({status_code}) {error_message}")
 
             if "references a non existent exception list" in error_message:
                 list_id = _parse_list_id(error_message)
-                if list_id in all_exception_list_ids:
-                    workaround_errors.append(error["rule_id"])
+                if list_id in all_exception_list_ids and rule_id:
+                    workaround_errors.append(rule_id)
                     workaround_error_types.add("non existent exception list")
 
             if action_connector_validation_error in error_message and action_connector_type_error in error_message:
