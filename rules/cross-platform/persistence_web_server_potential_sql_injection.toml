@@ -23,9 +23,9 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Web Server Potential SQL Injection Request"
-risk_score = 47
+risk_score = 73
 rule_id = "7f7a0ee1-7b6f-466a-85b4-110fb105f5e2"
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Web",
     "Use Case: Threat Detection",
@@ -43,29 +43,66 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where url.original like~ (
-  "*dbms_pipe.receive_message%28chr%*",
-  "*waitfor%20delay%20%270%3a0%3a*",
-  "*%28select%28sleep%285*", "*%28select%20*from%20pg_sleep%285*", "*%3bselect%20pg_sleep%285*",
-  "*and%20sleep%28*%29*", "*or%20sleep%28*%29*", "*case%20when*then%20sleep%28*", "*if%28sleep%28*%29*",
-  "*benchmark%28*%2c*%29*",
-  "*convert%28int%2c%28select%20char%28*",
-  "*char%28*char%28*char%28*char%28*", "*char(*char(*char(*char(*",
-  "*concat%28concat%28char%28*",
-  "*case%20when%20%28*%3d*%29%20then*else*end*",
-  "*elt%28*%3d*%2c1%29%29*",
-  "*union%20select%20null%2cnull*", "*union%20all%20select%20null*",
-  "*union%20all%20select%20*concat%28md5%28*",
-  "*extractvalue%28*concat%280x*", "*updatexml%28*concat%280x*",
-  "*%27%20or%20%271%27%3d%271*", "*%22%20or%20%221%22%3d%221*", "*%27%20or%20%27a%27%3d%27a*",
-  "*and%201%3d1--*", "*and%201%3d2--*",
-  "*%3bexec%20xp_cmdshell*", "*%3bexec%20master..xp_cmdshell*", "*xp_cmdshell*",
-  "*select%20*into%20outfile*", "*select%20*into%20dumpfile*",
-  "*load_file%28*", "*load%5ffile%28*",
-  "*select%20*from%20information_schema.tables*", "*from%20information_schema.columns%20where%20table_schema*",
-  "*dbms_pipe%2ereceive_message*", "*dbms_lock%2esleep*", "*dbms_lock.sleep*",
-  "*select%20@@version*", "*select%20user%28%29*", "*select%20current_user%28%29*", "*select%20database%28%29*",
-  "*sp_executesql%20*exec%20*", "*xp_dirtree*"
+any where (
+url.original like~ (
+    "*dbms_pipe.receive_message%28chr%*",
+    "*waitfor%20delay%20%270%3a0%3a*",
+    "*%28select%28sleep%285*", "*%28select%20*from%20pg_sleep%285*", "*%3bselect%20pg_sleep%285*",
+    "*and%20sleep%28*%29*", "*or%20sleep%28*%29*", "*case%20when*then%20sleep%28*", "*if%28sleep%28*%29*",
+    "*benchmark%28*%2c*md5%28*",
+    "*convert%28int%2c%28select%20char%28*",
+    "*char%28*char%28*char%28*char%28*",
+    "*concat%28concat%28char%28*",
+    "*case%20when%20%28*%3d*%29%20then*else*end*",
+    "*elt%28*%3d*%2c1%29%29*",
+    "*union%20select%20null%2cnull*", "*union%20all%20select%20null*",
+    "*union%20all%20select%20*concat%28md5%28*",
+    "*extractvalue%28*concat%280x*", "*updatexml%28*concat%280x*",
+    "*procedure%2f%2a%2a%2fanalyse%28extractvalue%28*",
+    "*gtid_subset%28concat%280x*", "*gtid_subtract%28concat%280x*",
+    "*mid%28ifnull%28session_user%28%29*",
+    "*'qq'%2b%28%28select%20@@version%29%29%2b'qq'*",
+    "*%27%20or%20%271%27%3d%271*", "*%22%20or%20%221%22%3d%221*", "*%27%20or%20%27a%27%3d%27a*",
+    "*and%201%3d1--*", "*and%201%3d2--*",
+    "*%29%3bselect*if%28%28ord%28mid%28*",
+    "*xp_cmdshell*",
+    "*select%20*into%20outfile*", "*select%20*into%20dumpfile*",
+    "*load_file%28*", "*load%5ffile%28*",
+    "*select%20*from%20information_schema.tables*", "*from%20information_schema.columns%20where%20table_schema*",
+    "*dbms_pipe%2ereceive_message*", "*dbms_lock%2esleep*",
+    "*select%20@@version*", "*select%20user%28%29*", "*select%20current_user%28%29*", "*select%20database%28%29*",
+    "*sp_executesql%20*exec%20*", "*xp_dirtree*"
+  )
+  or
+  url.query like~ (
+    "*dbms_pipe.receive_message(chr*",
+    "*waitfor delay '0:0:*",
+    "*(select(sleep(5*", "*(select*from pg_sleep(5*", "*;select pg_sleep(5*",
+    "*and sleep(*)*", "*or sleep(*)*", "*case when*then sleep(*", "*if(sleep(*)*",
+    "*benchmark(*,*md5(*",
+    "*convert(int,(select char(*",
+    "*char(*char(*char(*char(*",
+    "*concat(concat(char(*",
+    "*case when (*=*) then*else*end*",
+    "*elt(*=*,1))*",
+    "*union select null,null*", "*union all select null*",
+    "*union all select*concat(md5(*",
+    "*extractvalue(*concat(0x*", "*updatexml(*concat(0x*",
+    "*procedure/**/analyse(extractvalue(*",
+    "*gtid_subset(concat(0x*", "*gtid_subtract(concat(0x*",
+    "*mid(ifnull(session_user()*",
+    "*'qq'+((select @@version))+'qq'*",
+    "*' or '1'='1*", "*\" or \"1\"=\"1*", "*' or 'a'='a*",
+    "*and 1=1--*", "*and 1=2--*",
+    "*);select*if((ord(mid(*",
+    "*xp_cmdshell*",
+    "*select*into outfile*", "*select*into dumpfile*",
+    "*load_file(*",
+    "*select*from information_schema.tables*", "*from information_schema.columns where table_schema*",
+    "*dbms_pipe.receive_message*", "*dbms_lock.sleep*",
+    "*select @@version*", "*select user()*", "*select current_user()*", "*select database()*",
+    "*sp_executesql*exec*", "*xp_dirtree*"
+  )
 )
 '''
 
