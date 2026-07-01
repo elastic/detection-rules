@@ -376,6 +376,105 @@ class TestThreatMappings(BaseRuleTest):
                     f"Flatten to a single entry per tactic"
                 )
 
+    def test_versioned_threat_mappings_tactic_technique_correlations(self):
+        """Validate threat_mappings entries against their declared version's ATT&CK data."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue  # no local data for this version; validation skipped
+
+                for entry in versioned_block.threat:
+                    tactic = entry.tactic
+                    techniques = entry.technique or []
+                    version_label = f"v{versioned_block.version}"
+
+                    if tactic.name not in lookups.tactics_map:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"unknown ATT&CK tactic '{tactic.name}'"
+                        )
+
+                    expected_tactic_id = lookups.tactics_map[tactic.name]
+                    self.assertEqual(
+                        expected_tactic_id,
+                        tactic.id,
+                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                        f"tactic ID mismatch for '{tactic.name}': "
+                        f"expected {expected_tactic_id}, got {tactic.id}",
+                    )
+
+                    mismatched = [t.id for t in techniques if t.id not in lookups.matrix.get(tactic.name, [])]
+                    if mismatched:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"techniques {mismatched} not under tactic '{tactic.name}' "
+                            f"in ATT&CK {version_label}"
+                        )
+
+                    for technique in techniques:
+                        if technique.id not in lookups.technique_lookup:
+                            self.fail(
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"unknown ATT&CK technique ID '{technique.id}'"
+                            )
+                        expected_name = lookups.technique_lookup[technique.id]["name"]
+                        self.assertEqual(
+                            expected_name,
+                            technique.name,
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"technique name mismatch for {technique.id}: "
+                            f"expected '{expected_name}', got '{technique.name}'",
+                        )
+
+                        for sub in technique.subtechnique or []:
+                            if sub.id not in lookups.technique_lookup:
+                                self.fail(
+                                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                    f"unknown ATT&CK subtechnique ID '{sub.id}'"
+                                )
+                            expected_sub_name = lookups.technique_lookup[sub.id]["name"]
+                            self.assertEqual(
+                                expected_sub_name,
+                                sub.name,
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"subtechnique name mismatch for {sub.id}: "
+                                f"expected '{expected_sub_name}', got '{sub.name}'",
+                            )
+
+    def test_versioned_threat_mappings_deprecations(self):
+        """Check that threat_mappings entries don't use techniques deprecated in their declared version."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue
+
+                bad: dict[str, str] = {}
+                for entry in versioned_block.threat:
+                    for technique in entry.technique or []:
+                        if technique.id in lookups.revoked or technique.id in lookups.deprecated:
+                            bad[technique.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
+
+                if bad:
+                    self.fail(
+                        f"{self.rule_str(rule)} threat_mappings v{versioned_block.version} "
+                        f"uses deprecated/revoked techniques: "
+                        + ", ".join(f"{k} ({v})" for k, v in bad.items())
+                    )
+
 
 @unittest.skipIf(os.environ.get("DR_BYPASS_TAGS_VALIDATION") is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):

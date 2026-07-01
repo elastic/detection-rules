@@ -33,14 +33,32 @@ def load_techniques_redirect() -> dict[str, Any]:
     return json.loads(TECHNIQUES_REDIRECT_FILE.read_text())["mapping"]
 
 
+def _attack_file_version(path: Path) -> Version:
+    """Extract the semver from an ATT&CK gz filename for sorting."""
+    ver = path.name.split("-v", 1)[1][: -len(".json.gz")]
+    return Version.parse(ver, optional_minor_and_patch=True)
+
+
 def get_attack_file_path() -> Path:
+    """Return the baseline ATT&CK data file (lowest available version)."""
     pattern = "attack-v*.json.gz"
-    attack_file = get_etc_glob_path([pattern])
-    if len(attack_file) < 1:
+    attack_files = get_etc_glob_path([pattern])
+    if not attack_files:
         raise FileNotFoundError(f"Missing required {pattern} file")
-    if len(attack_file) != 1:
-        raise FileExistsError(f"Multiple files found with {pattern} pattern. Only one is allowed")
-    return Path(attack_file[0])
+    return min(attack_files, key=_attack_file_version)
+
+
+def get_attack_file_path_for_version(version: str) -> Path:
+    """Return the ATT&CK data file whose major version matches ``version``."""
+    major = version.split(".")[0]
+    attack_files = get_etc_glob_path(["attack-v*.json.gz"])
+    for path in sorted(attack_files, key=_attack_file_version, reverse=True):
+        if path.name.split("-v", 1)[1][: -len(".json.gz")].split(".")[0] == major:
+            return path
+    available = [p.name.split("-v", 1)[1][: -len(".json.gz")] for p in attack_files]
+    raise FileNotFoundError(
+        f"No ATT&CK data file found for version {version!r}. Available: {available}"
+    )
 
 
 _, _attack_path_base = str(get_attack_file_path()).split("-v")
@@ -101,6 +119,77 @@ technique_lookup = OrderedDict(sorted(technique_lookup.items()))
 techniques = sorted({v["name"] for _, v in technique_lookup.items()})
 technique_id_list = [t for t in technique_lookup if "." not in t]
 sub_technique_id_list = [t for t in technique_lookup if "." in t]
+
+# Index of all ATT&CK gz files present in etc/, keyed by full version string (e.g. "18.1.0", "19.1").
+AVAILABLE_ATTACK_VERSIONS: dict[str, Path] = {
+    p.name.split("-v", 1)[1][: -len(".json.gz")]: p
+    for p in get_etc_glob_path(["attack-v*.json.gz"])
+}
+
+
+@dataclass
+class AttackLookups:
+    """Pre-built ATT&CK lookup structures for a specific version."""
+
+    version: str
+    tactics_map: dict[str, str]
+    technique_lookup: OrderedDict  # type: ignore[type-arg]
+    revoked: dict[str, Any]
+    deprecated: dict[str, Any]
+    matrix: dict[str, list[str]]
+
+
+def _build_lookups(version: str, raw: dict[str, Any]) -> AttackLookups:
+    """Build ATT&CK lookup structures from raw STIX data."""
+    _tactics_map: dict[str, str] = {}
+    _technique_lookup: dict[str, Any] = {}
+    _revoked: dict[str, Any] = {}
+    _deprecated: dict[str, Any] = {}
+
+    for item in raw["objects"]:
+        if item["type"] == "x-mitre-tactic":
+            _tactics_map[item["name"]] = item["external_references"][0]["external_id"]
+        if item["type"] == "attack-pattern" and item["external_references"][0]["source_name"] == "mitre-attack":
+            tid = item["external_references"][0]["external_id"]
+            _technique_lookup[tid] = item
+            if item.get("revoked"):
+                _revoked[tid] = item
+            if item.get("x_mitre_deprecated"):
+                _deprecated[tid] = item
+
+    _tactics_list = list(_tactics_map)
+    _matrix: dict[str, list[str]] = {t: [] for t in _tactics_list}
+    for tid, technique in sorted(_technique_lookup.items(), key=lambda kv: kv[1]["name"].lower()):
+        kill_chain = technique.get("kill_chain_phases")
+        if kill_chain:
+            for phase in kill_chain:
+                if phase["kill_chain_name"] != "mitre-attack":
+                    continue
+                tactic_name = next(
+                    (t for t in _tactics_list if t.lower() == phase["phase_name"].replace("-", " ")),
+                    None,
+                )
+                if tactic_name:
+                    _matrix[tactic_name].append(tid)
+    for val in _matrix.values():
+        val.sort(key=lambda t: _technique_lookup[t]["name"].lower())
+
+    return AttackLookups(
+        version=version,
+        tactics_map=_tactics_map,
+        technique_lookup=OrderedDict(sorted(_technique_lookup.items())),
+        revoked=dict(sorted(_revoked.items())),
+        deprecated=dict(sorted(_deprecated.items())),
+        matrix=_matrix,
+    )
+
+
+@cached
+def build_attack_lookups_for_version(version: str) -> AttackLookups:
+    """Load and cache ATT&CK lookup structures for a specific version."""
+    path = get_attack_file_path_for_version(version)
+    raw = json.loads(read_gzip(path))
+    return _build_lookups(version, raw)
 
 
 def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes | None]:
@@ -377,35 +466,65 @@ def get_attack_version_map(
 
 
 def build_identity_version_map(framework: str, source_version: str, target_version: str) -> dict[str, Any]:
-    """Build an identity (passthrough) mapping skeleton from the currently loaded ATT&CK data."""
+    """Build a cross-version identity skeleton using source IDs and target-version names."""
+    # Source data: determines which IDs appear as source keys.
+    try:
+        src = build_attack_lookups_for_version(source_version)
+        _src_tactics_map = src.tactics_map
+        _src_technique_lookup = src.technique_lookup
+        _src_revoked = src.revoked
+        _src_deprecated = src.deprecated
+    except FileNotFoundError:
+        _src_tactics_map = tactics_map
+        _src_technique_lookup = technique_lookup
+        _src_revoked = revoked
+        _src_deprecated = deprecated
+
+    # Target data: resolves destination names/references where the same ID exists.
+    try:
+        tgt = build_attack_lookups_for_version(target_version)
+        _tgt_tactic_id_to_name: dict[str, str] = {v: k for k, v in tgt.tactics_map.items()}
+        _tgt_technique_lookup: dict[str, Any] = dict(tgt.technique_lookup)
+    except FileNotFoundError:
+        _tgt_tactic_id_to_name = {}
+        _tgt_technique_lookup = {}
+
     url_base = "https://attack.mitre.org/{type}/{id}/"
-    tactics = {
-        tactic_id: {"id": tactic_id, "name": name, "reference": url_base.format(type="tactics", id=tactic_id)}
-        for name, tactic_id in tactics_map.items()
+
+    # Tactics: source IDs as keys, target name if the ID still exists in the target version.
+    out_tactics: dict[str, dict[str, str]] = {
+        tactic_id: {
+            "id": tactic_id,
+            "name": _tgt_tactic_id_to_name.get(tactic_id, name),
+            "reference": url_base.format(type="tactics", id=tactic_id),
+        }
+        for name, tactic_id in _src_tactics_map.items()
     }
 
-    techniques: dict[str, dict[str, str]] = {}
-    subtechniques: dict[str, dict[str, str]] = {}
-    for technique_id, item in technique_lookup.items():
-        if technique_id in revoked or technique_id in deprecated:
+    # Techniques and subtechniques: source IDs as keys, target name if available.
+    out_techniques: dict[str, dict[str, str]] = {}
+    out_subtechniques: dict[str, dict[str, str]] = {}
+    for technique_id, item in _src_technique_lookup.items():
+        if technique_id in _src_revoked or technique_id in _src_deprecated:
             continue
-        entry = {
+        tgt_item = _tgt_technique_lookup.get(technique_id, item)
+        entry: dict[str, str] = {
             "id": technique_id,
-            "name": item["name"],
+            "name": tgt_item["name"],
             "reference": url_base.format(type="techniques", id=technique_id.replace(".", "/")),
         }
         if "." in technique_id:
-            subtechniques[technique_id] = entry
+            out_subtechniques[technique_id] = entry
         else:
-            techniques[technique_id] = entry
+            out_techniques[technique_id] = entry
 
     return {
         "framework": framework,
         "source_version": source_version,
         "target_version": target_version,
-        "tactics": dict(sorted(tactics.items())),
-        "techniques": dict(sorted(techniques.items())),
-        "subtechniques": dict(sorted(subtechniques.items())),
+        "tactics": dict(sorted(out_tactics.items())),
+        "techniques": dict(sorted(out_techniques.items())),
+        "subtechniques": dict(sorted(out_subtechniques.items())),
     }
 
 

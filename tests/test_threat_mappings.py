@@ -204,6 +204,44 @@ class TestIdentityScaffold(unittest.TestCase):
             self.assertNotIn(revoked_id, skeleton["techniques"])
             self.assertNotIn(revoked_id, skeleton["subtechniques"])
 
+    def test_scaffold_uses_v18_source_keys(self) -> None:
+        """Source keys must come from v18; new v19-only IDs must not appear as source keys."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
+        v18_lookups = attack.build_attack_lookups_for_version("18")
+        v19_lookups = attack.build_attack_lookups_for_version("19")
+        # TA0112 is new in v19; it must not appear as a source key in a v18->v19 map
+        v19_only_tactics = set(v19_lookups.tactics_map.values()) - set(v18_lookups.tactics_map.values())
+        for tactic_id in v19_only_tactics:
+            self.assertNotIn(tactic_id, skeleton["tactics"])
+
+    def test_scaffold_uses_v19_tactic_names(self) -> None:
+        """Tactic names in the scaffold must come from v19, not v18."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
+        v19_lookups = attack.build_attack_lookups_for_version("19")
+        v19_tactic_id_to_name = {v: k for k, v in v19_lookups.tactics_map.items()}
+        for tactic_id, entry in skeleton["tactics"].items():
+            if tactic_id in v19_tactic_id_to_name:
+                self.assertEqual(
+                    entry["name"],
+                    v19_tactic_id_to_name[tactic_id],
+                    f"Scaffold tactic {tactic_id} has v18 name '{entry['name']}' "
+                    f"instead of v19 name '{v19_tactic_id_to_name[tactic_id]}'",
+                )
+
+    def test_scaffold_uses_v19_technique_names(self) -> None:
+        """Technique names that exist in v19 must reflect the v19 name."""
+        skeleton = attack.build_identity_version_map("MITRE ATT&CK", "18", "19")
+        v19_lookups = attack.build_attack_lookups_for_version("19")
+        for technique_id, entry in skeleton["techniques"].items():
+            if technique_id in v19_lookups.technique_lookup:
+                expected = v19_lookups.technique_lookup[technique_id]["name"]
+                self.assertEqual(
+                    entry["name"],
+                    expected,
+                    f"Scaffold technique {technique_id} has name '{entry['name']}' "
+                    f"instead of v19 name '{expected}'",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
