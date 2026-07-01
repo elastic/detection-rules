@@ -76,7 +76,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | GROK aws.cloudtrail.request_parameters "[Cc]ontent=(?<script_b64>[A-Za-z0-9+/=]+)"
 | EVAL Esql_priv.aws_cloudtrail_lifecycle_script = FROM_BASE64(script_b64)
 | WHERE TO_LOWER(Esql_priv.aws_cloudtrail_lifecycle_script) RLIKE """.*(/dev/tcp/|/dev/udp/|bash -i|sh -i|nc -e|ncat |socat |mkfifo|169\.254\.169\.254|/latest/meta-data/|/latest/api/token|\| ?sh|\| ?bash|base64 -d|import socket|pty\.spawn|perl -e|ruby -rsocket|php -r|xmrig|minerd|stratum\+|authorized_keys|/etc/cron|crontab ).*"""
-| KEEP _id, _version, _index, @timestamp, aws.cloudtrail.user_identity.arn, aws.cloudtrail.user_identity.type, source.ip, cloud.account.id, event.action, Esql_priv.aws_cloudtrail_lifecycle_script, aws.cloudtrail.request_parameters
+| KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*, Esql_priv.aws_cloudtrail_lifecycle_script
 '''
 
 
