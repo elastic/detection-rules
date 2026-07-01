@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -306,9 +306,9 @@ class VersionedThreatMapping(MarshmallowDataclassMixin):
     @validates_schema
     def validate_framework_agreement(self, data: dict[str, Any], **_: Any) -> None:
         """Ensure inner threat entries use the same framework as the versioned wrapper."""
-        framework = data.get("framework")
-        for entry in data.get("threat") or []:
-            entry_framework = entry["framework"] if isinstance(entry, dict) else entry.framework
+        framework = cast(str | None, data.get("framework"))
+        for entry in cast(list[dict[str, Any] | ThreatMapping], data.get("threat") or []):
+            entry_framework = cast(str, entry["framework"] if isinstance(entry, dict) else entry.framework)
             if entry_framework != framework:
                 raise ValidationError(
                     f"threat_mappings entry for {framework} version {data.get('version')} contains a "
@@ -540,10 +540,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return
 
         seen: set[tuple[str, str]] = set()
-        for entry in threat_mappings:
-            framework = entry["framework"] if isinstance(entry, dict) else entry.framework
-            version = entry["version"] if isinstance(entry, dict) else entry.version
-            key = (framework, version)
+        for entry in cast(list[dict[str, Any] | VersionedThreatMapping], threat_mappings):
+            framework = cast(str, entry["framework"] if isinstance(entry, dict) else entry.framework)
+            version = cast(str, entry["version"] if isinstance(entry, dict) else entry.version)
+            key: tuple[str, str] = (framework, version)
             if key in seen:
                 raise ValidationError(
                     f"Duplicate threat_mappings entry for framework '{framework}' version '{version}'"
