@@ -42,7 +42,9 @@ from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _
     message RLIKE ".*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*" or
     message RLIKE ".*WAITFOR DELAY \\'0:0:\\d+\\'.*" or
     message RLIKE ".*;\\s*(EXEC|EXECUTE)\\s*\\(?\\s*(MASTER\\.)?\\.?XP_CMDSHELL.*" or
-    message RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*"
+    message RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*" or
+    message RLIKE ".*'\\w*'\\s*\\+\\s*\\(\\(SELECT @@VERSION\\)\\)\\s*\\+\\s*'\\w*'.*" or
+    message RLIKE ".*(OR|AND)\\s+'?\\d+'?\\s*=\\s*'?\\d+'?\\s*--.*"
   )
 | eval Esql.original_message = message
 | keep
@@ -56,7 +58,8 @@ from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _
     Esql.original_message,
     _id,
     _version,
-    _index
+    _index,
+    data_stream.namespace
 '''
 
 note = """## Triage and analysis
