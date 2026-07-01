@@ -1893,8 +1893,7 @@ def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> l
     "config_paths",
     multiple=True,
     type=Path,
-    help="Explicit mapping config file(s) or directory(ies). Defaults to the configured "
-    "`attack_version_maps_dir`.",
+    help="Explicit mapping config file(s) or directory(ies). Defaults to the configured `attack_version_maps_dir`.",
 )
 @click.option("--dry-run", is_flag=True, help="Report what would change without writing any files")
 @click.option(
@@ -1921,9 +1920,7 @@ def convert_threat_mappings(  # noqa: PLR0913
         )
 
     try:
-        vmap = attack.get_attack_version_map(
-            framework, source_version, target_version, list(config_paths) or None
-        )
+        vmap = attack.get_attack_version_map(framework, source_version, target_version, list(config_paths) or None)
     except (FileNotFoundError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -1945,9 +1942,7 @@ def convert_threat_mappings(  # noqa: PLR0913
             continue
 
         existing_blocks = list(rule.contents.data.threat_mappings or [])
-        has_target = any(
-            b.framework == framework and str(b.version) == str(target_version) for b in existing_blocks
-        )
+        has_target = any(b.framework == framework and str(b.version) == str(target_version) for b in existing_blocks)
         if has_target and not overwrite:
             skipped_existing += 1
             continue
@@ -1971,9 +1966,7 @@ def convert_threat_mappings(  # noqa: PLR0913
             {"framework": framework, "version": str(target_version), "threat": threat_dicts}
         )
         remaining = [
-            b
-            for b in existing_blocks
-            if not (b.framework == framework and str(b.version) == str(target_version))
+            b for b in existing_blocks if not (b.framework == framework and str(b.version) == str(target_version))
         ]
         new_blocks = sorted([*remaining, block], key=lambda b: (b.framework, b.version))
 
