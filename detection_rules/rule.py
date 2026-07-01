@@ -550,6 +550,16 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
                 )
             seen.add(key)
 
+    def get_primary_tactic_names(self) -> list[str]:
+        """Return the primary tactic name from the baseline threat and every threat_mappings block."""
+        names: list[str] = []
+        if self.threat:
+            names.append(self.threat[0].tactic.name)
+        for versioned_block in self.threat_mappings or []:
+            if versioned_block.threat and versioned_block.threat[0].tactic.name not in names:
+                names.append(versioned_block.threat[0].tactic.name)
+        return names
+
 
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""

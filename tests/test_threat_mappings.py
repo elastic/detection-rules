@@ -190,6 +190,24 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self._load(_rule(threat_mappings=[block]))
 
+    def test_get_primary_tactic_names_baseline_only(self) -> None:
+        rule = self._load(_rule())
+        self.assertEqual(rule.contents.data.get_primary_tactic_names(), ["Initial Access"])
+
+    def test_get_primary_tactic_names_includes_versioned_blocks(self) -> None:
+        v19_tactic = {
+            "id": "TA0005",
+            "name": "Stealth",
+            "reference": "https://attack.mitre.org/tactics/TA0005/",
+        }
+        block = {
+            "framework": "MITRE ATT&CK",
+            "version": "19",
+            "threat": [{"framework": "MITRE ATT&CK", "tactic": v19_tactic, "technique": [TECH_V19]}],
+        }
+        rule = self._load(_rule(threat_mappings=[block]))
+        self.assertEqual(rule.contents.data.get_primary_tactic_names(), ["Initial Access", "Stealth"])
+
 
 class TestAttackVersionMapLoader(unittest.TestCase):
     """Loading and lookups for the mapping config files."""

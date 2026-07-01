@@ -586,11 +586,14 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
+
+                # Accept a primary-tactic tag matching the baseline or any versioned (e.g. v19)
+                # threat_mappings tactic name, since renamed tactics (e.g. Stealth) are still valid.
+                primary_tactic_candidates = {f"Tactic: {name}" for name in rule.contents.data.get_primary_tactic_names()}
 
                 # missing primary tactic
-                if primary_tactic not in rule.contents.data.tags:
-                    missing.append(primary_tactic)
+                if not primary_tactic_candidates.intersection(rule.contents.data.tags):
+                    missing.append(sorted(primary_tactic_candidates))
 
                 # listed tactic that is not in threat mapping
                 tag_tactics = set(rule_tags).intersection(tactics)
@@ -599,7 +602,7 @@ class TestRuleTags(BaseRuleTest):
                 if missing or missing_from_threat:
                     err_msg = self.rule_str(rule)
                     if missing:
-                        err_msg += f"\n    expected: {missing}"
+                        err_msg += f"\n    expected one of: {missing}"
                     if missing_from_threat:
                         err_msg += f"\n    unexpected (or missing from threat mapping): {missing_from_threat}"
 
@@ -739,11 +742,14 @@ class TestRuleFiles(BaseRuleTest):
             authors = rule.contents.data.author
 
             if threat and "Elastic" in authors:
-                primary_tactic = threat[0].tactic.name
-                tactic_str = primary_tactic.lower().replace(" ", "_")
+                # Accept the baseline tactic name or any versioned (e.g. v19) threat_mappings tactic
+                # name, so a rule isn't forced to rename its file until it's actually migrated.
+                primary_tactics = rule.contents.data.get_primary_tactic_names()
+                tactic_strs = [t.lower().replace(" ", "_") for t in primary_tactics]
 
-                if tactic_str != filename[: len(tactic_str)]:
-                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}")
+                if not any(filename.startswith(tactic_str) for tactic_str in tactic_strs):
+                    expected = " or ".join(tactic_strs)
+                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {expected}")
 
         if bad_name_rules:
             error_msg = "filename does not start with the primary tactic - update the tactic or the rule filename"
