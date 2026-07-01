@@ -50,7 +50,7 @@ def get_attack_file_path() -> Path:
 
 def get_attack_file_path_for_version(version: str) -> Path:
     """Return the ATT&CK data file whose major version matches ``version``."""
-    major = version.split(".")[0]
+    major = version.split(".", maxsplit=1)[0]
     attack_files = get_etc_glob_path(["attack-v*.json.gz"])
     for path in sorted(attack_files, key=_attack_file_version, reverse=True):
         if path.name.split("-v", 1)[1][: -len(".json.gz")].split(".")[0] == major:
