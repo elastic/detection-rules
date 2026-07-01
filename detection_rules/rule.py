@@ -306,9 +306,9 @@ class VersionedThreatMapping(MarshmallowDataclassMixin):
     @validates_schema
     def validate_framework_agreement(self, data: dict[str, Any], **_: Any) -> None:
         """Ensure inner threat entries use the same framework as the versioned wrapper."""
-        framework = cast(str | None, data.get("framework"))
-        for entry in cast(list[dict[str, Any] | ThreatMapping], data.get("threat") or []):
-            entry_framework = cast(str, entry["framework"] if isinstance(entry, dict) else entry.framework)
+        framework = cast("str | None", data.get("framework"))
+        for entry in cast("list[dict[str, Any] | ThreatMapping]", data.get("threat") or []):
+            entry_framework = cast("str", entry["framework"] if isinstance(entry, dict) else entry.framework)
             if entry_framework != framework:
                 raise ValidationError(
                     f"threat_mappings entry for {framework} version {data.get('version')} contains a "
@@ -540,9 +540,9 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
             return
 
         seen: set[tuple[str, str]] = set()
-        for entry in cast(list[dict[str, Any] | VersionedThreatMapping], threat_mappings):
-            framework = cast(str, entry["framework"] if isinstance(entry, dict) else entry.framework)
-            version = cast(str, entry["version"] if isinstance(entry, dict) else entry.version)
+        for entry in cast("list[dict[str, Any] | VersionedThreatMapping]", threat_mappings):
+            framework = cast("str", entry["framework"] if isinstance(entry, dict) else entry.framework)
+            version = cast("str", entry["version"] if isinstance(entry, dict) else entry.version)
             key: tuple[str, str] = (framework, version)
             if key in seen:
                 raise ValidationError(
