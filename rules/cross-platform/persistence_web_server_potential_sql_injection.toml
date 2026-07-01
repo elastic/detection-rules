@@ -39,7 +39,8 @@ tags = [
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
     "Data Source: Traefik",
-    "Data Source: Zeek"
+    "Data Source: Zeek", 
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -106,6 +107,52 @@ url.original like~ (
   )
 )
 '''
+note = """## Triage and analysis
+
+### Investigating Web Server Potential SQL Injection Request
+
+SQL injection (SQLi) attempts to manipulate backend database queries via unsanitized
+input passed through web request parameters. This rule flags requests whose URL or
+query string contains structural patterns characteristic of automated SQLi tooling
+(sqlmap and similar) or manual exploitation techniques, spanning boolean-blind,
+time-based, error-based, and UNION-based extraction methods across MySQL, MSSQL,
+PostgreSQL, and Oracle syntax.
+
+#### Possible investigation steps
+
+- Identify the full request and response context:
+  - `url.original` / `url.query` — full injected payload
+  - `http.request.method`, `http.response.status_code` — was the request accepted (2xx) or rejected (4xx/5xx/WAF block)?
+  - `source.ip`, `source.as.organization.name`, `source.geo.*` — is this a known scanner IP, hosting/VPS ASN, or unexpected geography for this application's userbase?
+  - `user_agent.original` — check for tool signatures (`sqlmap`, `Assetnote`, `Nessus`, `Nuclei`, etc.) vs. a spoofed browser UA
+- Determine which SQLi technique is present, since it changes the likely intent and next steps:
+  - **Boolean-blind** (`AND 1=1--`, `CASE WHEN...THEN...ELSE`) — attacker inferring true/false conditions one bit/char at a time; usually high request volume against the same parameter
+  - **Time-based blind** (`SLEEP`, `BENCHMARK`, `WAITFOR DELAY`, `pg_sleep`) — look for abnormal response latency on matching requests to confirm exploitation succeeded vs. was blocked
+  - **Error-based** (`EXTRACTVALUE`, `UPDATEXML`, `GTID_SUBSET`, `CONVERT(INT,...)`) — check `http.response.status_code`/body for a 500 or a reflected DB error message; if present, the attacker likely received leaked data directly
+  - **UNION-based** (`UNION SELECT NULL,...`, `UNION ALL SELECT...CONCAT(MD5(...`) — attacker is enumerating column count or confirming a reflection point to pull data directly into the page body
+  - **Stacked queries** (`;SELECT...`, `;EXEC xp_cmdshell`) — most severe; if the DB driver allows multiple statements, this can lead to command execution (`xp_cmdshell`) rather than just data disclosure
+- Pivot on the target parameter and endpoint (e.g. `url.path`, the specific query-string key such as `id=`, `sort=`, `column=`) to see:
+  - How many distinct payloads/techniques were tried against the same parameter (suggests automated technique-fuzzing by a single tool run)
+  - Whether the same `source.ip` hit multiple endpoints/parameters (broader scan) or repeatedly refined one payload (targeted exploitation attempt)
+- Check for a correlated spike in requests from the same IP/ASN in a tight time window — sqlmap and similar tools generate many rapid, near-identical requests when fuzzing technique/column count/character position.
+- If the backend database technology is known, cross-check the payload's SQL dialect (MySQL vs. MSSQL vs. PostgreSQL functions) against what the application actually runs — a payload using the wrong dialect's functions will simply error out and fail, lowering severity.
+- If available, correlate with database-side audit logs (e.g. MSSQL Audit `event.code: 33205`, slow query logs) for the same timeframe/client IP to confirm whether the payload actually reached and executed against the database.
+
+### False positive analysis
+
+- **Vulnerability scanners and security tooling** are the most common source of noise: Assetnote, Burp Suite, Qualys, Nessus, Acunetix, and similar tools intentionally send these exact payloads as part of authorized scanning. Check `user_agent.original` for scanner signatures and cross-reference `source.ip`/ASN against your organization's known scanning infrastructure or third-party ASM vendor.
+- Legitimate application traffic containing SQL-like keywords is rare given the specificity of these patterns (chained `CHAR()` calls, `ELT(n=n,1)` self-comparisons, hex-delimited `CONCAT`), but verify against applications that accept raw SQL fragments as legitimate input (e.g., internal admin/reporting tools with a "custom query" field) if any exist in your environment.
+- Consider adding a suppression/exception for confirmed, recurring authorized scanning sources rather than tuning the query patterns themselves, to avoid reducing detection coverage against real attackers using the same tools.
+
+### Response and remediation
+
+- If the request reached the application layer unblocked (`event.outcome: success` / 2xx response) and the payload matches an error-based or UNION-based technique, treat as a potential confirmed data exposure — check application/database logs for evidence of returned sensitive data.
+- If a stacked-query or `xp_cmdshell` payload succeeded, escalate immediately — this can lead to OS-level command execution, not just data disclosure.
+- Validate that the affected endpoint uses parameterized queries/prepared statements; SQL injection at this scale of tooling almost always indicates raw string concatenation in the query layer.
+- If exploitation is confirmed, review the database account's privileges used by the web application (least privilege should prevent `xp_cmdshell`, `INFORMATION_SCHEMA` enumeration, or cross-database access even if injection succeeds).
+- Block or rate-limit the source IP/ASN at the WAF or reverse proxy if not already filtered, and consider a virtual-patch WAF rule for the specific vulnerable parameter while the application fix is developed.
+- Review other requests from the same source IP across the retention window for prior reconnaissance (e.g., directory enumeration, parameter fuzzing) that may have preceded the injection attempt.
+"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
