@@ -1,0 +1,68 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a potential privilege escalation sequence via a parent/child process relationship. This rule checks
+for non-root execution of a parent process executable in a user or world-writeable directory by a non-root user
+followed by a UID change event to 0 (root) by the child process. This sequence is indicative of a potential
+local privilege escalation exploit.
+"""
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via a Parent/Child Process Sequence"
+note = """
+"""
+risk_score = 73
+rule_id = "9679c838-ec24-4e3a-bf0b-68a9878828c3"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by host.id with maxspan=15s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  user.id != 0 and process.parent.user.id != 0 and process.parent.group.id != 0 and
+  (
+    process.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/user/*", "/var/run/user/*", "/home/*/*") or
+    process.parent.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/home/*/*", "/run/user/*", "/var/run/user/*")
+  )] by process.entity_id
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "uid_change" and
+  user.id == 0 and process.parent.user.id != 0 and process.parent.group.id != 0 and
+  not process.executable in ("/usr/bin/sudo", "/bin/sudo")] by process.parent.entity_id
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
