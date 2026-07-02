@@ -35,16 +35,17 @@ type = "esql"
 
 query = '''
 from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
-| where host.os.type == "windows" and winlog.provider_name == "MSSQLSERVER" and event.code == "33205" and
-   (
-    message RLIKE ".*CONVERT\\(INT,\\(SELECT (CHAR\\(\\d{1,3}\\)\\+){3,}.*" or 
-    message RLIKE ".*(CHAR\\(\\d{1,3}\\)\\+){3,}CHAR\\(\\d{1,3}\\).*" or 
-    message RLIKE ".*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*" or
-    message RLIKE ".*WAITFOR DELAY \\'0:0:\\d+\\'.*" or
-    message RLIKE ".*;\\s*(EXEC|EXECUTE)\\s*\\(?\\s*(MASTER\\.)?\\.?XP_CMDSHELL.*" or
-    message RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*" or
-    message RLIKE ".*'\\w*'\\s*\\+\\s*\\(\\(SELECT @@VERSION\\)\\)\\s*\\+\\s*'\\w*'.*" or
-    message RLIKE ".*(OR|AND)\\s+'?\\d+'?\\s*=\\s*'?\\d+'?\\s*--.*"
+| where host.os.type == "windows" and winlog.provider_name like "MSSQL*" and event.code == "33205"
+| EVAL message_upper = TO_UPPER(message)
+| where (
+    message_upper RLIKE ".*CONVERT\\(INT,\\(SELECT (CHAR\\(\\d{1,3}\\)\\+){3,}.*" or 
+    message_upper RLIKE ".*(CHAR\\(\\d{1,3}\\)\\+){3,}CHAR\\(\\d{1,3}\\).*" or 
+    message_upper RLIKE ".*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*" or
+    message_upper RLIKE ".*WAITFOR DELAY \\'0:0:\\d+\\'.*" or
+    message_upper RLIKE ".*;\\s*(EXEC|EXECUTE)\\s*\\(?\\s*(MASTER\\.)?\\.?XP_CMDSHELL.*" or
+    message_upper RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*" or
+    message_upper RLIKE ".*'\\w*'\\s*\\+\\s*\\(\\(SELECT @@VERSION\\)\\)\\s*\\+\\s*'\\w*'.*" or
+    message_upper RLIKE ".*(OR|AND)\\s+'?\\d+'?\\s*=\\s*'?\\d+'?\\s*--.*"
   )
 | eval Esql.original_message = message
 | keep
@@ -60,6 +61,8 @@ from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _
     _version,
     _index,
     data_stream.namespace
+    
+| limit 10
 '''
 
 note = """## Triage and analysis
