@@ -41,6 +41,7 @@ from .index_mappings import (
     prepare_mappings,
 )
 from .integrations import (
+    find_latest_integration_patch_for_minor,
     get_integration_schema_data,
     load_integrations_manifests,
     parse_datasets,
@@ -851,10 +852,15 @@ class ESQLValidator(QueryValidator):
                 misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
                 misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
             ):
+                query = data.query
+                # QueryRuleData permits None for custom filter-only KQL rules; ES|QL still requires a query.
+                if query is None:
+                    raise ValueError("ES|QL remote validation requires a query.")
+
                 _ = self.remote_validate_rule(
                     kibana_client,
                     elastic_client,
-                    data.query,
+                    query,
                     rule_meta,
                     data.rule_id,
                 )
@@ -924,8 +930,18 @@ class ESQLValidator(QueryValidator):
         # mismatch error, as the EsqlSchemaError and EsqlSyntaxError errors from the stack
         # will not be impacted by the difference in schema type mapping.
         mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
-        versions = get_stack_versions()
-        for version in versions:
+
+        # The schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its data stream
+        # behind a later patch (e.g. azure ~8.19.10). Validating at the literal .0 resolves an older
+        # package that predates the stream, so for each minor use the latest patch the rule's own
+        # integrations gate on. Only the rule's packages are inspected, not the full manifest.
+        rule_packages = set(get_rule_integrations(metadata))
+        rule_packages.update(integration.package for integration in event_dataset_integrations)
+
+        for version in get_stack_versions():
+            parsed = Version.parse(version)
+            inferred_patch = find_latest_integration_patch_for_minor(rule_packages, parsed.major, parsed.minor)
+            version = str(parsed.replace(patch=max(parsed.patch, inferred_patch)))  # noqa: PLW2901
             if version in mappings_lookup:
                 continue
             _, _, combined_mappings = prepare_mappings(
