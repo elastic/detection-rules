@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2022/11/16"
 maturity = "production"
-updated_date = "2025/06/27"
+updated_date = "2026/06/04"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,9 @@ timestamp_override = "event.ingested"
 type = "threshold"
 
 query = '''
-signal.rule.name:* and kibana.alert.rule.threat.tactic.id:*
+signal.rule.name:* and kibana.alert.rule.threat.tactic.id:* and host.id:* and host.name:* and
+event.dataset:* and kibana.alert.risk_score > 21 and
+not kibana.alert.rule.type:(threat_match or machine_learning)
 '''
 note = """## Triage and analysis
 
@@ -71,9 +73,7 @@ The detection rule identifies hosts with alerts across various attack phases, in
 
 [rule.threshold]
 field = ["host.id", "host.name"]
-value = 1
+value = 2
 [[rule.threshold.cardinality]]
 field = "kibana.alert.rule.threat.tactic.id"
 value = 3
-
-
