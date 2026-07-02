@@ -11,8 +11,8 @@ Identifies access to email resources via Microsoft Graph API using an first-part
 principal. This behavior may indicate an adversary using a phished OAuth refresh token or a Primary Refresh Token (PRT)
 to access email resources. The pattern includes requests to Microsoft Graph API endpoints related to email, such as
 /me/mailFolders/inbox/messages or /users/{user_id}/messages, using a public client application ID and a user principal
-object ID. This is a New Terms rule that only signals if the application ID and user principal object ID have not been
-seen doing this activity in the last 14 days.
+object ID. This is a New Terms rule that only signals if the application ID, user principal object ID, and source ASN have not been
+seen doing this activity historically.
 """
 from = "now-9m"
 index = ["logs-azure.graphactivitylogs-*"]
@@ -23,7 +23,7 @@ note = """## Triage and analysis
 
 ### Investigating Microsoft Graph Request Email Access by Unusual User and Client
 
-This rule detects instances where a previously unseen or rare Microsoft Graph application client ID accesses email-related API paths, such as `/v1.0/me/messages`, `/v1.0/me/mailFolders/inbox/messages`, or `/v1.0/users/{id}/messages`. The access is performed with a delegated user token issued to a first-party public client (public client authentication, no client secret), which is the token shape produced by phished OAuth refresh tokens or Primary Refresh Tokens (PRTs). This activity may indicate unauthorized use of a newly consented or compromised application to read or exfiltrate mail content. This is a New Terms rule that only signals if the application ID (`azure.graphactivitylogs.properties.app_id`) and user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`) have not been seen doing this activity historically.
+This rule detects instances where a previously unseen or rare Microsoft Graph application client ID accesses email-related API paths, such as `/v1.0/me/messages`, `/v1.0/me/mailFolders/inbox/messages`, or `/v1.0/users/{id}/messages`. The access is performed with a delegated user token issued to a first-party public client (public client authentication, no client secret), which is the token shape produced by phished OAuth refresh tokens or Primary Refresh Tokens (PRTs). This activity may indicate unauthorized use of a newly consented or compromised application to read or exfiltrate mail content. This is a New Terms rule that only signals if the application ID (`azure.graphactivitylogs.properties.app_id`), user principal object ID (`azure.graphactivitylogs.properties.user_principal_object_id`), and source ASN (`azure.graphactivitylogs.properties.source_asn`) have not been seen doing this activity historically.
 
 ### Possible Investigation Steps:
 
