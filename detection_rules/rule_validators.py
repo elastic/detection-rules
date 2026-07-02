@@ -852,10 +852,15 @@ class ESQLValidator(QueryValidator):
                 misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
                 misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
             ):
+                query = data.query
+                # QueryRuleData permits None for custom filter-only KQL rules; ES|QL still requires a query.
+                if query is None:
+                    raise ValueError("ES|QL remote validation requires a query.")
+
                 _ = self.remote_validate_rule(
                     kibana_client,
                     elastic_client,
-                    data.query,
+                    query,
                     rule_meta,
                     data.rule_id,
                 )
