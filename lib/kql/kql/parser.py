@@ -200,6 +200,21 @@ class BaseKqlParser(Interpreter):
             return field_types
 
     @staticmethod
+    def has_unescaped_wildcard(text):
+        """Return True if the raw literal contains an unescaped `*` wildcard."""
+        # A `*` preceded by an odd number of backslashes is escaped (a literal
+        # asterisk), so it must not be treated as a wildcard.
+        escaped = False
+        for char in text:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == "*":
+                return True
+        return False
+
+    @staticmethod
     def get_literal_type(literal_value):
         if isinstance(literal_value, bool):
             return "boolean"
@@ -375,8 +390,12 @@ class KqlParser(BaseKqlParser):
         token = tree.children[0]
         value = self.unescape_literal(token)
 
-        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
-        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in token.value):
+        # Handle wildcard literals (may contain spaces) and unquoted literals with an
+        # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so
+        # it must not enter this branch (see issue #441 discussion) — otherwise the DSL
+        # would turn the literal `*` into a match-all wildcard.
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL"
+                                                and self.has_unescaped_wildcard(token.value)):
             field_type = self.get_field_type(field_name)
 
             if len(token.value.replace("*", "").strip()) == 0:
@@ -386,11 +405,16 @@ class KqlParser(BaseKqlParser):
                 raise self.error(tree, "Unable to perform wildcard on field {field} of {type}",
                                  field=field_name, type=field_type)
 
-            return Wildcard(token.value)
+            # Store the unescaped Python literal (consistent with eql2kql/Value.from_python)
+            # so downstream consumers (DSL, evaluator, renderer) see a canonical value.
+            return Wildcard(value)
 
-        # For quoted strings, treat as literal values (wildcards in quotes are literal in Kibana)
-        # This bypasses Value.from_python's wildcard conversion for quoted strings
-        if token.type == "QUOTED_STRING":
+        # Quoted strings, and unquoted literals whose only `*` are escaped, are literal
+        # values (wildcards in quotes / escaped wildcards are literal in Kibana). Returning
+        # a String bypasses Value.from_python's wildcard conversion so a literal `*` does
+        # not get treated as a wildcard downstream.
+        if token.type == "QUOTED_STRING" or (token.type == "UNQUOTED_LITERAL"
+                                             and eql.utils.is_string(value) and "*" in value):
             value = self.convert_value(field_name, value, tree)
             return String(eql.utils.to_unicode(value)) if eql.utils.is_string(value) else Value.from_python(value)
 
