@@ -28,14 +28,17 @@ from marshmallow import ValidationError, pre_load, validates_schema
 from semver import Version
 
 from . import beats, ecs, endgame, utils
-from .config import load_current_package_version, parse_rules_config
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
-    find_least_compatible_version,
+    UNKNOWN_PACKAGE_INTEGRATION,
+    IntegrationVersionNotFoundError,
+    find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
     load_integrations_schemas,
+    resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
 from .rule_formatter import nested_normalize, toml_write
@@ -672,12 +675,22 @@ class QueryValidator:
         package_integrations = parse_datasets(list(datasets), packages_manifest)
         int_schema: dict[str, Any] = {}
         data = {"notify": False}
+        patch_floor = find_latest_integration_patch_for_minor(
+            {pk_int["package"] for pk_int in package_integrations},
+            current_version.major,
+            current_version.minor,
+        )
+        min_stack = Version(
+            current_version.major,
+            current_version.minor,
+            max(current_version.patch, patch_floor),
+        )
 
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
             schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, current_version, packages_manifest, {}, data
+                integrations_schemas, package, integration, min_stack, packages_manifest, {}, data
             )
             int_schema.update(schema)
 
@@ -731,7 +744,7 @@ class QueryRuleData(BaseRuleData):
     """Specific fields for query event types."""
 
     type: Literal["query"]
-    query: str
+    query: str | None = None
     language: definitions.FilterLanguages
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.8"}})
 
@@ -749,12 +762,15 @@ class QueryRuleData(BaseRuleData):
 
     @cached_property
     def validator(self) -> QueryValidator | None:
+        query = self.query or ""
         if self.language == "kuery":
-            return KQLValidator(self.query)
+            if not query.strip() and self.filters and CUSTOM_RULES_DIR:
+                return None
+            return KQLValidator(query)
         if self.language == "eql":
-            return EQLValidator(self.query)
+            return EQLValidator(query)
         if self.language == "esql":
-            return ESQLValidator(self.query)
+            return ESQLValidator(query)
         return None
 
     def validate_query(self, meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -788,6 +804,18 @@ class QueryRuleData(BaseRuleData):
         """Validate that either index or data_view_id is set, but not both."""
         if data.get("index") and data.get("data_view_id"):
             raise ValidationError("Only one of index or data_view_id should be set.")
+
+    @validates_schema
+    def validates_query_or_filters(self, data: dict[str, Any], **_: Any) -> None:
+        """Validate that a query is present, unless this is a filter-only KQL custom rule."""
+        query = (data.get("query") or "").strip()
+        if query:
+            return
+        filter_only_allowed = data.get("language") == "kuery" and data.get("filters") and CUSTOM_RULES_DIR
+        if filter_only_allowed:
+            data["query"] = ""
+            return
+        raise ValidationError("Missing data for required field.", field_name="query")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -960,7 +988,7 @@ class ESQLRuleData(QueryRuleData):
 
     type: Literal["esql"]  # type: ignore[reportIncompatibleVariableOverride]
     language: Literal["esql"]
-    query: str
+    query: str  # type: ignore[reportGeneralTypeIssues]
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.15"}})
 
     @validates_schema
@@ -1428,11 +1456,11 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
 
         if not package_integrations and self.metadata.integration:
             packages_manifest = load_integrations_manifests()
-            current_stack_version = load_current_package_version()
 
             if self.check_restricted_field_version(field_name) and isinstance(
                 self.data, QueryRuleData | MachineLearningRuleData
             ):  # type: ignore[reportUnnecessaryIsInstance]
+                resolved_package_integrations: list[dict[str, Any]] = []
                 if (self.data.get("language") is not None and self.data.get("language") != "lucene") or self.data.get(
                     "type"
                 ) == "machine_learning":
@@ -1446,25 +1474,34 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         return
 
                     for package in package_integrations:
-                        package["version"] = find_least_compatible_version(
-                            package=package["package"],
-                            integration=package["integration"],
-                            current_stack_version=current_stack_version,
-                            packages_manifest=packages_manifest,
+                        integration = package.get("integration")
+                        integration_name = (
+                            integration if integration and integration != UNKNOWN_PACKAGE_INTEGRATION else None
                         )
-
-                        # if integration is not a policy template remove
-                        if package["version"]:
-                            version_data = packages_manifest.get(package["package"], {}).get(
-                                package["version"].strip("^"), {}
+                        try:
+                            result = resolve_related_integration_version(
+                                package=package["package"],
+                                packages_manifest=packages_manifest,
+                                integration=integration_name,
                             )
-                            policy_templates = version_data.get("policy_templates", [])
+                        except IntegrationVersionNotFoundError:
+                            continue
+                        package["version"] = result.expression
 
-                            if package["integration"] not in policy_templates:
-                                del package["integration"]
+                        # Union policy templates across manifest-backed versions only.
+                        policy_templates: set[str] = set()
+                        for manifest_version in result.manifest_versions:
+                            version_data = packages_manifest.get(package["package"], {}).get(manifest_version, {})
+                            policy_templates.update(version_data.get("policy_templates", []))
+
+                        if package["integration"] not in policy_templates:
+                            del package["integration"]
+                        resolved_package_integrations.append(package)
 
                 # remove duplicate entries
-                package_integrations = list({json.dumps(d, sort_keys=True): d for d in package_integrations}.values())
+                package_integrations = list(
+                    {json.dumps(d, sort_keys=True): d for d in resolved_package_integrations}.values()
+                )
                 obj.setdefault("related_integrations", package_integrations)
 
     def _convert_add_required_fields(self, obj: dict[str, Any]) -> None:
@@ -1579,14 +1616,14 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
         for integration in rule_integrations:
-            ineligible_integrations = [
-                *definitions.NON_DATASET_PACKAGES,
-                *map(str.lower, definitions.MACHINE_LEARNING_PACKAGES),
-            ]
-            if (
-                integration in ineligible_integrations
-                or isinstance(data, MachineLearningRuleData)
-                or (isinstance(data, ESQLRuleData) and integration not in datasets)
+            ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
+            if isinstance(data, MachineLearningRuleData):
+                packaged_integrations.append({"package": integration, "integration": None})
+            elif integration in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(integration, datasets):
+                    packaged_integrations.append({"package": integration, "integration": None})
+            elif integration.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
             ):
                 packaged_integrations.append({"package": integration, "integration": None})
 
@@ -1890,6 +1927,19 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     return sorted({str(f) for f in parsed if isinstance(f, (eql.ast.Field | kql.ast.Field))})  # type: ignore[reportUnknownVariableType]
 
 
+def _metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:
+    """Return True when a metadata-only package row is still required."""
+    # Metadata tags the package name; query datasets use package.stream (e.g. endpoint.events.api).
+    if integration in datasets:
+        return False
+    prefix = f"{integration}."
+    return not any(dataset.startswith(prefix) for dataset in datasets)
+
+
+# Backward-compatible alias for ES|QL export tests and callers.
+_esql_metadata_package_row_needed = _metadata_package_row_needed
+
+
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Parses datasets into packaged integrations from rule data."""
     packaged_integrations: list[dict[str, Any]] = []
@@ -1897,7 +1947,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
 
-        integration = "Unknown"
+        integration = UNKNOWN_PACKAGE_INTEGRATION
         if "." in value:
             package, integration = value.split(".", 1)
             # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)

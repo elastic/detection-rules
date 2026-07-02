@@ -2,7 +2,7 @@
 creation_date = "2023/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/01"
+updated_date = "2026/06/04"
 
 [transform]
 [[transform.osquery]]
@@ -244,12 +244,31 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     "az", "gcloud", "aws", "kubectl", "helm", "docker", "ctr", "crictl",
 
     // Misc. tools
-    "whoami", "ifconfig", "ip", "ss", "top", "htop", "df", "du", "lsblk", "lsof", "tcpdump",
+    "whoami", "ifconfig", "ip", "ss", "top", "htop", "du", "lsblk", "lsof", "tcpdump",
     "strace", "ltrace", "curl", "wget", "dig", "nslookup", "host", "nmap", "arp", "traceroute",
-    "cat", "touch", "cp", "mv", "rm", "mkdir", "ln", "chmod", "sudo", "xxd", "base64", "basez",
+    "cat", "touch", "mv", "rm", "mkdir", "ln", "chmod", "sudo", "xxd", "base64", "basez",
     "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16", "chpasswd",
     "passwd"
   ) 
+) and 
+not (
+  (
+    process.parent.name == "java" and
+    process.executable like ("/tmp/CVU_19_resource_*/exectask*", "/u01/app/*/grid/bin/crsctl.bin", "/u01/app/*/grid/bin/olsnodes.bin")
+  ) or
+  process.working_directory like ("/u01/app/*/sysman/emd", "/run/systemd/mount-rootfs") or
+  (
+    process.parent.executable == "/opt/morpheus/embedded/java/jre/bin/java" and
+    process.command_line like (
+      "chmod -R g+w /var/opt/morpheus/morpheus-local/repo/git/*",
+      "sudo -S -u morpheus-local*"
+    )
+  ) or
+  (
+    process.parent.command_line == "/bin/sh /etc/init.d/nginx rotate" and
+    process.working_directory == "/var/lib/logrotate" and
+    process.name == "cat"
+  )
 )
 '''
 
