@@ -1,0 +1,236 @@
+[metadata]
+creation_date = "2025/11/19"
+integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik", "zeek"]
+maturity = "production"
+updated_date = "2026/07/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects potential SQL injection attempts in web server requests by identifying common SQL injection patterns
+in URLs. Such activity may indicate reconnaissance or exploitation attempts by attackers trying to manipulate backend
+databases or extract sensitive information.
+"""
+from = "now-9m"
+index = [
+        "logs-nginx.access-*",
+        "logs-apache.access-*",
+        "logs-apache_tomcat.access-*",
+        "logs-iis.access-*",
+        "logs-traefik.access-*", 
+        "logs-zeek.http-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Web Server Potential SQL Injection Request"
+risk_score = 73
+rule_id = "7f7a0ee1-7b6f-466a-85b4-110fb105f5e2"
+severity = "high"
+tags = [
+    "Domain: Web",
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Tactic: Reconnaissance",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Data Source: IIS",
+    "Data Source: Traefik",
+    "Data Source: Zeek", 
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where (
+url.original like~ (
+    "*dbms_pipe.receive_message%28chr%*",
+    "*waitfor%20delay%20%270%3a0%3a*",
+    "*%28select%28sleep%285*", "*%28select%20*from%20pg_sleep%285*", "*%3bselect%20pg_sleep%285*",
+    "*and%20sleep%28*%29*", "*or%20sleep%28*%29*", "*case%20when*then%20sleep%28*", "*if%28sleep%28*%29*",
+    "*benchmark%28*%2c*md5%28*",
+    "*convert%28int%2c%28select%20char%28*",
+    "*char%28*char%28*char%28*char%28*",
+    "*concat%28concat%28char%28*",
+    "*case%20when%20%28*%3d*%29%20then*else*end*",
+    "*elt%28*%3d*%2c1%29%29*",
+    "*union%20select%20null%2cnull*", "*union%20all%20select%20null*",
+    "*union%20all%20select%20*concat%28md5%28*",
+    "*extractvalue%28*concat%280x*", "*updatexml%28*concat%280x*",
+    "*procedure%2f%2a%2a%2fanalyse%28extractvalue%28*",
+    "*gtid_subset%28concat%280x*", "*gtid_subtract%28concat%280x*",
+    "*mid%28ifnull%28session_user%28%29*",
+    "*'qq'%2b%28%28select%20@@version%29%29%2b'qq'*",
+    "*%27%20or%20%271%27%3d%271*", "*%22%20or%20%221%22%3d%221*", "*%27%20or%20%27a%27%3d%27a*",
+    "*and%201%3d1--*", "*and%201%3d2--*",
+    "*%29%3bselect*if%28%28ord%28mid%28*",
+    "*xp_cmdshell*",
+    "*select%20*into%20outfile*", "*select%20*into%20dumpfile*",
+    "*load_file%28*", "*load%5ffile%28*",
+    "*select%20*from%20information_schema.tables*", "*from%20information_schema.columns%20where%20table_schema*",
+    "*dbms_pipe%2ereceive_message*", "*dbms_lock%2esleep*",
+    "*select%20@@version*", "*select%20user%28%29*", "*select%20current_user%28%29*", "*select%20database%28%29*",
+    "*sp_executesql%20*exec%20*", "*xp_dirtree*"
+  )
+  or
+  url.query like~ (
+    "*dbms_pipe.receive_message(chr*",
+    "*waitfor delay '0:0:*",
+    "*(select(sleep(5*", "*(select*from pg_sleep(5*", "*;select pg_sleep(5*",
+    "*and sleep(*)*", "*or sleep(*)*", "*case when*then sleep(*", "*if(sleep(*)*",
+    "*benchmark(*,*md5(*",
+    "*convert(int,(select char(*",
+    "*char(*char(*char(*char(*",
+    "*concat(concat(char(*",
+    "*case when (*=*) then*else*end*",
+    "*elt(*=*,1))*",
+    "*union select null,null*", "*union all select null*",
+    "*union all select*concat(md5(*",
+    "*extractvalue(*concat(0x*", "*updatexml(*concat(0x*",
+    "*procedure/**/analyse(extractvalue(*",
+    "*gtid_subset(concat(0x*", "*gtid_subtract(concat(0x*",
+    "*mid(ifnull(session_user()*",
+    "*'qq'+((select @@version))+'qq'*",
+    "*' or '1'='1*", "*\" or \"1\"=\"1*", "*' or 'a'='a*",
+    "*and 1=1--*", "*and 1=2--*",
+    "*);select*if((ord(mid(*",
+    "*xp_cmdshell*",
+    "*select*into outfile*", "*select*into dumpfile*",
+    "*load_file(*",
+    "*select*from information_schema.tables*", "*from information_schema.columns where table_schema*",
+    "*dbms_pipe.receive_message*", "*dbms_lock.sleep*",
+    "*select @@version*", "*select user()*", "*select current_user()*", "*select database()*",
+    "*sp_executesql*exec*", "*xp_dirtree*"
+  )
+)
+'''
+note = """## Triage and analysis
+
+### Investigating Web Server Potential SQL Injection Request
+
+SQL injection (SQLi) attempts to manipulate backend database queries via unsanitized
+input passed through web request parameters. This rule flags requests whose URL or
+query string contains structural patterns characteristic of automated SQLi tooling
+(sqlmap and similar) or manual exploitation techniques, spanning boolean-blind,
+time-based, error-based, and UNION-based extraction methods across MySQL, MSSQL,
+PostgreSQL, and Oracle syntax.
+
+#### Possible investigation steps
+
+- Identify the full request and response context:
+  - `url.original` / `url.query` — full injected payload
+  - `http.request.method`, `http.response.status_code` — was the request accepted (2xx) or rejected (4xx/5xx/WAF block)?
+  - `source.ip`, `source.as.organization.name`, `source.geo.*` — is this a known scanner IP, hosting/VPS ASN, or unexpected geography for this application's userbase?
+  - `user_agent.original` — check for tool signatures (`sqlmap`, `Assetnote`, `Nessus`, `Nuclei`, etc.) vs. a spoofed browser UA
+- Determine which SQLi technique is present, since it changes the likely intent and next steps:
+  - **Boolean-blind** (`AND 1=1--`, `CASE WHEN...THEN...ELSE`) — attacker inferring true/false conditions one bit/char at a time; usually high request volume against the same parameter
+  - **Time-based blind** (`SLEEP`, `BENCHMARK`, `WAITFOR DELAY`, `pg_sleep`) — look for abnormal response latency on matching requests to confirm exploitation succeeded vs. was blocked
+  - **Error-based** (`EXTRACTVALUE`, `UPDATEXML`, `GTID_SUBSET`, `CONVERT(INT,...)`) — check `http.response.status_code`/body for a 500 or a reflected DB error message; if present, the attacker likely received leaked data directly
+  - **UNION-based** (`UNION SELECT NULL,...`, `UNION ALL SELECT...CONCAT(MD5(...`) — attacker is enumerating column count or confirming a reflection point to pull data directly into the page body
+  - **Stacked queries** (`;SELECT...`, `;EXEC xp_cmdshell`) — most severe; if the DB driver allows multiple statements, this can lead to command execution (`xp_cmdshell`) rather than just data disclosure
+- Pivot on the target parameter and endpoint (e.g. `url.path`, the specific query-string key such as `id=`, `sort=`, `column=`) to see:
+  - How many distinct payloads/techniques were tried against the same parameter (suggests automated technique-fuzzing by a single tool run)
+  - Whether the same `source.ip` hit multiple endpoints/parameters (broader scan) or repeatedly refined one payload (targeted exploitation attempt)
+- Check for a correlated spike in requests from the same IP/ASN in a tight time window — sqlmap and similar tools generate many rapid, near-identical requests when fuzzing technique/column count/character position.
+- If the backend database technology is known, cross-check the payload's SQL dialect (MySQL vs. MSSQL vs. PostgreSQL functions) against what the application actually runs — a payload using the wrong dialect's functions will simply error out and fail, lowering severity.
+- If available, correlate with database-side audit logs (e.g. MSSQL Audit `event.code: 33205`, slow query logs) for the same timeframe/client IP to confirm whether the payload actually reached and executed against the database.
+
+### False positive analysis
+
+- **Vulnerability scanners and security tooling** are the most common source of noise: Assetnote, Burp Suite, Qualys, Nessus, Acunetix, and similar tools intentionally send these exact payloads as part of authorized scanning. Check `user_agent.original` for scanner signatures and cross-reference `source.ip`/ASN against your organization's known scanning infrastructure or third-party ASM vendor.
+- Legitimate application traffic containing SQL-like keywords is rare given the specificity of these patterns (chained `CHAR()` calls, `ELT(n=n,1)` self-comparisons, hex-delimited `CONCAT`), but verify against applications that accept raw SQL fragments as legitimate input (e.g., internal admin/reporting tools with a "custom query" field) if any exist in your environment.
+- Consider adding a suppression/exception for confirmed, recurring authorized scanning sources rather than tuning the query patterns themselves, to avoid reducing detection coverage against real attackers using the same tools.
+
+### Response and remediation
+
+- If the request reached the application layer unblocked (`event.outcome: success` / 2xx response) and the payload matches an error-based or UNION-based technique, treat as a potential confirmed data exposure — check application/database logs for evidence of returned sensitive data.
+- If a stacked-query or `xp_cmdshell` payload succeeded, escalate immediately — this can lead to OS-level command execution, not just data disclosure.
+- Validate that the affected endpoint uses parameterized queries/prepared statements; SQL injection at this scale of tooling almost always indicates raw string concatenation in the query layer.
+- If exploitation is confirmed, review the database account's privileges used by the web application (least privilege should prevent `xp_cmdshell`, `INFORMATION_SCHEMA` enumeration, or cross-database access even if injection succeeds).
+- Block or rate-limit the source IP/ASN at the WAF or reverse proxy if not already filtered, and consider a virtual-patch WAF rule for the specific vulnerable parameter while the application fix is developed.
+- Review other requests from the same source IP across the retention window for prior reconnaissance (e.g., directory enumeration, parameter fuzzing) that may have preceded the injection attempt.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.002"
+name = "Vulnerability Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
