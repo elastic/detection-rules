@@ -105,11 +105,11 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-  process.name : "WerFaultSecure.exe" and
+  process.executable : "?:\\Windows\\System32\\WerFaultSecure.exe" and
 
   /* WerFaultSecure secure dumps are normally initiated by the WER service hosted in svchost.exe */
-  process.parent.name != null and
-  not process.parent.name : ("svchost.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe") and
+  process.parent.executable != null and
+  not process.parent.executable : ("?:\\Windows\\System32\\svchost.exe", "?:\\Windows\\System32\\wermgr.exe", "?:\\Windows\\System32\\WerFault.exe", "?:\\Windows\\System32\\WerFaultSecure.exe") and
 
   /* arguments used to take a secure memory dump of a target process (e.g. /pid <target> /encfile <handle> /type 268310) */
   process.args : "/pid" and process.args : "/encfile"
