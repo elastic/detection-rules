@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the execution of a command or binary through the systemd-run binary. Systemd-run can schedule commands
+to be executed in the background through systemd. Attackers may use this technique to execute commands while attempting
+to evade detection. 
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Proxy Execution via Systemd-run"
+risk_score = 21
+rule_id = "a2e5e290-f534-4b71-bc3f-2dd1932b4cd6"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+- Auditd Manager
+- CrowdStrike
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "executed", "process_started", "start", "ProcessRollup2") and
+process.name == "systemd-run" and ?process.parent.executable != null and
+not (
+  ?process.parent.executable in (
+    "/usr/lib/systemd", "/lib/systemd/systemd", "/opt/saltstack/salt/run/run", "/etc/update-motd.d/70-available-updates",
+    "/tmp/newroot/usr/libexec/ptyxis-agent", "/usr/local/sbin/clamscan.sh", "/opt/sentinelone/bin/sentinelone-agent",
+    "/usr/local/bin/salt-minion", "/var/vanta/launcher", "/opt/traps/bin/pmd", "/usr/sbin/gdm", "/usr/bin/salt-minion",
+    "/opt/GC_Ext/GC/gc_linux_service", "/usr/lib/plesk-task-manager", "/opt/forticlient/epctrl", "/usr/lib/snapd/snap-exec",
+    "/usr/bin/yay", "/usr/local/bin/hexnode_agent", "/opt/halcyon/halcyonar/agent", "/usr/local/bin/qsetup", "/usr/bin/pamac",
+    "/usr/bin/elephant", "/usr/bin/Hyprland"
+  ) or
+  ?process.parent.executable like (
+    "/opt/tableau/tableau_server/packages/scripts.*/after-install", "/opt/acronis/bin/acp-update-controller", "/snap/*",
+    "/var/lib/amagent/*", "/opt/msp-agent/msp-agent-core", "/opt/beyondtrust/*", "/var/lib/rancher/k3s/*/bin/k3s"
+  ) or
+  ?process.parent.name like "platform-python*" or
+  ?process.parent.name in (
+    "udevadm", "daemon.start", "snap", "systemd", "ptyxis-agent", "run-slack", "run-firefox", "dbus.service", "k3s-server",
+    "systemd-udevd", "kubelet", "hyperkube", "kthreadd", "gnome-shell", "xdg-desktop-portal", "firefox", "picus_updater",
+    "rpm-ostree", "prompt-agent"
+  ) or
+  ?process.command_line in (
+    "/usr/bin/systemd-run /usr/bin/systemctl start man-db-cache-update", "systemd-run env",
+    "systemd-run --user dnf-automatic-notifyonly.timer", "systemd-run --user systemctl suspend", "systemd-run /var/lib/aws-replication-agent/uninstall-agent.sh",
+    "systemd-run --on-active=10 --timer-property=AccuracySec=100ms --slice=system.slice systemctl start gc-agent",
+    "systemd-run --user --scope --unit=tmux-server -- tmux", "systemd-run bash -c sleep 60 && reboot"
+  ) or
+  ?process.command_line like~ (
+    "systemd-run --scope -p CPUQuota=10% rpm -qa*", "systemd-run --scope -p CPUQuota=10% dpkg -l*"
+  ) or
+  ?process.parent.command_line in ("runc init", "/usr/local/bin/main") or
+  ?process.parent.command_line like ("*/var/lib/waagent/*", "bash ./run.sh") or
+  process.args in (
+    "--help", "list-timers", "/usr/lib/udev/kdump-udev-throttler", "kubectl", "--unit=ngt_guest_agent_upgrade", "i3-zoom", "google-chrome",
+    "thunar", "/usr/bin/google-chrome-stable", "snap.lxd.workaround", "--unit=firefox", "--unit=slack", "--slice=zoom.slice",
+    "autorandr-launcher", "--unit=restart-dbus", "--unit=autorandr-debounce"
+  ) or
+  process.args like ("--unit=app-Hyprland-wezterm-*.scope", "--unit=app-Hyprland-swaybg-*.scope", "--unit=rmf_sim_*") or
+  ?process.working_directory == "/opt/Tychon/Endpoint/bin" or
+  (process.args in ("rpm", "dpkg") and process.args like~ "CPUQuota=*") or
+  (process.args == "--slice=app-graphical.slice" and process.args == "--description=xdg-terminal-exec")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1218"
+    name = "System Binary Proxy Execution"
+    reference = "https://attack.mitre.org/techniques/T1218/"
+
+   [[rule.threat.technique]]
+   name = "Hijack Execution Flow"
+   id = "T1574"
+   reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
