@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2026/06/22"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2026/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell script block content associated with an Antimalware Scan Interface (AMSI) bypass that hooks the
+RPC runtime marshaling stub NdrClientCall3 (or NdrClientCall2) in rpcrt4.dll. Unlike bypasses that patch AmsiScanBuffer
+or set amsiInitFailed, this technique operates at the RPC layer used by AMSI to delegate scan requests to the
+antivirus provider, tampering with the request before it reaches the engine and leaving AMSI itself unmodified. The
+loader allocates an executable trampoline and marshals a delegate to the native stub; these primitives appear in
+PowerShell Script Block Logging before the hook takes effect.
+"""
+from = "now-9m"
+index = ["winlogbeat-*", "logs-windows.powershell*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential AMSI Bypass via RPC Runtime Hooking"
+note = """## Triage and analysis
+
+### Investigating Potential AMSI Bypass via RPC Runtime Hooking
+
+The Antimalware Scan Interface (AMSI) delegates scan requests to the registered antivirus provider over RPC. By hooking
+the RPC runtime marshaling stub `NdrClientCall3`/`NdrClientCall2` in `rpcrt4.dll`, an adversary can tamper with these
+requests so that malicious content is reported as clean, without modifying `amsi.dll` or patching `AmsiScanBuffer`.
+This makes the bypass harder to catch via AMSI buffer or memory-write telemetry; the most reliable host artifact is the
+loader's own PowerShell script content, captured by Script Block Logging.
+
+#### Possible investigation steps
+
+- Review `powershell.file.script_block_text` for references to `NdrClientCall3`/`NdrClientCall2`, resolution of
+  functions in `rpcrt4.dll`, allocation of executable (`PAGE_EXECUTE_READWRITE`) memory, and delegate marshaling via
+  `GetDelegateForFunctionPointer`.
+- PowerShell logs each statement as a separate event; pivot on `host.id` and the PowerShell process id to reconstruct
+  the full loader sequence and confirm intent.
+- Identify how PowerShell was launched (interactive, encoded command, remote session) and review the parent process
+  tree for download or staging activity.
+- Correlate with Elastic Defend endpoint telemetry on the same host around the same time. Note that this RPC-layer hook
+  may not surface as a memory modification of `rpcrt4.dll`, which is expected for this technique.
+- Hunt for the same script content, user, or host pattern across the environment.
+
+### False positive analysis
+
+- Security research, detection engineering, and red-team development that legitimately references the RPC runtime
+  marshaling functions or allocates executable memory from PowerShell can match. Validate the user, host, parent
+  process, and surrounding script blocks against authorized testing before closing as benign, and add exceptions for
+  known testing identities or hosts.
+
+### Response and remediation
+
+- Isolate the host if the activity is confirmed malicious and review for follow-on payload execution that the bypass
+  was intended to conceal.
+- Terminate the offending PowerShell session and preserve the Script Block Logging events for analysis.
+- Restrict PowerShell usage outside of IT and engineering business units using GPOs, AppLocker, or WDAC.
+- Reset credentials for accounts active on the host during the session if follow-on activity is observed.
+
+### Limitations
+
+This rule detects the technique only when it is delivered as logged PowerShell script-block text. In-memory delivery, a
+PowerShell v2 downgrade, or implementing the hook outside PowerShell (compiled binary) can evade Script Block Logging
+and therefore this rule. For customers running Elastic Defend, prefer the companion Endpoint Rule which detects the
+VirtualProtect call targeting rpcrt4.dll!NdrClientCall* directly via API telemetry and is not dependent on Script
+Block Logging."""
+references = [
+    "https://github.com/andreisss/Ghosting-AMSI",
+]
+risk_score = 73
+rule_id = "4027f24e-b02f-4605-872f-7bafd8fe1b33"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (event ID 4104). The
+`Microsoft-Windows-PowerShell/Operational` channel must be collected by the Windows integration or Winlogbeat.
+
+Setup instructions: https://ela.st/powershell-logging-setup"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.code: "4104" and host.os.type: "windows" and
+  powershell.file.script_block_text : (
+    "NdrClientCall" or
+    "NdrClientCall2" or
+    "NdrClientCall3"
+  ) and
+  powershell.file.script_block_text : (
+    "GetProcAddress" or
+    "GetDelegateForFunctionPointer" or
+    "VirtualProtect"
+  )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "user.id",
+    "user.name",
+    "user.domain",
+    "process.pid",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

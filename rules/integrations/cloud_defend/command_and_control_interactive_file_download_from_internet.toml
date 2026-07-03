@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/06/30"
 
 [rule]
 author = ["Elastic"]
@@ -86,10 +86,8 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     (process.name == "wget" or process.args in ("wget", "/bin/wget", "/usr/bin/wget", "/usr/local/bin/wget")) and
     process.args like ("-*O*", "--output-document=*", "--output-file=*")
   )
-) and (
- process.args like~ "*http*" or
- process.args regex~ ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}[:/]{1}.*"
-) and container.id like "?*"
+) 
+and container.id like "?*"
 '''
 
 [[rule.threat]]

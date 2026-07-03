@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unusually high ratio of 4xx HTTP responses from Azure AD Graph (graph.windows.net) per calling identity in a
+short window. Post-identity compromise leading to recon often leaves a tail of 403s and 404s as tooling walks endpoints
+it does not have permission for, asks for object IDs it does not have, or uses an OAuth client that has been pulled off
+the AAD Graph allow-list. Surges or an unexpected ratio of 4xx responses concentrated on a single (user and ASN) pair are characteristic of
+automated tooling rather than human or first-party traffic.
+"""
+false_positives = [
+    """
+    Legitimate first-party clients occasionally hit 4xx responses as part of conditional access flows, transient
+    permission changes, or stale token retries. Tune the threshold for your tenant baseline.
+    """,
+    """
+    Authorized red team activity. Document and add exceptions on the user, app ID, or source IP.
+    """,
+    """
+    Legacy tooling may still be using AAD Graph. Validate and add exceptions on the calling app ID after review.
+    """,
+]
+from = "now-8h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure AD Graph High 4xx Error Ratio from User"
+note = """## Triage and analysis
+
+### Investigating Azure AD Graph High 4xx Error Ratio from User
+
+A high 4xx rate on AAD Graph from a single calling identity is consistent with automated permission probing,
+recon against endpoints the caller is not authorized for, or a token whose client has been blocked from AAD
+Graph. The pattern is structurally distinct from sparse 4xx in first-party traffic.
+
+### Possible investigation steps
+
+- Confirm the surge volume and ratio.
+    - Review `Esql.error_rate` (4xx as a fraction of total) and `Esql.total_calls` to assess the magnitude.
+- Identify the caller and calling client.
+    - `user.id` for the calling identity, `source.ip` for the egress, and `Esql.app_ids` (from `azure.aadgraphactivitylogs.properties.app_id`) for the OAuth client.
+- Review which endpoints produced the errors.
+    - `Esql.sample_paths` captures the distinct `url.path` values that 4xx'd.
+- Correlate with successful calls from the same user / source to understand what reached AAD Graph.
+- Pivot to sign-in logs (`logs-azure.signinlogs-*`) for the same user / source for token-mint context.
+- Confirm the activity is not attributable to authorized testing (red team engagement, penetration test, internal tooling validation) before treating as malicious.
+
+### Response and remediation
+
+- Revoke refresh tokens and active sessions for the calling user if the surge indicates unauthorized recon.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the user if the alert is high-confidence or you need to halt activity while investigation continues.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- If the calling application has no legitimate AAD Graph dependency, block further use by that app.
+    - `PATCH /beta/applications/{id}` with body `{"authenticationBehaviors": {"blockAzureADGraphAccess": true}}`.
+    - This property lives on the Graph beta endpoint, not v1.0.
+- Apply Conditional Access targeting the AAD Graph audience for the affected user population.
+"""
+references = [
+    "https://github.com/dirkjanm/ROADtools",
+    "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
+    "https://aadinternals.com/",
+]
+risk_score = 47
+rule_id = "8cbc7793-9ce4-4b7d-9c20-a30afbde2a05"
+setup = """#### Azure AD Graph Activity Logs
+Requires Azure AD Graph Activity Logs ingested into `logs-azure.aadgraphactivitylogs-*` via the Elastic Azure
+integration. Enable the `AzureADGraphActivityLogs` diagnostic-settings category on Entra ID.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure AD Graph",
+    "Data Source: Azure AD Graph Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
+
+| where data_stream.dataset == "azure.aadgraphactivitylogs"
+| eval Esql.is_4xx = case(
+    http.response.status_code >= 400 and
+    http.response.status_code < 500, 1, 0
+  )
+| eval Esql.time_window = date_trunc(2 minutes, @timestamp)
+| stats
+    Esql.total_calls     = count(*),
+    Esql.azure_tenants   = values(azure.tenant_id),
+    Esql.errors          = sum(Esql.is_4xx),
+    Esql.url_path_count  = count_distinct(url.path),
+    Esql.api_versions    = values(azure.aadgraphactivitylogs.properties.api_version),
+    Esql.app_ids         = values(azure.aadgraphactivitylogs.properties.app_id),
+    Esql.source_ips      = values(source.ip),
+    Esql.source_asn_name = values(source.as.organization.name),
+    Esql.user_agents     = values(user_agent.original),
+    Esql.first_seen      = min(@timestamp),
+    Esql.last_seen       = max(@timestamp)
+  by
+    user.id,
+    source.as.number,
+    Esql.time_window
+| eval Esql.error_rate = round(Esql.errors * 1.0 / Esql.total_calls, 2)
+| where 
+    Esql.total_calls > 20 and Esql.errors >= 10 and
+    Esql.error_rate >= 0.4 and Esql.url_path_count >= 15
+| keep
+    user.id,
+    source.as.number,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = ["user.id", "user_agent.original"]
+

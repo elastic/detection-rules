@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/01/30"
+updated_date = "2026/06/25"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,12 @@ file where host.os.type == "macos" and event.type != "deletion" and
   not process.executable like ("/System/*", "/Library/PrivilegedHelperTools/*") and
   not (process.code_signature.signing_id in ("com.apple.vim", "com.apple.cat", "com.apple.cfprefsd",
                                             "com.jetbrains.toolbox", "com.apple.pico", "com.apple.shove",
-                                            "com.sublimetext.4", "com.apple.ditto") and process.code_signature.trusted == true)
+                                            "com.sublimetext.4", "com.apple.ditto") and process.code_signature.trusted == true) and
+  not (file.path like ("/Library/LaunchDaemons/com.jumpcloud.*",
+                       "/Library/LaunchAgents/com.jumpcloud.*",
+                       "/Library/LaunchDaemons/com.wazuh.*",
+                       "/Library/LaunchDaemons/com.zscaler.service.plist") and
+       process.executable == "/bin/bash")
 '''
 
 [[rule.threat]]

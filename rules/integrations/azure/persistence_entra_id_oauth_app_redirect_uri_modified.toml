@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic", "descambiado"]
+description = """
+Identifies modifications to OAuth application redirect URIs (ReplyUrls) in Entra ID. Adding an
+attacker-controlled redirect URI to an existing trusted application allows interception of OAuth
+authorization codes when users authenticate through that application's normal login flow, enabling
+token theft without requiring a new application registration or consent event.
+"""
+false_positives = [
+    """
+    Developers adding localhost redirect URIs for local development environments.
+    CI/CD pipelines updating production redirect URIs during deployment.
+    Application owners adding redirect URIs for new platform support.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID OAuth Application Redirect URI Modified"
+note = """## Triage and analysis
+
+### Investigating Entra ID OAuth Application Redirect URI Modified
+
+A redirect URI addition to an existing trusted application does not generate a consent event and does
+not require registering a new application -- both of which are commonly monitored. The modified
+application retains all existing user consents.
+
+#### Possible investigation steps
+
+- Identify the actor who modified the application (`azure.auditlogs.properties.initiated_by`) and
+  verify whether the change was authorized by the application owner or a change management ticket.
+- Review the specific URIs added by comparing `modifiedProperties.oldValue` and `newValue` for the
+  `ReplyUrls` field in the audit event's `target_resources`.
+- Geolocate and WHOIS the domain of any newly added URI -- hosting providers, recently registered
+  domains, or URL shorteners are strong indicators of compromise.
+- Check whether the actor recently became an owner of this application: look for
+  "Add owner to application" events in AuditLogs for the same application object ID.
+- Review the application's Graph API permissions -- applications with Mail, Files, or directory
+  scopes are the highest-value targets for redirect URI hijacking.
+
+### False positive analysis
+
+- Localhost and loopback URIs (`http://localhost:*`, `http://127.0.0.1:*`) added by developers are
+  expected in non-production applications. Verify the application's sensitivity before closing.
+- CI/CD-driven URI updates typically originate from service principal actors, not human users.
+
+### Response and remediation
+
+- Remove the unauthorized redirect URI via Entra ID > App registrations > Authentication.
+- Revoke all tokens issued to the application since the modification timestamp.
+- Review sign-in logs for the application for any sign-ins from unexpected sources after the change.
+- If the URI was externally controlled, treat as a full OAuth token compromise for all users of
+  the application and initiate token revocation and user notification.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity-platform/reply-url",
+    "https://www.microsoft.com/en-us/security/blog/2026/03/02/oauth-redirection-abuse-enables-phishing-malware-delivery/",
+]
+risk_score = 47
+rule_id = "8efcd3da-103b-4a65-8ab2-6a3a9df7ba8b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+azure.auditlogs.operation_name: "Update application" and
+event.outcome: ("Success" or "success") and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: "AppAddress"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

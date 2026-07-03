@@ -2,13 +2,15 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a custom admin role is deleted. An adversary may delete a custom admin role in order to impact the
-permissions or capabilities of system administrators.
+Detects when a custom administrative role is deleted in Google Workspace. Adversaries may delete a custom admin role to
+disrupt delegated administration, remove security team access, or hinder incident response. Deleting a role removes the
+privileges it granted from all assigned users and groups, which can cause operational impact or blind spots during an
+active investigation.
 """
 false_positives = [
     """
@@ -17,7 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
@@ -26,38 +28,58 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Admin Role Deletion
 
-Google Workspace roles allow administrators to assign specific permissions to users or groups where the principle of least privilege (PoLP) is recommended. Admin roles in Google Workspace grant users access to the Google Admin console, where further domain-wide settings are accessible. Google Workspace contains prebuilt administrator roles for performing business functions related to users, groups, and services. Custom administrator roles can be created where prebuilt roles are not preferred.
+Google Workspace allows administrators to create custom admin roles with granular privileges across services such as
+Users, Groups, Gmail, Drive, and Security. Deleting a custom role removes it from the tenant and revokes the associated
+privileges for all users and groups that held the role. Threat actors may delete roles to disrupt security operations,
+remove delegated admin access, or cover tracks after privilege escalation. Because the role no longer exists in the
+Admin console after deletion, determining who was assigned the role and what privileges it contained requires reviewing
+historical audit logs.
 
-Deleted administrator roles may render some user accounts inaccessible or cause operational failure where these roles are relied upon to perform daily administrative tasks. The deletion of roles may also hinder the response and remediation actions of administrators responding to security-related alerts and events. Without specific roles assigned, users will inherit the permissions and privileges of the root organizational unit.
+This rule identifies when a custom administrative role is deleted in the Google Admin console.
 
-This rule identifies when a Google Workspace administrative role is deleted within the Google Admin console.
+### Possible investigation steps
 
-#### Possible investigation steps
-
-- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
-- Identify the role deleted by reviewing `google_workspace.admin.role.name` in the alert.
-- With the user identified, verify if he has administrative privileges to disable or delete administrative roles.
-- To identify other users affected by this role removed, search for `event.action: ASSIGN_ROLE`.
-    - Add `google_workspace.admin.role.name` with the role deleted as an additional filter.
-    - Adjust the relative time accordingly to identify all users that were assigned this admin role.
+- Identify the initiating (actor) account that deleted the role by reviewing `user.email` or `user.name`, and note the `source.ip` and `event.ingested` timestamps.
+- Identify the role deleted by reviewing `google_workspace.admin.role.name`.
+- Determine whether the deletion is expected and authorized:
+  - Validate there is an approved change request/ticket and that the actor account is authorized to delete custom admin roles.
+  - If the actor account or source IP is unusual, treat the alert as higher priority until proven benign.
+- Confirm the role is deleted in the Google Admin console:
+  - Navigate to Account > Admin roles.
+  - Search for the role name from `google_workspace.admin.role.name` and confirm it no longer appears in the role list.
+- Search Kibana for principals previously assigned the role to determine blast radius:
+  - In Discover (or the alert investigation workflow), search Google Workspace admin logs with a time range before the deletion timestamp.
+  - Use the following KQL example, replacing `<ROLE_NAME>` with the value from `google_workspace.admin.role.name`:
+    ```
+    data_stream.dataset: "google_workspace.admin" and event.action: "ASSIGN_ROLE" and google_workspace.admin.role.name: "<ROLE_NAME>"
+    ```
+  - Review `user.target.email` and `user.target.name` for user/group assignments.
+  - Search for `event.action: "UNASSIGN_ROLE"` with the same role name to identify recent removals before deletion.
+- Search Kibana for privileges the deleted role contained:
+  - Use the following KQL example to review any privileges that were granted to the role before deletion:
+    ```
+    data_stream.dataset: "google_workspace.admin" and event.action: "ADD_PRIVILEGE" and google_workspace.admin.role.name: "<ROLE_NAME>"
+    ```
+  - Review `google_workspace.admin.privilege.name` values to understand what access was removed from assigned principals.
+- Scope for related role activity by searching for the same `user.email` (actor) performing other IAM actions such as `DELETE_ROLE`, `ADD_PRIVILEGE`, `ASSIGN_ROLE`, or security policy changes within the last 48 hours.
+- Evaluate whether the deletion coincides with other suspicious activity:
+  - Review admin/audit events around the deletion time for security control changes, additional role deletions, or attempts to modify Super Admin assignments.
 
 ### False positive analysis
 
-- After identifying the user account that disabled the admin role, verify the action was intentional.
+- Verify the role deletion aligns with approved administrative duties, an authorized change window, and the organization's access governance process.
+- Confirm the initiating admin account is legitimate and not deleting roles from unusual IPs, devices, or locations.
+- Validate whether the role was deprecated or consolidated into another role as part of planned IAM cleanup.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Discuss with the user the affected users as a result of this action to mitigate operational discrepencies.
-- Disable or limit the account during the investigation and response.
-- Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
-    - Identify the account role in the cloud environment.
-    - Assess the criticality of affected services and servers.
-    - Work with your IT team to identify and minimize the impact on users.
-    - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
-    - Identify any regulatory or legal ramifications related to this activity.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Initiate the incident response process based on triage findings.
+- If the deletion is not clearly authorized, recreate the role with equivalent privileges and reassign affected users or groups while the investigation proceeds.
+- Identify affected users and groups from historical `ASSIGN_ROLE` events and confirm they retain necessary administrative access through other roles.
+- For suspected compromise of the initiating admin account:
+  - Reset credentials, revoke active sessions, enforce MFA re-enrollment, and review delegation/OAuth grants for persistence.
+  - Validate recovery email/phone settings and account security posture.
+- Review whether the deleted role contained security-relevant privileges (for example, audit log access or security settings management) that could impair detection or response if removed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -87,15 +109,24 @@ tags = [
     "Data Source: Google Workspace",
     "Use Case: Identity and Access Audit",
     "Tactic: Impact",
+    "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:DELETE_ROLE
+data_stream.dataset:google_workspace.admin and event.action:DELETE_ROLE
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.role.name",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/07/16"
-integration = ["network_traffic", "panw", "zeek"]
+integration = ["network_traffic", "panw", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/05/28"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Specially crafted DNS requests can manipulate a known overflow vulnerability in some Windows DNS servers, resulting in
 Remote Code Execution (RCE) or a Denial of Service (DoS) from crashing the service.
 """
-index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-zeek.*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-zeek.*", "logs-corelight.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
@@ -32,7 +32,7 @@ Detection alerts from this rule indicate possible anomalous activity around larg
 
 - Based on this rule, which looks for a threshold of 65k bytes, activity below this value is expected to be legitimate. In packet capture files received by the [SANS Internet Storm Center](https://isc.sans.edu/forums/diary/PATCH+NOW+SIGRed+CVE20201350+Microsoft+DNS+Server+Vulnerability/26356/), byte responses in observed attacks were all greater than 65k bytes.
 - This activity can be triggered by compliance/vulnerability scanning or compromise assessment; it's important to determine the source of the activity and potentially allowlist the source host.
-- Network security devices such as PAN-OS firewalls, Fortinet, and NetFlow exporters record `destination.bytes` as the total bytes across an entire session rather than a single DNS response. Long-lived flow records (`event.duration` > 60 seconds) with `event.action` of `flow_terminated` or `network_flow` are excluded to reduce this noise. Duration is used rather than packet count because a genuine SigRed TCP exchange completes in seconds and cannot be made to exceed 60 seconds by an attacker continuing to use the connection.
+- Network security devices such as PAN-OS firewalls, Fortinet, and NetFlow exporters, as well as Zeek/Corelight connection summary records, record `destination.bytes` as the total bytes across an entire session rather than a single DNS response. Long-lived flow or connection records (`event.duration` > 60 seconds) are excluded to reduce this noise. Duration is used rather than packet count because a genuine SigRed TCP exchange completes in seconds and cannot be made to exceed 60 seconds by an attacker continuing to use the connection.
 
 ### Related rules
 
@@ -62,6 +62,7 @@ tags = [
     "Tactic: Impact",
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
+    "Data Source: Corelight",
     "Data Source: PAN-OS",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
@@ -72,12 +73,17 @@ type = "query"
 query = '''
 ((event.category:(network or network_traffic) and destination.port:53) 
       or network.protocol:"dns" 
-      or data_stream.dataset:(network_traffic.dns or zeek.dns))
+      or data_stream.dataset:(network_traffic.dns or zeek.dns)
+      or (event.module:corelight and event.dataset:dns))
     and destination.bytes >= 65000
     and event.type:("allowed" or "end" or "protocol" or "start")
 and not (
-  event.action:("flow_terminated" or "network_flow")
-  and event.duration > 60000000000
+  event.duration > 60000000000
+  and (
+    event.action:("flow_terminated" or "network_flow")
+    or data_stream.dataset:zeek.connection
+    or (event.module:corelight and event.dataset:conn)
+  )
 )
 '''
 

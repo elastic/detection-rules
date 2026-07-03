@@ -1,0 +1,204 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an Azure AD Graph (graph.windows.net) burst from a user-agent identifying as "aiohttp" (the default HTTP library
+used by ROADrecon's "gather" command) where a single calling identity issues many requests in a short window. ROADrecon
+walks every interesting directory object type via aiohttp, producing a large volume of requests from one
+user / source IP / UA triple. The combination of "aiohttp" UA with a burst threshold is a structural ROADrecon
+signature; legitimate first-party Microsoft components do not identify as aiohttp.
+"""
+false_positives = [
+    """
+    Developer activity using aiohttp against AAD Graph for prototyping. Rare in production tenants and typically
+    low-volume; the burst threshold limits exposure.
+    """,
+    """
+    Authorized red team activity exercising ROADrecon. Document the engagement window and add exceptions on the source
+    IP or calling user.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure AD Graph Potential Enumeration (ROADrecon)"
+note = """## Triage and analysis
+
+### Investigating Azure AD Graph Potential Enumeration (ROADrecon)
+
+This is an ES|QL aggregation rule. Alert documents contain summarized fields per burst window: the calling identity, the tenant, and a one-minute bucket. The alert itself is the signal that something resembling ROADrecon's `gather` walk happened against AAD Graph; the actual investigation happens against the raw `logs-azure.aadgraphactivitylogs-*` events for the same identity and window.
+
+### Possible investigation steps
+
+- Confirm the burst by filtering raw AAD Graph activity for the alerting user, tenant, and time window.
+    - Filter `logs-azure.aadgraphactivitylogs-*` on the alerting user, tenant, and burst window.
+    - ROADrecon's full `gather` walks ~16 directory collections; five or more in a single minute is the structural fingerprint.
+- Tool fingerprint: aiohttp UA plus the hardcoded internal API version.
+    - `user_agent.original` contains `aiohttp`.
+    - `api_version = 1.61-internal` (hardcoded in `gather.py`, returns internal-only fields like `strongAuthenticationDetail`).
+    - No first-party Microsoft component identifies as aiohttp or pins `1.61-internal`.
+- Calling client + auth method: the typical device-code-flow ROADrecon entrypoint.
+    - ROADrecon is usually pointed at the Azure CLI client (`04b07795-…`) via the `-c` flag.
+    - Uses a public-client auth method (no client secret or certificate).
+- HTTP shape distinguishes enumeration from operator follow-on.
+    - `gather` reads only, so GETs dominate.
+    - A 403/404 tail indicates the identity probing endpoints it lacks permission for.
+    - PATCH / POST / DELETE in the same burst means the operator did more than enumerate.
+- Source posture: residential ISP, generic VPS, or anonymising-network egress raises triage priority.
+- Pivot to sign-in logs (`logs-azure.signinlogs-*`) via the sign-in correlation ID on each AAD Graph event to land on the originating token-mint.
+- Pivot to audit logs (`logs-azure.auditlogs-*`) for any directory writes by the same user near the burst that suggest persistence or modification activity.
+- Confirm the activity is not attributable to authorized testing before treating as malicious.
+    - Check for red team engagement, penetration test, or internal tooling validation.
+    - Validate against the engagement window and the operator's known source range.
+
+### Response and remediation
+
+- Enumerate device registrations created by the user during or around the burst window.
+    - `GET /v1.0/users/{id}/registeredDevices` and `GET /v1.0/users/{id}/ownedDevices`.
+    - De-register anything not attributable to a known endpoint via `DELETE /v1.0/devices/{deviceObjectId}`.
+    - Do this BEFORE session revocation: device-bound PRTs survive `revokeSignInSessions`.
+- Revoke refresh tokens and active sessions for the calling user.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the user if the alert is high-confidence or you need to halt further activity while investigation continues.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- Audit OAuth grants and app role assignments the user holds; revoke anything minted from a kit-egress or otherwise suspicious source.
+    - `GET /v1.0/oauth2PermissionGrants?$filter=principalId eq '{id}'`, revoke via `DELETE /v1.0/oauth2PermissionGrants/{grantId}`.
+    - `GET /v1.0/users/{id}/appRoleAssignments`, revoke via `DELETE /v1.0/servicePrincipals/{spId}/appRoleAssignedTo/{assignmentId}`.
+- Reset the user's password and audit authentication methods added during the window.
+    - `GET /v1.0/users/{id}/authentication/methods` to list.
+    - Remove anything unexpected via the method-type-specific endpoint.
+- Audit directory writes by the user near the burst and roll back unauthorized changes.
+    - Query `logs-azure.auditlogs-*` for `Register device`, `Update user`, `User registered security info`, role assignment activity by the same user in the window.
+- If the calling application has no legitimate AAD Graph dependency, block further use by that app.
+    - `PATCH /beta/applications/{id}` with body `{"authenticationBehaviors": {"blockAzureADGraphAccess": true}}`.
+    - This property lives on the Graph beta endpoint, not v1.0.
+"""
+references = [
+    "https://github.com/dirkjanm/ROADtools",
+    "https://github.com/dirkjanm/ROADtools/blob/master/roadrecon/roadtools/roadrecon/gather.py",
+    "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
+]
+risk_score = 47
+rule_id = "80aa6cca-b343-457b-877e-5877cd71a1f8"
+setup = """#### Azure AD Graph Activity Logs
+Requires Azure AD Graph Activity Logs ingested into `logs-azure.aadgraphactivitylogs-*` via the Elastic Azure integration. Enable the `AzureADGraphActivityLogs` diagnostic-settings category on Entra ID.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure AD Graph",
+    "Data Source: Azure AD Graph Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
+
+| where data_stream.dataset == "azure.aadgraphactivitylogs"
+  and to_lower(user_agent.original) like "*aiohttp*"
+
+| eval Esql.target_endpoints = case(
+    url.path like "*/eligibleRoleAssignments*", "eligibleRoleAssignments",
+    url.path like "*/roleAssignments*",         "roleAssignments",
+    url.path like "*/users*",                   "users",
+    url.path like "*/groups*",                  "groups",
+    url.path like "*/servicePrincipals*",       "servicePrincipals",
+    url.path like "*/applications*",            "applications",
+    url.path like "*/devices*",                 "devices",
+    url.path like "*/directoryRoles*",          "directoryRoles",
+    url.path like "*/roleDefinitions*",         "roleDefinitions",
+    url.path like "*/administrativeUnits*",     "administrativeUnits",
+    url.path like "*/contacts*",                "contacts",
+    url.path like "*/oauth2PermissionGrants*",  "oauth2PermissionGrants",
+    url.path like "*/authorizationPolicy*",     "authorizationPolicy",
+    url.path like "*/settings*",                "settings",
+    url.path like "*/policies*",                "policies",
+    url.path like "*/tenantDetails*",           "tenantDetails",
+    "other"
+  )
+| where Esql.target_endpoints != "other"
+
+| eval Esql.time_window = date_trunc(1 minutes, @timestamp)
+
+| stats
+    Esql.request_count                = count(*),
+    Esql.distinct_endpoints           = count_distinct(Esql.target_endpoints),
+    Esql.api_versions                 = values(azure.aadgraphactivitylogs.properties.api_version),
+    Esql.app_ids                      = values(azure.aadgraphactivitylogs.properties.app_id),
+    Esql.user_agent                   = values(user_agent.original),
+    Esql.http_methods                 = values(http.request.method),
+    Esql.status_codes                 = values(http.response.status_code),
+    Esql.source_ips                   = values(source.ip),
+    Esql.source_asn_orgs              = values(source.`as`.organization.name),
+    Esql.source_countries             = values(source.geo.country_name),
+    Esql.actor_types                  = values(azure.aadgraphactivitylogs.properties.actor_type),
+    Esql.client_auth_methods          = values(azure.aadgraphactivitylogs.properties.client_auth_method),
+    Esql.session_ids                  = values(azure.aadgraphactivitylogs.properties.session_id),
+    Esql.sign_in_activity_ids         = values(azure.aadgraphactivitylogs.properties.sign_in_activity_id),
+    Esql.scopes                       = values(azure.aadgraphactivitylogs.properties.scopes),
+    Esql.first_seen                   = min(@timestamp),
+    Esql.last_seen                    = max(@timestamp)
+  by
+    user.id,
+    azure.tenant_id,
+    Esql.time_window
+
+| where Esql.distinct_endpoints >= 5
+
+| keep
+    user.id,
+    azure.tenant_id,
+    Esql.*
+'''
+
+[rule.alert_suppression]
+group_by = ["user.id", "azure.tenant_id"]
+duration = {value = 5, unit = "m"}
+missing_fields_strategy = "suppress"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = ["user.id", "azure.tenant_id"]
+

@@ -1,0 +1,182 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Azure AD Graph (graph.windows.net) requests originating from user-agent strings associated with offensive
+tooling, scripting libraries, or generic HTTP clients. First-party Microsoft components calling AAD Graph identify with
+specific user agents such as "Microsoft Azure Graph Client Library", "Microsoft ADO.NET Data Services", or
+"Microsoft.OData.Client". Anything outside that recognised set is either a developer prototyping against the legacy API
+or an enumeration tool walking the directory.
+"""
+false_positives = [
+    """
+    Developer activity prototyping against AAD Graph from a workstation may match. Validate via the calling
+    `azure.aadgraphactivitylogs.properties.app_id` and the signed-in user; legitimate developer use is rare in
+    production tenants since Microsoft has been steering callers off AAD Graph for years.
+    """,
+    """
+    Authorized red team or penetration test activity using ROADrecon, ROADtools, AADInternalsor similar tooling can match. Add
+    exceptions on the source IP, signed-in user, or app ID after validation.
+    """,
+
+]
+from = "now-10m"
+interval = "9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure AD Graph Access with Suspicious User-Agent"
+note = """## Triage and analysis
+
+### Investigating Azure AD Graph Access with Suspicious User-Agent
+
+Azure AD Graph (graph.windows.net) is the legacy directory REST API that Microsoft has been retiring for years.
+Legitimate first-party traffic against it is dominated by a small set of recognisable user agents (`Microsoft.OData.Client`,
+`Microsoft Azure Graph Client Library`, `Microsoft ADO.NET Data Services`, the Azure portal with a Chrome user agent,
+and an empty-UA tail from first-party AppIds). Traffic identifying as Python, aiohttp, curl, Go-http-client, or any
+of the `*hound` enumeration families is almost always either a developer prototype or adversary tooling. This rule
+flags any such request even at a single event, because tooling samples for AAD Graph are inherently low-volume in
+normal tenants.
+
+### Possible investigation steps
+
+- Confirm the matching user agent.
+    - `user_agent.original` (e.g., `aiohttp`, `AADInternals`, `curl`, `bav2ropc`).
+- Identify the caller and the calling client.
+    - `user.id` for the caller, `azure.aadgraphactivitylogs.properties.app_id` for the OAuth client.
+- Review which directory object types were touched.
+    - `url.path` (e.g., `/users`, `/policies`, `/servicePrincipals`).
+- Check the success / failure pattern.
+    - `http.response.status_code`. Many 4xx responses suggest permission probing.
+- Cross-reference with the API version.
+    - `azure.aadgraphactivitylogs.properties.api_version`. A non-Microsoft UA combined with `1.6-internal` or `1.61-internal` is a stronger signal of offensive tooling.
+- Pivot to sign-in logs (`logs-azure.signinlogs-*`) for the same user / source IP to understand how the token was obtained.
+- Confirm the activity is not attributable to authorized testing (red team engagement, penetration test, internal tooling validation) before treating as malicious.
+
+### Response and remediation
+
+- Revoke refresh tokens and active sessions for the calling user.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the user if the alert is high-confidence or you need to halt further activity while investigation continues.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- Check for device registrations created by the user during or around the burst window and remove rogue devices.
+    - `GET /v1.0/users/{id}/registeredDevices` and `GET /v1.0/users/{id}/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}`.
+    - Do this BEFORE session revocation: device-bound PRTs survive `revokeSignInSessions`.
+- If the calling application has no legitimate AAD Graph dependency, block further use by that app.
+    - `PATCH /beta/applications/{id}` with body `{"authenticationBehaviors": {"blockAzureADGraphAccess": true}}`.
+    - This property lives on the Graph beta endpoint, not v1.0.
+- Apply Conditional Access targeting the AAD Graph audience for the affected user population.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://www.sophos.com/en-us/research/tampering-with-conditional-access-policies-using-azure-ad-graph-api",
+    "https://github.com/gerenios/aadinternals",
+]
+risk_score = 47
+rule_id = "3aec394d-ed2a-4f3e-8ed3-4a2adea39f05"
+setup = """#### Azure AD Graph Activity Logs
+Requires Azure AD Graph Activity Logs ingested into `logs-azure.aadgraphactivitylogs-*` via the Elastic Azure
+integration (Azure Event Hub). Enable the `AzureADGraphActivityLogs` diagnostic-settings category on Entra ID.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure AD Graph",
+    "Data Source: Azure AD Graph Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
+
+| where data_stream.dataset == "azure.aadgraphactivitylogs"
+    and azure.aadgraphactivitylogs.properties.actor_type == "User"
+    and user_agent.original is not null
+| eval Esql.ua_lower = to_lower(user_agent.original)
+| where Esql.ua_lower like "*fasthttp*"
+    or Esql.ua_lower like "*aiohttp*"
+    or Esql.ua_lower like "*hound*"
+    or Esql.ua_lower like "*aadinternals*"
+    or Esql.ua_lower like "*go-http-client*"
+    or Esql.ua_lower like "python*"
+    or Esql.ua_lower like "*curl/*"
+    or Esql.ua_lower like "*okhttp*"
+    or Esql.ua_lower like "*axios*"
+    or Esql.ua_lower like "*node-fetch*"
+    or Esql.ua_lower like "*go-resty*"
+    or Esql.ua_lower like "*bav2ropc*"
+    or Esql.ua_lower like "*undici*"
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    user.id,
+    source.ip,
+    source.as.organization.name,
+    user_agent.original,
+    azure.aadgraphactivitylogs.properties.app_id,
+    azure.aadgraphactivitylogs.properties.api_version,
+    url.path,
+    http.response.status_code,
+    azure.tenant_id,
+    Esql.ua_lower
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "source.ip",
+    "source.as.organization.name",
+    "user_agent.original",
+    "azure.aadgraphactivitylogs.properties.app_id",
+    "azure.aadgraphactivitylogs.properties.api_version",
+    "url.path",
+    "http.response.status_code",
+    "azure.tenant_id",
+]
+

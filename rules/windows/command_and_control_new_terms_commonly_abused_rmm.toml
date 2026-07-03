@@ -2,12 +2,12 @@
 creation_date = "2023/04/03"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Adversaries may install legitimate remote monitoring and management (RMM) tools or remote access software on compromised endpoints for command-and-control (C2), persistence, and execution of native commands. This rule detects when a process is started whose name or code signature (or whose parent's name or code signature) resembles commonly abused RMM/remote access tools, including first-time-seen child processes of such tools. New Terms type: host has not seen this process (or child-of-RMM pattern) before within the configured history window.
+Adversaries may install legitimate remote monitoring and management (RMM) tools or remote access software on compromised endpoints for command-and-control (C2), persistence, and execution of native commands. This rule detects when a process is started whose name or code signature matches commonly abused RMM or remote access tools. New Terms type: the host.id and process.name pair has not been seen before within the configured 7-day history window.
 """
 from = "now-9m"
 index = [
@@ -21,42 +21,12 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "First Time Seen Remote Monitoring and Management Tool"
-note = """## Triage and analysis
-
-### Investigating First Time Seen Remote Monitoring and Management Tool
-
-Remote monitoring and management (RMM) and remote access software are commonly used by IT departments to provide support and manage endpoints. Attackers adopt the same tools to connect into interactive sessions, maintain access as a persistence mechanism, and drop malicious software.
-
-This rule detects when an RMM or remote access process is seen on a host for the first time within the new_terms history window (see rule.new_terms), enabling analysts to investigate and enforce the correct usage of such tools.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Check if the execution of the RMM or remote access tool is approved by the organization's IT department.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Contact the account owner and confirm whether they are aware of this activity.
-  - If the tool is not approved for use in the organization, the employee could have been tricked into installing it and providing access to a malicious third party. Investigate whether this third party could be attempting to scam the end-user or gain access to the environment through social engineering.
-- Investigate any abnormal behavior by the subject process, such as network connections, registry or file modifications, and any spawned child processes.
-
-### False positive analysis
-
-- If an authorized support person or administrator used the tool to conduct legitimate support or remote access, consider reinforcing that only tooling approved by the IT policy should be used. The analyst can dismiss the alert if no other suspicious behavior is observed involving the host or users.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Run a full scan using the antimalware tool in place. This scan can reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- If an unauthorized third party did the access via social engineering, consider improvements to the security awareness program.
-- Enforce that only tooling approved by the IT policy should be used for remote access purposes and only by authorized staff.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://thedfirreport.com/2023/04/03/malicious-iso-file-leads-to-domain-wide-ransomware/",
-    "https://attack.mitre.org/techniques/T1219/002/",
     "https://github.com/redcanaryco/surveyor/blob/master/definitions/remote-admin.json",
-    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a", "https://www.cisa.gov/sites/default/files/2025-06/aa25-163a-ransomware-simplehelp-rmm-compromise.pdf",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+    "https://www.cisa.gov/sites/default/files/2025-06/aa25-163a-ransomware-simplehelp-rmm-compromise.pdf",
+    "https://lolrmm.io/",
 ]
 risk_score = 47
 rule_id = "6e1a2cc4-d260-11ed-8829-f661ea17fbcc"
@@ -74,6 +44,291 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
+query = '''
+host.os.type: "windows" and
+    event.category: "process" and event.type: "start" and
+    (
+        process.code_signature.subject_name : (
+            "Action1 Corporation" or
+            "Aeroadmin LLC" or
+            "AeroAdmin LLC" or
+            "AmidaWare LLC" or
+            "Ammyy LLC" or
+            "AnyDesk Software GmbH" or
+            "AOMEI International Network Limited" or
+            "Atera Networks Ltd" or
+            "AWERAY PTE. LTD." or
+            "BeamYourScreen GmbH" or
+            "Bomgar Corporation" or
+            "BreakingSecurity.net" or
+            "ConnectWise, Inc." or
+            "ConnectWise, LLC" or
+            "Connectwise, LLC" or
+            "Devolutions Inc" or
+            "Devolutions inc." or
+            "DOMOTZ INC." or
+            "DUC FABULOUS CO.,LTD" or
+            "DWSNET OÜ" or
+            "DWSNET srl" or
+            "Electronic Team, Inc." or
+            "Famatech Corp." or
+            "FleetDeck Inc" or
+            "GlavSoft LLC" or
+            "GlavSoft LLC." or
+            "GoTo Technologies USA, LLC" or
+            "Hefei Pingbo Network Technology Co. Ltd" or
+            "IDrive, Inc." or
+            "Impero Solutions Limited" or
+            "IMPERO SOLUTIONS LIMITED" or
+            "Instant Housecall" or
+            "ISL Online Ltd." or
+            "JumpCloud Inc" or
+            "Level Software, Inc." or
+            "LogMeIn, Inc." or
+            "LUNIXAR SAS DE CV" or
+            "MMSOFT Design Ltd." or
+            "Monitoring Client" or
+            "MSPBytes Corp" or
+            "MSPBytes, Corp." or
+            "N-ABLE TECHNOLOGIES LTD" or
+            "Nanosystems S.r.l." or
+            "NetSupport Ltd" or
+            "NetSupport Ltd." or
+            "NETSUPPORT LTD." or
+            "NinjaOne LLC" or
+            "NinjaRMM, LLC" or
+            "Open Source Developer, Huabing Zhou" or
+            "Parallels International GmbH" or
+            "philandro Software GmbH" or
+            "Pro Softnet Corporation" or
+            "PURSLANE" or
+            "RealVNC" or
+            "RealVNC Limited" or
+            "REMOTE UTILITIES PTE. LTD." or
+            "Remote Utilities LLC" or
+            "Rocket Software, Inc." or
+            "Rsupport Co., Ltd." or
+            "SAFIB" or
+            "ScreenConnect Client" or
+            "Servably, Inc." or
+            "Servably Inc." or
+            "ShowMyPC INC" or
+            "SimpleHelp Ltd" or
+            "Splashtop Inc." or
+            "Superops Inc." or
+            "Tailscale Inc." or
+            "TeamViewer" or
+            "TeamViewer GmbH" or
+            "TeamViewer Germany GmbH" or
+            "Techinline Limited" or
+            "uvnc bvba" or
+            "Yakhnovets Denis Aleksandrovich IP" or
+            "Zhou Huabing" or
+            "ZOHO Corporation Private Limited"
+        ) or
+
+        process.name.caseless : (
+            AA_v*.exe or
+            "AcronisCyberProtectConnectAgent.exe" or
+            "AeroAdmin.exe" or
+            "AgentMon.exe" or
+            "AnyDesk.exe" or
+            "apc_Admin.exe" or
+            "apc_host.exe" or
+            "AteraAgent.exe" or
+            aweray_remote*.exe or
+            "AweSun.exe" or
+            "B4-Service.exe" or
+            "BASupSrvc.exe" or
+            "bomgar-scc.exe" or
+            "CagService.exe" or
+            "CloudRaCmd.exe" or
+            "CloudRaSd.exe" or
+            "CloudRaService.exe" or
+            ConnectWiseControl*.exe or
+            "connectwisecontrol.client.exe" or
+            "domotzagent.exe" or
+            "domotz-windows-x64-10.exe" or
+            "dwagsvc.exe" or
+            "DWRCC.exe" or
+            "dwrcs.exe" or
+            "dwrcst.exe" or
+            fleetdeck_commander*.exe or
+            "g2aservice.exe" or
+            "getscreen.exe" or
+            "GoToAssistService.exe" or
+            "GoToResolveProcessChecker.exe" or
+            "GoToResolveRemoteControl.exe" or
+            "GoToResolveService.exe" or
+            "GoToResolveTerminal.exe" or
+            "GoToResolveUnattended.exe" or
+            "gotohttp.exe" or
+            "helpwire.exe" or
+            "ImmyAgent.exe" or
+            "ImmyBot.Agent.Ephemeral.exe" or
+            "ImmyUpdater.exe" or
+            "ImperoClientSVC.exe" or
+            "ImperoServerSVC.exe" or
+            "ISLLight.exe" or
+            "ISLLightClient.exe" or
+            "jumpcloud-agent.exe" or
+            "komari.exe" or
+            "komari-agent.exe" or
+            "level.exe" or
+            "lmi_rescue.exe" or
+            "lmi_rescue_srv.exe" or
+            "LMIIgnition.exe" or
+            "LogMeIn.exe" or
+            "ltsvc.exe" or
+            "ltsvcmon.exe" or
+            "lttray.exe" or
+            "Lunixar.exe" or
+            "LunixarRemote.exe" or
+            "LunixarUpdater.exe" or
+            "LvAgent.exe" or
+            "ManageEngine_Remote_Access_Plus.exe" or
+            "MeshAgent.exe" or
+            "Mikogo-Service.exe" or
+            "nezha-agent.exe" or
+            "NinjaRMMAgent.exe" or
+            "NinjaRMMAgentPatcher.exe" or
+            "ninjarmm-cli.exe" or
+            "parsec.exe" or
+            "PService.exe" or
+            "quickassist.exe" or
+            "r_server.exe" or
+            "radmin.exe" or
+            "radmin3.exe" or
+            "rcengmgru.exe" or
+            "RCClient.exe" or
+            "rcmgrsvc.exe" or
+            "RCService.exe" or
+            "Remote Support.exe" or
+            "RemoteDesktopManager.exe" or
+            "Remotely_Agent.exe" or
+            "Remotely_Desktop.exe" or
+            "RemotePC.exe" or
+            "RemotePCDesktop.exe" or
+            "RemotePCService.exe" or
+            "remoteview.exe" or
+            "rfusclient.exe" or
+            "RMM.Agent.exe" or
+            "ROMServer.exe" or
+            "ROMViewer.exe" or
+            "RPCSuite.exe" or
+            "rserver3.exe" or
+            "rustdesk.exe" or
+            "rutserv.exe" or
+            "rutview.exe" or
+            "rvagent.exe" or
+            "rvagtray.exe" or
+            "saazapsc.exe" or
+            ScreenConnect*.exe or
+            "ScreenConnect.ClientService.exe" or
+            "session_win.exe" or
+            "simplegatewayservice.exe" or
+            "simplehelpcustomer.exe" or
+            "smpcview.exe" or
+            "spclink.exe" or
+            "Splashtop-streamer.exe" or
+            "SplashtopSOS.exe" or
+            "spsrv.exe" or
+            "sragent.exe" or
+            "SRService.exe" or
+            "srmanager.exe" or
+            "srserver.exe" or
+            "strwinclt.exe" or
+            "Supremo.exe" or
+            "SupremoService.exe" or
+            "Syncro.App.Runner.exe" or
+            "Syncro.Installer.exe" or
+            "Syncro.Overmind.Service.exe" or
+            "Syncro.Service.exe" or
+            "SyncroLive.Agent.exe" or
+            "SyncroLive.Agent.Runner.exe" or
+            "SyncroLive.Service.exe" or
+            "tacticalrmm.exe" or
+            "tailscale.exe" or
+            "tailscaled.exe" or
+            "teamviewer.exe" or
+            "teamviewer_desktop.exe" or
+            "teamviewer_service.exe" or
+            "TiAgent.exe" or
+            "TiClientCore.exe" or
+            "ToDesk_Service.exe" or
+            "ToolsIQ.exe" or
+            "TSClient.exe" or
+            "tvn.exe" or
+            "tvnserver.exe" or
+            "tvnviewer.exe" or
+            "twingate.exe" or
+            UltraVNC*.exe or
+            UltraViewer*.exe or
+            "Velociraptor.exe" or
+            "vncserver.exe" or
+            "vncviewer.exe" or
+            "winvnc.exe" or
+            "winwvc.exe" or
+            "ZA_Access.exe" or
+            "za_connect.exe" or
+            "Zaservice.exe" or
+            "ZMAgent.exe" or
+            "ZohoMeeting.exe" or
+            "zohotray.exe" or
+            "ZohoURS.exe" or
+            "ZohoURSService.exe"
+        )
+  ) and
+  not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")
+'''
+
+
+note = """## Triage and analysis
+
+### Investigating First Time Seen Remote Monitoring and Management Tool
+
+#### Possible investigation steps
+
+- Validate the alert-local process event and identify the matched RMM artifact.
+  - Focus: `host.name`, `host.id`, `process.name`, `process.executable`, `process.code_signature.subject_name`.
+  - Review the exact process entity on the alerted host with $investigate_0
+  - Implication: The alert proves one Windows process start from the supported process data sources where the `host.id` and `process.name` pair is first seen within the 7-day new terms window; it does not prove the remote session or legitimacy. Close only if the exact host, account, process name, executable, signer, and support or deployment window match a validated change record or verified owner confirmation; otherwise continue.
+- Determine why this RMM process is new for the host.
+  - Focus: `host.id`, `process.name`, `process.executable`, `process.command_line`, `process.hash.sha256`.
+  - Review same-host executions across the rule history window with $investigate_1
+  - Implication: Repeated executions clustered around the same deployment or support window can support a bounded benign explanation only when the exact executable, command line, hash, host, and account match the recovered business context. A new hash, renamed executable, unexpected arguments, or executions outside that window keep the case suspicious.
+- Reconstruct the parent process and logon context that launched the tool.
+  - Focus: `process.parent.name`, `process.parent.executable`, `process.parent.command_line`, `process.Ext.session_info.logon_type`, `user.name`.
+  - Review the parent process entity on the same host with $investigate_2
+  - Implication: A parent and session that match the same validated change record and account owner confirmation can bound the activity to one workflow. A launch from user-download, browser, archive, script, or unrelated service context is suspicious for social engineering or staged access.
+- Inspect endpoint artifacts and child behavior before broader scoping.
+  - Focus: `process.entity_id`, `process.Ext.ancestry`, `process.args`, `process.working_directory`, `process.Ext.token.elevation_level`.
+  - Implication: Recover child process, service, file, registry, and persistence evidence from endpoint timeline or live host data before interpretation because those artifact fields are not guaranteed on the alert. Child execution, persistence, unusual working directories, or elevated token use by the matched RMM process supports escalation; absence of recoverable artifacts does not prove benign.
+- If local process, parent, and endpoint-artifact evidence is suspicious or incomplete, broaden scope for the RMM hypothesis.
+  - Focus: `host.id`, `user.name`, `process.name`, `process.hash.sha256`, `process.code_signature.subject_name`.
+  - Review same host and account activity with $investigate_3
+  - Review the same executable hash across available process events with $investigate_4
+  - Implication: The hypothesis is RMM staging or reuse across hosts or accounts; matching hash activity, related alerts, or repeated account use should drive host and account scoping plus evidence preservation. No related alerts or hash matches only limits currently observed spread and does not prove benign; exact matches limited to the validated host, account, and time window may support closure after the earlier evidence aligns.
+
+Disposition: Escalate suspicious RMM artifacts, launch chains, or expanded scope; close only when alert-local evidence and recovered context prove one expected support or deployment workflow on the exact host and account; preserve and escalate mixed or incomplete cases for more context before final disposition.
+
+### False positive analysis
+
+- Potential benign cases include first deployment of a remote support tool, first use after host rebuild, a product update that changes `process.name`, or a one-time support session only when alert-local and recovered process evidence match `host.id`, `user.name`, `process.name`, `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.pe.original_file_name`, and `process.hash.sha256` when available, and that evidence aligns with a verified owner confirmation or validated change record for the observed support or deployment window.
+- Do not close on the tool name, signer, executable path, or lack of related alerts alone. Escalate when artifacts indicate social engineering, an unexpected parent or session, a renamed executable, hash mismatch, or unbounded account or host spread.
+- Scope exceptions only to durable future-alert fields that match the validated benign workflow, using `host.id`, `user.name`, `process.name`, `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.pe.original_file_name`, and `process.hash.sha256` when available. Do not scope exceptions by prose-only groups such as support teams or known RMM activity; preserve and escalate mixed or incomplete cases instead of creating broad exclusions.
+
+### Response and remediation
+
+- Preserve or export case evidence plus volatile process, memory, executable, or file-system artifacts that could be lost before isolation, process termination, cleanup, or other disruptive action.
+- For confirmed malicious activity, scope first by reviewing the matched process, parent and child processes, persistence artifacts, same-hash executions, related alerts, and account activity across affected hosts.
+- After evidence capture and initial scoping, isolate affected hosts or disable active remote access paths when containment is required to prevent continued access.
+- After containment decisions and evidence review, terminate malicious RMM processes, remove persistence, clean up dropped files or services, revoke active sessions, and reset credentials exposed through the RMM session or related activity.
+- If social engineering led to the remote access, validate the user interaction, collect relevant communications or download sources when available, and include affected accounts in credential review.
+- Document confirmed indicators and logging or detection gaps for the responsible detection or logging owners after scoping and containment.
+"""
+
 setup = """## Setup
 
 This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
@@ -88,425 +343,83 @@ This rule also supports the following third-party data sources. For setup instru
 - [Windows Process Creation Logs](https://ela.st/audit-process-creation)
 """
 
-query = '''
-host.os.type: "windows" and
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "user.name",
+    "process.entity_id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.pe.original_file_name",
+    "process.parent.entity_id",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
 
-   event.category: "process" and event.type: "start" and
+[[transform.investigate]]
+label = "Matched process context"
+description = "Find the exact alerted process entity on the same host around the alert window."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    ],
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
-    (
-        process.code_signature.subject_name : (
-            "Action1 Corporation" or
-            "AeroAdmin LLC" or
-            "Ammyy LLC" or
-            "Atera Networks Ltd" or
-            "AWERAY PTE. LTD." or
-            "BeamYourScreen GmbH" or
-            "Bomgar Corporation" or
-            "DUC FABULOUS CO.,LTD" or
-            "DOMOTZ INC." or
-            "DWSNET OÜ" or
-            "FleetDeck Inc" or
-            "GlavSoft LLC" or
-            "GlavSoft LLC." or
-            "Hefei Pingbo Network Technology Co. Ltd" or
-            "IDrive, Inc." or
-            "IMPERO SOLUTIONS LIMITED" or
-            "Instant Housecall" or
-            "ISL Online Ltd." or
-            "LogMeIn, Inc." or
-            "LUNIXAR SAS DE CV" or
-            "Monitoring Client" or
-            "MMSOFT Design Ltd." or
-            "Nanosystems S.r.l." or
-            "NetSupport Ltd" or
-            "NetSupport Ltd." or
-            "NETSUPPORT LTD." or
-            "NinjaRMM, LLC" or
-            "Parallels International GmbH" or
-            "philandro Software GmbH" or
-            "Pro Softnet Corporation" or
-            "RealVNC" or
-            "RealVNC Limited" or
-            "BreakingSecurity.net" or
-            "Remote Utilities LLC" or
-            "Rocket Software, Inc." or
-            "SAFIB" or
-            "Servably, Inc." or
-            "ShowMyPC INC" or
-            "Splashtop Inc." or
-            "Superops Inc." or
-            "TeamViewer" or
-            "TeamViewer GmbH" or
-            "TeamViewer Germany GmbH" or
-            "Techinline Limited" or
-            "uvnc bvba" or
-            "Yakhnovets Denis Aleksandrovich IP" or
-            "Zhou Huabing" or
-            "ZOHO Corporation Private Limited" or
-            "Connectwise, LLC" or  
-			"ScreenConnect Client" or
-			"Servably Inc."
-        ) or
+[[transform.investigate]]
+label = "Same host process name history"
+description = "Find same-host executions of the matched process name across the rule history window."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "process.name", queryType = "phrase", value = "{{process.name}}", valueType = "string" },
+    ],
+]
+relativeFrom = "now-7d/d"
+relativeTo = "now"
 
-        process.name.caseless : (
-            AA_v*.exe or
-            "AeroAdmin.exe" or
-            "AnyDesk.exe" or
-            "apc_Admin.exe" or
-            "apc_host.exe" or
-            "AteraAgent.exe" or
-            aweray_remote*.exe or
-            "AweSun.exe" or
-            "AgentMon.exe" or
-            "B4-Service.exe" or
-            "BASupSrvc.exe" or
-            "bomgar-scc.exe" or
-            "domotzagent.exe" or
-            "domotz-windows-x64-10.exe" or
-            "dwagsvc.exe" or
-            "DWRCC.exe" or
-            "ImperoClientSVC.exe" or
-            "ImperoServerSVC.exe" or
-            "ISLLight.exe" or
-            "ISLLightClient.exe" or
-            fleetdeck_commander*.exe or
-            "getscreen.exe" or
-            "g2aservice.exe" or
-            "GoToAssistService.exe" or
-            "gotohttp.exe" or
-            "jumpcloud-agent.exe" or
-            "level.exe" or
-            "LvAgent.exe" or
-            "LMIIgnition.exe" or
-            "LogMeIn.exe" or
-            "Lunixar.exe" or
-            "LunixarRemote.exe" or
-            "LunixarUpdater.exe" or
-            "ManageEngine_Remote_Access_Plus.exe" or
-            "MeshAgent.exe" or
-            "Mikogo-Service.exe" or
-            "NinjaRMMAgent.exe" or
-            "NinjaRMMAgenPatcher.exe" or
-            "ninjarmm-cli.exe" or
-            "parsec.exe" or
-            "PService.exe" or
-            "quickassist.exe" or
-            "r_server.exe" or
-            "radmin.exe" or
-            "radmin3.exe" or
-            "RCClient.exe" or
-            "RCService.exe" or
-            "RemoteDesktopManager.exe" or
-            "RemotePC.exe" or
-            "RemotePCDesktop.exe" or
-            "RemotePCService.exe" or
-            "rfusclient.exe" or
-            "ROMServer.exe" or
-            "ROMViewer.exe" or
-            "RPCSuite.exe" or
-            "rserver3.exe" or
-            "rustdesk.exe" or
-            "rutserv.exe" or
-            "rutview.exe" or
-            "saazapsc.exe" or
-            ScreenConnect*.exe or
-            "session_win.exe" or
-            "Remote Support.exe" or
-            "smpcview.exe" or
-            "spclink.exe" or
-            "Splashtop-streamer.exe" or
-            "Syncro.Overmind.Service.exe" or
-            "SyncroLive.Agent.Runner.exe" or
-            "SRService.exe" or
-            "strwinclt.exe" or
-            "Supremo.exe" or
-            "SupremoService.exe" or
-            "tacticalrmm.exe" or
-            "tailscale.exe" or
-            "tailscaled.exe" or
-            "teamviewer.exe" or
-            "ToDesk_Service.exe" or
-            "twingate.exe" or
-            "TiClientCore.exe" or
-            "TSClient.exe" or
-            "tvn.exe" or
-            "tvnserver.exe" or
-            "tvnviewer.exe" or
-            UltraVNC*.exe or
-            UltraViewer*.exe or
-            "vncserver.exe" or
-            "vncviewer.exe" or
-            "winvnc.exe" or
-            "winwvc.exe" or
-            "Zaservice.exe" or
-            "ZohoURS.exe" or
-            "Velociraptor.exe" or
-            "ToolsIQ.exe" or
-            "CagService.exe" or 
-			"ScreenConnect.ClientService.exe" or 
-			"TiAgent.exe" or 
-			"GoToResolveProcessChecker.exe" or 
-			"GoToResolveUnattended.exe" or 
-			"Syncro.Installer.exe"
-        ) or
-        process.name : (
-            AA_v*.exe or
-            "AeroAdmin.exe" or
-            "AnyDesk.exe" or
-            "apc_Admin.exe" or
-            "apc_host.exe" or
-            "AteraAgent.exe" or
-            aweray_remote*.exe or
-            "AweSun.exe" or
-            "AgentMon.exe" or
-            "B4-Service.exe" or
-            "BASupSrvc.exe" or
-            "bomgar-scc.exe" or
-            "CagService.exe" or
-            "domotzagent.exe" or
-            "domotz-windows-x64-10.exe" or
-            "dwagsvc.exe" or
-            "DWRCC.exe" or
-            "ImperoClientSVC.exe" or
-            "ImperoServerSVC.exe" or
-            "ISLLight.exe" or
-            "ISLLightClient.exe" or
-            fleetdeck_commander*.exe or
-            "getscreen.exe" or
-            "g2aservice.exe" or
-            "GoToAssistService.exe" or
-            "gotohttp.exe" or
-            "jumpcloud-agent.exe" or
-            "level.exe" or
-            "LvAgent.exe" or
-            "LMIIgnition.exe" or
-            "LogMeIn.exe" or
-            "Lunixar.exe" or
-            "LunixarRemote.exe" or
-            "LunixarUpdater.exe" or
-            "ManageEngine_Remote_Access_Plus.exe" or
-            "MeshAgent.exe" or
-            "meshagent.exe" or
-            "Mikogo-Service.exe" or
-            "NinjaRMMAgent.exe" or
-            "NinjaRMMAgenPatcher.exe" or
-            "ninjarmm-cli.exe" or
-            "parsec.exe" or
-            "PService.exe" or
-            "quickassist.exe" or
-            "r_server.exe" or
-            "radmin.exe" or
-            "radmin3.exe" or
-            "RCClient.exe" or
-            "RCService.exe" or
-            "RemoteDesktopManager.exe" or
-            "RemotePC.exe" or
-            "RemotePCDesktop.exe" or
-            "RemotePCService.exe" or
-            "rfusclient.exe" or
-            "ROMServer.exe" or
-            "ROMViewer.exe" or
-            "RPCSuite.exe" or
-            "rserver3.exe" or
-            "rustdesk.exe" or
-            "rutserv.exe" or
-            "rutview.exe" or
-            "saazapsc.exe" or
-            ScreenConnect*.exe or
-            "session_win.exe" or
-            "Remote Support.exe" or
-            "smpcview.exe" or
-            "spclink.exe" or
-            "Splashtop-streamer.exe" or
-            "Syncro.Overmind.Service.exe" or
-            "SyncroLive.Agent.Runner.exe" or
-            "SRService.exe" or
-            "strwinclt.exe" or
-            "Supremo.exe" or
-            "SupremoService.exe" or
-            "tacticalrmm.exe" or
-            "tailscale.exe" or
-            "tailscaled.exe" or
-            "teamviewer.exe" or
-            "TiClientCore.exe" or
-            "ToDesk_Service.exe" or
-            "twingate.exe" or
-            "TSClient.exe" or
-            "tvn.exe" or
-            "tvnserver.exe" or
-            "tvnviewer.exe" or
-            UltraVNC*.exe or
-            UltraViewer*.exe or
-            "vncserver.exe" or
-            "vncviewer.exe" or
-            "winvnc.exe" or
-            "winwvc.exe" or
-            "Zaservice.exe" or
-            "ZohoURS.exe" or
-            "Velociraptor.exe" or
-            "ToolsIQ.exe" or 
-			"ScreenConnect.ClientService.exe" or 
-			"TiAgent.exe" or 
-			"GoToResolveProcessChecker.exe" or 
-			"GoToResolveUnattended.exe" or 
-			"Syncro.Installer.exe"
-        ) or
-        process.parent.code_signature.subject_name : (
-            "Action1 Corporation" or
-            "AeroAdmin LLC" or
-            "Ammyy LLC" or
-            "Atera Networks Ltd" or
-            "AWERAY PTE. LTD." or
-            "BeamYourScreen GmbH" or
-            "Bomgar Corporation" or
-            "DUC FABULOUS CO.,LTD" or
-            "DOMOTZ INC." or
-            "DWSNET OÜ" or
-            "FleetDeck Inc" or
-            "GlavSoft LLC" or
-            "GlavSoft LLC." or
-            "Hefei Pingbo Network Technology Co. Ltd" or
-            "IDrive, Inc." or
-            "IMPERO SOLUTIONS LIMITED" or
-            "Instant Housecall" or
-            "ISL Online Ltd." or
-            "LogMeIn, Inc." or
-            "LUNIXAR SAS DE CV" or
-            "Monitoring Client" or
-            "MMSOFT Design Ltd." or
-            "Nanosystems S.r.l." or
-            "NetSupport Ltd" or
-            "NetSupport Ltd." or
-            "NETSUPPORT LTD." or
-            "NinjaRMM, LLC" or
-            "Parallels International GmbH" or
-            "philandro Software GmbH" or
-            "Pro Softnet Corporation" or
-            "RealVNC" or
-            "RealVNC Limited" or
-            "BreakingSecurity.net" or
-            "Remote Utilities LLC" or
-            "Rocket Software, Inc." or
-            "SAFIB" or
-            "Servably, Inc." or
-            "ShowMyPC INC" or
-            "Splashtop Inc." or
-            "Superops Inc." or
-            "TeamViewer" or
-            "TeamViewer GmbH" or
-            "TeamViewer Germany GmbH" or
-            "Techinline Limited" or
-            "uvnc bvba" or
-            "Yakhnovets Denis Aleksandrovich IP" or
-            "Zhou Huabing" or
-            "ZOHO Corporation Private Limited" or
-            "Connectwise, LLC" or 
-			"ScreenConnect Client" or
-			"Servably Inc."
-        ) or
-        process.parent.name: (
-            AA_v*.exe or
-            "AeroAdmin.exe" or
-            "AnyDesk.exe" or
-            "apc_Admin.exe" or
-            "apc_host.exe" or
-            "AteraAgent.exe" or
-            aweray_remote*.exe or
-            "AweSun.exe" or
-            "AgentMon.exe" or
-            "B4-Service.exe" or
-            "BASupSrvc.exe" or
-            "bomgar-scc.exe" or
-            "domotzagent.exe" or
-            "domotz-windows-x64-10.exe" or
-            "dwagsvc.exe" or
-            "DWRCC.exe" or
-            "ImperoClientSVC.exe" or
-            "ImperoServerSVC.exe" or
-            "ISLLight.exe" or
-            "ISLLightClient.exe" or
-            fleetdeck_commander*.exe or
-            "getscreen.exe" or
-            "g2aservice.exe" or
-            "GoToAssistService.exe" or
-            "gotohttp.exe" or
-            "jumpcloud-agent.exe" or
-            "level.exe" or
-            "LvAgent.exe" or
-            "LMIIgnition.exe" or
-            "LogMeIn.exe" or
-            "Lunixar.exe" or
-            "LunixarRemote.exe" or
-            "LunixarUpdater.exe" or
-            "ManageEngine_Remote_Access_Plus.exe" or
-            "MeshAgent.exe" or
-            "Mikogo-Service.exe" or
-            "NinjaRMMAgent.exe" or
-            "NinjaRMMAgenPatcher.exe" or
-            "ninjarmm-cli.exe" or
-            "parsec.exe" or
-            "PService.exe" or
-            "quickassist.exe" or
-            "r_server.exe" or
-            "radmin.exe" or
-            "radmin3.exe" or
-            "RCClient.exe" or
-            "RCService.exe" or
-            "RemoteDesktopManager.exe" or
-            "RemotePC.exe" or
-            "RemotePCDesktop.exe" or
-            "RemotePCService.exe" or
-            "rfusclient.exe" or
-            "ROMServer.exe" or
-            "ROMViewer.exe" or
-            "RPCSuite.exe" or
-            "rserver3.exe" or
-            "rustdesk.exe" or
-            "rutserv.exe" or
-            "rutview.exe" or
-            "saazapsc.exe" or
-            ScreenConnect*.exe or
-            "session_win.exe" or
-            "Remote Support.exe" or
-            "smpcview.exe" or
-            "spclink.exe" or
-            "Splashtop-streamer.exe" or
-            "Syncro.Overmind.Service.exe" or
-            "SyncroLive.Agent.Runner.exe" or
-            "SRService.exe" or
-            "strwinclt.exe" or
-            "Supremo.exe" or
-            "SupremoService.exe" or
-            "tacticalrmm.exe" or
-            "tailscale.exe" or
-            "tailscaled.exe" or
-            "teamviewer.exe" or
-            "ToDesk_Service.exe" or
-            "twingate.exe" or
-            "TiClientCore.exe" or
-            "TSClient.exe" or
-            "tvn.exe" or
-            "tvnserver.exe" or
-            "tvnviewer.exe" or
-            UltraVNC*.exe or
-            UltraViewer*.exe or
-            "vncserver.exe" or
-            "vncviewer.exe" or
-            "winvnc.exe" or
-            "winwvc.exe" or
-            "Zaservice.exe" or
-            "ZohoURS.exe" or
-            "Velociraptor.exe" or
-            "ToolsIQ.exe" or
-            "CagService.exe" or 
-			"TiAgent.exe" or 
-			"GoToResolveProcessChecker.exe" or 
-			"GoToResolveUnattended.exe"
-        )
-  ) and
-  not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")
-'''
+[[transform.investigate]]
+label = "Parent process activity"
+description = "Recover events for the parent process entity that launched the matched RMM process."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    ],
+]
+relativeFrom = "now-24h"
+relativeTo = "now"
 
+[[transform.investigate]]
+label = "Host account activity"
+description = "Review activity by the same account on the same host before broader scoping."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "user.name", queryType = "phrase", value = "{{user.name}}", valueType = "string" },
+    ],
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Executable hash scope"
+description = "Find other executions of the same executable hash when local evidence is suspicious or unresolved."
+providers = [
+    [
+        { excluded = false, field = "process.hash.sha256", queryType = "phrase", value = "{{process.hash.sha256}}", valueType = "string" },
+    ],
+]
+relativeFrom = "now-7d/d"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -532,5 +445,3 @@ value = ["host.id", "process.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
-
-

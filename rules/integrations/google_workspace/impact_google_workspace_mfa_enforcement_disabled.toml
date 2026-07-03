@@ -2,13 +2,15 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/01"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when multi-factor authentication (MFA) enforcement is disabled for Google Workspace users. An adversary may
-disable MFA enforcement in order to weaken an organization’s security controls.
+Detects when an administrator disables multi-factor authentication enforcement or removes the ability for users
+to enroll in 2-step verification across a Google Workspace organization or organizational unit. Adversaries with
+administrative access may weaken tenant-wide authentication requirements to enable password-only sign-ins, facilitate
+credential abuse at scale, and reduce friction for follow-on account takeover across the domain.
 """
 false_positives = [
     """
@@ -17,39 +19,58 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
-name = "Google Workspace MFA Enforcement Disabled"
+name = "Google Workspace MFA Enforcement Disabled For Organization"
 note = """## Triage and analysis
 
-### Investigating Google Workspace MFA Enforcement Disabled
+### Investigating Google Workspace MFA Enforcement Disabled For Organization
 
-Multi-factor authentication is a process in which users are prompted during the sign-in process for an additional form of identification, such as a code on their cellphone or a fingerprint scan.
+Threat actors with Google Workspace administrative access may disable organization-wide 2-step verification (2SV)
+controls to weaken authentication for many users at once. Unlike a single user turning off 2SV on their own account,
+this change affects tenant policy and can allow password-only sign-ins across an organizational unit or the entire
+domain. This supports large-scale credential abuse, reduces MFA friction for follow-on compromise, and can blind
+security teams if paired with other admin tampering.
 
-If you only use a password to authenticate a user, it leaves an insecure vector for attack. If the password is weak or has been exposed elsewhere, an attacker could be using it to gain access. When you require a second form of authentication, security is increased because this additional factor isn't something that's easy for an attacker to obtain or duplicate.
+This rule identifies when an administrator sets `google_workspace.admin.new_value` to `false` for either
+`ENFORCE_STRONG_AUTHENTICATION` (2SV enforcement turned off) or `ALLOW_STRONG_AUTHENTICATION` (users can no longer turn
+on 2SV).
 
-For more information about using MFA in Google Workspace, access the [official documentation](https://support.google.com/a/answer/175197).
+### Possible investigation steps
 
-This rule identifies the disabling of MFA enforcement in Google Workspace. This modification weakens the security of the accounts and can lead to the compromise of accounts and other assets.
-
-#### Possible investigation steps
-
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate other alerts associated with the user account during the past 48 hours.
-- Contact the account and resource owners and confirm whether they are aware of this activity.
-- Check if this operation was approved and performed according to the organization's change management policy.
-- If you suspect the account has been compromised, scope potentially compromised assets by tracking servers, services, and data accessed by the account in the last 24 hours.
+- Identify the initiating (actor) administrator by reviewing `user.email` or `user.name`, and note the `source.ip` and `event.ingested` timestamps.
+- Identify the setting changed by reviewing `event.action`:
+  - `ENFORCE_STRONG_AUTHENTICATION` — 2SV enforcement was disabled for the affected scope.
+  - `ALLOW_STRONG_AUTHENTICATION` — users were prevented from turning on 2SV.
+- Review `google_workspace.admin.old_value` and `google_workspace.admin.new_value` to confirm the prior and updated policy state.
+- Determine the scope of impact by reviewing `google_workspace.admin.org_unit.name` (if present) and identifying which users or groups inherit the weakened policy.
+- Determine whether the change is expected and authorized:
+  - Validate there is an approved change request/ticket and that the actor is authorized to modify authentication policy.
+  - If the actor account or `source.ip` is unusual, treat the alert as higher priority until proven benign.
+- Search Kibana for related authentication and admin activity:
+  - Use the following KQL example to find other MFA policy changes by the same actor:
+    ```
+    data_stream.dataset: "google_workspace.admin" and user.email: "<ACTOR_EMAIL>" and event.action: ("ENFORCE_STRONG_AUTHENTICATION" or "ALLOW_STRONG_AUTHENTICATION")
+    ```
+  - Search for user-level 2SV disables that follow this change:
+    ```
+    data_stream.dataset: ("google_workspace.login" or "google_workspace.user_accounts") and event.action: "2sv_disable"
+    ```
+  - Scope for other security-weakening admin actions from the same `user.email` within the last 48 hours, such as password policy changes, SSO/SAML modifications, or role assignments.
 
 ### False positive analysis
 
-- While this activity can be done by administrators, all users must use MFA. The security team should address any potential benign true positive (B-TP), as this configuration can risk the user and domain.
+- Verify the MFA policy change aligns with an approved change window, migration, or troubleshooting activity.
+- Confirm the initiating administrator is legitimate and not acting from unusual IPs, devices, or locations.
+- Even authorized changes materially weaken tenant security, validate business justification and time-bound rollback plans.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
+- Initiate the incident response process based on triage findings.
+- If the change is not clearly authorized, restore 2SV enforcement and re-enable Allow users to turn on 2-Step Verification for the affected scope while the investigation proceeds.
+- If the initiating admin account is suspected compromised, reset credentials, revoke active sessions, and review delegated admin roles assigned to that account.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
     - Assess the criticality of affected services and servers.
@@ -57,8 +78,7 @@ This rule identifies the disabling of MFA enforcement in Google Workspace. This 
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Reactivate the multi-factor authentication enforcement.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Review the permissions assigned to the implicated administrator to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -89,17 +109,30 @@ tags = [
     "Data Source: Google Workspace",
     "Use Case: Configuration Audit",
     "Tactic: Impact",
+    "Tactic: Credential Access",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:google_workspace.admin and event.provider:admin
-  and event.category:iam and event.action:ENFORCE_STRONG_AUTHENTICATION
+data_stream.dataset:google_workspace.admin
+  and event.action:(ENFORCE_STRONG_AUTHENTICATION or ALLOW_STRONG_AUTHENTICATION)
   and google_workspace.admin.new_value:false
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "user.email",
+    "source.ip",
+    "event.action",
+    "google_workspace.admin.org_unit.name",
+    "google_workspace.admin.old_value",
+    "google_workspace.admin.new_value",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -149,3 +182,22 @@ reference = "https://attack.mitre.org/techniques/T1556/006/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

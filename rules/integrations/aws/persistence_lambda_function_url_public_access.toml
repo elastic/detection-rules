@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation or update of an AWS Lambda function URL configured with an authentication type of NONE, which
+exposes the function to unauthenticated invocation directly from the public internet. Adversaries can use a public
+function URL to establish a durable, internet-reachable entry point for command and control, data egress, or on-demand
+execution of attacker-controlled code, bypassing the need for valid AWS credentials to invoke the function. Function
+URLs with public access should be rare and deliberate, so this configuration warrants review.
+"""
+false_positives = [
+    """
+    Some public-facing applications, webhooks, and lightweight APIs legitimately use Lambda function URLs with no
+    authentication and enforce access control elsewhere. Verify the function, the principal in
+    `aws.cloudtrail.user_identity.arn`, and the intended exposure with the owning team. Known public endpoints can be
+    excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "AWS Lambda Function URL Created with Public Access"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function URL Created with Public Access
+
+A Lambda function URL is a dedicated HTTPS endpoint for a function. When configured with `authType=NONE`, anyone on the internet can invoke the function without AWS authentication. Adversaries use this to create a public, persistent entry point for command and control, data exfiltration, or running attacker-controlled code without needing AWS credentials.
+
+This rule detects successful `CreateFunctionUrlConfig` and `UpdateFunctionUrlConfig` calls where the auth type is set to NONE.
+
+### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine how the change was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and the auth type, and review `aws.cloudtrail.response_elements` for the resulting `functionUrl`.
+- Determine whether the function is intended to be public and whether the owning team requested an unauthenticated endpoint.
+- Review the function's code, execution role, and recent changes (`UpdateFunctionCode`, `UpdateFunctionConfiguration`, `AddPermission`) for signs of tampering.
+- Correlate with other activity by the same principal, and check the function's invocation and access logs for traffic from unexpected sources after the URL was exposed.
+
+### False positive analysis
+
+- Public webhooks, simple APIs, and front-end integrations sometimes use unauthenticated function URLs intentionally. Confirm the exposure is approved and exclude known public endpoints on `functionName` or `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If the exposure is unauthorized, change the function URL auth type to `AWS_IAM` or delete the function URL configuration, and review the function code and execution role for compromise.
+- Examine invocation logs for unauthenticated requests received while the URL was public and assess potential impact.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:CreateFunctionUrlConfig` and `lambda:UpdateFunctionUrlConfig` to trusted roles.
+
+### Additional information
+
+- [Lambda function URLs](https://docs.aws.amazon.com/lambda/latest/dg/lambda-urls.html)
+- [Security and auth model for Lambda function URLs](https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/lambda-urls.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html",
+]
+risk_score = 73
+rule_id = "53bb8f53-3550-4805-b6bd-728ded8d5564"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "lambda.amazonaws.com"
+    and event.outcome == "success"
+    and (event.action : "CreateFunctionUrlConfig*" or event.action : "UpdateFunctionUrlConfig*")
+    and stringContains(aws.cloudtrail.request_parameters, "authType=NONE")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+

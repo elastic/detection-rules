@@ -72,7 +72,8 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-library where event.action == "load" and (dll.Ext.relative_file_creation_time <= 3600 or dll.Ext.relative_file_name_modify_time <= 3600) and
+library where host.os.type == "windows" and event.action == "load" and 
+(dll.Ext.relative_file_creation_time <= 3600 or dll.Ext.relative_file_name_modify_time <= 3600) and
     not (
       dll.path : (
         "?:\\Windows\\System32\\*",

@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an Amazon ECR repository or registry policy is modified to grant public access using a wildcard principal
+(Principal:"*") statement. This rule analyzes SetRepositoryPolicy and PutRegistryPolicy events whose policy document grants an Allow effect to a
+wildcard ("*") principal, indicating that pull (and potentially push) permissions were
+extended to all identities, including unauthenticated users. A public container registry can expose proprietary images
+and any secrets baked into their layers, and, if push is allowed, enables supply-chain implantation. Public ECR access
+is sometimes intentional for image distribution, so the granting principal and the permissions should be validated.
+"""
+false_positives = [
+    """
+    Repositories used to distribute public images may legitimately contain Principal:"*". This rule does not by itself
+    determine whether a Deny statement restricts the same access; review the full policy in
+    "aws.cloudtrail.request_parameters" and confirm the granted actions (pull-only versus push) and whether public
+    exposure is intended.
+    """,
+]
+from = "now-15m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS ECR Repository or Registry Policy Granted Public Access"
+note = """## Triage and analysis
+
+### Investigating AWS ECR Repository or Registry Policy Granted Public Access
+
+This rule detects "SetRepositoryPolicy" or "PutRegistryPolicy" calls where the policy document grants an Allow effect to a wildcard ("*") principal, granting access to all identities. A public ECR repository allows anyone to pull its images, exposing proprietary code and any secrets embedded in image layers; if push actions are granted, an adversary can implant a malicious image that downstream ECS, EKS, or Lambda workloads then run.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin or tool.
+- Extract the policy from "aws.cloudtrail.request_parameters" and identify the granted actions; pull actions (BatchGetImage, GetDownloadUrlForLayer) expose images, while push actions (PutImage, UploadLayerPart) enable implantation.
+- Confirm whether a Deny statement restricts the same access, in which case the alert may be a false positive.
+- Determine which repository is affected and whether it contains sensitive images, and correlate with subsequent pull or push activity from external principals.
+
+### False positive analysis
+
+- Public image distribution legitimately uses Principal:"*". Confirm the exposure is intended, the actions are pull-only, and the granting principal is approved.
+
+### Response and remediation
+
+- If the exposure is unauthorized, restore a known-good policy or remove the public statement, and review for any external pulls or pushes since the change.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "ecr:SetRepositoryPolicy" and "ecr:PutRegistryPolicy" to trusted administrators.
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_SetRepositoryPolicy.html",
+    "https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-policies.html",
+]
+risk_score = 47
+rule_id = "699fdfb9-8430-4dcb-b5a9-da67dae64808"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS ECR",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+| WHERE event.provider == "ecr.amazonaws.com"
+  AND event.action IN ("SetRepositoryPolicy", "PutRegistryPolicy")
+  AND event.outcome == "success"
+  AND (aws.cloudtrail.user_identity.type IS NULL OR aws.cloudtrail.user_identity.type != "AWSService")
+  AND aws.cloudtrail.request_parameters RLIKE """.*\"Effect\": *\"Allow\".*"""
+  AND (aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": *\"\*\".*"""
+       OR aws.cloudtrail.request_parameters RLIKE """.*\"Principal\": *\{ *\"AWS\": *\"\*\".*""")
+| KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

@@ -114,6 +114,10 @@ Here are the queries currently available:
 - [Unusual Library Load via Python](./macos/docs/execution_unusual_library_load_via_python.md) (ES|QL)
 
 
+## network
+- [Mythic C2 TLS Certificate Observed in Cisco SD-WAN Exploitation](./network/docs/command_and_control_cisco_sdwan_mythic_c2_tls_cert.md) (ES|QL)
+
+
 ## okta
 - [Failed OAuth Access Token Retrieval via Public Client App](./okta/docs/defense_evasion_failed_oauth_access_token_retrieval_via_public_client_app.md) (ES|QL)
 - [Identify High Average of Failed Daily Authentication Attempts](./okta/docs/initial_access_higher_than_average_failed_authentication.md) (ES|QL)

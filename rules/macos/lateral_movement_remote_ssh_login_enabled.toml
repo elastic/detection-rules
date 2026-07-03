@@ -2,7 +2,7 @@
 creation_date = "2020/08/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic"]
@@ -58,11 +58,23 @@ type = "eql"
 
 query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and
- process.name == "systemsetup" and
- process.args like~ "-setremotelogin" and 
- process.args like~ "on" and
- process.parent.executable != null and
- not process.parent.executable like ("/usr/local/jamf/bin/jamf", "/usr/libexec/xpcproxy", "/usr/bin/sudo")
+(
+  (
+    process.name == "systemsetup" and
+    process.args like~ "-setremotelogin" and
+    process.args like~ "on"
+  ) or
+  (
+    process.name == "launchctl" and
+    process.args in ("load", "bootstrap") and
+    (
+      process.command_line like~ "*/System/Library/LaunchDaemons/ssh.plist*" or
+      process.command_line like~ "*com.openssh.sshd*"
+    )
+  )
+) and
+process.parent.executable != null and
+not process.parent.executable like ("/usr/local/jamf/bin/jamf", "/usr/libexec/xpcproxy", "/usr/bin/sudo")
 '''
 note = """## Triage and analysis
 

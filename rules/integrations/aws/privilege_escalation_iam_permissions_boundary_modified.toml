@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification or removal of an IAM permissions boundary on an IAM user or role. A permissions boundary
+caps the maximum permissions an identity can have, regardless of its attached identity policies. An adversary who can
+delete a boundary ("DeleteUserPermissionsBoundary", "DeleteRolePermissionsBoundary") or replace it with a more
+permissive one ("PutUserPermissionsBoundary", "PutRolePermissionsBoundary") can lift that cap and unlock permissions the
+identity's policies already grant, enabling privilege escalation. Boundary changes are infrequent and usually performed
+by a small set of administrators or infrastructure-as-code pipelines, so changes by unexpected principals warrant
+review.
+"""
+false_positives = [
+    """
+    Permissions boundaries are managed by identity/platform teams and infrastructure-as-code pipelines as part of normal
+    governance. Verify the principal in `aws.cloudtrail.user_identity.arn`, the targeted user or role, and the boundary
+    policy against approved change records. Known administration roles and deployment automation can be excluded after
+    validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Permissions Boundary Modified or Removed"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Permissions Boundary Modified or Removed
+
+An IAM permissions boundary is the maximum set of permissions an identity can ever have — even if its identity policies grant more, the effective permissions are the intersection of the two. Removing a boundary (`DeleteUserPermissionsBoundary` / `DeleteRolePermissionsBoundary`) or replacing it with a broader one (`PutUserPermissionsBoundary` / `PutRolePermissionsBoundary`) lifts that cap, so any permissions already present in the identity's attached policies immediately take effect. This is a recognized privilege-escalation path: an adversary who can edit a boundary can unlock latent permissions without attaching any new policy.
+
+#### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.session_context.session_issuer.arn`, and review `source.ip` / `user_agent.original` to determine how the change was made (console, CLI, SDK, automation).
+- Inspect `aws.cloudtrail.request_parameters` for the targeted `userName`/`roleName` and, for `Put*` operations, the `permissionsBoundary` policy ARN that was applied.
+- Determine the identity's attached identity policies to assess what permissions are now unlocked by the boundary change (the effective blast radius).
+- Confirm whether the change aligns with an approved governance change, onboarding, or deployment.
+- Correlate with recent activity by the same principal, such as policy attachment, access key creation, or role assumption that may indicate an escalation chain.
+
+### False positive analysis
+
+- Identity/platform teams and infrastructure-as-code routinely set and update boundaries. Confirm the change is approved and exclude known administration roles or automation on `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If the change is unauthorized, restore the intended permissions boundary on the affected identity and review what the identity could access while the boundary was relaxed or absent.
+- Rotate or restrict credentials for the principal that made the change if compromise is suspected, and constrain `iam:PutUserPermissionsBoundary`, `iam:PutRolePermissionsBoundary`, `iam:DeleteUserPermissionsBoundary`, and `iam:DeleteRolePermissionsBoundary` to a small set of trusted administrators.
+
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html",
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/",
+]
+risk_score = 47
+rule_id = "0f5d410c-a594-4cdb-8b48-f36a61838d67"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: (
+        "PutUserPermissionsBoundary" or
+        "PutRolePermissionsBoundary" or
+        "DeleteUserPermissionsBoundary" or
+        "DeleteRolePermissionsBoundary"
+    )
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not user_agent.original: (*terraform* or *pulumi* or *ansible*)
+    and not aws.cloudtrail.user_identity.arn: (*terraform* or *pulumi* or *ansible*)
+    and not source.as.organization.name: (Amazon* or AMAZON* or Google*)
+    and not source.address: ("cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+

@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a process not commonly used to load shared objects, is executed with arguments that load a shared
+object file. This technique can load a malicious shared object into memory while attempting to evade detection.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Shared Object Load via LoLBin"
+references = ["https://gtfobins.github.io/#+library%20load"]
+risk_score = 47
+rule_id = "ebf493d1-20be-41a0-a010-c1b6a6f90e28"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+- Auditd Manager
+- CrowdStrike
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "executed", "process_started", "start", "ProcessRollup2") and
+?process.parent.executable != null and
+(
+  (process.name == "bash" and process.args == "-c" and process.args like "* enable *-f*.so*") or
+  (process.name == "openssl" and process.args == "-engine" and process.args like "*.so*") or
+  (process.name like "python*" and process.args == "-c" and process.args like "*cdll.LoadLibrary*.so*") or
+  (process.name like "ruby*" and process.args == "-e" and process.args like "*Fiddle.dlopen*.so*") or 
+  (process.name in ("gdb", "gimp", "rview", "rvim", "view", "vim", "vimdiff") and
+   process.args like "*cdll.LoadLibrary*.so*") or
+  (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   process.args == "-c" and process.args like ("*cdll.LoadLibrary*.so*", "*ruby*-e**Fiddle.dlopen*.so*")
+  )
+) and
+not (
+  ?process.parent.executable like (
+    "/root/.cache/bazel/_bazel_root/install/*", "/opt/Xilinx/PetaLinux/*", "/usr/bin/find", "/bin/find", 
+    "/opt/nessus_agent/sbin/nessus-agent-module", "/sw/eb/sw/Python/*/bin/python*"
+  ) or
+  ?process.parent.name in ("make", "process-wrapper", "bwrap") or
+  (process.name like "python*" and ?process.command_line like~ "*import torch*torchinductor*") or
+  ?process.command_line like "*https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1218"
+    name = "System Binary Proxy Execution"
+    reference = "https://attack.mitre.org/techniques/T1218/"
+
+   [[rule.threat.technique]]
+   name = "Hijack Execution Flow"
+   id = "T1574"
+   reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"

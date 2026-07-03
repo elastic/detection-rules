@@ -1,0 +1,214 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["endpoint", "network_traffic", "zeek", "suricata", "azure", "gcp"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects CVE-2026-20253 exploit artifacts against the Splunk Enterprise PostgreSQL sidecar recovery endpoints via
+complementary signals. Where endpoint or Network Packet Capture request-body logging is available, the rule matches
+PostgreSQL connection-string injection keywords, suspicious `backupFile` destinations, and known filesystem artifacts
+used to pivot from backup/restore primitives to file write or RCE. It also detects vulnerable recovery endpoint probing
+and empty-password Basic auth credentials observed in public exploit tooling.
+"""
+false_positives = [
+    """
+    Authorized red-team or penetration testing tooling exercising the CVE-2026-20253 exploit chain. Legitimate Splunk
+    user activity should not produce PostgreSQL connection-string keywords, suspicious filesystem targets, empty Basic
+    auth credentials, or unauthenticated 400 responses on the recovery endpoints.
+    """,
+]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.network*",
+    "logs-network_traffic.http*",
+    "logs-zeek.http*",
+    "logs-suricata.eve*",
+    "logs-azure.application_gateway*",
+    "logs-gcp.loadbalancing_logs*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "Splunk Enterprise PostgreSQL Recovery Endpoint Injection Artifacts"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Splunk Enterprise PostgreSQL Recovery Endpoint Injection Artifacts
+
+This rule fires on distinct signals from the CVE-2026-20253 exploit chain and closely related recovery endpoint abuse:
+
+**Body injection** (endpoint/WAF/proxy sources): A POST to the recovery endpoints with a body
+containing PostgreSQL connection-string keywords (`hostaddr=`, `host=`, `port=`, `passfile=`,
+`dbname=`, `user=`, `password=`, `sslmode=`, or `service=`), `backupFile` path traversal, suspicious
+absolute destinations (`/tmp/`, `/var/tmp/`, `/dev/shm/`, `/opt/splunk/etc/apps/`, cron paths, or SSH
+authorized keys), or known filesystem artifacts (`.pgpass`, `/opt/splunk/etc/apps/`). The `database`
+JSON field is passed directly to `pg_dump` or `pg_restore` as a connection string, so
+attacker-supplied keywords override the hardcoded local configuration. The `backupFile` parameter
+controls the dump file path, enabling arbitrary file placement.
+
+**Auth credential artifact** (Zeek sources): A POST to the recovery endpoints with an empty password
+in the HTTP Basic auth header (`url.password : ""`). The exploit passes the Basic auth username
+directly to `pg_dump` or `pg_restore` as a PostgreSQL username — any value works, so this branch does
+not filter on specific usernames.
+
+**Vulnerable endpoint probing**: A POST to `/v1/postgres/recovery/backup` or
+`/v1/postgres/recovery/restore` returning HTTP 400. Public probes use this response distinction because
+vulnerable handlers parse the request and return 400, while patched or protected paths return 401.
+
+### Possible investigation steps
+
+- Check `http.response.status_code`. A `400` indicates the request reached the vulnerable sidecar
+  handler; a `401` indicates access was blocked or the host is patched. A `400` on the backup or
+  restore path is consistent with probing, and a `400` with injection content in the body is a
+  high-confidence indicator of active exploitation.
+- Identify which injection artifact triggered the rule:
+  - `hostaddr=` or `host=` in `database` → server-side database pivot; check for outbound connections
+    from the Splunk host to port 5432 or the attacker-supplied `port=` value.
+  - `port=`, `user=`, `password=`, `sslmode=`, or `service=` in `database` → generic libpq connection
+    string smuggling; review the full body for remote database or credential manipulation.
+  - `passfile=/opt/splunk/var/packages/data/postgres/.pgpass` → local PostgreSQL credential reuse;
+    this exact string is the public restore-chain artifact from watchTowr.
+  - `backupFile` with `../` traversal or suspicious absolute paths (`/tmp/`, `/var/tmp/`, `/dev/shm/`,
+    `/opt/splunk/etc/apps/`, cron paths, or SSH authorized keys) → arbitrary file placement; check for
+    new or modified files at those paths.
+  - `dbname=template1` with `passfile=` → the published two-stage restore payload.
+- Correlate with host telemetry: new files under `/opt/splunk/etc/apps/`, `/opt/splunk/var/packages/`,
+  or `/tmp/` created around the request time.
+- Check for outbound PostgreSQL connections from the Splunk host following any `hostaddr=` or `host=`
+  injection (see companion rule "Splunk Enterprise PostgreSQL Backup-to-Restore Potential RCE Sequence").
+- Verify whether the target Splunk host is running an affected version (10.0.0-10.0.6 or
+  10.2.0-10.2.3). Splunk Enterprise 10.4 and Splunk Cloud are not affected.
+
+### False positive analysis
+
+- No legitimate Splunk user workflow sends PostgreSQL connection-string keywords or filesystem paths
+  to these recovery endpoints. This rule has very low false positive potential when the path filter
+  is in scope.
+
+### Response and remediation
+
+- Any confirmed body injection on the recovery endpoints should be treated as active exploitation.
+  Isolate the Splunk host immediately and preserve forensic state.
+- Check for files placed by `backupFile` traversal and SQL objects loaded by the restore step.
+- Patch Splunk Enterprise to an unaffected version. There is no vendor-provided workaround for
+  CVE-2026-20253.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-20253",
+    "https://advisory.splunk.com/advisories/SVD-2026-0603",
+    "https://labs.watchtowr.com/why-use-app-level-auth-when-every-database-has-auth-splunk-enterprise-cve-2026-20253-pre-auth-rce/",
+    "https://attack.mitre.org/techniques/T1190/",
+]
+risk_score = 73
+rule_id = "2a7823db-0bc2-48f6-aa2f-e6aef233c6dc"
+setup = """## Setup
+
+This rule covers two detection paths with different telemetry requirements:
+
+**Body injection branch** (`http.request.body.content`): Populated by:
+- Elastic Defend (`logs-endpoint.events.network*`) on the Splunk host, capturing HTTP network
+  events at the endpoint level
+- Network Packet Capture (`logs-network_traffic.http*`) with HTTP body capture enabled for the
+  Splunk recovery paths
+
+Avoid enabling broad request-body logging without masking or filtering — bodies can contain
+credentials and PII. Scope capture to specific URL paths (e.g., `*/splunkd/*`) where possible.
+
+**Auth artifact branch** (`url.password`, `url.username`): Populated by:
+- Zeek (`logs-zeek.http*`) - parses HTTP Basic auth headers natively, no additional configuration
+
+**Vulnerable endpoint probing branch** (`http.response.status_code`): Populated by Network Packet
+Capture, Zeek, Suricata, Azure Application Gateway, and GCP Load Balancing where HTTP response
+metadata is visible to the sensor.
+
+Splunk Web listens on TCP port 8000 by default (`web.conf` `httpport`), which is included in the
+default Network Packet Capture/Packetbeat HTTP port list. Add any custom Splunk Web `httpport` value
+to the HTTP protocol configuration. Splunk's management service defaults to TCP port 8089
+(`mgmtHostPort`) and commonly uses TLS; add 8089 only if management/API traffic is directly exposed or
+visible to the sensor after decryption. If the PostgreSQL sidecar is directly exposed or monitored
+locally on TCP port 5435, add port 5435 as an HTTP port as well. Zeek and Suricata can identify
+plaintext HTTP on non-standard ports through protocol detection when their HTTP analyzers are enabled.
+For TLS deployments, the sensor must observe decrypted HTTP, sit downstream of TLS termination, or use
+proxy or load balancer logs that expose the HTTP path, method, and status code. Body-content detection
+still requires request-body capture for the Splunk recovery paths.
+
+Use the companion rule "Splunk Enterprise PostgreSQL Backup-to-Restore Potential RCE Sequence" for detections that work without
+request-body capture or auth header logging.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Initial Access",
+    "Data Source: Azure",
+    "Data Source: Elastic Defend",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Zeek",
+    "Data Source: Suricata",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+http.request.method:POST and
+url.path:("*splunkd/__raw/v1/postgres/recovery/*" or "/v1/postgres/recovery/*") and
+(
+  http.request.body.content:(
+    "*\"backupFile\"*../*" or
+    "*\"backupFile\"*/dev/shm/*" or
+    "*\"backupFile\"*/etc/cron*" or
+    "*\"backupFile\"*/home/*/.ssh/*" or
+    "*\"backupFile\"*/opt/splunk/bin/scripts/*" or
+    "*\"backupFile\"*/opt/splunk/etc/apps/*" or
+    "*\"backupFile\"*/root/*" or
+    "*\"backupFile\"*/tmp/*" or
+    "*\"backupFile\"*/var/tmp/*" or
+    "*\"backupFile\"*authorized_keys*" or
+    "*\"database\"*dbname=*" or
+    "*\"database\"*host=*" or
+    "*\"database\"*hostaddr=*" or
+    "*\"database\"*passfile=*" or
+    "*\"database\"*password=*" or
+    "*\"database\"*port=*" or
+    "*\"database\"*service=*" or
+    "*\"database\"*sslmode=*" or
+    "*\"database\"*user=*" or
+    "*/opt/splunk/etc/apps/*" or
+    "*/opt/splunk/var/packages/data/postgres/.pgpass*"
+  ) or
+  data_stream.dataset:zeek.http and url.password:"" or
+  data_stream.dataset:(azure.application_gateway or gcp.loadbalancing_logs or network_traffic.http or suricata.eve or zeek.http) and
+  url.path:(
+    "*splunkd/__raw/v1/postgres/recovery/backup" or
+    "*splunkd/__raw/v1/postgres/recovery/restore" or
+    /v1/postgres/recovery/backup or
+    /v1/postgres/recovery/restore
+  ) and
+  http.response.status_code:400
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
