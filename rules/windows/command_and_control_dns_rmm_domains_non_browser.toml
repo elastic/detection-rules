@@ -296,7 +296,10 @@ FROM logs-endpoint.events.network-*, logs-windows.sysmon_operational-* METADATA 
     Esql.count_distinct_host_id = COUNT_DISTINCT(host.id),
     Esql.process_executable_values = VALUES(process.executable),
     Esql.dns_question_name_values = VALUES(dns.question.name),
-    Esql.host_name_values = VALUES(host.name) BY parent_domain
+    Esql.host_name_values = VALUES(host.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.user_id_values = VALUES(user.id),
+    Esql.namespace_values = VALUES(data_stream.namespace) BY parent_domain
 
 // Calculate the time difference between first time seen and rule execution time
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
@@ -304,10 +307,15 @@ FROM logs-endpoint.events.network-*, logs-windows.sysmon_operational-* METADATA 
 // First time seen is within 6m of the rule execution time and first seen in the last 5 days as per the rule from schedule and limited to 1 unique host
 | where Esql.recent <= 6 and Esql.count_distinct_host_id == 1
 
-// populate fields for rule exception
+// populate fields for rule exception and triage
 | eval host.name = MV_FIRST(Esql.host_name_values),
-       process.executable = MV_FIRST(Esql.process_executable_values), dns.question.name = MV_FIRST(Esql.dns_question_name_values)
-| keep host.name, process.executable, dns.question.name, Esql.*
+       host.id = MV_FIRST(Esql.host_id_values),
+       user.name = MV_FIRST(Esql.user_name_values),
+       user.id = MV_FIRST(Esql.user_id_values),
+       data_stream.namespace = MV_FIRST(Esql.namespace_values),
+       process.executable = MV_FIRST(Esql.process_executable_values),
+       dns.question.name = MV_FIRST(Esql.dns_question_name_values)
+| keep host.name, host.id, user.name, user.id, data_stream.namespace, process.executable, dns.question.name, Esql.*
 '''
 
 
