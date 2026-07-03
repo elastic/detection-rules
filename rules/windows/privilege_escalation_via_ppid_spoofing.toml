@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -41,7 +41,7 @@ query = '''
 process where host.os.type == "windows" and event.action == "start" and
 
  /* process creation via seclogon */
- process.parent.Ext.real.pid > 0 and
+ process.parent.Ext.real.pid > 0 and process.parent.executable != null and
 
  /* PrivEsc to SYSTEM */
  user.id : "S-1-5-18"  and
@@ -55,9 +55,8 @@ process where host.os.type == "windows" and event.action == "start" and
                            "?:\\Windows\\SysWOW64\\Wermgr.exe",
                            "?:\\Windows\\SoftwareDistribution\\Download\\Install\\securityhealthsetup.exe") and
  /* Logon Utilities */
- not (
-       (process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" or process.parent.executable == null) and
-       process.executable : ("?:\\Windows\\System32\\osk.exe",
+ not (process.parent.executable : "?:\\Windows\\System32\\Utilman.exe" and
+     process.executable : ("?:\\Windows\\System32\\osk.exe",
                            "?:\\Windows\\System32\\Narrator.exe",
                            "?:\\Windows\\System32\\Magnify.exe",
                            "?:\\Windows\\System32\\VoiceAccess.exe")) and
@@ -76,7 +75,6 @@ process where host.os.type == "windows" and event.action == "start" and
                                    "?:\\Windows\\UUS\\amd64\\wuauclt.exe",
                                    "?:\\Windows\\UUS\\amd64\\wuaucltcore.exe",
                                    "?:\\ProgramData\\Microsoft\\Windows\\UUS\\*\\wuaucltcore.exe")) and
- not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and process.parent.executable == null) and
 
  /* Other third party SW */
  not process.parent.executable :
@@ -91,8 +89,10 @@ process where host.os.type == "windows" and event.action == "start" and
                     "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe") and
  not (
     process.code_signature.trusted == true and process.code_signature.subject_name == "Netwrix Corporation" and
-    process.name : ("adcrcpy.exe", "addumpcaller.exe") and
-    (process.parent.name : ("Netwrix.ADA.EventCollector.exe", "Netwrix.ADA.Analyzer.exe") or process.parent.executable == null)
+    process.name : ("adcrcpy.exe", "addumpcaller.exe") and process.parent.name : (
+      "Netwrix.ADA.EventCollector.exe",
+      "Netwrix.ADA.Analyzer.exe"
+    )
  )
 '''
 
