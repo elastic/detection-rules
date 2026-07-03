@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel", "cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+The Linux kernel invokes the program named in "/proc/sys/kernel/core_pattern" whenever a process core-dumps. When
+that value begins with a pipe (|), the kernel runs the handler from the host's initial namespace as root, regardless
+of where the crashing process lived. Because the core-dump up-call is not namespaced, a process inside a container
+that can write core_pattern can register an attacker-controlled handler and then deliberately crash a process to have
+it execute on the host as root, resulting in a full container-to-host escape.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-cloud_defend.process*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Container Escape via Kernel core_pattern Modification"
+references = [
+    "https://www.sysdig.com/blog/runc-container-escape-vulnerabilities",
+    "https://github.com/opencontainers/runc/security/advisories/GHSA-cgrx-mc8f-2prm",
+    "https://kubehound.io/reference/attacks/CE_UMH_CORE_PATTERN/",
+    "https://aquasecurity.github.io/tracee/latest/docs/events/builtin/signatures/core_pattern_modification/"
+]
+risk_score = 47
+rule_id = "4872671a-c8d2-4847-9891-d3ce08b9e4c9"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux system:
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "Domain: Container",
+  "Domain: Kubernetes",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Data Source: Elastic Defend",
+  "Data Source: Elastic Endgame",
+  "Data Source: Auditd Manager",
+  "Data Source: Crowdstrike",
+  "Data Source: SentinelOne",
+  "Data Source: Elastic Defend for Containers",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.args like ("*/proc/sys/kernel/core_pattern*", "*kernel.core_pattern*") and
+?process.parent.executable != null and
+(
+  process.name in ("tee", "cp", "mv", "dd") or
+  (
+    process.name == "sysctl" and
+    process.args like ("*-w*", "*core_pattern*")
+  ) or
+  (
+    process.name in ("bash", "dash", "sh", "zsh", "ksh", "fish", "ash", "mksh", "busybox") and
+    process.args == "-c" and process.args like ("*echo *", "*printf *")
+  )
+) and
+not ?process.parent.executable in ("/usr/lib/systemd/systemd", "/usr/bin/kdumpctl", "/usr/sbin/abrtd", "/usr/bin/apport")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
