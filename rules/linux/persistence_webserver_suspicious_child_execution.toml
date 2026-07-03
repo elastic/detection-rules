@@ -2,7 +2,7 @@
 creation_date = "2023/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/04"
+updated_date = "2026/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -266,9 +266,20 @@ not (
   ) or
   (
     process.parent.command_line == "/bin/sh /etc/init.d/nginx rotate" and
-    process.working_directory == "/var/lib/logrotate" and
     process.name == "cat"
-  )
+  ) or
+  (
+    process.parent.name == "asterisk" and
+    process.executable like (
+      "/var/www/html/dialapplet-web/agi/*.php", "/var/lib/asterisk/bin/faxnotify.php"
+    )
+  ) or
+  (
+    process.parent.executable == "/home/jiraContractor/jira.install/jre/bin/java" and
+    process.executable == "/home/jiraContractor/jira.install/jre/lib/jspawnhelper"
+  ) or
+  process.parent.args like "/home/agent/Claude/*" or
+  (process.parent.executable == "/usr/lib/jvm/java-21-openjdk/bin/java" and process.name == "ln")
 )
 '''
 
