@@ -1,0 +1,215 @@
+[metadata]
+creation_date = "2026/06/24"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/06/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of Windows OpenSSH or Plink to create a reverse SSH port forward or reverse dynamic SOCKS proxy.
+Adversaries may abuse reverse forwarding to expose an internal service or proxy listener through an external SSH server,
+establishing an outbound tunnel that bypasses direct inbound connectivity controls.
+"""
+from = "now-9m"
+index = [
+  "endgame-*",
+  "logs-crowdstrike.fdr*",
+  "logs-endpoint.events.process-*",
+  "logs-m365_defender.event-*",
+  "logs-sentinel_one_cloud_funnel.*",
+  "logs-system.security*",
+  "logs-windows.forwarded*",
+  "logs-windows.sysmon_operational-*",
+  "winlogbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential SSH Reverse Port Forwarding"
+references = [
+  "https://thedfirreport.com/2025/11/04/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira-2/",
+  "https://thedfirreport.com/2023/10/30/netsupport-intrusion-results-in-domain-compromise/",
+  "https://x.com/Securityinbits/status/2067602540209021196",
+]
+risk_score = 21
+rule_id = "86817045-ea22-4038-9959-c3437bc4c064"
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Command and Control",
+  "Tactic: Lateral Movement",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Data Source: Microsoft Defender XDR",
+  "Data Source: Windows Security Event Logs",
+  "Data Source: Crowdstrike",
+  "Data Source: Sysmon",
+  "Data Source: Elastic Endgame",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  (
+    process.name : ("ssh.exe", "plink.exe") or
+    ?process.pe.original_file_name : ("Plink", "plink.exe")
+  ) and
+  (
+    process.args : "-R*" or
+    process.args : "-oRemoteForward*" or
+    (process.args : "-o" and process.args : "*RemoteForward*") or
+
+    /* -R can be combined with ~20 no-arg SSH flags (e.g. -NR, -fNR) */
+    process.command_line regex """.*\s-[A-Za-z]*R[^A-Za-z].*"""
+  )
+'''
+
+note = """## Triage and analysis
+
+### Investigating Potential SSH Reverse Port Forwarding Detected
+
+#### Possible investigation steps
+
+- What reverse-forward command triggered the alert?
+  - Focus: `@timestamp`, `host.id`, `user.name`, `process.name`, `process.command_line`
+  - Implication: Confirm via $investigate_0 a process start for `ssh.exe` or `plink.exe`/Plink with the matched `-R` or `RemoteForward` artifact. Suspicious when the command exposes an internal service or SOCKS listener without host/account owner confirmation; close only when command, host, account, parent, and remote-forward values match a recognized recurring tunnel workflow for this account.
+- Is the process lineage and executable consistent with the expected workflow?
+  - Focus: `process.parent.command_line`, `process.executable`, `process.hash.sha256`, `process.working_directory`, `process.Ext.relative_file_creation_time`
+  - Implication: Via $investigate_0, compare parent, path, hash, and file age. Escalate when shells, script interpreters, unusual parents, recently created binaries, or a Plink original name under another process name appear; benign requires the same artifact and parent tied to the verified host/account reverse-forward workflow.
+- Is the tunnel active or recurring on this host?
+  - Focus: `host.id`, `process.entity_id`, `process.pid`, `process.uptime`, `process.exit_code`
+  - Implication: Use $investigate_1 to check whether the SSH/Plink process remained running, exited, or relaunched with reverse-forward arguments. Recurring or long-lived commands outside a confirmed window are suspicious; a single exited process supports closure only with owner confirmation and no unresolved process or network evidence.
+- What remote SSH server and exposed service are implied?
+  - Focus: `process.args`, `process.command_line`, `destination.ip`, `destination.port`, `network.direction`
+  - Implication: Parse `-R`/`RemoteForward` syntax, then recover same-process connection events if network telemetry exists; `destination.*` and `network.*` are connection-event fields not present on the process alert. Missing network telemetry is unresolved, not benign. Escalate when the remote host, port, or exposed service does not match the confirmed workflow.
+- Where else does the same binary or reverse-forward pattern appear?
+  - Focus: `process.hash.sha256`, `process.name`, `host.name`, `user.name`, `process.command_line`
+  - Implication: Use $investigate_2 to scope the same hash, comparing command lines for `-R`/`RemoteForward` on other hosts/accounts. Absence of matches is not benign; broaden containment when the artifact appears beyond the source host/account. Close recurrence only when each match ties to the same confirmed workflow.
+
+Disposition: Escalate suspicious or unresolved commands; close only when alert-local and recovered evidence confirm the exact host/account/process/remote-forward scope; preserve and escalate mixed cases.
+
+### False positive analysis
+
+- Benign activity is limited to a confirmed reverse SSH forwarding workflow where `process.command_line`, `host.id`, `user.name`, parent process, executable, remote server, and forward port are verified.
+- Do not close because the binary is named `ssh.exe`/`plink.exe`, has a familiar path, or a trusted signature — the matched command and owner workflow must explain the `-R`/`RemoteForward` artifact.
+- Scope exceptions to `host.id`, `user.name`, `process.executable` or `process.hash.sha256`, `process.parent.executable` or `process.parent.command_line`, and the exact reverse-forward args. Do not suppress all reverse forwarding across hosts or accounts.
+
+### Response and remediation
+
+- Scope first by reviewing the exact command, same-process network evidence, same executable hash, same user/host activity, and related alerts for the same remote SSH server or port before cleanup.
+- Preserve or export case evidence plus volatile process, memory, executable, and file-system artifacts before isolation, process termination, or other disruptive action.
+- After evidence capture, use reversible containment such as isolating the affected host or blocking egress to the confirmed SSH server/port while credential and session review proceeds.
+- For confirmed malicious tunneling, terminate the SSH/Plink process, remove persistence or scripts that launched it, rotate exposed credentials, and clean staged binaries only after scoping.
+- Record confirmed indicators and logging or detection gaps for the responsible detection or logging owners after containment.
+"""
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+  "@timestamp",
+  "host.name",
+  "user.name",
+  "user.id",
+  "user.domain",
+  "process.entity_id",
+  "process.name",
+  "process.executable",
+  "process.command_line",
+  "process.parent.executable",
+  "process.parent.command_line",
+]
+
+[[transform.investigate]]
+label = "Matched process context"
+description = "Recover the process start event and immediate process context for the alerted OpenSSH or Plink reverse-forward command."
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same host process launches"
+description = "Find other process events with the same alerted process name on the same host for local recurrence and parent/account comparison."
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "{{process.name}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-24h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Executable hash scope"
+description = "Find other events for the same executable hash to scope repeated use of the matched OpenSSH or Plink binary after local validation."
+providers = [
+  [
+    { excluded = false, field = "process.hash.sha256", queryType = "phrase", value = "{{process.hash.sha256}}", valueType = "string" },
+  ],
+]
+relativeFrom = "now-7d"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
