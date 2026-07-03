@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects applications making a curl request to a known public IP address lookup web service. Malware tends to perform this 
+action to assess potential targets.
+"""
+from = "now-9m"
+index = [
+        "logs-endpoint.events.process*",
+        "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux External IP Address Discovery via Curl"
+risk_score = 21
+rule_id = "996e2e09-087e-4e99-a3cc-a9225d24ba3d"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
+process.name == "curl" and (
+  process.parent.name like ".*" or process.parent.executable like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/opt/*",  "/etc/*", "./*", "/run/user/*", "/var/run/user/*",
+    "/usr/bin/*", "/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*",
+    "/usr/lib/*", "/usr/local/lib/*", "/lib/*", "/lib64/*", "/usr/lib64/*", "/usr/local/lib64/*"
+  )
+) and
+process.command_line like~ (
+  "*ip-api.com*", "*checkip.dyndns.org*", "*api.ipify.org*", "*whatismyip.akamai.com*", "*bot.whatismyipaddress.com*",
+  "*ifcfg.me*", "*ifconfig.me*", "*ident.me*", "*ipof.in*", "*ip.tyk.nu*", "*icanhazip.com*", "*curlmyip.com*",
+  "*wgetip.com*", "*eth0.me*", "*ipecho.net*", "*ip.appspot.com*", "*api.myip.com*", "*geoiptool.com*", "*api.2ip.ua*",
+  "*api.ip.sb*", "*ipinfo.io*", "*checkip.amazonaws.com*", "*wtfismyip.com*", "*iplogger.*", "*freegeoip.net*",
+  "*freegeoip.app*", "*geoplugin.net*", "*myip.dnsomatic.com*", "*www.geoplugin.net*",
+  "*api64.ipify.org*", "*ip4.seeip.org*", "*.geojs.io*", "*portmap.io*", "*api.db-ip.com*",
+  "*geolocation-db.com*", "*httpbin.org*", "*myip.opendns.com*", "*ipv4.icanhazip.com*", "*ipv6.icanhazip.com*"
+) and
+not (
+  process.parent.name in ("jamf", "make") or
+  process.parent.name in (".", "./alert_api_call.sh", "nvim", "teleport") or
+  process.parent.executable like (
+    "/usr/local/bin/teleport", "/usr/local/bin/current_ip", "/tmp/go-build*", "/usr/bin/neofetch",
+    "/usr/bin/show-location-info", "/opt/tpot/bin/myip.sh", "/usr/sbin/sshd", "/tmp/newroot/var/quest/kace/scripts/*",
+    "./Linux_Inventory_Sheets.sh", "/opt/qvm/bin/update_info_qsuite", "/usr/lib/check_mk_agent/local/public_ip_check",
+    "/opt/teleport/system/bin/teleport", "/opt/Elastic/Endpoint/elastic-endpoint", "/etc/update-motd.d/motd.sh",
+    "/opt/coe/cadence/IC231/tools.lnx86/cda/bin/64bit/cda.exe", "/etc/update-motd.d/10-armbian-header",
+    "/opt/saltstack/salt/bin/python*", "/usr/bin/python*", "/usr/local/bin/detect-external-ip"
+  ) or
+  process.parent.args in ("/var/www/html/admin/modules/leucoalarm/scripts/system.php", "/etc/cont-init.d/50-ddns") or
+  (
+    process.parent.executable == "/usr/bin/java" and
+    process.args like "/opt/streamsets-datacollector/libexec/bootstrap-libs/*"
+  ) or
+  process.parent.command_line == "runc init" or
+  (
+    process.parent.executable == "/usr/bin/busybox" and
+    (process.parent.command_line == "sh /etc/cont-init.d/50-ddns" or process.working_directory == "/opt/outline-server")
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Network Configuration Discovery"
+  id = "T1016"
+  reference = "https://attack.mitre.org/techniques/T1016/"
