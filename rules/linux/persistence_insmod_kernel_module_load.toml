@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2022/07/11"
-integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/04"
+min_stack_version = "9.3.0"
+min_stack_comments = "Module loading detection for Linux was introduced in 9.3.0"
+updated_date = "2026/07/02"
 
 [transform]
 [[transform.osquery]]
@@ -39,14 +41,7 @@ security products. Manually loading a kernel module in this manner should not be
 suspicious or malicious behavior.
 """
 from = "now-9m"
-index = [
-    "auditbeat-*",
-    "endgame-*",
-    "logs-auditd_manager.auditd-*",
-    "logs-endpoint.events.process*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-crowdstrike.fdr*",
-]
+index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Kernel Module Load via Built-in Utility"
@@ -160,40 +155,36 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Threat: Rootkit",
-    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Auditd Manager",
-    "Data Source: SentinelOne",
-    "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "load_module" and
+(
   (process.name == "kmod" and process.args == "insmod" and process.args like~ "*.ko*") or
   (process.name == "kmod" and process.args == "modprobe" and not process.args in ("-r", "--remove")) or
   (process.name == "insmod" and process.args like~ "*.ko*") or
   (process.name == "modprobe" and not process.args in ("-r", "--remove"))
 ) and
 not (
-  ?process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*") or
-  ?process.working_directory in ("/opt/vinchin/agent", "/var/opt/ds_agent/am", "/opt/ds_agent", "/var/opt/TrendMicro/vls_agent/am") or
-  ?process.parent.executable in (
+  process.parent.executable like ("/opt/ds_agent/*", "/opt/TrendMicro/vls_agent/*", "/opt/intel/oneapi/*") or
+  process.working_directory in ("/opt/vinchin/agent", "/var/opt/ds_agent/am", "/opt/ds_agent", "/var/opt/TrendMicro/vls_agent/am") or
+  process.parent.executable in (
     "/usr/lib/uptrack/ksplice-apply", "/opt/commvault/commvault/Base/linux_drv", "/opt/cisco/amp/bin/cisco-amp-helper",
     "/usr/bin/kcarectl", "/usr/share/ksplice/ksplice-apply", "/opt/commvault/Base/linux_drv", "/usr/sbin/veeamsnap-loader",
     "/bin/falcoctl"
   ) or
-  (?process.parent.name like ("python*", "platform-python*") and ?process.parent.args in ("--smart-update", "--auto-update")) or
+  (process.parent.name like ("python*", "platform-python*") and process.parent.args in ("--smart-update", "--auto-update")) or
   (
     process.name == "modprobe" and process.args == "-q" and process.args == "--" and process.args in ("net-pf-10", "netdev-", "binfmt-464c")
   ) or
   (
     process.name == "modprobe" and process.args == "-n" and process.args == "-v" and process.args in ("usb-storage", "dccp", "squashfs", "udf", "sctp", "cramfs", "hfsplus")
   ) or
-  ?process.parent.executable like ("/sbin/iptables-multi*", "/var/ossec/bin/wazuh-modulesd", "/usr/sbin/mkinitramfs", "/usr/share/initramfs-tools/hooks/lvm2") or
-  ?process.parent.args like "/usr/share/initramfs-tools/hooks/*"
+  process.parent.executable like ("/sbin/iptables-multi*", "/var/ossec/bin/wazuh-modulesd", "/usr/sbin/mkinitramfs", "/usr/share/initramfs-tools/hooks/lvm2") or
+  process.parent.args like "/usr/share/initramfs-tools/hooks/*"
 )
 '''
 
