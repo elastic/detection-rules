@@ -101,7 +101,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     event.action == "exec" and (
         (
             process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
-            process.args like ("--d*", "-d*")
+            (process.args like "--d*" or process.args like "-d*")
         ) or
         (
             process.name == "openssl" and
@@ -112,7 +112,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
             process.name like "python*" and (
                 (
                     process.args == "base64" and
-                    process.args like ("--d*", "-d*")
+                    process.args in ("-d", "-u", "-t")
                 ) or
                 (
                     process.args == "-c" and
