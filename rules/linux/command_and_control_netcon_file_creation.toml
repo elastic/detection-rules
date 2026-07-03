@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects network connections originating from a binary located in a potentially suspicious location, followed by a file
+creation event. This behavior is consistent with C2 agents such as Poseidon and Athena, connecting to a C2 framework
+such as Mythic. The agent polls the C2 for commands through a web request, after which the command gets executed.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*", "logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Network Connection Followed by File Creation"
+risk_score = 21
+rule_id = "01c1e353-9d86-4344-abdf-523ab80c6f08"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=5s
+  [network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
+  process.executable like (
+    "/boot/*", "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/var/log/*", "/var/run/user/*", "/run/user/*"
+  ) and
+  not (
+    destination.ip == null or
+    destination.ip == "0.0.0.0" or 
+    cidrmatch(
+      destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+      "192.0.0.0/24", "192.0.0.0/29","192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32",
+      "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24", "192.31.196.0/24", "192.52.193.0/24",
+      "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24",
+      "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+      "FF00::/8", "FC00::/7"
+    )
+  )]
+  [file where host.os.type == "linux" and event.type == "creation" and process.executable like (
+    "/boot/*", "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/var/log/*", "/boot/*", "/var/run/user/*", "/run/user/*"
+  ) and
+  not (
+    file.name like "tmp*" or file.extension in ("sqlite-journal", "db-journal", "lockfile", "tmp") or
+    file.path like (
+      "/loki/wal/*", "/dev/shm/.org.chromium.Chromium.*", "/opt/rapid7/nexpose/*",
+      "/usr/local/ltechagent*", "/var/lib/cloudendure/agent_keystore_temp", "/var/cache/yum/*",
+      "/run/aws-node/ipam.json.tmp*", "/run/systemd/journal/streams/.*"
+    ) or
+    (process.executable == "/tmp/terraform" and file.path like "/tmp/terraform-provider*") or 
+    process.name in ("podman", "minikube", "logrotate", "java", "aws-k8s-agent", "grafana", "postman") or
+    process.executable : (
+      "/etc/cron.daily/logrotate", "/etc/update-motd.d/50-motd-news", "/etc/cron.hourly/0yum-hourly.cron",
+      "/etc/cron.hourly/BitdefenderRedline", "/tmp/token_handler", "/tmp/.sentry-cli*.exe", 
+      "/etc/cron.daily/0yum-daily.cron", "/etc/init.d/fortiedr"
+    )
+  )]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Web Protocols"
+    id = "T1071.001"
+    reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
