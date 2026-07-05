@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/06/25"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a burst of DHCP DISCOVER messages with an unusually high number of distinct client hardware addresses
+observed on the same capture segment within a short window. Attackers flood DISCOVER requests with spoofed or random MAC
+addresses to exhaust the DHCP lease pool, often as a precursor to deploying a rogue DHCP server.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential DHCP Starvation via High Client MAC Cardinality"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential DHCP Starvation via High Client MAC Cardinality
+
+DHCP starvation floods a segment with DISCOVER messages that use many distinct client hardware addresses to consume
+available leases. This rule keys on high DHCP DISCOVER volume paired with high `client_mac` cardinality seen by the
+same network capture sensor, which is the wire-level starvation pattern and does not depend on host operating system.
+
+### Possible investigation steps
+
+- Review `Esql.count_distinct_client_macs` and sample values in `Esql.values_client_macs` to confirm the burst is not a
+  single client retrying with one address.
+- Identify the L2 segment or VLAN monitored by `Esql.observer` and check DHCP server logs for pool exhaustion, NAK spikes,
+  or lease-denial events during the same window.
+- Look for follow-on rogue DHCP OFFER/ACK activity on the segment, including the Multiple DHCP Servers Responding to the
+  Same Transaction rule.
+- Locate the transmitting host using switch CAM tables if Ethernet source addresses are available in raw capture exports.
+
+### False positive analysis
+
+- Large Wi-Fi reconnect or onboarding events can temporarily increase DISCOVER volume. Compare against historical
+  baselines for the same `Esql.observer` and time of day before treating as malicious.
+- Virtualization or VDI provisioning bursts may generate many distinct client MAC addresses during imaging. Exclude known
+  provisioning VLANs or sensors when the workflow is confirmed.
+
+### Response and remediation
+
+- Enable or verify DHCP snooping and rate limits on the affected access switches.
+- Block or isolate the source host if link-layer evidence confirms a single transmitter is generating the flood.
+- Restore DHCP service capacity and monitor for rogue OFFER/ACK responses after the starvation attempt.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1498/",
+    "https://www.leviathansecurity.com/blog/tunnelvision",
+    "https://wazuh.com/blog/monitoring-dhcp-starvation-attack-with-suricata-and-wazuh/",
+]
+risk_score = 47
+rule_id = "b5f94e78-fb4d-4f4b-879e-e51ea667d09c"
+setup = """## Setup
+
+This rule requires the Elastic network_traffic (Packetbeat) integration capturing DHCP (UDP 67/68) on the broadcast
+segment where clients acquire leases, either Packetbeat running on the segment or a SPAN/mirror feeding it.
+
+Zeek and flow-only firewall sources are intentionally not supported: this rule requires per-DISCOVER DHCP transaction
+fields and client hardware address values (`client_mac`) to measure high client MAC cardinality in a short time window.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Impact",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.dhcpv4-*, packetbeat-*
+| eval
+    Esql.message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type)),
+    Esql.client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac),
+    Esql.observer_hostname = COALESCE(host.name, observer.hostname)
+| where Esql.message_type == "discover" and Esql.client_mac is not null and Esql.observer_hostname is not null
+| eval Esql.time_window = DATE_TRUNC(1 minute, @timestamp)
+| stats
+    Esql.dhcpv4_discover_count = COUNT(*),
+    Esql.dhcpv4_client_mac_count_distinct = COUNT_DISTINCT(Esql.client_mac),
+    Esql.dhcpv4_client_mac_values = MV_SLICE(VALUES(Esql.client_mac), 0, 10)
+  by Esql.time_window, Esql.observer_hostname
+| where Esql.dhcpv4_discover_count >= 75 and Esql.dhcpv4_client_mac_count_distinct >= 50
+| keep Esql.observer_hostname, Esql.time_window, Esql.dhcpv4_discover_count, Esql.dhcpv4_client_mac_count_distinct, Esql.dhcpv4_client_mac_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1498"
+name = "Network Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1498/"
+[[rule.threat.technique.subtechnique]]
+id = "T1498.001"
+name = "Direct Network Flood"
+reference = "https://attack.mitre.org/techniques/T1498/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
