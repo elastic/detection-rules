@@ -79,18 +79,18 @@ type = "esql"
 query = '''
 from logs-network_traffic.dhcpv4-*, packetbeat-*
 | eval
-    message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type)),
-    client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac),
-    Esql.observer = COALESCE(host.name, observer.hostname)
-| where message_type == "discover" and client_mac is not null and Esql.observer is not null
+    Esql.message_type = TO_LOWER(COALESCE(network_traffic.dhcpv4.option.message_type, dhcpv4.option.message_type)),
+    Esql.client_mac = COALESCE(network_traffic.dhcpv4.client_mac, dhcpv4.client_mac),
+    Esql.observer_hostname = COALESCE(host.name, observer.hostname)
+| where Esql.message_type == "discover" and Esql.client_mac is not null and Esql.observer_hostname is not null
 | eval Esql.time_window = DATE_TRUNC(1 minute, @timestamp)
 | stats
-    Esql.count_discover = COUNT(*),
-    Esql.count_distinct_client_macs = COUNT_DISTINCT(client_mac),
-    Esql.values_client_macs = MV_SLICE(VALUES(client_mac), 0, 10)
-  by Esql.time_window, Esql.observer
-| where Esql.count_discover >= 75 and Esql.count_distinct_client_macs >= 50
-| keep Esql.observer, Esql.time_window, Esql.count_discover, Esql.count_distinct_client_macs, Esql.values_client_macs
+    Esql.dhcpv4_discover_count = COUNT(*),
+    Esql.dhcpv4_client_mac_count_distinct = COUNT_DISTINCT(Esql.client_mac),
+    Esql.dhcpv4_client_mac_values = MV_SLICE(VALUES(Esql.client_mac), 0, 10)
+  by Esql.time_window, Esql.observer_hostname
+| where Esql.dhcpv4_discover_count >= 75 and Esql.dhcpv4_client_mac_count_distinct >= 50
+| keep Esql.observer_hostname, Esql.time_window, Esql.dhcpv4_discover_count, Esql.dhcpv4_client_mac_count_distinct, Esql.dhcpv4_client_mac_values
 '''
 
 
