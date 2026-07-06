@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -86,21 +86,47 @@ file.path : (
     */.moltbot/* or */AppData/Roaming/Moltbot/* or
     */.config/openclaw/*
 ) and not (
-  file.extension : (lck or lock or log or png or marker or shm or wal or sqlite-shm or sqlite-wal or jsonl or journal or xcuserstate) or
-  file.name : .DS_Store or
+  file.extension : (lck or lock or log or png or marker or shm or wal or sqlite or sqlite-shm or sqlite-wal or jsonl or journal or xcuserstate) or
+  file.name : (
+    .DS_Store or .last-cleanup or mcp-needs-auth-cache.json or policy-limits.json or
+    .claude.json.backup* or
+    *.tmp*
+  ) or
   file.path : (
     */.claude/cache/* or
     */.claude/statsig/* or
     */.claude/sessions/* or
     */.claude/shell-snapshots/* or
+    */.claude/plugins/* or
+    */.claude/worktrees/* or
     */.gemini/antigravity-browser-profile/* or
     */.gemini/tmp/* or
+    */.codex/.tmp/* or
+    */.codex/tmp/* or
     */.codex/log/* or
-    */.codex/sessions/*
+    */.codex/sessions/* or
+    */.cursor/extensions/* or
+    */.vscode/extensions/* or
+    */.vscode-oss/extensions/* or
+    */opt/homebrew/.claude/* or
+    */opt/homebrew/.cursor/* or
+    */opt/homebrew/.codex/* or
+    */node_modules/* or
+    */cargo/registry/* or
+    */go/pkg/mod/*
   ) or
   (
-    file.path : */.config/github-copilot/* and 
+    file.path : (*/.codex/* or */.claude/* or */.gemini/*) and
+    file.extension : sqlite
+  ) or
+  (
+    file.path : */.config/github-copilot/* and
     file.name : (apps.json or versions.json or copilot*nitrite.db)
+  ) or
+  process.name : build-script-build or
+  (
+    file.path : (*/.codex/.tmp/* or */.claude/plugins/* or */.claude/worktrees/* or */node_modules/* or */cargo/registry/* or */go/pkg/mod/*) and
+    file.extension : (h or out or part or rs or toml)
   )
 )
 '''
