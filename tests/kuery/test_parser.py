@@ -138,12 +138,10 @@ class ParserTests(unittest.TestCase):
         self.validate("field: foo* bar* baz", FieldComparison(Field("field"), Wildcard("foo* bar* baz")))
 
     def test_wildcard_with_spaces_and_escaped_specials(self):
-        """Test wildcard values with spaces that also contain escaped special characters.
-
-        Regression for #6282: Kibana allows escaped specials (\\: \\( \\) \\{ ...) inside
-        unquoted values, e.g. "app_message: *\\: No such file*". The WILDCARD_LITERAL token
-        previously excluded these characters and failed to lex such values.
-        """
+        """Test wildcard values with spaces that also contain escaped special characters."""
+        # Regression for #6282: Kibana allows escaped specials (\: \( \) \{ ...) inside
+        # unquoted values, e.g. "app_message: *\: No such file*". The WILDCARD_LITERAL token
+        # previously excluded these characters and failed to lex such values.
         # Escaped colon directly after the leading wildcard (the #6282 example shape)
         self.validate(r"field: *\: No such file*", FieldComparison(Field("field"), Wildcard(r"*\: No such file*")))
         self.validate(
