@@ -1,39 +1,85 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw", "pfsense"]
+integration = ["network_traffic", "panw", "pfsense", "zeek"]
 maturity = "production"
-updated_date = "2026/06/08"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects events that could be describing IPSEC NAT Traversal traffic. IPSEC is a VPN technology that allows one
-system to talk to another using encrypted tunnels. NAT Traversal enables these tunnels to communicate over the Internet
-where one of the sides is behind a NAT router gateway. This may be common on your network, but this technique is also
-used by threat actors to avoid detection.
+This rule detects outbound IPSEC NAT Traversal (NAT-T) tunnels established from an internal host to an external
+destination. IPSEC is a VPN technology that allows one system to talk to another using encrypted tunnels. NAT Traversal
+encapsulates IPSEC ESP traffic in UDP and, once a NAT device is detected, both peers float to UDP port 4500 for the
+tunnel data channel. The rule keys on this NAT-T signature, UDP traffic where both the source and destination port are
+4500, from an internal source to an external destination, rather than on any UDP traffic to port 4500. This may be
+common on your network, but this technique is also used by threat actors to tunnel command and control or exfiltration
+traffic over the Internet to avoid detection.
 """
 false_positives = [
     """
-    Some networks may utilize these protocols but usage that is unfamiliar to local network administrators can be
-    unexpected and suspicious. Because this port is in the ephemeral range, this rule may false under certain
-    conditions, such as when an application server with a public IP address replies to a client which has used a UDP
-    port in the range by coincidence. This is uncommon but such servers can be excluded.
+    Legitimate site-to-site or client VPNs that use IPSEC NAT Traversal will establish outbound tunnels on UDP port
+    4500. Where these tunnels are expected, the internal source hosts or external VPN gateway IP addresses can be
+    excluded. Requiring both the source and destination port to be 4500 already removes alerts caused by an external
+    server coincidentally replying to an ephemeral UDP source port of 4500.
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.*", "logs-pfsense.log-*"]
+index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.*", "logs-pfsense.log-*", "logs-zeek.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "IPSEC NAT Traversal Port Activity"
 risk_score = 21
 rule_id = "a9cb3641-ff4b-4cdc-a063-b4b8d02a67c7"
 severity = "low"
-tags = ["Tactic: Command and Control", "Domain: Endpoint", "Use Case: Threat Detection", "Data Source: PAN-OS", "Data Source: pfSense", "Resources: Investigation Guide"]
+tags = [
+    "Tactic: Command and Control",
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Data Source: PAN-OS",
+    "Data Source: Network Traffic",
+    "Data Source: pfSense",
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: network_traffic.flow or (event.category: (network or network_traffic))) and network.transport:udp and destination.port:4500
+(data_stream.dataset: (network_traffic.flow or zeek.connection) or (event.category: (network or network_traffic))) and
+  network.transport:udp and source.port:4500 and destination.port:4500 and
+  source.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  ) and
+  not destination.ip:(
+    10.0.0.0/8 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.0.0.0/24 or
+    192.0.0.0/29 or
+    192.0.0.8/32 or
+    192.0.0.9/32 or
+    192.0.0.10/32 or
+    192.0.0.170/32 or
+    192.0.0.171/32 or
+    192.0.2.0/24 or
+    192.31.196.0/24 or
+    192.52.193.0/24 or
+    192.168.0.0/16 or
+    192.88.99.0/24 or
+    224.0.0.0/4 or
+    100.64.0.0/10 or
+    192.175.48.0/24 or
+    198.18.0.0/15 or
+    198.51.100.0/24 or
+    203.0.113.0/24 or
+    240.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
 '''
 note = """## Triage and analysis
 
@@ -42,7 +88,7 @@ note = """## Triage and analysis
 
 ### Investigating IPSEC NAT Traversal Port Activity
 
-IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities, bypassing network defenses. The detection rule identifies unusual UDP traffic on port 4500, flagging potential misuse for further investigation.
+IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities, bypassing network defenses. The detection rule identifies outbound NAT-T tunnels, UDP traffic where both the source and destination port are 4500, originating from an internal host to an external destination, flagging potential misuse for further investigation.
 
 ### Possible investigation steps
 
@@ -74,7 +120,6 @@ IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by e
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1095"
 name = "Non-Application Layer Protocol"
@@ -90,7 +135,9 @@ id = "T1573"
 name = "Encrypted Channel"
 reference = "https://attack.mitre.org/techniques/T1573/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
