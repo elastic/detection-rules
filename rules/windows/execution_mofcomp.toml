@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -44,6 +44,7 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "mofcomp.exe" and process.args : "*.mof" and
   not user.id : "S-1-5-18" and
+  not process.parent.name : "msiexec.exe" and
   not
   (
     process.parent.name : "ScenarioEngine.exe" and
@@ -52,6 +53,11 @@ process where host.os.type == "windows" and event.type == "start" and
       "*\\Microsoft SQL Server\\???\\Shared\\*.mof",
       "*\\OLAP\\bin\\*.mof"
     )
+  ) and
+  not
+  (
+    process.parent.name : "cscript.exe" and
+    process.args : "*\\ZTITatoo.mof"
   )
 '''
 
@@ -90,6 +96,8 @@ Mofcomp.exe is a tool used to compile Managed Object Format (MOF) files, which d
 
 - Legitimate SQL Server operations may trigger the rule when SQL Server components compile MOF files. To handle this, exclude processes with parent names like ScenarioEngine.exe and specific MOF file paths related to SQL Server.
 - System maintenance tasks executed by trusted system accounts can cause false positives. Exclude activities initiated by the system account with user ID S-1-5-18 to reduce noise.
+- MSI installer-driven MOF compilation during software installations (e.g., Microsoft Policy Platform, Dell Command Monitor, System Center VMM) is excluded by filtering out msiexec.exe as a parent process.
+- Microsoft Deployment Toolkit (MDT) Zero Touch Installation tattooing via cscript.exe compiling ZTITatoo.mof is excluded as a known benign deployment operation.
 - Regular administrative tasks involving WMI may appear suspicious. Identify and document these tasks, then create exceptions for known safe parent processes or specific MOF file paths to prevent unnecessary alerts.
 - Software installations or updates that involve MOF file compilation might be flagged. Monitor installation logs and exclude these processes if they are verified as part of legitimate software updates.
 
