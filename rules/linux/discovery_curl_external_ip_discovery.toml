@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Linux External IP Address Discovery via Curl"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux External IP Address Discovery via Curl
+
+This rule flags a Linux process that uses curl to contact public IP lookup sites, a common way malware learns the host’s internet-facing address before choosing follow-on actions. An attacker who gains shell access on a server or container may run curl against services like ifconfig.me or ipify, then use the returned address to verify outbound reachability, tailor command-and-control, or decide whether the system sits behind cloud or NAT infrastructure.
+
+### Possible investigation steps
+
+- Trace the full process ancestry and nearby commands to determine whether the curl execution came from an interactive shell, scheduled task, deployment script, container entrypoint, or an unexpected program launched from a writable path.
+- Review the invoked URL, arguments, working directory, and any captured output to determine whether the request was a one-off connectivity check or part of a broader script performing follow-on discovery, download, or beaconing.
+- Correlate the activity with the initiating account, TTY/session details, recent SSH and sudo events, and change records to quickly separate approved administrator troubleshooting from suspicious post-compromise behavior.
+- Pivot to surrounding network activity from the same host to identify repeated lookups, subsequent outbound connections to unfamiliar infrastructure, or signs of staging and command-and-control immediately after the public IP query.
+- Inspect the parent script or binary on disk for recent creation or modification, unusual persistence mechanisms, and prevalence on peer systems to assess whether the behavior is tied to malware, a rogue change, or benign automation.
+
+### False positive analysis
+
+- Legitimate startup, login-banner, or scheduled maintenance scripts may use curl to learn the host’s public IP for configuration or status display, so verify the parent script or service path is expected, recently approved, and consistently seen at boot or on a routine schedule.
+- An administrator or engineer may manually run curl to a public IP lookup site during troubleshooting or deployment validation, so confirm the initiating user, TTY or session context, and shell history align with authorized activity and that no suspicious follow-on commands occurred.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container from the network immediately, allow only a secured management path, and preserve volatile evidence such as the running parent process, shell history, and the script or binary that launched curl.
+- Terminate the malicious process chain and remove persistence by inspecting and cleaning cron jobs, systemd unit files, rc.local, user shell profiles, container entrypoints, SSH authorized_keys, and any attacker files staged in writable locations such as /tmp, /var/tmp, or /dev/shm.
+- Rotate credentials and secrets exposed to the compromised system, including SSH keys, API tokens, cloud instance credentials, and application secrets found in scripts, environment files, or shell history.
+- Restore the asset to a known-good state by rebuilding from a trusted image or clean backup and validating startup scripts, packages, and container images before returning the system to production.
+- Escalate to incident response and broaden scoping across peer systems if the IP lookup was followed by downloads, reverse shells, new outbound connections to unfamiliar infrastructure, or if the same parent script, binary, or persistence artifact appears on multiple hosts.
+- Harden the environment by restricting outbound curl access to approved destinations, blocking public IP lookup services where not needed, limiting execution from writable directories, and adding detections for unexpected systemd, cron, and shell-profile modifications.
+"""
 risk_score = 21
 rule_id = "996e2e09-087e-4e99-a3cc-a9225d24ba3d"
 setup = """## Setup
@@ -54,6 +85,7 @@ tags = [
   "Tactic: Discovery",
   "Data Source: Elastic Defend",
   "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
