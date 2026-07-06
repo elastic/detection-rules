@@ -91,9 +91,11 @@ NON_DATASET_PACKAGES = [
     "apm",
     "auditd_manager",
     "cloud_defend",
+    "corelight",
     "endpoint",
     "jamf_protect",
     "network_traffic",
+    "pfsense",
     "system",
     "windows",
     "sentinel_one_cloud_funnel",
@@ -122,8 +124,8 @@ KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5", "7eb54028-
 KNOWN_BAD_DEPRECATED_DATES = Literal["2021-03-03"]
 # Known Null values that cannot be handled in TOML due to lack of Null value support via compound dicts
 KNOWN_NULL_ENTRIES = [{"rule.actions": "frequency.throttle"}]
-# Action type IDs (e.g. .cases) that do not support frequency/throttle; do not add frequency to these
-SYSTEM_ACTION_TYPE_IDS = (".cases",)
+# Action type IDs (e.g. .cases, .workflows) that do not support frequency/throttle; do not add frequency to these
+SYSTEM_ACTION_TYPE_IDS = (".cases", ".workflows")
 OPERATORS = ["equals"]
 
 TIMELINE_TEMPLATES: Final[dict[str, str]] = {
@@ -288,6 +290,7 @@ ActionTypeId = Literal[
     ".torq",
     ".tines",
     ".d3security",
+    ".workflows",
 ]
 EsDataTypes = Literal[
     "binary",
