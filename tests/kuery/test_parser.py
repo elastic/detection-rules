@@ -146,7 +146,9 @@ class ParserTests(unittest.TestCase):
         """
         # Escaped colon directly after the leading wildcard (the #6282 example shape)
         self.validate(r"field: *\: No such file*", FieldComparison(Field("field"), Wildcard(r"*\: No such file*")))
-        self.validate(r"app_message: *\: No such file", FieldComparison(Field("app_message"), Wildcard(r"*\: No such file")))
+        self.validate(
+            r"app_message: *\: No such file", FieldComparison(Field("app_message"), Wildcard(r"*\: No such file"))
+        )
 
         # Escaped parenthesis / brace mid-value
         self.validate(r"field: *foo\(bar baz*", FieldComparison(Field("field"), Wildcard(r"*foo\(bar baz*")))
