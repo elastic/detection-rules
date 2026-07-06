@@ -2,7 +2,7 @@
 creation_date = "2026/06/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -77,10 +77,9 @@ process where event.type == "start" and event.action in ("exec", "start") and
     process.args in (
       "--dangerously-skip-permissions",
       "--allow-dangerously-skip-permissions",
-      "--permission-mode=bypassPermissions",
-      "--permission-mode=dontAsk"
+      "--permission-mode=bypassPermissions"
     ) or
-    (process.args == "--permission-mode" and process.args in ("bypassPermissions", "dontAsk"))
+    (process.args == "--permission-mode" and process.args == "bypassPermissions")
   ) and
   (
     process.name in ("claude", "claude.exe") or
@@ -95,8 +94,14 @@ process where event.type == "start" and event.action in ("exec", "start") and
 ) or
 (
   (
-    process.args in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto") or
-    process.command_line : ("*--sandbox*danger-full-access*", "*--ask-for-approval*never*")
+    process.args in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto", "--yolo") or
+    process.command_line : (
+      "* -s danger-full-access*",
+      "*--sandbox danger-full-access*",
+      "*--sandbox=danger-full-access*",
+      "*--ask-for-approval never*",
+      "*--ask-for-approval=never*"
+    )
   ) and
   (
     process.name in (
