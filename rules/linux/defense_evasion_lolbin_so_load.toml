@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a process not commonly used to load shared objects, is executed with arguments that load a shared
+object file. This technique can load a malicious shared object into memory while attempting to evade detection.
+"""
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Shared Object Load via LoLBin"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shared Object Load via LoLBin
+
+This alert flags a Linux program that normally is not used as a loader but is started with options that pull a shared object into memory, a common way to hide malicious code behind trusted tools. An attacker can launch `openssl -engine /tmp/libcrypto.so` or a short `python -c` snippet that calls `cdll.LoadLibrary("/tmp/libx.so")` to execute a rogue library while blending in with legitimate system activity.
+
+### Possible investigation steps
+
+- Review the full command line, ancestor process chain, session context, and executing user to determine whether the shared object load aligns with a legitimate admin task, build workflow, or expected plugin behavior.
+- Identify the referenced `.so` file on disk and validate its package ownership, hash reputation, permissions, timestamps, and location, giving extra scrutiny to libraries in temporary, user-writable, hidden, or recently created paths.
+- Pivot on the same library path or hash across hosts and users to determine whether it is isolated to one system, newly introduced, or part of a broader sequence involving script execution, file drops, or repeated LoLBin abuse.
+- Examine activity immediately before and after the load for suspicious follow-on behavior such as outbound network connections, credential access attempts, unexpected child processes, privilege escalation, or persistence-related file changes.
+- If the library is not attributable to approved software, collect the binary and related artifacts for static or sandbox analysis and consider host containment or blocking the file hash and path if corroborating malicious evidence is present.
+
+### False positive analysis
+
+- Developers or build jobs may use `python -c`, `ruby -e`, or `openssl -engine` to validate a locally built `.so` during compilation or testing; confirm the parent process and working directory map to an expected build path or `make`-driven workflow and that the library resides in a project or package-managed location.
+- Administrators may intentionally load a legitimate shell builtin or application plugin through `bash -c`, `gdb`, or `vim` while troubleshooting or enabling features; verify the session is interactive and attributable to the user, then check that the referenced `.so` is package-owned or stored in a standard system library or plugin directory rather than a writable temporary path.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network, terminate the abusing LoLBin and any spawned processes, and quarantine the referenced `.so` and any copies found in writable locations such as `/tmp`, `/dev/shm`, user home directories, or hidden folders.
+- Remove attacker persistence by deleting unauthorized entries from `/etc/ld.so.preload`, shell startup files, cron jobs, systemd services or timers, and any wrapper scripts that relaunch `openssl -engine`, `python -c`, `ruby -e`, or shell commands to load the malicious library.
+- Reset credentials and revoke secrets used on the host, including SSH keys, API tokens, and service-account passwords, if the library executed under a privileged account or accessed authentication material, browser data, or configuration files with embedded secrets.
+- Restore the host to a known-good state by rebuilding from a trusted image or reinstalling verified packages, then validate that no unapproved libraries, altered loader settings, or attacker-added binaries remain on disk before returning the system to production.
+- Escalate to incident response immediately if the same library hash or path is present on multiple hosts, the load occurred as `root`, or the host showed follow-on behavior such as new persistence, remote command execution, or suspicious outbound network connections.
+- Harden the environment by restricting plugin and engine loads to approved library directories, enforcing package integrity checks, monitoring for changes to preload files and service definitions, and applying SELinux or AppArmor policies that prevent scripts and LoLBins from loading shared objects from user-writable paths.
+"""
+references = ["https://gtfobins.github.io/#+library%20load"]
+risk_score = 47
+rule_id = "ebf493d1-20be-41a0-a010-c1b6a6f90e28"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+- Auditbeat
+- Auditd Manager
+- CrowdStrike
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "executed", "process_started", "start", "ProcessRollup2") and
+?process.parent.executable != null and
+(
+  (process.name == "bash" and process.args == "-c" and process.args like "* enable *-f*.so*") or
+  (process.name == "openssl" and process.args == "-engine" and process.args like "*.so*") or
+  (process.name like "python*" and process.args == "-c" and process.args like "*cdll.LoadLibrary*.so*") or
+  (process.name like "ruby*" and process.args == "-e" and process.args like "*Fiddle.dlopen*.so*") or 
+  (process.name in ("gdb", "gimp", "rview", "rvim", "view", "vim", "vimdiff") and
+   process.args like "*cdll.LoadLibrary*.so*") or
+  (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+   process.args == "-c" and process.args like ("*cdll.LoadLibrary*.so*", "*ruby*-e**Fiddle.dlopen*.so*")
+  )
+) and
+not (
+  ?process.parent.executable like (
+    "/root/.cache/bazel/_bazel_root/install/*", "/opt/Xilinx/PetaLinux/*", "/usr/bin/find", "/bin/find", 
+    "/opt/nessus_agent/sbin/nessus-agent-module", "/sw/eb/sw/Python/*/bin/python*"
+  ) or
+  ?process.parent.name in ("make", "process-wrapper", "bwrap") or
+  (process.name like "python*" and ?process.command_line like~ "*import torch*torchinductor*") or
+  ?process.command_line like "*https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+    [[rule.threat.technique]]
+    id = "T1218"
+    name = "System Binary Proxy Execution"
+    reference = "https://attack.mitre.org/techniques/T1218/"
+
+   [[rule.threat.technique]]
+   name = "Hijack Execution Flow"
+   id = "T1574"
+   reference = "https://attack.mitre.org/techniques/T1574/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  id = "T1059"
+  name = "Command and Scripting Interpreter"
+  reference = "https://attack.mitre.org/techniques/T1059/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "Unix Shell"
+    id = "T1059.004"
+    reference = "https://attack.mitre.org/techniques/T1059/004/"
