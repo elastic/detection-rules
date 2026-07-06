@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Command Execution via Busybox Proxy"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Command Execution via Busybox Proxy
+
+This rule flags Busybox being used as a proxy to launch shells or make outbound connections on Linux, a common way to hide command execution behind a trusted multi-call binary and slip past simple detections. An intruder can drop a script or binary in /tmp or /dev/shm, then run Busybox sh with /dev/tcp, nc, or openssl to establish a reverse shell and execute follow-on commands.
+
+### Possible investigation steps
+
+- Reconstruct the full execution chain around the Busybox invocation to identify the initiating script or binary, the user or service account involved, and whether the parent came from a writable or ephemeral location such as /tmp, /dev/shm, or a hidden working directory.
+- Retrieve and analyze any files or command artifacts referenced in the invocation, including shell scripts, dropped binaries, or inline payloads, and compare their hashes and prevalence against internal baselines and external reputation sources.
+- Review adjacent host activity for follow-on behavior consistent with staging or hands-on-keyboard access, such as additional shell launches, curl or wget downloads, permission changes, archive extraction, credential access attempts, or persistence creation via cron, systemd, or startup scripts.
+- Pivot to network telemetry from the same host and time window to determine whether Busybox or its descendants established outbound sessions, then validate the destination IPs, domains, ports, and protocols against expected business use and known benign infrastructure.
+- Confirm whether the behavior is expected for the asset type, container image, or embedded tooling in use, and if the activity is not readily explained, isolate the host and collect volatile evidence such as active connections, running processes, loaded modules, and recent shell history.
+
+### False positive analysis
+
+- Container or host startup scripts may invoke `busybox sh` with `nc`, `openssl`, or `/dev/tcp` from a temporary path to wait for a local dependency or perform a health check; verify the parent script is part of the expected image or boot workflow and that the destination is a known internal service.
+- An administrator or automation task may stage a temporary script under `/tmp`, `/var/tmp`, or a user home directory that uses `busybox sh` to test port reachability or TLS negotiation during troubleshooting; confirm the initiating account and script contents against approved maintenance activity and check that no suspicious follow-on processes or outbound connections occurred.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network, terminate the malicious `busybox` process and any spawned shells, and block the destination IPs, domains, and ports used by the outbound session or reverse shell.
+- Preserve copies of the parent script or binary from locations such as `/tmp`, `/var/tmp`, or `/dev/shm`, then remove attacker persistence including cron jobs, `systemd` service files, `rc.local` changes, startup scripts, and unauthorized `authorized_keys` entries tied to the same activity.
+- Reset passwords, revoke tokens, and rotate SSH keys or application secrets for any user or service account that launched Busybox or was exposed on the host, especially when shell history, environment files, or config files contained credentials.
+- Reimage the host or restore it from a known-good baseline, verify trusted package integrity for replaced binaries and scripts, and return the system to service only after confirming no unexpected executables remain in writable or temporary directories.
+- Escalate to incident response immediately if the Busybox session ran as `root`, reached an external address, created persistence beyond a single host, or if other systems show the same dropped script, destination, or follow-on shell activity.
+- Harden the environment by restricting Busybox execution to approved administrative use, mounting temporary directories with `noexec` where feasible, limiting unnecessary outbound egress, and adding detections for shell-capable Busybox usage launched from temporary, hidden, or user-writable paths.
+"""
 risk_score = 21
 rule_id = "7ed84571-58ac-46da-a0ab-9c213ef2927b"
 setup = """## Setup
@@ -56,6 +87,7 @@ tags = [
   "Tactic: Defense Evasion",
   "Data Source: Elastic Defend",
   "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

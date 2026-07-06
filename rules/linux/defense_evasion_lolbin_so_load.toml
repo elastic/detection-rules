@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Shared Object Load via LoLBin"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shared Object Load via LoLBin
+
+This alert flags a Linux program that normally is not used as a loader but is started with options that pull a shared object into memory, a common way to hide malicious code behind trusted tools. An attacker can launch `openssl -engine /tmp/libcrypto.so` or a short `python -c` snippet that calls `cdll.LoadLibrary("/tmp/libx.so")` to execute a rogue library while blending in with legitimate system activity.
+
+### Possible investigation steps
+
+- Review the full command line, ancestor process chain, session context, and executing user to determine whether the shared object load aligns with a legitimate admin task, build workflow, or expected plugin behavior.
+- Identify the referenced `.so` file on disk and validate its package ownership, hash reputation, permissions, timestamps, and location, giving extra scrutiny to libraries in temporary, user-writable, hidden, or recently created paths.
+- Pivot on the same library path or hash across hosts and users to determine whether it is isolated to one system, newly introduced, or part of a broader sequence involving script execution, file drops, or repeated LoLBin abuse.
+- Examine activity immediately before and after the load for suspicious follow-on behavior such as outbound network connections, credential access attempts, unexpected child processes, privilege escalation, or persistence-related file changes.
+- If the library is not attributable to approved software, collect the binary and related artifacts for static or sandbox analysis and consider host containment or blocking the file hash and path if corroborating malicious evidence is present.
+
+### False positive analysis
+
+- Developers or build jobs may use `python -c`, `ruby -e`, or `openssl -engine` to validate a locally built `.so` during compilation or testing; confirm the parent process and working directory map to an expected build path or `make`-driven workflow and that the library resides in a project or package-managed location.
+- Administrators may intentionally load a legitimate shell builtin or application plugin through `bash -c`, `gdb`, or `vim` while troubleshooting or enabling features; verify the session is interactive and attributable to the user, then check that the referenced `.so` is package-owned or stored in a standard system library or plugin directory rather than a writable temporary path.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network, terminate the abusing LoLBin and any spawned processes, and quarantine the referenced `.so` and any copies found in writable locations such as `/tmp`, `/dev/shm`, user home directories, or hidden folders.
+- Remove attacker persistence by deleting unauthorized entries from `/etc/ld.so.preload`, shell startup files, cron jobs, systemd services or timers, and any wrapper scripts that relaunch `openssl -engine`, `python -c`, `ruby -e`, or shell commands to load the malicious library.
+- Reset credentials and revoke secrets used on the host, including SSH keys, API tokens, and service-account passwords, if the library executed under a privileged account or accessed authentication material, browser data, or configuration files with embedded secrets.
+- Restore the host to a known-good state by rebuilding from a trusted image or reinstalling verified packages, then validate that no unapproved libraries, altered loader settings, or attacker-added binaries remain on disk before returning the system to production.
+- Escalate to incident response immediately if the same library hash or path is present on multiple hosts, the load occurred as `root`, or the host showed follow-on behavior such as new persistence, remote command execution, or suspicious outbound network connections.
+- Harden the environment by restricting plugin and engine loads to approved library directories, enforcing package integrity checks, monitoring for changes to preload files and service definitions, and applying SELinux or AppArmor policies that prevent scripts and LoLBins from loading shared objects from user-writable paths.
+"""
 references = ["https://gtfobins.github.io/#+library%20load"]
 risk_score = 47
 rule_id = "ebf493d1-20be-41a0-a010-c1b6a6f90e28"
@@ -66,6 +97,7 @@ tags = [
     "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

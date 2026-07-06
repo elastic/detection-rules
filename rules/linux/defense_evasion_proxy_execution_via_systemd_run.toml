@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -23,6 +23,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Proxy Execution via Systemd-run"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Proxy Execution via Systemd-run
+
+This alert fires when a Linux process launches another command through systemd-run instead of executing it directly, which can hide execution behind a trusted system utility and detach it into a transient service or scope. An attacker might use systemd-run --user or a transient unit to start a shell, downloader, or credential-harvesting script in the background from an interactive session, reducing visibility into the real payload and parent-child chain.
+
+### Possible investigation steps
+
+- Reconstruct the full process tree around the event to determine which user, shell, script, service, or remote access session invoked systemd-run and whether the ancestry aligns with normal administrative or automation activity on that host.
+- Review the exact command passed through systemd-run, including flags such as --user, --scope, scheduling options, or custom unit names, and classify the spawned payload as expected software management, benign interactive use, or suspicious shell, downloader, or persistence behavior.
+- Query systemd and journal artifacts for the transient unit that was created, including unit properties, start time, execution account, service output, and whether the unit remained active, failed, or was configured to run again.
+- Correlate the execution with nearby events from the same user or host such as logins, sudo activity, file creation in writable locations, outbound network connections, or follow-on launches of interpreters and admin tools to identify a broader intrusion sequence.
+- If the activity is unauthorized or unclear, inspect the referenced binary or script for path reputation, package ownership, hash prevalence, and recent modification history, then stop the transient unit and contain any files or persistence it introduced.
+
+### False positive analysis
+
+- A legitimate administrator or maintenance script may use `systemd-run` to launch a transient unit for package updates, cache rebuilds, or controlled service restarts, so verify the initiating user, the parent script or shell history, and nearby package-management or scheduled change activity.
+- A normal desktop or user session can invoke `systemd-run --user` or `--scope` to start an application, terminal, or session task in a transient scope, so confirm the parent process belongs to the logged-in user’s graphical session and that the spawned command matches expected interactive activity in systemd or journal logs.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network except for approved management channels, terminate the malicious `systemd-run` transient unit or scope, and kill any child shell, downloader, or script it launched.
+- Remove attacker persistence by deleting unauthorized unit files and drop-ins from `/etc/systemd/system/`, `/run/systemd/transient/`, `/var/lib/systemd/`, and affected users’ `~/.config/systemd/user/` directories, then run `systemctl daemon-reload` and disable any malicious timers or services.
+- Preserve and quarantine the executed payload, related scripts, and any files created from writable locations such as `/tmp`, `/var/tmp`, `/dev/shm`, or a user home directory, and revoke exposed access by resetting compromised passwords, SSH keys, tokens, and sudo access tied to the initiating account.
+- Restore the system to a known-good state by reimaging or rebuilding the host from a trusted baseline if the command ran as `root`, modified security tooling, or executed an unknown binary, and validate that only approved packages, services, and startup entries remain before returning it to production.
+- Escalate to incident response immediately if the `systemd-run` activity spawned a reverse shell, downloader, credential access tool, or lateral movement utility, if similar transient units appear on multiple hosts, or if the affected account has privileged or production access.
+- Harden the environment by restricting who can invoke `systemd-run` through sudoers and privileged group membership, enforcing MFA and least privilege for administrative access, monitoring for new transient units and unexpected `--user` executions, and blocking execution from world-writable paths where the payload was staged.
+"""
 risk_score = 21
 rule_id = "a2e5e290-f534-4b71-bc3f-2dd1932b4cd6"
 setup = """## Setup
@@ -66,6 +97,7 @@ tags = [
     "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
