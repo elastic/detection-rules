@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,37 @@ index = ["logs-endpoint.events.network*", "logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Network Connection Followed by File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Network Connection Followed by File Creation
+
+This rule spots a Linux process running from an unusual writable directory that makes an outbound connection and then creates a file within seconds, a pattern that often marks an active implant receiving tasks and staging follow-on activity. Attackers launch a loader from /dev/shm or /tmp, poll a remote web-based command server, and immediately drop a script or renamed payload for execution or persistence.
+
+### Possible investigation steps
+
+- Review the process ancestry and launch context for the binary in the writable directory to determine whether it originated from a user session, script, scheduled task, package operation, or remote execution mechanism.
+- Inspect the external destination's reputation, ownership, protocol details, and whether other hosts contacted it at similar times to distinguish approved software behavior from likely command-and-control traffic.
+- Examine the created file's location, type, hash, contents, permissions, and any immediate chmod, rename, or execution activity to assess whether it is a staged payload, script, or persistence artifact.
+- Build a concise timeline around the alert to identify preceding download, decode, or unpack actions and any follow-on child processes, credential access attempts, or lateral movement from the same host.
+- Search the environment for the same executable hash, destination, or dropped artifact on other systems and contain the host if you observe repeated beaconing, additional suspicious file creation, or evidence of execution.
+
+### False positive analysis
+
+- A legitimate software installer, updater, or bootstrap script launched from /tmp or /var/tmp can contact an external repository and immediately create unpacked files; verify the parent process, initiating user, shell history, and whether the destination IP and dropped files align with an approved installation or update at that time.
+- An administrator or automation job may execute a temporary script from /dev/shm or /run/user to fetch remote content and write logs, configuration, or cache files; confirm the activity matches a scheduled task or provisioning change and inspect the created file paths and script contents for expected benign output.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network except for approved management access, kill the suspicious process running from the writable directory, quarantine the binary and any files it created, and block the contacted external IP or domain at the firewall, proxy, and DNS layers.
+- Remove attacker footholds by deleting malicious systemd services, cron jobs, shell profile modifications, SSH authorized_keys entries, and any copied or renamed payloads the implant placed under writable paths or startup locations, after preserving forensic copies.
+- Reset potentially exposed access by rotating passwords, SSH keys, API tokens, and service credentials used on the host, especially if the process ran as root, touched authentication files, or dropped scripts and configuration files that may contain secrets.
+- Restore the system to a known-good state by reimaging or rebuilding the host from a trusted baseline when the binary or dropped files executed, then validate package integrity, startup items, and critical application data before reconnecting it to production.
+- Escalate immediately to incident response if the same executable hash, outbound destination, or dropped artifact appears on additional hosts, or if you identify privilege escalation, credential theft, persistence in multiple locations, or attempted lateral movement.
+- Harden the environment by blocking execution from /tmp, /dev/shm, and other writable directories where feasible, tightening egress rules to approved destinations, enforcing application allowlisting, and improving monitoring for new outbound beacons followed by file creation.
+"""
 risk_score = 21
 rule_id = "01c1e353-9d86-4344-abdf-523ab80c6f08"
 setup = """## Setup
@@ -51,6 +82,7 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Execution",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 query = '''
