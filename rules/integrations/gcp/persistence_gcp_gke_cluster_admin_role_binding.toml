@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or modification of a GKE ClusterRoleBinding that grants the cluster-admin ClusterRole, providing
+unrestricted cluster access and enabling rapid privilege escalation or persistence.
+"""
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Cluster-Admin Role Binding Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GKE Cluster-Admin Role Binding Created or Modified
+
+Identify who created or changed the binding and which subject received cluster-admin.
+
+### Investigation steps
+
+- Review `user.email`, `source.ip`, and `gcp.audit.request` for the bound subject.
+- Hunt for secret reads, privileged pod creation, or webhook changes from the same actor or new subject.
+
+### False positives
+
+- Bootstrap, recovery, or GitOps workflows may recreate cluster-admin bindings during approved changes.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control",
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
+]
+risk_score = 47
+rule_id = "16708afb-4904-4d3c-af78-63640a075cb0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.action:(
+  "io.k8s.authorization.rbac.v1.clusterrolebindings.create" or
+  "io.k8s.authorization.rbac.v1.clusterrolebindings.patch" or
+  "io.k8s.authorization.rbac.v1.clusterrolebindings.update"
+) and gcp.audit.request.kind:"ClusterRoleBinding" and
+gcp.audit.resource_name:"rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

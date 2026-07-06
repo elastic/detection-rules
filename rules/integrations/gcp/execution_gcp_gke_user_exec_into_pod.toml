@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first occurrence of a non-system GKE identity establishing an exec session into a pod. kubectl exec enables
+interactive command execution inside workloads and is a common post-compromise technique to access secrets and expand
+access.
+"""
+false_positives = [
+    """
+    Administrators routinely exec into pods for troubleshooting. Baseline expected users and target pods, then exclude
+    known break-glass identities.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE User Exec into Pod"
+note = """## Triage and analysis
+
+### Investigating GKE User Exec into Pod
+
+This new-terms rule alerts on the first exec into a given pod by a user identity in the lookback window.
+
+### Investigation steps
+
+- Review `user.email`, `orchestrator.resource.name`, `source.ip`, and `user_agent.original`.
+- Determine whether the target pod holds sensitive data or cluster credentials.
+- Correlate with secret access or RBAC changes from the same identity.
+
+### False positives
+
+- Approved admin debugging; exclude stable operator identities after review.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
+]
+risk_score = 47
+rule_id = "c040c962-1c60-4259-8ea3-601a40d4ab9f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:("io.k8s.core.v1.pods.exec.create" or "io.k8s.core.v1.pods.exec.get") and
+not user.email:system\:*
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.email", "orchestrator.resource.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
