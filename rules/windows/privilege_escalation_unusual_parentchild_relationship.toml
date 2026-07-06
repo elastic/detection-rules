@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [transform]
 [[transform.osquery]]
@@ -146,7 +146,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-process.parent.name != null and
+process.parent.name != null and process.parent.executable like ("?:\\*", "\\Device\\*") and
  (
    /* suspicious parent processes */
    (process.name:"autochk.exe" and not process.parent.name:"smss.exe") or
@@ -175,8 +175,7 @@ process.parent.name != null and
    (process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") and
      not (process.name:"rundll32.exe" and process.command_line : "*WerConCpl.dll*LaunchErcApp*")) or
    (process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe", "conhost.exe"))
-  ) and
-not (?event.code == "4688" and process.parent.name : "S-1-16-*")
+  )
 '''
 
 
