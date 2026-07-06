@@ -2,12 +2,12 @@
 creation_date = "2026/06/26"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/26"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects multiple Microsoft Entra ID device registrations by a single user, where two or more distinct devices are
+Detects multiple Microsoft Entra ID device registrations by a single user, where three or more distinct devices are
 registered within a 15-minute window. A legitimate user enrolling a device produces a single "Register device" event;
 registering multiple distinct devices in quick succession is uncommon and is the fingerprint behavior of
 adversary-in-the-middle (AiTM) phishing kits and stolen-token replay tooling (for example Kali365), which mint a new
@@ -18,7 +18,7 @@ so multiple registrations on a single low-privilege identity establish device-bo
 false_positives = [
     """
     A user legitimately enrolling several devices in a short window (for example, a new laptop and phone during
-    onboarding, or re-registering a device after a wipe) can produce two or more registrations. Validate against the
+    onboarding, or re-registering a device after a wipe) can produce three or more registrations. Validate against the
     user's device inventory and onboarding activity, and consider raising the threshold or tightening the window if
     benign multi-device enrollment is common in the environment.
     """,
@@ -35,7 +35,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Multiple Device Registrations by a Single User
 
-A single Entra ID "Register device" event is routine: a user enrolling one device emits one registration. Concentrating two or more distinct device registrations onto one user inside a 15-minute window is uncommon for legitimate activity and is the fingerprint of either:
+A single Entra ID "Register device" event is routine: a user enrolling one device emits one registration. Concentrating three or more distinct device registrations onto one user inside a 15-minute window is uncommon for legitimate activity and is the fingerprint of either:
 
 - An AiTM phishing-kit relay session that, after capturing the victim's sign-in, registers one or more Azure AD-joined devices of its own from the kit infrastructure within minutes (observed cadence of roughly one device every 2-6 minutes, e.g. Kali365 registering five devices in ~12 minutes).
 - Token-replay tooling driving multiple device joins in quick succession off a stolen refresh token or PRT.
@@ -54,7 +54,7 @@ Each registered device is a separate principal with its own certificate-bound PR
 
 ### False positive analysis
 
-- New-device or onboarding flows where a user enrolls more than one device in a short window can fire. Validate against the user's known device inventory and any onboarding or device-refresh events.
+- New-device or onboarding flows where a user enrolls three or more devices in a short window can fire. Validate against the user's known device inventory and any onboarding or device-refresh events.
 - Bulk provisioning, autopilot, or MDM rollouts can register multiple devices per user concurrently. Consider suppression during planned rollouts.
 - If benign multi-device enrollment is routine in the environment, raise the distinct-device threshold or shorten the window.
 
@@ -88,6 +88,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Initial Access",
+    "Tactic: Credential Access",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -95,9 +96,11 @@ type = "esql"
 
 query = '''
 from logs-azure.auditlogs-*
-| where event.dataset == "azure.auditlogs"
+| where data_stream.dataset == "azure.auditlogs"
     and azure.auditlogs.operation_name == "Register device"
     and azure.auditlogs.properties.initiated_by.user.userPrincipalName is not null
+    // For "Register device" the registered device is the primary target resource (index 0);
+    // target_resources is a numeric-indexed object array in this integration, so wildcard/name-based matching is not available.
     and `azure.auditlogs.properties.target_resources.0.display_name` is not null
 
 | eval Esql.bucket_window = date_trunc(15 minutes, @timestamp)
@@ -173,7 +176,6 @@ reference = "https://attack.mitre.org/tactics/TA0006/"
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
     "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
     "Esql.count_distinct_devices",
     "Esql.device_name_values",
