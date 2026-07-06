@@ -8,6 +8,7 @@
 import fnmatch
 import gzip
 import json
+import os
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -22,7 +23,8 @@ from semver import Version
 
 from . import ecs
 from .beats import flatten_ecs_schema
-from .schemas import definitions, get_stack_versions
+from .config import load_current_package_version
+from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
@@ -283,17 +285,9 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 # Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
-
-# Cap majors walked for unbounded Kibana clauses (``>=X.Y.Z``). Intersection with
-# ``_shipped_stack_majors()`` keeps only backport lines we ship rules to.
-_MAX_UNBOUNDED_STACK_MAJOR_SPAN = 10
-
-
-def _major_has_compatible_stack(major: int, version_requirement: str) -> bool:
-    """Return True iff the Kibana range overlaps some stack in [major.0.0, (major+1).0.0)."""
-    major_lo = Version(major, 0, 0)
-    major_hi = Version(major + 1, 0, 0)
-    return any(lo < major_hi and (hi is None or hi > major_lo) for lo, hi in _parse_kibana_range(version_requirement))
+# TODO(eric-forte-elastic): Remove this gate after stack 9.7. https://github.com/elastic/detection-rules/issues/6327  # noqa: FIX002, E501
+RELATED_INTEGRATION_GTE_OPERATOR_ENV = "DR_RELATED_INTEGRATIONS_USE_GTE"
+RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
 
 
 def _package_version_has_integration(
@@ -305,42 +299,6 @@ def _package_version_has_integration(
     if version not in package_schemas:
         return True
     return integration in package_schemas[version]
-
-
-def _majors_overlapping_kibana_clause(
-    lo: Version,
-    hi: Version | None,
-    version_requirement: str,
-) -> list[int]:
-    """Return stack majors whose [M.0.0, (M+1).0.0) band intersects the parsed clause bounds."""
-    if hi is not None:
-        majors_to_check: list[int] = []
-        major = lo.major
-        while Version(major, 0, 0) < hi:
-            majors_to_check.append(major)
-            major += 1
-        return majors_to_check
-
-    # Unbounded upper (``>=``, ``>``): walk forward while the major still overlaps.
-    majors_to_check: list[int] = []
-    major = lo.major
-    while major <= lo.major + _MAX_UNBOUNDED_STACK_MAJOR_SPAN and _major_has_compatible_stack(
-        major, version_requirement
-    ):
-        majors_to_check.append(major)
-        major += 1
-    return majors_to_check
-
-
-def _stack_majors_supported_by_package(integration_manifests: dict[str, Any]) -> set[int]:
-    """Collect Kibana stack majors that any manifest in the package can serve."""
-    stack_majors: set[int] = set()
-    for manifest in integration_manifests.values():
-        version_requirement = manifest["conditions"]["kibana"]["version"]
-        for lo, hi in _parse_kibana_range(version_requirement):
-            for major in _majors_overlapping_kibana_clause(lo, hi, version_requirement):
-                stack_majors.add(major)
-    return stack_majors
 
 
 def _find_least_compatible_for_stack(
@@ -375,120 +333,35 @@ def _find_least_compatible_for_stack(
 
 
 @dataclass(frozen=True)
-class CompatibleVersionRange:
-    """Stack-invariant related integration compatibility range."""
+class RelatedIntegrationVersion:
+    """Resolved related_integrations.version value for the current package stack."""
 
-    range: str
-    anchors: tuple[str, ...]
-    forward_anchor: str
-
-
-def _build_compatible_version_range(anchors: list[str]) -> CompatibleVersionRange:
-    """Build a CompatibleVersionRange from manifest-backed anchor versions."""
-    if not anchors:
-        raise ValueError("anchors must not be empty")
-
-    sorted_anchors = tuple(sorted(set(anchors), key=Version.parse))
-    top_major = max(Version.parse(anchor).major for anchor in sorted_anchors)
-    # Forward sentinel for the next integration major (no manifest entry yet).
-    forward_anchor = f"{top_major + 1}.0.0"
-    range_parts = [f"^{anchor}" for anchor in sorted_anchors] + [f"^{forward_anchor}"]
-    return CompatibleVersionRange(
-        range=" || ".join(range_parts),
-        anchors=sorted_anchors,
-        forward_anchor=forward_anchor,
-    )
+    expression: str
+    manifest_versions: tuple[str, ...]
 
 
-@cached
-def _shipped_stack_majors() -> set[int]:
-    """Stack majors we ship prebuilt rules to (from the stack-schema-map backport lines)."""
-    return {Version.parse(version).major for version in get_stack_versions()}
+class IntegrationVersionNotFoundError(ValueError):
+    """Raised when a package has no compatible version for the requested stack/integration."""
 
 
-def minimum_schema_package_version(
-    package: str,
-    integration: str,
-    integration_schemas: dict[str, Any],
-) -> str | None:
-    """Return the oldest package version whose schema includes integration, if any."""
-    package_schemas = integration_schemas.get(package)
-    if not package_schemas:
-        return None
-
-    for version in sorted(package_schemas, key=Version.parse):
-        if integration in package_schemas[version]:
-            return version
-    return None
+def _related_integration_gte_operator_enabled() -> bool:
+    """Return True when CI/package builds opt into >= related integration versions."""
+    return os.getenv(RELATED_INTEGRATION_GTE_OPERATOR_ENV) == "True"
 
 
-def apply_schema_version_floor(
-    result: CompatibleVersionRange,
-    schema_floor: str,
-) -> CompatibleVersionRange:
-    """Raise anchors in the schema floor's package major when below schema_floor."""
-    floor_version = Version.parse(schema_floor)
-    floor_major = floor_version.major
-    bumped_anchors: list[str] = []
-
-    for anchor in result.anchors:
-        anchor_version = Version.parse(anchor)
-        if anchor_version.major == floor_major and anchor_version < floor_version:
-            continue
-        bumped_anchors.append(anchor)
-
-    if not any(Version.parse(anchor).major == floor_major for anchor in bumped_anchors):
-        bumped_anchors.append(schema_floor)
-
-    bumped_tuple = tuple(sorted(bumped_anchors, key=Version.parse))
-    if bumped_tuple == result.anchors:
-        return result
-
-    return _build_compatible_version_range(list(bumped_tuple))
+def _related_integration_version_operator(stack_version: Version) -> str:
+    """Return the semver operator for related_integrations.version on the current stack."""
+    if _related_integration_gte_operator_enabled() and stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK:
+        return ">="
+    return "^"
 
 
-def _collect_compatible_anchors(
-    integration_manifests: dict[str, Any],
-    stack_majors: set[int],
-    integration: str | None,
-    package_schemas: dict[str, Any],
-) -> list[str]:
-    """Oldest compatible integration version per shipped stack version line."""
-    anchors: list[str] = []
-    for stack_version_str in get_stack_versions():
-        stack_version = Version.parse(stack_version_str)
-        if stack_version.major not in stack_majors:
-            continue
-        anchor = _find_least_compatible_for_stack(
-            stack_version,
-            integration_manifests,
-            integration,
-            package_schemas,
-        )
-        if anchor and anchor not in anchors:
-            anchors.append(anchor)
-    return anchors
-
-
-def _integration_schema_floor(
-    package: str,
-    integration: str | None,
-    package_schemas: dict[str, Any],
-) -> str | None:
-    """Oldest package version whose schema includes integration, when schemas are loaded."""
-    if not integration or not package_schemas:
-        return None
-    return minimum_schema_package_version(package, integration, {package: package_schemas})
-
-
-def find_compatible_version_range(
+def resolve_related_integration_version(
     package: str,
     packages_manifest: dict[str, Any],
     integration: str | None = None,
-) -> CompatibleVersionRange:
-    """Return a stack-invariant OR'd caret range for related_integrations.version."""
-    # One anchor per shipped stack version line (no build-time stack), OR'd carets, forward sentinel.
-    # With integration set, filter by integration-schemas when present (data-stream floor).
+) -> RelatedIntegrationVersion:
+    """Return the current-stack related_integrations.version expression."""
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -496,27 +369,18 @@ def find_compatible_version_range(
     package_schemas: dict[str, Any] = {}
     if integration:
         package_schemas = load_integrations_schemas().get(package, {})
-    schema_floor = _integration_schema_floor(package, integration, package_schemas)
 
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
-    stack_majors = _stack_majors_supported_by_package(integration_manifests) & _shipped_stack_majors()
-
-    if not stack_majors:
-        raise ValueError(f"no compatible version for integration package {package}")
-
-    anchors = _collect_compatible_anchors(integration_manifests, stack_majors, integration, package_schemas)
-
-    if not anchors:
-        if schema_floor:
-            baseline = find_compatible_version_range(package, packages_manifest)
-            return apply_schema_version_floor(baseline, schema_floor)
+    current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    manifest_version = _find_least_compatible_for_stack(
+        current_stack, integration_manifests, integration, package_schemas
+    )
+    if manifest_version is None:
         package_label = f"{package}:{integration}" if integration else package
-        raise ValueError(f"no compatible version for integration {package_label}")
+        raise IntegrationVersionNotFoundError(f"no compatible version for integration {package_label}")
 
-    result = _build_compatible_version_range(anchors)
-    if schema_floor:
-        result = apply_schema_version_floor(result, schema_floor)
-    return result
+    operator = _related_integration_version_operator(current_stack)
+    return RelatedIntegrationVersion(expression=f"{operator}{manifest_version}", manifest_versions=(manifest_version,))
 
 
 def find_latest_compatible_version(

@@ -94,15 +94,17 @@ class ParserTests(unittest.TestCase):
         query = 'host.name: test-* and not (destination.ip : "127.0.0.53" and destination.ip : "169.254.169.254")'
         dsl_str = str(kql.to_dsl(query))
 
+        # `-` is a Lucene query_string reserved char (prefix NOT), so it is
+        # escaped in the wildcard value, matching Kibana's toQueryStringQuery.
         bad_case = (
-            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test\\\\-*'}}], "
             "'must_not': [{'match': {'destination.ip': '127.0.0.53'}}, "
             "{'match': {'destination.ip': '169.254.169.254'}}]}}"
         )
         self.assertNotEqual(dsl_str, bad_case, "DSL string matches the bad case, optimization failed.")
 
         good_case = (
-            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test-*'}}], "
+            "{'bool': {'filter': [{'query_string': {'fields': ['host.name'], 'query': 'test\\\\-*'}}], "
             "'must_not': [{'bool': {'filter': [{'match': {'destination.ip': '127.0.0.53'}}, "
             "{'match': {'destination.ip': '169.254.169.254'}}]}}]}}"
         )
@@ -177,6 +179,35 @@ class ParserTests(unittest.TestCase):
         """Test that quoted wildcards are treated as literal strings, not wildcards."""
         # Quoted wildcard should be a String, not a Wildcard
         self.validate('field: "*text*"', FieldComparison(Field("field"), String("*text*")))
+
+    def test_escaped_colon_with_leading_slash_wildcard(self):
+        """Test that an escaped colon in a wildcard with a leading slash is unescaped in the value."""
+        self.validate(
+            r"process.args:/lockscreenurl\:http*",
+            FieldComparison(Field("process.args"), Wildcard("/lockscreenurl:http*")),
+        )
+
+    def test_escaped_wildcard_is_literal(self):
+        """Test that an escaped `\\*` is treated as a literal asterisk, not a wildcard."""
+        # Regression test for the literal-`*` -> match-all-wildcard bug: since wildcard
+        # values are unescaped before DSL conversion, an escaped `*` must be parsed as a
+        # String (literal) rather than a Wildcard, otherwise `field:\*` would incorrectly
+        # compile to a match-all `query_string` query.
+
+        # An unquoted literal whose only `*` is escaped is a String, not a Wildcard.
+        self.validate(r"field:\*", FieldComparison(Field("field"), String("*")))
+        self.validate(r"field:foo\*bar", FieldComparison(Field("field"), String("foo*bar")))
+
+        # And the DSL must treat it as a literal `match`, never a match-all query_string.
+        self.assertEqual(
+            kql.to_dsl(r"field:\*"),
+            {"bool": {"filter": [{"match": {"field": "*"}}]}},
+        )
+
+        # A bare (unescaped) `*` anywhere makes the whole value a Wildcard. NOTE: escaped
+        # `*` mixed with an unescaped one collapse together once unescaped, so the literal
+        # asterisk is lost in this case -- a known limitation of unescaping wildcard values.
+        self.validate(r"field:foo\*bar*", FieldComparison(Field("field"), Wildcard("foo*bar*")))
 
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
