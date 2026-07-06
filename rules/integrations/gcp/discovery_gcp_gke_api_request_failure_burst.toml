@@ -1,0 +1,87 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects bursts of failed GKE API requests from a single user identity within a five-minute window. Repeated authorization
+failures across multiple actions can indicate credential stuffing, RBAC probing, or reconnaissance with stolen tokens.
+"""
+from = "now-11m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "GKE API Request Failure Burst by User"
+note = """## Triage and analysis
+
+### Investigating GKE API Request Failure Burst by User
+
+The rule aggregates failed Kubernetes API calls per `user.email`, source IP, and user agent in five-minute buckets and
+alerts when failures reach ten or more.
+
+### Investigation steps
+
+- Review `Esql.actions` and `Esql.resources` for targeted API operations.
+- Validate whether the identity should exist and whether the source IP is expected.
+- Hunt for later successful calls indicating privilege escalation.
+
+### False positives
+
+- Misconfigured automation or CI jobs with stale credentials may generate bursts; exclude known service accounts.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+    "https://attack.mitre.org/techniques/T1613/",
+]
+risk_score = 47
+rule_id = "94556bc7-e057-4759-9e49-fa79ee366101"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp.audit-* metadata _id, _index, _version
+| eval Esql.time_interval = date_trunc(5 minutes, @timestamp)
+| where data_stream.dataset == "gcp.audit"
+    and service.name == "k8s.io"
+    and event.outcome == "failure"
+    and event.type != "allowed"
+    and user.email is not null
+    and not to_string(user.email) rlike "(system:serviceaccount:|system:gke-spiffe-controller|system:kube-scheduler|system:node:).*"
+| stats
+    Esql.unique_actions = count_distinct(event.action),
+    Esql.failures_count = count(*),
+    Esql.actions = values(event.action),
+    Esql.resources = values(orchestrator.resource.name)
+  by user.email, source.ip, user_agent.original, data_stream.namespace, Esql.time_interval
+| where Esql.failures_count >= 10
+| keep Esql.*, user.email, source.ip, user_agent.original, data_stream.namespace
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
