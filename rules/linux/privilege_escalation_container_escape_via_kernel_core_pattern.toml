@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/07/02"
+updated_date = "2026/07/06"
 
 [rule]
 author = ["Elastic"]
@@ -28,6 +28,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Container Escape via Kernel core_pattern Modification"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Container Escape via Kernel core_pattern Modification
+
+This rule detects attempts on Linux to change the kernel’s core dump handler, a setting that can make the host run a program as root when a process crashes. In a container, an attacker can write a pipe-based core_pattern such as a shell script path, then deliberately crash a process so the host executes the handler outside the container, turning container access into full host compromise.
+
+### Possible investigation steps
+
+- Verify the current and recent value of `kernel.core_pattern` on the affected node, prioritizing pipe-based handlers and whether the referenced program lives in a writable, temporary, container-mounted, or otherwise untrusted path.
+- Reconstruct the full ancestry and session context of the modifying process to determine whether it came from a legitimate admin workflow or from a containerized shell, and identify the associated user, container, image, pod, and privilege level.
+- Review the container or pod security context for escape-enabling conditions such as privileged mode, shared host namespaces, hostPath mounts to `/proc` or the host filesystem, and elevated capabilities that would have allowed changing a host kernel parameter.
+- Hunt for follow-on exploitation by looking for deliberate crashes, core-dump activity, and new root-owned host processes launched shortly after the change, especially executions from `/tmp`, container overlay paths, or bind-mounted locations.
+- If the activity is not authorized, collect the referenced handler file and related artifacts, assess the host for persistence or lateral movement, and contain the node and implicated workload before restoring `kernel.core_pattern` to a known-good value.
+
+### False positive analysis
+
+- An administrator or approved automation may temporarily change `kernel.core_pattern` from a host shell or privileged container during crash-dump troubleshooting; verify the initiating user and parent process, look for a corresponding maintenance window or change record, and confirm the setting was restored to an approved value afterward.
+- A legitimate test or debugging workflow may use `sysctl`, shell redirection, or file-copy utilities to point `core_pattern` to a known crash handler before generating controlled faults; confirm the activity is tied to an expected container or host session, the handler path is trusted, and no unexpected root-owned host processes were launched after the change.
+
+### Response and remediation
+
+- Isolate the affected host from the network, cordon and drain the Kubernetes node if applicable, and stop or quarantine the implicated container or pod so the attacker cannot trigger additional core dumps or spawn new host processes.
+- Preserve the malicious artifacts for incident handling and then remove the attacker-controlled core dump handler, including any scripts or binaries referenced by `/proc/sys/kernel/core_pattern` and copies placed in `/tmp`, `/var/tmp`, container overlay paths, bind mounts, or other writable locations.
+- Restore the node to a known-good state by resetting `kernel.core_pattern` to the approved value, removing unauthorized entries from `/etc/sysctl.conf`, `/etc/sysctl.d/`, and startup scripts that would reapply it, and rebuilding the host from a trusted image if host-level execution occurred.
+- Hunt for and remove persistence added after the escape attempt, including rogue systemd units, cron jobs, `/etc/rc.local` changes, SSH `authorized_keys`, newly created sudoers entries, and unauthorized privileged DaemonSets or containers on the node.
+- Escalate immediately to incident response if the handler executed on the host, if you find root-owned processes launched from a container-writable path such as `/tmp` or an overlay mount, or if the same `core_pattern` change appears on more than one node.
+- Rotate any credentials or tokens exposed on the host or mounted into the compromised workload, then harden the environment by blocking privileged pods, removing dangerous capabilities such as `CAP_SYS_ADMIN`, prohibiting writable `hostPath` access to `/proc` or the host filesystem, and enforcing pod security or admission policies to prevent recurrence.
+"""
 references = [
     "https://www.sysdig.com/blog/runc-container-escape-vulnerabilities",
     "https://github.com/opencontainers/runc/security/advisories/GHSA-cgrx-mc8f-2prm",
@@ -73,6 +104,7 @@ tags = [
   "Data Source: Crowdstrike",
   "Data Source: SentinelOne",
   "Data Source: Elastic Defend for Containers",
+  "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
