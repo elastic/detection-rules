@@ -68,7 +68,7 @@ from logs-gcp.audit-* metadata _id, _index, _version
     Esql.failures_count = count(*),
     Esql.actions = values(event.action),
     Esql.resources = values(orchestrator.resource.name)
-  by user.email, source.ip, user_agent.original, Esql.time_interval
+  by user.email, source.ip, user_agent.original, data_stream.namespace, Esql.time_interval
 | where Esql.failures_count >= 10
 | keep Esql.*, user.email, source.ip, user_agent.original, data_stream.namespace
 '''
