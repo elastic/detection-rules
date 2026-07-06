@@ -142,15 +142,25 @@ class ParserTests(unittest.TestCase):
         # Regression for #6282: Kibana allows escaped specials (\: \( \) \{ ...) inside
         # unquoted values, e.g. "app_message: *\: No such file*". The WILDCARD_LITERAL token
         # previously excluded these characters and failed to lex such values.
-        # Escaped colon directly after the leading wildcard (the #6282 example shape)
-        self.validate(r"field: *\: No such file*", FieldComparison(Field("field"), Wildcard(r"*\: No such file*")))
+        # Escaped colon directly after the leading wildcard (the #6282 example shape). The
+        # escape is resolved (backslash dropped) like any other recognized escape.
+        self.validate(r"field: *\: No such file*", FieldComparison(Field("field"), Wildcard("*: No such file*")))
         self.validate(
-            r"app_message: *\: No such file", FieldComparison(Field("app_message"), Wildcard(r"*\: No such file"))
+            r"app_message: *\: No such file", FieldComparison(Field("app_message"), Wildcard("*: No such file"))
         )
 
         # Escaped parenthesis / brace mid-value
-        self.validate(r"field: *foo\(bar baz*", FieldComparison(Field("field"), Wildcard(r"*foo\(bar baz*")))
-        self.validate(r"field: foo* bar\:baz", FieldComparison(Field("field"), Wildcard(r"foo* bar\:baz")))
+        self.validate(r"field: *foo\(bar baz*", FieldComparison(Field("field"), Wildcard("*foo(bar baz*")))
+        self.validate(r"field: foo* bar\:baz", FieldComparison(Field("field"), Wildcard("foo* bar:baz")))
+
+    def test_wildcard_with_spaces_and_invalid_escape(self):
+        """Test that an escape outside UNQUOTED_CHAR's whitelist is rejected even with spaces."""
+        # `\'` is not a recognized KQL escape; it must fail to lex whether or not the value
+        # contains a space, so the two behave consistently.
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: foo\'bar")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: *foo\' bar")
 
     def test_wildcard_with_spaces_and_keywords(self):
         """Test wildcard values containing spaces followed by keywords."""
