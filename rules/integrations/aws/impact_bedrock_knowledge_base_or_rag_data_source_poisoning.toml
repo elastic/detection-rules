@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/06/05"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects control-plane mutations to AWS Bedrock knowledge bases and their backing RAG data sources via CloudTrail. An
+adversary with access to Bedrock Agent APIs can poison the corpus that RAG-enabled models treat as authoritative by
+ingesting attacker-controlled documents (IngestKnowledgeBaseDocuments, StartIngestionJob), deleting legitimate documents
+(DeleteKnowledgeBaseDocuments), or repointing/altering the data source itself (CreateDataSource, UpdateDataSource,
+DeleteDataSource, UpdateKnowledgeBase). Because downstream applications and users trust model answers grounded in this
+stored data, tampering with the corpus is a stored data manipulation that can drive misinformation, fraud, or
+manipulated decisions at inference time. This is a New Terms rule that looks for the first time a given identity ARN
+performs one of these knowledge base or data source mutations within the history window.
+"""
+false_positives = [
+    """
+    Legitimate knowledge base maintenance, content onboarding, and scheduled re-ingestion performed by data engineering
+    teams, MLOps automation, or infrastructure-as-code pipelines will generate these events. Validate the calling
+    identity, user agent, and source IP against known automation and approved operators. If a known maintenance workflow
+    is causing noise, it can be exempted from this rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Knowledge Base or RAG Data Source Tampering"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Knowledge Base or RAG Data Source Tampering
+
+AWS Bedrock knowledge bases provide Retrieval-Augmented Generation (RAG) by grounding model responses in a stored
+corpus that is synchronized from a configured data source. Because RAG-enabled applications present these grounded
+answers as authoritative, an adversary who can ingest, delete, or repoint the underlying corpus can poison the answers
+returned to downstream users and systems. This rule detects control-plane changes to knowledge bases and data sources
+that could enable such corpus poisoning.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and
+    `aws.cloudtrail.user_identity.access_key_id`.
+  - Examine `source.ip`, `user_agent.original`, and `aws.cloudtrail.user_identity.invoked_by` to determine whether the
+    change came from an approved operator, automation, or an unexpected origin.
+  - Confirm a related change request exists (content update, data source migration, scheduled ingestion).
+- **Validate the specific action**
+  - Inspect `event.action` and `aws.cloudtrail.flattened.request_parameters` to identify the knowledge base, data
+    source, and any S3 bucket / ingestion configuration referenced.
+  - For `CreateDataSource` / `UpdateDataSource`, verify the data source location (e.g., S3 bucket) is org-owned and not
+    attacker-controlled.
+  - For `IngestKnowledgeBaseDocuments` / `StartIngestionJob`, review what content was ingested and from where.
+  - For `DeleteKnowledgeBaseDocuments` / `DeleteDataSource`, determine whether legitimate content was removed.
+- **Correlate activity**
+  - Look for prior enumeration of Bedrock resources or anomalous IAM/STS activity from the same identity.
+  - Review `cloud.account.id` and `cloud.region` to confirm the change occurred where expected.
+
+### False positive analysis
+
+- **Planned content maintenance**: Routine ingestion, document updates, and re-syncs by data teams or MLOps automation
+  are expected. Validate against change tickets and known automation roles.
+- **Infrastructure-as-code**: Pipelines may create or update data sources during deployments. Confirm the source IP and
+  ARN match expected automation.
+
+### Response and remediation
+
+- If unauthorized, suspend or disable the implicated knowledge base and data source to prevent further poisoned
+  retrieval, and revert the corpus to a known-good state.
+- Disable or rotate the credentials identified in `aws.cloudtrail.user_identity.access_key_id` if compromise is
+  suspected.
+- Audit recent ingestion jobs and document changes, and validate the integrity of the data source location.
+- Restrict Bedrock Agent knowledge base and data source mutation permissions to a small set of trusted roles.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_Operations_Agents_for_Amazon_Bedrock.html"
+]
+risk_score = 47
+rule_id = "7811b5f7-9e07-4999-87aa-a950365cd327"
+setup = """## Setup
+
+This rule requires the AWS CloudTrail integration. The data source and knowledge base configuration actions are management 
+events (captured by default), but the direct document operations (`IngestKnowledgeBaseDocuments`, `DeleteKnowledgeBaseDocuments`) 
+are Bedrock CloudTrail **data events** that are off by default. Without Bedrock data-event logging enabled on the trail, this rule 
+provides only **partial coverage** — it will see config changes but not direct document ingestion/deletion, the primary poisoning 
+vector. Enable Bedrock data-event logging for full coverage.
+"""
+
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: (
+        "IngestKnowledgeBaseDocuments" or
+        "DeleteKnowledgeBaseDocuments" or
+        "UpdateKnowledgeBase" or
+        "CreateDataSource" or
+        "UpdateDataSource" or
+        "DeleteDataSource" or
+        "StartIngestionJob" or
+        "DeleteKnowledgeBase"
+    ) and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

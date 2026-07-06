@@ -2,7 +2,7 @@
 creation_date = "2026/01/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/19"
 
 [rule]
 author = ["Elastic"]
@@ -60,19 +60,19 @@ tags = [
 ]
 type = "esql"
 query = '''
-FROM logs-endpoint.events.network-*
+FROM logs-endpoint.events.network-*  
 | WHERE host.os.type == "macos" 
-    AND event.type == "start"
+    AND event.type == "start"  
     AND (process.name == "osascript" 
-         OR process.name == "node" 
-         OR process.name LIKE "python*")
+            OR process.name == "node" 
+            OR process.name LIKE "python*")  
     AND (destination.domain LIKE "s3.*.amazonaws.com" 
-         OR destination.domain LIKE "*.s3*.amazonaws.com" 
-         OR destination.domain LIKE "*.cloudfront.net")
+            OR destination.domain LIKE "*.s3*.amazonaws.com" 
+            OR destination.domain LIKE "*.cloudfront.net")  
 | STATS Esql.connection_count = COUNT(*) 
-  BY process.executable, user.name, host.name, destination.domain
-| WHERE Esql.connection_count >= 5
-| KEEP Esql.*, process.executable, user.name, host.name, destination.domain
+    BY process.entity_id, process.executable, user.name, host.name, destination.domain  
+| WHERE Esql.connection_count >= 20  
+| KEEP Esql.*, process.entity_id, process.executable, user.name, host.name, destination.domain  
 '''
 
 [[rule.threat]]

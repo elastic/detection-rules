@@ -1,0 +1,96 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic", "descambiado"]
+description = """
+Identifies Entra ID user accounts converted from Guest to Member type via an Update user operation.
+A Guest-to-Member conversion grants the account full directory read access, removes external-identity
+Conditional Access restrictions, and makes the account indistinguishable from an internal employee.
+An attacker who compromises a guest account and promotes it to Member type gains persistent tenant
+access without triggering role assignment alerts.
+"""
+false_positives = [
+    """
+    B2B collaboration migrations where external users are intentionally promoted to full membership.
+    Organizational restructuring that converts former contractors to permanent employees in place.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Guest Account Promoted to Member"
+note = """## Triage and analysis
+
+### Investigating Entra ID Guest Account Promoted to Member
+
+A Guest-to-Member UserType conversion is a rarely needed, high-impact operation that removes all
+guest account restrictions. In most tenants it occurs fewer than once per month.
+
+#### Possible investigation steps
+
+- Identify the administrator who performed the conversion (`azure.auditlogs.properties.initiated_by`)
+  and verify whether the action was authorized.
+- Check when the guest account was originally invited: look for "Invite external user" in AuditLogs
+  with the same target object ID.
+- Review post-conversion sign-in activity in `azure.signinlogs.*` for the target account -- look for
+  directory enumeration patterns (access to Graph API `/users`, `/groups`, `/applications`).
+- Check whether the converting actor's role was recently granted and whether other high-privilege
+  operations were performed around the same time.
+
+### False positive analysis
+
+- Planned B2B-to-member migrations coordinated by HR or IT should be documented in change records.
+  Confirm via ticket correlation before closing.
+
+### Response and remediation
+
+- Revert the UserType to Guest if unauthorized: Entra ID > Users > Edit properties.
+- Revoke all sessions for the affected account.
+- Review all directory objects the account accessed after the conversion.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/external-id/user-properties",
+    "https://learn.microsoft.com/en-us/entra/identity/users/convert-external-users-internal",
+]
+risk_score = 47
+rule_id = "30090d40-cdfd-4750-a281-0125fdf22045"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+azure.auditlogs.operation_name: "Update user" and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: "UserType" and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.old_value: *Guest* and
+azure.auditlogs.properties.target_resources.*.modified_properties.*.new_value: *Member* and
+event.outcome: (Success or success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

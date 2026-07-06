@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2026/05/07"
-integration = ["network_traffic"]
+integration = ["network_traffic", "zeek"]
 maturity = "production"
-updated_date = "2026/05/07"
+updated_date = "2026/05/28"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "logs-network_traffic.http*"]
+index = ["packetbeat-*", "logs-network_traffic.http*", "logs-zeek.http*"]
 language = "lucene"
 license = "Elastic License v2"
 name = "Potential cPanel WHM CRLF Authentication Bypass (CVE-2026-41940)"
@@ -118,12 +118,37 @@ risk_score = 73
 rule_id = "2449be9d-2fdf-4126-a85b-f05e4058df9f"
 setup = """## Setup
 
-This rule requires HTTP traffic decoded by the Network Packet Capture integration (or legacy Packetbeat) with cPanel
-admin ports added to the HTTP protocol configuration and `send_all_headers` enabled, so that
-`http.request.headers.authorization` and `http.response.headers.location` are populated. cPanel admin ports
-(2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly. Because cPanel
-admin traffic is normally TLS, the sensor needs decryption visibility (TLS interception, sidecar on the host, or
-sensor on the management network upstream of TLS termination) for this rule to observe HTTP fields.
+This rule supports two data sources:
+
+1. **Network Packet Capture / Packetbeat (preferred):** Requires the Network Packet Capture integration (or legacy
+   Packetbeat) with cPanel admin ports added to the HTTP protocol configuration and `send_all_headers` enabled, so that
+   `http.request.headers.authorization` and `http.response.headers.location` are populated. cPanel admin ports
+   (2087/2086/2083/2082/2095/2096) are not in the default HTTP port list and must be added explicitly.
+2. **Zeek HTTP logs (`zeek.http`):** Zeek records only the names of HTTP request and response headers in
+   `zeek.http.client_header_names` and `zeek.http.server_header_names`, not their values. The Zeek branch of this rule
+   therefore matches on the presence of `AUTHORIZATION` and `LOCATION` headers on a `GET /` to a cPanel admin port,
+   which is a less precise but still exploit-shaped signal. Confirm exploitation by retrieving the raw header values
+   from the upstream Zeek sensor or correlated packet capture.
+
+   The Zeek branch has non-default sensor prerequisites that must be met or it will never match:
+   - **Header-name logging is not enabled by default.** `client_header_names` and `server_header_names` are produced by
+     the policy script `policy/protocols/http/header-names.zeek`, which is not loaded by `base/protocols/http` or the
+     default `site/local.zeek`. Add `@load policy/protocols/http/header-names.zeek` to the Zeek configuration. Without
+     it, neither field is emitted and the Zeek branch cannot fire.
+   - **Server header-name logging defaults to off.** Even with the script loaded, `HTTP::log_server_header_names`
+     defaults to `F`, so the `server_header_names:LOCATION` condition is unsatisfiable. Set
+     `redef HTTP::log_server_header_names = T;` (client header-name logging is on by default).
+   - **Non-standard ports are handled by DPD, not a port list.** Zeek ships port-independent HTTP DPD signatures
+     (`base/protocols/http/dpd.sig`) that detect HTTP by payload regardless of port, so plaintext `GET /` on cPanel
+     admin ports (2086/2082/2095) is parsed into `zeek.http` without registering those ports. The TLS ports
+     (2087/2083/2096) are encrypted and yield `zeek.ssl`, not `zeek.http`, unless the sensor sits upstream of TLS
+     termination (see decryption note below).
+
+cPanel/WHM exposes paired TLS and plaintext ports: 2087 (WHM HTTPS), 2083 (cPanel HTTPS), and 2096 (Webmail HTTPS)
+require decryption visibility (TLS interception, sidecar on the host, or a sensor upstream of TLS termination) for
+either data source to observe HTTP headers. The plaintext counterparts — 2086 (WHM HTTP), 2082 (cPanel HTTP), and 2095
+(Webmail HTTP) — carry headers in the clear and are observable without decryption. An attacker can exploit the
+vulnerability over either variant, so both sets of ports are included in this rule.
 """
 severity = "high"
 tags = [
@@ -135,19 +160,30 @@ tags = [
     "Tactic: Initial Access",
     "Data Source: Network Packet Capture",
     "Data Source: Network Traffic",
+    "Data Source: Zeek",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset:network_traffic.http OR (event.category:network_traffic AND network.protocol:http)) AND
+(
+  (
+    (data_stream.dataset:network_traffic.http OR (event.category:network_traffic AND network.protocol:http)) AND
+    http.response.status_code:[300 TO 399] AND
+    http.request.headers.authorization:Basic* AND
+    http.response.headers.location:\/cpsess*
+  )
+  OR
+  (
+    data_stream.dataset:zeek.http AND
+    zeek.http.client_header_names:AUTHORIZATION AND
+    zeek.http.server_header_names:LOCATION
+  )
+) AND
 http.request.method:GET AND
 url.path:"/" AND
-destination.port:(2087 OR 2086 OR 2083 OR 2082 OR 2095 OR 2096) AND
-http.response.status_code>=300 and http.response.status_code < 400 AND
-http.request.headers.authorization:Basic* AND
-http.response.headers.location:/cpsess*
+destination.port:(2087 OR 2086 OR 2083 OR 2082 OR 2095 OR 2096)
 '''
 
 
