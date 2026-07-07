@@ -148,6 +148,36 @@ class TestThreatHashStability(unittest.TestCase):
         without_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic}]
         self.assertNotEqual(self._hash(with_tech), self._hash(without_tech))
 
+    def test_reordering_threat_blocks_does_not_change_hash(self) -> None:
+        """A generated mapping may list tactics in a different order than the source; no version bump should occur."""
+        tactic_a = {
+            "id": "TA0011",
+            "name": "Command and Control",
+            "reference": "https://attack.mitre.org/tactics/TA0011/",
+        }
+        tactic_b = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        rule_forward = _rule()
+        rule_forward["threat"] = [
+            {"framework": "MITRE ATT&CK", "tactic": tactic_a},
+            {"framework": "MITRE ATT&CK", "tactic": tactic_b},
+        ]
+        rule_reversed = _rule()
+        rule_reversed["threat"] = [
+            {"framework": "MITRE ATT&CK", "tactic": tactic_b},
+            {"framework": "MITRE ATT&CK", "tactic": tactic_a},
+        ]
+        self.assertEqual(self._hash(rule_forward), self._hash(rule_reversed))
+
+    def test_reordering_techniques_does_not_change_hash(self) -> None:
+        tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
+        tech_a = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
+        tech_b = {"id": "T1027", "name": "Obfuscated Files", "reference": "https://attack.mitre.org/techniques/T1027/"}
+        rule_forward = _rule()
+        rule_forward["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_a, tech_b]}]
+        rule_reversed = _rule()
+        rule_reversed["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_b, tech_a]}]
+        self.assertEqual(self._hash(rule_forward), self._hash(rule_reversed))
+
 
 class TestVersionedThreatMappingSchema(unittest.TestCase):
     """Schema validation + build-time selection for `threat_mappings`."""

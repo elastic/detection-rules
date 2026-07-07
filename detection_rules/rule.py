@@ -1198,10 +1198,10 @@ AnyRuleData = (
 
 
 def _normalize_threat_for_hash(threat: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Strip name fields from threat entries so tactic/technique renames don't affect the hash.
-
-    ID and reference are kept, so adding, removing, or changing an ID still triggers a version bump.
-    """
+    """Strip threat entry names and sort by ID so the hash reflects mapping content only."""
+    # ID and reference are kept, so adding, removing, or changing an ID still triggers a version bump.
+    # Sorting by ID (rather than authored order) means reordering `[[rule.threat]]` blocks - which
+    # happens naturally when generating a versioned mapping - doesn't itself trigger a version bump.
     result: list[dict[str, Any]] = []
     for entry in threat:
         normalized: dict[str, Any] = {"framework": cast("str | None", entry.get("framework"))}
@@ -1216,16 +1216,21 @@ def _normalize_threat_for_hash(threat: list[dict[str, Any]]) -> list[dict[str, A
                 "id": cast("str | None", tech.get("id")),
                 "reference": cast("str | None", tech.get("reference")),
             }
-            subs: list[dict[str, Any]] = [
-                {"id": cast("str | None", sub.get("id")), "reference": cast("str | None", sub.get("reference"))}
-                for sub in cast("list[dict[str, Any]]", tech.get("subtechnique") or [])
-            ]
+            subs: list[dict[str, Any]] = sorted(
+                (
+                    {"id": cast("str | None", sub.get("id")), "reference": cast("str | None", sub.get("reference"))}
+                    for sub in cast("list[dict[str, Any]]", tech.get("subtechnique") or [])
+                ),
+                key=lambda s: s["id"] or "",
+            )
             if subs:
                 t["subtechnique"] = subs
             techniques.append(t)
+        techniques.sort(key=lambda t: t["id"] or "")
         if techniques:
             normalized["technique"] = techniques
         result.append(normalized)
+    result.sort(key=lambda e: (e["tactic"]["id"] or "", e["framework"] or ""))
     return result
 
 
