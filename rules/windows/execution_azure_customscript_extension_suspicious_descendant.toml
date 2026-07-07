@@ -62,8 +62,7 @@ LOLBin or suspicious PowerShell runs anywhere in its process tree.
 
 ### Response and remediation
 
-- If unauthorized, remove the extension, isolate the host, rotate credentials reachable from it, and review RBAC on the
-  affected subscription/resource group.
+- If unauthorized, remove the extension, isolate the host, rotate credentials reachable from it, and review RBAC on the affected subscription/resource group.
 """
 references = [
     "https://blog.pwnedlabs.io/diving-deep-into-azure-vm-attack-vectors",
@@ -99,8 +98,8 @@ sequence by host.id with maxspan=1m
      (process.name : "certutil.exe" and process.args : ("*urlcache*", "*-decode*", "*-encode*")) or
      (process.name : ("powershell.exe", "pwsh.exe") and
       process.command_line : ("*-enc*", "*EncodedCommand*", "*FromBase64String*", "*DownloadString*", "*DownloadFile*",
-                              "*Invoke-Expression*", "*IEX *", "* -w hidden*", "*WindowStyle Hidden*", "*Net.WebClient*",
-                              "*Invoke-WebRequest*", "*Start-BitsTransfer*"))
+                              "*Invoke-Expression*", "*IEX *", "*IEX(*", "*|IEX*", "*-w hidden*", "*WindowStyle Hidden*",
+                              "*Net.WebClient*", "*Invoke-WebRequest*", "*Start-BitsTransfer*"))
    )] by process.Ext.ancestry
 '''
 

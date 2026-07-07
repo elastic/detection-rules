@@ -7,8 +7,8 @@ updated_date = "2026/06/15"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set
-historically. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
+Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set within the
+rule's lookback window. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
 common code-execution and persistence primitive. The extension instance name is attacker-controlled and the Azure
 activity log records only that name, not the publisher or type, so the control plane cannot reliably identify the
 extension family (for example CustomScript). This rule therefore takes a type-agnostic ES|QL new-terms approach: it
@@ -18,7 +18,7 @@ host routinely uses.
 """
 false_positives = [
     """
-    Legitimate provisioning, patching, and configuration-management automation may deploy a CustomScript extension to a
+    Legitimate provisioning, patching, and configuration-management automation may deploy an extension to a
     host for the first time. The first occurrence per host will alert. Baseline expected automation principals and hosts
     and exclude verified-benign ones.
     """,
@@ -32,8 +32,8 @@ note = """## Triage and analysis
 
 ### Investigating Unusual Azure VM Extension Detected
 
-Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set
-historically. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
+Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set within the
+rule's lookback window. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
 common code-execution and persistence primitive. The extension instance name is attacker-controlled and the Azure
 activity log records only that name, not the publisher or type, so the control plane cannot reliably identify the
 extension family (for example CustomScript). This rule therefore takes a type-agnostic ES|QL new-terms approach: it
@@ -68,8 +68,7 @@ host routinely uses.
 
 ### Response and remediation
 
-- If unauthorized, remove the extension, isolate the VM, rotate credentials reachable from it, and review RBAC on the
-  affected scope.
+- If unauthorized, remove the extension, isolate the VM, rotate credentials reachable from it, and review RBAC on the affected scope.
 - Collect endpoint and activity log artifacts per incident procedures.
 """
 references = [
