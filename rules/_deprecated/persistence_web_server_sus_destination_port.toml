@@ -1,15 +1,17 @@
 [metadata]
 creation_date = "2025/03/05"
+deprecation_date = "2026/07/02"
+deprecated_reason = "The rule logic is flawed and does not correctly identify the network connections that are attempted from a web server parent process. It is not a general purpose rule and is not recommended for use."
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2026/06/01"
+maturity = "deprecated"
+updated_date = "2026/07/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies unusual destination port network activity originating from a web server process. The
-rule is designed to detect potential web shell activity or unauthorized communication from a web server
-process to external systems.
+This rule identifies unusual destination port network activity originating from a web server process. The rule is
+designed to detect potential web shell activity or unauthorized communication from a web server process to external
+systems.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.network*"]
@@ -92,6 +94,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and (
   process.name like (
@@ -110,45 +113,43 @@ not cidrmatch(destination.ip, "127.0.0.0/8", "::1","FE80::/10", "FF00::/8", "10.
 "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1505.003"
 name = "Web Shell"
 reference = "https://attack.mitre.org/techniques/T1505/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
@@ -159,7 +160,9 @@ id = "T1571"
 name = "Non-Standard Port"
 reference = "https://attack.mitre.org/techniques/T1571/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

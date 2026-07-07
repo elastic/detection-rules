@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw", "fortinet_fortigate", "sonicwall_firewall", "suricata"]
+integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "sonicwall_firewall", "suricata"]
 maturity = "production"
-updated_date = "2026/05/27"
+updated_date = "2026/06/08"
 
 [rule]
 author = ["Elastic"]
@@ -29,6 +29,7 @@ index = [
     "logs-network_traffic.*",
     "logs-panw.panos*",
     "logs-fortinet_fortigate.log-*",
+    "logs-pfsense.log-*",
     "logs-sonicwall_firewall.log-*",
     "logs-suricata.*",
 ]
@@ -79,8 +80,9 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Lateral Movement",
     "Tactic: Initial Access",
-    "Data Source: PAN-OS",
     "Data Source: Fortinet",
+    "Data Source: PAN-OS",
+    "Data Source: pfSense",
     "Data Source: SonicWall",
     "Data Source: Suricata",
     "Resources: Investigation Guide",
@@ -92,14 +94,14 @@ type = "query"
 
 query = '''
 (data_stream.dataset:(fortinet_fortigate.log or network_traffic.flow
-        or sonicwall_firewall.log or suricata.eve or panw.panos)
+        or panw.panos or pfsense.log or sonicwall_firewall.log or suricata.eve)
     or event.category:(network or network_traffic))
-    and event.type:(connection and not end)
-    and not event.action:(flow_dropped or flow_denied or denied or deny or
-        flow_terminated or timeout or Reject or network_flow or connection-denied or
-        connection-end or server-rst or client-rst)
+    and event.type:(connection and not (denied or end))
+    and not event.action:(Reject or client-rst or connection-denied or
+        connection-end or denied or deny or flow_denied or flow_dropped or
+        flow_terminated or network_flow or server-rst or timeout)
     and not (event.action:netflow_flow and not network.packets > 1)
-    and not network.application:(traceroute or stretchoid-scanning)
+    and not network.application:(stretchoid-scanning or traceroute)
     and destination.port:23
 '''
 
