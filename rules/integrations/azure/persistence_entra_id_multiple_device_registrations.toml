@@ -1,0 +1,186 @@
+[metadata]
+creation_date = "2026/06/26"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects multiple Microsoft Entra ID device registrations by a single user, where three or more distinct devices are
+registered within a 15-minute window. A legitimate user enrolling a device produces a single "Register device" event;
+registering multiple distinct devices in quick succession is uncommon and is the fingerprint behavior of
+adversary-in-the-middle (AiTM) phishing kits and stolen-token replay tooling (for example Kali365), which mint a new
+Azure AD-joined device, and therefore a new Primary Refresh Token (PRT), per relay or replay attempt. Each registered
+device is a separate certificate-bound principal whose PRT survives user-level session revocation and password resets,
+so multiple registrations on a single low-privilege identity establish device-bound persistence at scale.
+"""
+false_positives = [
+    """
+    A user legitimately enrolling several devices in a short window (for example, a new laptop and phone during
+    onboarding, or re-registering a device after a wipe) can produce three or more registrations. Validate against the
+    user's device inventory and onboarding activity, and consider raising the threshold or tightening the window if
+    benign multi-device enrollment is common in the environment.
+    """,
+    """
+    Bulk provisioning workflows, autopilot/MDM rollouts, or device-management tooling that registers devices on behalf
+    of users may generate multiple registrations across many users at once. Suppress during planned rollout windows.
+    """,
+]
+from = "now-30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Multiple Device Registrations by a Single User"
+note = """## Triage and analysis
+
+### Investigating Entra ID Multiple Device Registrations by a Single User
+
+A single Entra ID "Register device" event is routine: a user enrolling one device emits one registration. Concentrating three or more distinct device registrations onto one user inside a 15-minute window is uncommon for legitimate activity and is the fingerprint of either:
+
+- An AiTM phishing-kit relay session that, after capturing the victim's sign-in, registers one or more Azure AD-joined devices of its own from the kit infrastructure within minutes (observed cadence of roughly one device every 2-6 minutes, e.g. Kali365 registering five devices in ~12 minutes).
+- Token-replay tooling driving multiple device joins in quick succession off a stolen refresh token or PRT.
+
+Each registered device is a separate principal with its own certificate-bound PRT. Because user-level controls (`revokeSignInSessions`, password reset) do not invalidate device-bound PRTs, every device left in place is an independent, persistent foothold.
+
+### Possible investigation steps
+
+- Identify the user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) and review the registered devices in `Esql.device_name_values`. Tool-driven joins frequently use default Windows-style names such as `DESKTOP-<6 alphanumeric>` and a homogeneous, hardcoded OS build.
+- Inspect `Esql.user_agent_values` from the `Register device` events. A spoofed Windows device-registration client string (`Dsreg/10.0 (Windows <build>)`) or a raw HTTP client (`axios/*`, `python-requests/*`, `Microsoft.OData.Client/*`) instead of a genuine browser/endpoint user agent is high-fidelity tooling.
+- Pivot to the paired `Add device` events for each device (correlate via `azure.correlation_id`) and review the modified properties: `DeviceOSType`, `DeviceOSVersion`/`CloudDeviceOSVersion`, and `DeviceTrustType`. A `DeviceTrustType` of `AzureAd` (full join) on a low-privilege user, and an identical hardcoded OS build across all devices in the window, are strong indicators.
+- Review the origin surfaced on the alert: `Esql.source_ip_values`, `Esql.source_as_number_values`, `Esql.source_as_organization_values`, and `Esql.source_country_values`/`Esql.source_city_values`/`Esql.source_region_values`. Hosting/VPS ASNs (for example Tencent, Alibaba, or other cloud providers) and unexpected geographies for a device-registration event are high-fidelity suspicious. A single source IP/ASN across every registration in the window is consistent with one piece of kit infrastructure driving the joins.
+- Cross-reference `logs-azure.signinlogs-*` for the same user around the registration window. The registrations are brokered through the `Microsoft Authentication Broker` application against the `Device Registration Service` resource; confirm whether the broker was subsequently used to mint tokens for other resources (for example Microsoft Graph) from the same source.
+- Cross-reference `logs-azure.auditlogs-*` for a security-info / MFA method registration (`User registered security info`) by the same user near the registration window; AiTM kits commonly plant their own MFA method alongside the device persistence.
+- Confirm with the user whether they performed a multi-device enrollment or onboarding action during the window.
+
+### False positive analysis
+
+- New-device or onboarding flows where a user enrolls three or more devices in a short window can fire. Validate against the user's known device inventory and any onboarding or device-refresh events.
+- Bulk provisioning, autopilot, or MDM rollouts can register multiple devices per user concurrently. Consider suppression during planned rollouts.
+- If benign multi-device enrollment is routine in the environment, raise the distinct-device threshold or shorten the window.
+
+### Response and remediation
+
+- Treat as likely AiTM compromise or token replay until proven otherwise. Remove the rogue device registrations BEFORE revoking sessions, because device-bound PRTs survive `revokeSignInSessions` and a device left in place re-establishes access.
+    - `GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for each unrecognized device in the window.
+- Revoke refresh tokens and sessions, then reset credentials and re-register MFA.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the account if activity must be halted during investigation.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- Remove other attacker persistence established alongside the device joins: attacker-registered MFA methods, malicious inbox/forwarding rules, and OAuth consents.
+- Hunt for the same device-name pattern, OS build, and registration user agent across other users and tenants, and apply Conditional Access to restrict device registration (require a compliant/managed device or trusted network).
+"""
+references = [
+    "https://any.run/malware-trends/kali365/",
+    "https://www.huntress.com/blog/kali365-device-code-phishing-kit",
+    "https://www.ic3.gov/PSA/2026/PSA260521",
+    "https://arcticwolf.com/resources/blog/token-bingo-dont-let-your-code-be-the-winner/"
+]
+risk_score = 47
+rule_id = "960b1cef-f94d-4150-863d-b1dc311739de"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-*
+| where data_stream.dataset == "azure.auditlogs"
+    and azure.auditlogs.operation_name == "Register device"
+    and azure.auditlogs.properties.initiated_by.user.userPrincipalName is not null
+    // For "Register device" the registered device is the primary target resource (index 0);
+    // target_resources is a numeric-indexed object array in this integration, so wildcard/name-based matching is not available.
+    and `azure.auditlogs.properties.target_resources.0.display_name` is not null
+
+| eval Esql.bucket_window = date_trunc(15 minutes, @timestamp)
+
+| stats
+    Esql.count_distinct_devices = count_distinct(`azure.auditlogs.properties.target_resources.0.display_name`),
+    Esql.device_name_values = values(`azure.auditlogs.properties.target_resources.0.display_name`),
+    Esql.user_agent_values = values(azure.auditlogs.properties.userAgent),
+    Esql.source_ip_values = values(source.ip),
+    Esql.source_as_number_values = values(source.`as`.number),
+    Esql.source_as_organization_values = values(source.`as`.organization.name),
+    Esql.source_country_values = values(source.geo.country_name),
+    Esql.source_city_values = values(source.geo.city_name),
+    Esql.source_region_values = values(source.geo.region_name),
+    Esql.correlation_id_values = values(azure.correlation_id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.event_count = count(*)
+    by azure.auditlogs.properties.initiated_by.user.userPrincipalName, Esql.bucket_window
+
+| where Esql.count_distinct_devices >= 3
+
+| keep azure.auditlogs.properties.initiated_by.user.userPrincipalName, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "Esql.count_distinct_devices",
+    "Esql.device_name_values",
+    "Esql.user_agent_values",
+    "Esql.source_ip_values",
+    "Esql.source_as_organization_values",
+]
+
