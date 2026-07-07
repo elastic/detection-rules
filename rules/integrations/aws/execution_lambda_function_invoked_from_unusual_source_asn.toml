@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an AWS Lambda function invoked directly by a principal from a source network (ASN) not seen for that
+principal in the prior 10 days, excluding common cloud provider networks. Direct invocation from an unfamiliar external
+network can indicate use of stolen execution-role or user credentials from attacker-controlled infrastructure to execute
+functions or retrieve the data they return. This rule relies on AWS Lambda data event logging, which is not enabled by
+default.
+"""
+false_positives = [
+    """
+    Operators and automation may legitimately invoke functions from new networks (new offices, VPNs, home IPs, or new
+    egress infrastructure). Verify the principal in `aws.cloudtrail.user_identity.arn`, the source network, and the
+    function, and exclude known operator networks or identities after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Function Invoked from an Unusual Source ASN"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function Invoked from an Unusual Source ASN
+
+Lambda execution-role credentials and user credentials are frequently abused after theft (for example via SSRF or RCE against a function, or leaked access keys). When such credentials are replayed from attacker infrastructure, the resulting direct `Invoke` calls originate from a network the legitimate principal has not used. This rule uses a new terms approach over the source ASN organization and the principal, excluding common cloud provider networks, to surface invocation from unfamiliar external networks.
+
+### Possible investigation steps
+
+- Review `source.ip`, `source.as.organization.name`, and `source.geo` for the invoking network and determine whether it is expected for the principal in `aws.cloudtrail.user_identity.arn`.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and `user_agent.original` for the client used.
+- Determine whether the credential (`aws.cloudtrail.user_identity.access_key_id`) was recently seen used elsewhere or outside the Lambda runtime, which would corroborate credential theft.
+- Correlate with other activity by the same principal from the same network, including data-plane access, IAM, or STS calls.
+
+### False positive analysis
+
+- New legitimate networks (offices, VPNs, home IPs, new egress) will generate this alert. Confirm the principal and network are expected and exclude known operator networks or identities after validation.
+- If source ASN is legitimate and expected, add as an exclusion to reduce false-positives.
+
+### Response and remediation
+
+- If credential abuse is confirmed, rotate or revoke the affected credentials and execution-role permissions, and review what the invoked function accessed or returned.
+- Constrain `lambda:InvokeFunction` to expected identities and, where possible, restrict invocation to known networks using IAM conditions.
+
+### Additional information
+
+- [Invoke API](https://docs.aws.amazon.com/lambda/latest/api/API_Invoke.html)
+- [Logging Lambda data events with CloudTrail](https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/api/API_Invoke.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html",
+]
+risk_score = 47
+rule_id = "c8cc8192-f4f5-4ed3-8368-544ca738d506"
+setup = """## Setup
+
+This rule requires AWS Lambda data events to be logged in CloudTrail and ingested via the AWS integration
+(`aws.cloudtrail` data stream). Lambda invocation (`Invoke`) is a data-plane event and is NOT logged by default; enable
+data event logging for Lambda functions in the trail (optionally scoped to sensitive functions to manage volume). Source
+ASN enrichment (`source.as.organization.name`) must be available on the ingested events.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: Invoke*
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.invoked_by: *
+    and source.as.organization.name:(* and not (Amazon* or AMAZON* or Google* or GOOGLE* or Microsoft* or MICROSOFT*))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "cloud.account.id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.as.organization.name", "cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+

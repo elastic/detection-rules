@@ -1,8 +1,10 @@
 [metadata]
 creation_date = "2021/02/03"
+deprecation_date = "2026/07/02"
+deprecated_reason = "This rule has an endpoint rule equivalent that is more accurate. Additionally, the rule targets an old CVE, and is therefore not a general purpose rule and is not recommended for use."
 integration = ["endpoint"]
-maturity = "production"
-updated_date = "2026/03/24"
+maturity = "deprecated"
+updated_date = "2026/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -22,33 +24,6 @@ index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Deprecated - Sudo Heap-Based Buffer Overflow Attempt"
-references = [
-    "https://cve.mitre.org/cgi-bin/cvename.cgi?name=2021-3156",
-    "https://blog.qualys.com/vulnerabilities-research/2021/01/26/cve-2021-3156-heap-based-buffer-overflow-in-sudo-baron-samedit",
-    "https://www.bleepingcomputer.com/news/security/latest-macos-big-sur-also-has-sudo-root-privilege-escalation-flaw",
-    "https://www.sudo.ws/alerts/unescape_overflow.html",
-]
-risk_score = 73
-rule_id = "f37f3054-d40b-49ac-aa9b-a786c74c58b8"
-severity = "high"
-tags = [
-    "Domain: Endpoint",
-    "OS: Linux",
-    "OS: macOS",
-    "Use Case: Threat Detection",
-    "Tactic: Privilege Escalation",
-    "Use Case: Vulnerability",
-    "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
-]
-timestamp_override = "event.ingested"
-type = "threshold"
-
-query = '''
-event.category:process and event.type:start and
-  process.name:(sudo or sudoedit) and
-  process.args:(*\\ and ("-i" or "-s"))
-'''
 note = """## Triage and analysis
 
 > **Disclaimer**:
@@ -84,11 +59,37 @@ Sudo is a critical utility in Unix-like systems, allowing users to execute comma
 - Reset passwords for all user accounts on the affected system, especially those with elevated privileges, to mitigate potential credential compromise.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the scope of the breach.
 - Implement enhanced monitoring and alerting for sudo and sudoedit command executions across the network to detect similar exploitation attempts in the future."""
+references = [
+    "https://cve.mitre.org/cgi-bin/cvename.cgi?name=2021-3156",
+    "https://blog.qualys.com/vulnerabilities-research/2021/01/26/cve-2021-3156-heap-based-buffer-overflow-in-sudo-baron-samedit",
+    "https://www.bleepingcomputer.com/news/security/latest-macos-big-sur-also-has-sudo-root-privilege-escalation-flaw",
+    "https://www.sudo.ws/alerts/unescape_overflow.html",
+]
+risk_score = 73
+rule_id = "f37f3054-d40b-49ac-aa9b-a786c74c58b8"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.category:process and event.type:start and
+  process.name:(sudo or sudoedit) and
+  process.args:(*\\ and ("-i" or "-s"))
+'''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
@@ -98,16 +99,18 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "T1548"
 name = "Abuse Elevation Control Mechanism"
 reference = "https://attack.mitre.org/techniques/T1548/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1548.003"
 name = "Sudo and Sudo Caching"
 reference = "https://attack.mitre.org/techniques/T1548/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
 [rule.threshold]
 field = ["host.hostname"]
 value = 100

@@ -7,9 +7,11 @@
 import atexit
 import base64
 import json
+import os
 import sys
 import threading
 import uuid
+from importlib import metadata
 from typing import List, Optional, Union
 
 import requests
@@ -17,16 +19,62 @@ from elasticsearch import Elasticsearch
 
 _context = threading.local()
 
+# Environment variable that, when set, disables the custom User-Agent header
+# on outbound Kibana requests. When disabled, no additional User-Agent string
+# is sent and the underlying ``requests`` default applies.
+USER_AGENT_DISABLE_ENV = "DR_USER_AGENT_DISABLED"
+
+# Static product name identifying requests originating from detection-rules
+# (the CLI and the library share this id; we don't distinguish between them).
+USER_AGENT_PRODUCT = "detection-rules"
+
+
+def _get_dist_version(dist: str) -> Optional[str]:
+    """Best-effort lookup of an installed distribution version."""
+    try:
+        return metadata.version(dist)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def _env_disables_user_agent() -> bool:
+    """Return True when the disable env var is set."""
+    return os.environ.get(USER_AGENT_DISABLE_ENV) is not None
+
+
+def build_user_agent(user_agent: Optional[str] = None) -> Optional[str]:
+    """Build the User-Agent for outbound Kibana requests, or None when disabled."""
+    if _env_disables_user_agent():
+        return None
+    if user_agent:
+        return user_agent
+    from . import __version__
+
+    kibana_version = _get_dist_version("detection-rules-kibana") or __version__
+    dr_version = _get_dist_version("detection_rules")
+    if dr_version:
+        return f"{USER_AGENT_PRODUCT}/{dr_version} (DaC; kibana-lib {kibana_version})"
+    # ``detection_rules`` distribution metadata isn't available (e.g. the lib is
+    # used standalone). Emit a distinct product token so the kibana-lib version
+    # isn't mislabeled as the detection-rules version server-side.
+    return f"{USER_AGENT_PRODUCT}-kibana/{kibana_version}"
+
 
 class Kibana:
     """Wrapper around the Kibana SIEM APIs."""
 
-    def __init__(self, cloud_id=None, kibana_url=None, api_key=None, verify=True, elasticsearch=None, space=None):
+    def __init__(self, cloud_id=None, kibana_url=None, api_key=None, verify=True, elasticsearch=None, space=None,
+                 user_agent=None):
         """"Open a session to the platform."""
         self.authenticated = False
 
+        # Resolve the User-Agent once so it can be re-applied if the session is
+        # recreated (e.g. on logout). ``None`` means no custom header is sent.
+        self.user_agent = build_user_agent(user_agent)
+
         self.session = requests.Session()
         self.session.verify = verify
+        self._set_user_agent()
 
         if api_key:
             self.session.headers.update(
@@ -77,6 +125,11 @@ class Kibana:
                 InsecureRequestWarning
             requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
         atexit.register(self.__close)
+
+    def _set_user_agent(self):
+        """Apply the custom User-Agent header to the current session, if set."""
+        if self.user_agent:
+            self.session.headers.update({"User-Agent": self.user_agent})
 
     @property
     def version(self):
@@ -164,6 +217,7 @@ class Kibana:
         self.status = None
         self.authenticated = False
         self.session = requests.Session()
+        self._set_user_agent()
         self.elasticsearch = None
 
     def __close(self):

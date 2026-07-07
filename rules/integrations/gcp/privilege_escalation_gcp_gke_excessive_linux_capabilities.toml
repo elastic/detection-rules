@@ -1,0 +1,94 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GKE pod creation with dangerous Linux capabilities that are commonly abused in container escape techniques.
+Standalone pods are included; controller-owned ReplicaSet, DaemonSet, and StatefulSet workloads are excluded.
+"""
+false_positives = [
+    """
+    Some platform or security images legitimately require elevated capabilities. Add image or namespace exceptions after
+    review.
+    """,
+]
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Container Created with Excessive Linux Capabilities"
+note = """## Triage and analysis
+
+### Investigating GKE Container Created with Excessive Linux Capabilities
+
+Capabilities such as SYS_ADMIN, NET_ADMIN, and BPF can enable host escape. Review `gcp.audit.request.spec.containers`
+and the creating identity.
+
+### Investigation steps
+
+- Confirm which capability was added and whether the image requires it.
+- Review `user.email`, namespace, and follow-on API activity from the same actor.
+
+### False positives
+
+- Known DaemonSet or operator images may need capabilities; exclude after validation.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-capabilities-for-a-container",
+    "https://0xn3va.gitbook.io/cheat-sheets/container/escaping/excessive-capabilities",
+]
+risk_score = 47
+rule_id = "a8a48752-58f3-43a9-beb5-14b9e9f6a8b0"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.action:"io.k8s.core.v1.pods.create" and event.outcome:success and
+gcp.audit.request.spec.containers.securityContext.capabilities.add:(
+  "BPF" or "DAC_READ_SEARCH" or "NET_ADMIN" or "SYS_ADMIN" or "SYS_BOOT" or "SYS_MODULE" or "SYS_PTRACE" or "SYS_RAWIO" or
+  "SYSLOG"
+) and not gcp.audit.request.metadata.ownerReferences.kind:("ReplicaSet" or "DaemonSet" or "StatefulSet")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
