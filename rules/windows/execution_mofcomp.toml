@@ -44,6 +44,12 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "mofcomp.exe" and process.args : "*.mof" and
   not user.id : "S-1-5-18" and
+  not process.parent.name : "msiexec.exe" and
+  not process.args : (
+    "*\\WBEM\\ZTITatoo.mof",
+    "*\\Veeam.Backup.*.mof"
+  ) and
+  not process.parent.name : ("InstallUtil.exe", "RSSetup.exe", "InstallerInit.exe", "setup100.exe") and
   not
   (
     process.parent.name : "ScenarioEngine.exe" and
@@ -52,26 +58,6 @@ process where host.os.type == "windows" and event.type == "start" and
       "*\\Microsoft SQL Server\\???\\Shared\\*.mof",
       "*\\OLAP\\bin\\*.mof"
     )
-  ) and
-  not
-  (
-    process.parent.name : "msiexec.exe" and
-    process.args : "*\\Microsoft Policy Platform\\*.mof"
-  ) and
-  not
-  (
-    process.parent.name : "InstallUtil.exe" and
-    process.args : "*\\system32\\wbem\\*.mof"
-  ) and
-  not
-  (
-    process.parent.name : ("RPCAssemblyServer.exe", "HFWizard.exe") and
-    process.args : "*Veeam*.mof"
-  ) and
-  not
-  (
-    process.parent.name : "WmiPrvSE.exe" and
-    process.args : ("*DisableThrottling*", "*smsdpprov.mof")
   )
 '''
 
