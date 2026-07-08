@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/06"
+updated_date = "2026/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -86,10 +86,12 @@ file.path : (
     */.moltbot/* or */AppData/Roaming/Moltbot/* or
     */.config/openclaw/*
 ) and not (
-  file.extension : (lck or lock or log or png or marker or shm or wal or sqlite or sqlite-shm or sqlite-wal or jsonl or journal or xcuserstate) or
+  file.extension : (lck or lock or log or png or marker or shm or wal or sqlite or sqlite-shm or sqlite-wal or jsonl or journal or xcuserstate or db or db-shm or db-wal or db-journal or xd or md or txt or sh or jpg or svg or swp or pb or yaml) or
   file.name : (
     .DS_Store or .last-cleanup or mcp-needs-auth-cache.json or policy-limits.json or
+    remote-settings.json or models_cache.json or
     .claude.json.backup* or
+    .caveman-active.* or
     *.tmp*
   ) or
   file.path : (
@@ -99,21 +101,45 @@ file.path : (
     */.claude/shell-snapshots/* or
     */.claude/plugins/* or
     */.claude/worktrees/* or
+    */.claude/skills/* or
+    */.claude/projects/* or
+    */.claude/commands/* or
+    */.claude/plans/* or
+    */.claude/security/* or
+    */.claude/data/* or
+    */.claude/scratch/* or
+    */.claude/telemetry/* or
+    */.claude/daemon/* or
+    */.claude/downloads/* or
+    */.claude/tasks/* or
     */.gemini/antigravity-browser-profile/* or
+    */.gemini/antigravity-ide/* or
     */.gemini/tmp/* or
+    */.gemini/skills/* or
     */.codex/.tmp/* or
     */.codex/tmp/* or
     */.codex/log/* or
     */.codex/sessions/* or
+    */.codex/sqlite/* or
+    */.codex/plugins/* or
+    */.codex/computer-use/* or
+    */.grok/worktrees/* or
+    */.grok/skills/* or
     */.cursor/extensions/* or
     */.vscode/extensions/* or
     */.vscode-oss/extensions/* or
     */opt/homebrew/.claude/* or
     */opt/homebrew/.cursor/* or
     */opt/homebrew/.codex/* or
+    */Homebrew/.claude/* or
+    */Homebrew/.codex/* or
+    */Homebrew/.cursor/* or
     */node_modules/* or
     */cargo/registry/* or
-    */go/pkg/mod/*
+    */go/pkg/mod/* or
+    */.config/github-copilot/*/bg-agent-sessions/* or
+    */.config/github-copilot/*/chat-agent-sessions/* or
+    */.config/github-copilot/*/chat-edit-sessions/*
   ) or
   (
     file.path : (*/.codex/* or */.claude/* or */.gemini/*) and
@@ -126,7 +152,7 @@ file.path : (
   process.name : build-script-build or
   (
     file.path : (*/.codex/.tmp/* or */.claude/plugins/* or */.claude/worktrees/* or */node_modules/* or */cargo/registry/* or */go/pkg/mod/*) and
-    file.extension : (h or out or part or rs or toml)
+    file.extension : (h or out or part or rs or toml or txt)
   )
 )
 '''
