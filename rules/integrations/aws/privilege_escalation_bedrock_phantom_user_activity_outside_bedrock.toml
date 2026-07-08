@@ -76,9 +76,8 @@ type = "esql"
 
 query = '''
 FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
-| WHERE aws.cloudtrail.user_identity.arn RLIKE """.*:user/BedrockAPIKey-.*"""
-    AND event.provider != "bedrock.amazonaws.com"
-    AND event.provider != "signin.amazonaws.com"
+| WHERE aws.cloudtrail.user_identity.arn RLIKE """.*:user/BedrockAPIKey-.*""" AND event.provider IS NOT NULL
+    AND NOT event.provider in ("bedrock.amazonaws.com", "signin.amazonaws.com", "agreement-marketplace.amazonaws.com", "discovery-marketplace.amazonaws.com")
 | KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
 '''
 
