@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a potential privilege escalation sequence via a parent process relationship. This rule checks for
+non-root execution of a process executable in a user or world-writable directory followed by a UID change
+event to 0 (root). This sequence is indicative of a potential local privilege escalation exploit.
+"""
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via a Parent Process Sequence"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via a Parent Process Sequence
+
+This alert flags a Linux process chain where a non-root program launched from a user- or world-writable location is quickly followed by the same lineage switching to root, a strong sign of local privilege escalation and full host compromise risk. A common pattern is an attacker dropping or compiling an exploit in /tmp or a home directory, executing it as an unprivileged user, and then spawning a root shell or privileged helper within seconds.
+
+### Possible investigation steps
+
+- Reconstruct the full process tree around the sequence to identify the originating user session, the exact binary or script launched from the writable location, and any immediate root-level child such as a shell, package tool, or file-modification utility.
+- Validate whether the executed file and its parent are expected by reviewing file ownership, permissions, hashes, and recent write or compile times to determine if a malicious binary was dropped, replaced, or staged locally.
+- Determine what the elevated process did next by examining follow-on root activity for signs of compromise such as interactive shells, edits to authentication files, SUID or capability changes, new services, cron jobs, or SSH key placement.
+- Review nearby host telemetry for exploit preparation or execution indicators, including compiler usage, archive extraction, access to kernel or polkit-related components, suspicious temporary files, or errors and crashes consistent with privilege escalation attempts.
+- Scope the incident by searching for the same user account, file hash, writable-path executable, or related lineage on other Linux systems, and contain the host quickly if the activity is not explained by approved administration or software deployment.
+
+### False positive analysis
+
+- Administrators or developers may run locally built installers, update scripts, or test binaries from `/tmp`, `/var/tmp`, or a home directory that legitimately invoke a setuid-root helper during maintenance; verify the file is owned by the expected user, matches a known change window, and that the resulting root process only performed the intended configuration or install actions.
+- User login or session initialization scripts stored under `/home/*` or `/run/user/*` can legitimately launch privileged built-in utilities such as password-change or mount helpers, creating a brief non-root-to-root process chain; confirm the alert coincides with an interactive user action and that the elevated child process is an expected system binary with benign follow-on activity.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network immediately while keeping EDR and forensic access available so the attacker cannot use the new root context for lateral movement, data theft, or cleanup.
+- Terminate the malicious process tree and quarantine or remove the exploit binary, script, or archive from the writable path it launched from, then delete attacker persistence such as new systemd services, cron entries, modified `rc.local`, added `authorized_keys`, altered `sudoers` files, and any unexpected SUID bits or Linux capabilities.
+- Restore the host to a known-good state from a trusted image or snapshot instead of relying on in-place cleanup, and verify core system binaries, PAM modules, startup scripts, and package integrity before returning it to service.
+- Rotate all credentials and secrets exposed on the host, including local passwords, SSH keys, API tokens, and service account secrets, because a root-level compromise may have allowed the attacker to read `/etc/shadow`, shell histories, application configs, and private keys.
+- Escalate to incident response immediately if the root process spawned an interactive shell, modified `/etc/passwd` or `/etc/shadow`, installed a backdoor service, added an SSH key, or if the same user, binary hash, or writable-path execution pattern appears on more than one host.
+- Harden the environment by patching the exploited local privilege escalation vector, restricting or removing unnecessary setuid/setcap helpers, mounting temporary and user-writable directories with `noexec,nosuid,nodev` where feasible, and increasing monitoring for executions from writable paths followed by privileged child activity.
+"""
+risk_score = 73
+rule_id = "eb8abab8-dea4-4903-a0ad-dfcb09224488"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id with maxspan=15s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  user.id != "0" and process.parent.user.id != "0" and process.parent.group.id != "0" and
+  (
+    process.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/user/*", "/var/run/user/*", "/home/*/*") or
+    process.parent.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/home/*/*", "/run/user/*", "/var/run/user/*")
+  )]
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "uid_change" and
+  user.id == "0" and process.parent.user.id != "0" and process.parent.group.id != "0" and
+  not process.executable in ("/usr/bin/sudo", "/bin/sudo")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
