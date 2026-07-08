@@ -24,7 +24,8 @@ false_positives = [
     """,
 ]
 from = "now-30m"
-language = "esql"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "AWS Bedrock API Key Phantom User Activity Outside Bedrock"
 note = """## Triage and analysis
@@ -74,14 +75,17 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "query"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
-| WHERE aws.cloudtrail.user_identity.arn RLIKE """.*:user/BedrockAPIKey-.*""" AND event.provider IS NOT NULL
-    AND NOT event.provider in ("bedrock.amazonaws.com", "signin.amazonaws.com", "agreement-marketplace.amazonaws.com", "discovery-marketplace.amazonaws.com")
-    AND event.action NOT IN ("GetCallerIdentity", "GetSessionToken", "GetAccessKeyInfo")
-| KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*
+data_stream.dataset: "aws.cloudtrail"
+    and aws.cloudtrail.user_identity.type: "IAMUser"
+    and user.name: BedrockAPIKey-*
+    and not event.provider: (
+        "bedrock.amazonaws.com" or "signin.amazonaws.com" or
+        "agreement-marketplace.amazonaws.com" or "discovery-marketplace.amazonaws.com"
+    )
+    and not event.action: ("GetCallerIdentity" or "GetSessionToken" or "GetAccessKeyInfo")
 '''
 
 [[rule.threat]]
