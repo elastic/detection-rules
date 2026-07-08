@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects DNS queries to commonly abused top level domains. Malware authors may use these
+domains to host command and control infrastructure, exfiltrate data, or to download payloads
+for later execution.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS Request to Suspicious Top Level Domain"
+risk_score = 21
+rule_id = "44a2de72-fe41-4558-b7ec-3e42de5f0432"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Network",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and dns.question.name != null and process.name != null and
+dns.question.name like~ (
+  "*.forum", "*.pro", "*.team", "*.lol", "*.kr", "*.ke", "*.nu", "*.space", "*.capital", "*.in", "*.cfd", "*.online",
+  "*.ru", "*.info", "*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.network",
+  "*.monster", "*.marketing", "*.cyou", "*.quest", "*.cc", "*.bar", "*.click", "*.cam", "*.surf", "*.tk", "*.shop",
+  "*.club", "*.icu", "*.pw", "*.ws", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.mom",
+  "*.beauty", "*.bond", "*.biz", "*.live", "*.zone"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.003"
+name = "Exfiltration to Text Storage Sites"
+reference = "https://attack.mitre.org/techniques/T1567/003/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
