@@ -53,16 +53,25 @@ process where host.os.type == "windows" and event.type == "start" and
       "*\\OLAP\\bin\\*.mof"
     )
   ) and
-  not process.parent.name : "msiexec.exe" and
   not
   (
-    process.parent.name : ("InstallUtil.exe", "installutil.exe") and
-    process.args : "*\\wbem\\*.mof"
+    process.parent.name : "msiexec.exe" and
+    process.args : "*\\Microsoft Policy Platform\\*.mof"
+  ) and
+  not
+  (
+    process.parent.name : "InstallUtil.exe" and
+    process.args : "*\\system32\\wbem\\*.mof"
   ) and
   not
   (
     process.parent.name : ("RPCAssemblyServer.exe", "HFWizard.exe") and
     process.args : "*Veeam*.mof"
+  ) and
+  not
+  (
+    process.parent.name : "WmiPrvSE.exe" and
+    process.args : ("*DisableThrottling*", "*smsdpprov.mof")
   )
 '''
 
