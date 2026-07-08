@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/07/08"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation of a GKE CertificateSigningRequest (CSR) whose encoded PEM body requests a highly privileged Kubernetes
+identity in the Common Name (CN), such as system:masters, system:kube-controller-manager, or system:admin. Attackers
+who can create and approve CSRs use this technique to clone credentials for powerful identities and obtain durable
+cluster access. This signal applies to any actor, including compromised node identities that use legitimate kubelet
+signers but request a privileged CN.
+"""
+false_positives = [
+    """
+    Rare administrative PKI workflows may legitimately request certificates for privileged identities. Baseline approved
+    operators and automation before tuning exclusions.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Certificate Signing Request Privileged Identity Requested"
+note = """## Triage and analysis
+
+### Investigating GKE Certificate Signing Request Privileged Identity Requested
+
+This rule matches known base64 substrings inside `gcp.audit.request.spec.request` that correspond to privileged
+Kubernetes Common Names (CNs). Decode the field to PEM and verify the subject with OpenSSL:
+
+```bash
+echo "<base64>" | base64 -d | openssl req -noout -subject
+```
+
+Matched substrings and identities:
+
+- `c3lzdGVtOm1hc3Rlcn` — `system:masters` (cluster-admin group)
+- `c3lzdGVtOmt1YmUtY29udHJvbGxlci1tYW5hZ2Vy` — `system:kube-controller-manager`
+- `c3lzdGVtOmFkbWlu` — `system:admin`
+
+### Possible investigation steps
+
+- Identify `client.user.email`, `source.ip`, and whether the actor is expected to request certificates for these
+  identities.
+- Review `gcp.audit.request.spec.signerName` to determine which certificate authority would sign the request.
+- Check for self-approval or controller approval on the same `gcp.audit.resource_name` within a short window.
+- Correlate with secret reads, RBAC changes, or TokenRequest activity from the same actor.
+
+### Response and remediation
+
+- Deny or delete the CSR, revoke issued credentials if already signed, and tighten CSR create/approval RBAC.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required. Request body capture for CSR create events
+(`gcp.audit.request.spec.request`) typically requires RequestResponse audit level on CertificateSigningRequest
+resources."""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/",
+    "https://kubernetes.io/docs/concepts/security/rbac-good-practices/",
+    "https://raesene.github.io/blog/2022/12/21/Kubernetes-persistence-with-Tocan-and-Teisteanas/",
+    "https://stratus-red-team.cloud/attack-techniques/kubernetes/k8s.persistence.create-client-certificate/",
+    "https://rhinosecuritylabs.com/cloud-security/kubelet-tls-bootstrap-privilege-escalation/",
+    "https://attack.mitre.org/techniques/T1098/",
+]
+risk_score = 73
+rule_id = "c9d96380-a1ad-45a2-97fc-ca9d2346091d"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.action:"io.k8s.certificates.v1.certificatesigningrequests.create" and
+gcp.audit.request.spec.request:(
+  c3lzdGVtOm1hc3Rlcn* or
+  c3lzdGVtOmt1YmUtY29udHJvbGxlci1tYW5hZ2Vy* or
+  c3lzdGVtOmFkbWlu*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
