@@ -16,9 +16,11 @@ for the phantom user is now using them for reconnaissance or lateral movement ou
 """
 false_positives = [
     """
-    Bedrock API key phantom users are not intended to perform non-Bedrock activity, so matches should be rare. If a phantom
-    user is deliberately repurposed for other tasks, confirm the principal in "aws.cloudtrail.user_identity.arn" and the
-    activity, and exclude the identity after validation.
+    Automation or SDK tooling configured with a Bedrock API key may call non-Bedrock APIs for benign
+    credential validation. Ubiquitous no-op STS identity calls (GetCallerIdentity, GetSessionToken, 
+    GetAccessKeyInfo) are excluded; other non-Bedrock activity by a BedrockAPIKey-* principal — recon, 
+    privilege escalation, lateral movement, or exfiltration — is unexpected for an inference-only key. 
+    Confirm the key and source in "source.ip"/"user_agent.original" are sanctioned.
     """,
 ]
 from = "now-30m"
