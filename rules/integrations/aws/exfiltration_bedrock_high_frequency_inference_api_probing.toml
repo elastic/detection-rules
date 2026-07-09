@@ -2,7 +2,7 @@
 creation_date = "2026/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/05"
+updated_date = "2026/07/09"
 
 [rule]
 author = ["Elastic"]
@@ -120,16 +120,12 @@ from logs-aws.cloudtrail-*
  
 // preserve the grouping keys plus the ECS context fields collected via VALUES() below
 | keep
-  aws.cloudtrail.user_identity.arn,
-  cloud.account.id,
+  aws.*,
+  cloud.*,
   Esql.model_id,
-  event.action,
-  source.ip,
+  event.*,
+  source.*,
   user_agent.original,
-  aws.cloudtrail.user_identity.type,
-  aws.cloudtrail.user_identity.access_key_id,
-  cloud.region,
-  source.as.organization.name
  
 // aggregate per principal + account + model, capturing analyst context with VALUES()
 | stats
@@ -149,8 +145,10 @@ from logs-aws.cloudtrail-*
 | where Esql.inference_call_count >= 500
  
 | keep
-  aws.cloudtrail.user_identity.arn,
-  cloud.account.id,
+  aws.*,
+  cloud.*,
+  event.*,
+  user.*,
   Esql.model_id,
   Esql.inference_call_count,
   Esql.event_action_values,
