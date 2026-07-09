@@ -19,12 +19,20 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build-docs:
     name: Build Security Docs
     runs-on: ubuntu-latest
     steps:
+      - name: Fetch ephemeral GitHub token
+        id: fetch-ephemeral-token
+        uses: elastic/ci-gh-actions/fetch-github-token@v1
+        with:
+          vault-instance: "ci-prod"
+          vault-role: "token-policy-91218203784e"
+
       - name: Checkout detection-rules
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -34,7 +42,7 @@ jobs:
       - name: Checkout elastic/security-docs
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          token: ${{ secrets.WRITE_DOCS_DETECTION_RULES_TOKEN }}
+          token: ${{ steps.fetch-ephemeral-token.outputs.token }}
           repository: "elastic/security-docs"
           path: security-docs
           fetch-depth: 0
@@ -80,9 +88,16 @@ jobs:
           git commit -m "Update latest docs"
           git push --set-upstream origin $UPDATE_BRANCH
 
+      - name: Fetch ephemeral GitHub token for PR creation
+        id: fetch-ephemeral-token-pr
+        uses: elastic/ci-gh-actions/fetch-github-token@v1
+        with:
+          vault-instance: "ci-prod"
+          vault-role: "token-policy-91218203784e"
+
       - name: Create PR to elastic/security-docs
         env:
-          GITHUB_TOKEN: ${{ secrets.WRITE_DOCS_DETECTION_RULES_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.fetch-ephemeral-token-pr.outputs.token }}
           POST_VERSION: "v${{ github.event.inputs.post_version }}"
           TARGET_BRANCH: "${{ github.event.inputs.target_branch }}"
           UPDATE_BRANCH: "update-security-docs-prebuilt-rules-${{github.event.inputs.post_version}}"

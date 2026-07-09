@@ -61,6 +61,9 @@ jobs:
       )
     needs: get-branches
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       max-parallel: 1
       matrix:
@@ -68,10 +71,17 @@ jobs:
         target_branch: ${{ fromJSON(needs.get-branches.outputs.branches) }}
 
     steps:
+      - name: Fetch ephemeral GitHub token
+        id: fetch-ephemeral-token
+        uses: elastic/ci-gh-actions/fetch-github-token@v1
+        with:
+          vault-instance: "ci-prod"
+          vault-role: "token-policy-3994dc276a5d"
+
       - name: Checkout repo
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          token: ${{ secrets.WRITE_TRADEBOT_DETECTION_RULES_TOKEN }}
+          token: ${{ steps.fetch-ephemeral-token.outputs.token }}
           ref: main
           fetch-depth: 100
 
