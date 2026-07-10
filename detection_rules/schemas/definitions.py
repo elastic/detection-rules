@@ -148,6 +148,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: AWS",
     "Data Source: APM",
     "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
     "Data Source: CyberArk PAS",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Defend for Containers",
