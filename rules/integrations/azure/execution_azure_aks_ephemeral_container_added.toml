@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a non-system identity injecting an ephemeral (debug) container into a running AKS (Azure Kubernetes Service) pod
+via the pods/ephemeralcontainers subresource. Ephemeral containers share the target pod's namespaces and give stealthy
+interactive access to its processes and mounted secrets without creating a new pod.
+"""
+false_positives = [
+    """
+    Operators and support tooling use ephemeral containers (kubectl debug) for legitimate troubleshooting. Baseline
+    expected users and exclude verified break-glass or platform identities after review.
+    """,
+]
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Ephemeral Container Added to Pod"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Ephemeral Container Added to Pod
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. An ephemeral container is
+attached to a running pod (via `kubectl debug`) and shares that pod's process and network namespaces. Adversaries use it
+as a stealthier alternative to `exec` to read mounted secrets and interact with the workload.
+
+### Possible investigation steps
+
+- Identify the acting identity in `azure.platformlogs.properties.log.user.username` (and its groups in
+  `azure.platformlogs.properties.log.user.groups`) and whether it should debug pods.
+- Identify the target pod in `azure.platformlogs.properties.log.objectRef.name` /
+  `azure.platformlogs.properties.log.objectRef.namespace` and inspect the injected container image and command in
+  `azure.platformlogs.properties.log.requestObject`.
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs` and pivot on it for related exec sessions, secret
+  reads, or RBAC changes.
+
+### False positive analysis
+
+- Operators and support tooling use ephemeral containers for legitimate troubleshooting; baseline expected users and
+  exclude verified break-glass or platform identities.
+
+### Response and remediation
+
+- If unauthorized, remove the ephemeral container (delete or replace the pod), revoke the acting identity's tokens, and
+  review the RBAC that permitted the injection.
+- Inspect the target pod for accessed secrets or tampering and rotate any exposed credentials.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://unit42.paloaltonetworks.com/hildegard-malware-teamtnt/",
+]
+risk_score = 47
+rule_id = "d4209683-ee18-439f-b816-1bbe6ee6bbc8"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+azure.platformlogs.category:"kube-audit" and
+azure.platformlogs.properties.log.objectRef.resource:"pods" and
+azure.platformlogs.properties.log.objectRef.subresource:"ephemeralcontainers" and
+azure.platformlogs.properties.log.verb:("update" or "patch") and
+not azure.platformlogs.properties.log.user.username:system\:*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
