@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a non-system identity deleting Kubernetes events on AKS (Azure Kubernetes Service). Adversaries delete events to
+remove evidence of pod creation, exec, or scheduling activity and impair incident response after operating in the
+cluster.
+"""
+false_positives = [
+    """
+    Event cleanup jobs or platform tooling may bulk-delete events. Baseline the responsible identities and exclude
+    verified automation after review.
+    """,
+]
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Kubernetes Events Deleted"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Kubernetes Events Deleted
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. Kubernetes events record pod
+scheduling, image pulls, and other cluster activity. Deleting them by a non-system identity is a defense-evasion step to
+erase evidence of prior actions.
+
+### Possible investigation steps
+
+- Identify the acting identity in `azure.platformlogs.properties.log.user.username` (and its groups in
+  `azure.platformlogs.properties.log.user.groups`) and whether it should delete events.
+- Review the target scope in `azure.platformlogs.properties.log.objectRef.namespace` /
+  `azure.platformlogs.properties.log.objectRef.name` and whether a single event or a bulk deletion occurred.
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs` and pivot on it for the activity the deletion may
+  be concealing (pod creation, exec, RBAC changes).
+- Reconstruct the timeline from surviving kube-audit records, which persist independently of the deleted Kubernetes
+  events.
+
+### False positive analysis
+
+- Event cleanup jobs or platform tooling may bulk-delete events; baseline the responsible identities and exclude verified
+  automation.
+
+### Response and remediation
+
+- If unauthorized, revoke the acting identity's tokens and review the RBAC that permitted event deletion.
+- Use kube-audit history to reconstruct the concealed activity and scope the incident.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/event-v1/",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://learn.microsoft.com/en-us/azure/aks/monitor-aks",
+]
+risk_score = 47
+rule_id = "9bc14983-fabc-4a3e-896d-3632a902f17c"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+azure.platformlogs.category:"kube-audit" and
+azure.platformlogs.properties.log.objectRef.resource:"events" and
+azure.platformlogs.properties.log.verb:"delete" and
+not azure.platformlogs.properties.log.user.username:system\:*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
