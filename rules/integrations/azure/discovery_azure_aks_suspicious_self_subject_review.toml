@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects AKS (Azure Kubernetes Service) service account or node identities invoking self-subject access or rules review
+APIs. Non-human identities rarely enumerate their own permissions outside known controllers; this can indicate stolen
+tokens probing effective RBAC before privilege escalation.
+"""
+false_positives = [
+    """
+    Some controllers and admin impersonation workflows legitimately submit self-subject reviews. Baseline the calling
+    service accounts and node identities, and exclude known platform or observability controllers after review.
+    """,
+]
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Suspicious Self-Subject Review via Service Account"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Suspicious Self-Subject Review via Service Account
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. A `selfsubjectaccessreviews`
+or `selfsubjectrulesreviews` create lets the caller enumerate its own effective permissions. Service account and node
+identities issuing these reviews outside of known controllers can indicate a stolen token mapping out what it can reach.
+
+### Possible investigation steps
+
+- Confirm the acting identity in `azure.platformlogs.properties.log.user.username` and its groups in
+  `azure.platformlogs.properties.log.user.groups`, and whether that service account or node routinely performs
+  self-subject reviews.
+- Review `azure.platformlogs.properties.log.objectRef.resource` (selfsubjectaccessreviews or selfsubjectrulesreviews)
+  and the `azure.platformlogs.properties.log.requestObject` to see what access was checked, plus the API path in
+  `azure.platformlogs.properties.log.requestURI`.
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs`. Control-plane traffic uses loopback (`::1`) or
+  node subnet addresses; a pod-network or external source is more suspicious. Pivot on the source for related API
+  activity, denied requests, exec sessions, or RBAC changes from the same identity.
+
+### False positive analysis
+
+- Known observability or workflow controllers may issue self-subject reviews; extend exclusions for validated identities.
+- Admin impersonation workflows can trigger this via an impersonated service account; validate the impersonating user.
+
+### Response and remediation
+
+- If unauthorized, revoke the service account token and review the RBAC bindings granted to it.
+- Correlate with any successful privileged actions the identity performed after the review.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://github.com/inguardians/peirates",
+]
+risk_score = 21
+rule_id = "11afa743-5264-460b-9d0a-b687efd38a71"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+azure.platformlogs.category:"kube-audit" and
+azure.platformlogs.properties.log.verb:"create" and
+azure.platformlogs.properties.log.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and
+azure.platformlogs.properties.log.user.username:(system\:node\:* or system\:serviceaccount\:*)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
