@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a non-system identity using the AKS (Azure Kubernetes Service) API server nodes/proxy subresource to reach a
+node's Kubelet API. Proxying through the API server bypasses direct network access and Kubelet TLS controls and can be
+used to run commands on nodes and move laterally across the cluster.
+"""
+false_positives = [
+    """
+    Monitoring, log-collection, and platform components may proxy to the Kubelet. Baseline the responsible identities and
+    exclude verified automation after review.
+    """,
+]
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS API Server Proxying Request to Kubelet"
+note = """## Triage and analysis
+
+### Investigating Azure AKS API Server Proxying Request to Kubelet
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. The `nodes/proxy` subresource
+tunnels a request through the API server to a node's Kubelet. An attacker with this permission can invoke Kubelet
+endpoints (for example run/exec) to execute commands on nodes without direct network access to the Kubelet port.
+
+### Possible investigation steps
+
+- Identify the acting identity in `azure.platformlogs.properties.log.user.username` (and its groups in
+  `azure.platformlogs.properties.log.user.groups`) and whether it should proxy to nodes.
+- Inspect the target node and Kubelet path in `azure.platformlogs.properties.log.objectRef.name` and
+  `azure.platformlogs.properties.log.requestURI` (for example `/exec`, `/run`, `/pods`).
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs` and pivot on it for related exec sessions, secret
+  reads, or RBAC changes.
+- Correlate with subsequent activity on the target node's workloads.
+
+### False positive analysis
+
+- Monitoring, log-collection, and platform components may proxy to the Kubelet; baseline the responsible identities and
+  exclude verified automation.
+
+### Response and remediation
+
+- If unauthorized, revoke the acting identity's tokens and review the RBAC that granted `nodes/proxy`.
+- Inspect the target node for command execution, dropped tooling, or credential theft.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://github.com/inguardians/peirates",
+]
+risk_score = 47
+rule_id = "dd43c618-6a5b-465b-8ae4-ce69e34ddac0"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+azure.platformlogs.category:"kube-audit" and
+azure.platformlogs.properties.log.objectRef.resource:"nodes" and
+azure.platformlogs.properties.log.objectRef.subresource:"proxy" and
+not azure.platformlogs.properties.log.user.username:system\:*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.name",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
