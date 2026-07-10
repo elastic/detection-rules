@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects bursts of failed AKS (Azure Kubernetes Service) API requests attributed to a single user identity within a
+five-minute window. Repeated authorization failures across multiple actions can indicate credential stuffing, RBAC
+probing, or reconnaissance with stolen tokens. Because the AKS kube-audit event fields are stored under the flattened
+`azure.platformlogs.properties.log.*` subtree rather than as columnar fields, this rule is implemented as a threshold
+rule keyed on the acting identity.
+"""
+false_positives = [
+    """
+    Misconfigured automation or CI jobs with stale credentials may generate bursts of authorization failures. Exclude
+    known service accounts after review.
+    """,
+]
+from = "now-11m"
+index = ["logs-azure.platformlogs-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS API Request Failure Burst by User"
+note = """## Triage and analysis
+
+### Investigating Azure AKS API Request Failure Burst by User
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This rule counts forbidden
+(HTTP 403) Kubernetes API calls per `azure.platformlogs.properties.log.user.username` and alerts when failures reach ten
+or more within the interval. A burst of denials from one identity often precedes a successful privilege escalation or
+indicates a stolen token probing effective RBAC.
+
+### Possible investigation steps
+
+- Review the `azure.platformlogs.properties.log.objectRef.resource` and `azure.platformlogs.properties.log.verb` values
+  that failed for the identity, and the exact API paths in `azure.platformlogs.properties.log.requestURI`, to understand
+  what the actor was attempting.
+- Confirm the denials via `azure.platformlogs.properties.log.annotations.authorization.k8s.io/decision` (`forbid`) and
+  `azure.platformlogs.properties.log.responseStatus.reason` (`Forbidden`).
+- Validate whether the identity should exist and whether `azure.platformlogs.properties.log.sourceIPs` is expected for
+  it. Control-plane traffic uses loopback (`::1`) or node subnet addresses; an external or pod-network source generating
+  denials is more suspicious.
+- Hunt for later successful calls (`responseStatus.code:2xx`) from the same identity or source that indicate the actor
+  found a permitted action or escalated.
+- Correlate with recent Entra ID sign-ins or role assignments to determine whether the token was recently issued.
+
+### False positive analysis
+
+- Misconfigured automation or CI jobs with stale credentials may generate bursts; exclude known service accounts after
+  review.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's tokens and kubeconfig and review the RBAC bindings assigned to it.
+- Determine whether any request in the burst succeeded and scope the impact accordingly.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/aks/monitor-aks",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://github.com/inguardians/peirates",
+]
+risk_score = 47
+rule_id = "13a3cc0e-1f69-4cc9-8f2f-892d7c7032dc"
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+azure.platformlogs.category:"kube-audit" and
+azure.platformlogs.properties.log.responseStatus.code:"403" and
+azure.platformlogs.properties.log.responseStatus.reason:"Forbidden" and
+not azure.platformlogs.properties.log.user.username:(
+  system\:serviceaccount\:* or system\:node\:* or system\:kube-scheduler
+)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.responseStatus.code",
+    "azure.platformlogs.properties.log.responseStatus.reason",
+]
+
+[rule.threshold]
+field = ["azure.platformlogs.properties.log.user.username"]
+value = 10
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
