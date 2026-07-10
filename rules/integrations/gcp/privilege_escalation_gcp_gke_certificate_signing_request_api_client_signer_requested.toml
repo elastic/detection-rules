@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/07/08"
+creation_date = "2026/07/10"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/07/10"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,19 @@ note = """## Triage and analysis
 
 Identify the actor (`client.user.email`), `source.ip`, and `user_agent.original`. Legitimate GKE node certificate
 rotation uses `kubernetes.io/kube-apiserver-client-kubelet` or `kubernetes.io/kubelet-serving` — not this signer.
-Review `gcp.audit.request.spec.request` when present to extract the requested Common Name (CN) from the encoded PEM.
+Review `gcp.audit.request.spec.signerName` and decode `gcp.audit.request.spec.request` when present to extract the
+requested Common Name (CN).
+
+```bash
+# Full decoded PEM block
+echo "<gcp.audit.request.spec.request>" | base64 -d
+
+# Parsed CSR details (subject, key type/size, extensions, signature)
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -text
+
+# Subject only
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -subject
+```
 
 ### Possible investigation steps
 
@@ -41,6 +53,17 @@ Review `gcp.audit.request.spec.request` when present to extract the requested Co
 - Correlate with CSR approval or patch activity on the same `gcp.audit.resource_name` and follow-on API access from
   unusual networks.
 - Review RBAC grants on `certificatesigningrequests` create and `certificatesigningrequests/approval` for the actor.
+
+### False positive analysis
+
+- Custom PKI or admin workflows may legitimately use this signer outside kube-system. Baseline and tune for known
+  operators.
+
+### Related rules
+
+- GKE Certificate Signing Request Privileged Identity Requested - 4159bec9-76ad-4cdc-a797-4a8572073bbe
+- GKE Certificate Signing Request Self-Approved - e155e658-3dcd-4d27-a4e5-1d8da6704b0e
+- GKE Client Certificate Signing Request Created or Approved - ec67ab57-945a-4edb-84f8-1d7a51f46544
 
 ### Response and remediation
 
@@ -75,12 +98,12 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset: "gcp.audit" and service.name:"k8s.io" and event.outcome:"success" and
+data_stream.dataset:"gcp.audit" and service.name:"k8s.io" and event.outcome:"success" and
 event.action:"io.k8s.certificates.v1.certificatesigningrequests.create" and
 gcp.audit.request.spec.signerName:"kubernetes.io/kube-apiserver-client" and
 not client.user.email:(
   "system:gcp-controller-manager" or
-  system\:serviceaccount\:kube-system\:*
+  "system:serviceaccount:kube-system:certificate-controller"
 )
 '''
 
@@ -119,3 +142,17 @@ reference = "https://attack.mitre.org/techniques/T1098/006/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request.spec.signerName",
+    "gcp.audit.request.spec.request",
+    "data_stream.namespace",
+]
