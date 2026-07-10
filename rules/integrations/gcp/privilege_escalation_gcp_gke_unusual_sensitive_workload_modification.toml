@@ -67,15 +67,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and user_agent.original:* and client.user.email:* and source.ip:* and 
-event.action:(
-  "io.k8s.apps.v1.daemonsets.create" or
-  "io.k8s.apps.v1.daemonsets.patch" or
-  "io.k8s.apps.v1.deployments.create" or
-  "io.k8s.apps.v1.deployments.patch" or
-  "io.k8s.batch.v1.cronjobs.create" or
-  "io.k8s.batch.v1.cronjobs.patch"
-) and not client.user.email:system\:*
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.outcome:success and user_agent.original:* and client.user.email:(* and not system\:*) and source.ip:* and event.action:(io.k8s.apps.v1.daemonsets.create or io.k8s.apps.v1.daemonsets.patch or io.k8s.apps.v1.deployments.create or io.k8s.apps.v1.deployments.patch or io.k8s.batch.v1.cronjobs.create or io.k8s.batch.v1.cronjobs.patch)
 '''
 
 [rule.new_terms]
