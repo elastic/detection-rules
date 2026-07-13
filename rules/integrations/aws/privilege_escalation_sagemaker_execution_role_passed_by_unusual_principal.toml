@@ -13,12 +13,7 @@ actions require `iam:PassRole` and attach an IAM role that the created resource 
 SageMaker create permissions and a broad `iam:PassRole` grant can pass a more privileged role to a resource they control
 and execute code as that role, escalating privileges. The rule keys on the combination of the calling principal and the
 passed `roleArn`, so it surfaces a principal using an execution role it has not used before in the last 7 days; a role
-whose account differs from the caller's, or that is more privileged than the caller, is especially suspicious. This is
-an ES|QL rule rather than a native New Terms rule: `roleArn` only exists inside the Go-map-formatted
-`request_parameters` string, and Elasticsearch does not expose sub-keys of a `flattened`-typed field as independently
-aggregatable fields, so New Terms cannot key on it directly. The query extracts `roleArn` with `GROK`, then emulates
-first-occurrence detection by scanning a 7-day window and alerting only when the earliest occurrence of a given
-(principal, role) pair falls inside the last 10 minutes.
+whose account differs from the caller's, or that is more privileged than the caller, is especially suspicious.
 """
 false_positives = [
     """
@@ -78,7 +73,6 @@ rule_id = "ca8c2751-5507-44f2-b58d-08958200cde9"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Domain: Identity",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
     "Data Source: AWS SageMaker",
@@ -90,7 +84,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+FROM logs-aws.cloudtrail-*
 | WHERE data_stream.dataset == "aws.cloudtrail"
     AND event.provider == "sagemaker.amazonaws.com"
     AND event.action IN ("CreateNotebookInstance", "CreateTrainingJob", "CreateProcessingJob", "CreateAutoMLJob", "CreatePipeline")
