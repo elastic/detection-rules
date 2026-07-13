@@ -72,6 +72,9 @@ blind it in place:
 """
 references = [
     "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateThreatIntelSet.html",
     "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateDetector.html",
     "https://github.com/RhinoSecurityLabs/pacu/tree/master/pacu/modules/guardduty__whitelist_ip",
 ]
@@ -96,9 +99,9 @@ data_stream.dataset: "aws.cloudtrail"
     and event.outcome: "success"
     and (
         (event.action: ("CreateIPSet" or "UpdateIPSet" or "CreateThreatIntelSet" or "UpdateThreatIntelSet")
-            and aws.cloudtrail.request_parameters: *activate=true*)
+            and aws.cloudtrail.flattened.request_parameters.activate: (true or "true"))
         or
-        (event.action: "UpdateDetector" and aws.cloudtrail.request_parameters: *enable=false*)
+        (event.action: "UpdateDetector" and aws.cloudtrail.flattened.request_parameters.enable: (false or "false"))
     )
 '''
 
