@@ -101,6 +101,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | STATS
     Esql.timestamp_min = MIN(@timestamp),
     Esql.timestamp_max = MAX(@timestamp),
+    Esql.ingested_min = MIN(COALESCE(event.ingested, @timestamp)),
     Esql.event_count = COUNT(*),
     Esql.event_action_values = VALUES(event.action),
     Esql.source_ip_values = VALUES(source.ip),
@@ -108,7 +109,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
     Esql.cloud_account_id_values = VALUES(cloud.account.id),
     Esql.cloud_region_values = VALUES(cloud.region)
   BY aws.cloudtrail.user_identity.arn, Esql.aws_cloudtrail_request_parameters_role_arn
-| WHERE Esql.timestamp_min >= NOW() - 10 minutes
+| WHERE Esql.ingested_min >= NOW() - 10 minutes
 | KEEP
     aws.cloudtrail.user_identity.arn,
     Esql.*
