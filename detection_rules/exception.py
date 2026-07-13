@@ -7,7 +7,7 @@
 import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, get_args
 
@@ -19,6 +19,7 @@ from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
 from .utils import ensure_yaml_suffix, save_yaml
 
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 
 # https://www.elastic.co/guide/en/security/current/exceptions-api-overview.html
@@ -178,18 +179,17 @@ class TOMLExceptionContents(MarshmallowDataclassMixin):
 
         # Format date to match schema
         container = exceptions_dict["container"]
-        now_date = datetime.now(UTC).strftime("%Y/%m/%d")
         created_at = container.get("created_at")
         updated_at = container.get("updated_at")
         creation_date = (
-            datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            created_at
             if created_at
-            else now_date
+            else TIME_NOW
         )
         updated_date = (
-            datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+            updated_at
             if updated_at
-            else now_date
+            else TIME_NOW
         )
         metadata = {
             "creation_date": creation_date,

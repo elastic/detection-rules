@@ -10,7 +10,7 @@ import json
 import os
 import time
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, get_args
 from uuid import uuid4
@@ -56,6 +56,7 @@ from .utils import (
 if TYPE_CHECKING:
     from elasticsearch import Elasticsearch
 
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 RULES_DIRS = RULES_CONFIG.rule_dirs
 
@@ -261,17 +262,8 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
 
         # Parse created_at and updated_at to creation_date and updated_date if they exist in contents
         if dates_import:
-            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            contents["creation_date"] = (
-                datetime.strptime(contents.get("created_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
-                .replace(tzinfo=UTC)
-                .strftime("%Y/%m/%d")
-            )
-            contents["updated_date"] = (
-                datetime.strptime(contents.get("updated_at", now), "%Y-%m-%dT%H:%M:%S.%fZ")
-                .replace(tzinfo=UTC)
-                .strftime("%Y/%m/%d")
-            )
+            contents["creation_date"] = contents.get("created_at", TIME_NOW)
+            contents["updated_date"] = contents.get("updated_at", TIME_NOW)
 
         contents.update(
             update_metadata_from_file(
@@ -905,7 +897,7 @@ def create_dnstwist_index(ctx: click.Context, input_file: click.Path) -> None:
     # handle dns.question.registered_domain separately
     _ = fields.pop()
     es_updates: list[dict[str, Any]] = []
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     for item in dnstwist_data:
         if item["fuzzer"] == "original*":

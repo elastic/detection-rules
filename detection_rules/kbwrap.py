@@ -373,6 +373,8 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
             params: dict[str, Any] = {
                 "rule": rule_resource,
                 "maturity": "development",
+                "creation_date": rule_resource.get("created_at"),
+                "updated_date": rule_resource.get("updated_at"),
             }
             threat = rule_resource.get("threat")  # type: ignore[reportUnknownMemberType]
             first_tactic = threat[0].get("tactic").get("name") if threat else ""  # type: ignore[reportUnknownMemberType]

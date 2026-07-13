@@ -9,10 +9,10 @@ import dataclasses
 import json
 import os
 import re
-import time
 import typing
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
@@ -59,7 +59,7 @@ if typing.TYPE_CHECKING:
 
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
-TIME_NOW = time.strftime("%Y/%m/%d")
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 DEFAULT_PREBUILT_RULES_DIRS = RULES_CONFIG.rule_dirs
 DEFAULT_PREBUILT_BBR_DIRS = RULES_CONFIG.bbr_rules_dirs

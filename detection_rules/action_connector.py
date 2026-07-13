@@ -6,7 +6,7 @@
 """Dataclasses for Action."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +18,7 @@ from .mixins import MarshmallowDataclassMixin
 from .schemas import definitions
 from .utils import ensure_yaml_suffix, save_yaml
 
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 
 
@@ -69,8 +70,8 @@ class TOMLActionConnectorContents(MarshmallowDataclassMixin):
             rule_names.append(rule["name"])
 
         # Format date to match schema
-        creation_date = datetime.strptime(actions_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
-        updated_date = datetime.strptime(actions_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y/%m/%d")  # noqa: DTZ007
+        creation_date = TIME_NOW
+        updated_date = TIME_NOW
         metadata = {
             "creation_date": creation_date,
             "rule_ids": rule_ids,

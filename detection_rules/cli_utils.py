@@ -4,7 +4,6 @@
 # 2.0.
 
 import copy
-import datetime
 import functools
 import os
 import re
@@ -12,6 +11,7 @@ import time
 import typing
 import uuid
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,7 @@ from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS,
 from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 
 
@@ -248,7 +249,6 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     """Prompt loop to build a rule."""
 
     additional_required = additional_required or []
-    creation_date = datetime.date.today().strftime("%Y/%m/%d")  # noqa: DTZ011
     if verbose and path:
         click.echo(f"[+] Building rule for {path}")
 
@@ -352,8 +352,8 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     path = Path(path or input(f"File path for rule [{suggested_path}]: ") or suggested_path).resolve()
     # Inherit maturity and optionally local dates from the rule if it already exists
     meta = {
-        "creation_date": kwargs.get("creation_date") or creation_date,
-        "updated_date": kwargs.get("updated_date") or creation_date,
+        "creation_date": kwargs.get("creation_date") or TIME_NOW,
+        "updated_date": kwargs.get("updated_date") or TIME_NOW,
         "maturity": "development",
     }
 

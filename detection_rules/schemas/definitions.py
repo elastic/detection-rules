@@ -60,7 +60,7 @@ HTTP_STATUS_BAD_REQUEST = 400
 ASSET_TYPE = "security_rule"
 SAVED_OBJECT_TYPE = "security-rule"
 
-DATE_PATTERN = re.compile(r"^\d{4}/\d{2}/\d{2}$")
+DATE_PATTERN = re.compile(r"^\d{4}\/\d{2}\/\d{2}||\d{4}-\d{2}-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{3}Z$")
 MATURITY_LEVELS = ["development", "experimental", "beta", "production", "deprecated"]
 OS_OPTIONS = ["windows", "linux", "macos"]
 

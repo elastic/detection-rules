@@ -17,6 +17,7 @@ import time
 import typing
 import urllib.parse
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -84,6 +85,7 @@ NAVIGATOR_URL = "https://ela.st/detection-rules-navigator-trade"
 NAVIGATOR_BADGE = (
     f"[![ATT&CK navigator coverage](https://img.shields.io/badge/ATT&CK-Navigator-red.svg)]({NAVIGATOR_URL})"
 )
+TIME_NOW = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 RULES_CONFIG = parse_rules_config()
 
 # The rule diff feature is available in 8.18 but needs to be tested in pre-release versions
@@ -1002,12 +1004,11 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
         )
         ctx.exit()
 
-    today = time.strftime("%Y/%m/%d")
     deprecated_path = deprecation_folder / rule_file.name
 
     # create the new rule and save it
     new_meta = dataclasses.replace(
-        rule.contents.metadata, updated_date=today, deprecation_date=today, maturity="deprecated"
+        rule.contents.metadata, updated_date=TIME_NOW, deprecation_date=TIME_NOW, maturity="deprecated"
     )
     contents = dataclasses.replace(rule.contents, metadata=new_meta)
     new_rule = TOMLRule(contents=contents, path=deprecated_path)
@@ -1157,7 +1158,6 @@ def trim_version_lock(  # noqa: PLR0912, PLR0915
     removed: dict[str, list[str]] = defaultdict(list)
     rule_msv_drops: list[str] = []
 
-    today = time.strftime("%Y/%m/%d")
     rc: RuleCollection | None = None
     if dry_run:
         rc = RuleCollection()
@@ -1187,7 +1187,7 @@ def trim_version_lock(  # noqa: PLR0912, PLR0915
                         if rule:
                             new_meta = dataclasses.replace(
                                 rule.contents.metadata,
-                                updated_date=today,
+                                updated_date=TIME_NOW,
                                 min_stack_version=None,
                                 min_stack_comments=None,
                             )
@@ -1750,7 +1750,6 @@ def update_attack_in_rules() -> list[TOMLRule]:
     """Update threat mappings attack data in all rules."""
     new_rules: list[TOMLRule] = []
     redirected_techniques = attack.load_techniques_redirect()
-    today = time.strftime("%Y/%m/%d")
 
     rules = RuleCollection.default()
 
@@ -1800,7 +1799,7 @@ def update_attack_in_rules() -> list[TOMLRule]:
             final_threat_list = list(updated_threat_map.values())
             final_threat_list.sort(key=lambda x: x.tactic.name)
 
-            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
+            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=TIME_NOW)
             new_data = dataclasses.replace(rule.contents.data, threat=final_threat_list)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
             new_rule = TOMLRule(contents=new_contents, path=rule.path)
