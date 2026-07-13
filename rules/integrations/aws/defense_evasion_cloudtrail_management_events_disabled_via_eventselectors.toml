@@ -11,10 +11,9 @@ Detects CloudTrail PutEventSelectors calls where the legacy event selectors expl
 `false`, disabling capture of all management API calls for that trail. Unlike `StopLogging` or `DeleteTrail` — which
 leave an obvious trace of the trail being stopped or removed entirely — this technique leaves the trail appearing
 active and healthy in the console while silently blinding defenders to subsequent IAM changes, credential operations,
-and resource abuse. This technique
-is documented in Stratus Red Team as `aws.defense-evasion.cloudtrail-event-selectors` and is a known pre-exfiltration
-step. The query targets the specific adversarial signal using the quoted JSON key-value pattern
-(`"includeManagementEvents":false`) to avoid false matches on unrelated fields containing the substring "false".
+and resource abuse. This technique is documented in Stratus Red Team as `aws.defense-evasion.cloudtrail-event-selectors` and is a known pre-exfiltration
+step. The query looks for requests that set `includeManagementEvents` to `false` and excludes requests where `includeManagementEvents` is also set to `true`
+(mixed selector configurations), which helps reduce false positives.
 """
 false_positives = [
     """
@@ -103,6 +102,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: "PutEventSelectors"
     and event.outcome: "success"
     and aws.cloudtrail.request_parameters: *includeManagementEvents*false*
+    and not aws.cloudtrail.request_parameters: *includeManagementEvents*true*
 '''
 
 
