@@ -525,15 +525,33 @@ def build_identity_version_map(framework: str, source_version: str, target_versi
     }
 
 
+# Stack version at which v19 ATT&CK mappings become the default output.
+_THREAT_MAPPING_V19_MIN_STACK = Version(9, 5, 0)
+
+
 def resolve_output_threat_version() -> tuple[str, str]:
     """Resolve which (framework, version) threat mapping should be emitted as the API `threat`."""
     from .config import (
+        DEFAULT_THREAT_MAPPING_FRAMEWORK,
+        DEFAULT_THREAT_MAPPING_VERSION,
         THREAT_MAPPING_FRAMEWORK_ENV,
         THREAT_MAPPING_VERSION_ENV,
+        load_current_package_version,
         parse_rules_config,
     )
 
     cfg = parse_rules_config()
     framework = os.getenv(THREAT_MAPPING_FRAMEWORK_ENV, cfg.threat_mapping_framework)
     version = str(os.getenv(THREAT_MAPPING_VERSION_ENV, cfg.threat_mapping_version))
+
+    # Auto-promote to v19 when targeting a stack that ships with v19 ATT&CK mappings,
+    # but only when neither the env var nor config has explicitly pinned a version.
+    if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and version == DEFAULT_THREAT_MAPPING_VERSION:
+        try:
+            stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+            if stack >= _THREAT_MAPPING_V19_MIN_STACK:
+                version = "19"
+        except ValueError:
+            pass
+
     return framework, version
