@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/14"
 
 [rule]
 author = ["Elastic"]
@@ -87,17 +87,31 @@ process where host.os.type == "windows" and event.type : "start" and
       (process.executable : "?:\\Windows\\System32\\bash.exe" or ?process.pe.original_file_name == "Bash.exe") and
       not process.command_line : ("bash", "bash.exe")
     ) or
-    process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" or
+    (
+      process.executable : "?:\\Users\\*\\AppData\\Local\\Packages\\*\\rootfs\\usr\\bin\\bash" and
+      not process.parent.name : "ijent"
+    ) or
     (
       process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe"
     ) or
     (
       process.name : "wsl.exe" and process.args : (
         "curl", "/etc/shadow", "/etc/passwd", "cat", "--system", "root", "-e", "--exec", "bash", "/mnt/c/*"
-      ) and not process.args : ("wsl-bootstrap", "docker-desktop-data", "*.vscode-server*")
+      ) and not process.args : (
+        "wsl-bootstrap", "docker-desktop-data", "*.vscode-server*",
+        "docker-desktop", "podman-*", "rancher-desktop",
+        "wslpath", "/usr/bin/vpnkit-bridge", "/etc/wsl.conf",
+        "NVIDIA-Workbench", "git"
+      ) and
+      not process.command_line : "*GIT_TERMINAL_PROMPT=0*"
     )
   ) and
-    not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
+    not process.parent.executable : (
+      "?:\\Program Files\\Docker\\*.exe",
+      "?:\\Program Files (x86)\\Docker\\*.exe",
+      "?:\\Program Files\\RedHat\\Podman\\*.exe",
+      "?:\\Users\\*\\AppData\\Local\\Programs\\Podman\\*.exe"
+    )
 '''
 
 setup = """## Setup
