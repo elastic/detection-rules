@@ -29,7 +29,7 @@ from marshmallow import ValidationError, pre_load, validates_schema
 from semver import Version
 
 from . import beats, ecs, endgame, utils
-from .config import load_current_package_version, parse_rules_config
+from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations
 from .esql_errors import EsqlSemanticError
 from .integrations import (
@@ -799,7 +799,7 @@ class QueryRuleData(BaseRuleData):
     """Specific fields for query event types."""
 
     type: Literal["query"]
-    query: str
+    query: str | None = None
     language: definitions.FilterLanguages
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.8"}})
 
@@ -817,12 +817,15 @@ class QueryRuleData(BaseRuleData):
 
     @cached_property
     def validator(self) -> QueryValidator | None:
+        query = self.query or ""
         if self.language == "kuery":
-            return KQLValidator(self.query)
+            if not query.strip() and self.filters and CUSTOM_RULES_DIR:
+                return None
+            return KQLValidator(query)
         if self.language == "eql":
-            return EQLValidator(self.query)
+            return EQLValidator(query)
         if self.language == "esql":
-            return ESQLValidator(self.query)
+            return ESQLValidator(query)
         return None
 
     def validate_query(self, meta: RuleMeta) -> None:  # type: ignore[reportIncompatibleMethodOverride]
@@ -856,6 +859,18 @@ class QueryRuleData(BaseRuleData):
         """Validate that either index or data_view_id is set, but not both."""
         if data.get("index") and data.get("data_view_id"):
             raise ValidationError("Only one of index or data_view_id should be set.")
+
+    @validates_schema
+    def validates_query_or_filters(self, data: dict[str, Any], **_: Any) -> None:
+        """Validate that a query is present, unless this is a filter-only KQL custom rule."""
+        query = (data.get("query") or "").strip()
+        if query:
+            return
+        filter_only_allowed = data.get("language") == "kuery" and data.get("filters") and CUSTOM_RULES_DIR
+        if filter_only_allowed:
+            data["query"] = ""
+            return
+        raise ValidationError("Missing data for required field.", field_name="query")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1028,7 +1043,7 @@ class ESQLRuleData(QueryRuleData):
 
     type: Literal["esql"]  # type: ignore[reportIncompatibleVariableOverride]
     language: Literal["esql"]
-    query: str
+    query: str  # type: ignore[reportGeneralTypeIssues]
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.15"}})
 
     @validates_schema

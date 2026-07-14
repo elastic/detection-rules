@@ -1,0 +1,81 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/06/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies a successful write to an Azure virtual machine resource
+("MICROSOFT.COMPUTE/VIRTUALMACHINES/WRITE"). This operation is the parent action behind VM userData injection, where an
+adversary with VM contributor rights writes a base64 startup payload into the VM "userData" field that executes on the
+next reboot (a control-plane persistence technique requiring no guest access). The Azure activity log does not record the
+"userData" value or which property changed, so this behavior is indistinguishable from any other VM write at detection
+time. This is a building block rule and does not generate alerts on its own; it captures the VM write population so it
+can be correlated with other signals and baselined over time to tune a higher-fidelity userData-injection detection.
+To investigate a candidate, retrieve the live "userData" from the VM with an Azure Resource Manager GET using "$expand=userData".
+"""
+false_positives = [
+    """
+    The vast majority of VM writes are benign: provisioning, resizing, tagging, extension/identity changes, autoscale,
+    and configuration management by users, service principals, and managed identities. This rule is informational only
+    and is intended for correlation and baselining, not standalone alerting.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Virtual Machine Configuration Modified"
+references = [
+    "https://blog.pwnedlabs.io/diving-deep-into-azure-vm-attack-vectors",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/user-data",
+]
+risk_score = 21
+rule_id = "56fa718c-a0de-4492-97ff-bbc444b015b8"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Asset Visibility",
+    "Tactic: Persistence",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:azure.activitylogs and
+    event.action:"MICROSOFT.COMPUTE/VIRTUALMACHINES/WRITE" and
+    event.outcome:(success or Success)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
