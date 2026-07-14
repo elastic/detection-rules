@@ -546,7 +546,13 @@ def resolve_output_threat_version() -> tuple[str, str]:
 
     # Auto-promote to v19 when targeting a stack that ships with v19 ATT&CK mappings,
     # but only when neither the env var nor config has explicitly pinned a version.
-    if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and version == DEFAULT_THREAT_MAPPING_VERSION:
+    # An explicit env var (even "18") suppresses auto-promotion so callers can pin a version.
+    env_version_explicit = os.getenv(THREAT_MAPPING_VERSION_ENV) is not None
+    if (
+        not env_version_explicit
+        and framework == DEFAULT_THREAT_MAPPING_FRAMEWORK
+        and version == DEFAULT_THREAT_MAPPING_VERSION
+    ):
         try:
             stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
             if stack >= _THREAT_MAPPING_V19_MIN_STACK:

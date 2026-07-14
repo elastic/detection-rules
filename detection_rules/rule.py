@@ -1212,7 +1212,6 @@ AnyRuleData = (
 )
 
 
-
 class BaseRuleContents(ABC):
     """Base contents object for shared methods between active and deprecated rules."""
 
