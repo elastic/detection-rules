@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/07/07"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Flags an existing GKE Role or ClusterRole being changed (patch or update) so the effective rules become
+cluster-admin-like: wildcard on every API resource and wildcard on every verb. That is usually a deliberate privilege
+expansion, not a typo. GKE audit logs with response body capture are required so the detection reads the merged role
+after apply; loopback source IPs are ignored.
+"""
+false_positives = [
+    """
+    Platform installers, GitOps controllers, and emergency break-glass roles sometimes ship or widen wildcard
+    ClusterRoles; correlate with change records and narrow by user or service account when baselined.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE RBAC Wildcard Elevation on Existing Role"
+note = """## Triage and analysis
+
+### Investigating GKE RBAC Wildcard Elevation on Existing Role
+
+Someone patched or updated a Role or ClusterRole so the stored rules grant star verbs and star resources—near
+cluster-admin breadth on that scope. Confirm the actor (user.email, groups), client, and non-loopback source IP;
+then see who can bind that role.
+
+### Possible investigation steps
+
+- Diff the role YAML before and after; list RoleBindings and ClusterRoleBindings that reference it and which subjects
+  gained the widened access.
+- Review `gcp.audit.resource_name`, `gcp.audit.response.rules.verbs`, and `gcp.audit.response.rules.resources`.
+- In the same window, check secret reads, exec, and further RBAC changes from the same identity.
+
+### False positive analysis
+
+- Approved GitOps or vendor upgrades sometimes widen a known ClusterRole; allowlist stable automation when documented.
+
+### Response and remediation
+
+- Revert the role, drop unexpected bindings, rotate credentials for the actor, and block future wildcard RBAC outside
+  governed pipelines (policy-as-code, PR-only RBAC).
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+]
+risk_score = 73
+rule_id = "563a38e9-9790-4a6a-8889-24d26055b832"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"gcp.audit" and service.name:"k8s.io" and event.outcome:"success" and
+event.action:(
+  "io.k8s.authorization.rbac.v1.roles.update" or
+  "io.k8s.authorization.rbac.v1.roles.patch" or
+  "io.k8s.authorization.rbac.v1.clusterroles.update" or
+  "io.k8s.authorization.rbac.v1.clusterroles.patch"
+) and
+source.ip:(* and not ("127.0.0.1" or "::1")) and
+gcp.audit.response.rules.verbs:"*" and gcp.audit.response.rules.resources:"*" and
+not client.user.email:"system:addon-manager"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
