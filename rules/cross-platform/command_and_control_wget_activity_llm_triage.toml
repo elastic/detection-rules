@@ -100,8 +100,7 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.events.process-*, logs-auditd_manager.auditd-*, auditbeat-* METADATA _id, _version, _index
-| WHERE host.os.type IN ("linux", "macos") AND
-    (event.category == "process" OR event.action == "executed") AND
+| WHERE (event.category == "process" OR event.action == "executed") AND
     process.name == "wget" AND
     process.args IS NOT NULL
 
@@ -215,4 +214,3 @@ missing_fields_strategy = "suppress"
 [rule.alert_suppression.duration]
 unit = "h"
 value = 6
-
