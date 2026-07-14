@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/14"
 
 [rule]
 author = ["Elastic"]
@@ -84,7 +84,9 @@ sequence with maxspan=1m
     (process.name : "schtasks.exe" or process.pe.original_file_name == "schtasks.exe") and
     process.args : ("/create", "-create") and process.args : ("/RU", "/SC", "/TN", "/TR", "/F", "/XML") and
     /* exclude SYSTEM Integrity Level - look for task creations by non-SYSTEM user */
-    not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System")
+    not (?process.Ext.token.integrity_level_name : "System" or ?winlog.event_data.IntegrityLevel : "System") and
+    /* exclude known benign scheduled task names from legitimate software */
+    not process.args : ("Launch Adobe CCXProcess", "LGAppCount", "CriticalUpdate(LUR)", "LGUpdateRecovery", "FPDUDaily")
   ] by process.parent.entity_id
 '''
 
