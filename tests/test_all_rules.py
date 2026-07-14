@@ -595,7 +595,7 @@ class TestRuleTags(BaseRuleTest):
 
                 # missing primary tactic
                 if not primary_tactic_candidates.intersection(rule.contents.data.tags):
-                    missing.append(sorted(primary_tactic_candidates))
+                    missing.append(" | ".join(sorted(primary_tactic_candidates)))
 
                 # listed tactic that is not in threat mapping
                 tag_tactics = set(rule_tags).intersection(tactics)

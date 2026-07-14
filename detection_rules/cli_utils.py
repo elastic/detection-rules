@@ -227,8 +227,9 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
             if not rule.path:
                 click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
             elif rule.path.name not in candidate_names:
+                expected = rule_name if len(candidate_names) == 1 else f"one of {candidate_names}"
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected}", fg="yellow"
                 )
 
         kwargs["rules"] = rules
