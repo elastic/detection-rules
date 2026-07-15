@@ -49,7 +49,7 @@ Review `gcp.audit.labels.command.gke.io/command` for the reconstructed payload.
 - If malicious, terminate the exec session, isolate the workload or node, rotate credentials reachable from the pod,
   and revoke pods/exec for the abused principal unless strictly required.
 """
-setup = """The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
 references = [
     "https://attack.mitre.org/techniques/T1609/",
     "https://attack.mitre.org/techniques/T1059/",
@@ -75,35 +75,24 @@ data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:succes
 event.type:start and
 event.action:("io.k8s.core.v1.pods.exec.create" or "io.k8s.core.v1.pods.exec.get") and
 gcp.audit.labels.command.gke.io/command:(
-  */dev/tcp/* or
-  */dev/udp/* or
-  *zsh/net/tcp* or
-  *zsh/net/udp* or
-  *nc*-e* or
-  *nc*-c* or
-  *ncat*-e* or
-  *netcat*-e* or
-  *mkfifo* or
-  *socat*exec* or
-  *socat*pty* or
-  *bash*-i* or
-  *0\>&1* or
-  *import*socket* or
-  *import*pty* or
-  *socket.socket* or
-  *IO*Socket*INET* or
-  *fsockopen* or
-  *TCPSocket.new* or
-  */inet/tcp/*
-) and not gcp.audit.labels.command.gke.io/command:(
-  */dev/tcp/localhost/8080* or */dev/tcp/localhost/8443* or
-  */dev/tcp/localhost/9090* or */dev/tcp/localhost/3000* or
-  */dev/tcp/localhost/5000* or */dev/tcp/localhost/8888* or
-  */dev/tcp/localhost/80* or */dev/tcp/localhost/443* or
-  */dev/tcp/127.0.0.1/8080* or */dev/tcp/127.0.0.1/8443* or
-  */dev/tcp/127.0.0.1/9090* or */dev/tcp/127.0.0.1/3000* or
-  */dev/tcp/127.0.0.1/5000* or */dev/tcp/127.0.0.1/8888* or
-  */dev/tcp/127.0.0.1/80* or */dev/tcp/127.0.0.1/443*
+  (
+    */dev/tcp/* or */dev/udp/* or */inet/tcp/* or
+    *0\\\>&1* or
+    *IO*Socket*INET* or *TCPSocket.new* or *bash*-i* or *fsockopen* or
+    *import*pty* or *import*socket* or *mkfifo* or
+    *nc*-c* or *nc*-e* or *ncat*-e* or *netcat*-e* or
+    *socat*exec* or *socat*pty* or *socket.socket* or
+    *zsh/net/tcp* or *zsh/net/udp*
+  ) and not (
+    */dev/tcp/127.0.0.1/3000* or */dev/tcp/127.0.0.1/443* or
+    */dev/tcp/127.0.0.1/5000* or */dev/tcp/127.0.0.1/80* or
+    */dev/tcp/127.0.0.1/8080* or */dev/tcp/127.0.0.1/8443* or
+    */dev/tcp/127.0.0.1/8888* or */dev/tcp/127.0.0.1/9090* or
+    */dev/tcp/localhost/3000* or */dev/tcp/localhost/443* or
+    */dev/tcp/localhost/5000* or */dev/tcp/localhost/80* or
+    */dev/tcp/localhost/8080* or */dev/tcp/localhost/8443* or
+    */dev/tcp/localhost/8888* or */dev/tcp/localhost/9090*
+  )
 )
 '''
 

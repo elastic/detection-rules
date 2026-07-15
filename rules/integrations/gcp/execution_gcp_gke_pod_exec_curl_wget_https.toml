@@ -47,7 +47,7 @@ Review `gcp.audit.labels.command.gke.io/command` for the full command and destin
 - Rotate secrets accessible from the pod, cordon or delete the workload if compromised, and tighten RBAC so only
   required principals retain pods/exec on sensitive namespaces.
 """
-setup = """The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
 references = [
     "https://attack.mitre.org/techniques/T1609/",
     "https://attack.mitre.org/techniques/T1105/",
@@ -72,19 +72,13 @@ query = '''
 data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
 event.type:start and
 event.action:("io.k8s.core.v1.pods.exec.create" or "io.k8s.core.v1.pods.exec.get") and
-gcp.audit.labels.command.gke.io/command:(*curl*https* or *wget*https*) and
-not gcp.audit.labels.command.gke.io/command:(
-  */api/v1/health* or
-  */healthz* or
-  */readyz* or
-  */livez* or
-  *127.0.0.1* or
-  *localhost* or
-  */openid/v1/jwks* or
-  */openid-connect/certs* or
-  */.well-known/openid-configuration* or
-  */.well-known/jwks.json* or
-  *kubernetes.default.svc*
+gcp.audit.labels.command.gke.io/command:(
+  (*curl*https* or *wget*https*) and not (
+    */.well-known/jwks.json* or */.well-known/openid-configuration* or
+    */api/v1/health* or */healthz* or */livez* or */readyz* or
+    */openid-connect/certs* or */openid/v1/jwks* or
+    *127.0.0.1* or *kubernetes.default.svc* or *localhost*
+  )
 )
 '''
 
