@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/07/15"
 
 [transform]
 [[transform.osquery]]
@@ -152,9 +152,9 @@ not process.parent.name like "S-1-*" and
    /* suspicious parent processes */
    (process.name:"autochk.exe" and not process.parent.name:"smss.exe") or
    (process.name:("fontdrvhost.exe", "dwm.exe") and not process.parent.name:("wininit.exe", "winlogon.exe", "dwm.exe")) or
-   (process.name:("consent.exe", "RuntimeBroker.exe", "TiWorker.exe") and not process.parent.name:("svchost.exe", "Workplace Container Helper.exe", "consent.exe", "RuntimeBroker.exe", "TiWorker.exe", "ThreatLockerConsent.exe")) or
+   (process.name:("consent.exe", "RuntimeBroker.exe", "TiWorker.exe") and not process.parent.name:("svchost.exe", "Workplace Container Helper.exe", "consent.exe", "RuntimeBroker.exe", "TiWorker.exe")) or
    (process.name:"SearchIndexer.exe" and not process.parent.name:("services.exe", "SearchIndexer.exe")) or
-   (process.name:"SearchProtocolHost.exe" and not process.parent.name:("SearchIndexer.exe", "dllhost.exe", "SearchProtocolHost.exe")) or
+   (process.name:"SearchProtocolHost.exe" and not process.parent.name:("SearchIndexer.exe", "dllhost.exe")) or
    (process.name:"dllhost.exe" and not process.parent.name:("services.exe", "svchost.exe", "dllhost.exe")) or
    (process.name:"smss.exe" and not process.parent.name:("System", "smss.exe")) or
    (process.name:"csrss.exe" and not process.parent.name:("smss.exe", "svchost.exe")) or
@@ -172,10 +172,10 @@ not process.parent.name like "S-1-*" and
    /* suspicious child processes */
    (process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe", "conhost.exe", "ngentask.exe", "SearchProtocolHost.exe")) or
    (process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe")) or
-   (process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "setupcl.exe", "WerFault.exe", "wpbbin.exe", "PvsVmBoot.exe", "SophosNA.exe", "omnissa-ic-nga.exe", "icarus_rvrt.exe", "poqexec.exe", "QcSkExt8380.exe")) or
+   (process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "setupcl.exe", "WerFault.exe", "wpbbin.exe", "PvsVmBoot.exe", "SophosNA.exe", "omnissa-ic-nga.exe", "icarus_rvrt.exe", "poqexec.exe")) or
    (process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") and
      not (process.name:"rundll32.exe" and process.command_line : "*WerConCpl.dll*LaunchErcApp*")) or
-   (process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe", "conhost.exe", "powershell.exe", "cmd.exe"))
+   (process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe", "conhost.exe", "cmd.exe", "powershell.exe"))
   )
 '''
 
