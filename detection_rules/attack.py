@@ -131,7 +131,7 @@ class AttackLookups:
     version: str
     tactics_map: dict[str, str]
     tactic_id_to_detail: dict[str, dict[str, str]]
-    technique_lookup: OrderedDict  # type: ignore[type-arg]
+    technique_lookup: OrderedDict[str, Any]
     revoked: dict[str, Any]
     deprecated: dict[str, Any]
     matrix: dict[str, list[str]]
