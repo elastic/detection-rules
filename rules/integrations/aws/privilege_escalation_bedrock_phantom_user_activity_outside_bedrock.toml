@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/07/06"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an Amazon Bedrock API key phantom user (an IAM user whose name starts with "BedrockAPIKey-") acting as the
+caller of a non-Bedrock API request, such as IAM, STS, EC2, VPC, or KMS calls. These users are provisioned by AWS to back
+a Bedrock bearer token and carry the AmazonBedrockLimitedAccess managed policy, which also grants IAM, VPC, and KMS
+reconnaissance. A phantom user performing activity outside of Bedrock indicates its credentials are being used beyond
+their intended scope, which is the privilege-escalation path realized: an attacker who created standard IAM access keys
+for the phantom user is now using them for reconnaissance or lateral movement outside the Bedrock authentication boundary.
+"""
+false_positives = [
+    """
+    Automation or SDK tooling configured with a Bedrock API key may call non-Bedrock APIs for benign
+    credential validation. Ubiquitous no-op STS identity calls (GetCallerIdentity, GetSessionToken, 
+    GetAccessKeyInfo) are excluded; other non-Bedrock activity by a BedrockAPIKey-* principal — recon, 
+    privilege escalation, lateral movement, or exfiltration — is unexpected for an inference-only key. 
+    Confirm the key and source in "source.ip"/"user_agent.original" are sanctioned.
+    """,
+]
+from = "now-30m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock API Key Phantom User Activity Outside Bedrock"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock API Key Phantom User Activity Outside Bedrock
+
+Amazon Bedrock API key phantom users ("BedrockAPIKey-*") exist only to back a Bedrock bearer token and carry the AmazonBedrockLimitedAccess managed policy. That policy grants Bedrock control-plane actions plus IAM, VPC, and KMS reconnaissance, so if an attacker adds standard IAM access keys (or a console login) to the phantom user, those credentials can be used for reconnaissance and lateral movement well beyond Bedrock.
+
+This rule fires when a "BedrockAPIKey-*" user is the caller of an API request whose service is not Bedrock. Because the phantom user has no legitimate reason to act outside Bedrock, such activity is the privilege-escalation path realized.
+
+### Possible investigation steps
+
+- Review "aws.cloudtrail.user_identity.arn", "event.provider", and "event.action" to understand what non-Bedrock activity the phantom user performed.
+- Inspect "source.ip"/"source.as.number" and "user_agent.original", and determine whether the phantom user holds IAM access keys or a login profile (the escalation pivot).
+- Review the full sequence of the phantom user's actions for reconnaissance (IAM/EC2/STS enumeration) or attempts to access other resources.
+- Correlate with the credential-addition event (CreateAccessKey/CreateLoginProfile on the same user).
+
+### False positive analysis
+
+- Phantom users are not meant to perform non-Bedrock activity, so this should be rare. Validate any intentional repurposing before excluding the identity.
+
+### Response and remediation
+
+- If unauthorized, disable and remove the phantom user's IAM access keys and login profile, and delete the phantom user after preserving forensic evidence.
+- Review the account for resources the phantom user may have accessed or modified.
+- Deploy an SCP denying "iam:CreateAccessKey" and "iam:CreateLoginProfile" on "arn:aws:iam::*:user/BedrockAPIKey-*" to prevent the pivot.
+"""
+references = [
+    "https://www.beyondtrust.com/blog/entry/aws-bedrock-security-guide-api-keys-detection-response",
+    "https://www.beyondtrust.com/blog/entry/aws-bedrock-security-api-keys",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html",
+]
+risk_score = 73
+rule_id = "56788ae8-794b-4ade-affd-534aa5c9e28d"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and aws.cloudtrail.user_identity.type: "IAMUser"
+    and user.name: BedrockAPIKey-*
+    and not event.provider: (
+        "bedrock.amazonaws.com" or "signin.amazonaws.com" or
+        "agreement-marketplace.amazonaws.com" or "discovery-marketplace.amazonaws.com"
+    )
+    and not event.action: ("GetCallerIdentity" or "GetSessionToken" or "GetAccessKeyInfo")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
