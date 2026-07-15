@@ -8,7 +8,7 @@ updated_date = "2026/07/08"
 author = ["Elastic"]
 description = """
 Identifies an Amazon Bedrock AgentCore execution role (an AssumedRole identity whose role name begins with
-"AgentCore-") making an AWS API call to a service it has not previously called. AgentCore runtimes normally interact
+"AgentCore-" or contains "BedrockAgentCore") making an AWS API call to a service it has not previously called. AgentCore runtimes normally interact
 only with Bedrock inference, AgentCore data-plane, and observability services (CloudWatch Logs, X-Ray, CloudWatch
 metrics), so an execution role suddenly calling STS, EC2, IAM,
 Secrets Manager, or other services is a strong indicator that the role's temporary credentials were exfiltrated from
@@ -35,7 +35,7 @@ note = """## Triage and analysis
 
 ### Investigating AWS Bedrock AgentCore Execution Role Used Outside Its Runtime
 
-AgentCore runtime and tool execution roles are assumed by the AgentCore service and normally only call Bedrock inference, AgentCore data-plane, and observability (CloudWatch Logs, X-Ray, CloudWatch metrics) APIs, all of which this rule excludes. Public research has shown the Code Interpreter microVM exposes the execution role's temporary credentials through the instance metadata service (MMDS), and that a string-filter bypass allows exfiltrating them outside the sandbox. Once stolen, the credentials are used to call other AWS services, but those calls are logged in CloudTrail under the execution role's identity rather than the attacker's, creating an attribution gap. This rule flags the first time an "AgentCore-" execution role calls a non-Bedrock service, which is the point at which exfiltrated credentials are put to use.
+AgentCore runtime and tool execution roles are assumed by the AgentCore service and normally only call Bedrock inference, AgentCore data-plane, and observability (CloudWatch Logs, X-Ray, CloudWatch metrics) APIs, all of which this rule excludes. Public research has shown the Code Interpreter microVM exposes the execution role's temporary credentials through the instance metadata service (IMDS), and that a string-filter bypass allows exfiltrating them outside the sandbox. Once stolen, the credentials are used to call other AWS services, but those calls are logged in CloudTrail under the execution role's identity rather than the attacker's, creating an attribution gap. This rule flags the first time an AgentCore execution role ("AgentCore-*" or "*BedrockAgentCore*") calls a non-Bedrock service, which is the point at which exfiltrated credentials are put to use.
 
 ### Possible investigation steps
 
