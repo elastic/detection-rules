@@ -1366,7 +1366,7 @@ class BaseRuleContents(ABC):
 
     @staticmethod
     def _select_output_threat_mapping(obj: dict[str, Any]) -> None:
-        """Emit the configured framework/version mapping as `threat` and drop `threat_mappings`."""
+        """Emit the configured framework/version threat mapping as `threat` and drop `threat_mappings`."""
         from . import attack
         from .config import DEFAULT_THREAT_MAPPING_FRAMEWORK, DEFAULT_THREAT_MAPPING_VERSION
 
@@ -1375,11 +1375,10 @@ class BaseRuleContents(ABC):
         framework, version = attack.resolve_output_threat_version()
 
         # The baseline framework/version lives in the `threat` field itself, so there is nothing to
-        # select or warn about when it is requested (the common case).
+        # select when it is requested (the common case).
         if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
             return
 
-        # Explicit threat_mappings block takes precedence over auto-conversion.
         selected = next(
             (
                 block
@@ -1390,20 +1389,6 @@ class BaseRuleContents(ABC):
         )
         if selected is not None:
             obj["threat"] = selected.get("threat", [])
-            return
-
-        # No explicit block — auto-convert the baseline threat using the version map.
-        from .config import DEFAULT_THREAT_MAPPING_VERSION
-
-        converted = attack.convert_threat_to_version(
-            obj.get("threat", []),
-            source_version=DEFAULT_THREAT_MAPPING_VERSION,
-            target_version=version,
-            framework=framework,
-        )
-        if converted:
-            obj["threat"] = converted
-        # else: no version map available or all entries dropped — silently keep baseline
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""

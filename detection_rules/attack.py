@@ -576,18 +576,13 @@ def _get_default_version_map(framework: str, source_version: str, target_version
         return None
 
 
-def convert_threat_to_version(
+def convert_threat_to_version(  # noqa: PLR0912
     threat: list[dict[str, Any]],
     source_version: str,
     target_version: str,
     framework: str,
 ) -> list[dict[str, Any]]:
-    """Auto-convert a raw threat list to a target version using the version map and STIX data.
-
-    Entries whose framework does not match are passed through unchanged.
-    Techniques/subtechniques that no longer belong to their tactic in the target version are
-    silently dropped. Returns an empty list when no version map is available.
-    """
+    """Auto-convert a raw threat list to the target version; techniques follow tactic migrations."""
     vmap = _get_default_version_map(framework, source_version, target_version)
     if vmap is None:
         return []
@@ -596,16 +591,46 @@ def convert_threat_to_version(
     except FileNotFoundError:
         return []
 
-    tgt_tactic_id_to_name = {v: k for k, v in target_lookups.tactics_map.items()}
+    tgt_tactic_id_to_name: dict[str, str] = {v: k for k, v in target_lookups.tactics_map.items()}
     tgt_tech_to_tactic_names: dict[str, list[str]] = {}
     for tname, tids in target_lookups.matrix.items():
         for tid in tids:
             tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
 
-    result: list[dict[str, Any]] = []
+    # Keyed by tactic_id to merge techniques that migrate to the same target tactic.
+    entries_by_tactic: dict[str, dict[str, Any]] = {}
+    passthru: list[dict[str, Any]] = []
+    tactic_only_ids: set[str] = set()
+
+    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
+        tid = tactic_detail["id"]
+        if tid not in entries_by_tactic:
+            entries_by_tactic[tid] = {
+                "framework": framework,
+                "tactic": dict(tactic_detail),
+                "technique": [],
+            }
+        return entries_by_tactic[tid]
+
+    def _target_tactics_for_tech(tech_id: str, mapped_tactic: dict[str, str]) -> list[dict[str, str]]:
+        """Return target-version tactic details for a technique, following it if it migrated."""
+        tgt_tactic_name = tgt_tactic_id_to_name.get(mapped_tactic["id"])
+        tech_tactic_names = tgt_tech_to_tactic_names.get(tech_id, [])
+        if not tech_tactic_names or (tgt_tactic_name and tgt_tactic_name in tech_tactic_names):
+            return [mapped_tactic]
+        # Technique migrated — follow to all target tactics it now belongs to.
+        result = [
+            detail
+            for tname in tech_tactic_names
+            for tid in [target_lookups.tactics_map.get(tname, "")]
+            for detail in [target_lookups.tactic_id_to_detail.get(tid)]
+            if detail
+        ]
+        return result or [mapped_tactic]
+
     for entry in threat:
         if entry.get("framework") != framework:
-            result.append(entry)
+            passthru.append(entry)
             continue
 
         tactic = entry.get("tactic") or {}
@@ -613,53 +638,42 @@ def convert_threat_to_version(
         if tactic_dest is None:
             continue
 
-        tgt_tactic_name = tgt_tactic_id_to_name.get(tactic_dest["id"])
+        source_techniques = entry.get("technique") or []
+        if not source_techniques:
+            tactic_only_ids.add(tactic_dest["id"])
+            _get_or_create(tactic_dest)
+            continue
 
-        new_techniques: list[dict[str, Any]] = []
-        for technique in entry.get("technique") or []:
+        for technique in source_techniques:
             tech_dest = vmap.resolve("technique", technique.get("id", ""), target_lookups)
             if tech_dest is None:
                 continue
-            if (
-                tgt_tactic_name
-                and tech_dest["id"] in tgt_tech_to_tactic_names
-                and tgt_tactic_name not in tgt_tech_to_tactic_names[tech_dest["id"]]
-            ):
-                continue
-            new_tech: dict[str, Any] = {
-                "id": tech_dest["id"],
-                "name": tech_dest["name"],
-                "reference": tech_dest["reference"],
-            }
+
             new_subs: list[dict[str, Any]] = []
             for sub in technique.get("subtechnique") or []:
                 sub_dest = vmap.resolve("subtechnique", sub.get("id", ""), target_lookups)
                 if sub_dest is None:
                     continue
-                if (
-                    tgt_tactic_name
-                    and sub_dest["id"] in tgt_tech_to_tactic_names
-                    and tgt_tactic_name not in tgt_tech_to_tactic_names[sub_dest["id"]]
-                ):
-                    continue
-                new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
+                new_subs.append(
+                    {"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]}
+                )
+
+            new_tech: dict[str, Any] = {
+                "id": tech_dest["id"],
+                "name": tech_dest["name"],
+                "reference": tech_dest["reference"],
+            }
             if new_subs:
                 new_tech["subtechnique"] = new_subs
-            new_techniques.append(new_tech)
 
-        new_entry: dict[str, Any] = {
-            "framework": framework,
-            "tactic": {
-                "id": tactic_dest["id"],
-                "name": tactic_dest["name"],
-                "reference": tactic_dest["reference"],
-            },
-        }
-        if new_techniques:
-            new_entry["technique"] = new_techniques
-        result.append(new_entry)
+            for tactic_for_tech in _target_tactics_for_tech(tech_dest["id"], tactic_dest):
+                _get_or_create(tactic_for_tech)["technique"].append(new_tech)
 
-    return result
+    return passthru + [
+        {k: v for k, v in e.items() if k != "technique" or v}
+        for e in entries_by_tactic.values()
+        if e.get("technique") or e["tactic"]["id"] in tactic_only_ids
+    ]
 
 
 def resolve_output_threat_version() -> tuple[str, str]:

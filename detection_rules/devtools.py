@@ -1819,23 +1819,20 @@ def update_attack_in_rules() -> list[TOMLRule]:
     return new_rules
 
 
-def _remap_threat_entry(
+def _remap_threat_entry(  # noqa: PLR0913
     entry: ThreatMapping,
     vmap: "attack.AttackVersionMap",
     framework: str,
     dropped: list[str],
     target_lookups: "attack.AttackLookups | None" = None,
-) -> dict[str, Any] | None:
-    """Build a target-version threat entry from a source entry using the mapping config."""
+    moved: "list[str] | None" = None,
+) -> list[dict[str, Any]]:
+    """Build target-version threat entries from a source entry; techniques follow tactic migrations."""
     tactic_dest = vmap.resolve("tactic", entry.tactic.id, target_lookups)
     if tactic_dest is None:
         dropped.append(f"tactic {entry.tactic.id} ({entry.tactic.name})")
-        return None
+        return []
 
-    # Pre-build an inverted matrix (tid -> tactic names) for tactic-membership validation.
-    # This catches techniques that moved to a different tactic between versions (e.g. v18 TA0005
-    # techniques that moved to TA0112 in v19) so they are dropped rather than emitted under the
-    # wrong tactic.
     tgt_tactic_id_to_name: dict[str, str] = {}
     tgt_tech_to_tactic_names: dict[str, list[str]] = {}
     if target_lookups is not None:
@@ -1844,59 +1841,83 @@ def _remap_threat_entry(
             for tid in tids:
                 tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
 
-    def _under_tactic(tech_id: str, tech_name: str, kind: str) -> bool:
-        """Return True if tech_id belongs to the mapped tactic in the target version."""
+    def _target_tactics(tech_id: str, tech_name: str) -> list[dict[str, str]]:
+        """Return target tactic details for a technique, following it if it migrated."""
         if not tgt_tactic_id_to_name:
-            return True
+            return [tactic_dest]
         tgt_tactic_name = tgt_tactic_id_to_name.get(tactic_dest["id"])
-        if not tgt_tactic_name or tech_id not in tgt_tech_to_tactic_names:
-            return True
-        if tgt_tactic_name in tgt_tech_to_tactic_names[tech_id]:
-            return True
-        actual = ", ".join(
-            f"{target_lookups.tactics_map.get(t, t)} ({t})"  # type: ignore[union-attr]
-            for t in tgt_tech_to_tactic_names[tech_id]
-        )
-        dropped.append(
-            f"{kind} {tech_id} ({tech_name}) — not under {tactic_dest['id']} ({tactic_dest['name']}) "
-            f"in v{target_lookups.version} (now under: {actual})"  # type: ignore[union-attr]
-        )
-        return False
+        tech_tactic_names = tgt_tech_to_tactic_names.get(tech_id, [])
+        if not tech_tactic_names or (tgt_tactic_name and tgt_tactic_name in tech_tactic_names):
+            return [tactic_dest]
+        # Technique migrated — follow it to all target tactics it now belongs to.
+        new_tactics = [
+            detail
+            for tname in tech_tactic_names
+            for tid in [target_lookups.tactics_map.get(tname, "")]  # type: ignore[union-attr]
+            for detail in [target_lookups.tactic_id_to_detail.get(tid)]  # type: ignore[union-attr]
+            if detail
+        ]
+        if new_tactics and moved is not None:
+            new_str = ", ".join(f"{d['id']} ({d['name']})" for d in new_tactics)
+            moved.append(
+                f"technique {tech_id} ({tech_name}) — migrated from "
+                f"{tactic_dest['id']} ({tactic_dest['name']}) to {new_str} "
+                f"in v{target_lookups.version}"  # type: ignore[union-attr]
+            )
+        return new_tactics or [tactic_dest]
 
-    techniques: list[dict[str, Any]] = []
-    for technique in entry.technique or []:
-        tech_dest = vmap.resolve("technique", technique.id, target_lookups)
-        if tech_dest is None:
-            dropped.append(f"technique {technique.id} ({technique.name})")
-            continue
-        if not _under_tactic(tech_dest["id"], tech_dest["name"], "technique"):
-            continue
+    entries_by_tactic: dict[str, dict[str, Any]] = {}
+    tactic_only = not bool(entry.technique)
 
-        new_technique: dict[str, Any] = {
-            "id": tech_dest["id"],
-            "name": tech_dest["name"],
-            "reference": tech_dest["reference"],
-        }
-        subtechniques: list[dict[str, Any]] = []
-        for sub in technique.subtechnique or []:
-            sub_dest = vmap.resolve("subtechnique", sub.id, target_lookups)
-            if sub_dest is None:
-                dropped.append(f"subtechnique {sub.id} ({sub.name})")
+    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
+        tid = tactic_detail["id"]
+        if tid not in entries_by_tactic:
+            entries_by_tactic[tid] = {
+                "framework": framework,
+                "tactic": {
+                    "id": tactic_detail["id"],
+                    "name": tactic_detail["name"],
+                    "reference": tactic_detail["reference"],
+                },
+                "technique": [],
+            }
+        return entries_by_tactic[tid]
+
+    if tactic_only:
+        _get_or_create(tactic_dest)
+    else:
+        for technique in entry.technique or []:
+            tech_dest = vmap.resolve("technique", technique.id, target_lookups)
+            if tech_dest is None:
+                dropped.append(f"technique {technique.id} ({technique.name})")
                 continue
-            if not _under_tactic(sub_dest["id"], sub_dest["name"], "subtechnique"):
-                continue
-            subtechniques.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
-        if subtechniques:
-            new_technique["subtechnique"] = subtechniques
-        techniques.append(new_technique)
 
-    new_entry: dict[str, Any] = {
-        "framework": framework,
-        "tactic": {"id": tactic_dest["id"], "name": tactic_dest["name"], "reference": tactic_dest["reference"]},
-    }
-    if techniques:
-        new_entry["technique"] = techniques
-    return new_entry
+            subtechniques: list[dict[str, Any]] = []
+            for sub in technique.subtechnique or []:
+                sub_dest = vmap.resolve("subtechnique", sub.id, target_lookups)
+                if sub_dest is None:
+                    dropped.append(f"subtechnique {sub.id} ({sub.name})")
+                    continue
+                subtechniques.append(
+                    {"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]}
+                )
+
+            new_technique: dict[str, Any] = {
+                "id": tech_dest["id"],
+                "name": tech_dest["name"],
+                "reference": tech_dest["reference"],
+            }
+            if subtechniques:
+                new_technique["subtechnique"] = subtechniques
+
+            for tactic_for_tech in _target_tactics(tech_dest["id"], tech_dest["name"]):
+                _get_or_create(tactic_for_tech)["technique"].append(new_technique)
+
+    return [
+        {k: v for k, v in e.items() if k != "technique" or v}
+        for e in entries_by_tactic.values()
+        if e.get("technique") or tactic_only
+    ]
 
 
 def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> list[ThreatMapping] | None:
@@ -1939,7 +1960,7 @@ def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> l
     help="Replace an existing target-version block on a rule (otherwise the rule is skipped)",
 )
 @multi_collection
-def convert_threat_mappings(  # noqa: PLR0913
+def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
     rules: RuleCollection,
     target_version: str,
     source_version: str,
@@ -1993,13 +2014,10 @@ def convert_threat_mappings(  # noqa: PLR0913
             continue
 
         dropped: list[str] = []
-        threat_dicts = [
-            converted
-            for converted in (
-                _remap_threat_entry(entry, vmap, framework, dropped, target_lookups) for entry in source_threat
-            )
-            if converted
-        ]
+        moved: list[str] = []
+        threat_dicts: list[dict] = []
+        for entry in source_threat:
+            threat_dicts.extend(_remap_threat_entry(entry, vmap, framework, dropped, target_lookups, moved))
 
         if not threat_dicts:
             skipped_empty += 1
@@ -2017,13 +2035,23 @@ def convert_threat_mappings(  # noqa: PLR0913
         ]
         new_blocks = sorted([*remaining, block], key=lambda b: (b.framework, b.version))
 
+        # Collect new tactic tags from the generated block and merge with existing tags.
+        new_tactic_names = sorted({e["tactic"]["name"] for e in threat_dicts if e.get("tactic")})
+        existing_tags = list(rule.contents.data.tags or [])
+        added_tags = [f"Tactic: {n}" for n in new_tactic_names if f"Tactic: {n}" not in existing_tags]
+        new_tags = existing_tags + added_tags
+
         click.echo(f"  [ok]   {rule.name}: generated {target_version} mapping ({len(threat_dicts)} tactic(s))")
+        if moved:
+            click.secho(f"         migrated: {', '.join(moved)}", fg="cyan")
         if dropped:
             click.secho(f"         dropped (not in config): {', '.join(dropped)}", fg="yellow")
+        if added_tags:
+            click.secho(f"         tags added: {', '.join(added_tags)}", fg="green")
 
         if not dry_run:
             new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
-            new_data = dataclasses.replace(rule.contents.data, threat_mappings=new_blocks)
+            new_data = dataclasses.replace(rule.contents.data, threat_mappings=new_blocks, tags=new_tags)
             new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
             new_rule = TOMLRule(contents=new_contents, path=rule.path)
             new_rule.save_toml()

@@ -101,7 +101,7 @@ class TestThreatHashStability(unittest.TestCase):
         return self._load(rule_dict).contents.get_hash()
 
     def test_tactic_id_change_changes_hash(self) -> None:
-        """Assert that changing a tactic ID produces a different hash."""
+        """Assert that changing a tactic ID produces a different hash (v18 context)."""
         tactic_a = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tactic_b = {"id": "TA0002", "name": "Execution", "reference": "https://attack.mitre.org/tactics/TA0002/"}
         tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
@@ -109,10 +109,11 @@ class TestThreatHashStability(unittest.TestCase):
         rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_a, "technique": [tech]}]
         rule_b = _rule()
         rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic_b, "technique": [tech]}]
-        self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
+        with ThreatMappingEnv("18"):
+            self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
 
     def test_technique_id_change_changes_hash(self) -> None:
-        """Assert that changing a technique ID produces a different hash."""
+        """Assert that changing a technique ID produces a different hash (v18 context)."""
         tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tech_a = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
         tech_b = {"id": "T1027", "name": "Obfuscated Files", "reference": "https://attack.mitre.org/techniques/T1027/"}
@@ -120,17 +121,19 @@ class TestThreatHashStability(unittest.TestCase):
         rule_a["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_a]}]
         rule_b = _rule()
         rule_b["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech_b]}]
-        self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
+        with ThreatMappingEnv("18"):
+            self.assertNotEqual(self._hash(rule_a), self._hash(rule_b))
 
     def test_removing_technique_changes_hash(self) -> None:
-        """Assert that removing a technique from a threat block produces a different hash."""
+        """Assert that removing a technique from a threat block produces a different hash (v18 context)."""
         tactic = {"id": "TA0005", "name": "Defense Evasion", "reference": "https://attack.mitre.org/tactics/TA0005/"}
         tech = {"id": "T1036", "name": "Masquerading", "reference": "https://attack.mitre.org/techniques/T1036/"}
         with_tech = _rule()
         with_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic, "technique": [tech]}]
         without_tech = _rule()
         without_tech["threat"] = [{"framework": "MITRE ATT&CK", "tactic": tactic}]
-        self.assertNotEqual(self._hash(with_tech), self._hash(without_tech))
+        with ThreatMappingEnv("18"):
+            self.assertNotEqual(self._hash(with_tech), self._hash(without_tech))
 
 
 class TestVersionedThreatMappingSchema(unittest.TestCase):
@@ -162,16 +165,18 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         self.assertNotIn("threat_mappings", api)
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (v19)")
 
-    def test_auto_converts_when_no_threat_mappings_block(self) -> None:
-        """Assert that v19 output is auto-converted from baseline when no threat_mappings block exists."""
+    def test_falls_back_to_baseline_when_no_threat_mappings_block(self) -> None:
+        """Assert that v19 output falls back to the baseline threat when no threat_mappings block exists."""
         rule = self._load(_rule())  # no threat_mappings — baseline only
         with ThreatMappingEnv("19"):
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
+        # Baseline threat should be emitted unchanged (same tactic/technique as authored in v18)
         tactic = api["threat"][0]["tactic"]
-        # TA0001 (Initial Access) name is unchanged in v19
-        self.assertEqual(tactic["id"], "TA0001")
-        self.assertIn("name", tactic)
+        self.assertEqual(tactic["id"], TACTIC["id"])
+        self.assertEqual(tactic["name"], TACTIC["name"])
+        tech = api["threat"][0]["technique"][0]
+        self.assertEqual(tech["id"], TECH_V18["id"])
 
     def test_explicit_threat_mappings_overrides_auto_conversion(self) -> None:
         """Assert that an explicit threat_mappings block takes precedence over auto-conversion."""
@@ -395,24 +400,33 @@ class TestRemapThreatEntry(unittest.TestCase):
             entry = self._entry("TA0001", "Initial Access", "T1078", "Valid Accounts")
             dropped: list[str] = []
             result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups)
-            self.assertIsNotNone(result)
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0]["tactic"]["id"], "TA0001")
             self.assertEqual(dropped, [])
 
-    def test_technique_moved_to_new_tactic_is_dropped(self) -> None:
-        """Assert that a technique no longer under its source tactic in v19 is dropped with an explanation."""
+    def test_technique_moved_to_new_tactic_follows_migration(self) -> None:
+        """Assert that a technique that migrated to a new tactic in v19 is emitted under that tactic."""
         from detection_rules.devtools import _remap_threat_entry
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
             lookups = attack.build_attack_lookups_for_version("19")
-            # T1112 (Modify Registry) was under TA0005 in v18 but moved to TA0112 in v19
+            # T1112 (Modify Registry) was under TA0005 in v18 but migrated to TA0112 in v19
             entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
             dropped: list[str] = []
-            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups)
-            self.assertIsNotNone(result)  # tactic entry still emitted (may have other techniques)
-            self.assertEqual(len(dropped), 1)
-            self.assertIn("T1112", dropped[0])
-            self.assertIn("TA0112", dropped[0])
+            moved: list[str] = []
+            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups, moved)
+            self.assertEqual(dropped, [])  # not dropped — followed its migration
+            self.assertEqual(len(moved), 1)
+            self.assertIn("T1112", moved[0])
+            self.assertIn("TA0112", moved[0])
+            # Result should contain TA0112 entry with T1112, not the original TA0005
+            tactic_ids = [e["tactic"]["id"] for e in result]
+            self.assertIn("TA0112", tactic_ids)
+            self.assertNotIn("TA0005", tactic_ids)
+            ta0112_entry = next(e for e in result if e["tactic"]["id"] == "TA0112")
+            tech_ids = [t["id"] for t in ta0112_entry.get("technique", [])]
+            self.assertIn("T1112", tech_ids)
 
     def test_no_target_lookups_skips_validation(self) -> None:
         """Assert that tactic-membership validation is skipped when target_lookups is None."""
@@ -448,7 +462,7 @@ class TestRemapThreatEntry(unittest.TestCase):
             entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
             dropped: list[str] = []
             result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, target_lookups=None)
-            self.assertIsNotNone(result)
+            self.assertEqual(len(result), 1)
             self.assertEqual(dropped, [])  # no validation without target_lookups
 
 
