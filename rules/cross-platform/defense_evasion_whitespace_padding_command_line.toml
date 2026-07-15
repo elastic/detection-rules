@@ -88,7 +88,9 @@ query = '''
 FROM logs-* metadata _id, _version, _index 
 | where event.category == "process" and event.type == "start" and event.action != "fork"
 // more than 100 spaces in process.command_line
-| eval multi_spaces = LOCATE(process.command_line, space(100)) 
+// trim first so trailing/leading padding from process-title rewrites (setproctitle) is ignored;
+// only internal runs of 100+ spaces — actual command obfuscation — will match
+| eval multi_spaces = LOCATE(TRIM(process.command_line), space(100))
 | where multi_spaces > 0 
 | keep user.name, host.id, host.name, process.command_line, process.executable, process.parent.executable, _id, _version, _index
 '''
