@@ -1380,14 +1380,9 @@ class BaseRuleContents(ABC):
             return
 
         if not threat_mappings:
-            if obj.get("threat"):
-                logger.warning(
-                    "No threat mapping for framework '%s' version '%s' on rule '%s'; "
-                    "emitting the default `threat` mapping instead.",
-                    framework,
-                    version,
-                    obj.get("name", obj.get("rule_id", "<unknown>")),
-                )
+            # Rule has no versioned blocks at all — baseline is used silently.
+            # This is the normal state for any rule not yet converted; warning here
+            # would fire on every to_api_format() call for the entire rule set.
             return
 
         selected = next(

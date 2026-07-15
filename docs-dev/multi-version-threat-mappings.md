@@ -43,10 +43,11 @@ matches its wrapper.
 At build time (`TOMLRuleContents.to_api_format`), the configured framework/version is emitted as
 `threat`:
 
-- Default is the baseline `(MITRE ATT&CK, 18)` — `threat` is emitted unchanged.
-- When another version is configured, the matching `threat_mappings` block is emitted as `threat`.
-- If a rule has no block for the requested version, its baseline `threat` is emitted (with a warning),
-  so packaging never breaks.
+- **Stack ≤ 9.4** — v18 (the baseline `threat` field) is emitted unchanged.
+- **Stack ≥ 9.5** — v19 is auto-promoted: the matching `threat_mappings` block is emitted as `threat`.
+  Rules without a v19 block silently fall back to the baseline `threat`.
+- Setting `DR_THREAT_MAPPING_VERSION` (or `threat_mapping_version` in `_config.yaml`) explicitly
+  overrides auto-promotion for both directions.
 - `threat_mappings` is always stripped from the API output.
 
 Set the output version with either config keys or environment variables (env takes precedence):

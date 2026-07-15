@@ -28,9 +28,10 @@ ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
 
 # Output threat-mapping selection (which framework/version is emitted as the API `threat`).
-# Defaults to MITRE ATT&CK v18 (the value stored in the rule `threat` field). Either may be
-# overridden via _config.yaml (`threat_mapping_framework` / `threat_mapping_version`) or the
-# environment variables below, with the environment taking precedence.
+# Defaults to MITRE ATT&CK v18 for stacks <= 9.4; auto-promotes to v19 for stacks >= 9.5.
+# Either may be overridden via _config.yaml (`threat_mapping_framework` /
+# `threat_mapping_version`) or the environment variables below, with the environment taking
+# precedence (an explicit env var suppresses auto-promotion).
 DEFAULT_THREAT_MAPPING_FRAMEWORK = "MITRE ATT&CK"
 DEFAULT_THREAT_MAPPING_VERSION = "18"
 THREAT_MAPPING_FRAMEWORK_ENV = "DR_THREAT_MAPPING_FRAMEWORK"

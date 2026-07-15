@@ -652,9 +652,10 @@ As a result, all cases where rules are shown or converted to JSON are not just s
 
 Rules can carry more than one ATT&CK mapping at once. The `threat` field holds the baseline mapping
 (MITRE ATT&CK v18) that ships to Kibana, while an optional `threat_mappings` field holds additional
-version-tagged mappings (e.g. v19). At build time exactly one mapping is emitted as the API `threat`
-(default: the baseline), selected via the `threat_mapping_framework` / `threat_mapping_version` config
-keys or the `DR_THREAT_MAPPING_FRAMEWORK` / `DR_THREAT_MAPPING_VERSION` environment variables;
+version-tagged mappings (e.g. v19). At build time exactly one mapping is emitted as the API `threat`,
+selected automatically by stack version (≤ 9.4 → v18, ≥ 9.5 → v19) or overridden explicitly via
+the `threat_mapping_framework` / `threat_mapping_version` config keys or the
+`DR_THREAT_MAPPING_FRAMEWORK` / `DR_THREAT_MAPPING_VERSION` environment variables;
 `threat_mappings` is always stripped from the shipped artifact.
 
 Generate a target-version mapping from a rule's existing mapping with

@@ -94,9 +94,11 @@ normalize_kql_keywords: False
 # ---------------------------------------------------------
 # Rules may carry additional framework/version-tagged threat mappings in the `threat_mappings` field
 # alongside the default `threat` field. At build time exactly one mapping is emitted as the API
-# `threat`; by default that is the baseline stored in `threat` (MITRE ATT&CK v18). Override which
-# framework/version is emitted with the keys below (or the DR_THREAT_MAPPING_FRAMEWORK /
-# DR_THREAT_MAPPING_VERSION environment variables, which take precedence):
+# `threat`. The version emitted is chosen automatically based on the target stack:
+#   stack <= 9.4  ->  v18 (the baseline stored in `threat`)
+#   stack >= 9.5  ->  v19 (auto-promoted; requires rules to have v19 `threat_mappings` blocks)
+# Override the framework/version explicitly with the keys below (or the DR_THREAT_MAPPING_FRAMEWORK /
+# DR_THREAT_MAPPING_VERSION environment variables, which take precedence and suppress auto-promotion):
 # threat_mapping_framework: "MITRE ATT&CK"
 # threat_mapping_version: "18"
 #
