@@ -1884,7 +1884,7 @@ def _remap_threat_entry(  # noqa: PLR0913
         return entries_by_tactic[tid]
 
     if tactic_only:
-        _get_or_create(tactic_dest)
+        _ = _get_or_create(tactic_dest)
     else:
         for technique in entry.technique or []:
             tech_dest = vmap.resolve("technique", technique.id, target_lookups)
@@ -2015,7 +2015,7 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
 
         dropped: list[str] = []
         moved: list[str] = []
-        threat_dicts: list[dict] = []
+        threat_dicts: list[dict[str, Any]] = []
         for entry in source_threat:
             threat_dicts.extend(_remap_threat_entry(entry, vmap, framework, dropped, target_lookups, moved))
 
@@ -2036,7 +2036,9 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
         new_blocks = sorted([*remaining, block], key=lambda b: (b.framework, b.version))
 
         # Collect new tactic tags from the generated block and merge with existing tags.
-        new_tactic_names = sorted({e["tactic"]["name"] for e in threat_dicts if e.get("tactic")})
+        new_tactic_names: list[str] = sorted(
+            {str(e["tactic"]["name"]) for e in threat_dicts if e.get("tactic")}
+        )
         existing_tags = list(rule.contents.data.tags or [])
         added_tags = [f"Tactic: {n}" for n in new_tactic_names if f"Tactic: {n}" not in existing_tags]
         new_tags = existing_tags + added_tags

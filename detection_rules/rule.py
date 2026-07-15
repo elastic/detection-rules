@@ -1370,7 +1370,7 @@ class BaseRuleContents(ABC):
         from . import attack
         from .config import DEFAULT_THREAT_MAPPING_FRAMEWORK, DEFAULT_THREAT_MAPPING_VERSION
 
-        threat_mappings = obj.pop("threat_mappings", None)
+        threat_mappings: list[dict[str, Any]] | None = obj.pop("threat_mappings", None)
 
         framework, version = attack.resolve_output_threat_version()
 
@@ -1379,7 +1379,7 @@ class BaseRuleContents(ABC):
         if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
             return
 
-        selected = next(
+        selected: dict[str, Any] | None = next(
             (
                 block
                 for block in (threat_mappings or [])

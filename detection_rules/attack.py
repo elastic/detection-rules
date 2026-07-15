@@ -633,15 +633,15 @@ def convert_threat_to_version(  # noqa: PLR0912
             passthru.append(entry)
             continue
 
-        tactic = entry.get("tactic") or {}
+        tactic: dict[str, Any] = entry.get("tactic") or {}
         tactic_dest = vmap.resolve("tactic", tactic.get("id", ""), target_lookups)
         if tactic_dest is None:
             continue
 
-        source_techniques = entry.get("technique") or []
+        source_techniques: list[dict[str, Any]] = entry.get("technique") or []
         if not source_techniques:
             tactic_only_ids.add(tactic_dest["id"])
-            _get_or_create(tactic_dest)
+            _ = _get_or_create(tactic_dest)
             continue
 
         for technique in source_techniques:
@@ -650,7 +650,8 @@ def convert_threat_to_version(  # noqa: PLR0912
                 continue
 
             new_subs: list[dict[str, Any]] = []
-            for sub in technique.get("subtechnique") or []:
+            raw_subs: list[dict[str, Any]] = technique.get("subtechnique") or []
+            for sub in raw_subs:
                 sub_dest = vmap.resolve("subtechnique", sub.get("id", ""), target_lookups)
                 if sub_dest is None:
                     continue
