@@ -567,6 +567,101 @@ def build_identity_version_map(framework: str, source_version: str, target_versi
 _THREAT_MAPPING_V19_MIN_STACK = Version(9, 5, 0)
 
 
+@cached
+def _get_default_version_map(framework: str, source_version: str, target_version: str) -> "AttackVersionMap | None":
+    """Return the default configured version map for a triple, cached; None if unavailable."""
+    try:
+        return get_attack_version_map(framework, source_version, target_version)
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def convert_threat_to_version(
+    threat: list[dict[str, Any]],
+    source_version: str,
+    target_version: str,
+    framework: str,
+) -> list[dict[str, Any]]:
+    """Auto-convert a raw threat list to a target version using the version map and STIX data.
+
+    Entries whose framework does not match are passed through unchanged.
+    Techniques/subtechniques that no longer belong to their tactic in the target version are
+    silently dropped. Returns an empty list when no version map is available.
+    """
+    vmap = _get_default_version_map(framework, source_version, target_version)
+    if vmap is None:
+        return []
+    try:
+        target_lookups = build_attack_lookups_for_version(target_version)
+    except FileNotFoundError:
+        return []
+
+    tgt_tactic_id_to_name = {v: k for k, v in target_lookups.tactics_map.items()}
+    tgt_tech_to_tactic_names: dict[str, list[str]] = {}
+    for tname, tids in target_lookups.matrix.items():
+        for tid in tids:
+            tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
+
+    result: list[dict[str, Any]] = []
+    for entry in threat:
+        if entry.get("framework") != framework:
+            result.append(entry)
+            continue
+
+        tactic = entry.get("tactic") or {}
+        tactic_dest = vmap.resolve("tactic", tactic.get("id", ""), target_lookups)
+        if tactic_dest is None:
+            continue
+
+        tgt_tactic_name = tgt_tactic_id_to_name.get(tactic_dest["id"])
+
+        new_techniques: list[dict[str, Any]] = []
+        for technique in entry.get("technique") or []:
+            tech_dest = vmap.resolve("technique", technique.get("id", ""), target_lookups)
+            if tech_dest is None:
+                continue
+            if (
+                tgt_tactic_name
+                and tech_dest["id"] in tgt_tech_to_tactic_names
+                and tgt_tactic_name not in tgt_tech_to_tactic_names[tech_dest["id"]]
+            ):
+                continue
+            new_tech: dict[str, Any] = {
+                "id": tech_dest["id"],
+                "name": tech_dest["name"],
+                "reference": tech_dest["reference"],
+            }
+            new_subs: list[dict[str, Any]] = []
+            for sub in technique.get("subtechnique") or []:
+                sub_dest = vmap.resolve("subtechnique", sub.get("id", ""), target_lookups)
+                if sub_dest is None:
+                    continue
+                if (
+                    tgt_tactic_name
+                    and sub_dest["id"] in tgt_tech_to_tactic_names
+                    and tgt_tactic_name not in tgt_tech_to_tactic_names[sub_dest["id"]]
+                ):
+                    continue
+                new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
+            if new_subs:
+                new_tech["subtechnique"] = new_subs
+            new_techniques.append(new_tech)
+
+        new_entry: dict[str, Any] = {
+            "framework": framework,
+            "tactic": {
+                "id": tactic_dest["id"],
+                "name": tactic_dest["name"],
+                "reference": tactic_dest["reference"],
+            },
+        }
+        if new_techniques:
+            new_entry["technique"] = new_techniques
+        result.append(new_entry)
+
+    return result
+
+
 def resolve_output_threat_version() -> tuple[str, str]:
     """Resolve which (framework, version) threat mapping should be emitted as the API `threat`."""
     from .config import (

@@ -1379,30 +1379,31 @@ class BaseRuleContents(ABC):
         if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
             return
 
-        if not threat_mappings:
-            # Rule has no versioned blocks at all — baseline is used silently.
-            # This is the normal state for any rule not yet converted; warning here
-            # would fire on every to_api_format() call for the entire rule set.
-            return
-
+        # Explicit threat_mappings block takes precedence over auto-conversion.
         selected = next(
             (
                 block
-                for block in threat_mappings
+                for block in (threat_mappings or [])
                 if block.get("framework") == framework and str(block.get("version")) == str(version)
             ),
             None,
         )
         if selected is not None:
             obj["threat"] = selected.get("threat", [])
-        elif obj.get("threat"):
-            logger.warning(
-                "No threat mapping for framework '%s' version '%s' on rule '%s'; "
-                "emitting the default `threat` mapping instead.",
-                framework,
-                version,
-                obj.get("name", obj.get("rule_id", "<unknown>")),
-            )
+            return
+
+        # No explicit block — auto-convert the baseline threat using the version map.
+        from .config import DEFAULT_THREAT_MAPPING_VERSION
+
+        converted = attack.convert_threat_to_version(
+            obj.get("threat", []),
+            source_version=DEFAULT_THREAT_MAPPING_VERSION,
+            target_version=version,
+            framework=framework,
+        )
+        if converted:
+            obj["threat"] = converted
+        # else: no version map available or all entries dropped — silently keep baseline
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""

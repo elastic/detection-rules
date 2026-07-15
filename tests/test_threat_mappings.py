@@ -162,6 +162,32 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         self.assertNotIn("threat_mappings", api)
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (v19)")
 
+    def test_auto_converts_when_no_threat_mappings_block(self) -> None:
+        """Assert that v19 output is auto-converted from baseline when no threat_mappings block exists."""
+        rule = self._load(_rule())  # no threat_mappings — baseline only
+        with ThreatMappingEnv("19"):
+            api = rule.contents.to_api_format()
+        self.assertNotIn("threat_mappings", api)
+        tactic = api["threat"][0]["tactic"]
+        # TA0001 (Initial Access) name is unchanged in v19
+        self.assertEqual(tactic["id"], "TA0001")
+        self.assertIn("name", tactic)
+
+    def test_explicit_threat_mappings_overrides_auto_conversion(self) -> None:
+        """Assert that an explicit threat_mappings block takes precedence over auto-conversion."""
+        custom_tactic = {"id": "TA0001", "name": "Custom Name Override", "reference": "https://attack.mitre.org/tactics/TA0001/"}
+        custom_tech = {"id": "T1078", "name": "Custom Tech Name", "reference": "https://attack.mitre.org/techniques/T1078/"}
+        override_block = {
+            "framework": "MITRE ATT&CK",
+            "version": "19",
+            "threat": [{"framework": "MITRE ATT&CK", "tactic": custom_tactic, "technique": [custom_tech]}],
+        }
+        rule = self._load(_rule(threat_mappings=[override_block]))
+        with ThreatMappingEnv("19"):
+            api = rule.contents.to_api_format()
+        self.assertEqual(api["threat"][0]["tactic"]["name"], "Custom Name Override")
+        self.assertEqual(api["threat"][0]["technique"][0]["name"], "Custom Tech Name")
+
     def test_missing_version_falls_back_to_default(self) -> None:
         """Assert that requesting an unconfigured version falls back to the baseline threat."""
         rule = self._load(_rule(threat_mappings=[_v19_block()]))
