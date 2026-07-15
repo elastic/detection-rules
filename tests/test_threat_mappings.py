@@ -268,6 +268,56 @@ class TestAttackVersionMapLoader(unittest.TestCase):
             with self.assertRaises(ValueError):
                 attack.load_attack_version_maps([Path(tmp)])
 
+    def test_resolve_explicit_entry_wins(self) -> None:
+        """Assert that resolve() returns the explicit config entry even when target_lookups is provided."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(Path(tmp), "m.yaml", self.MAP)
+            vmap = attack.parse_attack_version_map(path)
+            lookups = attack.build_attack_lookups_for_version("19")
+            # T1078 is in the explicit config → must return that, not STIX
+            self.assertEqual(vmap.resolve("technique", "T1078", lookups), TECH_V19)
+            # T1100 is explicitly null → must return None even with lookups present
+            self.assertIsNone(vmap.resolve("technique", "T1100", lookups))
+
+    def test_resolve_absent_without_auto_derive(self) -> None:
+        """Assert that resolve() drops an absent id when auto_derive_missing is False."""
+        with TemporaryDirectory() as tmp:
+            path = self._write(Path(tmp), "m.yaml", self.MAP)
+            vmap = attack.parse_attack_version_map(path)
+            self.assertFalse(vmap.auto_derive_missing)
+            lookups = attack.build_attack_lookups_for_version("19")
+            self.assertIsNone(vmap.resolve("technique", "T9999", lookups))
+
+    def test_resolve_absent_with_auto_derive(self) -> None:
+        """Assert that resolve() auto-derives from STIX when auto_derive_missing is True and id exists in v19."""
+        lean_map = {**self.MAP, "auto_derive_missing": True, "techniques": {}}
+        with TemporaryDirectory() as tmp:
+            path = self._write(Path(tmp), "lean.yaml", lean_map)
+            vmap = attack.parse_attack_version_map(path)
+            self.assertTrue(vmap.auto_derive_missing)
+            lookups = attack.build_attack_lookups_for_version("19")
+            # T1078 (Valid Accounts) exists in v19 and is not revoked
+            result = vmap.resolve("technique", "T1078", lookups)
+            self.assertIsNotNone(result)
+            assert result is not None
+            self.assertEqual(result["id"], "T1078")
+            self.assertIn("name", result)
+            self.assertTrue(result["reference"].endswith("/"))
+
+    def test_resolve_tactic_auto_derive(self) -> None:
+        """Assert that resolve() auto-derives tactic details from STIX when absent from config."""
+        lean_map = {**self.MAP, "auto_derive_missing": True, "tactics": {}}
+        with TemporaryDirectory() as tmp:
+            path = self._write(Path(tmp), "lean.yaml", lean_map)
+            vmap = attack.parse_attack_version_map(path)
+            lookups = attack.build_attack_lookups_for_version("19")
+            result = vmap.resolve("tactic", "TA0001", lookups)
+            self.assertIsNotNone(result)
+            assert result is not None
+            self.assertEqual(result["id"], "TA0001")
+            self.assertIn("name", result)
+            self.assertIn("reference", result)
+
 
 class TestIdentityScaffold(unittest.TestCase):
     """Tests for build_identity_version_map scaffold generation."""

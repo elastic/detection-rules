@@ -1824,16 +1824,17 @@ def _remap_threat_entry(
     vmap: "attack.AttackVersionMap",
     framework: str,
     dropped: list[str],
+    target_lookups: "attack.AttackLookups | None" = None,
 ) -> dict[str, Any] | None:
     """Build a target-version threat entry from a source entry using the mapping config."""
-    tactic_dest = vmap.lookup("tactic", entry.tactic.id)
+    tactic_dest = vmap.resolve("tactic", entry.tactic.id, target_lookups)
     if tactic_dest is None:
         dropped.append(f"tactic {entry.tactic.id} ({entry.tactic.name})")
         return None
 
     techniques: list[dict[str, Any]] = []
     for technique in entry.technique or []:
-        tech_dest = vmap.lookup("technique", technique.id)
+        tech_dest = vmap.resolve("technique", technique.id, target_lookups)
         if tech_dest is None:
             dropped.append(f"technique {technique.id} ({technique.name})")
             continue
@@ -1845,7 +1846,7 @@ def _remap_threat_entry(
         }
         subtechniques: list[dict[str, Any]] = []
         for sub in technique.subtechnique or []:
-            sub_dest = vmap.lookup("subtechnique", sub.id)
+            sub_dest = vmap.resolve("subtechnique", sub.id, target_lookups)
             if sub_dest is None:
                 dropped.append(f"subtechnique {sub.id} ({sub.name})")
                 continue
@@ -1924,9 +1925,18 @@ def convert_threat_mappings(  # noqa: PLR0913
     except (FileNotFoundError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
 
+    target_lookups: attack.AttackLookups | None = None
+    if vmap.auto_derive_missing:
+        try:
+            target_lookups = attack.build_attack_lookups_for_version(target_version)
+        except FileNotFoundError as exc:
+            raise click.ClickException(
+                f"auto_derive_missing=true requires ATT&CK STIX data for version {target_version!r}: {exc}"
+            ) from exc
+
     click.echo(
         f"Converting {framework} {source_version} -> {target_version} using config: {vmap.path}\n"
-        f"({len(rules)} rules in scope; dry-run={dry_run})\n"
+        f"({len(rules)} rules in scope; dry-run={dry_run}; auto_derive_missing={vmap.auto_derive_missing})\n"
     )
 
     today = time.strftime("%Y/%m/%d")
@@ -1950,7 +1960,9 @@ def convert_threat_mappings(  # noqa: PLR0913
         dropped: list[str] = []
         threat_dicts = [
             converted
-            for converted in (_remap_threat_entry(entry, vmap, framework, dropped) for entry in source_threat)
+            for converted in (
+                _remap_threat_entry(entry, vmap, framework, dropped, target_lookups) for entry in source_threat
+            )
             if converted
         ]
 

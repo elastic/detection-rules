@@ -130,6 +130,7 @@ class AttackLookups:
 
     version: str
     tactics_map: dict[str, str]
+    tactic_id_to_detail: dict[str, dict[str, str]]
     technique_lookup: OrderedDict  # type: ignore[type-arg]
     revoked: dict[str, Any]
     deprecated: dict[str, Any]
@@ -139,13 +140,18 @@ class AttackLookups:
 def _build_lookups(version: str, raw: dict[str, Any]) -> AttackLookups:
     """Build ATT&CK lookup structures from raw STIX data."""
     _tactics_map: dict[str, str] = {}
+    _tactic_id_to_detail: dict[str, dict[str, str]] = {}
     _technique_lookup: dict[str, Any] = {}
     _revoked: dict[str, Any] = {}
     _deprecated: dict[str, Any] = {}
 
     for item in raw["objects"]:
         if item["type"] == "x-mitre-tactic":
-            _tactics_map[item["name"]] = item["external_references"][0]["external_id"]
+            tactic_name = item["name"]
+            tactic_id = item["external_references"][0]["external_id"]
+            tactic_url = item["external_references"][0].get("url", f"https://attack.mitre.org/tactics/{tactic_id}/")
+            _tactics_map[tactic_name] = tactic_id
+            _tactic_id_to_detail[tactic_id] = {"id": tactic_id, "name": tactic_name, "reference": tactic_url}
         if item["type"] == "attack-pattern" and item["external_references"][0]["source_name"] == "mitre-attack":
             tid = item["external_references"][0]["external_id"]
             _technique_lookup[tid] = item
@@ -174,6 +180,7 @@ def _build_lookups(version: str, raw: dict[str, Any]) -> AttackLookups:
     return AttackLookups(
         version=version,
         tactics_map=_tactics_map,
+        tactic_id_to_detail=_tactic_id_to_detail,
         technique_lookup=OrderedDict(sorted(_technique_lookup.items())),
         revoked=dict(sorted(_revoked.items())),
         deprecated=dict(sorted(_deprecated.items())),
@@ -364,6 +371,7 @@ class AttackVersionMap:
     tactics: dict[str, dict[str, str] | None] = field(default_factory=dict)  # type: ignore[reportUnknownVariableType]
     techniques: dict[str, dict[str, str] | None] = field(default_factory=dict)  # type: ignore[reportUnknownVariableType]
     subtechniques: dict[str, dict[str, str] | None] = field(default_factory=dict)  # type: ignore[reportUnknownVariableType]
+    auto_derive_missing: bool = False
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -382,6 +390,35 @@ class AttackVersionMap:
     def lookup(self, kind: str, source_id: str) -> dict[str, str] | None:
         """Return the destination entry for a source id, or ``None`` if dropped/absent."""
         return self._table(kind).get(source_id)
+
+    def resolve(
+        self, kind: str, source_id: str, target_lookups: "AttackLookups | None" = None
+    ) -> dict[str, str] | None:
+        """Return the destination entry; explicit config takes precedence, then auto-derives from STIX if enabled."""
+        table = self._table(kind)
+        if source_id in table:
+            return table[source_id]
+        if self.auto_derive_missing and target_lookups is not None:
+            return self._derive_from_stix(kind, source_id, target_lookups)
+        return None
+
+    def _derive_from_stix(self, kind: str, source_id: str, target_lookups: "AttackLookups") -> dict[str, str] | None:
+        """Derive a destination entry from STIX target data for a source id not in the config."""
+        url_base = "https://attack.mitre.org/{type}/{id}/"
+        if kind == "tactic":
+            detail = target_lookups.tactic_id_to_detail.get(source_id)
+            if detail is None:
+                return None
+            return dict(detail)
+        if kind in ("technique", "subtechnique"):
+            item = target_lookups.technique_lookup.get(source_id)
+            if item is None or item.get("revoked") or item.get("x_mitre_deprecated"):
+                return None
+            url_id = source_id.replace(".", "/")
+            raw_url = item["external_references"][0].get("url", url_base.format(type="techniques", id=url_id))
+            url = raw_url if raw_url.endswith("/") else raw_url + "/"
+            return {"id": source_id, "name": item["name"], "reference": url}
+        return None
 
 
 def parse_attack_version_map(path: Path) -> AttackVersionMap:
@@ -410,6 +447,7 @@ def parse_attack_version_map(path: Path) -> AttackVersionMap:
         tactics=_validate_table(raw.get("tactics") or {}, "tactics"),
         techniques=_validate_table(raw.get("techniques") or {}, "techniques"),
         subtechniques=_validate_table(raw.get("subtechniques") or {}, "subtechniques"),
+        auto_derive_missing=bool(raw.get("auto_derive_missing", False)),
     )
 
 
