@@ -654,9 +654,7 @@ def convert_threat_to_version(  # noqa: PLR0912
                 sub_dest = vmap.resolve("subtechnique", sub.get("id", ""), target_lookups)
                 if sub_dest is None:
                     continue
-                new_subs.append(
-                    {"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]}
-                )
+                new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
 
             new_tech: dict[str, Any] = {
                 "id": tech_dest["id"],

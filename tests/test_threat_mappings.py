@@ -180,8 +180,16 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
 
     def test_explicit_threat_mappings_overrides_auto_conversion(self) -> None:
         """Assert that an explicit threat_mappings block takes precedence over auto-conversion."""
-        custom_tactic = {"id": "TA0001", "name": "Custom Name Override", "reference": "https://attack.mitre.org/tactics/TA0001/"}
-        custom_tech = {"id": "T1078", "name": "Custom Tech Name", "reference": "https://attack.mitre.org/techniques/T1078/"}
+        custom_tactic = {
+            "id": "TA0001",
+            "name": "Custom Name Override",
+            "reference": "https://attack.mitre.org/tactics/TA0001/",
+        }
+        custom_tech = {
+            "id": "T1078",
+            "name": "Custom Tech Name",
+            "reference": "https://attack.mitre.org/techniques/T1078/",
+        }
         override_block = {
             "framework": "MITRE ATT&CK",
             "version": "19",
