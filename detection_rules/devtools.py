@@ -1832,11 +1832,44 @@ def _remap_threat_entry(
         dropped.append(f"tactic {entry.tactic.id} ({entry.tactic.name})")
         return None
 
+    # Pre-build an inverted matrix (tid -> tactic names) for tactic-membership validation.
+    # This catches techniques that moved to a different tactic between versions (e.g. v18 TA0005
+    # techniques that moved to TA0112 in v19) so they are dropped rather than emitted under the
+    # wrong tactic.
+    tgt_tactic_id_to_name: dict[str, str] = {}
+    tgt_tech_to_tactic_names: dict[str, list[str]] = {}
+    if target_lookups is not None:
+        tgt_tactic_id_to_name = {v: k for k, v in target_lookups.tactics_map.items()}
+        for tname, tids in target_lookups.matrix.items():
+            for tid in tids:
+                tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
+
+    def _under_tactic(tech_id: str, tech_name: str, kind: str) -> bool:
+        """Return True if tech_id belongs to the mapped tactic in the target version."""
+        if not tgt_tactic_id_to_name:
+            return True
+        tgt_tactic_name = tgt_tactic_id_to_name.get(tactic_dest["id"])
+        if not tgt_tactic_name or tech_id not in tgt_tech_to_tactic_names:
+            return True
+        if tgt_tactic_name in tgt_tech_to_tactic_names[tech_id]:
+            return True
+        actual = ", ".join(
+            f"{target_lookups.tactics_map.get(t, t)} ({t})"  # type: ignore[union-attr]
+            for t in tgt_tech_to_tactic_names[tech_id]
+        )
+        dropped.append(
+            f"{kind} {tech_id} ({tech_name}) — not under {tactic_dest['id']} ({tactic_dest['name']}) "
+            f"in v{target_lookups.version} (now under: {actual})"  # type: ignore[union-attr]
+        )
+        return False
+
     techniques: list[dict[str, Any]] = []
     for technique in entry.technique or []:
         tech_dest = vmap.resolve("technique", technique.id, target_lookups)
         if tech_dest is None:
             dropped.append(f"technique {technique.id} ({technique.name})")
+            continue
+        if not _under_tactic(tech_dest["id"], tech_dest["name"], "technique"):
             continue
 
         new_technique: dict[str, Any] = {
@@ -1849,6 +1882,8 @@ def _remap_threat_entry(
             sub_dest = vmap.resolve("subtechnique", sub.id, target_lookups)
             if sub_dest is None:
                 dropped.append(f"subtechnique {sub.id} ({sub.name})")
+                continue
+            if not _under_tactic(sub_dest["id"], sub_dest["name"], "subtechnique"):
                 continue
             subtechniques.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
         if subtechniques:

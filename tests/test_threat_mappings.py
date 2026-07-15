@@ -319,6 +319,113 @@ class TestAttackVersionMapLoader(unittest.TestCase):
             self.assertIn("reference", result)
 
 
+class TestRemapThreatEntry(unittest.TestCase):
+    """Tactic-membership validation in _remap_threat_entry."""
+
+    def _lean_vmap(self, tmp: Path) -> "attack.AttackVersionMap":
+        """Return a lean auto_derive_missing vmap written to tmp."""
+        import yaml
+
+        data = {
+            "framework": "MITRE ATT&CK",
+            "source_version": "18",
+            "target_version": "19",
+            "auto_derive_missing": True,
+        }
+        path = tmp / "lean.yaml"
+        path.write_text(yaml.safe_dump(data))
+        return attack.parse_attack_version_map(path)
+
+    def _entry(self, tactic_id: str, tactic_name: str, tech_id: str, tech_name: str) -> Any:
+        """Return a ThreatMapping with a single technique under the given tactic."""
+        from detection_rules.rule import ThreatMapping
+
+        return ThreatMapping.from_dict(
+            {
+                "framework": "MITRE ATT&CK",
+                "tactic": {
+                    "id": tactic_id,
+                    "name": tactic_name,
+                    "reference": f"https://attack.mitre.org/tactics/{tactic_id}/",
+                },
+                "technique": [
+                    {
+                        "id": tech_id,
+                        "name": tech_name,
+                        "reference": f"https://attack.mitre.org/techniques/{tech_id}/",
+                    }
+                ],
+            }
+        )
+
+    def test_technique_under_correct_tactic_passes(self) -> None:
+        """Assert that a technique still under its source tactic in v19 is kept."""
+        from detection_rules.devtools import _remap_threat_entry
+
+        with TemporaryDirectory() as tmp:
+            vmap = self._lean_vmap(Path(tmp))
+            lookups = attack.build_attack_lookups_for_version("19")
+            # T1078 (Valid Accounts) is under TA0001 (Initial Access) in both v18 and v19
+            entry = self._entry("TA0001", "Initial Access", "T1078", "Valid Accounts")
+            dropped: list[str] = []
+            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups)
+            self.assertIsNotNone(result)
+            self.assertEqual(dropped, [])
+
+    def test_technique_moved_to_new_tactic_is_dropped(self) -> None:
+        """Assert that a technique no longer under its source tactic in v19 is dropped with an explanation."""
+        from detection_rules.devtools import _remap_threat_entry
+
+        with TemporaryDirectory() as tmp:
+            vmap = self._lean_vmap(Path(tmp))
+            lookups = attack.build_attack_lookups_for_version("19")
+            # T1112 (Modify Registry) was under TA0005 in v18 but moved to TA0112 in v19
+            entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
+            dropped: list[str] = []
+            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups)
+            self.assertIsNotNone(result)  # tactic entry still emitted (may have other techniques)
+            self.assertEqual(len(dropped), 1)
+            self.assertIn("T1112", dropped[0])
+            self.assertIn("TA0112", dropped[0])
+
+    def test_no_target_lookups_skips_validation(self) -> None:
+        """Assert that tactic-membership validation is skipped when target_lookups is None."""
+        from detection_rules.devtools import _remap_threat_entry
+
+        with TemporaryDirectory() as tmp:
+            # Explicit config map with T1112 mapped to itself (no auto_derive_missing)
+            import yaml
+
+            data = {
+                "framework": "MITRE ATT&CK",
+                "source_version": "18",
+                "target_version": "19",
+                "tactics": {
+                    "TA0005": {
+                        "id": "TA0005",
+                        "name": "Stealth",
+                        "reference": "https://attack.mitre.org/tactics/TA0005/",
+                    }
+                },
+                "techniques": {
+                    "T1112": {
+                        "id": "T1112",
+                        "name": "Modify Registry",
+                        "reference": "https://attack.mitre.org/techniques/T1112/",
+                    }
+                },
+                "subtechniques": {},
+            }
+            path = Path(tmp) / "explicit.yaml"
+            path.write_text(yaml.safe_dump(data))
+            vmap = attack.parse_attack_version_map(path)
+            entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
+            dropped: list[str] = []
+            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, target_lookups=None)
+            self.assertIsNotNone(result)
+            self.assertEqual(dropped, [])  # no validation without target_lookups
+
+
 class TestIdentityScaffold(unittest.TestCase):
     """Tests for build_identity_version_map scaffold generation."""
 
