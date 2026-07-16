@@ -118,11 +118,6 @@ techniques = sorted({v["name"] for _, v in technique_lookup.items()})
 technique_id_list = [t for t in technique_lookup if "." not in t]
 sub_technique_id_list = [t for t in technique_lookup if "." in t]
 
-# Index of all ATT&CK gz files present in etc/, keyed by full version string (e.g. "18.1.0", "19.1").
-AVAILABLE_ATTACK_VERSIONS: dict[str, Path] = {
-    p.name.split("-v", 1)[1][: -len(".json.gz")]: p for p in get_etc_glob_path(["attack-v*.json.gz"])
-}
-
 
 @dataclass
 class AttackLookups:
@@ -567,114 +562,6 @@ def build_identity_version_map(framework: str, source_version: str, target_versi
 _THREAT_MAPPING_V19_MIN_STACK = Version(9, 5, 0)
 
 
-@cached
-def _get_default_version_map(framework: str, source_version: str, target_version: str) -> "AttackVersionMap | None":
-    """Return the default configured version map for a triple, cached; None if unavailable."""
-    try:
-        return get_attack_version_map(framework, source_version, target_version)
-    except (FileNotFoundError, ValueError):
-        return None
-
-
-def convert_threat_to_version(  # noqa: PLR0912
-    threat: list[dict[str, Any]],
-    source_version: str,
-    target_version: str,
-    framework: str,
-) -> list[dict[str, Any]]:
-    """Auto-convert a raw threat list to the target version; techniques follow tactic migrations."""
-    vmap = _get_default_version_map(framework, source_version, target_version)
-    if vmap is None:
-        return []
-    try:
-        target_lookups = build_attack_lookups_for_version(target_version)
-    except FileNotFoundError:
-        return []
-
-    tgt_tactic_id_to_name: dict[str, str] = {v: k for k, v in target_lookups.tactics_map.items()}
-    tgt_tech_to_tactic_names: dict[str, list[str]] = {}
-    for tname, tids in target_lookups.matrix.items():
-        for tid in tids:
-            tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
-
-    # Keyed by tactic_id to merge techniques that migrate to the same target tactic.
-    entries_by_tactic: dict[str, dict[str, Any]] = {}
-    passthru: list[dict[str, Any]] = []
-    tactic_only_ids: set[str] = set()
-
-    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
-        tid = tactic_detail["id"]
-        if tid not in entries_by_tactic:
-            entries_by_tactic[tid] = {
-                "framework": framework,
-                "tactic": dict(tactic_detail),
-                "technique": [],
-            }
-        return entries_by_tactic[tid]
-
-    def _target_tactics_for_tech(tech_id: str, mapped_tactic: dict[str, str]) -> list[dict[str, str]]:
-        """Return target-version tactic details for a technique, following it if it migrated."""
-        tgt_tactic_name = tgt_tactic_id_to_name.get(mapped_tactic["id"])
-        tech_tactic_names = tgt_tech_to_tactic_names.get(tech_id, [])
-        if not tech_tactic_names or (tgt_tactic_name and tgt_tactic_name in tech_tactic_names):
-            return [mapped_tactic]
-        # Technique migrated — follow to all target tactics it now belongs to.
-        result = [
-            detail
-            for tname in tech_tactic_names
-            for tid in [target_lookups.tactics_map.get(tname, "")]
-            for detail in [target_lookups.tactic_id_to_detail.get(tid)]
-            if detail
-        ]
-        return result or [mapped_tactic]
-
-    for entry in threat:
-        if entry.get("framework") != framework:
-            passthru.append(entry)
-            continue
-
-        tactic: dict[str, Any] = entry.get("tactic") or {}
-        tactic_dest = vmap.resolve("tactic", tactic.get("id", ""), target_lookups)
-        if tactic_dest is None:
-            continue
-
-        source_techniques: list[dict[str, Any]] = entry.get("technique") or []
-        if not source_techniques:
-            tactic_only_ids.add(tactic_dest["id"])
-            _ = _get_or_create(tactic_dest)
-            continue
-
-        for technique in source_techniques:
-            tech_dest = vmap.resolve("technique", technique.get("id", ""), target_lookups)
-            if tech_dest is None:
-                continue
-
-            new_subs: list[dict[str, Any]] = []
-            raw_subs: list[dict[str, Any]] = technique.get("subtechnique") or []
-            for sub in raw_subs:
-                sub_dest = vmap.resolve("subtechnique", sub.get("id", ""), target_lookups)
-                if sub_dest is None:
-                    continue
-                new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
-
-            new_tech: dict[str, Any] = {
-                "id": tech_dest["id"],
-                "name": tech_dest["name"],
-                "reference": tech_dest["reference"],
-            }
-            if new_subs:
-                new_tech["subtechnique"] = new_subs
-
-            for tactic_for_tech in _target_tactics_for_tech(tech_dest["id"], tactic_dest):
-                _get_or_create(tactic_for_tech)["technique"].append(new_tech)
-
-    return passthru + [
-        {k: v for k, v in e.items() if k != "technique" or v}
-        for e in entries_by_tactic.values()
-        if e.get("technique") or e["tactic"]["id"] in tactic_only_ids
-    ]
-
-
 def resolve_output_threat_version() -> tuple[str, str]:
     """Resolve which (framework, version) threat mapping should be emitted as the API `threat`."""
     from .config import (
@@ -691,11 +578,12 @@ def resolve_output_threat_version() -> tuple[str, str]:
     version = str(os.getenv(THREAT_MAPPING_VERSION_ENV, cfg.threat_mapping_version))
 
     # Auto-promote to v19 when targeting a stack that ships with v19 ATT&CK mappings,
-    # but only when neither the env var nor config has explicitly pinned a version.
-    # An explicit env var (even "18") suppresses auto-promotion so callers can pin a version.
+    # but only when neither the env var nor the config file has explicitly pinned a version.
+    # An explicit pin (even "18") suppresses auto-promotion so callers can lock a version.
     env_version_explicit = os.getenv(THREAT_MAPPING_VERSION_ENV) is not None
     if (
         not env_version_explicit
+        and not cfg.threat_mapping_version_pinned
         and framework == DEFAULT_THREAT_MAPPING_FRAMEWORK
         and version == DEFAULT_THREAT_MAPPING_VERSION
     ):

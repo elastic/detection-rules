@@ -358,8 +358,8 @@ class TestAttackVersionMapLoader(unittest.TestCase):
             self.assertIn("reference", result)
 
 
-class TestRemapThreatEntry(unittest.TestCase):
-    """Tactic-membership validation in _remap_threat_entry."""
+class TestRemapThreatEntries(unittest.TestCase):
+    """Tactic-membership validation and cross-entry grouping in _remap_threat_entries."""
 
     def _lean_vmap(self, tmp: Path) -> "attack.AttackVersionMap":
         """Return a lean auto_derive_missing vmap written to tmp."""
@@ -399,7 +399,7 @@ class TestRemapThreatEntry(unittest.TestCase):
 
     def test_technique_under_correct_tactic_passes(self) -> None:
         """Assert that a technique still under its source tactic in v19 is kept."""
-        from detection_rules.devtools import _remap_threat_entry
+        from detection_rules.devtools import _remap_threat_entries
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
@@ -407,14 +407,14 @@ class TestRemapThreatEntry(unittest.TestCase):
             # T1078 (Valid Accounts) is under TA0001 (Initial Access) in both v18 and v19
             entry = self._entry("TA0001", "Initial Access", "T1078", "Valid Accounts")
             dropped: list[str] = []
-            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups)
+            result = _remap_threat_entries([entry], vmap, "MITRE ATT&CK", dropped, lookups)
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0]["tactic"]["id"], "TA0001")
             self.assertEqual(dropped, [])
 
     def test_technique_moved_to_new_tactic_follows_migration(self) -> None:
         """Assert that a technique that migrated to a new tactic in v19 is emitted under that tactic."""
-        from detection_rules.devtools import _remap_threat_entry
+        from detection_rules.devtools import _remap_threat_entries
 
         with TemporaryDirectory() as tmp:
             vmap = self._lean_vmap(Path(tmp))
@@ -423,7 +423,7 @@ class TestRemapThreatEntry(unittest.TestCase):
             entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
             dropped: list[str] = []
             moved: list[str] = []
-            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, lookups, moved)
+            result = _remap_threat_entries([entry], vmap, "MITRE ATT&CK", dropped, lookups, moved)
             self.assertEqual(dropped, [])  # not dropped — followed its migration
             self.assertEqual(len(moved), 1)
             self.assertIn("T1112", moved[0])
@@ -436,9 +436,34 @@ class TestRemapThreatEntry(unittest.TestCase):
             tech_ids = [t["id"] for t in ta0112_entry.get("technique", [])]
             self.assertIn("T1112", tech_ids)
 
+    def test_cross_entry_migration_merges_into_single_tactic_entry(self) -> None:
+        """Assert that a technique migrating into a tactic another source entry maps to does not duplicate it."""
+        from detection_rules.devtools import _remap_threat_entries
+
+        with TemporaryDirectory() as tmp:
+            vmap = self._lean_vmap(Path(tmp))
+            lookups = attack.build_attack_lookups_for_version("19")
+            # T1543 stays under TA0003 (Persistence) in v19; T1112 migrates from TA0005 (Defense
+            # Evasion) into TA0112 AND TA0003 — it must merge into the existing TA0003 entry.
+            entries = [
+                self._entry("TA0003", "Persistence", "T1543", "Create or Modify System Process"),
+                self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry"),
+            ]
+            dropped: list[str] = []
+            result = _remap_threat_entries(entries, vmap, "MITRE ATT&CK", dropped, lookups)
+            self.assertEqual(dropped, [])
+            tactic_ids = [e["tactic"]["id"] for e in result]
+            self.assertEqual(len(tactic_ids), len(set(tactic_ids)), f"duplicate tactic entries: {tactic_ids}")
+            self.assertIn("TA0003", tactic_ids)
+            self.assertIn("TA0112", tactic_ids)
+            self.assertNotIn("TA0005", tactic_ids)
+            ta0003_entry = next(e for e in result if e["tactic"]["id"] == "TA0003")
+            tech_ids = sorted(t["id"] for t in ta0003_entry.get("technique", []))
+            self.assertEqual(tech_ids, ["T1112", "T1543"])
+
     def test_no_target_lookups_skips_validation(self) -> None:
         """Assert that tactic-membership validation is skipped when target_lookups is None."""
-        from detection_rules.devtools import _remap_threat_entry
+        from detection_rules.devtools import _remap_threat_entries
 
         with TemporaryDirectory() as tmp:
             # Explicit config map with T1112 mapped to itself (no auto_derive_missing)
@@ -469,9 +494,100 @@ class TestRemapThreatEntry(unittest.TestCase):
             vmap = attack.parse_attack_version_map(path)
             entry = self._entry("TA0005", "Defense Evasion", "T1112", "Modify Registry")
             dropped: list[str] = []
-            result = _remap_threat_entry(entry, vmap, "MITRE ATT&CK", dropped, target_lookups=None)
+            result = _remap_threat_entries([entry], vmap, "MITRE ATT&CK", dropped, target_lookups=None)
             self.assertEqual(len(result), 1)
             self.assertEqual(dropped, [])  # no validation without target_lookups
+
+
+class TestOutputVersionResolution(unittest.TestCase):
+    """Auto-promotion behavior in resolve_output_threat_version."""
+
+    def _resolve_with(self, pinned: bool) -> tuple[str, str]:
+        """Resolve the output version against a mocked 9.5 stack with the given config pin state."""
+        import dataclasses
+        from unittest import mock
+
+        from detection_rules.config import parse_rules_config
+
+        cfg = dataclasses.replace(
+            parse_rules_config(),
+            threat_mapping_version="18",
+            threat_mapping_version_pinned=pinned,
+        )
+        with (
+            ThreatMappingEnv(None),
+            mock.patch("detection_rules.config.parse_rules_config", return_value=cfg),
+            mock.patch("detection_rules.config.load_current_package_version", return_value="9.5.0"),
+        ):
+            return attack.resolve_output_threat_version()
+
+    def test_auto_promotes_to_v19_on_9_5_when_unpinned(self) -> None:
+        """Assert that stack >= 9.5 auto-promotes to v19 when no version is pinned."""
+        _, version = self._resolve_with(pinned=False)
+        self.assertEqual(version, "19")
+
+    def test_config_pin_suppresses_auto_promotion(self) -> None:
+        """Assert that an explicit config-pinned version suppresses auto-promotion."""
+        _, version = self._resolve_with(pinned=True)
+        self.assertEqual(version, "18")
+
+
+class TestPatchTomlMinimal(unittest.TestCase):
+    """Surgical TOML patch helpers used by convert-threat-mappings."""
+
+    def test_insert_tags_multiline(self) -> None:
+        """Assert that tags are inserted into a multi-line array with comma repair."""
+        from detection_rules.devtools import _insert_tags
+
+        text = 'tags = [\n    "A",\n    "B"\n]\n'
+        out, warning = _insert_tags(text, ["C"])
+        self.assertIsNone(warning)
+        self.assertEqual(out, 'tags = [\n    "A",\n    "B",\n    "C",\n]\n')
+
+    def test_insert_tags_single_line(self) -> None:
+        """Assert that tags are inserted into a single-line array in place."""
+        from detection_rules.devtools import _insert_tags
+
+        text = 'tags = ["A", "B"]\n'
+        out, warning = _insert_tags(text, ["C"])
+        self.assertIsNone(warning)
+        self.assertEqual(out, 'tags = ["A", "B", "C"]\n')
+
+    def test_insert_tags_missing_array_warns(self) -> None:
+        """Assert that a missing tags array produces a warning instead of a silent no-op."""
+        from detection_rules.devtools import _insert_tags
+
+        text = 'name = "x"\n'
+        out, warning = _insert_tags(text, ["C"])
+        self.assertEqual(out, text)
+        self.assertIsNotNone(warning)
+        assert warning is not None
+        self.assertIn("tags array not found", warning)
+
+    def test_toml_str_escapes_quotes_and_backslashes(self) -> None:
+        """Assert that TOML string serialization escapes quotes and backslashes."""
+        from detection_rules.devtools import _toml_str
+
+        self.assertEqual(_toml_str('a"b\\c'), '"a\\"b\\\\c"')
+        self.assertEqual(_toml_str("plain"), '"plain"')
+
+    def test_patch_refuses_when_section_follows_threat_mappings(self) -> None:
+        """Assert that a file with content after [[rule.threat_mappings]] is left unmodified."""
+        from detection_rules.devtools import _patch_toml_minimal
+
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rule.toml"
+            _ = path.write_text(
+                '[metadata]\nupdated_date = "2020/01/01"\n\n[rule]\nname = "x"\n\n'
+                '[[rule.threat_mappings]]\nframework = "MITRE ATT&CK"\nversion = "19"\n\n'
+                "[rule.other]\nvalue = 1\n"
+            )
+            original = path.read_text()
+            applied, warnings = _patch_toml_minimal(path, "2026/07/16", [], [])
+            self.assertFalse(applied)
+            self.assertTrue(warnings)
+            self.assertIn("rule.other", warnings[0])
+            self.assertEqual(path.read_text(), original)
 
 
 class TestIdentityScaffold(unittest.TestCase):

@@ -222,6 +222,8 @@ class RulesConfig:
     auto_gen_schema_file: Path | None = None
     threat_mapping_framework: str = DEFAULT_THREAT_MAPPING_FRAMEWORK
     threat_mapping_version: str = DEFAULT_THREAT_MAPPING_VERSION
+    # True when the version came from an explicit config key or env var (suppresses auto-promotion)
+    threat_mapping_version_pinned: bool = False
     bbr_rules_dirs: list[Path] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
@@ -379,7 +381,8 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
         contents["attack_version_maps_dir"] = default_maps_dir if default_maps_dir.exists() else None
 
     # threat-mapping output selection (which framework/version is emitted as the API `threat`).
-    # Environment variables take precedence over the config file values.
+    # Environment variables take precedence over the config file values. A version set explicitly
+    # by either source is recorded as pinned, which suppresses stack-based auto-promotion.
     contents["threat_mapping_framework"] = os.getenv(
         THREAT_MAPPING_FRAMEWORK_ENV,
         loaded.get("threat_mapping_framework", DEFAULT_THREAT_MAPPING_FRAMEWORK),
@@ -389,6 +392,9 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
             THREAT_MAPPING_VERSION_ENV,
             loaded.get("threat_mapping_version", DEFAULT_THREAT_MAPPING_VERSION),
         )
+    )
+    contents["threat_mapping_version_pinned"] = (
+        os.getenv(THREAT_MAPPING_VERSION_ENV) is not None or "threat_mapping_version" in loaded
     )
 
     # return the config

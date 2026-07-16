@@ -1819,20 +1819,15 @@ def update_attack_in_rules() -> list[TOMLRule]:
     return new_rules
 
 
-def _remap_threat_entry(  # noqa: PLR0913
-    entry: ThreatMapping,
+def _remap_threat_entries(  # noqa: PLR0913, PLR0915
+    entries: list[ThreatMapping],
     vmap: "attack.AttackVersionMap",
     framework: str,
     dropped: list[str],
     target_lookups: "attack.AttackLookups | None" = None,
     moved: "list[str] | None" = None,
 ) -> list[dict[str, Any]]:
-    """Build target-version threat entries from a source entry; techniques follow tactic migrations."""
-    tactic_dest = vmap.resolve("tactic", entry.tactic.id, target_lookups)
-    if tactic_dest is None:
-        dropped.append(f"tactic {entry.tactic.id} ({entry.tactic.name})")
-        return []
-
+    """Build target-version threat entries grouped by final target tactic; techniques follow migrations."""
     tgt_tactic_id_to_name: dict[str, str] = {}
     tgt_tech_to_tactic_names: dict[str, list[str]] = {}
     if target_lookups is not None:
@@ -1841,7 +1836,39 @@ def _remap_threat_entry(  # noqa: PLR0913
             for tid in tids:
                 tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
 
-    def _target_tactics(tech_id: str, tech_name: str) -> list[dict[str, str]]:
+    # Grouping spans ALL source entries so a technique migrating into a tactic that another
+    # source entry also maps to merges into a single target entry (no duplicate tactics).
+    entries_by_tactic: dict[str, dict[str, Any]] = {}
+    tactic_only_ids: set[str] = set()
+
+    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
+        tid = tactic_detail["id"]
+        if tid not in entries_by_tactic:
+            entries_by_tactic[tid] = {
+                "framework": framework,
+                "tactic": {
+                    "id": tactic_detail["id"],
+                    "name": tactic_detail["name"],
+                    "reference": tactic_detail["reference"],
+                },
+                "technique": [],
+            }
+        return entries_by_tactic[tid]
+
+    def _merge_technique(tactic_entry: dict[str, Any], new_technique: dict[str, Any]) -> None:
+        """Add a technique to a tactic entry, merging subtechniques when the id already exists."""
+        for existing in tactic_entry["technique"]:
+            if existing["id"] == new_technique["id"]:
+                existing_sub_ids = {s["id"] for s in existing.get("subtechnique", [])}
+                merged = existing.get("subtechnique", []) + [
+                    s for s in new_technique.get("subtechnique", []) if s["id"] not in existing_sub_ids
+                ]
+                if merged:
+                    existing["subtechnique"] = sorted(merged, key=lambda s: s["id"])
+                return
+        tactic_entry["technique"].append(new_technique)
+
+    def _target_tactics(tactic_dest: dict[str, str], tech_id: str, tech_name: str) -> list[dict[str, str]]:
         """Return target tactic details for a technique, following it if it migrated."""
         if not tgt_tactic_id_to_name:
             return [tactic_dest]
@@ -1866,27 +1893,18 @@ def _remap_threat_entry(  # noqa: PLR0913
             )
         return new_tactics or [tactic_dest]
 
-    entries_by_tactic: dict[str, dict[str, Any]] = {}
-    tactic_only = not bool(entry.technique)
+    for entry in entries:
+        tactic_dest = vmap.resolve("tactic", entry.tactic.id, target_lookups)
+        if tactic_dest is None:
+            dropped.append(f"tactic {entry.tactic.id} ({entry.tactic.name})")
+            continue
 
-    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
-        tid = tactic_detail["id"]
-        if tid not in entries_by_tactic:
-            entries_by_tactic[tid] = {
-                "framework": framework,
-                "tactic": {
-                    "id": tactic_detail["id"],
-                    "name": tactic_detail["name"],
-                    "reference": tactic_detail["reference"],
-                },
-                "technique": [],
-            }
-        return entries_by_tactic[tid]
+        if not entry.technique:
+            tactic_only_ids.add(tactic_dest["id"])
+            _ = _get_or_create(tactic_dest)
+            continue
 
-    if tactic_only:
-        _ = _get_or_create(tactic_dest)
-    else:
-        for technique in entry.technique or []:
+        for technique in entry.technique:
             tech_dest = vmap.resolve("technique", technique.id, target_lookups)
             if tech_dest is None:
                 dropped.append(f"technique {technique.id} ({technique.name})")
@@ -1902,22 +1920,130 @@ def _remap_threat_entry(  # noqa: PLR0913
                     {"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]}
                 )
 
-            new_technique: dict[str, Any] = {
-                "id": tech_dest["id"],
-                "name": tech_dest["name"],
-                "reference": tech_dest["reference"],
-            }
-            if subtechniques:
-                new_technique["subtechnique"] = subtechniques
-
-            for tactic_for_tech in _target_tactics(tech_dest["id"], tech_dest["name"]):
-                _get_or_create(tactic_for_tech)["technique"].append(new_technique)
+            for tactic_for_tech in _target_tactics(tactic_dest, tech_dest["id"], tech_dest["name"]):
+                # Fresh dict per tactic so a later subtechnique merge in one tactic entry
+                # cannot mutate the technique shared with another tactic entry.
+                new_technique: dict[str, Any] = {
+                    "id": tech_dest["id"],
+                    "name": tech_dest["name"],
+                    "reference": tech_dest["reference"],
+                }
+                if subtechniques:
+                    new_technique["subtechnique"] = [dict(s) for s in subtechniques]
+                _merge_technique(_get_or_create(tactic_for_tech), new_technique)
 
     return [
         {k: v for k, v in e.items() if k != "technique" or v}
         for e in entries_by_tactic.values()
-        if e.get("technique") or tactic_only
+        if e.get("technique") or e["tactic"]["id"] in tactic_only_ids
     ]
+
+
+def _toml_str(value: str) -> str:
+    """Serialize a string as a TOML basic string, escaping backslashes and double quotes."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _format_threat_mappings_toml(new_blocks: list[VersionedThreatMapping]) -> str:
+    """Serialize versioned threat mapping blocks to TOML text."""
+    lines: list[str] = []
+    for block in new_blocks:
+        lines.append("[[rule.threat_mappings]]")
+        lines.append(f"framework = {_toml_str(block.framework)}")
+        lines.append(f"version = {_toml_str(block.version)}")
+        for entry in block.threat:
+            lines.append("[[rule.threat_mappings.threat]]")
+            lines.append(f"framework = {_toml_str(entry.framework)}")
+            for tech in entry.technique or []:
+                lines.append("[[rule.threat_mappings.threat.technique]]")
+                lines.append(f"id = {_toml_str(tech.id)}")
+                lines.append(f"name = {_toml_str(tech.name)}")
+                lines.append(f"reference = {_toml_str(tech.reference)}")
+                for sub in tech.subtechnique or []:
+                    lines.append("[[rule.threat_mappings.threat.technique.subtechnique]]")
+                    lines.append(f"id = {_toml_str(sub.id)}")
+                    lines.append(f"name = {_toml_str(sub.name)}")
+                    lines.append(f"reference = {_toml_str(sub.reference)}")
+            lines.append("")
+            lines.append("[rule.threat_mappings.threat.tactic]")
+            lines.append(f"id = {_toml_str(entry.tactic.id)}")
+            lines.append(f"name = {_toml_str(entry.tactic.name)}")
+            lines.append(f"reference = {_toml_str(entry.tactic.reference)}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _insert_tags(text: str, added_tags: list[str]) -> tuple[str, str | None]:
+    """Insert tags into the `tags` array preserving its single- or multi-line form; returns (text, warning)."""
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        single = re.match(r"^(tags\s*=\s*\[)(.*)(\]\s*)$", line)
+        if single:
+            existing = single.group(2).rstrip().rstrip(",")
+            additions = ", ".join(_toml_str(t) for t in added_tags)
+            inner = f"{existing}, {additions}" if existing.strip() else additions
+            lines[i] = f"{single.group(1)}{inner}{single.group(3)}"
+            return "".join(lines), None
+        if re.match(r"^tags\s*=\s*\[\s*$", line):
+            end = next((j for j in range(i + 1, len(lines)) if lines[j].strip() == "]"), None)
+            if end is None:
+                return text, "closing ] of the tags array not found; tags not added"
+            # Ensure the last existing element has a trailing comma before inserting
+            prev_stripped = lines[end - 1].rstrip()
+            if prev_stripped and not prev_stripped.endswith((",", "[")):
+                lines[end - 1] = prev_stripped + ",\n"
+            new_tag_lines = [f"    {_toml_str(t)},\n" for t in added_tags]
+            lines = lines[:end] + new_tag_lines + lines[end:]
+            return "".join(lines), None
+    return text, "tags array not found; tags not added"
+
+
+def _patch_toml_minimal(
+    path: Path,
+    today: str,
+    added_tags: list[str],
+    new_blocks: list[VersionedThreatMapping],
+) -> tuple[bool, list[str]]:
+    """Apply targeted TOML edits (updated_date, tags, threat_mappings); returns (applied, warnings)."""
+    text = path.read_text(encoding="utf-8")
+    warnings: list[str] = []
+
+    # The threat_mappings section is replaced by truncate-and-append, so refuse to touch a file
+    # where any other section follows it — that content would otherwise be lost.
+    tm_match = re.search(r"^\[\[rule\.threat_mappings\]\]", text, flags=re.MULTILINE)
+    if tm_match:
+        for sec in re.finditer(r"^\[+\s*([A-Za-z0-9_.\-]+)\s*\]", text[tm_match.start() :], flags=re.MULTILINE):
+            if not sec.group(1).startswith("rule.threat_mappings"):
+                return False, [f"section [{sec.group(1)}] follows [[rule.threat_mappings]]; file left unmodified"]
+
+    # Update the metadata updated_date in-place (first occurrence only)
+    text, n_subs = re.subn(
+        r"^(updated_date\s*=\s*\")[^\"]*\"",
+        rf'\g<1>{today}"',
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if not n_subs:
+        warnings.append("updated_date not found; date not updated")
+
+    # Insert new tags into the tags array
+    if added_tags:
+        text, tags_warning = _insert_tags(text, added_tags)
+        if tags_warning:
+            warnings.append(tags_warning)
+
+    # Remove any existing [[rule.threat_mappings]] sections (re-search: earlier edits shift offsets)
+    m = re.search(r"^\[\[rule\.threat_mappings\]\]", text, flags=re.MULTILINE)
+    if m:
+        text = text[: m.start()].rstrip("\n") + "\n"
+
+    # Append new threat_mappings TOML
+    text = text.rstrip("\n") + "\n\n" + _format_threat_mappings_toml(new_blocks)
+
+    _ = path.write_text(text, encoding="utf-8")
+    return True, warnings
 
 
 def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> list[ThreatMapping] | None:
@@ -2000,6 +2126,7 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
     skipped_no_source = 0
     skipped_existing = 0
     skipped_empty = 0
+    skipped_unpatchable = 0
 
     for rule in rules.rules:
         source_threat = _get_source_threat(rule, framework, source_version)
@@ -2015,9 +2142,7 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
 
         dropped: list[str] = []
         moved: list[str] = []
-        threat_dicts: list[dict[str, Any]] = []
-        for entry in source_threat:
-            threat_dicts.extend(_remap_threat_entry(entry, vmap, framework, dropped, target_lookups, moved))
+        threat_dicts = _remap_threat_entries(source_threat, vmap, framework, dropped, target_lookups, moved)
 
         if not threat_dicts:
             skipped_empty += 1
@@ -2039,7 +2164,6 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
         new_tactic_names: list[str] = sorted({str(e["tactic"]["name"]) for e in threat_dicts if e.get("tactic")})
         existing_tags = list(rule.contents.data.tags or [])
         added_tags = [f"Tactic: {n}" for n in new_tactic_names if f"Tactic: {n}" not in existing_tags]
-        new_tags = existing_tags + added_tags
 
         click.echo(f"  [ok]   {rule.name}: generated {target_version} mapping ({len(threat_dicts)} tactic(s))")
         if moved:
@@ -2049,12 +2173,13 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
         if added_tags:
             click.secho(f"         tags added: {', '.join(added_tags)}", fg="green")
 
-        if not dry_run:
-            new_meta = dataclasses.replace(rule.contents.metadata, updated_date=today)
-            new_data = dataclasses.replace(rule.contents.data, threat_mappings=new_blocks, tags=new_tags)
-            new_contents = dataclasses.replace(rule.contents, data=new_data, metadata=new_meta)
-            new_rule = TOMLRule(contents=new_contents, path=rule.path)
-            new_rule.save_toml()
+        if not dry_run and rule.path:
+            applied, patch_warnings = _patch_toml_minimal(rule.path, today, added_tags, new_blocks)
+            for warning in patch_warnings:
+                click.secho(f"         WARNING: {warning}", fg="red")
+            if not applied:
+                skipped_unpatchable += 1
+                continue
         updated_rules.append(rule)
 
     click.echo(
@@ -2063,6 +2188,7 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
         f"{skipped_no_source} without a {source_version} source mapping, "
         f"{skipped_existing} with an existing {target_version} block (use --overwrite), "
         f"{skipped_empty} with no confident mapping."
+        + (f", {skipped_unpatchable} left unmodified (see warnings)" if skipped_unpatchable else "")
     )
     return updated_rules
 

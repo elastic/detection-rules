@@ -7,7 +7,6 @@
 import copy
 import dataclasses
 import json
-import logging
 import os
 import re
 import time
@@ -58,8 +57,6 @@ from .version_lock import VersionLock, loaded_version_lock
 if typing.TYPE_CHECKING:
     from .remote_validation import RemoteValidator
 
-
-logger = logging.getLogger(__name__)
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
