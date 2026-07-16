@@ -17,10 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KIBANA_ISSUE_NUMBER: 166152  # Define the Kibana issue number as a variable
+    # OIDC id-tokens are not issued for pull_request events from forks
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Fetch ephemeral GitHub token
         id: fetch-ephemeral-token
-        uses: elastic/ci-gh-actions/fetch-github-token@v1
+        uses: elastic/ci-gh-actions/fetch-github-token@2feb1c6f5086cf8e06f61ef35e275abed3456f7b # v1.5.3
         with:
           vault-instance: "ci-prod"
           vault-role: "token-policy-a213e9ca741c"
