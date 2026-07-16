@@ -2036,9 +2036,7 @@ def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
         new_blocks = sorted([*remaining, block], key=lambda b: (b.framework, b.version))
 
         # Collect new tactic tags from the generated block and merge with existing tags.
-        new_tactic_names: list[str] = sorted(
-            {str(e["tactic"]["name"]) for e in threat_dicts if e.get("tactic")}
-        )
+        new_tactic_names: list[str] = sorted({str(e["tactic"]["name"]) for e in threat_dicts if e.get("tactic")})
         existing_tags = list(rule.contents.data.tags or [])
         added_tags = [f"Tactic: {n}" for n in new_tactic_names if f"Tactic: {n}" not in existing_tags]
         new_tags = existing_tags + added_tags
