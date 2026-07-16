@@ -7,9 +7,9 @@ updated_date = "2026/07/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod in a namespace it has not been
-seen entering within the lookback window. Interactive command execution inside a workload via kubectl exec is a common
-post-compromise technique used to access secrets, run tooling, and expand access from a foothold container. Node,
+Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod in a namespace it has not
+been seen entering within the lookback window. Interactive command execution inside a workload via kubectl exec is a
+common post-compromise technique used to access secrets, run tooling, and expand access from a foothold container. Node,
 control-plane, and kube-system service account identities are excluded, so workload service accounts and users, the
 identities an adversary is most likely to abuse, remain in scope.
 """
@@ -63,7 +63,7 @@ references = [
 ]
 risk_score = 47
 rule_id = "8f131efa-0284-465f-a360-da23e5562dd1"
-setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -79,15 +79,30 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-azure.platformlogs.category:"kube-audit" and
-azure.platformlogs.properties.log.objectRef.resource:"pods" and azure.platformlogs.properties.log.objectRef.subresource:"exec" and
-azure.platformlogs.properties.log.verb:("create" or "get") and
-not azure.platformlogs.properties.log.user.username:(
-  system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
-  system\:serviceaccount\:kube-system\:*
-)
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"pods" and azure.platformlogs.properties.log.objectRef.subresource:"exec" and
+  azure.platformlogs.properties.log.verb:("create" or "get") and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:*
+  )
 '''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.investigation_fields]
 field_names = [
@@ -105,21 +120,12 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.platformlogs.properties.log.user.username", "azure.platformlogs.properties.log.objectRef.namespace"]
-
+value = [
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-5d"
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 
-[[rule.threat.technique]]
-id = "T1609"
-name = "Container Administration Command"
-reference = "https://attack.mitre.org/techniques/T1609/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
