@@ -7,9 +7,11 @@ updated_date = "2026/07/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first occurrence of a non-system AKS (Azure Kubernetes Service) identity establishing an exec session into a
-pod. Interactive command execution inside a workload via kubectl exec is a common post-compromise technique used to
-access secrets, run tooling, and expand access from a foothold container.
+Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod in a namespace it has not been
+seen entering within the lookback window. Interactive command execution inside a workload via kubectl exec is a common
+post-compromise technique used to access secrets, run tooling, and expand access from a foothold container. Node,
+control-plane, and kube-system service account identities are excluded, so workload service accounts and users, the
+identities an adversary is most likely to abuse, remain in scope.
 """
 false_positives = [
     """
@@ -17,7 +19,7 @@ false_positives = [
     known break-glass or operator identities after review.
     """,
 ]
-from = "now-6m"
+from = "now-9m"
 index = ["logs-azure.platformlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -27,10 +29,10 @@ note = """## Triage and analysis
 ### Investigating Azure AKS User Exec into Pod
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
-operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This new-terms rule alerts on
-the first time a given identity and pod combination is seen for a `pods/exec` request within the lookback window. Exec
-into a pod grants an interactive shell inside the workload, which adversaries use to read mounted secrets, pivot, and
-stage tooling.
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This new-terms rule alerts the
+first time a given identity is seen issuing a `pods/exec` request into a namespace within the lookback window, keyed on
+identity and namespace since pod names are ephemeral. Exec into a pod grants an interactive shell inside the workload,
+which adversaries use to read mounted secrets, pivot, and stage tooling.
 
 ### Possible investigation steps
 
@@ -67,6 +69,7 @@ tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
     "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
     "Data Source: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Execution",
@@ -80,7 +83,10 @@ data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerServ
 azure.platformlogs.category:"kube-audit" and
 azure.platformlogs.properties.log.objectRef.resource:"pods" and azure.platformlogs.properties.log.objectRef.subresource:"exec" and
 azure.platformlogs.properties.log.verb:("create" or "get") and
-not azure.platformlogs.properties.log.user.username:system\:*
+not azure.platformlogs.properties.log.user.username:(
+  system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+  system\:serviceaccount\:kube-system\:*
+)
 '''
 
 [rule.investigation_fields]
@@ -99,11 +105,11 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["azure.platformlogs.properties.log.user.username", "azure.platformlogs.properties.log.objectRef.name"]
+value = ["azure.platformlogs.properties.log.user.username", "azure.platformlogs.properties.log.objectRef.namespace"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-5d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
