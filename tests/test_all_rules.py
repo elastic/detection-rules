@@ -467,6 +467,9 @@ class TestThreatMappings(BaseRuleTest):
                     for technique in entry.technique or []:
                         if technique.id in lookups.revoked or technique.id in lookups.deprecated:
                             bad[technique.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
+                        for sub in technique.subtechnique or []:
+                            if sub.id in lookups.revoked or sub.id in lookups.deprecated:
+                                bad[sub.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
 
                 if bad:
                     self.fail(

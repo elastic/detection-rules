@@ -68,9 +68,21 @@ change rule hashes or trigger version bumps until the output version is actually
 ## Generating a target-version mapping
 
 `dev attack convert-threat-mappings` does a first-pass generation of a target-version mapping from a
-rule's source mapping. It is **accuracy-first**: any source tactic/technique/subtechnique that is not
-explicitly present in the mapping config is **dropped rather than guessed**, and every dropped item is
-reported for review.
+rule's source mapping. It is **accuracy-first** — a mapping is never guessed. Each source
+tactic/technique/subtechnique id is resolved in order:
+
+1. An **explicit config entry** always wins — including an explicit `null`, which drops the id.
+2. If the id is absent from the config and the config sets `auto_derive_missing: true` (the shipped
+   default for v18 -> v19), the destination is **auto-derived from the target version's ATT&CK STIX
+   data**: ids that still exist in the target version keep their id with the target-version name and
+   reference, while ids that are revoked, deprecated, or gone are dropped. Techniques that moved to a
+   different tactic are followed to their new target-version tactic(s) (the technique is
+   authoritative).
+3. If the id is absent and `auto_derive_missing` is false/unset, it is **dropped rather than
+   guessed**.
+
+Every dropped and migrated item is reported for review. The command also adds a `"Tactic: <name>"`
+tag for each new target-version tactic while preserving the existing baseline tags.
 
 ```bash
 # preview the v18 -> v19 conversion for all rules
@@ -87,8 +99,21 @@ python -m detection_rules dev attack convert-threat-mappings -t 19 --config path
 
 Conversion is driven by a **directory of per-pair config files** (default
 `detection_rules/etc/attack-version-maps/`). Each file declares one `(framework, source_version ->
-target_version)` triple and is **self-contained** — it carries the destination `id`, `name`, and
-`reference` for each source id. A source id mapped to `null`, or absent entirely, is dropped.
+target_version)` triple. Explicit entries carry the destination `id`, `name`, and `reference` for a
+source id; a source id mapped to `null` is always dropped.
+
+How **absent** ids are treated depends on the `auto_derive_missing` flag:
+
+- `auto_derive_missing: false` (the default) — the file is **self-contained**: any source id absent
+  from the file is dropped. Use `scaffold-version-map` (below) to generate the full identity baseline
+  to curate.
+- `auto_derive_missing: true` — the file only needs to list **exceptions**: absent ids are
+  auto-resolved from the target version's ATT&CK STIX data (requires the matching
+  `attack-v<target>*.json.gz` file in `detection_rules/etc/`), and ids that are revoked, deprecated,
+  or missing in the target version are dropped. The shipped `attack_v18_to_v19.yaml` uses this mode,
+  so it stays small and only ever needs entries for overrides.
+
+A fully-explicit (self-contained) config looks like:
 
 ```yaml
 framework: "MITRE ATT&CK"
@@ -103,15 +128,25 @@ subtechniques:
   T1078.004: { id: T1078.004, name: "Cloud Accounts", reference: "https://attack.mitre.org/techniques/T1078/004/" }
 ```
 
+while an exceptions-only config (the shipped v18 -> v19 shape) looks like:
+
+```yaml
+framework: "MITRE ATT&CK"
+source_version: "18"
+target_version: "19"
+auto_derive_missing: true
+# only explicit overrides/drops go here; everything else resolves from v19 STIX data
+```
+
 Adding a new destination (e.g. v19 -> v20, or another framework) is just a new file declaring its own
 triple. Multiple destinations coexist as separate `threat_mappings` blocks per rule.
 
 ### Scaffolding a config
 
-Because the config is self-contained, `dev attack scaffold-version-map` generates an **identity**
-baseline from the currently loaded ATT&CK data (every non-revoked/non-deprecated id maps to itself).
-Review and curate it against the target version's real changes (renames, deprecations, splits) before
-relying on it:
+For fully-explicit configs (`auto_derive_missing: false`), `dev attack scaffold-version-map` generates
+an **identity** baseline from the currently loaded ATT&CK data (every non-revoked/non-deprecated id
+maps to itself). Review and curate it against the target version's real changes (renames,
+deprecations, splits) before relying on it:
 
 ```bash
 python -m detection_rules dev attack scaffold-version-map -t 19 -o detection_rules/etc/attack-version-maps/attack_v18_to_v19.yaml
