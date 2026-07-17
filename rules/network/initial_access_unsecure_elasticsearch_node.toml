@@ -2,7 +2,7 @@
 creation_date = "2020/08/11"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/07/01"
+updated_date = "2026/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(event.dataset: network_traffic.http or data_stream.dataset: network_traffic.http) and
+(data_stream.dataset: network_traffic.http or (event.category: network_traffic and network.protocol: http)) and
 http.response.status_code: 200 and destination.port: 9200 and network.direction: inbound and
 not http.response.headers.content-type: "image/x-icon" and not http.request.headers.authorization: *
 '''
