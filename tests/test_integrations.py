@@ -334,9 +334,7 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
             }
         }
 
-        with unittest.mock.patch(
-            "detection_rules.integrations.load_current_package_version", return_value="8.19.0"
-        ):
+        with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="8.19.0"):
             stack_8 = resolve_related_integration_version("pkg", manifests)
         with unittest.mock.patch("detection_rules.integrations.load_current_package_version", return_value="9.1.0"):
             stack_9 = resolve_related_integration_version("pkg", manifests)
@@ -364,9 +362,7 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
         from detection_rules.stack_emit import apply_emit_transforms
 
         self.assertEqual(_related_integration_version_operator(Version(9, 4, 0)), "^")
-        self.assertEqual(
-            _related_integration_version_operator(RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK), ">="
-        )
+        self.assertEqual(_related_integration_version_operator(RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK), ">=")
 
         obj_94 = {"related_integrations": [{"package": "pkg", "version": "^2.0.0"}]}
         obj_95 = {"related_integrations": [{"package": "pkg", "version": "^2.0.0"}]}
