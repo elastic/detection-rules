@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first observed occurrence, within the configured New Terms history window, of a regular IAM user 
+successfully signing in to the AWS Management Console without multi-factor authentication. A password alone is a 
+weaker control than password-plus-MFA, and an adversary who has phished, guessed, or otherwise obtained a user's 
+password can sign in directly if MFA is not enforced for that user. This rule is scoped to standard IAM users 
+only; it excludes the AWS root user (covered by a dedicated rule) and federated/SSO sign-ins (covered by a dedicated 
+rule that also accounts for IdP-side MFA), since MFAUsed: No is expected in both of those cases for reasons unrelated 
+to this gap.
+"""
+false_positives = [
+    """
+    Environments that do not enforce MFA for all IAM users will see this regularly. This is a New Terms rule, so it only
+    fires once per `user.id` within the configured history window (7d); use it to drive MFA enrollment and enforcement rather than treating every occurrence as an
+    incident, unless MFA is a mandated control in your environment.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM User Console Login Without MFA"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Console Login Without MFA
+
+This rule identifies a standard IAM user (not root, not a federated/SSO sign-in) successfully signing in to the AWS
+Management Console where CloudTrail's `additionalEventData.MFAUsed` field is `No`. A username and password are
+comparatively easy for an adversary to obtain through phishing, credential stuffing, or password reuse; MFA is the
+control that prevents a stolen password alone from granting console access.
+
+This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule)
+rule and fires the first time each `user.id` is observed signing in without MFA within the configured history window (7d).
+
+### Possible investigation steps
+
+- **Confirm MFA enrollment status**: check whether the user has an MFA device registered at all. If not, this may
+  simply reflect that MFA is not yet enforced for this user rather than an active compromise.
+- **Review source context**: check `source.ip`, `source.geo`, and `user_agent.original` for anomalies relative to the
+  user's normal sign-in pattern.
+- **Correlate with recent credential exposure**: check for recent password resets, phishing reports, or leaked
+  credential alerts involving this user.
+- **Review post-login activity**: examine what the user did in the console session immediately following sign-in for
+  any unusual or high-privilege actions.
+
+### False positive analysis
+
+- Environments without a blanket MFA enforcement policy will see this for every user's first sign-in. Use this rule
+  to drive MFA adoption; if MFA is not currently mandated, treat repeated occurrences as a posture gap rather than an
+  incident, and consider excluding known-legacy or service-adjacent IAM users that cannot use MFA.
+
+### Response and remediation
+
+- If this sign-in is unexpected or the source is anomalous, treat the user's credentials as potentially compromised:
+  force a password reset and review recent console/API activity for the account.
+- Enforce MFA for all IAM users capable of console access, via IAM policy conditions (`aws:MultiFactorAuthPresent`) or
+  an SCP, and prioritize enrolling any user identified by this rule.
+- Consider moving console access to federated/SSO sign-in with IdP-enforced MFA rather than IAM user passwords.
+
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.initial-access.console-login-without-mfa/",
+]
+risk_score = 47
+rule_id = "f5778acd-80e3-4ca0-a32a-6259386dfb20"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Sign-In",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "signin.amazonaws.com"
+    and event.action: "ConsoleLogin"
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: "IAMUser"
+    and aws.cloudtrail.console_login.additional_eventdata.mfa_used: false
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.console_login.additional_eventdata.mfa_used",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
