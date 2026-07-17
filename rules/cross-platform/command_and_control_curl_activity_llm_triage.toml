@@ -71,8 +71,8 @@ setup = """## Setup
 ### Data source requirements
 
 This rule requires process execution events from Elastic Defend on Linux, macOS, or Windows. Events must populate
-`process.name`, `process.args`, and `process.command_line`. Host identity, parent executable, and user fields improve
-aggregation and LLM triage quality.
+`process.name` and `process.args`. Host identity, parent executable, and user fields improve aggregation and LLM triage
+quality.
 
 ### LLM configuration
 
@@ -105,12 +105,12 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 | WHERE KQL("""event.category:process and event.type:start and not event.action:fork and process.name:(curl or curl.exe)""")
     AND process.args IS NOT NULL
 
-// Normalize the arguments and command line. On Elastic Defend process.command_line is always populated.
-| EVAL Esql.args_str = CONCAT(" ", MV_CONCAT(process.args, " "))
-| EVAL Esql.full_command_line = MV_CONCAT(process.command_line, " ")
+// Reconstruct the command line from process.args (an array joined into a string). Preferred over
+// process.command_line, which can be truncated.
+| EVAL Esql.full_command_line = CONCAT(" ", MV_CONCAT(process.args, " "))
 
 // Parse scheme-based destinations, then fall back to the last command-line token for scheme-less curl invocations.
-| GROK Esql.args_str "%{URIPROTO:url_protocol}://%{URIHOST:dest_host}"
+| GROK Esql.full_command_line "%{URIPROTO:url_protocol}://%{URIHOST:dest_host}"
 | EVAL last_token = MV_LAST(SPLIT(Esql.full_command_line, " "))
 | GROK last_token "^(?:%{URIPROTO:url_protocol_bare}://)?%{URIHOST:dest_host_bare}(?:/%{GREEDYDATA})?$"
 | EVAL Esql.dest_host = COALESCE(dest_host, CASE(STARTS_WITH(last_token, "-") OR last_token == "-", NULL, dest_host_bare))
