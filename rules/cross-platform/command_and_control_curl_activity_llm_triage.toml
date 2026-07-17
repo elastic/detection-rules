@@ -186,8 +186,9 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
        event.category = "intrusion_detection",
        event.action = "curl_llm_triage",
        host.name = MV_MIN(Esql.host_name_values), 
-       user.name = MV_FIRST(Esql.user_name_values)
-| KEEP host.name, user.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
+       user.name = MV_FIRST(Esql.user_name_values),
+       data_stream.namespace = MV_FIRST(Esql.namespace_values)
+| KEEP host.name, user.name, data_stream.namespace, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 
 
