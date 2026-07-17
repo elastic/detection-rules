@@ -215,17 +215,21 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
 
         # Warn that if the path does not match the expected path, it will be saved to the expected path
         for rule in rules:
-            threat = rule.contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
-            tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            # Accept a filename built from the baseline tactic or any versioned (e.g. v19) threat_mappings
+            # tactic, since a rule may still use its older tactic name in the filename until it's renamed.
+            tactic_names = [] if no_tactic_filename else rule.contents.data.get_primary_tactic_names()
+            candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=t) for t in tactic_names]
+            if not candidate_names:
+                candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=None)]
+            rule_name = candidate_names[0]
             if not rule.path:
                 click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+            elif rule.path.name not in candidate_names:
+                expected = rule_name if len(candidate_names) == 1 else f"one of {candidate_names}"
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected}", fg="yellow"
                 )
 
         kwargs["rules"] = rules
