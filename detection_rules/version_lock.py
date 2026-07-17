@@ -7,7 +7,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 import click
 from semver import Version
@@ -396,7 +396,9 @@ class VersionLock:
                 if epoch_key and package_transforms and (baseline_touched or rule.id in emit_rules):
                     emit_hash = rule.contents.get_emit_hash()
                     untransformed_hash = rule.contents.get_untransformed_hash()
-                    stack_emit = lock_from_file.get("stack_emit") or {}
+                    stack_emit: dict[str, dict[str, Any]] = cast(
+                        "dict[str, dict[str, Any]]", lock_from_file.get("stack_emit") or {}
+                    )
 
                     # Transforms were a no-op for this rule — drop a stale epoch rather than
                     # comparing against the baseline lock hash (which strips related_integrations).
@@ -419,7 +421,7 @@ class VersionLock:
                     if stack_emit.get(epoch_key, {}).get("sha256") == emit_hash:
                         continue
 
-                    stack_emit = lock_from_file.setdefault("stack_emit", {})
+                    stack_emit = cast("dict[str, dict[str, Any]]", lock_from_file.setdefault("stack_emit", {}))
                     existing_emit = stack_emit.get(epoch_key)
 
                     baseline_version = int(lock_from_file.get("version") or 1)

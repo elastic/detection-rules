@@ -27,7 +27,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from semver import Version
 
@@ -55,7 +55,7 @@ class EmitContext:
     """
 
     threat_mappings: list[dict[str, Any]] | None = None
-    extras: dict[str, Any] = field(default_factory=dict)
+    extras: dict[str, Any] = field(default_factory=dict[str, Any])
 
 
 @dataclass(frozen=True)
@@ -111,7 +111,7 @@ def _apply_related_integrations_gte(obj: dict[str, Any], stack: Version, context
     if os.getenv(RELATED_INTEGRATION_GTE_OPERATOR_ENV) != "True":
         return
 
-    for entry in obj.get("related_integrations") or []:
+    for entry in cast("list[dict[str, Any]]", obj.get("related_integrations") or []):
         version = entry.get("version")
         if isinstance(version, str) and version.startswith("^"):
             entry["version"] = f">={version[1:]}"

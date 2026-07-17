@@ -12,7 +12,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 import yaml
@@ -694,16 +694,16 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
             passthru.append(entry)
             continue
 
-        tactic = entry.get("tactic") or {}
+        tactic = cast("dict[str, Any]", entry.get("tactic") or {})
         tactic_id = str(tactic.get("id", ""))
         tactic_name = str(tactic.get("name", tactic_id))
         tactic_dest = vmap.resolve("tactic", tactic_id, lookups)
-        source_techniques = entry.get("technique") or []
+        source_techniques = cast("list[dict[str, Any]]", entry.get("technique") or [])
 
         if not source_techniques:
             if tactic_dest is not None:
                 tactic_only_ids.add(tactic_dest["id"])
-                _get_or_create(tactic_dest)
+                _ = _get_or_create(tactic_dest)
             elif dropped is not None:
                 dropped.append(f"tactic {tactic_id} ({tactic_name})")
             continue
@@ -718,7 +718,7 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
 
             new_subs: list[dict[str, Any]] = []
-            for sub in technique.get("subtechnique") or []:
+            for sub in cast("list[dict[str, Any]]", technique.get("subtechnique") or []):
                 sub_id = str(sub.get("id", ""))
                 sub_name = str(sub.get("name", sub_id))
                 sub_dest = vmap.resolve("subtechnique", sub_id, lookups)

@@ -1432,7 +1432,7 @@ class BaseRuleContents(ABC):
 
     def _apply_stack_emit_transforms(self, obj: dict[str, Any]) -> None:
         """Run registered stack emit transforms. Subclasses call this after adding build-time fields."""
-        apply_emit_transforms(
+        _ = apply_emit_transforms(
             obj,
             stack=load_current_package_version(),
             context=EmitContext(threat_mappings=getattr(self, "_emit_threat_mappings", None)),
@@ -1843,8 +1843,9 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
     def to_api_format(
         self,
         include_version: bool = not BYPASS_VERSION_LOCK,
-        include_metadata: bool = False,
         apply_emit_transforms: bool = True,
+        *,
+        include_metadata: bool = False,
     ) -> dict[str, Any]:
         """Convert the TOML rule to the API format."""
 
