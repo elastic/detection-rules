@@ -23,10 +23,10 @@ from = "now-9m"
 index = ["logs-azure.platformlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure AKS User Exec into Pod"
+name = "Azure AKS Attempted User Exec into Pod"
 note = """## Triage and analysis
 
-### Investigating Azure AKS User Exec into Pod
+### Investigating Azure AKS Attempted User Exec into Pod
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
 operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This new-terms rule alerts the
@@ -76,7 +76,7 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "query"
 
 query = '''
 data_stream.dataset:azure.platformlogs and
@@ -117,15 +117,5 @@ field_names = [
     "azure.platformlogs.properties.log.objectRef.namespace",
     "azure.platformlogs.properties.log.objectRef.name",
 ]
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = [
-    "azure.platformlogs.properties.log.user.username",
-    "azure.platformlogs.properties.log.objectRef.namespace",
-]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-5d"
 
 
