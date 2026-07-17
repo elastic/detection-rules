@@ -7,14 +7,15 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, cast
 
 import click
 from semver import Version
 
-from .config import parse_rules_config
+from .config import load_current_package_version, parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
+from .stack_emit import emit_epoch_key, parse_stack, resolve_stack_emit_entry, transforms_for_stack
 from .utils import cached
 
 RULES_CONFIG = parse_rules_config()
@@ -40,11 +41,23 @@ class PreviousEntry(BaseEntry):
 
 
 @dataclass(frozen=True)
+class StackEmitEntry:
+    """Version/hash for a stack emit epoch (shared across minors that inherit the same transforms)."""
+
+    sha256: definitions.Sha256
+    version: definitions.PositiveInteger
+    transforms: list[str] | None = None
+
+
+@dataclass(frozen=True)
 class VersionLockFileEntry(MarshmallowDataclassMixin, BaseEntry):
     """Schema for a rule entry in the version lock."""
 
     min_stack_version: definitions.SemVerMinorOnly | None = None
     previous: dict[definitions.SemVerMinorOnly, PreviousEntry] | None = None
+    # Emit epochs for stack-conditional packaging transforms (MITRE remap, RI operator, …).
+    # Keyed by the newest applicable transform min_stack (major.minor), not every package minor.
+    stack_emit: dict[definitions.SemVerMinorOnly, StackEmitEntry] | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +202,37 @@ class VersionLock:
         existing_sha256: str = stack_version_info.sha256
         return existing_sha256
 
+    def get_shipped_version(
+        self,
+        rule_id: str,
+        feature_min_stack: str | None,
+        package_stack: str | Version,
+    ) -> int | None:
+        """Resolve the version to ship for package_stack (baseline or inherited stack_emit)."""
+        baseline = self.get_locked_version(rule_id, feature_min_stack)
+        if rule_id not in self.version_lock:
+            return baseline
+
+        stack_emit = self.version_lock[rule_id].to_dict().get("stack_emit")
+        emit = resolve_stack_emit_entry(stack_emit, parse_stack(package_stack))
+        if emit is not None:
+            return int(emit["version"])
+        return baseline
+
+    def get_stack_emit_hash(
+        self,
+        rule_id: str,
+        package_stack: str | Version,
+    ) -> str | None:
+        """Return the locked emit hash for the inherited epoch of package_stack, if any."""
+        if rule_id not in self.version_lock:
+            return None
+        raw = self.version_lock[rule_id].to_dict().get("stack_emit")
+        emit = resolve_stack_emit_entry(raw, parse_stack(package_stack))
+        if emit is None:
+            return None
+        return str(emit["sha256"])
+
     def manage_versions(  # noqa: PLR0912, PLR0915
         self,
         rules: Any,  # type: ignore[reportRedeclaration]
@@ -214,11 +258,14 @@ class VersionLock:
         deprecated_rules = set(rules.deprecated.id_map)
         new_rules = {rule.id for rule in rules if rule.contents.saved_version is None} - deprecated_rules
         changed_rules = {rule.id for rule in rules if rule.contents.is_dirty} - deprecated_rules
+        emit_changed_rules = (
+            {rule.id for rule in rules if rule.contents.is_emit_dirty} - deprecated_rules - changed_rules
+        )
 
         # manage deprecated rules
         newly_deprecated = deprecated_rules - already_deprecated
 
-        if not (new_rules or changed_rules or newly_deprecated):
+        if not (new_rules or changed_rules or newly_deprecated or emit_changed_rules):
             return list(changed_rules), list(new_rules), list(newly_deprecated)
 
         verbose_echo("Rule changes detected!")
@@ -229,6 +276,10 @@ class VersionLock:
             new = [f"  {route_taken}: {r.id}, new version: {new_rule_version}"]
             new.extend([f"    - {m}" for m in msg if m])
             changes.extend(new)
+
+        package_stack = parse_stack(load_current_package_version())
+        epoch_key = emit_epoch_key(package_stack)
+        package_transforms = [t.id for t in transforms_for_stack(package_stack)]
 
         for rule in rules:
             if rule.contents.metadata.maturity == "production" or rule.id in newly_deprecated:
@@ -250,91 +301,150 @@ class VersionLock:
                 # strip version down to only major.minor to compare against lock file versioning
                 stripped_version = f"{min_stack.major}.{min_stack.minor}"
 
-                if not lock_from_file or min_stack == latest_locked_stack_version:
-                    route = "A"
-                    # 1) no breaking changes ever made or the first time a rule is created
-                    # 2) on the latest, after a breaking change has been locked
-                    lock_from_file.update(lock_from_rule)
-                    new_version = lock_from_rule["version"]
+                baseline_touched = False
+                if rule.id in new_rules or rule.id in changed_rules or rule.id in newly_deprecated:
+                    baseline_touched = True
+                    if not lock_from_file or min_stack == latest_locked_stack_version:
+                        route = "A"
+                        # 1) no breaking changes ever made or the first time a rule is created
+                        # 2) on the latest, after a breaking change has been locked
+                        # Preserve existing stack_emit channels — never drop higher-stack emit rows.
+                        existing_stack_emit = lock_from_file.get("stack_emit")
+                        lock_from_file.update(lock_from_rule)
+                        if existing_stack_emit is not None:
+                            lock_from_file["stack_emit"] = existing_stack_emit
+                        new_version = lock_from_rule["version"]
 
-                    # add the min_stack_version to the lock if it's explicitly set
-                    if rule.contents.metadata.min_stack_version is not None:
-                        lock_from_file["min_stack_version"] = stripped_version
-                        log_msg = f"min_stack_version added: {min_stack}"
-                        log_changes(rule, route, new_version, log_msg)
+                        # add the min_stack_version to the lock if it's explicitly set
+                        if rule.contents.metadata.min_stack_version is not None:
+                            lock_from_file["min_stack_version"] = stripped_version
+                            log_msg = f"min_stack_version added: {min_stack}"
+                            log_changes(rule, route, new_version, log_msg)
 
-                elif min_stack > latest_locked_stack_version:
-                    route = "B"
-                    # 3) on the latest stack, locking in a breaking change
-                    stripped_latest_locked_stack_version = (
-                        f"{latest_locked_stack_version.major}.{latest_locked_stack_version.minor}"
-                    )
-                    # preserve buffer space to support forked version spacing
-                    if exclude_version_update:
-                        buffer_int -= 1
-                    lock_from_rule["version"] = lock_from_file["version"] + buffer_int
-
-                    previous_lock_info = {
-                        "max_allowable_version": lock_from_rule["version"] - 1,
-                        "rule_name": lock_from_file["rule_name"],
-                        "sha256": lock_from_file["sha256"],
-                        "version": lock_from_file["version"],
-                        "type": lock_from_file["type"],
-                    }
-                    lock_from_file.setdefault("previous", {})
-
-                    # move the current locked info into the previous section
-                    lock_from_file["previous"][stripped_latest_locked_stack_version] = previous_lock_info
-
-                    # overwrite the "latest" part of the lock at the top level
-                    lock_from_file.update(lock_from_rule, min_stack_version=stripped_version)
-                    new_version = lock_from_rule["version"]
-                    log_changes(
-                        rule,
-                        route,
-                        new_version,
-                        f"previous {stripped_latest_locked_stack_version} saved as \
-                            version: {previous_lock_info['version']}",
-                        f"current min_stack updated to {stripped_version}",
-                    )
-
-                elif min_stack < latest_locked_stack_version:
-                    route = "C"
-                    # 4) on an old stack, after a breaking change has been made (updated fork)
-                    if stripped_version not in lock_from_file.get("previous", {}):
-                        raise ValueError(f"Expected {rule.id} @ v{stripped_version} in the rule lock")
-
-                    # TODO: Figure out whether we support locking old versions # noqa: TD002, TD003, FIX002
-                    # and if we want to "leave room" by skipping versions when breaking changes are made.
-                    # We can still inspect the version lock manually after locks are made,
-                    # since it's a good summary of everything that happens
-
-                    previous_entry = lock_from_file["previous"][stripped_version]
-                    max_allowable_version = previous_entry["max_allowable_version"]
-
-                    # if version bump collides with future bump, fail
-                    # if space, change and log
-                    info_from_rule = (lock_from_rule["sha256"], lock_from_rule["version"])
-                    info_from_file = (previous_entry["sha256"], previous_entry["version"])
-
-                    if lock_from_rule["version"] > max_allowable_version:
-                        raise ValueError(
-                            f"Forked rule: {rule.id} - {rule.name} has changes that will force it to "
-                            f"exceed the max allowable version of {max_allowable_version}"
+                    elif min_stack > latest_locked_stack_version:
+                        route = "B"
+                        # 3) on the latest stack, locking in a breaking change
+                        stripped_latest_locked_stack_version = (
+                            f"{latest_locked_stack_version.major}.{latest_locked_stack_version.minor}"
                         )
+                        # preserve buffer space to support forked version spacing
+                        if exclude_version_update:
+                            buffer_int -= 1
+                        lock_from_rule["version"] = lock_from_file["version"] + buffer_int
 
-                    if info_from_rule != info_from_file:
-                        lock_from_file["previous"][stripped_version].update(lock_from_rule)
+                        previous_lock_info = {
+                            "max_allowable_version": lock_from_rule["version"] - 1,
+                            "rule_name": lock_from_file["rule_name"],
+                            "sha256": lock_from_file["sha256"],
+                            "version": lock_from_file["version"],
+                            "type": lock_from_file["type"],
+                        }
+                        lock_from_file.setdefault("previous", {})
+
+                        # move the current locked info into the previous section
+                        lock_from_file["previous"][stripped_latest_locked_stack_version] = previous_lock_info
+
+                        existing_stack_emit = lock_from_file.get("stack_emit")
+                        # overwrite the "latest" part of the lock at the top level
+                        lock_from_file.update(lock_from_rule, min_stack_version=stripped_version)
+                        if existing_stack_emit is not None:
+                            lock_from_file["stack_emit"] = existing_stack_emit
                         new_version = lock_from_rule["version"]
                         log_changes(
                             rule,
                             route,
-                            "unchanged",
-                            f"previous version {stripped_version} updated version to {new_version}",
+                            new_version,
+                            f"previous {stripped_latest_locked_stack_version} saved as \
+                                version: {previous_lock_info['version']}",
+                            f"current min_stack updated to {stripped_version}",
                         )
-                    continue
-                else:
-                    raise RuntimeError("Unreachable code")
+
+                    elif min_stack < latest_locked_stack_version:
+                        route = "C"
+                        # 4) on an old stack, after a breaking change has been made (updated fork)
+                        if stripped_version not in lock_from_file.get("previous", {}):
+                            raise ValueError(f"Expected {rule.id} @ v{stripped_version} in the rule lock")
+
+                        previous_entry = lock_from_file["previous"][stripped_version]
+                        max_allowable_version = previous_entry["max_allowable_version"]
+
+                        info_from_rule = (lock_from_rule["sha256"], lock_from_rule["version"])
+                        info_from_file = (previous_entry["sha256"], previous_entry["version"])
+
+                        if lock_from_rule["version"] > max_allowable_version:
+                            raise ValueError(
+                                f"Forked rule: {rule.id} - {rule.name} has changes that will force it to "
+                                f"exceed the max allowable version of {max_allowable_version}"
+                            )
+
+                        if info_from_rule != info_from_file:
+                            lock_from_file["previous"][stripped_version].update(lock_from_rule)
+                            new_version = lock_from_rule["version"]
+                            log_changes(
+                                rule,
+                                route,
+                                "unchanged",
+                                f"previous version {stripped_version} updated version to {new_version}",
+                            )
+                        # Still allow emit-channel updates below; do not continue past emit handling.
+                    else:
+                        raise RuntimeError("Unreachable code")
+
+                # Update stack_emit for the current package stack epoch when transforms apply.
+                # Older branches must not rewrite newer emit keys; they only touch their own epoch.
+                emit_rules = emit_changed_rules | changed_rules | new_rules
+                if epoch_key and package_transforms and (baseline_touched or rule.id in emit_rules):
+                    emit_hash = rule.contents.get_emit_hash()
+                    untransformed_hash = rule.contents.get_untransformed_hash()
+                    stack_emit: dict[str, dict[str, Any]] = cast(
+                        "dict[str, dict[str, Any]]", lock_from_file.get("stack_emit") or {}
+                    )
+
+                    # Transforms were a no-op for this rule — drop a stale epoch rather than
+                    # comparing against the baseline lock hash (which strips related_integrations).
+                    if emit_hash == untransformed_hash:
+                        if epoch_key in stack_emit:
+                            stack_emit = dict(stack_emit)
+                            del stack_emit[epoch_key]
+                            if stack_emit:
+                                lock_from_file["stack_emit"] = stack_emit
+                            else:
+                                lock_from_file.pop("stack_emit", None)
+                            log_changes(
+                                rule,
+                                "stack_emit",
+                                lock_from_file.get("version"),
+                                f"epoch {epoch_key} removed (transforms no-op)",
+                            )
+                        continue
+
+                    if stack_emit.get(epoch_key, {}).get("sha256") == emit_hash:
+                        continue
+
+                    stack_emit = cast("dict[str, dict[str, Any]]", lock_from_file.setdefault("stack_emit", {}))
+                    existing_emit = stack_emit.get(epoch_key)
+
+                    baseline_version = int(lock_from_file.get("version") or 1)
+                    other_emit_versions = [
+                        int(e["version"]) for k, e in stack_emit.items() if k != epoch_key and e.get("version")
+                    ]
+                    floor = max([baseline_version, *other_emit_versions])
+                    if exclude_version_update and existing_emit:
+                        new_emit_version = int(existing_emit["version"])
+                    else:
+                        new_emit_version = floor + 1
+
+                    stack_emit[epoch_key] = {
+                        "sha256": emit_hash,
+                        "version": new_emit_version,
+                        "transforms": package_transforms,
+                    }
+                    log_changes(
+                        rule,
+                        "stack_emit",
+                        new_emit_version,
+                        f"epoch {epoch_key} hash updated ({', '.join(package_transforms)})",
+                    )
 
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
@@ -352,6 +462,7 @@ class VersionLock:
             click.echo(f" - {len(changed_rules)} changed rules")
             click.echo(f" - {len(new_rules)} new rules")
             click.echo(f" - {len(newly_deprecated)} newly deprecated rules")
+            click.echo(f" - {len(emit_changed_rules)} stack-emit changed rules")
 
         if not save_changes:
             verbose_echo(
