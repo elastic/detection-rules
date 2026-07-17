@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   commit:
@@ -21,10 +22,17 @@ jobs:
 
     steps:
 
+      - name: Fetch ephemeral GitHub token
+        id: fetch-ephemeral-token
+        uses: elastic/ci-gh-actions/fetch-github-token@2feb1c6f5086cf8e06f61ef35e275abed3456f7b # v1.5.3
+        with:
+          vault-instance: "ci-prod"
+          vault-role: "token-policy-3994dc276a5d"
+
       - name: Checkout detection-rules
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          token: ${{ secrets.WRITE_TRADEBOT_DETECTION_RULES_TOKEN }}
+          token: ${{ steps.fetch-ephemeral-token.outputs.token }}
           fetch-depth: 0
 
       - name: Set github config
