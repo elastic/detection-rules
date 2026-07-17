@@ -2111,7 +2111,8 @@ def scaffold_version_map(target_version: str, source_version: str, framework: st
     skeleton = attack.build_identity_version_map(framework, source_version, target_version)
     header_lines = [
         f"# Auto-generated identity mapping skeleton ({framework} {source_version} to {target_version}).",
-        "# REVIEW REQUIRED: every id currently maps to itself with its source-version name/reference.",
+        "# REVIEW REQUIRED: every source id maps to itself, with the target-version name/reference",
+        "# where the id still exists in the target ATT&CK data (source name otherwise).",
         "# Curate against the target version's real changes before relying on this config:",
         "#   renamed       -> change the entry 'name'",
         "#   deprecated    -> map the entry to a null value, which drops it during conversion",

@@ -180,8 +180,9 @@ triple. Multiple destinations coexist as separate `threat_mappings` blocks per r
 ### Scaffolding a config
 
 For fully-explicit configs (`auto_derive_missing: false`), `dev attack scaffold-version-map` generates
-an **identity** baseline from the currently loaded ATT&CK data (every non-revoked/non-deprecated id
-maps to itself). Review and curate it against the target version's real changes (renames,
+an **identity** baseline: every non-revoked/non-deprecated source-version id maps to itself, using the
+target version's name/reference where the id still exists in the target ATT&CK data (and the source
+name otherwise). Review and curate it against the target version's real changes (renames,
 deprecations, splits) before relying on it:
 
 ```bash
