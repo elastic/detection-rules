@@ -1858,8 +1858,13 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             converted["meta"] = rule_dict["metadata"]
 
         if include_version:
-            # Prefer stack_emit version for the current package stack when present.
-            converted["version"] = self.shipped_version if not self.is_dirty else self.autobumped_version
+            # Prefer stack_emit/baseline shipped version when locked; autobumped
+            # defaults unlocked rules to 1 and handles baseline dirty bumps.
+            converted["version"] = (
+                self.autobumped_version
+                if self.is_dirty
+                else (self.shipped_version if self.shipped_version is not None else self.autobumped_version)
+            )
 
         return converted
 
