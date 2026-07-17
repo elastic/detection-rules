@@ -2,7 +2,7 @@
 creation_date = "2020/09/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/07/15"
 
 [rule]
 author = ["Elastic"]
@@ -25,7 +25,7 @@ Adversaries may register a malicious application in Microsoft Entra ID and trick
 
 This rule identifies a new consent grant event based on Azure audit logs where a user or admin granted consent to an application.
 
-This rule uses ES|QL aggregation-based new terms logic with a 7-day history window. It extracts the AppId from the multi-valued additional_details array using MV_EXPAND and UUID regex filtering, then alerts when the user-application pair is first seen within the last 9 minutes OR when Microsoft flags the consent as a "Risky application detected".
+This rule uses ES|QL aggregation-based new terms logic with a 7-day history window. It extracts the AppId from the multi-valued additional_details array using MV_EXPAND and UUID regex filtering, then alerts when the user-application pair is first seen within the last 9 minutes. Alerts are suppressed by AppId and user principal name for 6 hours. Each distinct user-application pair therefore produces a single alert, preserving per-victim visibility: an application consented to by multiple users raises one alert per user, so the spread of a consent phishing campaign remains visible in the alert list.
 
 #### Possible investigation steps
 
@@ -36,8 +36,8 @@ This rule uses ES|QL aggregation-based new terms logic with a 7-day history wind
 - Review `azure.auditlogs.properties.target_resources.modified_properties.display_name` to inspect key indicators of elevated privilege or risk, including:
   - ConsentContext.IsAdminConsent to determine if the application was granted tenant-wide admin access.
   - ConsentContext.OnBehalfOfAll to identify whether the app was granted permissions on behalf of all users in the tenant.
-  - ConsentAction.Permissions to evaluate the specific scopes and data access the application requested.
-  - ConsentAction.Reason to understand if Microsoft flagged the activity or if any reason was recorded by the platform.
+  - ConsentAction.Permissions to evaluate the specific scopes and data access the application requested. Scope combinations such as `offline_access` with `Mail.ReadWrite`, `Files.ReadWrite.All`, or `Chat.Read` are characteristic of mailbox and file exfiltration.
+  - ConsentAction.Reason to determine whether Microsoft's own risk heuristics flagged the application. A value of `Risky application detected` means Microsoft scored the app as suspicious at the time consent was granted and should raise the priority of the review. Note this reason is only populated on admin-consent events, and its absence does not clear the application; a flagged app is also not necessarily malicious, since Microsoft's heuristic can flag legitimate apps.
   - TargetId.ServicePrincipalNames to confirm the service principal associated with the granted permissions.
 - Review `azure.tenant_id` to confirm the activity originated from your tenant and is not related to a cross-tenant application.
 - Review `@timestamp` and `azure.auditlogs.properties.correlation_id` to pivot into related sign-in, token usage, or application activity for further context.
@@ -46,6 +46,7 @@ This rule uses ES|QL aggregation-based new terms logic with a 7-day history wind
 
 - Some applications may request high-privilege scopes for legitimate purposes. Validate whether the application is verified, developed by Microsoft, or approved internally by your organization.
 - Review publisher verification, app ownership, and scope alignment with the intended business use case.
+- A `ConsentAction.Reason` of `Risky application detected` raises confidence that the consent is worth investigating, but Microsoft's risk heuristic is advisory and can flag legitimate applications (including internal line-of-business apps and newly registered tenant applications). Conversely, the absence of the flag does not make the consent benign, so weigh it alongside the requested scopes, admin-consent context, and the application's home tenant rather than in isolation.
 
 ### Response and remediation
 
@@ -108,9 +109,13 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     BY azure.auditlogs.properties.initiated_by.user.userPrincipalName, Esql.app_id
 
 | WHERE Esql.timestamp_first_seen >= NOW() - 9 minutes
-    OR Esql.consent_reason_values LIKE "*Risky application detected*"
 | KEEP Esql.*, azure.*
 '''
+
+[rule.alert_suppression]
+group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+duration = {value = 6, unit = "h"}
+missing_fields_strategy = "suppress"
 
 
 [[rule.threat]]
