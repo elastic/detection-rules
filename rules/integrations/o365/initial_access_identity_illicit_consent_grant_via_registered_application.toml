@@ -2,7 +2,7 @@
 creation_date = "2025/03/24"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/07/15"
 
 [rule]
 author = ["Elastic"]
@@ -40,8 +40,9 @@ This rule identifies a new consent grant to an application using Microsoft 365 a
   - Review the user’s sign-in logs for suspicious geolocation, IP, or device changes.
 
 - **Determine scope and risk**:
+  - Check `o365.audit.ModifiedProperties.ConsentAction_Reason.NewValue` to determine whether Microsoft's own risk heuristics flagged the application. A value of `Risky application detected` means Microsoft scored the app as suspicious at the time consent was granted and should raise the priority of the review. This reason is only populated on admin-consent events, and its absence does not clear the application; a flagged app is also not necessarily malicious, since Microsoft's heuristic can flag legitimate apps.
   - Use the `ConsentContext_IsAdminConsent` and `ConsentContext_OnBehalfOfAll` flags to assess privilege level.
-  - If `offline_access` or `Mail.Read` was granted, consider potential data exposure.
+  - Review `o365.audit.ModifiedProperties.ConsentAction_Permissions.NewValue` for the granted scopes. Combinations such as `offline_access` with `Mail.ReadWrite`, `Files.ReadWrite.All`, or `Chat.Read` are characteristic of mailbox and file exfiltration and indicate potential data exposure.
   - Cross-reference affected `Target` objects with known business-critical assets or data owners.
 
 - **Correlate additional telemetry**:
@@ -52,6 +53,7 @@ This rule identifies a new consent grant to an application using Microsoft 365 a
 
 - Not all consent grants are malicious. Verify if the app is business-approved, listed in your app catalog, or commonly used by users in that role or department.
 - Consent reasons like `WindowsAzureActiveDirectoryIntegratedApp` could relate to integrated services, though these still require verification.
+- A `ConsentAction_Reason` of `Risky application detected` raises confidence that the consent is worth investigating, but Microsoft's risk heuristic is advisory and can flag legitimate applications (including internal line-of-business apps and newly registered tenant applications). Its absence does not make the consent benign, so weigh it alongside the requested scopes, admin-consent context, and the application's publisher.
 
 ### Response and remediation
 
@@ -164,6 +166,6 @@ field = "new_terms_fields"
 value = ["o365.audit.UserId", "o365.audit.ObjectId"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"
 
 
