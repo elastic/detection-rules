@@ -7,25 +7,19 @@ updated_date = "2026/07/13"
 [rule]
 author = ["Elastic"]
 description = """
-Detects CloudTrail PutEventSelectors calls where the legacy event selectors explicitly set `includeManagementEvents` to
-`false`, disabling capture of all management API calls for that trail. Unlike `StopLogging` or `DeleteTrail` — which
+Detects CloudTrail PutEventSelectors calls where the legacy event selectors explicitly set includeManagementEvents to
+false, disabling capture of all management API calls for that trail. Unlike StopLogging or DeleteTrail — which
 leave an obvious trace of the trail being stopped or removed entirely — this technique leaves the trail appearing
 active and healthy in the console while silently blinding defenders to subsequent IAM changes, credential operations,
-and resource abuse. This technique is documented in Stratus Red Team as `aws.defense-evasion.cloudtrail-event-selectors` and is a known pre-exfiltration
-step. The query looks for requests that set `includeManagementEvents` to `false` and excludes requests where `includeManagementEvents` is also set to `true`
-(mixed selector configurations), which helps reduce false positives.
+and resource abuse. This technique is documented in Stratus Red Team as aws.defense-evasion.cloudtrail-event-selectors
+and is a known pre-exfiltration step.
 """
 false_positives = [
     """
     IaC pipelines setting event selectors during trail creation always set includeManagementEvents to true — the rule
     will not fire on those calls. The remaining FP vector is an administrator intentionally restricting a trail to
     data-events-only for cost reasons. Validate the caller, change management ticket, and confirm this is not a
-    multi-region or organization-wide trail where the coverage impact would be severe. Coverage gap: this rule detects
-    the legacy EventSelectors API only (PutEventSelectors with eventSelectors[].includeManagementEvents: false).
-    Attackers using the modern AdvancedEventSelectors API achieve the same result by submitting selectors that omit
-    management event category coverage entirely — that pattern requires absence-based detection and is not covered here.
-    Verify in the investigation whether request_parameters contains advancedEventSelectors instead of eventSelectors; if
-    so, review the fieldSelectors array for any selector with Field: eventCategory and Equals: [Management].
+    multi-region or organization-wide trail where the coverage impact would be severe.
     """,
 ]
 from = "now-6m"
