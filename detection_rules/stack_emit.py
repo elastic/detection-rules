@@ -11,7 +11,7 @@ change on newer stacks while older stacks keep the baseline version.
 
 Adding a future breaking change
 --------------------------------
-1. Define MIN_STACK = Version(X, Y, 0) (and any env/feature gates).
+1. Define MIN_STACK = Version(X, Y, 0).
 2. Implement _apply_<name>(obj, stack, context) -> None that mutates the
    API dict in place. Keep it idempotent and no-op when inapplicable.
 3. Append an EmitTransform(...) to EMIT_TRANSFORMS with that apply fn.
@@ -24,7 +24,6 @@ apply_emit_transforms; do not special-case new transforms in rule.py.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -37,11 +36,11 @@ from .config import (
     DEFAULT_THREAT_MAPPING_VERSION,
     load_current_package_version,
 )
-from .integrations import RELATED_INTEGRATION_GTE_OPERATOR_ENV
+from .integrations import RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK
 
 # Re-export attack's gate so emit registry / callers share one constant.
 MITRE_V19_MIN_STACK = attack.MITRE_V19_MIN_STACK
-RELATED_INTEGRATIONS_GTE_MIN_STACK = Version(9, 5, 0)
+RELATED_INTEGRATIONS_GTE_MIN_STACK = RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK
 
 EmitApplyFn = Callable[["dict[str, Any]", Version, "EmitContext"], None]
 
@@ -104,11 +103,9 @@ def _apply_mitre_attack_v19(obj: dict[str, Any], stack: Version, context: EmitCo
 
 
 def _apply_related_integrations_gte(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
-    """Rewrite related_integrations caret ranges to >= when the CI/package gate is on."""
+    """Rewrite related_integrations caret ranges to >= on stacks that ship that operator."""
     _ = context
     if stack < RELATED_INTEGRATIONS_GTE_MIN_STACK:
-        return
-    if os.getenv(RELATED_INTEGRATION_GTE_OPERATOR_ENV) != "True":
         return
 
     for entry in cast("list[dict[str, Any]]", obj.get("related_integrations") or []):

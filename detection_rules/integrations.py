@@ -284,9 +284,8 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 
 # Sentinel written by parse_datasets when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
-# Opt-in for package/CI builds; the related_integrations_gte emit transform reads this.
-# TODO(eric-forte-elastic): Remove this gate after stack 9.7. https://github.com/elastic/detection-rules/issues/6327  # noqa: FIX002, E501
-RELATED_INTEGRATION_GTE_OPERATOR_ENV = "DR_RELATED_INTEGRATIONS_USE_GTE"
+# Stack versions at/above this use >= for related_integrations.version (caret below).
+RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
 
 
 def _package_version_has_integration(
@@ -344,12 +343,14 @@ class IntegrationVersionNotFoundError(ValueError):
 
 
 def _related_integration_version_operator(stack_version: Version) -> str:
-    """Return the baseline semver operator for related_integrations.version.
+    """Return the semver operator for related_integrations.version on the current stack.
 
-    Always ^ here. Stack ≥ 9.5 package builds rewrite to >= via the
-    related_integrations_gte emit transform (see stack_emit.apply_emit_transforms).
+    Stack ≥ 9.5 uses ``>=``; older stacks keep caret ranges. The
+    ``related_integrations_gte`` emit transform still rewrites any remaining
+    ``^`` values on ≥ 9.5 so export/view/package paths stay consistent.
     """
-    _ = stack_version
+    if stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK:
+        return ">="
     return "^"
 
 

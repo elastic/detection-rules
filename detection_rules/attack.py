@@ -708,6 +708,28 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
                 dropped.append(f"tactic {tactic_id} ({tactic_name})")
             continue
 
+        def _technique_entry(dest: dict[str, str], subs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+            """Build a technique dict; expand technique→subtechnique remaps (e.g. T1656→T1684.001)."""
+            dest_id = dest["id"]
+            if "." in dest_id and lookups is not None:
+                parent_id = dest_id.split(".", 1)[0]
+                parent = vmap.resolve("technique", parent_id, lookups)
+                if parent is not None:
+                    entry: dict[str, Any] = {
+                        "id": parent["id"],
+                        "name": parent["name"],
+                        "reference": parent["reference"],
+                        "subtechnique": [
+                            {"id": dest["id"], "name": dest["name"], "reference": dest["reference"]},
+                            *([dict(s) for s in subs] if subs else []),
+                        ],
+                    }
+                    return entry
+            entry = {"id": dest["id"], "name": dest["name"], "reference": dest["reference"]}
+            if subs:
+                entry["subtechnique"] = [dict(s) for s in subs]
+            return entry
+
         for technique in source_techniques:
             tech_id = str(technique.get("id", ""))
             tech_name = str(technique.get("name", tech_id))
@@ -718,6 +740,7 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
                 continue
 
             new_subs: list[dict[str, Any]] = []
+            promoted: list[dict[str, str]] = []
             for sub in cast("list[dict[str, Any]]", technique.get("subtechnique") or []):
                 sub_id = str(sub.get("id", ""))
                 sub_name = str(sub.get("name", sub_id))
@@ -726,17 +749,16 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
                     if dropped is not None:
                         dropped.append(f"subtechnique {sub_id} ({sub_name})")
                     continue
+                # Subtechnique remapped to a parent technique id (no '.') — emit as technique.
+                if "." not in sub_dest["id"]:
+                    promoted.append(sub_dest)
+                    continue
                 new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
 
-            for tactic_for_tech in _tactics_for_technique(tech_dest["id"], tech_dest["name"], tactic_dest):
-                new_tech: dict[str, Any] = {
-                    "id": tech_dest["id"],
-                    "name": tech_dest["name"],
-                    "reference": tech_dest["reference"],
-                }
-                if new_subs:
-                    new_tech["subtechnique"] = [dict(s) for s in new_subs]
-                _merge_technique(_get_or_create(tactic_for_tech), new_tech)
+            for dest in (tech_dest, *promoted):
+                built = _technique_entry(dest, new_subs if dest is tech_dest else None)
+                for tactic_for_tech in _tactics_for_technique(built["id"], built["name"], tactic_dest):
+                    _merge_technique(_get_or_create(tactic_for_tech), built)
 
     return passthru + [
         {k: v for k, v in e.items() if k != "technique" or v}
