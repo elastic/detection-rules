@@ -363,7 +363,9 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
         self.assertEqual(stack_10.manifest_versions, ("3.0.0",))
 
     def test_env_override_allows_gte_on_min_stack(self):
-        """The >= operator is opt-in for package/unit-test workflows."""
+        """The >= operator is applied by the related_integrations_gte emit transform."""
+        from detection_rules.stack_emit import apply_emit_transforms
+
         manifests = {
             "pkg": {
                 "2.0.0": _manifest("^9.0.0"),
@@ -381,9 +383,21 @@ class TestResolveRelatedIntegrationVersion(unittest.TestCase):
             ):
                 stack_10 = resolve_related_integration_version("pkg", manifests)
 
-        self.assertEqual(stack_94.expression, "^2.0.0")
-        self.assertEqual(stack_95.expression, ">=2.0.0")
-        self.assertEqual(stack_10.expression, ">=3.0.0")
+            # Resolve always returns caret; emit transform upgrades on >= 9.5.
+            self.assertEqual(stack_94.expression, "^2.0.0")
+            self.assertEqual(stack_95.expression, "^2.0.0")
+            self.assertEqual(stack_10.expression, "^3.0.0")
+
+            obj_94 = {"related_integrations": [{"package": "pkg", "version": stack_94.expression}]}
+            obj_95 = {"related_integrations": [{"package": "pkg", "version": stack_95.expression}]}
+            obj_10 = {"related_integrations": [{"package": "pkg", "version": stack_10.expression}]}
+            apply_emit_transforms(obj_94, stack="9.4.0")
+            apply_emit_transforms(obj_95, stack="9.5.0")
+            apply_emit_transforms(obj_10, stack="10.0.0")
+
+        self.assertEqual(obj_94["related_integrations"][0]["version"], "^2.0.0")
+        self.assertEqual(obj_95["related_integrations"][0]["version"], ">=2.0.0")
+        self.assertEqual(obj_10["related_integrations"][0]["version"], ">=3.0.0")
 
     def test_keeps_zero_major_when_only_stable_option_missing(self):
         """Keep 0.x manifest versions when no major >= 1 option exists."""

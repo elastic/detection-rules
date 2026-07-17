@@ -44,8 +44,9 @@ At build time (`TOMLRuleContents.to_api_format`), the configured framework/versi
 `threat`:
 
 - **Stack ≤ 9.4** — v18 (the baseline `threat` field) is emitted unchanged.
-- **Stack ≥ 9.5** — v19 is auto-promoted: the matching `threat_mappings` block is emitted as `threat`.
-  Rules without a v19 block silently fall back to the baseline `threat`.
+- **Stack ≥ 9.5** — v19 is auto-promoted: an explicit `threat_mappings` block wins when
+  present; otherwise the baseline is auto-converted via the version map + STIX data.
+  Tactic tags are rewritten to match the emitted mapping.
 - Setting `DR_THREAT_MAPPING_VERSION` (or `threat_mapping_version` in `_config.yaml`) explicitly
   overrides auto-promotion for both directions.
 - `threat_mappings` is always stripped from the API output.
@@ -62,8 +63,43 @@ threat_mapping_version: "19"
 DR_THREAT_MAPPING_FRAMEWORK="MITRE ATT&CK" DR_THREAT_MAPPING_VERSION=19 python -m detection_rules ...
 ```
 
-Because the field is stripped from the API format, adding `threat_mappings` to rules does **not**
-change rule hashes or trigger version bumps until the output version is actually flipped.
+Because the baseline hash path strips `threat_mappings` and skips emit transforms, adding
+`threat_mappings` (or relying on build-time auto-convert) does **not** change baseline rule
+hashes. Package stacks that apply transforms record a separate `stack_emit` epoch in
+`version.lock.json` so 9.5+ can version independently of ≤9.4.
+
+## `stack_emit` (version lock)
+
+The shared, backported `version.lock.json` may include optional emit epochs per rule:
+
+```json
+{
+  "sha256": "<baseline hash>",
+  "version": 12,
+  "stack_emit": {
+    "9.5": {
+      "sha256": "<hash of transformed package payload>",
+      "version": 13,
+      "transforms": ["mitre_attack_v19", "related_integrations_gte"]
+    }
+  }
+}
+```
+
+- Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
+- Building 9.6 with the same transforms **reuses** `stack_emit["9.5"]` — no new lock row.
+- ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
+- Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
+
+### Adding a future emit transform
+
+All stack-conditional payload changes go through `detection_rules/stack_emit.py`:
+
+1. Add a `MIN_STACK` constant and an `_apply_<name>(obj, stack, context)` function.
+2. Append an `EmitTransform(id=..., min_stack=..., affects=..., apply=...)` to `EMIT_TRANSFORMS`.
+3. Re-lock on the package branch that ships that stack (`manage_versions`).
+
+`rule.py` calls `apply_emit_transforms` once after build-time fields (e.g. `related_integrations`) are attached. Do **not** special-case new transforms in `rule.py`. Extend `EmitContext` only when a transform needs repo-only data already stripped from the API dict (like `threat_mappings`).
 
 ## Generating a target-version mapping
 

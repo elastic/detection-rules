@@ -18,12 +18,22 @@ import requests
 import yaml
 from semver import Version
 
+from .config import (
+    DEFAULT_THREAT_MAPPING_FRAMEWORK,
+    DEFAULT_THREAT_MAPPING_VERSION,
+    THREAT_MAPPING_FRAMEWORK_ENV,
+    THREAT_MAPPING_VERSION_ENV,
+    load_current_package_version,
+    parse_rules_config,
+)
 from .utils import cached, clear_caches, get_etc_glob_path, get_etc_path, gzip_compress, read_gzip
 
 PLATFORMS = ["Windows", "macOS", "Linux"]
 CROSSWALK_FILE = get_etc_path(["attack-crosswalk.json"])
 TECHNIQUES_REDIRECT_FILE = get_etc_path(["attack-technique-redirects.json"])
 ATTACK_VERSION_MAPS_DIRNAME = "attack-version-maps"
+# Stack at which ATT&CK v19 becomes the default shipped threat mapping (emit transform gate).
+MITRE_V19_MIN_STACK = Version(9, 5, 0)
 
 tactics_map: dict[str, Any] = {}
 
@@ -49,7 +59,7 @@ def get_attack_file_path() -> Path:
 
 
 def get_attack_file_path_for_version(version: str) -> Path:
-    """Return the ATT&CK data file whose major version matches ``version``."""
+    """Return the ATT&CK data file whose major version matches version."""
     major = version.split(".", maxsplit=1)[0]
     attack_files = get_etc_glob_path(["attack-v*.json.gz"])
     for path in sorted(attack_files, key=_attack_file_version, reverse=True):
@@ -383,7 +393,7 @@ class AttackVersionMap:
         return self._table(kind).get(source_id) is not None
 
     def lookup(self, kind: str, source_id: str) -> dict[str, str] | None:
-        """Return the destination entry for a source id, or ``None`` if dropped/absent."""
+        """Return the destination entry for a source id, or None if dropped/absent."""
         return self._table(kind).get(source_id)
 
     def resolve(
@@ -558,21 +568,189 @@ def build_identity_version_map(framework: str, source_version: str, target_versi
     }
 
 
-# Stack version at which v19 ATT&CK mappings become the default output.
-_THREAT_MAPPING_V19_MIN_STACK = Version(9, 5, 0)
+# Sentinel: auto-load STIX lookups for the target version (default convert path).
+_LOOKUPS_AUTO = object()
 
 
-def resolve_output_threat_version() -> tuple[str, str]:
-    """Resolve which (framework, version) threat mapping should be emitted as the API `threat`."""
-    from .config import (
-        DEFAULT_THREAT_MAPPING_FRAMEWORK,
-        DEFAULT_THREAT_MAPPING_VERSION,
-        THREAT_MAPPING_FRAMEWORK_ENV,
-        THREAT_MAPPING_VERSION_ENV,
-        load_current_package_version,
-        parse_rules_config,
-    )
+@cached
+def _get_default_version_map(framework: str, source_version: str, target_version: str) -> AttackVersionMap | None:
+    """Return the default configured version map for a triple, cached; None if unavailable."""
+    try:
+        return get_attack_version_map(framework, source_version, target_version)
+    except (FileNotFoundError, ValueError):
+        return None
 
+
+def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
+    threat: list[dict[str, Any]],
+    source_version: str,
+    target_version: str,
+    framework: str,
+    *,
+    vmap: AttackVersionMap | None = None,
+    target_lookups: AttackLookups | None | object = _LOOKUPS_AUTO,
+    dropped: list[str] | None = None,
+    moved: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert a raw threat list to the target version; techniques follow tactic migrations.
+
+    Shared by build-time emit (stack_emit mitre_attack_v19) and the CLI remapper
+    (devtools._remap_threat_entries). When a source tactic is dropped (e.g. Defense Evasion
+    in v19), techniques are still placed using the target STIX matrix when lookups are available.
+
+    Pass an explicit vmap / target_lookups to reuse a caller-loaded config (CLI). Use
+    target_lookups=None to skip STIX membership checks. Returns [] when no map/STIX
+    data is available on the default (auto) path.
+    """
+    if vmap is None:
+        vmap = _get_default_version_map(framework, source_version, target_version)
+        if vmap is None:
+            return []
+
+    lookups: AttackLookups | None
+    if target_lookups is _LOOKUPS_AUTO:
+        try:
+            lookups = build_attack_lookups_for_version(target_version)
+        except FileNotFoundError:
+            return []
+    else:
+        lookups = target_lookups  # type: ignore[assignment]
+
+    tgt_tactic_id_to_name: dict[str, str] = {}
+    tgt_tech_to_tactic_names: dict[str, list[str]] = {}
+    if lookups is not None:
+        tgt_tactic_id_to_name = {v: k for k, v in lookups.tactics_map.items()}
+        for tname, tids in lookups.matrix.items():
+            for tid in tids:
+                tgt_tech_to_tactic_names.setdefault(tid, []).append(tname)
+
+    entries_by_tactic: dict[str, dict[str, Any]] = {}
+    passthru: list[dict[str, Any]] = []
+    tactic_only_ids: set[str] = set()
+
+    def _get_or_create(tactic_detail: dict[str, str]) -> dict[str, Any]:
+        tid = tactic_detail["id"]
+        if tid not in entries_by_tactic:
+            entries_by_tactic[tid] = {
+                "framework": framework,
+                "tactic": {
+                    "id": tactic_detail["id"],
+                    "name": tactic_detail["name"],
+                    "reference": tactic_detail["reference"],
+                },
+                "technique": [],
+            }
+        return entries_by_tactic[tid]
+
+    def _merge_technique(tactic_entry: dict[str, Any], new_technique: dict[str, Any]) -> None:
+        for existing in tactic_entry["technique"]:
+            if existing["id"] == new_technique["id"]:
+                existing_sub_ids = {s["id"] for s in existing.get("subtechnique", [])}
+                merged = existing.get("subtechnique", []) + [
+                    s for s in new_technique.get("subtechnique", []) if s["id"] not in existing_sub_ids
+                ]
+                if merged:
+                    existing["subtechnique"] = sorted(merged, key=lambda s: s["id"])
+                return
+        tactic_entry["technique"].append(new_technique)
+
+    def _tactics_for_technique(
+        tech_id: str,
+        tech_name: str,
+        mapped_tactic: dict[str, str] | None,
+    ) -> list[dict[str, str]]:
+        if not tgt_tactic_id_to_name:
+            return [mapped_tactic] if mapped_tactic is not None else []
+
+        tech_tactic_names = tgt_tech_to_tactic_names.get(tech_id, [])
+        if mapped_tactic is not None:
+            tgt_tactic_name = tgt_tactic_id_to_name.get(mapped_tactic["id"])
+            if not tech_tactic_names or (tgt_tactic_name and tgt_tactic_name in tech_tactic_names):
+                return [mapped_tactic]
+
+        if lookups is None:
+            return [mapped_tactic] if mapped_tactic is not None else []
+
+        details = [
+            detail
+            for tname in tech_tactic_names
+            for tid in [lookups.tactics_map.get(tname, "")]
+            for detail in [lookups.tactic_id_to_detail.get(tid)]
+            if detail
+        ]
+        if details and mapped_tactic is not None and moved is not None:
+            new_str = ", ".join(f"{d['id']} ({d['name']})" for d in details)
+            moved.append(
+                f"technique {tech_id} ({tech_name}) — migrated from "
+                f"{mapped_tactic['id']} ({mapped_tactic['name']}) to {new_str} "
+                f"in v{lookups.version}"
+            )
+        if details:
+            return details
+        return [mapped_tactic] if mapped_tactic is not None else []
+
+    for entry in threat:
+        if entry.get("framework") != framework:
+            passthru.append(entry)
+            continue
+
+        tactic = entry.get("tactic") or {}
+        tactic_id = str(tactic.get("id", ""))
+        tactic_name = str(tactic.get("name", tactic_id))
+        tactic_dest = vmap.resolve("tactic", tactic_id, lookups)
+        source_techniques = entry.get("technique") or []
+
+        if not source_techniques:
+            if tactic_dest is not None:
+                tactic_only_ids.add(tactic_dest["id"])
+                _get_or_create(tactic_dest)
+            elif dropped is not None:
+                dropped.append(f"tactic {tactic_id} ({tactic_name})")
+            continue
+
+        for technique in source_techniques:
+            tech_id = str(technique.get("id", ""))
+            tech_name = str(technique.get("name", tech_id))
+            tech_dest = vmap.resolve("technique", tech_id, lookups)
+            if tech_dest is None:
+                if dropped is not None:
+                    dropped.append(f"technique {tech_id} ({tech_name})")
+                continue
+
+            new_subs: list[dict[str, Any]] = []
+            for sub in technique.get("subtechnique") or []:
+                sub_id = str(sub.get("id", ""))
+                sub_name = str(sub.get("name", sub_id))
+                sub_dest = vmap.resolve("subtechnique", sub_id, lookups)
+                if sub_dest is None:
+                    if dropped is not None:
+                        dropped.append(f"subtechnique {sub_id} ({sub_name})")
+                    continue
+                new_subs.append({"id": sub_dest["id"], "name": sub_dest["name"], "reference": sub_dest["reference"]})
+
+            for tactic_for_tech in _tactics_for_technique(tech_dest["id"], tech_dest["name"], tactic_dest):
+                new_tech: dict[str, Any] = {
+                    "id": tech_dest["id"],
+                    "name": tech_dest["name"],
+                    "reference": tech_dest["reference"],
+                }
+                if new_subs:
+                    new_tech["subtechnique"] = [dict(s) for s in new_subs]
+                _merge_technique(_get_or_create(tactic_for_tech), new_tech)
+
+    return passthru + [
+        {k: v for k, v in e.items() if k != "technique" or v}
+        for e in entries_by_tactic.values()
+        if e.get("technique") or e["tactic"]["id"] in tactic_only_ids
+    ]
+
+
+def resolve_output_threat_version(stack: Version | str | None = None) -> tuple[str, str]:
+    """Resolve which (framework, version) threat mapping should be emitted as the API `threat`.
+
+    stack defaults to the current package version. Emit transforms should pass the same
+    stack used for transforms_for_stack so auto-promotion stays aligned with the registry.
+    """
     cfg = parse_rules_config()
     framework = os.getenv(THREAT_MAPPING_FRAMEWORK_ENV, cfg.threat_mapping_framework)
     version = str(os.getenv(THREAT_MAPPING_VERSION_ENV, cfg.threat_mapping_version))
@@ -588,8 +766,9 @@ def resolve_output_threat_version() -> tuple[str, str]:
         and version == DEFAULT_THREAT_MAPPING_VERSION
     ):
         try:
-            stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-            if stack >= _THREAT_MAPPING_V19_MIN_STACK:
+            raw = stack if stack is not None else load_current_package_version()
+            stack_ver = raw if isinstance(raw, Version) else Version.parse(str(raw), optional_minor_and_patch=True)
+            if stack_ver >= MITRE_V19_MIN_STACK:
                 version = "19"
         except ValueError:
             pass

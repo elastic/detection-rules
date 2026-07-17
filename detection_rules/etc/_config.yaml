@@ -96,7 +96,13 @@ normalize_kql_keywords: False
 # alongside the default `threat` field. At build time exactly one mapping is emitted as the API
 # `threat`. The version emitted is chosen automatically based on the target stack:
 #   stack <= 9.4  ->  v18 (the baseline stored in `threat`)
-#   stack >= 9.5  ->  v19 (auto-promoted; requires rules to have v19 `threat_mappings` blocks)
+#   stack >= 9.5  ->  v19 (auto-converted from baseline via STIX/version maps, or an explicit
+#                         `threat_mappings` override when present)
+# Tactic tags are rewritten to match the emitted threat mapping.
+#
+# Versioning uses `stack_emit` epochs in version.lock.json so 9.5+ packages can bump independently
+# of ≤9.4 baseline versions without min-stacking rules. See docs-dev/multi-version-threat-mappings.md.
+#
 # Override the framework/version explicitly with the keys below or the DR_THREAT_MAPPING_FRAMEWORK /
 # DR_THREAT_MAPPING_VERSION environment variables (env vars take precedence over the keys). Setting
 # a version explicitly through either source pins it and suppresses auto-promotion, so e.g.

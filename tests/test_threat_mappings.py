@@ -166,17 +166,39 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (v19)")
 
     def test_falls_back_to_baseline_when_no_threat_mappings_block(self) -> None:
-        """Assert that v19 output falls back to the baseline threat when no threat_mappings block exists."""
+        """Assert that an unknown target version without a map falls back to the baseline threat."""
         rule = self._load(_rule())  # no threat_mappings — baseline only
-        with ThreatMappingEnv("19"):
+        with ThreatMappingEnv("20"):
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
-        # Baseline threat should be emitted unchanged (same tactic/technique as authored in v18)
+        # No v18->v20 map: baseline threat should be emitted unchanged
         tactic = api["threat"][0]["tactic"]
         self.assertEqual(tactic["id"], TACTIC["id"])
         self.assertEqual(tactic["name"], TACTIC["name"])
         tech = api["threat"][0]["technique"][0]
         self.assertEqual(tech["id"], TECH_V18["id"])
+
+    def test_auto_converts_when_no_threat_mappings_block(self) -> None:
+        """Assert that v19 output auto-converts from baseline when no threat_mappings exist."""
+        rule = self._load(_rule())
+        with ThreatMappingEnv("19"):
+            api = rule.contents.to_api_format(apply_emit_transforms=True)
+        self.assertNotIn("threat_mappings", api)
+        self.assertTrue(api.get("threat"))
+        # T1078 still exists in v19 under Initial Access
+        tech_ids = {t["id"] for entry in api["threat"] for t in entry.get("technique") or []}
+        self.assertIn("T1078", tech_ids)
+
+    def test_baseline_hash_ignores_emit_transforms(self) -> None:
+        """Assert baseline get_hash is identical whether or not emit would transform threat."""
+        rule = self._load(_rule())
+        with ThreatMappingEnv("18"):
+            hash_v18 = rule.contents.get_hash()
+        with ThreatMappingEnv("19"):
+            hash_v19_context = rule.contents.get_hash()
+            emit_hash = rule.contents.get_emit_hash()
+        self.assertEqual(hash_v18, hash_v19_context)
+        self.assertNotEqual(hash_v18, emit_hash)
 
     def test_explicit_threat_mappings_overrides_auto_conversion(self) -> None:
         """Assert that an explicit threat_mappings block takes precedence over auto-conversion."""
@@ -516,8 +538,8 @@ class TestOutputVersionResolution(unittest.TestCase):
         )
         with (
             ThreatMappingEnv(None),
-            mock.patch("detection_rules.config.parse_rules_config", return_value=cfg),
-            mock.patch("detection_rules.config.load_current_package_version", return_value="9.5.0"),
+            mock.patch("detection_rules.attack.parse_rules_config", return_value=cfg),
+            mock.patch("detection_rules.attack.load_current_package_version", return_value="9.5.0"),
         ):
             return attack.resolve_output_threat_version()
 

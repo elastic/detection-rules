@@ -8,7 +8,6 @@
 import fnmatch
 import gzip
 import json
-import os
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -184,12 +183,12 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
 
 
 def _parse_clause(clause: str) -> tuple[Version, Version | None]:
-    """Parse a single AND'd clause of npm-style range tokens into ``[lo, hi)`` bounds.
+    """Parse a single AND'd clause of npm-style range tokens into [lo, hi) bounds.
 
-    ``hi`` is ``None`` when the clause has no upper bound. Supports the subset of
-    npm semver currently emitted by EPR ``conditions.kibana.version`` strings:
-    ``^X.Y.Z``, ``~X.Y.Z``, ``>=X.Y.Z``, ``>X.Y.Z``, ``<=X.Y.Z``, ``<X.Y.Z``,
-    ``=X.Y.Z``, and bare ``X.Y.Z``. Unsupported tokens raise ``ValueError`` so
+    hi is None when the clause has no upper bound. Supports the subset of
+    npm semver currently emitted by EPR conditions.kibana.version strings:
+    ^X.Y.Z, ~X.Y.Z, >=X.Y.Z, >X.Y.Z, <=X.Y.Z, <X.Y.Z,
+    =X.Y.Z, and bare X.Y.Z. Unsupported tokens raise ValueError so
     we fail loudly if EPR's grammar grows.
     """
     lo = Version(0, 0, 0)
@@ -233,16 +232,16 @@ def _parse_clause(clause: str) -> tuple[Version, Version | None]:
 
 
 def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
-    """Parse an EPR ``conditions.kibana.version`` string into a list of ``[lo, hi)`` clauses.
+    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses.
 
-    Clauses separated by ``||`` are OR'd; whitespace-separated tokens within a
+    Clauses separated by || are OR'd; whitespace-separated tokens within a
     clause are AND'd.
     """
     return [_parse_clause(c) for c in version_requirement.split("||")]
 
 
 def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
-    """Return True iff ``stack`` satisfies the EPR ``conditions.kibana.version`` string."""
+    """Return True iff stack satisfies the EPR conditions.kibana.version string."""
     return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
 
 
@@ -283,11 +282,11 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
     return latest_patch
 
 
-# Sentinel written by ``parse_datasets`` when a rule indexes a package but not a data stream.
+# Sentinel written by parse_datasets when a rule indexes a package but not a data stream.
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
+# Opt-in for package/CI builds; the related_integrations_gte emit transform reads this.
 # TODO(eric-forte-elastic): Remove this gate after stack 9.7. https://github.com/elastic/detection-rules/issues/6327  # noqa: FIX002, E501
 RELATED_INTEGRATION_GTE_OPERATOR_ENV = "DR_RELATED_INTEGRATIONS_USE_GTE"
-RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
 
 
 def _package_version_has_integration(
@@ -344,15 +343,13 @@ class IntegrationVersionNotFoundError(ValueError):
     """Raised when a package has no compatible version for the requested stack/integration."""
 
 
-def _related_integration_gte_operator_enabled() -> bool:
-    """Return True when CI/package builds opt into >= related integration versions."""
-    return os.getenv(RELATED_INTEGRATION_GTE_OPERATOR_ENV) == "True"
-
-
 def _related_integration_version_operator(stack_version: Version) -> str:
-    """Return the semver operator for related_integrations.version on the current stack."""
-    if _related_integration_gte_operator_enabled() and stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK:
-        return ">="
+    """Return the baseline semver operator for related_integrations.version.
+
+    Always ^ here. Stack ≥ 9.5 package builds rewrite to >= via the
+    related_integrations_gte emit transform (see stack_emit.apply_emit_transforms).
+    """
+    _ = stack_version
     return "^"
 
 

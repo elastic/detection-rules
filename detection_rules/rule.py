@@ -51,6 +51,13 @@ from .schemas import (
     strip_non_public_fields,
 )
 from .schemas.stack_compat import get_restricted_fields
+from .stack_emit import (
+    EmitContext,
+    apply_emit_transforms,
+    emit_epoch_key,
+    parse_stack,
+    transforms_for_stack,
+)
 from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
 
@@ -433,8 +440,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     severity_mapping: list[SeverityMapping] | None = None
     tags: list[str] | None = None
     threat: list[ThreatMapping] | None = None
-    # additional framework/version-tagged mappings; the build emits one as the API `threat` and strips
-    # this field (see `_select_output_threat_mapping`)
+    # additional framework/version-tagged mappings; the build emits one as the API threat and strips
+    # this field (see stack_emit.apply_emit_transforms / mitre_attack_v19)
     threat_mappings: list[VersionedThreatMapping] | None = None
     throttle: str | None = None
     timeline_id: definitions.TimelineTemplateId | None = None
@@ -1238,7 +1245,7 @@ class BaseRuleContents(ABC):
 
     @property
     def is_dirty(self) -> bool:
-        """Determine if the rule has changed since its version was locked."""
+        """Determine if the baseline rule content has changed since its version was locked."""
         min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
         existing_sha256 = self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
@@ -1250,6 +1257,48 @@ class BaseRuleContents(ABC):
 
         # Checking against current and previous version of the hash to avoid mass version bump
         return existing_sha256 not in (rule_hash, rule_hash_with_integrations)
+
+    @property
+    def is_emit_dirty(self) -> bool:
+        """True when the current package-stack emit payload differs from the locked emit epoch.
+
+        Baseline-only stacks (no transforms) are never emit-dirty. Comparison is channel-scoped
+        so it cannot oscillate against the baseline lock hash.
+
+        "No-op" detection compares transformed vs untransformed API payloads (both include
+        related_integrations). Comparing against get_hash() would be wrong because the
+        baseline lock hash strips related_integrations.
+        """
+        if self.id not in self.version_lock.version_lock:
+            return False
+
+        package_stack = parse_stack(load_current_package_version())
+        if not transforms_for_stack(package_stack) or emit_epoch_key(package_stack) is None:
+            return False
+
+        emit_hash = self.get_emit_hash()
+        untransformed_hash = self.get_untransformed_hash()
+        transforms_noop = emit_hash == untransformed_hash
+        locked_emit = self.version_lock.get_stack_emit_hash(self.id, package_stack)
+
+        if transforms_noop:
+            # Stale emit epoch still present for a no-op transform set → needs prune/relock.
+            return locked_emit is not None
+
+        if locked_emit is None:
+            return True
+        return locked_emit != emit_hash
+
+    def get_untransformed_hashable_content(self) -> dict[str, Any]:
+        """API payload with build-time fields but without stack emit transforms."""
+        payload = self.to_api_format(include_version=False, apply_emit_transforms=False)
+        if self._uses_keep_star(payload):
+            payload.pop("required_fields", None)
+        return payload
+
+    def get_untransformed_hash(self) -> str:
+        """Hash of the untransformed API payload (peer of get_emit_hash)."""
+        return utils.dict_hash(self.get_untransformed_hashable_content())
 
     @property
     def lock_entry(self) -> dict[str, Any] | None:
@@ -1309,6 +1358,23 @@ class BaseRuleContents(ABC):
         return self.version_lock.get_locked_version(self.id, self.get_supported_version())
 
     @property
+    def shipped_version(self) -> int | None:
+        """Version embedded in the package for the current package stack (baseline or stack_emit)."""
+        if BYPASS_VERSION_LOCK:
+            return self.saved_version
+
+        version = self.version_lock.get_shipped_version(
+            self.id,
+            self.get_supported_version(),
+            load_current_package_version(),
+        )
+        if version is None:
+            return None
+        if self.is_emit_dirty and not self.is_dirty:
+            return version + 1
+        return version
+
+    @property
     def autobumped_version(self) -> int | None:
         """Retrieve the current version of the rule, accounting for automatic increments."""
         version = self.saved_version
@@ -1345,47 +1411,32 @@ class BaseRuleContents(ABC):
         min_stack = self.convert_supported_version(rule_min_stack)  # type: ignore[reportUnknownArgumentType]
         return f"{min_stack.major}.{min_stack.minor}"
 
-    def _post_dict_conversion(self, obj: dict[str, Any]) -> dict[str, Any]:
+    def _post_dict_conversion(self, obj: dict[str, Any], *, apply_emit_transforms: bool = True) -> dict[str, Any]:
         """Transform the converted API in place before sending to Kibana."""
-
         # cleanup the whitespace in the rule
         obj = nested_normalize(obj)
 
-        # select which framework/version threat mapping is emitted as the API `threat`, then strip
-        # the repo-side `threat_mappings` field so it is never shipped to Kibana
-        self._select_output_threat_mapping(obj)
+        # Repo-only field: never ship to Kibana. Stash for emit transforms (and subclasses
+        # that add fields before running transforms). Use object.__setattr__ because rule
+        # content dataclasses are frozen.
+        object.__setattr__(self, "_emit_threat_mappings", obj.pop("threat_mappings", None))
 
         # fill in threat.technique so it's never missing
         for threat_entry in obj.get("threat", []):
             threat_entry.setdefault("technique", [])
 
+        if apply_emit_transforms:
+            self._apply_stack_emit_transforms(obj)
+
         return obj
 
-    @staticmethod
-    def _select_output_threat_mapping(obj: dict[str, Any]) -> None:
-        """Emit the configured framework/version threat mapping as `threat` and drop `threat_mappings`."""
-        from . import attack
-        from .config import DEFAULT_THREAT_MAPPING_FRAMEWORK, DEFAULT_THREAT_MAPPING_VERSION
-
-        threat_mappings: list[dict[str, Any]] | None = obj.pop("threat_mappings", None)
-
-        framework, version = attack.resolve_output_threat_version()
-
-        # The baseline framework/version lives in the `threat` field itself, so there is nothing to
-        # select when it is requested (the common case).
-        if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(version) == str(DEFAULT_THREAT_MAPPING_VERSION):
-            return
-
-        selected: dict[str, Any] | None = next(
-            (
-                block
-                for block in (threat_mappings or [])
-                if block.get("framework") == framework and str(block.get("version")) == str(version)
-            ),
-            None,
+    def _apply_stack_emit_transforms(self, obj: dict[str, Any]) -> None:
+        """Run registered stack emit transforms. Subclasses call this after adding build-time fields."""
+        apply_emit_transforms(
+            obj,
+            stack=load_current_package_version(),
+            context=EmitContext(threat_mappings=getattr(self, "_emit_threat_mappings", None)),
         )
-        if selected is not None:
-            obj["threat"] = selected.get("threat", [])
 
     def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
@@ -1404,14 +1455,18 @@ class BaseRuleContents(ABC):
         return False
 
     @abstractmethod
-    def to_api_format(self, include_version: bool = True) -> dict[str, Any]:
+    def to_api_format(self, include_version: bool = True, apply_emit_transforms: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
 
     def get_hashable_content(self, include_version: bool = False, include_integrations: bool = False) -> dict[str, Any]:
-        """Returns the rule content to be used for calculating the hash value for the rule"""
+        """Returns the rule content to be used for calculating the hash value for the rule.
+
+        Always hashes the *baseline* (no stack emit transforms) so the lock hash is
+        stack-invariant and does not oscillate across release branches.
+        """
 
         # get the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_dict = self.to_api_format(include_version=include_version)
+        hashable_dict = self.to_api_format(include_version=include_version, apply_emit_transforms=False)
 
         # drop related integrations if present
         if not include_integrations:
@@ -1432,6 +1487,19 @@ class BaseRuleContents(ABC):
             include_integrations=include_integrations,
         )
         return utils.dict_hash(hashable_contents)
+
+    def get_emit_hashable_content(self) -> dict[str, Any]:
+        """Return the stack-transformed API payload used for stack_emit hashing."""
+        emit_dict = self.to_api_format(include_version=False, apply_emit_transforms=True)
+        # Emit hash includes related_integrations so ^ vs >= participates in the epoch.
+        if self._uses_keep_star(emit_dict):
+            emit_dict.pop("required_fields", None)
+        return emit_dict
+
+    @cached
+    def get_emit_hash(self) -> str:
+        """Hash of the current package-stack emitted payload (for stack_emit lock channel)."""
+        return utils.dict_hash(self.get_emit_hashable_content())
 
 
 @dataclass(frozen=True)
@@ -1512,14 +1580,18 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                         set_nested_value(item, sub_key, None)
         return rule_dict
 
-    def _post_dict_conversion(self, obj: dict[str, Any]) -> dict[str, Any]:
+    def _post_dict_conversion(self, obj: dict[str, Any], *, apply_emit_transforms: bool = True) -> dict[str, Any]:
         """Transform the converted API in place before sending to Kibana."""
-        _ = super()._post_dict_conversion(obj)
+        # Skip transforms in the base call so related_integrations (and friends) exist first.
+        _ = super()._post_dict_conversion(obj, apply_emit_transforms=False)
 
         # build time fields
         self._convert_add_related_integrations(obj)
         self._convert_add_required_fields(obj)
         self._convert_add_setup(obj)
+
+        if apply_emit_transforms:
+            self._apply_stack_emit_transforms(obj)
 
         # validate new fields against the schema
         rule_type = obj["type"]
@@ -1772,19 +1844,21 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         self,
         include_version: bool = not BYPASS_VERSION_LOCK,
         include_metadata: bool = False,
+        apply_emit_transforms: bool = True,
     ) -> dict[str, Any]:
         """Convert the TOML rule to the API format."""
 
         rule_dict = self.to_dict()
         rule_dict = self._add_known_nulls(rule_dict)
         converted_data = rule_dict["rule"]
-        converted = self._post_dict_conversion(converted_data)
+        converted = self._post_dict_conversion(converted_data, apply_emit_transforms=apply_emit_transforms)
 
         if include_metadata:
             converted["meta"] = rule_dict["metadata"]
 
         if include_version:
-            converted["version"] = self.autobumped_version
+            # Prefer stack_emit version for the current package stack when present.
+            converted["version"] = self.shipped_version if not self.is_dirty else self.autobumped_version
 
         return converted
 
@@ -1909,7 +1983,9 @@ class DeprecatedRuleContents(BaseRuleContents):
         kwargs["transform"] = obj.get("transform")
         return cls(**kwargs)
 
-    def to_api_format(self, include_version: bool = not BYPASS_VERSION_LOCK) -> dict[str, Any]:
+    def to_api_format(
+        self, include_version: bool = not BYPASS_VERSION_LOCK, apply_emit_transforms: bool = True
+    ) -> dict[str, Any]:
         """Convert the TOML rule to the API format."""
         data = copy.deepcopy(self.data)
         if self.transform:
@@ -1920,7 +1996,7 @@ class DeprecatedRuleContents(BaseRuleContents):
         if include_version:
             converted["version"] = self.autobumped_version
 
-        return self._post_dict_conversion(converted)
+        return self._post_dict_conversion(converted, apply_emit_transforms=apply_emit_transforms)
 
 
 class DeprecatedRule(dict[str, Any]):
