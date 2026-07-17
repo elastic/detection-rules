@@ -100,13 +100,12 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _version, _index
-| WHERE KQL("""event.category:process and event.type:start and process.name:(wget or wget.exe)""")
+| WHERE KQL("""event.category:process and event.type:start and not event.action:fork and process.name:(wget or wget.exe)""")
     AND process.args IS NOT NULL
 
-// Normalize the arguments and preserve command-line order where possible.
+// Normalize the arguments and command line. On Elastic Defend process.command_line is always populated.
 | EVAL Esql.args_str = CONCAT(" ", MV_CONCAT(process.args, " "))
-| EVAL Esql.full_command_line = COALESCE(process.command_line, process.title, Esql.args_str)
-| EVAL Esql.full_command_line = MV_CONCAT(Esql.full_command_line, " ")
+| EVAL Esql.full_command_line = MV_CONCAT(process.command_line, " ")
 
 // Parse scheme-based destinations, then fall back to the last command-line token for scheme-less wget invocations.
 | GROK Esql.args_str "%{URIPROTO:url_protocol}://%{URIHOST:dest_host}"
@@ -159,6 +158,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
         Esql.parent_executable_values = VALUES(process.parent.executable),
         Esql.user_name_values = VALUES(user.name),
         Esql.host_name_values = VALUES(host.name),
+        Esql.namespace_values = VALUES(data_stream.namespace),
         Esql.host_prevalence = MAX(Esql.destination_host_count)
     BY Esql.host_key, Esql.dest_host
 
