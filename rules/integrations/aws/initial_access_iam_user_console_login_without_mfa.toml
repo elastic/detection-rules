@@ -7,17 +7,18 @@ updated_date = "2026/07/13"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first observed occurrence, within the configured New Terms history window, of a regular IAM user successfully signing in to the AWS Management Console without
-multi-factor authentication. A password alone is a weaker control than password-plus-MFA, and an adversary who has
-phished, guessed, or otherwise obtained a user's password can sign in directly if MFA is not enforced for that user.
-This rule is scoped to standard IAM users only; it excludes the AWS root user (covered by a dedicated rule) and
-federated/SSO sign-ins (covered by a dedicated rule that also accounts for IdP-side MFA), since MFAUsed: No is
-expected in both of those cases for reasons unrelated to this gap.
+Identifies the first observed occurrence, within the configured New Terms history window, of a regular IAM user 
+successfully signing in to the AWS Management Console without multi-factor authentication. A password alone is a 
+weaker control than password-plus-MFA, and an adversary who has phished, guessed, or otherwise obtained a user's 
+password can sign in directly if MFA is not enforced for that user. This rule is scoped to standard IAM users 
+only; it excludes the AWS root user (covered by a dedicated rule) and federated/SSO sign-ins (covered by a dedicated 
+rule that also accounts for IdP-side MFA), since MFAUsed: No is expected in both of those cases for reasons unrelated 
+to this gap.
 """
 false_positives = [
     """
     Environments that do not enforce MFA for all IAM users will see this regularly. This is a New Terms rule, so it only
-    fires once per `cloud.account.id` and `user.name` pair within the configured history window (7d); use it to drive MFA enrollment and enforcement rather than treating every occurrence as an
+    fires once per `user.id` within the configured history window (7d); use it to drive MFA enrollment and enforcement rather than treating every occurrence as an
     incident, unless MFA is a mandated control in your environment.
     """,
 ]
@@ -36,7 +37,7 @@ comparatively easy for an adversary to obtain through phishing, credential stuff
 control that prevents a stolen password alone from granting console access.
 
 This is a [New Terms](https://www.elastic.co/guide/en/security/current/rules-ui-create.html#create-new-terms-rule)
-rule and fires the first time each `cloud.account.id` and `user.name` pair is observed signing in without MFA within the configured history window (7d).
+rule and fires the first time each `user.id` is observed signing in without MFA within the configured history window (7d).
 
 ### Possible investigation steps
 
@@ -129,7 +130,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["cloud.account.id", "user.name"]
+value = ["user.id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
