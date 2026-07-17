@@ -183,8 +183,9 @@ FROM logs-endpoint.events.process-*, logs-auditd_manager.auditd-*, auditbeat-* M
        event.outcome = TO_LOWER(Esql.verdict),
        event.category = "intrusion_detection",
        event.action = "curl_llm_triage",
-       host.name = MV_MIN(Esql.host_name_values)
-| KEEP host.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
+       host.name = MV_MIN(Esql.host_name_values), 
+       user.name = MV_FIRST(Esql.user_name_values)
+| KEEP host.name, user.name, message, event.reason, event.outcome, event.category, event.action, Esql.*
 '''
 
 
