@@ -2,7 +2,7 @@
 creation_date = "2020/08/11"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/19"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["packetbeat-*", "logs-network_traffic.*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License v2"
 name = "Inbound Connection to an Unsecure Elasticsearch Node"
 note = """## Triage and analysis
@@ -66,39 +66,45 @@ references = [
 risk_score = 47
 rule_id = "31295df3-277b-4c56-a1fb-84e31b4222a9"
 severity = "medium"
-tags = ["Use Case: Threat Detection", "Tactic: Initial Access", "Tactic: Reconnaissance", "Domain: Endpoint", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Reconnaissance",
+    "Domain: Endpoint",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: network_traffic.http OR (event.category: network_traffic AND network.protocol: http)) AND
-     http.response.status_code:200 AND destination.port:9200 AND network.direction:inbound AND NOT http.response.headers.content-type:"image/x-icon" AND NOT
-    _exists_:http.request.headers.authorization
+(data_stream.dataset: network_traffic.http or (event.category: network_traffic and network.protocol: http)) and
+http.response.status_code: 200 and destination.port: 9200 and network.direction: (inbound or ingress) and
+not http.response.headers.content-type: "image/x-icon" and not http.request.headers.authorization: *
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1595"
 name = "Active Scanning"
 reference = "https://attack.mitre.org/techniques/T1595/"
 
+
 [rule.threat.tactic]
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
+

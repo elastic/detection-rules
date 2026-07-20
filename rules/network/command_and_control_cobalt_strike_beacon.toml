@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -18,8 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*"]
-language = "lucene"
+language = "esql"
 license = "Elastic License v2"
 name = "Cobalt Strike Command and Control Beacon"
 note = """## Triage and analysis
@@ -69,41 +68,51 @@ references = [
 risk_score = 73
 rule_id = "cf53f532-9cc9-445a-9ae7-fced307ec53c"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Domain: Endpoint",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-((event.category: (network OR network_traffic) AND network.protocol: (tls OR http))
-    OR data_stream.dataset: (network_traffic.tls OR network_traffic.http)
-) AND destination.domain:/[a-z]{3}.stage.[0-9]{8}\..*/
+from packetbeat-*, filebeat-*, logs-network_traffic.* metadata _id, _version, _index
+| where (
+    (event.category in ("network", "network_traffic") and network.protocol in ("tls", "http")) or
+    data_stream.dataset in ("network_traffic.tls", "network_traffic.http")
+  )
+| where destination.domain RLIKE "[a-z]{3}\\.stage\\.[0-9]{8}\\..*"
+| keep @timestamp, destination.domain, source.ip, destination.ip, network.protocol, data_stream.dataset, _id, _version, _index
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
 
+
 [[rule.threat.technique]]
 id = "T1568"
 name = "Dynamic Resolution"
 reference = "https://attack.mitre.org/techniques/T1568/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1568.002"
 name = "Domain Generation Algorithms"
 reference = "https://attack.mitre.org/techniques/T1568/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+
