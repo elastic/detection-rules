@@ -355,6 +355,35 @@ def create_remote_indices(
     return full_index_str
 
 
+COMPLETION_COMMAND_REGEX = re.compile(
+    r"\|\s*COMPLETION\s+(?:(?P<col>[\w.@]+)\s*=\s*)?(?P<prompt>.+?)\s+WITH\s*\{(?P<options>[^}]*)\}",
+    re.IGNORECASE | re.DOTALL,
+)
+INFERENCE_ID_REGEX = re.compile(r'"inference_id"\s*:\s*"([^"]+)"')
+
+
+def rewrite_managed_completion_commands(query: str, log: Callable[[str], None]) -> str:
+    """Rewrite COMPLETION commands using Elastic-managed (EIS) inference endpoints into equivalent EVAL commands."""
+    # EIS endpoints are often not present on self-managed validation stacks, so query
+    # verification fails with `Inference endpoint not found` before anything else is checked.
+    # `EVAL <col> = CONCAT(<prompt>, "")` preserves the output column and its string type and
+    # still validates the prompt expression. Cloud stacks keep the original query so the real
+    # endpoint is exercised.
+    if misc.getdefault("cloud_id")():
+        return query
+
+    def _replace(match: re.Match[str]) -> str:
+        id_match = INFERENCE_ID_REGEX.search(match.group("options"))
+        if not id_match or id_match.group(1) not in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
+            return match.group(0)
+        column = match.group("col") or "completion"
+        prompt = match.group("prompt").strip()
+        log(f"Rewriting COMPLETION command for managed endpoint `{id_match.group(1)}` to EVAL `{column}`")
+        return f'| EVAL {column} = CONCAT({prompt}, "")'
+
+    return COMPLETION_COMMAND_REGEX.sub(_replace, query)
+
+
 def execute_query_against_indices(
     elastic_client: Elasticsearch,
     query: str,

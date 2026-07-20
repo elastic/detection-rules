@@ -39,6 +39,7 @@ from .index_mappings import (
     execute_query_against_indices,
     get_rule_integrations,
     prepare_mappings,
+    rewrite_managed_completion_commands,
 )
 from .integrations import (
     find_latest_integration_patch_for_minor,
@@ -921,6 +922,9 @@ class ESQLValidator(QueryValidator):
 
         # Replace all sources with the test indices
         query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
+
+        # Rewrite COMPLETION commands using Elastic-managed inference endpoints on non-cloud stacks
+        query = rewrite_managed_completion_commands(query, self.log)  # type: ignore[reportUnknownArgumentType]
 
         query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
