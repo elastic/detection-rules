@@ -1662,6 +1662,10 @@ class TestAlertSuppression(BaseRuleTest):
                         for data_source in int_schema:
                             schema.update(**int_schema[data_source])
                 for fld in group_by_fields:
+                    # ES|QL rules may suppress on dynamic fields computed by the query (e.g. EVAL/GROK
+                    # columns using the `Esql.` prefix convention), which are not in any schema.
+                    if rule.contents.data.type == "esql" and fld.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES):
+                        continue
                     if fld not in schema:
                         self.fail(
                             f"{self.rule_str(rule)} alert suppression field {fld} not \
