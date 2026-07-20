@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects allowed updates or patches to the pods/ephemeralcontainers subresource on GKE by a non-system identity.
+Ephemeral containers are commonly used for debugging (kubectl debug) but can also be abused to inject tooling into a
+running pod, access mounted secrets, and execute commands in the target pod context. Attackers with sufficient RBAC may
+use ephemeral containers to escalate privileges, move laterally, or establish persistence without deploying a new
+workload.
+"""
+false_positives = [
+    """
+    Cluster operators or SREs may legitimately use ephemeral containers for debugging production workloads. Baseline
+    approved admin identities and tune exclusions for known automation.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Ephemeral Container Added to Pod"
+note = """## Triage and analysis
+
+### Investigating GKE Ephemeral Container Added to Pod
+
+Ephemeral containers allow adding a container to an existing pod for troubleshooting. When abused, they can gain
+interactive access to a workload, read sensitive files, and run tools that were not present in the original image.
+
+### Possible investigation steps
+
+- Review `client.user.email`, `source.ip`, and `user_agent.original` and confirm the identity is authorized to use
+  ephemeral containers.
+- Inspect `gcp.audit.resource_name` to identify the targeted pod and owning workload.
+- If request bodies are captured, review the ephemeral container image, command, and securityContext for privilege
+  indicators.
+- Correlate with follow-on audit activity such as pod exec, secret reads, TokenRequest, or RBAC modifications.
+
+### False positive analysis
+
+- Approved on-call debugging with `kubectl debug` may match. Allowlist known admin identities after review.
+
+### Response and remediation
+
+- If unauthorized, remove excessive RBAC that grants update or patch on pods/ephemeralcontainers and rotate exposed
+  credentials.
+- Quarantine or redeploy impacted workloads and hunt for additional compromised pods or identities.
+
+"""
+setup = """
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule.
+"""
+references = [
+    "https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/",
+]
+risk_score = 47
+rule_id = "d52e2418-978c-4184-9eab-e084af1f76b7"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.action:(
+  "io.k8s.core.v1.pods.ephemeralcontainers.update" or
+  "io.k8s.core.v1.pods.ephemeralcontainers.patch"
+) and not client.user.email:(
+  system\:node\:* or
+  system\:serviceaccount\:kube-system\:*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request",
+    "data_stream.namespace",
+]
