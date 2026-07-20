@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/20"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,24 @@ type = "eql"
 
 query = '''
 sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
-   [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$"]
+   [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$" and
+     not winlog.event_data.TaskName : (
+       "\\GoogleUserPEH\\*",
+       "\\PRTG *",
+       "*\\HP Support Assistant\\*",
+       "\\OneDrive Standalone Update Task*",
+       "*Firefox Default Browser Agent*",
+       "*\\DeviceLicensingService\\*",
+       "\\PowerToys\\Autorun*",
+       "\\Cortex-Local-Server-*",
+       "\\AMDLinkUpdate",
+       "\\RunAADCHTestConnectivityAsSystem",
+       "\\ZoomUpdateTaskUser-*",
+       "*ansible-ansible.windows.win_updates*",
+       "\\CreateExplorerShellUnelevatedTask",
+       "\\SoftLanding\\*"
+     )
+   ]
    [iam where host.os.type == "windows" and event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
 
