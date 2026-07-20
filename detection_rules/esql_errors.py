@@ -12,6 +12,8 @@ from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from .misc import ClientError, getdefault
 
 __all__ = (
+    "ELASTIC_MANAGED_INFERENCE_ENDPOINTS",
+    "EsqlInferenceEndpointMissingError",
     "EsqlKibanaBaseError",
     "EsqlSchemaError",
     "EsqlSemanticError",
@@ -20,6 +22,13 @@ __all__ = (
     "EsqlUnknownIndexError",
     "EsqlUnsupportedTypeError",
 )
+
+# Preconfigured Elastic-managed (EIS) inference endpoints referenced by rules. These only exist on
+# Elastic Cloud stacks; self-hosted validation stacks (e.g. elastic-container in CI for fork PRs)
+# will report them as not found, which is expected and should not fail validation.
+ELASTIC_MANAGED_INFERENCE_ENDPOINTS = {
+    ".gp-llm-v2-completion",
+}
 
 
 def cleanup_empty_indices(
@@ -49,6 +58,10 @@ class EsqlKibanaBaseError(ClientError):
 
 class EsqlSchemaError(EsqlKibanaBaseError):
     """Error in ESQL schema. Validated via Kibana until AST is available."""
+
+
+class EsqlInferenceEndpointMissingError(EsqlKibanaBaseError):
+    """An Elastic-managed inference endpoint is not available on the validation stack."""
 
 
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):

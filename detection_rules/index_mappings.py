@@ -20,6 +20,8 @@ from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
 from .esql import EventDataset
 from .esql_errors import (
+    ELASTIC_MANAGED_INFERENCE_ENDPOINTS,
+    EsqlInferenceEndpointMissingError,
     EsqlKibanaBaseError,
     EsqlSchemaError,
     EsqlSyntaxError,
@@ -375,6 +377,9 @@ def execute_query_against_indices(
         if "verification_exception" in error_msg and "unsupported type" in error_msg:
             raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
         if "verification_exception" in error_msg:
+            endpoint_match = re.search(r"Inference endpoint not found \[([^\]]+)\]", error_msg)
+            if endpoint_match and endpoint_match.group(1) in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
+                raise EsqlInferenceEndpointMissingError(str(e), elastic_client) from None
             raise EsqlTypeMismatchError(str(e), elastic_client) from None
         raise EsqlKibanaBaseError(str(e), elastic_client) from None
     if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
