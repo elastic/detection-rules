@@ -29,8 +29,7 @@ FROM logs-panw.panos-*, filebeat-* metadata _id
 | where data_stream.dataset == "panw.panos" and
         TO_INTEGER(event.severity) <= 3 and
         event.action != "flood_detected" and
-        (event.kind IS NULL or event.kind != "metric") and
-        (panw.panos.type IS NULL or panw.panos.type == "THREAT")
+        (event.kind IS NULL or event.kind != "metric")
 
 | STATS Esql.alerts_count = count(*),
         Esql.first_time_seen = MIN(@timestamp),
