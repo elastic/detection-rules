@@ -7,11 +7,10 @@ updated_date = "2026/07/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod in a namespace it has not
-been seen entering within the lookback window. Interactive command execution inside a workload via kubectl exec is a
-common post-compromise technique used to access secrets, run tooling, and expand access from a foothold container. Node,
-control-plane, and kube-system service account identities are excluded, so workload service accounts and users, the
-identities an adversary is most likely to abuse, remain in scope.
+Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod. Interactive command
+execution inside a workload via kubectl exec is a common post-compromise technique used to access secrets, run tooling,
+and expand access from a foothold container. Node, control-plane, and kube-system service account identities are
+excluded, so workload service accounts and users, the identities an adversary is most likely to abuse, remain in scope.
 """
 false_positives = [
     """
@@ -29,10 +28,9 @@ note = """## Triage and analysis
 ### Investigating Azure AKS Attempted User Exec into Pod
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
-operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This new-terms rule alerts the
-first time a given identity is seen issuing a `pods/exec` request into a namespace within the lookback window, keyed on
-identity and namespace since pod names are ephemeral. Exec into a pod grants an interactive shell inside the workload,
-which adversaries use to read mounted secrets, pivot, and stage tooling.
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This rule alerts on a
+`pods/exec` request by an identity that is not node, control-plane, or kube-system infrastructure. Exec into a pod grants
+an interactive shell inside the workload, which adversaries use to read mounted secrets, pivot, and stage tooling.
 
 ### Possible investigation steps
 
@@ -48,7 +46,7 @@ which adversaries use to read mounted secrets, pivot, and stage tooling.
 ### False positive analysis
 
 - Approved admin debugging; exclude stable operator or break-glass identities after review.
-- CI/CD or platform tooling that execs into workloads may trigger the first-seen alert; baseline and tune.
+- CI/CD or platform tooling that execs into workloads may match; exclude verified service accounts and namespaces.
 
 ### Response and remediation
 
