@@ -80,6 +80,12 @@ FROM_SOURCES_REGEX = re.compile(
     r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
 )
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
+# Preconfigured Elastic-managed (EIS) inference endpoints referenced by rules. These only exist on
+# Elastic Cloud stacks; self-hosted validation stacks (e.g. elastic-container in CI for fork PRs)
+# will report them as not found, which is expected and should not fail validation.
+ELASTIC_MANAGED_INFERENCE_ENDPOINTS = {
+    ".gp-llm-v2-completion",
+}
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),

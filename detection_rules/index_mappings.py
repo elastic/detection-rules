@@ -20,6 +20,7 @@ from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
 from .esql import EventDataset
 from .esql_errors import (
+    EsqlInferenceEndpointMissingError,
     EsqlKibanaBaseError,
     EsqlSchemaError,
     EsqlSyntaxError,
@@ -34,7 +35,7 @@ from .integrations import (
 )
 from .rule import RuleMeta
 from .schemas import get_stack_schemas
-from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
+from .schemas.definitions import ELASTIC_MANAGED_INFERENCE_ENDPOINTS, HTTP_STATUS_BAD_REQUEST
 from .utils import combine_dicts
 
 
@@ -353,6 +354,35 @@ def create_remote_indices(
     return full_index_str
 
 
+COMPLETION_COMMAND_REGEX = re.compile(
+    r"\|\s*COMPLETION\s+(?:(?P<col>[\w.@]+)\s*=\s*)?(?P<prompt>.+?)\s+WITH\s*\{(?P<options>[^}]*)\}",
+    re.IGNORECASE | re.DOTALL,
+)
+INFERENCE_ID_REGEX = re.compile(r'"inference_id"\s*:\s*"([^"]+)"')
+
+
+def rewrite_managed_completion_commands(query: str, log: Callable[[str], None]) -> str:
+    """Rewrite COMPLETION commands using Elastic-managed (EIS) inference endpoints into equivalent EVAL commands."""
+    # EIS endpoints are often not present on self-managed validation stacks, so query
+    # verification fails with `Inference endpoint not found` before anything else is checked.
+    # `EVAL <col> = CONCAT(<prompt>, "")` preserves the output column and its string type and
+    # still validates the prompt expression. Cloud stacks keep the original query so the real
+    # endpoint is exercised.
+    if misc.getdefault("cloud_id")():
+        return query
+
+    def _replace(match: re.Match[str]) -> str:
+        id_match = INFERENCE_ID_REGEX.search(match.group("options"))
+        if not id_match or id_match.group(1) not in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
+            return match.group(0)
+        column = match.group("col") or "completion"
+        prompt = match.group("prompt").strip()
+        log(f"Rewriting COMPLETION command for managed endpoint `{id_match.group(1)}` to EVAL `{column}`")
+        return f'| EVAL {column} = CONCAT({prompt}, "")'
+
+    return COMPLETION_COMMAND_REGEX.sub(_replace, query)
+
+
 def execute_query_against_indices(
     elastic_client: Elasticsearch,
     query: str,
@@ -375,6 +405,12 @@ def execute_query_against_indices(
         if "verification_exception" in error_msg and "unsupported type" in error_msg:
             raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
         if "verification_exception" in error_msg:
+            endpoint_match = re.search(r"Inference endpoint not found \[([^\]]+)\]", error_msg)
+            if endpoint_match and endpoint_match.group(1) in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
+                # A managed endpoint reaching the stack unrewritten on a non-cloud stack means the
+                # COMPLETION rewrite did not match the command; on cloud it means the endpoint is
+                # genuinely missing. Both are failures, typed distinctly to aid diagnosis.
+                raise EsqlInferenceEndpointMissingError(str(e), elastic_client) from None
             raise EsqlTypeMismatchError(str(e), elastic_client) from None
         raise EsqlKibanaBaseError(str(e), elastic_client) from None
     if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
