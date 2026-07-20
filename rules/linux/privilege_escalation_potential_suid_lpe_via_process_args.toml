@@ -2,7 +2,7 @@
 creation_date = "2026/05/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/18"
+updated_date = "2026/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,14 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     process.parent.args in ("-c", "-cl", "-lc", "--command", "-ic", "-ci", "-bash", "-sh", "-zsh", "-dash", "-fish", "-ksh", "-mksh") and
     process.parent.args_count <= 4
   )
+) and
+not (
+  (process.executable == "/usr/lib/landscape/apt-update" and process.args == "/usr/lib/landscape/apt-update") or
+  (process.executable == "/usr/bin/mount" and process.args in ("/usr/bin/mount", "mount")) or
+  (process.executable like "/u0?/app/agent/agent_*/sbin/nmo" and process.args like "/u0?/app/agent/agent_*/sbin/nmo") or
+  (process.executable == "/usr/bin/screen" and process.args == "screen") or
+  (process.executable == "/usr/sbin/playpen" and process.args == "/usr/sbin/playpen") or
+  process.executable == "/usr/bin/sudo"
 )
 '''
 
