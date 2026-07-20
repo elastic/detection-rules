@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GKE API requests where a caller is impersonating a privileged cluster identity such as
+system:kube-controller-manager, system:admin, system:anonymous, or a kube-system service account. These identities have
+broad cluster-wide permissions including unrestricted access to secrets, the ability to create tokens for any service
+account, schedule pods on any node, and modify RBAC. Impersonating system:kube-controller-manager grants access to
+secrets across namespaces and service account token minting for lateral movement.
+"""
+false_positives = [
+    """
+    Break-glass admin tooling, security scanners, or approved controllers that legitimately use impersonation against
+    privileged targets may match. Map expected callers and expand client.user.email exclusions as needed.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE API Request Impersonating Privileged Identity"
+note = """## Triage and analysis
+
+### Investigating GKE API Request Impersonating Privileged Identity
+
+Compare the real actor (`client.user.email`, `source.ip`, `user_agent.original`) with the impersonated identity in
+`gcp.audit.authentication_info.authority_selector` (Cloud Audit `authenticationInfo.authoritySelector`). Confirm
+whether impersonation is authorized for that principal and target identity.
+
+### Possible investigation steps
+
+- Review `event.action` and `gcp.audit.resource_name` for the scope of the operation performed while impersonating.
+- Determine whether the real user or service account should have `impersonate` rights against the target user or group;
+  inspect RBAC bindings and any recent changes.
+- Correlate with adjacent audit activity (secrets, TokenRequest, RBAC writes, CSR approval) from the same source
+  identity.
+- Hunt for repeated impersonation across namespaces or rapid pivoting after the event.
+
+### False positive analysis
+
+- Approved admin or scanner workflows that intentionally use `kubectl --as` against privileged targets may match.
+  Allowlist those identities after review.
+
+### Response and remediation
+
+- Revoke or tighten `impersonate` permissions for unexpected identities; rotate credentials for any account that may
+  have abused impersonation.
+- If unauthorized, treat as cluster-wide credential risk: review secrets exposure, issued tokens, and RBAC drift.
+
+"""
+setup = """
+The GCP Fleet integration with GKE audit logs enabled is required. Kubernetes impersonation (`kubectl --as`) maps to
+`gcp.audit.authentication_info.authority_selector` in Fleet.
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation",
+    "https://kubernetes.io/docs/reference/access-authn-authz/user-impersonation/",
+]
+risk_score = 73
+rule_id = "00c2a946-bbe8-4345-941d-9ea13da91600"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+gcp.audit.authentication_info.authority_selector:(
+  "admin" or "cluster-admin" or "kubernetes-admin" or "system:admin" or "system:anonymous" or
+  "system:apiserver" or "system:kube-controller-manager" or "system:kube-proxy" or
+  "system:kube-scheduler" or "system:volume-scheduler" or
+  system\:node\:* or system\:serviceaccount\:kube-system\:*
+) and
+not client.user.email:(
+  "system:kube-controller-manager" or
+  "system:kube-scheduler" or
+  system\:node\:* or
+  system\:serviceaccount\:kube-system\:*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.authentication_info.authority_selector",
+    "gcp.audit.resource_name",
+    "data_stream.namespace",
+]
