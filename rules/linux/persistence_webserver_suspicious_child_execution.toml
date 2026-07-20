@@ -254,9 +254,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 not (
   (
     process.parent.name == "java" and
-    process.executable like ("/tmp/CVU_19_resource_*/exectask*", "/u01/app/*/grid/bin/crsctl.bin", "/u01/app/*/grid/bin/olsnodes.bin")
+    process.executable like ("/tmp/CVU_*/exectask*", "/u01/app/*/bin/crsctl.bin", "/u01/app/*/bin/olsnodes.bin")
   ) or
-  process.working_directory like ("/u01/app/*/sysman/emd", "/run/systemd/mount-rootfs") or
+  process.working_directory like ("/u01/*/sysman/emd", "/run/systemd/mount-rootfs") or
   (
     process.parent.executable == "/opt/morpheus/embedded/java/jre/bin/java" and
     process.command_line like (
@@ -279,7 +279,12 @@ not (
     process.executable == "/home/jiraContractor/jira.install/jre/lib/jspawnhelper"
   ) or
   process.parent.args like "/home/agent/Claude/*" or
-  (process.parent.executable == "/usr/lib/jvm/java-21-openjdk/bin/java" and process.name == "ln")
+  (process.parent.executable == "/usr/lib/jvm/java-21-openjdk/bin/java" and process.name == "ln") or
+  (
+    process.parent.name == "java" and
+    process.name == "chmod" and
+    process.command_line like ("chmod 00660 /etc/pki/*", "*/u01/app/*")
+  )
 )
 '''
 
