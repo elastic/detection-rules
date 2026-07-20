@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2021/02/03"
+deprecation_date = "2026/07/02"
+deprecated_reason = "This rule has an endpoint rule equivalent that is more accurate. Additionally, the rule targets an old CVE, and is therefore not a general purpose rule and is not recommended for use."
+integration = ["endpoint"]
+maturity = "deprecated"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the attempted use of a heap-based buffer overflow vulnerability for the Sudo binary in Unix-like systems
+(CVE-2021-3156). Successful exploitation allows an unprivileged user to escalate to the root user.
+"""
+false_positives = [
+    """
+    This rule could generate false positives if the process arguments leveraged by the exploit are shared by custom
+    scripts using the Sudo or Sudoedit binaries. Only Sudo versions 1.8.2 through 1.8.31p2 and 1.9.0 through 1.9.5p1 are
+    affected; if those versions are not present on the endpoint, this could be a false positive.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-endpoint.events.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Deprecated - Sudo Heap-Based Buffer Overflow Attempt"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Deprecated - Sudo Heap-Based Buffer Overflow Attempt
+
+Sudo is a critical utility in Unix-like systems, allowing users to execute commands with elevated privileges. A heap-based buffer overflow in Sudo (CVE-2021-3156) can be exploited by attackers to gain root access. Adversaries may craft specific command-line arguments to trigger this vulnerability. The detection rule identifies suspicious Sudo or Sudoedit invocations with particular argument patterns, signaling potential exploitation attempts.
+
+### Possible investigation steps
+
+- Review the alert details to confirm the presence of suspicious Sudo or Sudoedit invocations with the specific argument patterns: process.args containing a backslash followed by either "-i" or "-s".
+- Examine the process execution context by gathering additional details such as the user account associated with the process, the parent process, and the command line used.
+- Check the system logs for any other unusual or unauthorized activities around the time of the alert to identify potential lateral movement or further exploitation attempts.
+- Investigate the history of the user account involved to determine if there have been any previous suspicious activities or privilege escalation attempts.
+- Assess the system for any signs of compromise or unauthorized changes, such as new user accounts, modified files, or unexpected network connections.
+- Verify the current version of Sudo installed on the system to determine if it is vulnerable to CVE-2021-3156 and consider applying patches or updates if necessary.
+
+### False positive analysis
+
+- Routine administrative tasks using sudo or sudoedit with interactive or shell options may trigger the rule. Review the context of these commands and consider excluding specific user accounts or scripts that are known to perform legitimate administrative functions.
+- Automated scripts or cron jobs that use sudo with the -i or -s options for legitimate purposes can be flagged. Identify these scripts and add them to an exception list to prevent unnecessary alerts.
+- Development or testing environments where users frequently test commands with elevated privileges might generate false positives. Implement a separate monitoring policy for these environments or exclude known test accounts.
+- Security tools or monitoring solutions that simulate attacks for testing purposes may inadvertently trigger the rule. Ensure these tools are recognized and excluded from triggering alerts by adding them to an exception list.
+- Users with legitimate reasons to frequently switch to root using sudo -i or sudo -s should be identified, and their activities should be monitored separately to avoid false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further exploitation or lateral movement by the attacker.
+- Terminate any suspicious sudo or sudoedit processes identified by the detection rule to halt ongoing exploitation attempts.
+- Apply the latest security patches and updates to the Sudo utility on all affected systems to remediate the vulnerability (CVE-2021-3156).
+- Conduct a thorough review of system logs and process execution history to identify any unauthorized access or privilege escalation activities.
+- Reset passwords for all user accounts on the affected system, especially those with elevated privileges, to mitigate potential credential compromise.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the scope of the breach.
+- Implement enhanced monitoring and alerting for sudo and sudoedit command executions across the network to detect similar exploitation attempts in the future."""
+references = [
+    "https://cve.mitre.org/cgi-bin/cvename.cgi?name=2021-3156",
+    "https://blog.qualys.com/vulnerabilities-research/2021/01/26/cve-2021-3156-heap-based-buffer-overflow-in-sudo-baron-samedit",
+    "https://www.bleepingcomputer.com/news/security/latest-macos-big-sur-also-has-sudo-root-privilege-escalation-flaw",
+    "https://www.sudo.ws/alerts/unescape_overflow.html",
+]
+risk_score = 73
+rule_id = "f37f3054-d40b-49ac-aa9b-a786c74c58b8"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+event.category:process and event.type:start and
+  process.name:(sudo or sudoedit) and
+  process.args:(*\\ and ("-i" or "-s"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+[[rule.threat.technique.subtechnique]]
+id = "T1548.003"
+name = "Sudo and Sudo Caching"
+reference = "https://attack.mitre.org/techniques/T1548/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.threshold]
+field = ["host.hostname"]
+value = 100
+
