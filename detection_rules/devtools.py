@@ -35,8 +35,12 @@ from semver import Version
 
 from . import attack, rule_loader, utils
 from .beats import download_beats_schema, download_latest_beats_schema, refresh_main_schema
-from .cli_utils import single_collection
-from .config import parse_rules_config
+from .cli_utils import multi_collection, single_collection
+from .config import (
+    DEFAULT_THREAT_MAPPING_FRAMEWORK,
+    DEFAULT_THREAT_MAPPING_VERSION,
+    parse_rules_config,
+)
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
@@ -71,6 +75,7 @@ from .rule import (
     ThreatMapping,
     TOMLRule,
     TOMLRuleContents,
+    VersionedThreatMapping,
 )
 from .rule_loader import RuleCollection, production_filter
 from .rule_validators import ESQLValidator
@@ -1812,6 +1817,318 @@ def update_attack_in_rules() -> list[TOMLRule]:
     else:
         click.echo("No rule changes needed")
     return new_rules
+
+
+def _remap_threat_entries(  # noqa: PLR0913
+    entries: list[ThreatMapping],
+    vmap: "attack.AttackVersionMap",
+    framework: str,
+    dropped: list[str],
+    target_lookups: "attack.AttackLookups | None" = None,
+    moved: "list[str] | None" = None,
+) -> list[dict[str, Any]]:
+    """Build target-version threat entries; delegates to attack.convert_threat_to_version."""
+    threat_dicts = [entry.to_dict() for entry in entries]
+    return attack.convert_threat_to_version(
+        threat_dicts,
+        source_version=vmap.source_version,
+        target_version=vmap.target_version,
+        framework=framework,
+        vmap=vmap,
+        target_lookups=target_lookups,
+        dropped=dropped,
+        moved=moved,
+    )
+
+
+def _toml_str(value: str) -> str:
+    """Serialize a string as a TOML basic string, escaping backslashes and double quotes."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _format_threat_mappings_toml(new_blocks: list[VersionedThreatMapping]) -> str:
+    """Serialize versioned threat mapping blocks to TOML text."""
+    lines: list[str] = []
+    for block in new_blocks:
+        lines.append("[[rule.threat_mappings]]")
+        lines.append(f"framework = {_toml_str(block.framework)}")
+        lines.append(f"version = {_toml_str(block.version)}")
+        for entry in block.threat:
+            lines.append("[[rule.threat_mappings.threat]]")
+            lines.append(f"framework = {_toml_str(entry.framework)}")
+            for tech in entry.technique or []:
+                lines.append("[[rule.threat_mappings.threat.technique]]")
+                lines.append(f"id = {_toml_str(tech.id)}")
+                lines.append(f"name = {_toml_str(tech.name)}")
+                lines.append(f"reference = {_toml_str(tech.reference)}")
+                for sub in tech.subtechnique or []:
+                    lines.append("[[rule.threat_mappings.threat.technique.subtechnique]]")
+                    lines.append(f"id = {_toml_str(sub.id)}")
+                    lines.append(f"name = {_toml_str(sub.name)}")
+                    lines.append(f"reference = {_toml_str(sub.reference)}")
+            lines.append("")
+            lines.append("[rule.threat_mappings.threat.tactic]")
+            lines.append(f"id = {_toml_str(entry.tactic.id)}")
+            lines.append(f"name = {_toml_str(entry.tactic.name)}")
+            lines.append(f"reference = {_toml_str(entry.tactic.reference)}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _insert_tags(text: str, added_tags: list[str]) -> tuple[str, str | None]:
+    """Insert tags into the `tags` array preserving its single- or multi-line form; returns (text, warning)."""
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        single = re.match(r"^(tags\s*=\s*\[)(.*)(\]\s*)$", line)
+        if single:
+            existing = single.group(2).rstrip().rstrip(",")
+            additions = ", ".join(_toml_str(t) for t in added_tags)
+            inner = f"{existing}, {additions}" if existing.strip() else additions
+            lines[i] = f"{single.group(1)}{inner}{single.group(3)}"
+            return "".join(lines), None
+        if re.match(r"^tags\s*=\s*\[\s*$", line):
+            end = next((j for j in range(i + 1, len(lines)) if lines[j].strip() == "]"), None)
+            if end is None:
+                return text, "closing ] of the tags array not found; tags not added"
+            # Ensure the last existing element has a trailing comma before inserting
+            prev_stripped = lines[end - 1].rstrip()
+            if prev_stripped and not prev_stripped.endswith((",", "[")):
+                lines[end - 1] = prev_stripped + ",\n"
+            new_tag_lines = [f"    {_toml_str(t)},\n" for t in added_tags]
+            lines = lines[:end] + new_tag_lines + lines[end:]
+            return "".join(lines), None
+    return text, "tags array not found; tags not added"
+
+
+def _patch_toml_minimal(
+    path: Path,
+    today: str,
+    added_tags: list[str],
+    new_blocks: list[VersionedThreatMapping],
+) -> tuple[bool, list[str]]:
+    """Apply targeted TOML edits (updated_date, tags, threat_mappings); returns (applied, warnings)."""
+    text = path.read_text(encoding="utf-8")
+    warnings: list[str] = []
+
+    # The threat_mappings section is replaced by truncate-and-append, so refuse to touch a file
+    # where any other section follows it — that content would otherwise be lost.
+    tm_match = re.search(r"^\[\[rule\.threat_mappings\]\]", text, flags=re.MULTILINE)
+    if tm_match:
+        for sec in re.finditer(r"^\[+\s*([A-Za-z0-9_.\-]+)\s*\]", text[tm_match.start() :], flags=re.MULTILINE):
+            if not sec.group(1).startswith("rule.threat_mappings"):
+                return False, [f"section [{sec.group(1)}] follows [[rule.threat_mappings]]; file left unmodified"]
+
+    # Update the metadata updated_date in-place (first occurrence only)
+    text, n_subs = re.subn(
+        r"^(updated_date\s*=\s*\")[^\"]*\"",
+        rf'\g<1>{today}"',
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if not n_subs:
+        warnings.append("updated_date not found; date not updated")
+
+    # Insert new tags into the tags array
+    if added_tags:
+        text, tags_warning = _insert_tags(text, added_tags)
+        if tags_warning:
+            warnings.append(tags_warning)
+
+    # Remove any existing [[rule.threat_mappings]] sections (re-search: earlier edits shift offsets)
+    m = re.search(r"^\[\[rule\.threat_mappings\]\]", text, flags=re.MULTILINE)
+    if m:
+        text = text[: m.start()].rstrip("\n") + "\n"
+
+    # Append new threat_mappings TOML
+    text = text.rstrip("\n") + "\n\n" + _format_threat_mappings_toml(new_blocks)
+
+    _ = path.write_text(text, encoding="utf-8")
+    return True, warnings
+
+
+def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> list[ThreatMapping] | None:
+    """Get the source threat mapping for the given framework/version."""
+    if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(source_version) == str(DEFAULT_THREAT_MAPPING_VERSION):
+        return rule.contents.data.threat
+    for block in rule.contents.data.threat_mappings or []:
+        if block.framework == framework and str(block.version) == str(source_version):
+            return block.threat
+    return None
+
+
+@attack_group.command("convert-threat-mappings")
+@click.option("--target-version", "-t", required=True, help="Target framework version to generate (e.g. 19)")
+@click.option(
+    "--source-version",
+    "-s",
+    default=DEFAULT_THREAT_MAPPING_VERSION,
+    show_default=True,
+    help="Source version to convert from (the version stored in the rule `threat` field by default)",
+)
+@click.option(
+    "--framework",
+    default=DEFAULT_THREAT_MAPPING_FRAMEWORK,
+    show_default=True,
+    help="Threat framework to convert",
+)
+@click.option(
+    "--config",
+    "config_paths",
+    multiple=True,
+    type=Path,
+    help="Explicit mapping config file(s) or directory(ies). Defaults to the configured `attack_version_maps_dir`.",
+)
+@click.option("--dry-run", is_flag=True, help="Report what would change without writing any files")
+@click.option(
+    "--overwrite/--no-overwrite",
+    default=True,
+    show_default=True,
+    help="Replace an existing target-version block on a rule (otherwise the rule is skipped)",
+)
+@multi_collection
+def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
+    rules: RuleCollection,
+    target_version: str,
+    source_version: str,
+    framework: str,
+    config_paths: tuple[Path, ...],
+    dry_run: bool,
+    overwrite: bool,
+) -> list[TOMLRule]:
+    """Generate a target-version threat mapping from a rule's source mapping (accuracy-first)."""
+    if framework == DEFAULT_THREAT_MAPPING_FRAMEWORK and str(target_version) == str(DEFAULT_THREAT_MAPPING_VERSION):
+        raise click.BadParameter(
+            f"--target-version {target_version} is the baseline stored in the `threat` field; "
+            "generating a versioned block for it would duplicate `threat`."
+        )
+
+    try:
+        vmap = attack.get_attack_version_map(framework, source_version, target_version, list(config_paths) or None)
+    except (FileNotFoundError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    target_lookups: attack.AttackLookups | None = None
+    if vmap.auto_derive_missing:
+        try:
+            target_lookups = attack.build_attack_lookups_for_version(target_version)
+        except FileNotFoundError as exc:
+            raise click.ClickException(
+                f"auto_derive_missing=true requires ATT&CK STIX data for version {target_version!r}: {exc}"
+            ) from exc
+
+    click.echo(
+        f"Converting {framework} {source_version} -> {target_version} using config: {vmap.path}\n"
+        f"({len(rules)} rules in scope; dry-run={dry_run}; auto_derive_missing={vmap.auto_derive_missing})\n"
+    )
+
+    today = time.strftime("%Y/%m/%d")
+    updated_rules: list[TOMLRule] = []
+    skipped_no_source = 0
+    skipped_existing = 0
+    skipped_empty = 0
+    skipped_unpatchable = 0
+
+    for rule in rules.rules:
+        source_threat = _get_source_threat(rule, framework, source_version)
+        if not source_threat:
+            skipped_no_source += 1
+            continue
+
+        existing_blocks = list(rule.contents.data.threat_mappings or [])
+        has_target = any(b.framework == framework and str(b.version) == str(target_version) for b in existing_blocks)
+        if has_target and not overwrite:
+            skipped_existing += 1
+            continue
+
+        dropped: list[str] = []
+        moved: list[str] = []
+        threat_dicts = _remap_threat_entries(source_threat, vmap, framework, dropped, target_lookups, moved)
+
+        if not threat_dicts:
+            skipped_empty += 1
+            click.secho(
+                f"  [skip] {rule.name}: no confident {target_version} mapping (dropped: {', '.join(dropped)})",
+                fg="yellow",
+            )
+            continue
+
+        block = VersionedThreatMapping.from_dict(
+            {"framework": framework, "version": str(target_version), "threat": threat_dicts}
+        )
+        remaining = [
+            b for b in existing_blocks if not (b.framework == framework and str(b.version) == str(target_version))
+        ]
+        new_blocks = sorted([*remaining, block], key=lambda b: (b.framework, b.version))
+
+        # Collect new tactic tags from the generated block and merge with existing tags.
+        new_tactic_names: list[str] = sorted({str(e["tactic"]["name"]) for e in threat_dicts if e.get("tactic")})
+        existing_tags = list(rule.contents.data.tags or [])
+        added_tags = [f"Tactic: {n}" for n in new_tactic_names if f"Tactic: {n}" not in existing_tags]
+
+        click.echo(f"  [ok]   {rule.name}: generated {target_version} mapping ({len(threat_dicts)} tactic(s))")
+        if moved:
+            click.secho(f"         migrated: {', '.join(moved)}", fg="cyan")
+        if dropped:
+            click.secho(f"         dropped (not in config): {', '.join(dropped)}", fg="yellow")
+        if added_tags:
+            click.secho(f"         tags added: {', '.join(added_tags)}", fg="green")
+
+        if not dry_run and rule.path:
+            applied, patch_warnings = _patch_toml_minimal(rule.path, today, added_tags, new_blocks)
+            for warning in patch_warnings:
+                click.secho(f"         WARNING: {warning}", fg="red")
+            if not applied:
+                skipped_unpatchable += 1
+                continue
+        updated_rules.append(rule)
+
+    click.echo(
+        f"\nFinished - {len(updated_rules)} rule(s) "
+        f"{'would be ' if dry_run else ''}updated; "
+        f"{skipped_no_source} without a {source_version} source mapping, "
+        f"{skipped_existing} with an existing {target_version} block (use --overwrite), "
+        f"{skipped_empty} with no confident mapping."
+        + (f", {skipped_unpatchable} left unmodified (see warnings)" if skipped_unpatchable else "")
+    )
+    return updated_rules
+
+
+@attack_group.command("scaffold-version-map")
+@click.option("--target-version", "-t", required=True, help="Target framework version (e.g. 19)")
+@click.option(
+    "--source-version",
+    "-s",
+    default=DEFAULT_THREAT_MAPPING_VERSION,
+    show_default=True,
+    help="Source version (the baseline stored in the rule `threat` field)",
+)
+@click.option("--framework", default=DEFAULT_THREAT_MAPPING_FRAMEWORK, show_default=True, help="Threat framework")
+@click.option("--output", "-o", type=Path, required=True, help="Path to write the mapping config YAML to")
+def scaffold_version_map(target_version: str, source_version: str, framework: str, output: Path) -> Path:
+    """Generate an identity mapping-config skeleton from the loaded ATT&CK data for human curation."""
+    skeleton = attack.build_identity_version_map(framework, source_version, target_version)
+    header_lines = [
+        f"# Auto-generated identity mapping skeleton ({framework} {source_version} to {target_version}).",
+        "# REVIEW REQUIRED: every source id maps to itself, with the target-version name/reference",
+        "# where the id still exists in the target ATT&CK data (source name otherwise).",
+        "# Curate against the target version's real changes before relying on this config:",
+        "#   renamed       -> change the entry 'name'",
+        "#   deprecated    -> map the entry to a null value, which drops it during conversion",
+        "#   split/merged  -> point the source id at the chosen target id/name/reference",
+        "# Entries absent from this file are dropped during conversion (accuracy-first).",
+        "",
+    ]
+    header = "\n".join(header_lines)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    _ = output.write_text(header + yaml.safe_dump(skeleton, sort_keys=False, default_flow_style=False))
+    click.echo(
+        f"Wrote {framework} {source_version}->{target_version} skeleton to {output} "
+        f"({len(skeleton['tactics'])} tactics, {len(skeleton['techniques'])} techniques, "
+        f"{len(skeleton['subtechniques'])} subtechniques)."
+    )
+    return output
 
 
 @dev_group.group("transforms")
