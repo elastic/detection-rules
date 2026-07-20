@@ -46,7 +46,6 @@ from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
 from .esql_errors import (
     ESQL_EXCEPTION_TYPES,
-    EsqlInferenceEndpointMissingError,
 )
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
@@ -1453,13 +1452,6 @@ def esql_remote_validation(
                 try:
                     validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
                     _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
-                    break
-                except EsqlInferenceEndpointMissingError as e:
-                    click.echo(click.style(f"{r.contents.data.rule_id} ", fg="yellow", bold=True), nl=False)
-                    click.echo(
-                        "WARNING: skipping remote validation; rule uses an Elastic-managed inference "
-                        f"endpoint not available on this stack: {e}"
-                    )
                     break
                 except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
                     e_type = type(e)  # type: ignore[reportUnknownMemberType]

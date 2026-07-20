@@ -406,14 +406,10 @@ def execute_query_against_indices(
             raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
         if "verification_exception" in error_msg:
             endpoint_match = re.search(r"Inference endpoint not found \[([^\]]+)\]", error_msg)
-            if (
-                endpoint_match
-                and endpoint_match.group(1) in ELASTIC_MANAGED_INFERENCE_ENDPOINTS
-                and not misc.getdefault("cloud_id")()
-            ):
-                # Elastic-managed (EIS) endpoints only exist on Elastic Cloud stacks, so their absence
-                # on a self-managed validation stack is expected. Cloud runs (cloud_id configured) stay
-                # strict: a missing managed endpoint there is a real failure and should not be skipped.
+            if endpoint_match and endpoint_match.group(1) in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
+                # A managed endpoint reaching the stack unrewritten on a non-cloud stack means the
+                # COMPLETION rewrite did not match the command; on cloud it means the endpoint is
+                # genuinely missing. Both are failures, typed distinctly to aid diagnosis.
                 raise EsqlInferenceEndpointMissingError(str(e), elastic_client) from None
             raise EsqlTypeMismatchError(str(e), elastic_client) from None
         raise EsqlKibanaBaseError(str(e), elastic_client) from None

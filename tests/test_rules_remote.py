@@ -16,6 +16,7 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
+from detection_rules.index_mappings import rewrite_managed_completion_commands
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -87,6 +88,75 @@ class TestESQLRemoteValidation(unittest.TestCase):
         self.assertIn("9.2.0", prepared_stack_versions)
         self.assertIn("9.2.4", prepared_stack_versions)
         self.assertIn("9.3.0", prepared_stack_versions)
+
+    def test_remote_validation_rewrites_managed_completion_commands(self):
+        """On non-cloud stacks, managed COMPLETION commands are rewritten to EVAL before execution."""
+        query = (
+            "FROM logs-pkg.new_ds-* metadata _id, _version, _index\n"
+            '| EVAL Esql.prompt = "triage this"\n'
+            '| COMPLETION Esql.triage_result = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }\n'
+            "| KEEP Esql.*, _id, _version, _index\n"
+        )
+        metadata = SimpleNamespace(integration=["pkg"])
+        executed_queries: list[str] = []
+
+        def execute_side_effect(_elastic_client, exec_query, _test_index_str, _log):
+            executed_queries.append(exec_query)
+            return [], {"ok": True}
+
+        validator = ESQLValidator(query)
+        with (
+            unittest.mock.patch.dict("os.environ", {"DR_CLOUD_ID": ""}),
+            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.3.0"),
+            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.3.0"]),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.find_latest_integration_patch_for_minor", return_value=0
+            ),
+            unittest.mock.patch("detection_rules.rule_validators.prepare_mappings", return_value=({}, {}, {})),
+            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.execute_query_against_indices", side_effect=execute_side_effect
+            ),
+            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
+        ):
+            _ = validator.remote_validate_rule(
+                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.3.0"}}),
+                elastic_client=object(),
+                query=query,
+                metadata=metadata,
+                rule_id="test-rule",
+            )
+
+        self.assertEqual(len(executed_queries), 1)
+        executed = executed_queries[0]
+        self.assertNotIn("COMPLETION", executed)
+        self.assertIn('EVAL Esql.triage_result = CONCAT(Esql.prompt, "")', executed)
+
+    def test_rewrite_managed_completion_command_variants(self):
+        """The COMPLETION rewrite handles formatting variants and leaves non-managed endpoints untouched."""
+        with unittest.mock.patch.dict("os.environ", {"DR_CLOUD_ID": ""}):
+            # Multi-line command with additional options before the inference_id
+            multi_line = (
+                "FROM idx\n| COMPLETION Esql.result =\n    Esql.prompt\n    WITH\n"
+                '    { "timeout": "30s", "inference_id": ".gp-llm-v2-completion" }\n| KEEP Esql.result'
+            )
+            rewritten = rewrite_managed_completion_commands(multi_line, lambda _msg: None)
+            self.assertNotIn("COMPLETION", rewritten)
+            self.assertIn('EVAL Esql.result = CONCAT(Esql.prompt, "")', rewritten)
+
+            # Unnamed target column defaults to `completion`, matching ES|QL semantics
+            unnamed = 'FROM idx | COMPLETION Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+            rewritten = rewrite_managed_completion_commands(unnamed, lambda _msg: None)
+            self.assertIn('EVAL completion = CONCAT(Esql.prompt, "")', rewritten)
+
+            # Custom (non-managed) endpoints are not rewritten
+            custom = 'FROM idx | COMPLETION Esql.x = Esql.prompt WITH { "inference_id": "my-endpoint" }'
+            self.assertEqual(rewrite_managed_completion_commands(custom, lambda _msg: None), custom)
+
+        # Cloud stacks keep the original query so the real endpoint is exercised
+        managed = 'FROM idx | COMPLETION Esql.x = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+        with unittest.mock.patch.dict("os.environ", {"DR_CLOUD_ID": "fake:cloud-id"}):
+            self.assertEqual(rewrite_managed_completion_commands(managed, lambda _msg: None), managed)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
