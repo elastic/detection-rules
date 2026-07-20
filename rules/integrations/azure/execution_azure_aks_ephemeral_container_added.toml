@@ -7,9 +7,11 @@ updated_date = "2026/07/20"
 [rule]
 author = ["Elastic"]
 description = """
-Detects a non-system identity injecting an ephemeral (debug) container into a running AKS (Azure Kubernetes Service) pod
-via the pods/ephemeralcontainers subresource. Ephemeral containers share the target pod's namespaces and give stealthy
-interactive access to its processes and mounted secrets without creating a new pod.
+Detects an identity injecting an ephemeral (debug) container into a running AKS (Azure Kubernetes Service) pod via the
+pods/ephemeralcontainers subresource, excluding known AKS control-plane and platform identities. Ephemeral containers
+share the target pod's namespaces and give stealthy interactive access to its processes and mounted secrets without
+creating a new pod. Coverage includes workload service accounts (system:serviceaccount:*), so a compromised in-cluster
+token used to attach a debug container is not excluded.
 """
 false_positives = [
     """
