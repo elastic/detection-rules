@@ -2,7 +2,7 @@
 creation_date = "2025/10/01"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -104,10 +104,15 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 file where host.os.type == "linux" and event.type == "creation" and file.path like "/*/etc/nsswitch.conf" and
-process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-not file.path like (
-  "/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*", "/var/tmp/dracut.*", "/tmp/user/0/mkinitramfs_*",
-  "/var/lib/aws-replication-agent/.tmp/mkinitramfs_*"
+process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and not 
+(
+  process.name in ("bash", "dash") and file.path like (
+    "/var/tmp/mkinitramfs_*", "/tmp/tmp.*/mkinitramfs_*", "/tmp/petalinux*/etc/nsswitch.conf",
+    "/tmp/selfextract.*/mkinitramfs_*/etc/nsswitch.conf", "/var/tmp/dracut.*/initramfs/etc/nsswitch.conf",
+    "/tmp/user/0/mkinitramfs_*/etc/nsswitch.conf", "/opt/mkinitramfs_*/etc/nsswitch.conf",
+    "/opt/dumpling-nxp/*/etc/nsswitch.conf", "/tmp/store/vfs/dir/*", "/opt/tmp/mkinitramfs_*",
+    "/opt/nvidia_tmpfs/mkinitramfs*"
+  )
 )
 '''
 
