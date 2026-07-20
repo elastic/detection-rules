@@ -20,7 +20,6 @@ from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
 from .esql import EventDataset
 from .esql_errors import (
-    ELASTIC_MANAGED_INFERENCE_ENDPOINTS,
     EsqlInferenceEndpointMissingError,
     EsqlKibanaBaseError,
     EsqlSchemaError,
@@ -36,7 +35,7 @@ from .integrations import (
 )
 from .rule import RuleMeta
 from .schemas import get_stack_schemas
-from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
+from .schemas.definitions import ELASTIC_MANAGED_INFERENCE_ENDPOINTS, HTTP_STATUS_BAD_REQUEST
 from .utils import combine_dicts
 
 
