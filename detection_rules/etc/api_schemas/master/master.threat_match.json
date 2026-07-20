@@ -203,7 +203,9 @@
       ]
     },
     "query": {
-      "type": "string"
+      "type": [
+        "string"
+      ]
     },
     "references": {
       "items": {
@@ -247,6 +249,23 @@
         "type": "object"
       },
       "min_compat": "8.3",
+      "type": [
+        "array"
+      ]
+    },
+    "response_actions": {
+      "items": {
+        "additionalProperties": {
+          "type": [
+            "string",
+            "number",
+            "object",
+            "array",
+            "boolean"
+          ]
+        },
+        "type": "object"
+      },
       "type": [
         "array"
       ]
@@ -534,6 +553,124 @@
       },
       "type": "array"
     },
+    "threat_mappings": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "framework": {
+            "enum": [
+              "MITRE ATT&CK",
+              "MITRE ATLAS"
+            ],
+            "enumNames": [],
+            "type": "string"
+          },
+          "threat": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "framework": {
+                  "enum": [
+                    "MITRE ATT&CK",
+                    "MITRE ATLAS"
+                  ],
+                  "enumNames": [],
+                  "type": "string"
+                },
+                "tactic": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "pattern": "^(https://attack.mitre.org/tactics/TA[0-9]+/|https://atlas.mitre.org/tactics/AML\\.TA[0-9]+/)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "technique": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "reference": {
+                        "pattern": "^(https://attack.mitre.org/techniques/T[0-9]+/|https://atlas.mitre.org/techniques/AML\\.T[0-9]+/)$",
+                        "type": "string"
+                      },
+                      "subtechnique": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "reference": {
+                              "pattern": "^(https://attack.mitre.org/techniques/T[0-9]+/[0-9]+/|https://atlas.mitre.org/techniques/AML\\.T[0-9]+\\.[0-9]+/)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        "type": [
+                          "array"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "type": [
+                    "array"
+                  ]
+                }
+              },
+              "required": [
+                "framework",
+                "tactic"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "framework",
+          "threat",
+          "version"
+        ],
+        "type": "object"
+      },
+      "type": [
+        "array"
+      ]
+    },
     "threat_query": {
       "type": [
         "string"
@@ -575,7 +712,6 @@
     "author",
     "description",
     "language",
-    "query",
     "severity",
     "threat_index",
     "threat_mapping",
