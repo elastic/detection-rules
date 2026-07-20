@@ -65,7 +65,7 @@ def _pin_v19_stack() -> Any:
     """Pin the emit stack to the v19 gate so stack-gated transforms apply on release branches (< 9.5)."""
     return mock.patch(
         "detection_rules.rule.load_current_package_version",
-        return_value=f"{MITRE_V19_MIN_STACK.major}.{MITRE_V19_MIN_STACK.minor}",
+        return_value=str(MITRE_V19_MIN_STACK),
     )
 
 
