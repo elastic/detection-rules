@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/07/10"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation of a GKE CertificateSigningRequest (CSR) that requests the kubernetes.io/kube-apiserver-client signer.
+This signer issues general API client certificates with few subject restrictions, unlike the restricted kubelet signers
+used for node certificate rotation. Attackers with CSR permissions use this signer to mint long-lived credentials for
+privileged identities such as system:kube-controller-manager, enabling persistence and privilege escalation that survives
+token revocation and RBAC changes.
+"""
+false_positives = [
+    """
+    Custom PKI or administrative tooling may legitimately request kubernetes.io/kube-apiserver-client certificates in
+    self-managed clusters. Baseline approved operators and tune exclusions for known automation on GKE.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Certificate Signing Request API Client Signer Requested"
+note = """## Triage and analysis
+
+### Investigating GKE Certificate Signing Request API Client Signer Requested
+
+Identify the actor (`client.user.email`), `source.ip`, and `user_agent.original`. Legitimate GKE node certificate
+rotation uses `kubernetes.io/kube-apiserver-client-kubelet` or `kubernetes.io/kubelet-serving` — not this signer.
+Review `gcp.audit.request.spec.signerName` and decode `gcp.audit.request.spec.request` when present to extract the
+requested Common Name (CN).
+
+```bash
+# Full decoded PEM block
+echo "<gcp.audit.request.spec.request>" | base64 -d
+
+# Parsed CSR details (subject, key type/size, extensions, signature)
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -text
+
+# Subject only
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -subject
+```
+
+### Possible investigation steps
+
+- Confirm whether the principal is authorized to request API client certificates and whether the activity aligns with
+  approved PKI workflows.
+- Decode `gcp.audit.request.spec.request` and inspect the CSR subject for privileged identities such as
+  `system:masters`, `system:kube-controller-manager`, or `system:admin`.
+- Correlate with CSR approval or patch activity on the same `gcp.audit.resource_name` and follow-on API access from
+  unusual networks.
+- Review RBAC grants on `certificatesigningrequests` create and `certificatesigningrequests/approval` for the actor.
+
+### False positive analysis
+
+- Custom PKI or admin workflows may legitimately use this signer outside kube-system. Baseline and tune for known
+  operators.
+
+### Related rules
+
+- GKE Certificate Signing Request Privileged Identity Requested - 4159bec9-76ad-4cdc-a797-4a8572073bbe
+- GKE Certificate Signing Request Self-Approved - e155e658-3dcd-4d27-a4e5-1d8da6704b0e
+- GKE Client Certificate Signing Request Created or Approved - ec67ab57-945a-4edb-84f8-1d7a51f46544
+
+### Response and remediation
+
+- Deny or delete suspicious CSRs, rotate cluster signing trust if abused, and remove excessive CSR RBAC from untrusted
+  identities.
+
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required. Request body capture for CSR create events (`gcp.audit.request.spec.signerName`) typically requires RequestResponse audit level on CertificateSigningRequest resources."
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/",
+    "https://kubernetes.io/docs/concepts/security/rbac-good-practices/",
+    "https://www.aquasec.com/blog/kubernetes-rbac-privilige-escalation/",
+    "https://stratus-red-team.cloud/attack-techniques/kubernetes/k8s.persistence.create-client-certificate/",
+]
+risk_score = 73
+rule_id = "1e344fba-a2f7-462b-aaec-d6c8f80d5a28"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"gcp.audit" and service.name:"k8s.io" and event.outcome:"success" and
+event.action:"io.k8s.certificates.v1.certificatesigningrequests.create" and
+gcp.audit.request.spec.signerName:"kubernetes.io/kube-apiserver-client" and
+not client.user.email:(
+  "system:gcp-controller-manager" or
+  "system:serviceaccount:kube-system:certificate-controller"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request.spec.signerName",
+    "gcp.audit.request.spec.request",
+    "data_stream.namespace",
+]
