@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies attempts to suppress or blind Amazon GuardDuty without deleting the detector outright. Adversaries with
+GuardDuty permissions can create or update a trusted IP set (CreateIPSet/UpdateIPSet) so that traffic from listed
+addresses is never flagged, tamper with the threat intelligence feed used to generate findings
+(CreateThreatIntelSet/UpdateThreatIntelSet), or soft-disable the detector via UpdateDetector with Enable set to
+false. All three techniques leave the detector itself intact, evading detections that only look for detector deletion.
+"""
+false_positives = [
+    """
+    Security teams may legitimately register trusted IP ranges (VPNs, scanners, NAT gateways) or update threat
+    intelligence feeds as part of normal GuardDuty tuning. Verify whether the user identity, user agent, and/or hostname
+    should be making changes to GuardDuty configuration. If known behavior is causing false positives, it can be
+    exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS GuardDuty Detection Suppression"
+note = """## Triage and analysis
+
+### Investigating AWS GuardDuty Detection Suppression
+
+Amazon GuardDuty relies on its detector configuration, trusted IP list, and threat intelligence feeds to decide which
+activity generates findings. An adversary who cannot (or does not want to) delete the detector outright can instead
+blind it in place:
+
+- **`CreateIPSet`/`UpdateIPSet`** (activated): traffic from any address in the list is treated as trusted and will
+  not generate findings, even if it originates from the adversary's own infrastructure.
+- **`CreateThreatIntelSet`/`UpdateThreatIntelSet`** (activated): replaces or extends the indicators GuardDuty uses to
+  flag known-malicious activity; an adversary who controls this feed controls what GuardDuty considers malicious.
+- **`UpdateDetector`** with `Enable: false`: disables the detector without deleting it, leaving its configuration and
+  historical findings intact while stopping all new analysis — quieter than `DeleteDetector`, which has its own
+  dedicated detection.
+
+### Possible investigation steps
+
+- **Identify the actor**: review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` to
+  determine who made the change, and whether this principal normally performs GuardDuty administration.
+- **Inspect the change**: from `aws.cloudtrail.request_parameters`, confirm which action occurred and its target
+  (`detectorId`, IP set `location`/`name`, or the `enable` flag for `UpdateDetector`).
+- **Assess scope**: for IP sets, resolve the listed CIDR ranges/addresses — do they belong to the adversary's known
+  infrastructure rather than legitimate corporate ranges? For threat intel sets, review the referenced feed location.
+- **Correlate with other defense evasion activity**: look for `DeleteDetector`, `StopMonitoringMembers`,
+  `DisassociateMembers`, CloudTrail suspension, or IAM privilege changes around the same time by the same actor.
+- **Review source context**: check `source.ip`, `user_agent.original`, and `source.geo` for anomalous access.
+
+### False positive analysis
+
+- Legitimate security engineering changes (adding a new VPN range to the trusted IP list, rotating a threat intel
+  feed URL) will show the same API calls. Confirm with the GuardDuty/security engineering team and check change
+  tickets or IaC pipelines before treating as malicious.
+
+### Response and remediation
+
+- If unauthorized, remove or deactivate the rogue IP set/threat intel set, and re-enable the detector if it was
+  disabled (`UpdateDetector` with `Enable: true`).
+- Review all findings generated (or suppressed) during the window the detector or IP set was compromised.
+- Restrict `guardduty:CreateIPSet`, `guardduty:UpdateIPSet`, `guardduty:CreateThreatIntelSet`,
+  `guardduty:UpdateThreatIntelSet`, and `guardduty:UpdateDetector` to a limited administrative role, and alert on any
+  use outside change-managed windows.
+
+"""
+references = [
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateIPSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_CreateThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateThreatIntelSet.html",
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_UpdateDetector.html",
+    "https://github.com/RhinoSecurityLabs/pacu/tree/master/pacu/modules/guardduty__whitelist_ip",
+]
+risk_score = 73
+rule_id = "e515aeb2-3d47-4925-b6fc-3f92b0d40d5b"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS GuardDuty",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "guardduty.amazonaws.com"
+    and event.outcome: "success"
+    and (
+        (event.action: ("CreateIPSet" or "UpdateIPSet" or "CreateThreatIntelSet" or "UpdateThreatIntelSet")
+            and aws.cloudtrail.flattened.request_parameters.activate: (true or "true"))
+        or
+        (event.action: "UpdateDetector" and aws.cloudtrail.flattened.request_parameters.enable: (false or "false"))
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
