@@ -10,23 +10,13 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  id-token: write
 
 jobs:
   create_issue:
     runs-on: ubuntu-latest
     env:
       KIBANA_ISSUE_NUMBER: 166152  # Define the Kibana issue number as a variable
-    # OIDC id-tokens are not issued for pull_request events from forks
-    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - name: Fetch ephemeral GitHub token
-        id: fetch-ephemeral-token
-        uses: elastic/ci-gh-actions/fetch-github-token@2feb1c6f5086cf8e06f61ef35e275abed3456f7b # v1.5.3
-        with:
-          vault-instance: "ci-prod"
-          vault-role: "token-policy-a213e9ca741c"
-
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -51,7 +41,7 @@ jobs:
             curl -L \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ steps.fetch-ephemeral-token.outputs.token }}" \
+            -H "Authorization: token ${{ secrets.WRITE_KIBANA_DETECTION_RULES_TOKEN }}" \
             https://api.github.com/repos/elastic/kibana/issues/${KIBANA_ISSUE_NUMBER}/comments \
             -d '{"body":"The detection rules MITRE ATT&CK version has been updated to ${{ steps.extract_version.outputs.version }} Please help in scheduling the MITRE ATT&CK version upgrade in Kibana accordingly @banderror @approksiu. cc @elastic/threat-research-and-detection-engineering"}'
             exit $?
