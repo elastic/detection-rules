@@ -75,13 +75,14 @@ from logs-gcp.audit-* metadata _id, _index, _version
     Esql.event_outcome_values = values(event.outcome),
     Esql.client_user_email_values = values(client.user.email),
     Esql.timestamp = VALUES(@timestamp),
-    Esql.data_stream_namespace = VALUES(data_stream.namespace)
-  by source.ip, user_agent.original
+    Esql.data_stream_namespace = VALUES(data_stream.namespace),
+    Esql.user_agent_original_values = VALUES(user_agent.original)
+  by source.ip
 | where Esql.event_action_count_distinct > 5
     and Esql.resource_name_count_distinct > 3
     and Esql.document_count < 50
     and Esql.failure_count >= 1
-| keep Esql.*, source.ip, user_agent.original
+| keep Esql.*, source.ip
 '''
 
 [[rule.threat]]
