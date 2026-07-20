@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/07/15"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful GKE pod exec sessions where the executed command implies curl or wget fetching an HTTPS URL.
+Attackers with pods/exec often run one-liners to stage tooling, pull scripts or binaries, or exfiltrate data over
+HTTPS—activity that should be rare compared to shells, debuggers, or expected health checks. Common cluster health,
+localhost, and OIDC/JWKS endpoint patterns are excluded to reduce benign automation noise. GKE records the command in
+gcp.audit.labels.command.gke.io/command when an explicit command is passed to exec.
+"""
+false_positives = [
+    """
+    Approved runbooks or support sessions may use kubectl exec with curl/wget to test egress or download vendor tools.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Pod Exec with Curl or Wget to HTTPS"
+note = """## Triage and analysis
+
+### Investigating GKE Pod Exec with Curl or Wget to HTTPS
+
+This alert fires when a successful pods/exec API call includes a curl or wget command targeting HTTPS.
+Review `gcp.audit.labels.command.gke.io/command` for the full command and destination URL.
+
+### Possible investigation steps
+
+- Confirm who may exec into the target namespace: `client.user.email`, source IP, and user agent (kubectl, CI, automation).
+- Map `gcp.audit.resource_name` to the pod/workload owner and retrieve the exact command from the alert document.
+- Search for adjacent audit events from the same identity: secret reads, additional execs, RBAC changes, or anonymous access.
+- If malicious, revoke credentials used for exec, review RoleBindings for pods/exec, and inspect the pod for dropped artifacts.
+
+### False positive analysis
+
+- Approved egress or tool-download tests may match; allowlist those identities after validation.
+- Some cluster components use HTTPS to kubernetes.default.svc or .well-known endpoints; expand exclusions if needed.
+
+### Response and remediation
+
+- Rotate secrets accessible from the pod, cordon or delete the workload if compromised, and tighten RBAC so only
+  required principals retain pods/exec on sensitive namespaces.
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+references = [
+    "https://attack.mitre.org/techniques/T1609/",
+    "https://attack.mitre.org/techniques/T1105/",
+]
+risk_score = 73
+rule_id = "3a68325b-6169-44c1-a5f0-0102ef82b6f1"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.type:start and
+event.action:("io.k8s.core.v1.pods.exec.create" or "io.k8s.core.v1.pods.exec.get") and
+gcp.audit.labels.command.gke.io/command:(
+  (*curl*https* or *wget*https*) and not (
+    */.well-known/jwks.json* or */.well-known/openid-configuration* or
+    */api/v1/health* or */healthz* or */livez* or */readyz* or
+    */openid-connect/certs* or */openid/v1/jwks* or
+    *127.0.0.1* or *kubernetes.default.svc* or *localhost*
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "event.type",
+    "gcp.audit.labels.command.gke.io/command",
+    "gcp.audit.resource_name",
+    "data_stream.namespace",
+]
