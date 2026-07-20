@@ -1670,7 +1670,7 @@ class TestAlertSuppression(BaseRuleTest):
                         field = re.escape(fld)
                         self.assertRegex(
                             rule.contents.data.query,
-                            rf"\b{field}\s*=|\bAS\s+{field}\b|[:{{]{field}}}",
+                            rf"\b{field}\s*=(?!=)|\bAS\s+{field}\b|[:{{]{field}}}",
                             f"{self.rule_str(rule)} alert suppression field {fld} is a dynamic "
                             "ES|QL field but is not computed anywhere in the query",
                         )
