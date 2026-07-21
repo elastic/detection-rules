@@ -34,18 +34,25 @@ identities issuing these reviews outside of known controllers can indicate a sto
 
 - Confirm the acting identity in `azure.platformlogs.properties.log.user.username` and its groups in
   `azure.platformlogs.properties.log.user.groups`, and whether that service account or node routinely performs
-  self-subject reviews.
+  self-subject reviews. Check `azure.platformlogs.properties.log.impersonatedUser.username`: when populated, the review
+  was issued via impersonation (e.g. `kubectl auth can-i --as=<service account>`) and the real actor is the
+  impersonating user, not the service account in `user.username`.
 - Review `azure.platformlogs.properties.log.objectRef.resource` (selfsubjectaccessreviews or selfsubjectrulesreviews)
   and the `azure.platformlogs.properties.log.requestObject` to see what access was checked, plus the API path in
-  `azure.platformlogs.properties.log.requestURI`.
-- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs`. Control-plane traffic uses loopback (`::1`) or
-  node subnet addresses; a pod-network or external source is more suspicious. Pivot on the source for related API
-  activity, denied requests, exec sessions, or RBAC changes from the same identity.
+  `azure.platformlogs.properties.log.requestURI`. Inspect `azure.platformlogs.properties.log.userAgent` to distinguish
+  interactive tooling (`kubectl`) from custom recon tooling or in-cluster SDKs.
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs`. Control-plane and in-cluster agents use loopback
+  (`127.0.0.1`/`::1`) or pod-network addresses (e.g. `10.244.0.0/16`); an external caller wielding a service account
+  token is more suspicious. Pivot on the source for related API activity, denied requests, exec sessions, or RBAC
+  changes from the same identity.
 
 ### False positive analysis
 
-- Known observability or workflow controllers may issue self-subject reviews; extend exclusions for validated identities.
-- Admin impersonation workflows can trigger this via an impersonated service account; validate the impersonating user.
+- Known observability or workflow controllers may issue self-subject reviews; extend exclusions for validated
+  identities. Azure Arc's agent service accounts (`system:serviceaccount:azure-arc:*`) legitimately submit these reviews
+  and are already excluded; add other validated platform controllers as they are baselined.
+- Admin impersonation workflows can trigger this via an impersonated service account; validate the impersonating user in
+  `azure.platformlogs.properties.log.impersonatedUser.username`.
 
 ### Response and remediation
 
@@ -60,12 +67,19 @@ references = [
 ]
 risk_score = 21
 rule_id = "11afa743-5264-460b-9d0a-b687efd38a71"
-setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."""
+setup = """
+The Azure Fleet integration collecting AKS diagnostic logs forwarded through Event Hub into the `azure.platformlogs`
+data stream is required for this rule. Enable either the `kube-audit` or the `kube-audit-admin` log category (Microsoft
+recommends `kube-audit-admin` alone to reduce volume, as it only drops read-only get/list events). Self-subject review
+creates are recorded in both categories with the same `auditID`, so clusters that enable both categories may generate
+two alerts per review.
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
     "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
     "Data Source: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
@@ -75,11 +89,14 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:azure.platformlogs and event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-azure.platformlogs.category:"kube-audit" and
-azure.platformlogs.properties.log.verb:"create" and
-azure.platformlogs.properties.log.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and
-azure.platformlogs.properties.log.user.username:(system\:node\:* or system\:serviceaccount\:*)
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:("kube-audit" or "kube-audit-admin") and
+  azure.platformlogs.properties.log.stage:"ResponseComplete" and
+  azure.platformlogs.properties.log.verb:"create" and
+  azure.platformlogs.properties.log.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and
+  azure.platformlogs.properties.log.user.username:(system\:node\:* or system\:serviceaccount\:*) and
+  not azure.platformlogs.properties.log.user.username:system\:serviceaccount\:azure-arc\:*
 '''
 
 [rule.investigation_fields]
@@ -89,9 +106,14 @@ field_names = [
     "azure.platformlogs.category",
     "azure.platformlogs.properties.log.verb",
     "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.user.groups",
+    "azure.platformlogs.properties.log.impersonatedUser.username",
+    "azure.platformlogs.properties.log.userAgent",
     "azure.platformlogs.properties.log.sourceIPs",
     "azure.platformlogs.properties.log.objectRef.resource",
     "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.requestURI",
+    "azure.platformlogs.properties.log.responseStatus.code",
 ]
 
 [[rule.threat]]
