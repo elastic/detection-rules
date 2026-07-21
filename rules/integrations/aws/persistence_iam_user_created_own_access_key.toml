@@ -9,7 +9,7 @@ author = ["Elastic"]
 description = """
 An adversary with a compromised set of IAM credentials may create a new, long-lived access key for that same identity to
 establish persistence that survives session-token expiry, password rotation, or MFA re-enforcement. This rule looks for
-use of the IAM `CreateAccessKey` API operation where the calling identity creates a key for itself, which complements
+use of the IAM CreateAccessKey API operation where the calling identity creates a key for itself, which complements
 the existing detection for one user creating access keys for another user.
 """
 false_positives = [
@@ -33,8 +33,8 @@ session token, an access key does not expire on its own, so an adversary who has
 credentials (for example, an assumed-role session or SSO session) can use `iam:CreateAccessKey` on their own identity
 to mint a durable credential that persists after the original access vector is closed.
 
-This rule identifies `CreateAccessKey` API calls where the calling user (`user.name`) is the same as the target user
-(`user.target.name`), indicating self-service key creation.
+This rule identifies `CreateAccessKey` API calls where the target user is not explicitly specified (common for self-service key creation) or matches the calling user (`user.name`).
+This corresponds to `user.target.name` being null or equal to `user.name` in ECS-mapped CloudTrail events.
 
 #### Possible investigation steps
 
@@ -90,7 +90,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and event.provider == "iam.amazonaws.com"
     and event.action == "CreateAccessKey"
     and event.outcome == "success"
-    and user.name == user.target.name
+    and (user.target.name IS NULL or user.name == user.target.name)
 | keep
     _id,
     _version,
