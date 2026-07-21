@@ -265,7 +265,6 @@ network where host.os.type == "windows" and
           "?:\\Program Files (x86)\\*.exe",
           "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
           "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
-          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
           "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
@@ -334,6 +333,12 @@ network where host.os.type == "windows" and
        process.code_signature.trusted == true) and dns.question.name : "graph.microsoft.com"
       ) or
 
+      /* Telegram */
+      (process.name : "Telegram.exe" and (process.code_signature.subject_name : "Telegram FZ-LLC" and
+       process.code_signature.trusted == true) and dns.question.name : ("firebaseremoteconfig.googleapis.com",
+       "firestore.googleapis.com")
+      ) or
+
       (
         process.code_signature.trusted == true and
         process.code_signature.subject_name : (
@@ -350,7 +355,6 @@ network where host.os.type == "windows" and
                               "Spotify AB",
                               "DeepL SE",
                               "Google LLC",
-                              "Telegram FZ-LLC",
                               "Anthropic, PBC",
                               "OpenAI OpCo, LLC",
                               "Anysphere, Inc.",
