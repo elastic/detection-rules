@@ -98,13 +98,13 @@ type = "query"
 
 query = '''
 data_stream.dataset:azure.platformlogs and
-  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-  azure.platformlogs.category:("kube-audit" or "kube-audit-admin") and
-  azure.platformlogs.properties.log.stage:"ResponseComplete" and
-  azure.platformlogs.properties.log.verb:"create" and
-  azure.platformlogs.properties.log.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrulesreviews") and
-  azure.platformlogs.properties.log.user.username:(system\:node\:* or system\:serviceaccount\:*) and
-  not azure.platformlogs.properties.log.user.username:system\:serviceaccount\:azure-arc\:*
+  event.action:Microsoft.ContainerService/managedClusters/diagnosticLogs/Read and
+  azure.platformlogs.category:(kube-audit or kube-audit-admin) and
+  azure.platformlogs.properties.log.stage:ResponseComplete and
+  azure.platformlogs.properties.log.verb:create and
+  azure.platformlogs.properties.log.objectRef.resource:(selfsubjectaccessreviews or selfsubjectrulesreviews) and
+  azure.platformlogs.properties.log.user.username:((system\:node\:* or system\:serviceaccount\:*) and
+  not system\:serviceaccount\:azure-arc\:*)
 '''
 
 [rule.investigation_fields]
