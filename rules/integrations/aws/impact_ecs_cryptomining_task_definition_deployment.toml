@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/07/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a principal that, within a short window, both registers an Amazon ECS task definition using a public / non-ECR
+container image at a high CPU allocation (8 or 16 vCPU) AND launches ECS workloads (RunTask, StartTask, or CreateService).
+Registering a public miner image at maximum compute and then launching it is the ECS/Fargate cryptocurrency-mining
+deployment pattern seen after credential compromise. Requiring both the mining-signature registration and a launch by the
+same principal confirms an actual deployment rather than a standalone (possibly benign) task-definition registration,
+which sharply reduces false positives from high-compute workloads that are merely registered.
+"""
+false_positives = [
+    """
+    A principal that legitimately both registers a high-compute public-image task definition and runs ECS workloads in the
+    same window could match (for example, some data-science or batch pipelines). Confirm the image and CPU in
+    "aws.cloudtrail.request_parameters" of the RegisterTaskDefinition event, the launched workload, and whether the
+    principal in "aws.cloudtrail.user_identity.arn" is an expected ECS operator; exclude known principals after validation.
+    The CPU threshold and registry list are tunable in the query.
+    """,
+]
+from = "now-30m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Potential Cryptomining via ECS Task Definition Deployment"
+note = """## Triage and analysis
+
+### Investigating AWS Potential Cryptomining via ECS Task Definition Deployment
+
+Amazon ECS runs containers from images referenced in a task definition. After credential compromise, a common impact action is to abuse ECS/Fargate for cryptomining: the adversary registers a task definition pointing at a public miner image (Docker Hub, GHCR, Quay, or the public ECR gallery) at maximum CPU to maximize hashrate, then launches it at scale via RunTask/CreateService, often across multiple regions.
+
+This rule correlates by principal within the rule window and fires only when the same identity BOTH (a) registers a task definition whose container image comes from a public registry and whose CPU is high (8-16 vCPU), AND (b) launches ECS workloads (RunTask/StartTask/CreateService). Requiring the launch in addition to the mining-signature registration confirms active deployment and distinguishes it from a task definition that is merely registered.
+
+### Possible investigation steps
+
+- Review the RegisterTaskDefinition event's "aws.cloudtrail.request_parameters" for the container image, CPU/memory, and task family, and the launch event(s) for the cluster and desired count.
+- Identify the principal in "aws.cloudtrail.user_identity.arn"/"aws.cloudtrail.user_identity.type" and whether it normally operates ECS; review "source.ip"/"source.as.number" and "user_agent.original".
+- Correlate with related activity by the same principal: ECS "CreateCluster" (especially in unused regions), new IAM users with administrative policies, and prior reconnaissance.
+- Inspect the referenced image and any running containers/tasks and their outbound network connections (mining-pool traffic).
+
+### False positive analysis
+
+- Legitimate batch/data-science workloads may both register a high-compute public-image task definition and run it. Validate the image, workload, and principal, and exclude known-good identities after confirmation.
+
+### Response and remediation
+
+- If unauthorized, stop and delete the launched services/tasks, deregister the task definition, and review other regions for the same activity.
+- Investigate the principal for compromise, revoke or rotate its credentials, and review for persistence (new IAM users/policies).
+- Restrict ECS task-definition registration and task execution roles, and require images from approved private ECR repositories.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/tales-from-the-cloud-trenches-ecs-crypto-mining/",
+    "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html",
+]
+risk_score = 73
+rule_id = "3ca27e45-b0cd-417a-914c-d086869acd1b"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE event.provider == "ecs.amazonaws.com"
+    AND event.action IN ("RegisterTaskDefinition", "RunTask", "StartTask", "CreateService")
+| EVAL Esql.miner_register = CASE(
+        event.action == "RegisterTaskDefinition"
+            AND (aws.cloudtrail.request_parameters RLIKE """.*image=(docker.io|index.docker.io|ghcr.io|quay.io|public.ecr.aws)/.*"""
+                OR aws.cloudtrail.request_parameters RLIKE """.*image=[-a-zA-Z0-9_]+(/|[,} :]).*""")
+            AND aws.cloudtrail.request_parameters RLIKE """.*cpu=(8192|16384)[,} ].*""", 1, 0),
+    Esql.task_run = CASE(event.action IN ("RunTask", "StartTask", "CreateService"), 1, 0)
+| STATS Esql.miner_register_sum = SUM(Esql.miner_register), Esql.task_run_sum = SUM(Esql.task_run), Esql.event_count = COUNT(*),
+        Esql.cloud_region_count_distinct = COUNT_DISTINCT(cloud.region), Esql.cloud_region_values = VALUES(cloud.region),
+        Esql.event_action_values = VALUES(event.action), Esql.source_ip_values = VALUES(source.ip),
+        Esql.source_as_number_values = VALUES(source.as.number), Esql.user_agent_original_values = VALUES(user_agent.original),
+        Esql.cloud_account_id_values = VALUES(cloud.account.id), Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+        Esql.timestamp_min = MIN(@timestamp), Esql.timestamp_max = MAX(@timestamp)
+        BY aws.cloudtrail.user_identity.arn
+| WHERE Esql.miner_register_sum >= 1 AND Esql.task_run_sum >= 1
+| KEEP aws.*, Esql.aws_cloudtrail_user_identity_type_values, Esql.miner_register_sum, Esql.task_run_sum, Esql.event_count, Esql.cloud_region_count_distinct, Esql.cloud_region_values, Esql.event_action_values, Esql.source_ip_values, Esql.source_as_number_values, Esql.user_agent_original_values, Esql.cloud_account_id_values, Esql.timestamp_min, Esql.timestamp_max
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.arn",
+    "Esql.aws_cloudtrail_user_identity_type_values",
+    "Esql.miner_register_sum",
+    "Esql.task_run_sum",
+    "Esql.event_count",
+    "Esql.cloud_region_count_distinct",
+    "Esql.cloud_region_values",
+    "Esql.event_action_values",
+    "Esql.source_ip_values",
+    "Esql.source_as_number_values",
+    "Esql.user_agent_original_values",
+    "Esql.cloud_account_id_values",
+    "Esql.timestamp_min",
+    "Esql.timestamp_max",
+]
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
