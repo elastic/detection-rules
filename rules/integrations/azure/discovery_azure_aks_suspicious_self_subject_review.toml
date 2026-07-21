@@ -13,17 +13,24 @@ tokens probing effective RBAC before privilege escalation.
 """
 false_positives = [
     """
-    Some controllers and admin impersonation workflows legitimately submit self-subject reviews. Baseline the calling
-    service accounts and node identities, and exclude known platform or observability controllers after review.
+    SelfSubjectAccessReview ("can I do X") is routinely issued by controllers checking their own permissions, so busy
+    clusters generate benign volume from platform and add-on service accounts (for example kube-system managed add-ons
+    such as azure-policy, Microsoft Defender, metrics-server, and konnectivity, plus operators like cert-manager,
+    ingress controllers, and Argo/Flux). The rule ships with only the Azure Arc agent accounts
+    (system:serviceaccount:azure-arc:*) excluded; that namespace exists only on Arc-enabled clusters and is one example,
+    not a complete list. Treat the exclusion set as a per-environment denylist: baseline the calling service accounts and
+    add validated platform/observability controllers after review. SelfSubjectRulesReview ("list everything I can do")
+    is far rarer from non-human identities and higher signal. Admin impersonation workflows can also trigger this via an
+    impersonated service account; validate the impersonating user.
     """,
 ]
 index = ["logs-azure.platformlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Azure AKS Suspicious Self-Subject Review via Service Account"
+name = "Azure AKS Suspicious Self-Subject Review by Service Account or Node Identity"
 note = """## Triage and analysis
 
-### Investigating Azure AKS Suspicious Self-Subject Review via Service Account
+### Investigating Azure AKS Suspicious Self-Subject Review by Service Account or Node Identity
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
 operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. A `selfsubjectaccessreviews`
