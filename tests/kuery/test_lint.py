@@ -79,6 +79,13 @@ class LintTests(unittest.TestCase):
         self.validate("not (not (a:b or c:d))", "a:b or c:d")
         self.validate("not (not (a:(not b) or c:(not d)))", "not a:b or not c:d")
 
+    def test_free_text(self):
+        self.validate('"Accepted password for root"', '"Accepted password for root"')
+        self.validate(
+            'process.name : agent12 and "Accepted password for root"',
+            'process.name:agent12 and "Accepted password for root"',
+        )
+
     def test_ip(self):
         self.validate("a:ff02\\:\\:fb", 'a:"ff02::fb"')
 

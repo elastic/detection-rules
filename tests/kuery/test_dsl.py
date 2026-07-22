@@ -141,6 +141,24 @@ class TestKQLtoDSL(unittest.TestCase):
             },
         )
 
+    def test_free_text_value(self):
+        """Bare values (no field) convert the way Kibana's `is` function does with a null field."""
+        # multi_match over the default fields, lenient so non-text fields are skipped
+        self.validate(
+            'process.name : agent12 and "Accepted password for root"',
+            {
+                "filter": [
+                    {"match": {"process.name": "agent12"}},
+                    {"multi_match": {"type": "best_fields", "query": "Accepted password for root", "lenient": True}},
+                ]
+            },
+        )
+
+        # a bare wildcard becomes a query_string with no fields restriction,
+        # with Lucene specials escaped like any other wildcard value
+        self.validate("*password*", {"filter": [{"query_string": {"query": "*password*"}}]})
+        self.validate("/var/log/auth*", {"filter": [{"query_string": {"query": r"\/var\/log\/auth*"}}]})
+
     def test_wildcard_query_string_escaping(self):
         """Wildcard values converted to query_string.query must escape Lucene reserved chars while preserving `*`."""
 

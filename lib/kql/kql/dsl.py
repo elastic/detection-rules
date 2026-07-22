@@ -5,6 +5,7 @@
 
 from collections import defaultdict
 from eql import Walker
+from .ast import Wildcard
 from .errors import KqlCompileError
 
 
@@ -139,6 +140,14 @@ class ToDsl(Walker):
     def _walk_not_value(self, tree):
         child = self.walk(tree.value)
         return lambda field: boolean(must_not=[child(field)])
+
+    def _walk_free_text(self, tree):
+        # Mirrors Kibana's `is` function with a null field (kbn-es-query is.ts): a wildcard
+        # becomes a query_string over the default fields; any other value a lenient
+        # multi_match so non-text fields are skipped instead of erroring.
+        if isinstance(tree.value, Wildcard):
+            return {"query_string": {"query": _escape_query_string_wildcard(tree.value.value)}}
+        return {"multi_match": {"type": "best_fields", "query": tree.value.value, "lenient": True}}
 
     def _walk_field_comparison(self, tree):
         field = self.walk(tree.field)

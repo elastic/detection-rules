@@ -383,12 +383,21 @@ class KqlParser(BaseKqlParser):
         return Field(eql.utils.to_unicode(literal))
 
     def value(self, tree):
-        if self.scoped_field is None:
-            raise self.error(tree, "Value not tied to field")
-
-        field_name = self.scoped_field.name
         token = tree.children[0]
         value = self.unescape_literal(token)
+
+        if self.scoped_field is None:
+            # A value with no field (e.g. `"Accepted password for root"`) is a free-text
+            # search: Kibana runs it against the index's default fields. There is no field
+            # to type-check or convert the value against, so it is used as-is. Quoted
+            # strings stay literal; an unescaped `*` elsewhere makes the value a wildcard.
+            if token.type != "QUOTED_STRING" and self.has_unescaped_wildcard(token.value):
+                return FreeText(Wildcard(eql.utils.to_unicode(value)))
+            if eql.utils.is_string(value):
+                return FreeText(String(eql.utils.to_unicode(value)))
+            return FreeText(Value.from_python(value))
+
+        field_name = self.scoped_field.name
 
         # Handle wildcard literals (may contain spaces) and unquoted literals with an
         # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so
