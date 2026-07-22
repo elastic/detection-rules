@@ -15,6 +15,7 @@ from kql.ast import (
     NotExpr,
     NotValue,
     Number,
+    OrExpr,
     String,
     Wildcard,
 )
@@ -152,6 +153,29 @@ class ParserTests(unittest.TestCase):
         # Escaped parenthesis / brace mid-value
         self.validate(r"field: *foo\(bar baz*", FieldComparison(Field("field"), Wildcard("*foo(bar baz*")))
         self.validate(r"field: foo* bar\:baz", FieldComparison(Field("field"), Wildcard("foo* bar:baz")))
+
+    def test_wildcard_with_spaces_escaped_specials_full_issue_query(self):
+        """Test the exact query reported in #6282 end to end."""
+        # Previously this failed to lex at the escaped colon ("Invalid syntax"). It now
+        # lexes, and ` or ` splits the query the same way Kibana does: the wildcard value
+        # ends at "file", followed by OR and the bare term `directory`. Kibana searches
+        # bare terms against default fields, which this library cannot represent, so full
+        # parsing reports "Value not tied to field" at `directory` — not a syntax error.
+        query = r"app_message : *\: No such file or directory"
+        kql.lark_parse(query)  # lexes and builds a parse tree without error
+        with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
+            kql.parse(query)
+
+        # With the trailing bare term tied to a field, the query round-trips fully.
+        self.validate(
+            r"app_message : *\: No such file or app_message : directory",
+            OrExpr(
+                [
+                    FieldComparison(Field("app_message"), Wildcard("*: No such file")),
+                    FieldComparison(Field("app_message"), String("directory")),
+                ]
+            ),
+        )
 
     def test_wildcard_with_spaces_and_invalid_escape(self):
         """Test that an escape outside UNQUOTED_CHAR's whitelist is rejected even with spaces."""
