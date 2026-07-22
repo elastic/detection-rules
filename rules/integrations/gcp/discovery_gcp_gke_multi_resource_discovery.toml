@@ -1,0 +1,191 @@
+[metadata]
+creation_date = "2026/07/21"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Adversaries who land credentials in a GKE cluster—or abuse an over-privileged token, often map the environment before
+exfiltration or privilege escalation. A practical first pass is to learn where workloads run, how the cluster is
+partitioned, and what RBAC exists at namespace vs cluster scope. Rapid get/list traffic across many distinct API
+resource kinds that answer those questions (namespaces, workloads, roles, cluster-wide roles) is a common setup and
+orientation pattern for both interactive attackers and automated recon scripts. This rule highlights that
+cross-resource burst from a single client fingerprint within a one-minute bucket when both cluster-layout and RBAC
+resource kinds are touched, so analysts can separate routine automation from potential discovery ahead of follow-on
+actions.
+"""
+false_positives = [
+    """
+    Platform operators, installers, or runbooks that reconcile RBAC and workload state may span these resource types
+    in a short window; tune by identity, source IP, or user agent when documented.
+    """,
+    """
+    GitOps controllers and cluster scanners can still match if not covered by built-in exclusions; baseline approved
+    service accounts after review.
+    """,
+]
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "GKE Multi-Resource Discovery"
+note = """## Triage and analysis
+
+### Investigating GKE Multi-Resource Discovery
+
+The rule groups GKE audit get/list events on namespaces, nodes, pods, configmaps, serviceaccounts, roles,
+rolebindings, clusterroles, and clusterrolebindings into one-minute windows per `client.user.email`, `source.ip`,
+and `user_agent.original`. It alerts when five or more distinct resource kinds appear and the burst includes both
+cluster-layout kinds (namespaces, pods, or nodes) and RBAC kinds. Allowed and denied authorizations are both
+included: failures still signal probing.
+
+### Possible investigation steps
+
+- Review `Esql.enumerated_resources` and `Esql.enumerated_resource_names` for ordering and targeted APIs.
+- Confirm whether `source.ip` and `user_agent.original` match expected admin or automation clients.
+- Correlate with follow-on secret reads, RoleBinding changes, pod exec, or unusual user agents from the same actor.
+
+### False positive analysis
+
+- Documented platform sync jobs that read layout and RBAC together; exclude known service accounts after validation.
+- Upgrade or install windows that briefly query many resource kinds; correlate with change records.
+
+### Response and remediation
+
+- If malicious, revoke or rotate the implicated credentials, tighten RBAC, and inspect for data access or persistence
+  established after the burst.
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+]
+risk_score = 47
+rule_id = "0302d3b2-1892-4448-a805-980aa4a36ba3"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp.audit-* metadata _id, _index, _version
+| where data_stream.dataset == "gcp.audit"
+    and service.name == "k8s.io"
+    and event.action in (
+      "io.k8s.core.v1.namespaces.get",
+      "io.k8s.core.v1.namespaces.list",
+      "io.k8s.core.v1.nodes.get",
+      "io.k8s.core.v1.nodes.list",
+      "io.k8s.core.v1.pods.get",
+      "io.k8s.core.v1.pods.list",
+      "io.k8s.core.v1.configmaps.get",
+      "io.k8s.core.v1.configmaps.list",
+      "io.k8s.core.v1.serviceaccounts.get",
+      "io.k8s.core.v1.serviceaccounts.list",
+      "io.k8s.authorization.rbac.v1.roles.get",
+      "io.k8s.authorization.rbac.v1.roles.list",
+      "io.k8s.authorization.rbac.v1.rolebindings.get",
+      "io.k8s.authorization.rbac.v1.rolebindings.list",
+      "io.k8s.authorization.rbac.v1.clusterroles.get",
+      "io.k8s.authorization.rbac.v1.clusterroles.list",
+      "io.k8s.authorization.rbac.v1.clusterrolebindings.get",
+      "io.k8s.authorization.rbac.v1.clusterrolebindings.list"
+    )
+    and source.ip is not null
+    and client.user.email is not null
+    and to_string(source.ip) != "127.0.0.1"
+    and to_string(source.ip) != "::1"
+    and not client.user.email like "system:kube-*"
+    and not client.user.email like "system:gke-*"
+    and not client.user.email like "system:node:*"
+    and not client.user.email like "system:serviceaccount:kube-system:*"
+    and not client.user.email like "system:serviceaccount:gke-managed*"
+    and client.user.email != "system:apiserver"
+    and client.user.email != "system:addon-manager"
+    and client.user.email != "system:kubestore-collector"
+    and client.user.email != "gcp:kube-bootstrap"
+    and not client.user.email like "system:serviceaccount:flux-system:*"
+    and not client.user.email like "system:serviceaccount:argocd:*"
+    and not client.user.email like "system:serviceaccount:argocd-system:*"
+    and not client.user.email like "system:serviceaccount:cattle-turtles-system:*"
+    and not client.user.email like "system:serviceaccount:*:palette-manager"
+    and client.user.email != "system:serviceaccount:security:trivy-operator"
+| eval Esql.time_interval = date_trunc(1 minute, @timestamp),
+  Esql.resource_kind = case(
+    event.action in ("io.k8s.core.v1.namespaces.get", "io.k8s.core.v1.namespaces.list"), "namespaces",
+    event.action in ("io.k8s.core.v1.nodes.get", "io.k8s.core.v1.nodes.list"), "nodes",
+    event.action in ("io.k8s.core.v1.pods.get", "io.k8s.core.v1.pods.list"), "pods",
+    event.action in ("io.k8s.core.v1.configmaps.get", "io.k8s.core.v1.configmaps.list"), "configmaps",
+    event.action in ("io.k8s.core.v1.serviceaccounts.get", "io.k8s.core.v1.serviceaccounts.list"), "serviceaccounts",
+    event.action in ("io.k8s.authorization.rbac.v1.roles.get", "io.k8s.authorization.rbac.v1.roles.list"), "roles",
+    event.action in ("io.k8s.authorization.rbac.v1.rolebindings.get", "io.k8s.authorization.rbac.v1.rolebindings.list"), "rolebindings",
+    event.action in ("io.k8s.authorization.rbac.v1.clusterroles.get", "io.k8s.authorization.rbac.v1.clusterroles.list"), "clusterroles",
+    event.action in ("io.k8s.authorization.rbac.v1.clusterrolebindings.get", "io.k8s.authorization.rbac.v1.clusterrolebindings.list"), "clusterrolebindings",
+    null
+  ),
+  Esql.is_rbac = case(
+    event.action in (
+      "io.k8s.authorization.rbac.v1.roles.get",
+      "io.k8s.authorization.rbac.v1.roles.list",
+      "io.k8s.authorization.rbac.v1.rolebindings.get",
+      "io.k8s.authorization.rbac.v1.rolebindings.list",
+      "io.k8s.authorization.rbac.v1.clusterroles.get",
+      "io.k8s.authorization.rbac.v1.clusterroles.list",
+      "io.k8s.authorization.rbac.v1.clusterrolebindings.get",
+      "io.k8s.authorization.rbac.v1.clusterrolebindings.list"
+    ),
+    1,
+    0
+  ),
+  Esql.is_layout = case(
+    event.action in (
+      "io.k8s.core.v1.namespaces.get",
+      "io.k8s.core.v1.namespaces.list",
+      "io.k8s.core.v1.pods.get",
+      "io.k8s.core.v1.pods.list",
+      "io.k8s.core.v1.nodes.get",
+      "io.k8s.core.v1.nodes.list"
+    ),
+    1,
+    0
+  )
+| stats
+    Esql.unique_resources = count_distinct(Esql.resource_kind),
+    Esql.rbac_event_count = sum(Esql.is_rbac),
+    Esql.layout_event_count = sum(Esql.is_layout),
+    Esql.enumerated_resources = values(Esql.resource_kind),
+    Esql.enumerated_resource_names = values(gcp.audit.resource_name),
+    Esql.event_outcome_values = values(event.outcome)
+  by client.user.email, source.ip, user_agent.original, Esql.time_interval
+| where Esql.unique_resources >= 5
+    and Esql.rbac_event_count > 0
+    and Esql.layout_event_count > 0
+| keep Esql.*, client.user.email, source.ip, user_agent.original
+'''
+
+[rule.alert_suppression]
+group_by = ["client.user.email", "source.ip"]
+duration = {value = 30, unit = "m"}
+missing_fields_strategy = "suppress"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
