@@ -13,6 +13,7 @@ from semver import Version
 from detection_rules import ecs
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
+    collect_schema_fields,
     find_latest_compatible_version,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -125,9 +126,8 @@ class TestNewTerms(BaseRuleTest):
                             packages_manifest=integration_manifests,
                         )
                         if latest_tag_compat_ver:
-                            integration_schema = integration_schemas[tag][latest_tag_compat_ver]
-                            for policy_template in integration_schema:
-                                schema.update(**integration_schemas[tag][latest_tag_compat_ver][policy_template])
+                            # union of all data stream fields, excluding the ECS scoping metadata keys
+                            schema.update(collect_schema_fields(integration_schemas, tag, latest_tag_compat_ver))
                 for new_terms_field in rule.contents.data.new_terms.value:
                     assert new_terms_field in schema, f"{new_terms_field} not found in ECS, Beats, or non-ecs schemas"
 
