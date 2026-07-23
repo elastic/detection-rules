@@ -617,17 +617,16 @@ def integration_declares_ecs_fields(
     package_version: str,
     integration: str | None = None,
 ) -> bool:
-    """Return True when the package version explicitly declares the ECS fields it populates.
-
-    Data streams declare their ECS fields in per-data-stream ecs.yml files, captured in the
-    cached schema as `_ecs_declared`. Packages without any declarations (e.g. cloud_defend,
-    endpoint) inherit every ECS field at index time via the ecs@mappings component template
-    and must keep full-ECS validation. Cached schemas built before this metadata existed
-    also return False, preserving the historical behavior until the cache is regenerated.
-    """
+    """Return True when the package version explicitly declares the ECS fields it populates."""
+    # Data streams declare their ECS fields in per-data-stream ECS field files (ecs.yml or the
+    # ECS_FIELD_FILE_PATTERNS name variants, e.g. protocol_ecs.yml, ecs-extended.yml), captured
+    # in the cached schema as `_ecs_declared`.
     version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
     if version_schema.get("_uses_ecs_mappings") is not False:
-        # True -> relies on ecs@mappings; missing -> legacy cache format
+        # True -> the package declares no ECS fields (e.g. cloud_defend, endpoint) and inherits
+        # every ECS field at index time via the ecs@mappings component template, so it must keep
+        # full-ECS validation. Missing -> legacy cache format built before this metadata existed;
+        # preserve the historical full-ECS behavior until the cache is regenerated.
         return False
     if integration:
         dataset_schema = version_schema.get(integration, {})
