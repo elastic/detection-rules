@@ -275,8 +275,7 @@ Options:
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
-  -ed, --enable-delay INTEGER RANGE
-                                  Import rules as disabled, wait the given number of seconds, then enable the rules
+  -ed, --enable-delay SECONDS     Import rules as disabled, wait the given number of seconds, then enable the rules
                                   that were originally enabled. Guards against a race condition where rules can run
                                   before their exceptions and action connectors are fully applied.  [x>=0]
   -h, --help                      Show this message and exit.
