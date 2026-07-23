@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time an IAM principal passes a given execution role (`roleArn`) to an Amazon SageMaker resource,
+via `CreateNotebookInstance`, `CreateTrainingJob`, `CreateProcessingJob`, `CreateAutoMLJob`, or `CreatePipeline`. These
+actions require `iam:PassRole` and attach an IAM role that the created resource then runs as. An adversary holding both
+SageMaker create permissions and a broad `iam:PassRole` grant can pass a more privileged role to a resource they control
+and execute code as that role, escalating privileges. The rule keys on the combination of the calling principal and the
+passed `roleArn`, so it surfaces a principal using an execution role it has not used before in the last 7 days; a role
+whose account differs from the caller's, or that is more privileged than the caller, is especially suspicious.
+"""
+false_positives = [
+    """
+    MLOps pipelines and data science teams routinely create SageMaker resources with execution roles, and new pipelines
+    or team members appear as new principals on first use. Verify the principal in `aws.cloudtrail.user_identity.arn`,
+    the passed roleArn in `aws.cloudtrail.request_parameters`, and whether the role's privileges and the activity are
+    approved. Known automation roles can be excluded after validation.
+    """,
+]
+from = "now-7d"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS SageMaker Execution Role Passed by Unusual Principal"
+note = """## Triage and analysis
+
+### Investigating AWS SageMaker Execution Role Passed by Unusual Principal
+
+SageMaker resource-creation actions accept a `roleArn` execution role and require the caller to hold `iam:PassRole`
+for it. The created resource (notebook, training job, processing job, AutoML job, or pipeline) then runs as that
+role. This is a known cloud privilege-escalation path: a principal with SageMaker create rights and a broad
+`PassRole` permission can attach a more privileged role to a resource it controls and run code as that role. This
+rule keys on the principal and the passed `roleArn` together, so it flags the first time a principal uses a given
+execution role within the last 7 days, which should then be reviewed for over-privilege or a cross-account owner.
+
+#### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn`, and review `Esql.source_ip_values` and
+  `Esql.user_agent_original_values` for an unexpected origin.
+- Inspect `Esql.aws_cloudtrail_request_parameters_role_arn` and review that role's policies; determine whether it is
+  more privileged than the caller.
+- Determine whether the principal normally creates SageMaker resources and whether this aligns with an approved
+  pipeline or project.
+- Correlate with follow-on activity by the passed role, such as actions outside SageMaker, presigned URL generation,
+  or lifecycle configuration changes that would provide interactive execution as the role.
+
+### False positive analysis
+
+- Legitimate MLOps creates SageMaker resources with execution roles; new pipelines and users appear as new
+  principals on first use. Confirm the role and activity are approved and exclude known automation roles on
+  `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If unauthorized, stop and delete the created resource, and review any actions taken by the passed role.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `iam:PassRole` and
+  SageMaker create permissions so principals can only pass narrowly scoped, approved execution roles.
+
+"""
+references = [
+    "https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html",
+    "https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateNotebookInstance.html",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.execution.sagemaker-update-lifecycle-config/",
+]
+risk_score = 73
+rule_id = "ca8c2751-5507-44f2-b58d-08958200cde9"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SageMaker",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.provider == "sagemaker.amazonaws.com"
+    AND event.action IN ("CreateNotebookInstance", "CreateTrainingJob", "CreateProcessingJob", "CreateAutoMLJob", "CreatePipeline")
+    AND event.outcome == "success"
+    AND aws.cloudtrail.user_identity.type != "AWSService"
+| GROK aws.cloudtrail.request_parameters """.*roleArn=(?<Esql.aws_cloudtrail_request_parameters_role_arn>arn:aws[a-z-]*:iam::[0-9]{12}:role/[^,}]+).*"""
+| WHERE Esql.aws_cloudtrail_request_parameters_role_arn IS NOT NULL
+| STATS
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp),
+    Esql.ingested_min = MIN(COALESCE(event.ingested, @timestamp)),
+    Esql.event_count = COUNT(*),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.cloud_region_values = VALUES(cloud.region)
+  BY aws.cloudtrail.user_identity.arn, Esql.aws_cloudtrail_request_parameters_role_arn
+| WHERE Esql.ingested_min >= NOW() - 10 minutes
+| KEEP
+    aws.cloudtrail.user_identity.arn,
+    Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.arn",
+    "Esql.aws_cloudtrail_request_parameters_role_arn",
+    "Esql.timestamp_min",
+    "Esql.timestamp_max",
+    "Esql.event_count",
+    "Esql.event_action_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.cloud_account_id_values",
+    "Esql.cloud_region_values",
+]
