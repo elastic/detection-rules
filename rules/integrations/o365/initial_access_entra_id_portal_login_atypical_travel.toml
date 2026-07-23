@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/05/06"
+updated_date = "2026/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -79,6 +79,8 @@ data_stream.dataset:o365.audit and
     o365.audit.UserId:(* and not "Not Available") and
     source.geo.country_name:* and
     source.geo.region_name:* and
+    o365.audit.ApplicationId:* and
+    o365.audit.ExtendedProperties.RequestType:* and
     not o365.audit.ApplicationId:(
         29d9ed98-a469-4536-ade2-f981bc1d605e or
         38aa3b87-a06d-4817-b275-7a316988d93b or
@@ -87,17 +89,25 @@ data_stream.dataset:o365.audit and
         3e62f81e-590b-425b-9531-cad6683656cf or
         d7b530a4-7680-4c23-a8bf-c52c121d2e87
     ) and not o365.audit.ExtendedProperties.RequestType:(
+        "Cmsi:Cmsi" or
         "Consent:Set" or
         "DeviceAuth:ReprocessTls" or
+        "Federation:oauth2claimsprovider" or
+        "Federation:oauth2msa" or
         "Kmsi:kmsi" or
         "Login:reprocess" or
         "Login:resume" or
         "MessagePrompt:MessagePrompt" or
+        "OAuth2:Token" or
+        "OrgIdWsFederation:federation" or
+        "PermitSso:PermitSso" or
         "Saml2:processrequest" or
         "SAS:EndAuth" or
-        "SAS:ProcessAuth"
+        "SAS:ProcessAuth" or
+        "SSPR:end" or
+        "WsFederation:wsfederation"
     ) and
-    not user_agent.original:(*iPhone* or *iPad* or *Android* or *PKeyAuth*)
+    not user_agent.original:(*iPhone* or *iPad* or *Android* or *PKeyAuth* or *WebView* or *HeadlessChrome*)
 '''
 
 
@@ -137,6 +147,4 @@ field = "new_terms_fields"
 value = ["o365.audit.UserId", "source.geo.country_name", "source.geo.region_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
-
-
+value = "now-14d"
