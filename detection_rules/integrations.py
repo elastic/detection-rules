@@ -113,6 +113,17 @@ def build_integrations_manifest(
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
+# Data streams declare the ECS fields they populate in ecs.yml, with some packages using
+# name variants (protocol_ecs.yml in network_traffic; ecs-extended.yml in o365, azure,
+# and m365_defender).
+ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
+
+
+def _is_ecs_field_file(file_name: str) -> bool:
+    """Return True when a fields file contains ECS field declarations."""
+    return any(fnmatch.fnmatch(file_name, pattern) for pattern in ECS_FIELD_FILE_PATTERNS)
+
+
 def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
     """Parse the field files of an EPR package zip into a single version schema."""
     version_schema: dict[str, Any] = {}
@@ -132,7 +143,7 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
 
             version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
-            if Path(file).name == "ecs.yml":
+            if _is_ecs_field_file(Path(file).name):
                 # ECS fields the data stream explicitly declares; used to scope query
                 # validation to the ECS fields the integration actually populates
                 ecs_declared.setdefault(integration_name, set()).update(flat_data)
