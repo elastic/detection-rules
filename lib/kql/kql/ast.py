@@ -27,6 +27,7 @@ __all__ = (
     "OrExpr",
     "NotExpr",
     "FieldComparison",
+    "FreeText",
     "Field",
     "FieldRange",
     "NestedQuery",
@@ -219,6 +220,16 @@ class FieldComparison(Expression):
 
     def __init__(self, field, value):
         self.field = field
+        self.value = value
+
+
+class FreeText(Expression):
+    """A value not tied to any field, searched against the index's default fields."""
+    __slots__ = "value",
+    precedence = FieldComparison.precedence
+    template = Template("$value")
+
+    def __init__(self, value):
         self.value = value
 
 

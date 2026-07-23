@@ -12,9 +12,11 @@ from kql.ast import (
     Field,
     FieldComparison,
     FieldRange,
+    FreeText,
     NotExpr,
     NotValue,
     Number,
+    OrExpr,
     String,
     Wildcard,
 )
@@ -193,6 +195,37 @@ class ParserTests(unittest.TestCase):
         # `*` mixed with an unescaped one collapse together once unescaped, so the literal
         # asterisk is lost in this case -- a known limitation of unescaping wildcard values.
         self.validate(r"field:foo\*bar*", FieldComparison(Field("field"), Wildcard("foo*bar*")))
+
+    def test_free_text_value(self):
+        """Test values not tied to any field (issue #6419)."""
+        # Kibana searches a bare value against the index's default fields, so it is valid
+        # KQL. The exact rule query from #6419:
+        self.validate(
+            'process.name : agent12 and "Accepted password for root"',
+            AndExpr(
+                [
+                    FieldComparison(Field("process.name"), String("agent12")),
+                    FreeText(String("Accepted password for root")),
+                ]
+            ),
+        )
+
+        # Bare quoted, unquoted, numeric, and wildcard values
+        self.validate('"Accepted password for root"', FreeText(String("Accepted password for root")))
+        self.validate("agent12", FreeText(String("agent12")))
+        self.validate("1", FreeText(Number(1)))
+        self.validate("*password*", FreeText(Wildcard("*password*")))
+
+        # Wildcards in quotes, and escaped wildcards, stay literal — same as field values
+        self.validate('"*password*"', FreeText(String("*password*")))
+        self.validate(r"\*", FreeText(String("*")))
+
+        # Negation and composition with field expressions
+        self.validate('not "foo bar"', NotExpr(FreeText(String("foo bar"))))
+        self.validate(
+            '"a" or process.name : b',
+            OrExpr([FreeText(String("a")), FieldComparison(Field("process.name"), String("b"))]),
+        )
 
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
