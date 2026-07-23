@@ -53,7 +53,7 @@ class ClientError(click.ClickException):
         click.echo(msg, err=err, file=file)
 
 
-def raise_client_error(  # noqa: PLR0913
+def raise_client_error(  # noqa: PLR0913, PLR0917
     message: str,
     exc: Exception | None = None,
     debug: bool | None = False,
@@ -245,7 +245,7 @@ def getdefault(name: str) -> Callable[[], Any]:
     return lambda: os.environ.get(envvar, config.get(name))
 
 
-def get_elasticsearch_client(  # noqa: PLR0913
+def get_elasticsearch_client(  # noqa: PLR0913, PLR0917
     cloud_id: str | None = None,
     elasticsearch_url: str | None = None,
     es_user: str | None = None,

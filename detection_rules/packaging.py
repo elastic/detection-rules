@@ -132,7 +132,7 @@ CURRENT_RELEASE_PATH = RELEASE_DIR / load_current_package_version()
 class Package:
     """Packaging object for siem rules and releases."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         rules: RuleCollection,
         name: str,
