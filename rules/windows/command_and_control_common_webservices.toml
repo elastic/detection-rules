@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/15"
 
 [transform]
 [[transform.investigate]]
@@ -265,7 +265,6 @@ network where host.os.type == "windows" and
           "?:\\Program Files (x86)\\*.exe",
           "?:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\*\\MsMpEng.exe",
           "?:\\Users\\*\\AppData\\Local\\BraveSoftware\\*\\Application\\brave.exe",
-          "?:\\Users\\*\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
           "?:\\Users\\*\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Opera*\\opera.exe",
           "?:\\Users\\*\\AppData\\Local\\Programs\\Fiddler\\Fiddler.exe",
@@ -310,7 +309,7 @@ network where host.os.type == "windows" and
 
       (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
        dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com",
-                            "*.blob.core.windows.net", "*.blob.storage.azure.net")
+                            "*.blob.core.windows.net", "*.blob.storage.azure.net", "*.googleapis.com")
       ) or
 
       (process.code_signature.subject_name : ("Python Software Foundation", "Anaconda, Inc.") and
@@ -320,17 +319,23 @@ network where host.os.type == "windows" and
       /* Zoom */
       (process.name : "Zoom.exe" and (
        process.code_signature.subject_name : ("Zoom Video Communications, Inc.", "Zoom Communications, Inc.") and
-       process.code_signature.trusted == true) and dns.question.name : ("www.googleapis.com", "graph.microsoft.com")
+       process.code_signature.trusted == true) and dns.question.name : ("*.googleapis.com", "graph.microsoft.com")
       ) or
 
       /* VSCode */
       (process.name : "Code.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
-       process.code_signature.trusted == true) and dns.question.name : ("api.github.com", "raw.githubusercontent.com")
+       process.code_signature.trusted == true) and dns.question.name : ("api.github.com", "raw.githubusercontent.com",
+       "*.googleapis.com", "files.pythonhosted.org")
       ) or
 
       /* Terraform */
       (process.name : "terraform-provider*.exe" and (process.code_signature.subject_name : "HashiCorp, Inc." and
        process.code_signature.trusted == true) and dns.question.name : "graph.microsoft.com"
+      ) or
+
+      /* Telegram */
+      (process.name : "Telegram.exe" and (process.code_signature.subject_name : "Telegram FZ-LLC" and
+       process.code_signature.trusted == true) and dns.question.name : "*.googleapis.com"
       ) or
 
       (
@@ -347,7 +352,12 @@ network where host.os.type == "windows" and
                               "Red Hat, Inc",
                               "Mozilla Corporation",
                               "Spotify AB",
-                              "DeepL SE"
+                              "DeepL SE",
+                              "Google LLC",
+                              "Anthropic, PBC",
+                              "OpenAI OpCo, LLC",
+                              "Anysphere, Inc.",
+                              "PERPLEXITY AI, INC."
         )
       )
     )
