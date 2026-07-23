@@ -106,6 +106,7 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     "--enable-delay",
     "-ed",
     type=click.IntRange(min=0),
+    metavar="SECONDS",
     help="Import rules as disabled, wait the given number of seconds, then enable the rules that were "
     "originally enabled. Guards against a race condition where rules can run before their exceptions "
     "and action connectors are fully applied.",
