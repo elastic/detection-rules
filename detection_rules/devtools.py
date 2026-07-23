@@ -7,7 +7,6 @@
 
 import csv
 import dataclasses
-import importlib.util
 import json
 import os
 import re
@@ -44,6 +43,7 @@ from .config import (
 )
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
+from .ecs_scope import scan_and_report as scan_ecs_scope_violations
 from .endgame import EndgameSchemaManager
 from .esql_errors import (
     ESQL_EXCEPTION_TYPES,
@@ -1636,17 +1636,7 @@ def build_integration_schemas(overwrite: bool, integration: str) -> None:
 @click.option("--package", "-p", help="Only report rules referencing this package")
 def find_ecs_scope_violations(output: Path | None, json_output: Path | None, package: str | None) -> None:
     """Identify rules using ECS fields their related integrations do not declare."""
-    script_path = get_path(["scripts", "find_ecs_field_scope_violations.py"])
-    if not script_path.exists():
-        raise click.ClickException(f"scan script not found: {script_path}")
-
-    spec = importlib.util.spec_from_file_location("find_ecs_field_scope_violations", script_path)
-    if not spec or not spec.loader:
-        raise click.ClickException(f"unable to load scan script: {script_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    violations = module.scan_and_report(output=output, json_output=json_output, package_filter=package)
+    violations = scan_ecs_scope_violations(output=output, json_output=json_output, package_filter=package)
     if violations:
         raise click.exceptions.Exit(1)
 
