@@ -2,7 +2,7 @@
 creation_date = "2025/10/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -116,9 +116,12 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   "/usr/lib/polkit-1/polkit-agent-helper-1", "/usr/libexec/polkit-agent-helper-1",
   "/usr/lib/snapd/snap-confine"
 ) and process.parent.args_count == 1 and
-not process.parent.executable in (
+not process.parent.executable like (
   "/usr/libexec/oracle-cloud-agent/plugins/unifiedmonitoring/unifiedmonitoring", "/usr/libexec/oracle-cloud-agent/agent",
-  "/usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1", "/usr/libexec/xfce-polkit", "/usr/bin/dolphin"
+  "/usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1", "/usr/libexec/xfce-polkit", "/usr/bin/dolphin",
+  "/usr/libexec/kf6/polkit-kde-authentication-agent-1", "/usr/bin/gnome-shell",
+  "/snap/oracle-cloud-agent/*/plugins/unifiedmonitoring/unifiedmonitoring", "/data/oem_agent/agent_*/sbin/nmo",
+  "/usr/bin/plasma-discover", "/usr/bin/cosmic-osd", "/usr/bin/update-notifier"
 )
 '''
 

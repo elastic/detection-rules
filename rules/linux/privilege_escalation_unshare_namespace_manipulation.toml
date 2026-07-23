@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/05/01"
+updated_date = "2026/07/17"
 
 [rule]
 author = ["Elastic"]
@@ -108,12 +108,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "exec_event", "start", "executed") and
-process.name: "unshare" and not (
-  ?process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
+process.name == "unshare" and not (
+  ?process.parent.executable like ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
   ?process.args == "/usr/bin/snap" and not ?process.parent.name in ("zz-proxmox-boot", "java") or
   ?process.parent.args like (
     "/etc/kernel/postinst.d/zz-proxmox-boot", "/opt/openssh/sbin/sshd", "/usr/sbin/sshd",
-    "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*"
+    "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*", "/var/tmp/foreman-ssh-cmd-*"
   )
 )
 '''
