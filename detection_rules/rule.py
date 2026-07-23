@@ -745,11 +745,15 @@ class QueryValidator:
             max(current_version.patch, patch_floor),
         )
 
+        # flattened ECS schema so integrations that inherit ECS via ecs@mappings (or predate
+        # ECS scoping) contribute the full ECS field set to int_schema, while integrations
+        # that declare their ECS fields contribute only the fields they populate
+        flat_ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
             schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, min_stack, packages_manifest, {}, data
+                integrations_schemas, package, integration, min_stack, packages_manifest, flat_ecs_schema, data
             )
             int_schema.update(schema)
 
@@ -761,6 +765,11 @@ class QueryValidator:
         for fld in unique_fields:
             field_type = ecs_schema.get(fld, {}).get("type")
             is_ecs = field_type is not None
+
+            if is_ecs and int_schema and fld not in int_schema:
+                # the field is ECS, but none of the rule's integrations populate it
+                is_ecs = False
+                field_type = None
 
             if not is_ecs:
                 if int_schema:

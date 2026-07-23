@@ -8,6 +8,7 @@
 import unittest
 import unittest.mock
 from types import SimpleNamespace
+from typing import ClassVar
 
 from semver import Version
 
@@ -20,9 +21,13 @@ from detection_rules.integrations import (
     _parse_kibana_range,
     _related_integration_version_operator,
     _satisfies_kibana_range,
+    collect_schema_fields,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
+    get_integration_schema_fields,
+    integration_declares_ecs_fields,
+    load_integrations_schemas,
     resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
@@ -587,3 +592,174 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         self.assertFalse(_esql_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
         self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
         self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
+
+
+class TestIntegrationScopedEcsValidation(unittest.TestCase):
+    """ECS fields must be scoped to what the rule's integrations declare (ecs.yml)."""
+
+    ECS_SCHEMA: ClassVar[dict[str, str]] = {
+        "process.title": "keyword",
+        "destination.ip": "ip",
+        "process.name": "keyword",
+    }
+
+    @staticmethod
+    def _strict_schemas(package: str, integration: str) -> dict:
+        """Package version that explicitly declares its ECS fields."""
+        return {
+            package: {
+                "1.0.0": {
+                    "_uses_ecs_mappings": False,
+                    integration: {
+                        "data_stream.dataset": "constant_keyword",
+                        "destination.ip": "ip",
+                        f"{package}.custom_field": "keyword",
+                        "_ecs_declared": ["destination.ip"],
+                    },
+                }
+            }
+        }
+
+    @staticmethod
+    def _ecs_mappings_schemas(package: str, integration: str) -> dict:
+        """Package version that declares no ECS fields and inherits them via ecs@mappings."""
+        return {
+            package: {
+                "1.0.0": {
+                    "_uses_ecs_mappings": True,
+                    integration: {
+                        "data_stream.dataset": "constant_keyword",
+                        f"{package}.custom_field": "keyword",
+                    },
+                }
+            }
+        }
+
+    def _get_schema(self, schemas: dict, package: str, integration: str) -> dict:
+        manifests = {package: {"1.0.0": _manifest("^9.0.0")}}
+        data = SimpleNamespace(get=lambda key, default=None: False if key == "notify" else default)
+        with unittest.mock.patch(
+            "detection_rules.integrations.find_latest_integration_patch_for_minor", return_value=0
+        ):
+            schema, _ = get_integration_schema_fields(
+                schemas,
+                package,
+                integration,
+                Version.parse("9.0.0"),
+                manifests,
+                self.ECS_SCHEMA,
+                data,
+            )
+        return schema
+
+    def test_strict_integration_rejects_undeclared_ecs_field(self):
+        """An ECS field the integration does not declare must not enter the schema."""
+        schema = self._get_schema(self._strict_schemas("network_traffic", "icmp"), "network_traffic", "icmp")
+
+        self.assertNotIn("process.title", schema)
+        self.assertIn("destination.ip", schema)
+        self.assertIn("network_traffic.custom_field", schema)
+        self.assertNotIn("_ecs_declared", schema)
+
+    def test_ecs_mappings_integration_passes_all_ecs_fields(self):
+        """Packages relying on ecs@mappings keep the full ECS schema."""
+        schema = self._get_schema(self._ecs_mappings_schemas("cloud_defend", "process"), "cloud_defend", "process")
+
+        self.assertIn("process.title", schema)
+        self.assertIn("process.name", schema)
+        self.assertIn("cloud_defend.custom_field", schema)
+
+    def test_legacy_cache_format_keeps_full_ecs(self):
+        """Cached schemas without ECS scoping metadata preserve the historical behavior."""
+        schemas = self._strict_schemas("pkg", "ds")
+        del schemas["pkg"]["1.0.0"]["_uses_ecs_mappings"]
+        del schemas["pkg"]["1.0.0"]["ds"]["_ecs_declared"]
+        schema = self._get_schema(schemas, "pkg", "ds")
+
+        self.assertIn("process.title", schema)
+
+    def test_ecs_additions_override_extends_strict_schema(self):
+        """Pipeline-injected fields listed in integration-ecs-additions.json pass validation."""
+        additions = {"network_traffic": {"icmp": ["process.title"], "_all": ["process.name"]}}
+        with unittest.mock.patch("detection_rules.integrations.load_integration_ecs_additions", return_value=additions):
+            schema = self._get_schema(self._strict_schemas("network_traffic", "icmp"), "network_traffic", "icmp")
+
+        self.assertIn("process.title", schema)
+        self.assertIn("process.name", schema)
+
+    def test_integration_declares_ecs_fields_package_wide(self):
+        """Package-wide resolution is strict only when every data stream declares ECS fields."""
+        schemas = {
+            "pkg": {
+                "1.0.0": {
+                    "_uses_ecs_mappings": False,
+                    "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                    "undeclared": {"pkg.custom": "keyword"},
+                }
+            }
+        }
+        self.assertTrue(integration_declares_ecs_fields(schemas["pkg"] and schemas, "pkg", "1.0.0", "declared"))
+        self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", "undeclared"))
+        self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", None))
+
+        schemas["pkg"]["1.0.0"]["undeclared"]["_ecs_declared"] = ["process.name"]
+        self.assertTrue(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", None))
+
+    def test_collect_schema_fields_filters_metadata(self):
+        """Metadata keys must not leak into the collected field schemas."""
+        schemas = self._strict_schemas("pkg", "ds")
+
+        integration_fields = collect_schema_fields(schemas, "pkg", "1.0.0", "ds")
+        self.assertNotIn("_ecs_declared", integration_fields)
+
+        package_fields = collect_schema_fields(schemas, "pkg", "1.0.0")
+        self.assertNotIn("_ecs_declared", package_fields)
+        self.assertNotIn("_uses_ecs_mappings", package_fields)
+        self.assertIn("destination.ip", package_fields)
+
+    def test_required_fields_mark_undeclared_ecs_fields(self):
+        """required_fields entries flip to ecs=False when the integration lacks the field."""
+        package = "pkg"
+        integration = "ds"
+        manifests = {package: {"1.0.0": _manifest("^9.0.0")}}
+        schemas = self._strict_schemas(package, integration)
+        validator = KQLValidator(
+            f"data_stream.dataset:{package}.{integration} and destination.ip:* and process.title:foo"
+        )
+
+        with (
+            unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.rule.find_latest_integration_patch_for_minor", return_value=0),
+            unittest.mock.patch("detection_rules.integrations.find_latest_integration_patch_for_minor", return_value=0),
+        ):
+            required_fields = validator.get_required_fields([])
+
+        by_name = {f["name"]: f for f in required_fields}
+        self.assertTrue(by_name["destination.ip"]["ecs"])
+        self.assertFalse(by_name["process.title"]["ecs"])
+        self.assertEqual(by_name["process.title"]["type"], "unknown")
+
+
+class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
+    """The committed schema cache must carry ECS scoping metadata for known archetypes."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schemas = load_integrations_schemas()
+
+    def test_network_traffic_icmp_is_strict(self):
+        """network_traffic declares its ECS fields; process.title is not one of them."""
+        version = "1.33.0"
+        self.assertTrue(integration_declares_ecs_fields(self.schemas, "network_traffic", version, "icmp"))
+        fields = collect_schema_fields(self.schemas, "network_traffic", version, "icmp")
+        self.assertIn("destination.ip", fields)
+        self.assertNotIn("process.title", fields)
+
+    def test_cloud_defend_uses_ecs_mappings(self):
+        """cloud_defend declares no ECS fields and must keep the full ECS fallback."""
+        for version_schema in self.schemas["cloud_defend"].values():
+            self.assertTrue(version_schema["_uses_ecs_mappings"])
+        version = sorted(self.schemas["cloud_defend"], key=Version.parse)[-1]
+        self.assertFalse(integration_declares_ecs_fields(self.schemas, "cloud_defend", version, "process"))
