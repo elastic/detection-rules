@@ -10,7 +10,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from detection_rules.kbwrap import kibana_export_rules
+import click
+
+from detection_rules.kbwrap import kibana_export_rules, kibana_import_rules
 from detection_rules.main import import_rules_into_repo
 from detection_rules.rule_loader import RawRuleCollection
 
@@ -107,3 +109,23 @@ class TestLoadRuleLoadingFlagBackwardsCompatibility(unittest.TestCase):
 
         ctx = kibana_export_rules.make_context("export-rules", base_args)
         self.assertFalse(ctx.params["use_existing_rule_dirs"])
+
+
+class TestKibanaImportRulesEnableDelay(unittest.TestCase):
+    """--enable-delay must parse as an optional non-negative integer."""
+
+    def test_enable_delay_flag_parsing(self) -> None:
+        """The --enable-delay and -ed flags must parse into the enable_delay param."""
+        ctx = kibana_import_rules.make_context("import-rules", ["--enable-delay", "30"])
+        self.assertEqual(ctx.params["enable_delay"], 30)
+
+        ctx = kibana_import_rules.make_context("import-rules", ["-ed", "0"])
+        self.assertEqual(ctx.params["enable_delay"], 0)
+
+        ctx = kibana_import_rules.make_context("import-rules", [])
+        self.assertIsNone(ctx.params["enable_delay"])
+
+    def test_enable_delay_rejects_negative(self) -> None:
+        """Negative values must be rejected by the IntRange validation."""
+        with self.assertRaises(click.exceptions.UsageError):
+            _ = kibana_import_rules.make_context("import-rules", ["--enable-delay", "-5"])

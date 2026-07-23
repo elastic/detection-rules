@@ -7,6 +7,7 @@
 
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -101,13 +102,23 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
     is_flag=True,
     help="Overwrite action connectors in existing rules",
 )
+@click.option(
+    "--enable-delay",
+    "-ed",
+    type=click.IntRange(min=0),
+    metavar="SECONDS",
+    help="Import rules as disabled, wait the given number of seconds, then enable the rules that were "
+    "originally enabled. Guards against a race condition where rules can run before their exceptions "
+    "and action connectors are fully applied.",
+)
 @click.pass_context
-def kibana_import_rules(  # noqa: PLR0915
+def kibana_import_rules(  # noqa: PLR0913, PLR0915
     ctx: click.Context,
     rules: RuleCollection,
     overwrite: bool = False,
     overwrite_exceptions: bool = False,
     overwrite_action_connectors: bool = False,
+    enable_delay: int | None = None,
 ) -> tuple[dict[str, Any], list[RuleResource]]:
     """Import rules into Kibana."""
 
@@ -179,6 +190,14 @@ def kibana_import_rules(  # noqa: PLR0915
     kibana = ctx.obj["kibana"]
     rule_dicts = [r.contents.to_api_format() for r in rules]
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
+
+    enabled_rule_ids: set[str] = set()
+    if enable_delay is not None:
+        for rule_dict in rule_dicts:
+            if rule_dict.get("enabled", False):
+                enabled_rule_ids.add(rule_dict["rule_id"])
+            rule_dict["enabled"] = False
+
     with kibana:
         cl = GenericCollection.default()
         exception_dicts: list[list[dict[str, Any]]] = [
@@ -207,6 +226,24 @@ def kibana_import_rules(  # noqa: PLR0915
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
+
+    if enable_delay is not None and enabled_rule_ids:
+        # Rules were imported as disabled; re-enable the originally enabled ones after the delay using the
+        # Kibana object ids of the successfully imported rules
+        ids_to_enable: list[str] = [r["id"] for r in results if r.get("rule_id") in enabled_rule_ids]  # type: ignore[reportUnknownMemberType]
+        if ids_to_enable:
+            click.echo(f"Waiting {enable_delay} second(s) before enabling {len(ids_to_enable)} imported rule(s)")
+            time.sleep(enable_delay)
+            with kibana:
+                # error=False: a partial failure returns a 500 with per-rule details, which is reported below
+                enable_response: dict[str, Any] = RuleResource.bulk_action(  # type: ignore[reportAssignmentType]
+                    "enable", rule_ids=ids_to_enable, error=False
+                )
+            summary: dict[str, Any] = enable_response.get("attributes", {}).get("summary", {})
+            click.echo(f"{summary.get('succeeded', 0)} rule(s) enabled, {summary.get('failed', 0)} failed to enable")
+            for enable_error in enable_response.get("attributes", {}).get("errors", []):
+                failed_rules = ", ".join(str(r.get("id")) for r in enable_error.get("rules", []))
+                click.echo(f" - ({enable_error.get('status_code')}) {enable_error.get('message')}: {failed_rules}")
 
     return response, results  # type: ignore[reportUnknownVariableType]
 
