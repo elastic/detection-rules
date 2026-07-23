@@ -2,20 +2,20 @@
 creation_date = "2026/05/07"
 integration = ["network_traffic", "zeek"]
 maturity = "production"
-updated_date = "2026/05/28"
+updated_date = "2026/07/16"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the network signature of CVE-2026-41940, a pre-auth root-level authentication bypass in cPanel and WebHost
-Manager (WHM) caused by a CRLF injection in the session writer. The exploit-inherent shape on the wire is a `GET /`
-request to a cPanel/WHM admin port (typically TCP/2087, 2086, 2083, 2082, 2095, 2096) carrying an
-`Authorization: Basic` header whose base64-decoded value contains CRLF-injected session fields, which causes cpsrvd
-to respond with a 3xx redirect whose `Location` header leaks a `/cpsessNNNNNNNNNN` token granting the attacker a
-privileged session. This is the network-layer equivalent of the cPanel `access_log` artifact identified by Unfold and
-watchTowr as the first bulletproof detection for this CVE: a `GET /` recorded with `auth_method=b` (HTTP Basic).
-Legitimate access to `GET /` on a WHM admin port returns 200 with the login screen and never includes HTTP Basic
-credentials, so this combination is not produced by normal use.
+Manager (WHM) caused by a CRLF injection in the session writer. The exploit-inherent shape on the wire is a "GET /"
+request to a cPanel/WHM admin port (typically TCP/2087, 2086, 2083, 2082, 2095, 2096) carrying an "Authorization: Basic"
+header whose base64-decoded value contains CRLF-injected session fields, which causes cpsrvd to respond with a 3xx
+redirect whose "Location" header leaks a "/cpsessNNNNNNNNNN" token granting the attacker a privileged session. This is
+the network-layer equivalent of the cPanel "access_log" artifact identified by Unfold and watchTowr as the first
+bulletproof detection for this CVE: a "GET /" recorded with "auth_method=b" (HTTP Basic). Legitimate access to "GET /"
+on a WHM admin port returns 200 with the login screen and never includes HTTP Basic credentials, so this combination is
+not produced by normal use.
 """
 false_positives = [
     """
@@ -25,7 +25,7 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["packetbeat-*", "logs-network_traffic.http*", "logs-zeek.http*"]
-language = "lucene"
+language = "kuery"
 license = "Elastic License v2"
 name = "Potential cPanel WHM CRLF Authentication Bypass (CVE-2026-41940)"
 note = """## Triage and analysis
@@ -56,8 +56,8 @@ The rule requires all of the following on a single decoded HTTP transaction matc
   match is intentionally exact (a request like `GET /index.html` will not fire).
 - `destination.port:(2087 OR 2086 OR 2083 OR 2082 OR 2095 OR 2096)` — cPanel/WHM admin and webmail ports. These are
   not in the default Network Packet Capture HTTP port list and must be added explicitly (see Setup).
-- `http.response.status_code:[300 TO 399]` — a redirect response. Normal `GET /` to WHM returns 200 with the login
-  screen; only the exploit produces a 3xx here.
+- `http.response.status_code >= 300 and http.response.status_code <= 399` — a redirect response. Normal `GET /` to WHM
+  returns 200 with the login screen; only the exploit produces a 3xx here.
 - `http.request.headers.authorization:Basic*` — HTTP Basic credentials sent on `GET /`. This is the network-layer
   equivalent of the `auth_method=b` flag the Unfold and watchTowr writeups identify as the first bulletproof artifact
   in cPanel's `access_log`. `GET /` is an unauthenticated endpoint in normal cPanel operation and never legitimately
@@ -169,33 +169,34 @@ type = "query"
 query = '''
 (
   (
-    (data_stream.dataset:network_traffic.http OR (event.category:network_traffic AND network.protocol:http)) AND
-    http.response.status_code:[300 TO 399] AND
-    http.request.headers.authorization:Basic* AND
-    http.response.headers.location:\/cpsess*
+    (data_stream.dataset: network_traffic.http or (event.category: network_traffic and network.protocol: http)) and
+    http.response.status_code >= 300 and http.response.status_code <= 399 and
+    http.request.headers.authorization: Basic* and
+    http.response.headers.location: /cpsess*
   )
-  OR
+  or
   (
-    data_stream.dataset:zeek.http AND
-    zeek.http.client_header_names:AUTHORIZATION AND
-    zeek.http.server_header_names:LOCATION
+    data_stream.dataset: zeek.http and
+    zeek.http.client_header_names: AUTHORIZATION and
+    zeek.http.server_header_names: LOCATION
   )
-) AND
-http.request.method:GET AND
-url.path:"/" AND
-destination.port:(2087 OR 2086 OR 2083 OR 2082 OR 2095 OR 2096)
+) and
+http.request.method: GET and
+url.path: "/" and
+destination.port: (2087 or 2086 or 2083 or 2082 or 2095 or 2096)
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1190"
 name = "Exploit Public-Facing Application"
 reference = "https://attack.mitre.org/techniques/T1190/"
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
