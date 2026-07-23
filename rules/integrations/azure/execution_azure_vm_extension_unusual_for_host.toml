@@ -1,0 +1,163 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set within the
+rule's lookback window. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
+common code-execution and persistence primitive. The extension instance name is attacker-controlled and the Azure
+activity log records only that name, not the publisher or type, so the control plane cannot reliably identify the
+extension family (for example CustomScript). This rule therefore takes a type-agnostic ES|QL new-terms approach: it
+derives the host and the extension instance name from `azure.resource.name` and alerts the first time a given
+(host, extension name) pair is observed in the window, surfacing novel extension deployments while suppressing names a
+host routinely uses.
+"""
+false_positives = [
+    """
+    Legitimate provisioning, patching, and configuration-management automation may deploy an extension to a
+    host for the first time. The first occurrence per host will alert. Baseline expected automation principals and hosts
+    and exclude verified-benign ones.
+    """,
+]
+from = "now-7d"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Unusual Azure VM Extension Detected"
+note = """## Triage and analysis
+
+### Investigating Unusual Azure VM Extension Detected
+
+Identifies the first time a given VM extension name is created or updated on an Azure virtual machine or VM scale set within the
+rule's lookback window. VM extensions run with high privilege on the guest (SYSTEM on Windows, root on Linux) and are a
+common code-execution and persistence primitive. The extension instance name is attacker-controlled and the Azure
+activity log records only that name, not the publisher or type, so the control plane cannot reliably identify the
+extension family (for example CustomScript). This rule therefore takes a type-agnostic ES|QL new-terms approach: it
+derives the host and the extension instance name from `azure.resource.name` and alerts the first time a given
+(host, extension name) pair is observed in the window, surfacing novel extension deployments while suppressing names a
+host routinely uses.
+
+### Possible investigation steps
+
+- Identify the host (`Esql.vm_name`) and the full extension resource (`azure.resource.name` / `azure.resource.id`).
+- Identify the acting principal: `Esql.principal_id_values`, `Esql.principal_type_values` (User vs ServicePrincipal),
+  `Esql.appid_values`. Service principal or managed identity deployment is more suspicious than a known admin user.
+- Review the source: `Esql.source_ip_values`, `Esql.source_as_number_values`, `Esql.source_country_values`. Cloud
+  hosting, VPS, or anonymizing networks are more suspicious than known corporate egress.
+- Was this preceded by a Run Command invocation, role assignment, or other VM operations by the same principal?
+- Correlate with endpoint telemetry on the host: process activity parented by the Azure guest agent
+  (`WaAppAgent.exe` / `walinuxagent`) within ~120 seconds of the deployment.
+- Review the principal's Entra ID sign-in logs and RBAC role assignments on the subscription, resource group, and VM.
+- Retrieve the extension settings/protected settings from the VM (the activity log does not contain the script/settings
+  body) to assess intent.
+- Pivot on the VM for credential access, new local accounts, or outbound C2 connections following the deployment.
+
+### False positive analysis
+
+- This is a broad first-seen net: the first deployment of any extension name to a host alerts, so benign monitoring,
+  antimalware (Defender/MDE), AKS, DSC, or configuration-management extensions deployed by routine automation will
+  trigger. Baseline expected automation principals (`Esql.appid_values`) and extension names, and exclude verified ones.
+- Automation that generates a unique extension instance name per deployment produces a new (host, name) pair every time
+  and will recur; if benign, exclude by the deploying principal/appid or the known naming pattern rather than per host.
+- Newly provisioned VMs receiving their initial extension set are expected. Corroborate the deploying principal and
+  source before escalating, and treat deployments from known corporate egress by approved automation as lower confidence.
+
+### Response and remediation
+
+- If unauthorized, remove the extension, isolate the VM, rotate credentials reachable from it, and review RBAC on the affected scope.
+- Collect endpoint and activity log artifacts per incident procedures.
+"""
+references = [
+    "https://www.netspi.com/blog/technical-blog/adversary-simulation/7-ways-to-execute-command-on-azure-virtual-machine-virtual-machine-scale-sets/",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-windows",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/overview",
+    "https://blog.pwnedlabs.io/diving-deep-into-azure-vm-attack-vectors",
+    "https://www.sysdig.com/blog/the-expendable-extension-name-azure-vmaccess-naming-chaos-password-resets-and-a-detection-gap",
+]
+risk_score = 47
+rule_id = "d29b0a67-178d-4381-92c5-02e9fd9a6ef6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+FROM logs-azure.activitylogs-*
+| WHERE event.dataset == "azure.activitylogs"
+    AND event.action IN (
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE",
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/EXTENSIONS/WRITE"
+    )
+    AND event.outcome IN ("success", "Success")
+// azure.resource.name is "<host>/EXTENSIONS/<instance-name>"; the instance name is attacker-controlled,
+// so key on the host (first path element) rather than the spoofable extension name
+| EVAL Esql.vm_name = MV_FIRST(SPLIT(azure.resource.name, "/"))
+| EVAL Esql.extension_name = MV_LAST(SPLIT(azure.resource.name, "/"))
+| STATS Esql.first_time_seen = MIN(@timestamp),
+        Esql.last_time_seen = MAX(@timestamp),
+        Esql.event_count = COUNT(*),
+        Esql.resource_name_values = VALUES(azure.resource.name),
+        Esql.resource_id_values = VALUES(azure.resource.id),
+        Esql.principal_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_id),
+        Esql.principal_type_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_type),
+        Esql.appid_values = VALUES(azure.activitylogs.identity.claims.appid),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.source_as_number_values = VALUES(source.`as`.number),
+        Esql.source_country_values = VALUES(source.geo.country_name),
+        Esql.subscription_id_values = VALUES(azure.subscription_id)
+        BY Esql.vm_name, Esql.extension_name
+// new terms emulation: fire only when the (host, extension name) pair is the single occurrence in the
+// 7-day window (event_count == 1) and it is recent (within the schedule interval + ingest-lag buffer)
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent_minutes <= 10 AND Esql.event_count == 1
+// surface real fields for the analyst and rule exceptions
+| EVAL azure.resource.name = MV_FIRST(Esql.resource_name_values),
+       azure.resource.id = MV_FIRST(Esql.resource_id_values),
+       source.ip = MV_FIRST(Esql.source_ip_values)
+| KEEP azure.resource.name, azure.resource.id, source.ip, Esql.*
+'''
+
+[rule.alert_suppression]
+group_by = ["azure.resource.name"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
