@@ -216,14 +216,14 @@ def rule_datasets_by_package(
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
 ) -> dict[str, list[str | None]]:
-    """Map each package a rule references to the data streams its query names via event.dataset."""
-    # Packages whose data streams are not named in the query map to [None] (package-wide).
-    packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
-    datasets_by_package: dict[str, list[str | None]] = {package: [] for package in packages}
-    for event_dataset in event_dataset_integrations:
-        if event_dataset.package in datasets_by_package:
-            datasets_by_package[event_dataset.package].append(event_dataset.integration)
-    return {package: datasets or [None] for package, datasets in datasets_by_package.items()}
+    """Map each package a rule references to the data streams the rule is restricted to."""
+    # Mirrors prepare_integration_mappings: packages referenced in rule metadata map to
+    # [None] (package-wide, all data streams are mapped), and only packages referenced
+    # solely through event.dataset values are restricted to the named data streams.
+    # event.dataset values are extracted by regex and may sit inside OR branches, so they
+    # cannot be trusted to narrow a metadata-referenced package.
+    packages, dataset_restriction = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    return {package: list[str | None](dataset_restriction.get(package) or [None]) for package in packages}
 
 
 def rule_integrations_declare_ecs_fields(

@@ -698,7 +698,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
                 }
             }
         }
-        self.assertTrue(integration_declares_ecs_fields(schemas["pkg"] and schemas, "pkg", "1.0.0", "declared"))
+        self.assertTrue(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", "declared"))
         self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", "undeclared"))
         self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", None))
 
@@ -808,6 +808,17 @@ class TestEsqlEcsScoping(unittest.TestCase):
         from detection_rules.esql import EventDataset
         from detection_rules.index_mappings import rule_integrations_declare_ecs_fields
 
+        # event.dataset values are regex-extracted and may sit inside OR branches, so a
+        # metadata-referenced package is always checked package-wide: the undeclared
+        # sibling data stream keeps the package on the full-ECS fallback even though the
+        # query names the declared one.
+        self.assertFalse(
+            rule_integrations_declare_ecs_fields(
+                ["pkg"], [EventDataset("pkg", "declared")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
+            )
+        )
+
+        # with every data stream declaring its ECS fields, the package-wide check passes
         schemas = {
             "pkg": {
                 "1.0.0": {
