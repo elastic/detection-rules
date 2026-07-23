@@ -147,7 +147,13 @@ class ToDsl(Walker):
         # multi_match so non-text fields are skipped instead of erroring.
         if isinstance(tree.value, Wildcard):
             return {"query_string": {"query": _escape_query_string_wildcard(tree.value.value)}}
-        return {"multi_match": {"type": "best_fields", "query": tree.value.value, "lenient": True}}
+        value = tree.value.value
+        if not isinstance(value, str):
+            # Bare unquoted terms can parse as numbers/booleans/null, but `multi_match.query`
+            # must be text (a JSON null is rejected outright), so send the KQL token text
+            # back instead (`1`, `true`, `null`).
+            value = tree.value.render()
+        return {"multi_match": {"type": "best_fields", "query": value, "lenient": True}}
 
     def _walk_field_comparison(self, tree):
         field = self.walk(tree.field)

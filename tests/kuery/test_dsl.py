@@ -154,6 +154,12 @@ class TestKQLtoDSL(unittest.TestCase):
             },
         )
 
+        # bare numeric/boolean/null terms are sent as their token text, since
+        # multi_match.query must be a string (a JSON null is rejected outright)
+        self.validate("1", {"filter": [{"multi_match": {"type": "best_fields", "query": "1", "lenient": True}}]})
+        self.validate("true", {"filter": [{"multi_match": {"type": "best_fields", "query": "true", "lenient": True}}]})
+        self.validate("null", {"filter": [{"multi_match": {"type": "best_fields", "query": "null", "lenient": True}}]})
+
         # a bare wildcard becomes a query_string with no fields restriction,
         # with Lucene specials escaped like any other wildcard value
         self.validate("*password*", {"filter": [{"query_string": {"query": "*password*"}}]})
