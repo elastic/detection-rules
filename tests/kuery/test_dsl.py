@@ -141,6 +141,79 @@ class TestKQLtoDSL(unittest.TestCase):
             },
         )
 
+    def test_nested_query(self):
+        """Nested KQL compiles to an Elasticsearch `nested` query with absolute leaf paths."""
+        schema = {
+            "top": "nested",
+            "top.a": "keyword",
+            "top.b": "keyword",
+            "top.middle": "nested",
+            "top.middle.bool": "boolean",
+        }
+
+        # a single inner condition optimizes to a bare leaf query inside the nested block
+        self.validate(
+            "top:{ a:hello }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {"match": {"top.a": "hello"}},
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
+        # role-style OR list stays scoped to the same nested object
+        self.validate(
+            "top:{ a:ADD and b:(x or y) }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {
+                                "bool": {
+                                    "filter": [{"match": {"top.a": "ADD"}}],
+                                    "should": [{"match": {"top.b": "x"}}, {"match": {"top.b": "y"}}],
+                                    "minimum_should_match": 1,
+                                }
+                            },
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
+        # nested-within-nested prefixes each level's leaves correctly
+        self.validate(
+            "top:{ middle:{ bool: true } }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {
+                                "nested": {
+                                    "path": "top.middle",
+                                    "query": {"match": {"top.middle.bool": True}},
+                                    "score_mode": "none",
+                                }
+                            },
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
     def test_wildcard_query_string_escaping(self):
         """Wildcard values converted to query_string.query must escape Lucene reserved chars while preserving `*`."""
 

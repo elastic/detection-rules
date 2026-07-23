@@ -8,10 +8,12 @@ import unittest
 import kql
 from kql.ast import (
     AndExpr,
+    Boolean,
     Exists,
     Field,
     FieldComparison,
     FieldRange,
+    NestedQuery,
     NotExpr,
     NotValue,
     Number,
@@ -193,6 +195,62 @@ class ParserTests(unittest.TestCase):
         # `*` mixed with an unescaped one collapse together once unescaped, so the literal
         # asterisk is lost in this case -- a known limitation of unescaping wildcard values.
         self.validate(r"field:foo\*bar*", FieldComparison(Field("field"), Wildcard("foo*bar*")))
+
+    def test_nested_query(self):
+        """Nested KQL (`field:{ ... }`) parses to a NestedQuery with relative inner fields."""
+        schema = {
+            "top": "nested",
+            "top.a": "keyword",
+            "top.b": "long",
+            "top.middle": "nested",
+            "top.middle.bool": "boolean",
+        }
+
+        # inner field references are stored relative to the nested path
+        self.validate(
+            "top:{ a:hello }",
+            NestedQuery(Field("top"), FieldComparison(Field("a"), String("hello"))),
+            schema=schema,
+        )
+
+        # inner values are still validated/converted against the resolved (absolute) type
+        self.validate(
+            'top:{ b:"1" }',
+            NestedQuery(Field("top"), FieldComparison(Field("b"), Number(1))),
+            schema=schema,
+        )
+
+        # multiple inner conditions build a compound expression scoped to the same object
+        self.validate(
+            "top:{ a:hello and b:1 }",
+            NestedQuery(
+                Field("top"),
+                AndExpr([FieldComparison(Field("a"), String("hello")), FieldComparison(Field("b"), Number(1))]),
+            ),
+            schema=schema,
+        )
+
+        # nested-within-nested keeps each level's fields relative to its own path
+        self.validate(
+            "top:{ middle:{ bool: true } }",
+            NestedQuery(Field("top"), NestedQuery(Field("middle"), FieldComparison(Field("bool"), Boolean(True)))),
+            schema=schema,
+        )
+
+        # nested syntax works without a schema (no field validation)
+        self.assertIsInstance(kql.parse("top:{ a:hello }", optimize=False), NestedQuery)
+
+    def test_nested_query_schema_errors(self):
+        """Nested syntax requires a `nested` field, and inner fields are schema-checked."""
+        schema = {"top": "nested", "top.a": "keyword", "leaf": "keyword"}
+
+        # nested syntax on a non-nested field is rejected
+        with self.assertRaisesRegex(kql.KqlParseError, "Expected a nested field"):
+            kql.parse("leaf:{ a:1 }", schema=schema)
+
+        # unknown inner field is rejected (resolved against the nested path)
+        with self.assertRaisesRegex(kql.KqlParseError, "Unknown field"):
+            kql.parse("top:{ bogus:1 }", schema=schema)
 
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
