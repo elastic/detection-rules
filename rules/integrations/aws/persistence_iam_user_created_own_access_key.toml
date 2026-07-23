@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+An adversary with a compromised set of IAM credentials may create a new, long-lived access key for that same identity to
+establish persistence that survives session-token expiry, password rotation, or MFA re-enforcement. This rule looks for
+use of the IAM CreateAccessKey API operation where the calling identity creates a key for itself, which complements
+the existing detection for one user creating access keys for another user.
+"""
+false_positives = [
+    """
+    Self-service access key creation is common and expected: developers and automation frequently mint their own access
+    keys for local CLI/SDK setup or as part of routine credential rotation. This rule will fire on every such event, so
+    tune it to your environment by excluding known automation identities, expected user agents, or onboarding workflows
+    to reduce noise.
+    """,
+]
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM User Created Own Access Key"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Created Own Access Key
+
+AWS IAM access keys are long-term credentials that grant programmatic access to AWS resources. Unlike a temporary
+session token, an access key does not expire on its own, so an adversary who has compromised a set of short-lived
+credentials (for example, an assumed-role session or SSO session) can use `iam:CreateAccessKey` on their own identity
+to mint a durable credential that persists after the original access vector is closed.
+
+This rule identifies `CreateAccessKey` API calls where the target user is not explicitly specified (common for self-service key creation) or matches the calling user (`user.name`).
+This corresponds to `user.target.name` being null or equal to `user.name` in ECS-mapped CloudTrail events.
+
+### Possible investigation steps
+
+- **Confirm intent.** Contact the account owner to confirm whether this was expected credential rotation or initial
+  CLI/SDK setup.
+- **Review CloudTrail event details.** Check `source.ip`, `user_agent.original`, and `source.geo` for anomalies
+  relative to the identity's normal behavior.
+- **Correlate with recent authentication changes.** Look for a recent password change, MFA device registration, or a
+  new session immediately preceding this event — these can indicate the identity was recently compromised and the
+  attacker is establishing a durable credential.
+- **Inspect the new access key's usage.** Search for the new key ID (`aws.cloudtrail.response_elements.accessKey.accessKeyId`)
+  in subsequent CloudTrail events for unusual source IPs, geographies, or API activity.
+- **Check for related persistence activity.** Look for `CreateLoginProfile`, `UpdateAssumeRolePolicy`, or policy
+  attachment events by the same identity around the same time.
+
+### False positive analysis
+
+- Self-service key creation for legitimate CLI/SDK setup or scheduled rotation is common. Tune with exceptions for
+  known onboarding automation, expected user agents, or identities with a documented rotation cadence.
+
+### Response and remediation
+
+- If unauthorized, deactivate or delete the new access key (`DeleteAccessKey`) immediately.
+- Rotate or reset credentials for the identity and investigate how it was initially compromised.
+- Review all activity performed with the new key since its creation.
+- Restrict `iam:CreateAccessKey` (self-targeted) to identities that have a legitimate need for long-lived
+  credentials; prefer temporary credentials (assumed roles, SSO) elsewhere.
+
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/#iamcreateaccesskey",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
+    "https://github.com/RhinoSecurityLabs/pacu/tree/master/pacu/modules/iam__backdoor_users_keys",
+]
+risk_score = 47
+rule_id = "dfb7dc0b-2caf-4186-9b59-5752bc59bc19"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "iam.amazonaws.com"
+    and event.action == "CreateAccessKey"
+    and event.outcome == "success"
+    and (user.target.name IS NULL or user.name == user.target.name)
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    data_stream.dataset,
+    aws.*,
+    cloud.*,
+    event.*,
+    source.*,
+    user.*,
+    user_agent.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.target.name",
+    "event.action",
+    "event.outcome",
+    "cloud.region",
+    "cloud.account.id",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
