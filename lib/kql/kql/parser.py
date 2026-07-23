@@ -113,6 +113,10 @@ class BaseKqlParser(Interpreter):
         self.mapping_schema = schema
         self.star_fields = []
         self.normalize_kql_keywords = normalize_kql_keywords
+        # Stack of nested field paths currently in scope. Field references inside a
+        # `nested:{ ... }` block are relative to the enclosing nested path, so schema
+        # lookups must resolve them against the (flat) dotted mapping schema.
+        self.nested_path = []
 
         if schema:
             for field, field_type in schema.items():
@@ -172,7 +176,18 @@ class BaseKqlParser(Interpreter):
         yield field
         self.scoped_field = None
 
+    def resolve_nested_path(self, dotted_path):
+        """Resolve a (possibly nesting-relative) field path to its absolute dotted path.
+
+        Inside a `nested:{ ... }` block, field references are relative to the enclosing
+        nested field, but the mapping schema is keyed by absolute dotted paths.
+        """
+        if self.nested_path:
+            return ".".join(self.nested_path) + "." + dotted_path
+        return dotted_path
+
     def get_field_type(self, dotted_path, lark_tree=None):
+        dotted_path = self.resolve_nested_path(dotted_path)
         matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
 
         if self.mapping_schema is not None:
@@ -187,7 +202,7 @@ class BaseKqlParser(Interpreter):
             return {field_type} if field_type is not None else None
 
         if self.mapping_schema is not None:
-            regex = wildcard2regex(wildcard_dotted_path)
+            regex = wildcard2regex(self.resolve_nested_path(wildcard_dotted_path))
             field_types = set()
 
             for field, field_type in self.mapping_schema.items():
@@ -307,25 +322,28 @@ class KqlParser(BaseKqlParser):
 
     @contextlib.contextmanager
     def nest(self, lark_tree):
-        schema = self.mapping_schema
-        dotted_path = self.visit(lark_tree)
+        # The path is relative to any enclosing nested block; `field` keeps that
+        # relative form (which is the absolute path at the top level) while the schema
+        # is validated against the resolved absolute path.
+        field = self.visit(lark_tree)
+        dotted_path = field.name
 
-        if self.get_field_type(dotted_path, lark_tree) != "nested":
+        if self.mapping_schema is not None and self.get_field_type(dotted_path, lark_tree) != "nested":
             raise self.error(lark_tree, "Expected a nested field")
 
+        # Store the relative segment; `resolve_nested_path` joins the whole stack so
+        # deeply nested field references resolve to their absolute dotted path.
+        self.nested_path.append(dotted_path)
         try:
-            self.mapping_schema = self.mapping_schema[dotted_path]
-            yield
+            yield field
         finally:
-            self.mapping_schema = schema
+            self.nested_path.pop()
 
     def nested_query(self, tree):
-        # field_tree, query_tree = tree.child_trees
-        #
-        # with self.nest(field_tree) as field:
-        #     return NestedQuery(field, self.visit(query_tree))
+        field_tree, query_tree = tree.child_trees
 
-        raise self.error(tree, "Nested queries are not yet supported")
+        with self.nest(field_tree) as field:
+            return NestedQuery(field, self.visit(query_tree))
 
     def field_value_expression(self, tree):
         field_tree, expr = tree.child_trees

@@ -111,3 +111,30 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(self.evaluate("structured.a.b:*"))
         self.assertTrue(self.evaluate("structured.a.b:1"))
         self.assertFalse(self.evaluate("structured.a.b:2"))
+
+    def test_nested_query(self):
+        self.assertTrue(self.evaluate("structured:{ a:{ b:1 } }"))
+        self.assertFalse(self.evaluate("structured:{ a:{ b:2 } }"))
+
+
+nested_document = {
+    "deltas": [
+        {"action": "ADD", "role": "roles/target"},
+        {"action": "REMOVE", "role": "roles/other"},
+    ]
+}
+
+
+class NestedEvaluatorTests(unittest.TestCase):
+    def evaluate(self, source_text):
+        evaluator = kql.get_evaluator(source_text, optimize=False)
+        return evaluator(nested_document)
+
+    def test_same_object_match(self):
+        """Nested queries only match when all conditions hold within the same object."""
+        self.assertTrue(self.evaluate('deltas:{ action:ADD and role:"roles/target" }'))
+
+    def test_cross_object_no_match(self):
+        """Conditions satisfied by different objects in the array must not match."""
+        # `ADD` is on the first object, `roles/other` on the second: no single object matches.
+        self.assertFalse(self.evaluate('deltas:{ action:ADD and role:"roles/other" }'))
