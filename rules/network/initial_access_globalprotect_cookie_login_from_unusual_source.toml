@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/06/02"
+integration = ["panw"]
+maturity = "production"
+updated_date = "2026/06/02"
+
+[rule]
+author = ["Aryu Zaw"]
+description = """
+This rule detects the first successful GlobalProtect login that authenticated with a cookie from a previously unseen
+external source IP address within the last 5 days. CVE-2026-0257 is a GlobalProtect authentication bypass in which an
+attacker who can obtain the portal's certificate forges an encrypted authentication-override cookie and replays it to
+the "/ssl-vpn/login.esp" endpoint, authenticating as an existing user (commonly the local administrator) without valid
+credentials. Because the firewall treats the forged session as fully authenticated, the GlobalProtect authentication log
+is the primary on-host evidence. Filtering on cookie-based authentication isolates the use of authentication-override
+cookies, so environments that use this feature only alert on cookie logins from new external addresses.
+"""
+false_positives = [
+    """
+    Returning remote users reconnecting with a saved authentication-override cookie from a new network can match.
+    Validate the external source address and account against expected access patterns before escalating.
+    """,
+    """
+    The rule assumes cookie-based GlobalProtect authentication is logged with an Auth Method of "Cookie". Deployments
+    that do not enable authentication-override cookies will not generate this telemetry and the rule will not fire.
+    """,
+]
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "GlobalProtect Cookie Authentication from Unusual Source"
+note = """## Triage and analysis
+
+### Investigating GlobalProtect Cookie Authentication from Unusual Source
+
+This alert fires when a GlobalProtect login that authenticated with a cookie (an "Auth Method" of "Cookie") is observed from an external source IP address that has not been seen authenticating to GlobalProtect in the last 5 days. Filtering on cookie-based authentication isolates the use of authentication-override cookies, and the previously-unseen source address focuses triage on cookies that were not issued to a known client.
+
+CVE-2026-0257 is a GlobalProtect authentication bypass affecting PAN-OS 10.2, 11.1, 11.2, and 12.1, as well as Prisma Access. When authentication-override cookies are enabled and the cookie-signing certificate is shared with another service, an attacker who retrieves the public certificate can forge a valid authentication-override cookie and POST it to "/ssl-vpn/login.esp" (the "portal-userauthcookie" or "portal-prelogonuserauthcookie" form parameter). The cookie is decrypted without signature validation, so the session is trusted as fully authenticated - typically as the local "admin" account - with no credential or MFA prompt. Palo Alto Networks published an advisory (CVSS 7.8) on 2026-05-13, and CISA added the vulnerability to its Known Exploited Vulnerabilities catalog on 2026-05-29 with a 2026-06-01 remediation deadline. In-the-wild exploitation was observed beginning 2026-05-17.
+
+### Possible investigation steps
+
+- Review `source.nat.ip` (the external client address, mapped from the GlobalProtect public IP) and assess its reputation, ASN, and geolocation. Reported activity originated from low-cost hosting providers such as Vultr and Dromatics Systems; observed source addresses include 104.207.144.154, 146.19.216.119, 146.19.216.120, and 146.19.216.125.
+- Confirm whether the account in `source.user.name` is expected to authenticate from this network. The reported attacks consistently targeted the local "admin" account.
+- Review `panw.panos.gateway` to identify the gateway or portal that accepted the login, and confirm whether authentication-override cookies are intentionally enabled on it.
+- Examine activity from the same `source.nat.ip` and account immediately after the login for follow-on actions such as VPN tunnel setup (gateway-getconfig or tunnel stages and assignment of an internal IP), administrator account creation, configuration export, or firewall policy changes.
+- If host-information or tech-support data is available, check the client machine name and MAC address. The reported campaign reused the machine names "GP-CLIENT" and "DESKTOP-GP01" and the spoofed MAC address "aa:bb:cc:dd:ee:ff" across multiple intrusions.
+
+### False positive analysis
+
+- Legitimate use of authentication-override or "save user credentials" cookies allows returning users to reconnect without re-authenticating. A genuine reconnection normally originates from a source address the user has used before; the previously-unseen-address and single-login conditions are designed to suppress this, but a user connecting from a new network for the first time can still match.
+- The rule depends on the GlobalProtect log recording the "Auth Method" as "Cookie". If a deployment records cookie-based authentication under a different value, tune the query accordingly. If authentication-override cookies are not used at all, the rule will not fire.
+- A first login observed after GlobalProtect logging is enabled, or after data onboarding, can appear as a new source address because no history exists yet.
+
+### Response and remediation
+
+- If the activity is unauthorized, treat the firewall as compromised: terminate the GlobalProtect session, isolate the device's management plane, and begin incident response.
+- Upgrade PAN-OS to a fixed release and rotate the certificate used to encrypt authentication-override cookies so any previously forged cookies are invalidated; do not reuse a single certificate across services.
+- Review administrator accounts, firewall policy, and configuration for unauthorized changes made after the login, and restore from a known-good configuration backup if needed.
+- Rotate credentials for any accounts that authenticated through the forged session and review VPN user and group membership for unexpected additions.
+- If the activity is expected, document the external source address and consider adding an exception."""
+references = [
+    "https://security.paloaltonetworks.com/CVE-2026-0257",
+    "https://www.rapid7.com/blog/post/etr-rapid7-observed-exploitation-of-pan-os-globalprotect-authentication-bypass-vulnerability-cve-2026-0257/",
+    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    "https://www.elastic.co/docs/reference/integrations/panw",
+]
+risk_score = 47
+rule_id = "c8dffdd8-07b3-453c-a8c5-b9a2f90f390a"
+severity = "medium"
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+    "Domain: Network",
+    "Domain: Identity",
+    "Data Source: PAN-OS",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-panw.panos-*, filebeat-* metadata _id
+
+// CVE-2026-0257: a forged GlobalProtect authentication-override cookie replayed to /ssl-vpn/login.esp is logged as a
+// successful gateway-auth (or portal-auth) login with an Auth Method of "Cookie" (panw.panos.auth_method).
+| WHERE data_stream.dataset == "panw.panos" and
+        panw.panos.type == "GLOBALPROTECT" and
+        event.code in ("gateway-auth", "portal-auth") and
+        event.outcome == "success" and
+        panw.panos.auth_method == "Cookie" and
+        source.nat.ip is not null
+
+// the external client address is mapped to source.nat.ip; source.ip holds the VPN-assigned private address (often 0.0.0.0)
+| STATS Esql.login_count = COUNT(*),
+        Esql.first_time_seen = MIN(@timestamp),
+        Esql.user_values = VALUES(source.user.name),
+        Esql.gateway_values = VALUES(panw.panos.gateway),
+        Esql.event_code_values = VALUES(event.code),
+        Esql.message_values = VALUES(message) BY source.nat.ip
+
+// first time seen is within 6m of the rule execution time and for the last 5d of events history
+| EVAL Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
+| WHERE Esql.recent <= 6 AND Esql.login_count == 1
+
+// move dynamic fields to ECS equivalent for rule exceptions
+| EVAL source.user.name = MV_FIRST(Esql.user_values)
+
+| KEEP source.nat.ip, source.user.name, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1606"
+name = "Forge Web Credentials"
+reference = "https://attack.mitre.org/techniques/T1606/"
+[[rule.threat.technique.subtechnique]]
+id = "T1606.001"
+name = "Web Cookies"
+reference = "https://attack.mitre.org/techniques/T1606/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
