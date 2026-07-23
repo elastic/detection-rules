@@ -190,6 +190,112 @@ def prune_mappings_of_unsupported_types(
     return stream_mappings
 
 
+def resolve_rule_packages(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Resolve the packages a rule references and their data stream restrictions."""
+    # Restrictions only apply to packages referenced through event.dataset values but not
+    # rule metadata; metadata packages contribute all of their data streams.
+    packages = list(rule_integrations)
+    dataset_restriction: dict[str, list[str]] = {}
+
+    # Process restrictions, note we need this for loops to be separate
+    for event_dataset in event_dataset_integrations:
+        # Ensure the integration is in rule_integrations
+        if event_dataset.package not in packages:
+            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
+    for event_dataset in event_dataset_integrations:
+        if event_dataset.package not in packages:
+            packages.append(event_dataset.package)
+
+    return packages, dataset_restriction
+
+
+def rule_datasets_by_package(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> dict[str, list[str | None]]:
+    """Map each package a rule references to the data streams its query names via event.dataset."""
+    # Packages whose data streams are not named in the query map to [None] (package-wide).
+    packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    datasets_by_package: dict[str, list[str | None]] = {package: [] for package in packages}
+    for event_dataset in event_dataset_integrations:
+        if event_dataset.package in datasets_by_package:
+            datasets_by_package[event_dataset.package].append(event_dataset.integration)
+    return {package: datasets or [None] for package, datasets in datasets_by_package.items()}
+
+
+def rule_integrations_declare_ecs_fields(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+    package_manifests: Any,
+    integration_schemas: Any,
+    stack_version: str,
+) -> bool:
+    """Return True when every integration the rule references declares its ECS fields."""
+    # Mirrors the KQL/EQL scoping semantics: data streams named by event.dataset are checked
+    # individually; packages referenced only through rule metadata are checked package-wide.
+    datasets_by_package = rule_datasets_by_package(rule_integrations, event_dataset_integrations)
+    if not datasets_by_package:
+        return False
+    for package, datasets in datasets_by_package.items():
+        try:
+            package_version, _ = integrations.find_latest_compatible_version(
+                package,
+                "",
+                Version.parse(stack_version),
+                package_manifests,
+            )
+        except ValueError:
+            # an unresolvable package keeps the full-ECS fallback for the whole rule
+            return False
+        for dataset in datasets:
+            # packages that inherit ECS via ecs@mappings also keep the full-ECS fallback
+            if not integrations.integration_declares_ecs_fields(integration_schemas, package, package_version, dataset):
+                return False
+    return True
+
+
+def esql_indices_covered_by_packages(
+    indices: list[str],
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> bool:
+    """Return True when every FROM index resolves to one of the rule's integration packages."""
+    # Non-integration indices (e.g. auditbeat-*, filebeat-*) are populated by Beats with their
+    # own schemas, which the ES|QL mapping build does not model, so rules reading them must
+    # keep the full-ECS fallback.
+    packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    for index in indices:
+        if not index.startswith("logs-"):
+            return False
+        package = re.split(r"[.\-*]", index.removeprefix("logs-"), maxsplit=1)[0]
+        if package not in packages:
+            return False
+    return True
+
+
+def get_rule_ecs_additions_mappings(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+    current_version: Version,
+) -> dict[str, Any]:
+    """Get index mappings for the override ECS additions of the rule's integrations."""
+    # Used instead of the full ECS schema mappings when every integration the rule references
+    # declares its ECS fields (strict ECS scoping): only the pipeline/agent-injected fields
+    # from integration-ecs-additions.json are mapped on top of the integration schemas.
+    addition_fields: set[str] = set()
+    for package, datasets in rule_datasets_by_package(rule_integrations, event_dataset_integrations).items():
+        for dataset in datasets:
+            addition_fields.update(integrations.get_integration_ecs_additions(package, dataset))
+
+    ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
+    ecs_flat = ecs.get_schema(ecs_version, name="ecs_flat")
+    flat_additions = {field: ecs_flat[field]["type"] for field in sorted(addition_fields) if field in ecs_flat}
+    return flat_schema_to_index_mapping(flat_additions)
+
+
 def prepare_integration_mappings(  # noqa: PLR0913
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
@@ -201,16 +307,8 @@ def prepare_integration_mappings(  # noqa: PLR0913
     """Prepare integration mappings for the given rule integrations."""
     integration_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
-    dataset_restriction: dict[str, list[str]] = {}
 
-    # Process restrictions, note we need this for loops to be separate
-    for event_dataset in event_dataset_integrations:
-        # Ensure the integration is in rule_integrations
-        if event_dataset.package not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
-    for event_dataset in event_dataset_integrations:
-        if event_dataset.package not in rule_integrations:
-            rule_integrations.append(event_dataset.package)
+    rule_integrations, dataset_restriction = resolve_rule_packages(rule_integrations, event_dataset_integrations)
 
     for integration in rule_integrations:
         package = integration
@@ -220,7 +318,13 @@ def prepare_integration_mappings(  # noqa: PLR0913
             Version.parse(stack_version),
             package_manifests,
         )
-        package_schema = integration_schemas[package][package_version]
+        # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`) and ML job
+        # lists from the cached schema; only data stream field dicts become index mappings.
+        package_schema = {
+            stream: {field: value for field, value in stream_schema.items() if not field.startswith("_")}
+            for stream, stream_schema in integration_schemas[package][package_version].items()
+            if stream != "jobs" and not stream.startswith("_")
+        }
 
         # Apply dataset restrictions if any
         if integration in dataset_restriction:
@@ -510,9 +614,19 @@ def prepare_mappings(  # noqa: PLR0913
         index_mapping = utils.convert_to_nested_schema(index_mapping)
         custom_mapping.update({index: index_mapping})
 
-    # Load ECS in an index mapping format (nested schema)
+    # Load ECS in an index mapping format (nested schema). When every integration the rule
+    # references declares its ECS fields (strict ECS scoping), only the override additions
+    # are mapped instead of the full ECS schema, mirroring the KQL/EQL validation behavior.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    ecs_schema = get_ecs_schema_mappings(current_version)
+    if esql_indices_covered_by_packages(
+        indices, rule_integrations, event_dataset_integrations
+    ) and rule_integrations_declare_ecs_fields(
+        rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, stack_version
+    ):
+        log("All rule integrations declare their ECS fields; scoping ECS mappings to override additions")
+        ecs_schema = get_rule_ecs_additions_mappings(rule_integrations, event_dataset_integrations, current_version)
+    else:
+        ecs_schema = get_ecs_schema_mappings(current_version)
 
     # Filter combined mappings based on the provided indices
     combined_mappings, index_lookup = get_filtered_index_schema(

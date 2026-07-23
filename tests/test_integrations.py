@@ -763,3 +763,96 @@ class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
             self.assertTrue(version_schema["_uses_ecs_mappings"])
         version = sorted(self.schemas["cloud_defend"], key=Version.parse)[-1]
         self.assertFalse(integration_declares_ecs_fields(self.schemas, "cloud_defend", version, "process"))
+
+
+class TestEsqlEcsScoping(unittest.TestCase):
+    """Remote ES|QL validation must scope ECS mappings like KQL/EQL validation does."""
+
+    MANIFESTS: ClassVar[dict] = {"pkg": {"1.0.0": _manifest("^9.0.0")}}
+    SCHEMAS: ClassVar[dict] = {
+        "pkg": {
+            "1.0.0": {
+                "_uses_ecs_mappings": False,
+                "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                "undeclared": {"pkg.custom": "keyword"},
+            }
+        }
+    }
+
+    def test_strict_when_named_datasets_declare(self):
+        """Datasets named via event.dataset are checked individually."""
+        from detection_rules.esql import EventDataset
+        from detection_rules.index_mappings import rule_integrations_declare_ecs_fields
+
+        self.assertTrue(
+            rule_integrations_declare_ecs_fields(
+                [], [EventDataset("pkg", "declared")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
+            )
+        )
+        self.assertFalse(
+            rule_integrations_declare_ecs_fields(
+                [], [EventDataset("pkg", "undeclared")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
+            )
+        )
+
+    def test_package_wide_when_no_datasets_named(self):
+        """Packages referenced only through rule metadata are checked package-wide."""
+        from detection_rules.index_mappings import rule_integrations_declare_ecs_fields
+
+        # 'undeclared' data stream keeps the whole package on the full-ECS fallback
+        self.assertFalse(rule_integrations_declare_ecs_fields(["pkg"], [], self.MANIFESTS, self.SCHEMAS, "9.0.0"))
+        self.assertFalse(rule_integrations_declare_ecs_fields([], [], self.MANIFESTS, self.SCHEMAS, "9.0.0"))
+
+    def test_metadata_package_with_declared_dataset_stays_package_wide(self):
+        """Naming a dataset does not narrow a package also referenced in rule metadata."""
+        from detection_rules.esql import EventDataset
+        from detection_rules.index_mappings import rule_integrations_declare_ecs_fields
+
+        schemas = {
+            "pkg": {
+                "1.0.0": {
+                    "_uses_ecs_mappings": False,
+                    "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                }
+            }
+        }
+        self.assertTrue(
+            rule_integrations_declare_ecs_fields(
+                ["pkg"], [EventDataset("pkg", "declared")], self.MANIFESTS, schemas, "9.0.0"
+            )
+        )
+
+    def test_additions_mappings_contain_override_fields(self):
+        """Strict-mode ES|QL mappings include the override additions instead of full ECS."""
+        from detection_rules.esql import EventDataset
+        from detection_rules.index_mappings import get_rule_ecs_additions_mappings
+
+        additions = {"pkg": {"declared": ["user_agent.original"]}}
+        version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        with unittest.mock.patch("detection_rules.integrations.load_integration_ecs_additions", return_value=additions):
+            mappings = get_rule_ecs_additions_mappings([], [EventDataset("pkg", "declared")], version)
+
+        self.assertIn("original", mappings["user_agent"]["properties"])
+        self.assertNotIn("process", mappings)
+
+    def test_integration_mappings_exclude_scoping_metadata(self):
+        """The cached scoping metadata must not leak into ES|QL index mappings."""
+        from detection_rules.index_mappings import prepare_integration_mappings
+
+        mappings, index_lookup = prepare_integration_mappings(
+            ["pkg"], [], self.MANIFESTS, self.SCHEMAS, "9.0.0", lambda _msg: None
+        )
+        self.assertNotIn("_ecs_declared", mappings)
+        self.assertNotIn("_uses_ecs_mappings", mappings)
+        self.assertIn("pkg-declared", index_lookup)
+
+    def test_beats_indices_disable_strict_scoping(self):
+        """Rules reading non-integration (Beats) indices must keep the full-ECS fallback."""
+        from detection_rules.esql import EventDataset
+        from detection_rules.index_mappings import esql_indices_covered_by_packages
+
+        eds = [EventDataset("pkg", "declared")]
+        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg.declared-*"], [], eds))
+        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg*"], ["pkg"], []))
+        self.assertFalse(esql_indices_covered_by_packages(["logs-pkg.declared-*", "auditbeat-*"], [], eds))
+        self.assertFalse(esql_indices_covered_by_packages(["logs-other.stream-*"], [], eds))

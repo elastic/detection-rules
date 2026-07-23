@@ -6,7 +6,6 @@
 """CLI commands for detection_rules."""
 
 import dataclasses
-import importlib.util
 import json
 import os
 import time
@@ -747,27 +746,6 @@ def validate_all() -> None:
     """Check if all rules validates against a schema."""
     _ = RuleCollection.default()
     click.echo("Rule validation successful")
-
-
-@root.command("find-ecs-scope-violations")
-@click.option("--output", "-o", type=Path, help="Path to write a CSV report")
-@click.option("--json-output", "-j", type=Path, help="Path to write a JSON report")
-@click.option("--package", "-p", help="Only report rules referencing this package")
-def find_ecs_scope_violations(output: Path | None, json_output: Path | None, package: str | None) -> None:
-    """Identify rules using ECS fields their related integrations do not declare."""
-    script_path = get_path(["scripts", "find_ecs_field_scope_violations.py"])
-    if not script_path.exists():
-        raise click.ClickException(f"scan script not found: {script_path}")
-
-    spec = importlib.util.spec_from_file_location("find_ecs_field_scope_violations", script_path)
-    if not spec or not spec.loader:
-        raise click.ClickException(f"unable to load scan script: {script_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    violations = module.scan_and_report(output=output, json_output=json_output, package_filter=package)
-    if violations:
-        raise click.exceptions.Exit(1)
 
 
 @root.command("rule-search")
