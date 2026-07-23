@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/03/25"
-integration = ["auditd_manager", "endpoint"]
+integration = ["endpoint", "network_traffic", "packetbeat"]
 maturity = "production"
-updated_date = "2026/04/01"
+updated_date = "2026/07/23"
 min_stack_version = "9.4.0"
 min_stack_comments = "Use EA (Entity Analytics) fields"
 
@@ -25,7 +25,8 @@ setup = """## Setup
 
 This rule requires the installation of associated Machine Learning jobs, as well as data coming in from one of the following integrations:
 - Elastic Defend
-- Auditd Manager
+- Network Packet Capture
+- Packetbeat
 
 ### Anomaly Detection Setup
 
@@ -52,24 +53,28 @@ For more details on Elastic Agent configuration settings, refer to the [helper g
 - To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
 For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
 
-### Auditd Manager Integration Setup
-The Auditd Manager Integration receives audit events from the Linux Audit Framework which is a part of the Linux kernel.
-Auditd Manager provides a user-friendly interface and automation capabilities for configuring and monitoring system auditing through the auditd daemon. With `auditd_manager`, administrators can easily define audit rules, track system events, and generate comprehensive audit reports, improving overall security and compliance in the system.
+### Network Packet Capture Integration Setup
+The Network Packet Capture integration sniffs network packets on a host and dissects known protocols. Monitoring the network traffic is critical to gaining observability and securing your environment — ensuring high levels of performance and security. The Network Packet Capture integration captures the network traffic between your application servers, decodes common application layer protocols and records the interesting fields for each transaction.
 
-#### The following steps should be executed in order to add the Elastic Agent System integration "auditd_manager" to your system:
+#### The following steps should be executed in order to add the Elastic Agent System integration "network_traffic" to your system:
 - Go to the Kibana home page and click “Add integrations”.
-- In the query bar, search for “Auditd Manager” and select the integration to see more details about it.
-- Click “Add Auditd Manager”.
+- In the query bar, search for “Network Packet Capture” and select the integration to see more details about it.
+- Click “Add Network Packet Capture”.
 - Configure the integration name and optionally add a description.
 - Review optional and advanced settings accordingly.
-- Add the newly installed “auditd manager” to an existing or a new agent policy, and deploy the agent on a Linux system from which auditd log files are desirable.
+- Add the newly installed “network_traffic” to an existing or a new agent policy, and deploy the agent on your system from which network log files are desirable.
 - Click “Save and Continue”.
-- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/auditd_manager).
+- For more details on the integration refer to the [helper guide](https://docs.elastic.co/integrations/network_traffic).
 
-#### Rule Specific Setup Note
-Auditd Manager subscribes to the kernel and receives events as they occur without any additional configuration.
-However, if more advanced configuration is required to detect specific behavior, audit rules can be added to the integration in either the "audit rules" configuration box or the "auditd rule files" box by specifying a file to read the audit rules from.
-- For this detection rule no additional audit rules are required.
+### Packetbeat Setup
+Packetbeat is a real-time network packet analyzer that you can use for application monitoring, performance analytics, and threat detection. Packetbeat works by capturing the network traffic between your application servers, decoding the application layer protocols (HTTP, MySQL, Redis, and so on), correlating the requests with the responses, and recording the interesting fields for each transaction.
+
+#### The following steps should be executed in order to add the Packetbeat on a Linux System:
+- Elastic provides repositories available for APT and YUM-based distributions. Note that we provide binary packages, but no source packages.
+- To install the APT and YUM repositories follow the setup instructions in this [helper guide](https://www.elastic.co/guide/en/beats/packetbeat/current/setup-repositories.html).
+- To run Packetbeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/packetbeat/current/running-on-docker.html).
+- For quick start information for Packetbeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-installation-configuration.html).
+- For complete “Setup and Run Packetbeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/packetbeat/current/setting-up-and-running.html).
 """
 note = """## Triage and analysis
 
