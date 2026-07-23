@@ -2,7 +2,8 @@
 creation_date = "2025/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/01"
+updated_date = "2026/07/13"
+
 [rule]
 author = ["Elastic"]
 description = """
@@ -55,7 +56,27 @@ process where host.os.type == "windows" and event.type == "start" and
 (process.name : "node.exe" or ?process.pe.original_file_name == "node.exe" or ?process.code_signature.subject_name : "OpenJS Foundation") and
 
 (
-  (process.executable : ("?:\\Users\\*\\AppData\\*\\node.exe", "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\*\\node.exe") and process.args : "*.js") or
+  (process.executable : ("?:\\Users\\*\\AppData\\*\\node.exe", "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\*\\node.exe") and process.args : "*.js" and
+    not process.executable : (
+      "*\\nvm\\*",
+      "*\\fnm*\\*",
+      "*\\volta\\*",
+      "*\\nvs\\*",
+      "*\\Cursor\\*",
+      "*\\cursor-agent\\*",
+      "*\\JetBrains\\*",
+      "*\\Zed\\*",
+      "*\\OpenAI\\*",
+      "*\\playwright\\*",
+      "*\\patchright\\*",
+      "*\\WinGet\\*",
+      "*\\Autodesk\\*",
+      "*\\codegraph*\\*",
+      "*\\Programs\\nodejs\\*",
+      "*\\Programs\\node-v*",
+      "*\\Programs\\Python*\\*"
+    )
+  ) or
 
   (process.args : "-r" and process.parent.name : "powershell.exe") or
 
