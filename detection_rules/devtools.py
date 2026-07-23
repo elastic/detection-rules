@@ -129,7 +129,7 @@ def dev_group() -> None:
 @click.option("--generate-docs", is_flag=True, default=False, help="Generate markdown documentation")
 @click.option("--update-message", type=str, help="Update message for new package")
 @click.pass_context
-def build_release(  # noqa: PLR0913
+def build_release(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     config_file: Path,
     update_version_lock: bool,
@@ -252,7 +252,7 @@ def get_release_diff(
 @click.option("--remote", "-r", default="origin", help='Override the remote from "origin"')
 @click.option("--update-message", default="Rule Updates.", type=str, help="Update message for new package")
 @click.pass_context
-def build_integration_docs(  # noqa: PLR0913
+def build_integration_docs(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     registry_version: str,
     pre: str,
@@ -380,7 +380,7 @@ def bump_versions(
 @click.option("--comment", is_flag=True, help="If set, enables commenting on the PR (requires --pr-number)")
 @click.option("--save-double-bumps", type=Path, help="Optional path to save the double bumps to a file")
 @click.pass_context
-def check_version_lock(  # noqa: PLR0913
+def check_version_lock(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     pr_number: int,
     local_file: str,
@@ -653,7 +653,7 @@ def kibana_diff(rule_id: list[str], repo: str, branch: str, threads: int) -> dic
 @click.option("--draft", is_flag=True, help="Open the PR as a draft")
 @click.option("--remote", help="Override the remote from 'origin'", default="origin")
 @click.pass_context
-def integrations_pr(  # noqa: PLR0913, PLR0915
+def integrations_pr(  # noqa: PLR0913, PLR0915, PLR0917
     ctx: click.Context,
     local_repo: Path,
     token: str,
@@ -920,7 +920,7 @@ def package_stats(ctx: click.Context, token: str | None, threads: int) -> None:
 @click.option("--token", "-t", help="GitHub token to search API authenticated (may exceed threshold without auth)")
 @click.option("--threads", default=50, help="Number of threads to download rules from GitHub")
 @click.pass_context
-def search_rule_prs(  # noqa: PLR0913
+def search_rule_prs(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     no_loop: bool,
     query: str | None,
@@ -1334,7 +1334,7 @@ def test_group() -> None:
 )
 @click.option("--verbose", "-v", is_flag=True, default=True)
 @add_client(["elasticsearch"])
-def event_search(  # noqa: PLR0913
+def event_search(  # noqa: PLR0913, PLR0917
     query: str,
     index: list[str],
     language: str | None,
@@ -1379,7 +1379,7 @@ def event_search(  # noqa: PLR0913
 @click.option("--verbose", "-v", is_flag=True)
 @click.pass_context
 @add_client(["elasticsearch"])
-def rule_event_search(  # noqa: PLR0913
+def rule_event_search(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     rule: Any,
     date_range: tuple[str, str],
@@ -1499,7 +1499,7 @@ def esql_remote_validation(
 @click.option("--hide-errors", "-e", is_flag=True, help="Exclude rules with errors from printing")
 @click.pass_context
 @add_client(["elasticsearch", "kibana"], add_to_ctx=True)
-def rule_survey(  # noqa: PLR0913
+def rule_survey(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     query: str,
     date_range: tuple[str, str],
@@ -1831,7 +1831,7 @@ def update_attack_in_rules() -> list[TOMLRule]:
     return new_rules
 
 
-def _remap_threat_entries(  # noqa: PLR0913
+def _remap_threat_entries(  # noqa: PLR0913, PLR0917
     entries: list[ThreatMapping],
     vmap: "attack.AttackVersionMap",
     framework: str,
@@ -2000,7 +2000,7 @@ def _get_source_threat(rule: TOMLRule, framework: str, source_version: str) -> l
     help="Replace an existing target-version block on a rule (otherwise the rule is skipped)",
 )
 @multi_collection
-def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915
+def convert_threat_mappings(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     rules: RuleCollection,
     target_version: str,
     source_version: str,

@@ -454,8 +454,10 @@ def find_latest_compatible_version(
                 integration_label = f" {integration.strip()}" if integration else ""
                 notice = [
                     f"There is a new integration {package}{integration_label} version {skipped_version} available!",
-                    f"Update the rule min_stack version from {rule_stack_version} to "
-                    f"{skipped_floor} if using new features in this latest version.",
+                    (
+                        f"Update the rule min_stack version from {rule_stack_version} to "
+                        f"{skipped_floor} if using new features in this latest version."
+                    ),
                 ]
             return version, notice
 
@@ -572,7 +574,7 @@ def get_integration_schema_data(
                 }
 
 
-def get_integration_schema_fields(  # noqa: PLR0913
+def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     integrations_schemas: dict[str, Any],
     package: str,
     integration: str,
