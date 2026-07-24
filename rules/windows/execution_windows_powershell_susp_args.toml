@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/13"
 
 [rule]
 author = ["Elastic"]
@@ -168,8 +168,6 @@ process where host.os.type == "windows" and event.type == "start" and
 
     process.args : "$*$*;set-alias" or
 
-    process.args == "-e" or
-
     // ATHPowerShellCommandLineParameter
     process.args : ("-EncodedCommandParamVariation", "-UseEncodedArguments", "-CommandParamVariation") or
 
@@ -179,7 +177,9 @@ process where host.os.type == "windows" and event.type == "start" and
     ) and
     not process.command_line : (
       "*Use-Icinga -Minimal*",
-      "*& {$j = sajb {Add-Type -AssemblyName*"
+      "*& {$j = sajb {Add-Type -AssemblyName*",
+      "*ConvertTo-Csv*",
+      "*Get-Counter*"
     )
 '''
 
