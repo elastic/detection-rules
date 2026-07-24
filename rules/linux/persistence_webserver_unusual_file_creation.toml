@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2026/07/24"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule leverages the "new_terms" rule type to detect unusual file creations originating from web server
+processes on Linux systems. Attackers may exploit web servers to maintain persistence on a compromised system,
+often resulting in atypical file creations. As file creations from web server parent processes is common, the
+"new_terms" rule type approach helps to identify deviations from normal behavior.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual File Creation via Web Server"
+risk_score = 21
+rule_id = "9ab15ca6-be79-4718-bae6-5978a3ac6a46"
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "Domain: Web",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Persistence",
+  "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:file and host.os.type:linux and event.action:(creation or rename) and (
+  process.name: (
+    "nginx" or "apache2" or "httpd" or "caddy" or "lighttpd" or "httpd.worker" or "httpd-worker" or "httpd-prefork" or
+    "php-cgi" or "php-fcgi" or "php-cgi.cagefs" or "frankenphp" or "lshttpd" or "litespeed" or "openlitespeed" or
+    "fcgiwrap" or "uwsgi" or "daphne" or "uvicorn" or "hypercorn" or "granian" or "waitress-serve" or "flask" or
+    "puma" or "unicorn" or "unicorn_rails" or "thin" or "rackup" or "mongrel_rails" or "starman" or "plackup" or
+    "twiggy" or "hypnotoad" or "starlet" or "unitd" or "unitd-debug" or php-fpm* or lsphp* or gunicorn* or *.cgi or *.fcgi
+  ) or
+  (process.name: "java" and file.extension: ("jsp" or "jspx" or "jspf" or "tag" or "tagx" or "war" or "ear")) or
+  (process.name: ("node" or "nodejs") and file.extension: ("js" or "mjs" or "cjs" or "ts" or "mts" or "cts")) or
+  (process.name: "dotnet" and file.extension: ("cshtml" or "razor")) or
+  (process.name: (mono* or xsp* or mod-mono-server* or fastcgi-mono-server*) and file.extension: ("asp" or "aspx" or "ashx" or "asmx" or "ascx" or "cshtml")) or
+  (process.name: python* and file.extension: ("wsgi" or "cgi" or "fcgi")) or
+  (process.name: ruby* and file.extension: ("erb" or "ru")) or
+  (process.name: perl* and file.extension: ("cgi" or "fcgi" or "psgi")) or
+  (process.name: lua* and file.extension: ("lua" or "luac"))
+) and
+file.path:(
+  /home/*/* or /var/www/* or /srv/www/* or /srv/http/* or /usr/share/nginx/* or /var/lib/nginx/* or
+  /usr/share/caddy/* or /usr/local/lsws/* or /opt/bitnami/* or */sites/*/files/* or /opt/easyengine/* or
+  */wp-content/* or */httpdocs/* or */httpsdocs/* or */htdocs/* or */wwwroot/* or */webroot/* or */cgi-bin/* or
+  */upload/* or */uploads/* or */images/* or */media/* or */userfiles/* or */attachments/* or
+  /usr/share/webapps/* or /usr/share/zabbix/* or /usr/share/phpmyadmin/* or /usr/share/phpMyAdmin/* or
+  /var/lib/roundcube/* or /usr/share/cacti/* or /usr/share/nagios* or /var/lib/tomcat* or /usr/share/tomcat* or
+  /usr/local/tomcat/* or /opt/tomcat* or /var/lib/jetty* or /var/lib/jetty* or /usr/share/jetty* or
+  /usr/local/cpanel/* or /usr/local/psa* or /opt/psa/admin/* or /opt/psa/admin/* or /usr/share/webmin/* or
+  /usr/libexec/webmin/* or /usr/local/nginx/* or  /usr/local/apache* or /usr/sap/* or /opt/rh/* or
+  */public_html/* or */private_html/* or */public/* or */private/* or */deployments/* or */autodeploy/* or
+  */dropins/* or */installedApps/* or /srv/caddy/* or /usr/local/openresty/* or */fileadmin/* or */custom_apps/* or
+  */vhost* or /opt/apache-tomcat* or /opt/jetty* or /usr/local/jetty* or */wildfly*/* or */jboss*/* or */glassfish/* or
+  */user_projects/domains/* or */resin*/webapps/* or */installedApps/*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["file.path", "host.id", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
