@@ -2,7 +2,7 @@
 creation_date = "2021/01/04"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/07/08"
 
 [rule]
 author = ["Elastic", "Willem D'Haese"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID High Risk Sign-in
 
-This rule detects high-risk sign-ins in Microsoft Entra ID as identified by Identity Protection. These sign-ins are flagged with a risk level of `high` during the authentication process, indicating a strong likelihood of compromise based on Microsoft’s machine learning and heuristics. This alert is valuable for identifying accounts under active attack or compromise using valid credentials.
+This rule detects high-risk sign-ins in Microsoft Entra ID as identified by Identity Protection. These sign-ins are flagged with a risk level of `high` during the authentication process, indicating a strong likelihood of compromise based on Microsoft's machine learning and heuristics. This alert is valuable for identifying accounts under active attack or compromise using valid credentials.
 
 ### Possible investigation steps
 
@@ -77,7 +77,9 @@ data_stream.dataset:azure.signinlogs and
   (
     azure.signinlogs.properties.risk_level_during_signin:high or
     azure.signinlogs.properties.risk_level_aggregated:high
-  )
+  ) and
+  not (event.outcome:failure and azure.signinlogs.properties.risk_level_aggregated:none and azure.signinlogs.properties.risk_state:none) and
+  not azure.signinlogs.properties.risk_state:(dismissed or confirmedSafe)
 '''
 
 
@@ -97,4 +99,3 @@ reference = "https://attack.mitre.org/techniques/T1078/004/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
