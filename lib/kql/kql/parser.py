@@ -177,11 +177,7 @@ class BaseKqlParser(Interpreter):
         self.scoped_field = None
 
     def resolve_nested_path(self, dotted_path):
-        """Resolve a (possibly nesting-relative) field path to its absolute dotted path.
-
-        Inside a `nested:{ ... }` block, field references are relative to the enclosing
-        nested field, but the mapping schema is keyed by absolute dotted paths.
-        """
+        """Resolve a nesting-relative field path to its absolute dotted path."""
         if self.nested_path:
             return ".".join(self.nested_path) + "." + dotted_path
         return dotted_path

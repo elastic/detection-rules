@@ -252,6 +252,19 @@ class ParserTests(unittest.TestCase):
         with self.assertRaisesRegex(kql.KqlParseError, "Unknown field"):
             kql.parse("top:{ bogus:1 }", schema=schema)
 
+    def test_get_field_names_resolves_nested_paths(self):
+        """required_fields-style extraction must use absolute paths inside nested queries."""
+        self.assertEqual(
+            kql.get_field_names("email.attachments:{ file.extension: exe }"),
+            ["email.attachments", "email.attachments.file.extension"],
+        )
+        self.assertEqual(
+            kql.get_field_names("a:1 and top:{ b:2 and middle:{ c:true } }"),
+            ["a", "top", "top.b", "top.middle", "top.middle.c"],
+        )
+        # non-nested queries are unchanged
+        self.assertEqual(kql.get_field_names("host.name: foo and user.id: 1"), ["host.name", "user.id"])
+
     def test_triple_not_optimization(self):
         """Test that triple NOT optimizes correctly: not(not(not(x))) = not(x)."""
         # Triple NOT should optimize to single NOT
