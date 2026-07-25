@@ -1,13 +1,16 @@
 [metadata]
 creation_date = "2025/12/31"
 maturity = "production"
-updated_date = "2025/12/31"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/07/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects multiple Elastic Defend EDR alerts originating from the same process tree, indicating coordinated malicious activity.
-Analysts can use this to prioritize triage and response, as these hosts are more likely to be compromised.
+Detects multiple Elastic Defend alerts on one host when at least two alerting descendant processes share an ancestor process
+that also generated an alert in the same lookback. Alert diversity is evaluated within each qualifying branch, overlapping
+anchors are consolidated into one host alert, and the complete alert burst is retained as summarized host context.
 """
 from = "now-9m"
 interval = "8m"
@@ -26,43 +29,107 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-endpoint.alerts-*
-
-// process.Ext.ancestry is an array of all unique process IDs ancestors of the alert actor process ID
-| where event.code in ("malicious_file", "memory_signature", "shellcode_thread", "behavior") and
-        agent.id is not null and not rule.name in ("Multi.EICAR.Not-a-virus") and process.Ext.ancestry is not null
-
-// aggregate alerts by process.Ext.ancestry and agent.id
-| stats Esql.alerts_count = COUNT(*),
-        Esql.rule_name_distinct_count = COUNT_DISTINCT(rule.name),
-        Esql.event_code_distinct_count = COUNT_DISTINCT(event.code),
-        Esql.process_id_distinct_count = COUNT_DISTINCT(process.entity_id),
-        Esql.message_values = VALUES(message),
-        Esql.user_name_values = VALUES(user.name),
-        Esql.threat_tactic_name_values = VALUES(threat.tactic.name),
-        Esql.threat_technique_name_values = VALUES(threat.technique.name),
-        Esql.process_command_line_values = VALUES(process.command_line),
-        Esql.process_parent_executable_values = values(process.parent.executable),
-        Esql.file_path_values = VALUES(file.path),
-        Esql.file_hash_sha256_values = VALUES(file.hash.sha256),
-        Esql.process_hash_sha256_values = VALUES(process.hash.sha256),
-        Esql.dns_question_name_values = VALUES(dns.question.name) by process.Ext.ancestry, agent.id
-
-// filter for at least 3 unique process IDs and 2 or more alert types or rule names.
-| where Esql.process_id_distinct_count >= 3 and (Esql.rule_name_distinct_count >= 2 or Esql.event_code_distinct_count >= 2)
-
-// keep unique values
-| stats Esql.alert_names = values(Esql.message_values),
-        Esql.alerts_process_cmdline_values = VALUES(Esql.process_command_line_values),
-        Esql.alerts_user_names = VALUES(Esql.user_name_values),
-        Esql.alerts_mitre_tactics = values(Esql.threat_tactic_name_values),
-        Esql.alerts_mitre_techniques = VALUES(Esql.threat_technique_name_values),
-        Esql.alerts_process_parent_executable = values(Esql.process_parent_executable_values),
-        Esql.alerts_file_paths = VALUES(Esql.file_path_values),
-        Esql.alerts_file_hash_sha256 = VALUES(Esql.file_hash_sha256_values),
-        Esql.alerts_process_hash_sha256 = VALUES(Esql.process_hash_sha256_values),
-        Esql.alerts_dns_question_names = VALUES(Esql.dns_question_name_values) by agent.id
-| keep Esql.*, agent.id
+FROM logs-endpoint.alerts-*
+| WHERE event.code IN ("malicious_file", "memory_signature", "shellcode_thread", "behavior")
+    AND agent.id IS NOT NULL
+    AND host.id IS NOT NULL
+    AND (rule.name IS NULL OR rule.name NOT IN ("Multi.EICAR.Not-a-virus"))
+| EVAL Esql.has_process_entity = process.entity_id IS NOT NULL,
+       Esql.has_ancestry = process.Ext.ancestry IS NOT NULL
+| INLINE STATS
+    Esql.alert_actor_ids = VALUES(process.entity_id),
+    Esql.alerts_count = COUNT(*),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.first_ingested = MIN(event.ingested),
+    Esql.last_ingested = MAX(event.ingested),
+    Esql.alerts_with_process_entity_count = COUNT(CASE(Esql.has_process_entity, 1, NULL)),
+    Esql.alerts_with_ancestry_count = COUNT(CASE(Esql.has_ancestry, 1, NULL)),
+    Esql.event_code_values = VALUES(event.code),
+    Esql.rule_name_values = VALUES(rule.name),
+    Esql.host_name_values = VALUES(host.name)
+  BY agent.id, host.id
+| EVAL Esql.alerting_ancestor_ids = MV_INTERSECTION(process.Ext.ancestry, Esql.alert_actor_ids)
+| WHERE process.entity_id IS NOT NULL AND MV_COUNT(Esql.alerting_ancestor_ids) > 0
+| MV_EXPAND Esql.alerting_ancestor_ids
+| EVAL Esql.process_link = CONCAT(process.entity_id, " -> ", Esql.alerting_ancestor_ids)
+| STATS
+    Esql.anchor_first_seen = MIN(@timestamp),
+    Esql.anchor_last_seen = MAX(@timestamp),
+    Esql.anchor_first_ingested = MIN(event.ingested),
+    Esql.anchor_last_ingested = MAX(event.ingested),
+    Esql.anchor_descendant_ids = VALUES(process.entity_id),
+    Esql.anchor_process_links = VALUES(Esql.process_link),
+    Esql.anchor_event_code_values = VALUES(event.code),
+    Esql.anchor_rule_name_values = VALUES(rule.name),
+    Esql.anchor_process_parent_entity_id_values = VALUES(process.parent.entity_id),
+    Esql.anchor_process_executable_values = VALUES(process.executable),
+    Esql.anchor_process_parent_executable_values = VALUES(process.parent.executable),
+    Esql.anchor_process_command_line_values = VALUES(process.command_line),
+    Esql.anchor_process_hash_sha256_values = VALUES(process.hash.sha256),
+    Esql.anchor_file_path_values = VALUES(file.path),
+    Esql.anchor_file_hash_sha256_values = VALUES(file.hash.sha256),
+    Esql.anchor_dll_path_values = VALUES(dll.path),
+    Esql.anchor_dll_hash_sha256_values = VALUES(dll.hash.sha256),
+    Esql.anchor_user_name_values = VALUES(user.name),
+    Esql.alerts_count = MAX(Esql.alerts_count),
+    Esql.first_seen = MIN(Esql.first_seen),
+    Esql.last_seen = MAX(Esql.last_seen),
+    Esql.first_ingested = MIN(Esql.first_ingested),
+    Esql.last_ingested = MAX(Esql.last_ingested),
+    Esql.alerts_with_process_entity_count = MAX(Esql.alerts_with_process_entity_count),
+    Esql.alerts_with_ancestry_count = MAX(Esql.alerts_with_ancestry_count),
+    Esql.process_entity_id_values = VALUES(Esql.alert_actor_ids),
+    Esql.event_code_values = VALUES(Esql.event_code_values),
+    Esql.rule_name_values = VALUES(Esql.rule_name_values),
+    Esql.host_name_values = VALUES(Esql.host_name_values)
+  BY agent.id, host.id, Esql.alerting_ancestor_ids
+| EVAL Esql.anchor_process_count = MV_COUNT(Esql.anchor_descendant_ids),
+       Esql.anchor_rule_name_count = MV_COUNT(Esql.anchor_rule_name_values),
+       Esql.anchor_event_code_count = MV_COUNT(Esql.anchor_event_code_values)
+| WHERE Esql.anchor_process_count >= 2
+    AND (Esql.anchor_rule_name_count >= 3 OR Esql.anchor_event_code_count >= 2)
+| STATS
+    Esql.qualifying_anchor_ids = VALUES(Esql.alerting_ancestor_ids),
+    Esql.linked_descendant_ids = VALUES(Esql.anchor_descendant_ids),
+    Esql.process_links = VALUES(Esql.anchor_process_links),
+    Esql.linked_event_code_values = VALUES(Esql.anchor_event_code_values),
+    Esql.linked_rule_name_values = VALUES(Esql.anchor_rule_name_values),
+    Esql.linked_process_parent_entity_id_values = VALUES(Esql.anchor_process_parent_entity_id_values),
+    Esql.linked_process_executable_values = VALUES(Esql.anchor_process_executable_values),
+    Esql.linked_process_parent_executable_values = VALUES(Esql.anchor_process_parent_executable_values),
+    Esql.linked_process_command_line_values = VALUES(Esql.anchor_process_command_line_values),
+    Esql.linked_process_hash_sha256_values = VALUES(Esql.anchor_process_hash_sha256_values),
+    Esql.linked_file_path_values = VALUES(Esql.anchor_file_path_values),
+    Esql.linked_file_hash_sha256_values = VALUES(Esql.anchor_file_hash_sha256_values),
+    Esql.linked_dll_path_values = VALUES(Esql.anchor_dll_path_values),
+    Esql.linked_dll_hash_sha256_values = VALUES(Esql.anchor_dll_hash_sha256_values),
+    Esql.linked_user_name_values = VALUES(Esql.anchor_user_name_values),
+    Esql.linked_first_seen = MIN(Esql.anchor_first_seen),
+    Esql.linked_last_seen = MAX(Esql.anchor_last_seen),
+    Esql.linked_first_ingested = MIN(Esql.anchor_first_ingested),
+    Esql.linked_last_ingested = MAX(Esql.anchor_last_ingested),
+    Esql.alerts_count = MAX(Esql.alerts_count),
+    Esql.first_seen = MIN(Esql.first_seen),
+    Esql.last_seen = MAX(Esql.last_seen),
+    Esql.first_ingested = MIN(Esql.first_ingested),
+    Esql.last_ingested = MAX(Esql.last_ingested),
+    Esql.alerts_with_process_entity_count = MAX(Esql.alerts_with_process_entity_count),
+    Esql.alerts_with_ancestry_count = MAX(Esql.alerts_with_ancestry_count),
+    Esql.process_entity_id_values = VALUES(Esql.process_entity_id_values),
+    Esql.event_code_values = VALUES(Esql.event_code_values),
+    Esql.rule_name_values = VALUES(Esql.rule_name_values),
+    Esql.host_name_values = VALUES(Esql.host_name_values)
+  BY agent.id, host.id
+| EVAL Esql.qualifying_anchor_count = MV_COUNT(Esql.qualifying_anchor_ids),
+       Esql.linked_process_count = MV_COUNT(Esql.linked_descendant_ids),
+       Esql.linked_rule_name_count = MV_COUNT(Esql.linked_rule_name_values),
+       Esql.linked_event_code_count = MV_COUNT(Esql.linked_event_code_values),
+       Esql.process_id_distinct_count = MV_COUNT(Esql.process_entity_id_values),
+       Esql.rule_name_distinct_count = MV_COUNT(Esql.rule_name_values),
+       Esql.event_code_distinct_count = MV_COUNT(Esql.event_code_values),
+       host.name = MV_FIRST(Esql.host_name_values)
+| KEEP agent.id, host.id, host.name, Esql.*
 '''
 note = """## Triage and analysis
 
@@ -71,28 +138,43 @@ note = """## Triage and analysis
 
 ### Investigating Multiple Elastic Defend Alerts from a Single Process Tree
 
-Detects multiple Elastic Defend EDR alerts originating from the same process tree, indicating coordinated malicious activity.
+This rule requires at least one alerting ancestor shared by two or more alerting descendant processes. Each shared branch
+must contain at least three named rules or two Endpoint alert event codes. Nested qualifying anchors are consolidated into
+one host alert, while all Endpoint alerts in the lookback are retained as summarized host context.
 
 ### Possible investigation steps
 
-- Review the alert details to identify the specific host involved and the different alerts that triggered.
-- Examine the timeline of the alerts to understand the sequence of events and determine the root cause.
-- Correlate the alert data with other logs and telemetry from the host, such as process creation, network connections, and file modifications, to gather additional context.
-- Check for any indicators of compromise (IOCs) associated with the alerts, such as suspicious IP addresses, domains, or file hashes, and search for these across the network.
-- Assess the impact and scope of the potential compromise by determining if other hosts or systems have similar alerts or related activity.
+- Review `host.id`, `host.name`, and `agent.id`. Compare `Esql.first_seen` and `Esql.last_seen` with
+  `Esql.first_ingested` and `Esql.last_ingested`, then review `Esql.alerts_count`, `Esql.rule_name_values`, and
+  `Esql.event_code_values`. These fields summarize every scoped Endpoint alert on the host, not only proven branch members.
+- Review `Esql.qualifying_anchor_ids`, `Esql.linked_descendant_ids`, and `Esql.process_links`. Each process-link value
+  records a descendant-to-qualifying-ancestor relationship. Multiple qualifying anchors can describe nested parts of one
+  branch and are intentionally consolidated into one host alert.
+- Recover the source Endpoint alerts over the ingestion range and process events over the activity range. The
+  `Esql.linked_*_values` fields come only from rows attached to qualifying anchors, but parallel value arrays remain
+  unpaired. Recover source events before associating a command line, hash, path, parent, or user with a particular process.
+- Prioritize shellcode, memory-signature, and malicious-file event codes, then examine
+  `Esql.linked_process_command_line_values`, `Esql.linked_process_executable_values`, `Esql.linked_file_path_values`,
+  `Esql.linked_dll_path_values`, and the linked SHA-256 fields for malicious execution or injection evidence.
+- If the local evidence remains suspicious, search the hashes, paths, process identities, users, and linked alert names
+  across other hosts and review available DNS and network telemetry around the recovered source events. Missing network
+  telemetry is unresolved, not benign.
+- Escalate when the linked branch and alert types corroborate malicious execution. Close only when the complete burst maps
+  to recognized authorized testing and no unexplained alert or artifact remains. Preserve evidence and escalate when the
+  branch, context, or telemetry is mixed or incomplete.
 
 ### False positive analysis
 
-- Security tools running on the host might generate multiple alerts from same process tree.
-- Automated scripts or batch processes can mimic adversarial behavior. Analyze and whitelist these processes if they are verified as non-threatening.
-- Frequent alerts from development or testing environments can be misleading. Consider excluding these environments from the rule or applying a different risk score.
+- Authorized malware detonations, red-team exercises, and endpoint-protection validation can generate multiple related
+  alerts. Confirm the test scope, operator, host, and time window before creating a narrow exception.
+- Do not exclude a host or process solely because it belongs to a development environment or uses a trusted signer; require
+  the linked process activity and every high-confidence alert to match the expected test or security workflow.
 
 ### Response and remediation
 
-- Isolate the affected host from the network immediately to prevent further lateral movement by the adversary.
-- Conduct a thorough forensic analysis of the host to identify the specific vulnerabilities exploited and gather evidence of the attack phases involved.
-- Remove any identified malicious software or unauthorized access tools from the host, ensuring all persistence mechanisms are eradicated.
-- Apply security patches and updates to the host to address any exploited vulnerabilities and prevent similar attacks.
-- Restore the host from a known good backup if necessary, ensuring that the backup is free from compromise.
-- Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
-- Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""
+- Preserve the source alerts, process lineage, command lines, hashes, file paths, and memory artifacts before remediation.
+- If malicious activity is confirmed, isolate the affected host, terminate malicious processes, and quarantine associated
+  files according to the organization's incident-response procedures.
+- Identify the initial access path, remove persistence, rotate exposed credentials, and search for the same artifacts and
+  behaviors on other hosts.
+- Reimage or restore the host when integrity cannot be established, then monitor for recurrence after recovery."""
