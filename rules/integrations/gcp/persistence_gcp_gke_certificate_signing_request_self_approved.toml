@@ -1,0 +1,172 @@
+[metadata]
+creation_date = "2026/07/10"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when the same non-system GKE identity creates a CertificateSigningRequest (CSR) and then approves that same CSR
+within five minutes, consistent with self-approval abuse. Attackers who gain CSR create and approval RBAC
+can submit a certificate request and approve it themselves to obtain a long-lived client certificate without involving
+cluster operators, a pattern documented in Kubernetes persistence research and adversary emulation.
+"""
+false_positives = [
+    """
+    Automation that both submits and approves CSRs in one workflow may trigger this rule. Baseline cert-manager or
+    internal PKI pipelines and tune exclusions for known service accounts.
+    """,
+]
+from = "now-11m"
+language = "esql"
+license = "Elastic License v2"
+name = "GKE Certificate Signing Request Self-Approved"
+note = """## Triage and analysis
+
+### Investigating GKE Certificate Signing Request Self-Approved
+
+This rule groups CSR create and approval events by `client.user.email` and normalized CSR name (`Esql.csr_name`).
+GKE logs approval on subresource paths (`.../csr-name/approval`), so the query strips `/approval` suffixes before
+correlating. An alert means the same identity both submitted and approved the same CSR within five minutes, a strong
+indicator of manual self-approval rather than normal `system:gcp-controller-manager` auto-approval of node
+certificates.
+
+### Possible investigation steps
+
+- Review `Esql.event_action_values` for the sequence of create followed by `approval.update`.
+- Inspect `gcp.audit.request.spec.signerName` and decode `gcp.audit.request.spec.request` on create events for the
+  requested identity.
+- Validate whether the actor should hold both CSR create and approval permissions.
+- Hunt for subsequent API activity authenticated as the minted certificate identity.
+
+### False positive analysis
+
+- cert-manager or internal PKI automation that creates and approves CSRs under the same service account in one workflow.
+- GitOps or bootstrap tooling that submits and signs CSRs programmatically. Baseline known automation and tune exclusions
+  for those principals.
+- Two unrelated CSR events from the same user within five minutes should not match because the query requires at least
+  one create and one approval-class action on the same normalized CSR name.
+
+### Related rules
+
+- GKE Certificate Signing Request API Client Signer Requested - 1e344fba-a2f7-462b-aaec-d6c8f80d5a28
+- GKE Certificate Signing Request Privileged Identity Requested - 4159bec9-76ad-4cdc-a797-4a8572073bbe
+- GKE Client Certificate Signing Request Created or Approved - ec67ab57-945a-4edb-84f8-1d7a51f46544
+
+### Response and remediation
+
+- Revoke or deny the CSR, remove approval RBAC from untrusted principals, and rotate cluster signing credentials if
+  abuse is confirmed.
+
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/",
+    "https://kubernetes.io/docs/concepts/security/rbac-good-practices/",
+    "https://stratus-red-team.cloud/attack-techniques/kubernetes/k8s.persistence.create-client-certificate/",
+    "https://raesene.github.io/blog/2022/12/21/Kubernetes-persistence-with-Tocan-and-Teisteanas/",
+    "https://www.aquasec.com/blog/kubernetes-rbac-privilige-escalation/",
+]
+risk_score = 73
+rule_id = "e155e658-3dcd-4d27-a4e5-1d8da6704b0e"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp.audit-* metadata _id, _index, _version
+| where data_stream.dataset == "gcp.audit"
+    and service.name == "k8s.io"
+    and event.outcome == "success"
+    and event.action in (
+      "io.k8s.certificates.v1.certificatesigningrequests.create",
+      "io.k8s.certificates.v1.certificatesigningrequests.approval.update"
+    )
+    and client.user.email is not null
+    and gcp.audit.resource_name is not null
+    and not client.user.email in (
+      "system:gcp-controller-manager",
+      "system:kube-controller-manager",
+      "system:serviceaccount:kube-system:certificate-controller",
+      "kubelet-bootstrap",
+      "kubelet-nodepool-bootstrap"
+    )
+    and not client.user.email like "system:node:*"
+| eval Esql.csr_name = replace(gcp.audit.resource_name, "/approval", "")
+| stats
+    Esql.create_count = count(*) where event.action == "io.k8s.certificates.v1.certificatesigningrequests.create",
+    Esql.approval_count = count(*) where event.action == "io.k8s.certificates.v1.certificatesigningrequests.approval.update",
+    Esql.event_action_values = values(event.action),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.data_stream_namespace_values = values(data_stream.namespace)
+  by client.user.email, Esql.csr_name
+| where Esql.create_count >= 1
+    and Esql.approval_count >= 1
+    and date_diff("seconds", Esql.timestamp_first_seen, Esql.timestamp_last_seen) <= 300
+| keep client.user.email, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "client.user.email",
+    "Esql.csr_name",
+    "Esql.create_count",
+    "Esql.approval_count",
+    "Esql.event_action_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.data_stream_namespace_values",
+]

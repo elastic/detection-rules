@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2026/07/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an Amazon Bedrock AgentCore execution role (an AssumedRole identity whose role name begins with
+"AgentCore-" or contains "BedrockAgentCore") making an AWS API call to a service it has not previously called. AgentCore runtimes normally interact
+only with Bedrock inference, AgentCore data-plane, and observability services (CloudWatch Logs, X-Ray, CloudWatch
+metrics), so an execution role suddenly calling STS, EC2, IAM,
+Secrets Manager, or other services is a strong indicator that the role's temporary credentials were exfiltrated from
+the agent's microVM (for example, via the Code Interpreter instance-metadata-service credential theft) and are being
+used outside the runtime for reconnaissance, privilege escalation, or lateral movement. Because the stolen credentials
+are recorded in CloudTrail under the execution role's own identity, the anomalous service usage, not the identity, is
+the detectable signal.
+"""
+false_positives = [
+    """
+    An AgentCore agent that legitimately integrates with additional AWS services will produce a first-time service call
+    for its execution role. Verify the role in
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn", the action in "event.action" and "event.provider",
+    and the origin in "source.ip" and "source.as.organization.name", and confirm the activity matches the agent's
+    intended design. Known agent integrations can be excluded after validation.
+    """,
+]
+from = "now-9m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock AgentCore Execution Role Used Outside Its Runtime"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock AgentCore Execution Role Used Outside Its Runtime
+
+AgentCore runtime and tool execution roles are assumed by the AgentCore service and normally only call Bedrock inference, AgentCore data-plane, and observability (CloudWatch Logs, X-Ray, CloudWatch metrics) APIs, all of which this rule excludes. Public research has shown the Code Interpreter microVM exposes the execution role's temporary credentials through the instance metadata service (IMDS), and that a string-filter bypass allows exfiltrating them outside the sandbox. Once stolen, the credentials are used to call other AWS services, but those calls are logged in CloudTrail under the execution role's identity rather than the attacker's, creating an attribution gap. This rule flags the first time an AgentCore execution role ("AgentCore-*" or "*BedrockAgentCore*") calls a non-Bedrock service, which is the point at which exfiltrated credentials are put to use.
+
+### Possible investigation steps
+
+- Identify the execution role in "aws.cloudtrail.user_identity.session_context.session_issuer.arn" and map it to its AgentCore runtime, gateway, or code interpreter.
+- Review "event.provider" and "event.action" for reconnaissance (sts:GetCallerIdentity, ec2:Describe*, iam:List*/Get*), privilege escalation (sts:AssumeRole, iam:Put*/Attach*), or data access, and assess what the role can reach.
+- Compare "source.ip", "source.as.organization.name", and "user_agent.original" against the AgentCore service origin; calls from an external network strongly indicate exfiltrated credentials.
+- Determine whether the agent design legitimately added this integration, or whether the activity is unexpected for the role.
+
+### False positive analysis
+
+- A newly designed agent integration produces a first-time non-Bedrock call for its execution role. Confirm the integration is approved and exclude the role and service after validation.
+
+### Response and remediation
+
+- If unauthorized, revoke the execution role's active sessions, rotate any associated secrets, and review every action the role took since the first anomalous call.
+- Restrict the execution role to least privilege, prefer VPC network mode for code interpreters, and ensure the metadata service requires session tokens.
+"""
+references = [
+    "https://sonraisecurity.com/blog/sandboxed-to-compromised-new-research-exposes-credential-exfiltration-paths-in-aws-code-interpreters/",
+    "https://unit42.paloaltonetworks.com/bypass-of-aws-sandbox-network-isolation-mode/",
+]
+risk_score = 73
+rule_id = "ee066db8-4f2f-42d3-8ebd-ea25cd9bdc73"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details. The AgentCore execution-role name prefix may differ in your environment; tune the role-name filter accordingly."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and aws.cloudtrail.user_identity.type: "AssumedRole"
+    and aws.cloudtrail.user_identity.session_context.session_issuer.arn: (*role/AgentCore-* or *role/*BedrockAgentCore*)
+    and event.outcome: "success"
+    and not event.provider: (
+        "bedrock.amazonaws.com" or
+        "bedrock-runtime.amazonaws.com" or
+        "bedrock-agentcore.amazonaws.com" or
+        "bedrock-agentcore-control.amazonaws.com" or
+        "logs.amazonaws.com" or
+        "xray.amazonaws.com" or
+        "monitoring.amazonaws.com" or
+        "ecr.amazonaws.com" or
+        "ecr-public.amazonaws.com"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+[[rule.threat.technique.subtechnique]]
+id = "T1552.005"
+name = "Cloud Instance Metadata API"
+reference = "https://attack.mitre.org/techniques/T1552/005/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.provider",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.session_context.session_issuer.arn", "event.provider"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

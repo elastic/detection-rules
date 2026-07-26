@@ -69,7 +69,7 @@ class EndgameSchema(eql.Schema):
         self.endgame_schema = endgame_schema
         eql.Schema.__init__(self, {}, allow_any=True, allow_generic=False, allow_missing=False)  # type: ignore[reportUnknownMemberType]
 
-    def get_event_type_hint(self, _: str, path: list[str]) -> None | tuple[Any, None]:  # type: ignore[reportIncompatibleMethodOverride]
+    def get_event_type_hint(self, _: str, path: list[str]) -> tuple[Any, None] | None:  # type: ignore[reportIncompatibleMethodOverride]
         from kql.parser import elasticsearch_type_family  # type: ignore[reportMissingTypeStubs]
 
         dotted = ".".join(str(p) for p in path)
