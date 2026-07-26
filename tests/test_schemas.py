@@ -853,7 +853,7 @@ class TestESQLValidation(unittest.TestCase):
         # These cases exercise local AST/semantic validation (KEEP/METADATA checks). Routing them
         # through remote validation is possible, but the explicit goal of these is to use local vs remote,
         # so we patch the environment variable to force local validation regardless of other settings.
-        patcher = unittest.mock.patch.dict(os.environ, {"DR_REMOTE_ESQL_VALIDATION": ""})
+        patcher = unittest.mock.patch.dict(os.environ, {"DR_ESQL_VALIDATION": ""})
         patcher.start()
         self.addCleanup(patcher.stop)
 

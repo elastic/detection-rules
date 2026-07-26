@@ -68,7 +68,6 @@ class TestESQLRemoteValidation(unittest.TestCase):
             unittest.mock.patch(
                 "detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect
             ),
-            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
             unittest.mock.patch(
                 "detection_rules.rule_validators.execute_query_against_indices",
                 return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
@@ -90,9 +89,7 @@ class TestESQLRemoteValidation(unittest.TestCase):
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
-@unittest.skipIf(
-    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
-)
+@unittest.skipIf(not getdefault("esql_validation")(), "Skipping ES|QL validation because esql_validation is False")
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
 
@@ -350,10 +347,13 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
-        # This is a type mismatch error due to Elastic Container project including the Endpoint integration by default.
-        # Otherwise one would expect an EsqlSchemaError due to the field not being present in the alerts index.
-        with pytest.raises(EsqlTypeMismatchError):
-            _ = RuleCollection().load_dict(production_rule)
+        # Remote validation used to raise EsqlTypeMismatchError only because the Elastic
+        # Container test stack shipped the Endpoint integration by default. Local schemas do
+        # not map file.Ext.entry_modified on logs-endpoint.alerts-* (no integration is set),
+        # and the field is referenced as a STATS grouping, which the offline analyzer treats
+        # as pipeline-defined — so the rule loads. Unmapped fields referenced outside a
+        # grouping still raise EsqlSchemaError (see test_esql_filtered_keep).
+        _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_filtered_keep(self):
         """Test an ESQL rule's schema validation."""

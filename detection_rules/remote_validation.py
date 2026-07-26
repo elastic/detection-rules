@@ -190,7 +190,9 @@ class RemoteValidator(RemoteConnector):
         if index_replacement:
             try:
                 validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                response = validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
+                # Local validator returns a plain dict already shaped like the
+                # ES|QL HTTP API body ({"columns": [...]}); no .body unwrap below.
+                return validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
             except Exception as exc:
                 if isinstance(exc, elasticsearch.BadRequestError):
                     raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
