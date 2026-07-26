@@ -568,7 +568,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # noqa: PLR0913
         self,
         name: definitions.RuleName,
         is_elastic_rule: bool,
@@ -1051,7 +1051,7 @@ class ESQLRuleData(QueryRuleData):
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.15"}})
 
     @validates_schema
-    def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
+    def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:  # noqa: PLR0912
         """Custom validation for query rule type and subclasses."""
         import esql  # local import: avoid cycle with rule_validators at module import
 
@@ -1075,20 +1075,20 @@ class ESQLRuleData(QueryRuleData):
                 if not esql.is_aggregate_query(tree):
                     metadata = set(esql.get_metadata_fields(tree))
                     if not {"_id", "_version", "_index"}.issubset(metadata):
-                        raise esql.EsqlSemanticError(
+                        raise esql.EsqlSemanticError(  # noqa: TRY301
                             f"Rule: {data['name']} contains a non-aggregate query without metadata fields "
                             f"'_id', '_version', and '_index' -> Add 'metadata _id, _version, _index' "
                             f"to the from command or add an aggregate function."
                         )
             elif not bypass_keep:
                 if not esql.has_keep(tree):
-                    raise esql.EsqlSemanticError(
+                    raise esql.EsqlSemanticError(  # noqa: TRY301
                         f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
                     )
                 if not esql.is_aggregate_query(tree):
                     keep_columns = {c.strip() for c in esql.get_keep_columns(tree)}
                     if "*" not in keep_columns and not {"_id", "_version", "_index"}.issubset(keep_columns):
-                        raise esql.EsqlSemanticError(
+                        raise esql.EsqlSemanticError(  # noqa: TRY301
                             f"Rule: {data['name']} contains a keep clause without metadata fields "
                             f"'_id', '_version', and '_index' -> Add '_id', '_version', '_index' to the keep command."
                         )
@@ -1760,17 +1760,17 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
         for integration in rule_integrations:
-            integration = normalize_dataset_package(integration)
+            package = normalize_dataset_package(integration)
             ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             if isinstance(data, MachineLearningRuleData):
-                packaged_integrations.append({"package": integration, "integration": None})
-            elif integration in definitions.NON_DATASET_PACKAGES:
-                if _metadata_package_row_needed(integration, datasets):
-                    packaged_integrations.append({"package": integration, "integration": None})
-            elif integration.lower() in ml_packages_lower or (
-                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
+                packaged_integrations.append({"package": package, "integration": None})
+            elif package in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(package, datasets):
+                    packaged_integrations.append({"package": package, "integration": None})
+            elif package.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(package, datasets)
             ):
-                packaged_integrations.append({"package": integration, "integration": None})
+                packaged_integrations.append({"package": package, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 

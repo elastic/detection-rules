@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 
 import pytest
@@ -39,7 +40,7 @@ class TestEsqlOfflineSchemaFailures:
         | WHERE event.code in ("malicious_file", "memory_signature", "shellcode_thread")
         | KEEP host.id, rule.name, event.code, _id, _version, _index
         """
-        with pytest.raises(EsqlUnknownIndexError, match="logs-endpoint.fake"):
+        with pytest.raises(EsqlUnknownIndexError, match=re.escape("logs-endpoint.fake")):
             RuleCollection().load_dict(rule)
 
     def test_unknown_field_raises_schema_error(self) -> None:
@@ -50,7 +51,7 @@ class TestEsqlOfflineSchemaFailures:
         | WHERE totally.made_up.field == "x"
         | KEEP totally.made_up.field, _id, _version, _index
         """
-        with pytest.raises(EsqlSchemaError, match="totally.made_up.field"):
+        with pytest.raises(EsqlSchemaError, match=re.escape("totally.made_up.field")):
             RuleCollection().load_dict(rule)
 
     def test_keep_only_unknown_field_raises_schema_error(self) -> None:
@@ -72,7 +73,7 @@ class TestEsqlOfflineSchemaFailures:
         | WHERE azure.signinlogs.properties.session_id == "abc"
         | KEEP azure.signinlogs.properties.session_id, _id, _version, _index
         """
-        with pytest.raises(EsqlSchemaError, match="azure.signinlogs.properties.session_id"):
+        with pytest.raises(EsqlSchemaError, match=re.escape("azure.signinlogs.properties.session_id")):
             RuleCollection().load_dict(rule)
 
     def test_field_outside_index_stream_raises_schema_error(self) -> None:

@@ -200,16 +200,12 @@ def combine_index_mappings(dest: dict[str, Any], src: dict[str, Any]) -> None:
             # Prefer object shapes over scalars (e.g. ECS keyword vs integration object).
             if src_has_props and not dest_has_props:
                 dest[key] = value
-            elif (
-                dest_has_props
-                and not src_has_props
-                and src_type in _SCALAR_MAPPING_TYPES
-            ):
+            elif dest_has_props and not src_has_props and src_type in _SCALAR_MAPPING_TYPES:
                 # Keep the richer object mapping already present.
                 continue
-            elif src_type in _SCALAR_MAPPING_TYPES and not src_has_props:
-                dest[key] = value
-            elif dest_type in _SCALAR_MAPPING_TYPES and src_has_props:
+            elif (src_type in _SCALAR_MAPPING_TYPES and not src_has_props) or (
+                dest_type in _SCALAR_MAPPING_TYPES and src_has_props
+            ):
                 dest[key] = value
             else:
                 combine_index_mappings(existing, value)
@@ -266,7 +262,7 @@ def prune_mappings_of_unsupported_types(
     return stream_mappings
 
 
-def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
+def prepare_integration_mappings(  # noqa: PLR0913
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
     package_manifests: Any,
@@ -417,7 +413,7 @@ def validate_offline_esql_from_indices(
     return assert_known_esql_indices(indices, index_lookup)
 
 
-def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
+def get_filtered_index_schema(  # noqa: PLR0913
     indices: list[str],
     index_lookup: dict[str, Any],
     ecs_schema: dict[str, Any],
@@ -595,7 +591,7 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
     return ecs_schema
 
 
-def prepare_mappings(  # noqa: PLR0913, PLR0917
+def prepare_mappings(  # noqa: PLR0913
     elastic_client: Elasticsearch,
     indices: list[str],
     event_dataset_integrations: list[EventDataset],
@@ -674,7 +670,7 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
 
     # ES|QL verifies fields against each index in FROM. Merge ECS into every
     # integration test-index mapping so remote validation matches offline
-    # (integration schema ∪ ECS), not integration-only fields.
+    # (integration schema union ECS), not integration-only fields.
     for key, properties in list(index_lookup.items()):
         if key in {"rule-ecs-index", "rule-non-ecs-index"}:
             continue

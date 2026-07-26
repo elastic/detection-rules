@@ -671,7 +671,7 @@ class EQLValidator(QueryValidator):
 
         raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
-    def validate_query_text_with_schema(  # noqa: PLR0913, PLR0917
+    def validate_query_text_with_schema(  # noqa: PLR0913
         self,
         query_text: str,
         schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
@@ -762,17 +762,16 @@ class EQLValidator(QueryValidator):
 
 # Cross-rule caches for offline ES|QL validation (M6).
 _ESQL_SCHEMA_DICT_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
-_ESQL_WARMED = False
+_ESQL_WARM_STATE = {"warmed": False}
 
 
 def _warm_esql_offline_caches() -> None:
     """Load heavy integration/ECS artifacts once per process."""
-    global _ESQL_WARMED
-    if _ESQL_WARMED:
+    if _ESQL_WARM_STATE["warmed"]:
         return
     load_integrations_manifests()
     load_integrations_schemas()
-    _ESQL_WARMED = True
+    _ESQL_WARM_STATE["warmed"] = True
 
 
 class ESQLValidator(QueryValidator):
@@ -791,10 +790,6 @@ class ESQLValidator(QueryValidator):
         unit_test_verbose_level = 1
         if getattr(self, "verbosity", 0) >= unit_test_verbose_level:
             print(f"{getattr(self, 'rule_id', '')}:", val)
-
-    def _ensure_fields(self) -> None:
-        if self.esql_unique_fields is None:
-            self.esql_unique_fields = []
 
     def _parse_tree(self, min_stack_version: str | None = None) -> Any:
         """Parse query with python-esql under the given stack config."""
@@ -841,7 +836,9 @@ class ESQLValidator(QueryValidator):
                 return field["type"]
         return None
 
-    def build_validation_plan(self, data: "QueryRuleData", meta: RuleMeta) -> list[ValidationTarget]:
+    def build_validation_plan(  # noqa: PLR0912, PLR0915
+        self, data: "QueryRuleData", meta: RuleMeta
+    ) -> list[ValidationTarget]:
         """Build offline validation targets across the release-window stack map."""
         _warm_esql_offline_caches()
         targets: list[ValidationTarget] = []
@@ -851,9 +848,7 @@ class ESQLValidator(QueryValidator):
 
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
         if not package_integrations and event_datasets:
-            package_integrations = [
-                {"package": ds.package, "integration": ds.integration} for ds in event_datasets
-            ]
+            package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
 
         _, from_indices = self.get_esql_query_indices(self.query)
         # Infer Fleet packages from FROM patterns when metadata/datasets are absent
@@ -889,9 +884,7 @@ class ESQLValidator(QueryValidator):
                 if cached_schema is not None:
                     combined_by_stack[stack_version] = cached_schema
                     packages_by_stack[stack_version] = {
-                        normalize_dataset_package(str(p["package"]))
-                        for p in package_integrations
-                        if p.get("package")
+                        normalize_dataset_package(str(p["package"])) for p in package_integrations if p.get("package")
                     }
                     continue
 
@@ -959,14 +952,10 @@ class ESQLValidator(QueryValidator):
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
                     raw_schema = ecs.get_schema(ecs_version)
-                    schema_dict = {
-                        k: (v.get("type") if isinstance(v, dict) else v) for k, v in raw_schema.items()
-                    }
+                    schema_dict = {k: (v.get("type") if isinstance(v, dict) else v) for k, v in raw_schema.items()}
                     schema_dict.update(index_fields)
                     _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
-                err_trailer = (
-                    f"stack: {stack_version}, ecs: {ecs_version}\n" f"rule: {data.name} - {data.rule_id}"
-                )
+                err_trailer = f"stack: {stack_version}, ecs: {ecs_version}\nrule: {data.name} - {data.rule_id}"
                 targets.append(
                     ValidationTarget(
                         query_text=self.query,
@@ -979,24 +968,20 @@ class ESQLValidator(QueryValidator):
 
         return targets
 
-    def validate_query_text_with_schema(  # noqa: PLR0913
+    def validate_query_text_with_schema(  # noqa: PLR0911, PLR0912, PLR0913
         self,
         query_text: str,
         schema: Any,
         err_trailer: str,
         min_stack_version: str,
-        beat_types: list[str] | None = None,
-        integration_types: list[str] | None = None,
+        beat_types: list[str] | None = None,  # noqa: ARG002
+        integration_types: list[str] | None = None,  # noqa: ARG002
         tree: Any | None = None,
     ) -> tuple[Exception | None, str | None]:
         """Validate ES|QL query text with python-esql under Schema + ParserConfig."""
         try:
             cfg = set_esql_config(min_stack_version)
-            schema_ctx = (
-                schema
-                if isinstance(schema, esql.Schema)
-                else esql.Schema(schema or {}, allow_missing=False)
-            )
+            schema_ctx = schema if isinstance(schema, esql.Schema) else esql.Schema(schema or {}, allow_missing=False)
             if tree is not None:
                 # Reuse a parse from the same grammar; re-check features + schema.
                 with cfg:
@@ -1007,7 +992,6 @@ class ESQLValidator(QueryValidator):
                 with cfg, schema_ctx:
                     tree = esql.parse_query(query_text)
                 self._parsed_tree = tree
-            return None, None
         except esql.EsqlSyntaxError as exc:
             msg = str(exc)
             if err_trailer:
@@ -1035,6 +1019,8 @@ class ESQLValidator(QueryValidator):
             return DrEsqlSemanticError(msg), None
         except Exception as exc:  # noqa: BLE001
             return exc, None
+        else:
+            return None, None
 
     def validate_columns_index_mapping(
         self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = "", query: str = ""
@@ -1167,7 +1153,7 @@ class ESQLValidator(QueryValidator):
             verbosity=verbosity,
         )
 
-    def remote_validate_rule(  # noqa: PLR0913, PLR0917
+    def remote_validate_rule(  # noqa: PLR0913
         self,
         kibana_client: Kibana,
         elastic_client: Elasticsearch,
