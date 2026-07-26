@@ -159,6 +159,82 @@ def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: s
     return template["template"]["mappings"]["properties"]
 
 
+_SCALAR_MAPPING_TYPES = frozenset(
+    {
+        "keyword",
+        "text",
+        "match_only_text",
+        "wildcard",
+        "constant_keyword",
+        "long",
+        "integer",
+        "short",
+        "byte",
+        "double",
+        "float",
+        "half_float",
+        "scaled_float",
+        "boolean",
+        "date",
+        "date_nanos",
+        "ip",
+        "version",
+        "binary",
+        "geo_point",
+        "geo_shape",
+        "flattened",
+    }
+)
+
+
+def combine_index_mappings(dest: dict[str, Any], src: dict[str, Any]) -> None:
+    """Merge nested index mappings without creating invalid scalar+properties shapes."""
+    for key, value in src.items():
+        existing = dest.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            src_type = value.get("type") if isinstance(value.get("type"), str) else None
+            dest_type = existing.get("type") if isinstance(existing.get("type"), str) else None
+            src_has_props = isinstance(value.get("properties"), dict)
+            dest_has_props = isinstance(existing.get("properties"), dict)
+
+            # Prefer object shapes over scalars (e.g. ECS keyword vs integration object).
+            if src_has_props and not dest_has_props:
+                dest[key] = value
+            elif (
+                dest_has_props
+                and not src_has_props
+                and src_type in _SCALAR_MAPPING_TYPES
+            ):
+                # Keep the richer object mapping already present.
+                continue
+            elif src_type in _SCALAR_MAPPING_TYPES and not src_has_props:
+                dest[key] = value
+            elif dest_type in _SCALAR_MAPPING_TYPES and src_has_props:
+                dest[key] = value
+            else:
+                combine_index_mappings(existing, value)
+        else:
+            dest[key] = value
+
+
+def prune_scalar_fields_with_subfields(mapping: dict[str, Any]) -> dict[str, Any]:
+    """Drop ``properties``/``fields`` under scalar types (invalid ES mappings)."""
+    for value in mapping.values():
+        if not isinstance(value, dict):
+            continue
+        field_type = value.get("type")
+        if isinstance(field_type, str) and field_type in _SCALAR_MAPPING_TYPES:
+            value.pop("properties", None)
+            # Keep multi-fields on scalars; only drop nested object properties above.
+        nested = value.get("properties")
+        if isinstance(nested, dict):
+            prune_scalar_fields_with_subfields(nested)
+        fields = value.get("fields")
+        if isinstance(fields, dict):
+            prune_scalar_fields_with_subfields(fields)
+    return mapping
+
+
 def prune_mappings_of_unsupported_types(
     debug_str_data_source: str, stream_mappings: dict[str, Any], log: Callable[[str], None]
 ) -> dict[str, Any]:
@@ -199,18 +275,32 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     log: Callable[[str], None],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Prepare integration mappings for the given rule integrations."""
+    from .esql import normalize_dataset_package
+
     integration_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
     dataset_restriction: dict[str, list[str]] = {}
 
+    # Normalize alternate dataset package names (e.g. googlecloud → gcp) before Fleet lookup.
+    rule_integrations = [normalize_dataset_package(pkg) for pkg in rule_integrations]
     # Process restrictions, note we need this for loops to be separate
     for event_dataset in event_dataset_integrations:
-        # Ensure the integration is in rule_integrations
-        if event_dataset.package not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
+        package = normalize_dataset_package(event_dataset.package)
+        if package not in rule_integrations:
+            dataset_restriction.setdefault(package, []).append(event_dataset.integration)
     for event_dataset in event_dataset_integrations:
-        if event_dataset.package not in rule_integrations:
-            rule_integrations.append(event_dataset.package)
+        package = normalize_dataset_package(event_dataset.package)
+        if package not in rule_integrations:
+            rule_integrations.append(package)
+
+    # Preserve order, drop duplicates after aliasing
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for package in rule_integrations:
+        if package not in seen:
+            seen.add(package)
+            deduped.append(package)
+    rule_integrations = deduped
 
     for integration in rule_integrations:
         package = integration
@@ -254,6 +344,79 @@ def get_index_to_package_lookup(indices: list[str], index_lookup: dict[str, Any]
     return index_lookup_indices
 
 
+def collect_known_esql_index_patterns(index_lookup: dict[str, Any], indices: list[str]) -> set[str]:
+    """Build the set of known ES|QL index patterns from Fleet streams + non-ECS/custom."""
+    # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
+    filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
+    filtered_keys.update({"logs-" + key.replace("-", ".") + "-*" for key in index_lookup if key not in indices})
+    # Replace "logs-endpoint." with "logs-endpoint.events."
+    filtered_keys = {
+        key.replace("logs-endpoint.", "logs-endpoint.events.") if "logs-endpoint." in key else key
+        for key in filtered_keys
+    }
+    filtered_keys.update(ecs.get_non_ecs_schema().keys())
+    filtered_keys.update(ecs.get_custom_schemas().keys())
+    filtered_keys.add("logs-endpoint.alerts-*")
+    return filtered_keys
+
+
+def assert_known_esql_indices(indices: list[str], index_lookup: dict[str, Any]) -> list[str]:
+    """Return known patterns matching FROM indices; raise if none match."""
+    filtered_keys = collect_known_esql_index_patterns(index_lookup, indices)
+    matches: list[str] = []
+    for index in indices:
+        pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
+        matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
+
+    if not matches:
+        raise EsqlUnknownIndexError(
+            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(sorted(filtered_keys))}"
+        )
+
+    if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
+        matches.append("logs-endpoint.events.alerts-*")
+    return matches
+
+
+_OFFLINE_INDEX_LOOKUP_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
+
+
+def validate_offline_esql_from_indices(
+    indices: list[str],
+    metadata: RuleMeta,
+    event_dataset_integrations: list[EventDataset],
+    stack_version: str,
+) -> list[str]:
+    """Offline parity with remote prepare_mappings unknown-index checks."""
+    from .esql import infer_packages_from_indices
+
+    rule_integrations = get_rule_integrations(metadata)
+    for package in infer_packages_from_indices(indices):
+        if package not in rule_integrations:
+            rule_integrations.append(package)
+
+    package_manifests = load_integrations_manifests()
+    integration_schemas = load_integrations_schemas()
+    known_packages = [p for p in rule_integrations if p in integration_schemas and p in package_manifests]
+    datasets_key = tuple(sorted((ds.package, ds.integration) for ds in event_dataset_integrations))
+    cache_key = (tuple(sorted(known_packages)), datasets_key, str(stack_version))
+    index_lookup = _OFFLINE_INDEX_LOOKUP_CACHE.get(cache_key)
+    if index_lookup is None:
+        index_lookup = {}
+        if known_packages:
+            _, index_lookup = prepare_integration_mappings(
+                known_packages,
+                event_dataset_integrations,
+                package_manifests,
+                integration_schemas,
+                stack_version,
+                lambda _msg: None,
+            )
+        _OFFLINE_INDEX_LOOKUP_CACHE[cache_key] = index_lookup
+
+    return assert_known_esql_indices(indices, index_lookup)
+
+
 def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     indices: list[str],
     index_lookup: dict[str, Any],
@@ -264,33 +427,7 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Check if the provided indices are known based on the integration format. Returns the combined schema."""
 
-    non_ecs_indices = ecs.get_non_ecs_schema()
-    custom_indices = ecs.get_custom_schemas()
-
-    # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
-    filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in index_lookup if key not in indices}
-    filtered_keys.update({"logs-" + key.replace("-", ".") + "-*" for key in index_lookup if key not in indices})
-    # Replace "logs-endpoint." with "logs-endpoint.events."
-    filtered_keys = {
-        key.replace("logs-endpoint.", "logs-endpoint.events.") if "logs-endpoint." in key else key
-        for key in filtered_keys
-    }
-    filtered_keys.update(non_ecs_indices.keys())
-    filtered_keys.update(custom_indices.keys())
-    filtered_keys.add("logs-endpoint.alerts-*")
-
-    matches: list[str] = []
-    for index in indices:
-        pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
-        matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
-
-    if not matches:
-        raise EsqlUnknownIndexError(
-            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
-        )
-
-    if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
-        matches.append("logs-endpoint.events.alerts-*")
+    matches = assert_known_esql_indices(indices, index_lookup)
 
     # Now that we have the matched indices, we need to filter the index lookup to only include those indices
     filtered_index_lookup = {
@@ -470,7 +607,12 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     existing_mappings, index_lookup = get_existing_mappings(elastic_client, indices)
 
     # Collect mappings for the integrations
+    from .esql import index_patterns_match, infer_packages_from_indices
+
     rule_integrations = get_rule_integrations(metadata)
+    for package in infer_packages_from_indices(indices):
+        if package not in rule_integrations:
+            rule_integrations.append(package)
 
     # Collect mappings for all relevant integrations for the given stack version
     package_manifests = load_integrations_manifests()
@@ -489,11 +631,15 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     non_ecs_mapping: dict[str, Any] = {}
     non_ecs = ecs.get_non_ecs_schema()
     for index in indices:
-        index_mapping = non_ecs.get(index, {})
-        non_ecs_schema.update(index_mapping)
-        index_mapping = ecs.flatten(index_mapping)
-        index_mapping = utils.convert_to_nested_schema(index_mapping)
-        non_ecs_mapping.update({index: index_mapping})
+        matched_fields: dict[str, Any] = dict(non_ecs.get(index, {}))
+        for key, fields in non_ecs.items():
+            if key == index:
+                continue
+            if index_patterns_match(index, key):
+                matched_fields.update(fields)
+        non_ecs_schema.update(matched_fields)
+        nested = utils.convert_to_nested_schema(ecs.flatten(matched_fields))
+        non_ecs_mapping.update({index: nested})
 
     # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
     # and also at a per index level as custom schemas can override non-ecs fields and/or indices
@@ -519,11 +665,23 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
         indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping, log
     )
 
-    index_lookup.update({"rule-ecs-index": ecs_schema})
+    index_lookup.update({"rule-ecs-index": prune_scalar_fields_with_subfields(deepcopy(ecs_schema))})
 
     if (not integration_mappings or existing_mappings) and not non_ecs_schema and not ecs_schema:
         raise ValueError("No mappings found")
-    index_lookup.update({"rule-non-ecs-index": non_ecs_schema})
+    index_lookup.update({"rule-non-ecs-index": prune_scalar_fields_with_subfields(deepcopy(non_ecs_schema))})
     utils.combine_dicts(combined_mappings, deepcopy(non_ecs_schema))
+
+    # ES|QL verifies fields against each index in FROM. Merge ECS into every
+    # integration test-index mapping so remote validation matches offline
+    # (integration schema ∪ ECS), not integration-only fields.
+    for key, properties in list(index_lookup.items()):
+        if key in {"rule-ecs-index", "rule-non-ecs-index"}:
+            continue
+        if not isinstance(properties, dict):
+            continue
+        merged = deepcopy(ecs_schema)
+        combine_index_mappings(merged, deepcopy(properties))
+        index_lookup[key] = prune_scalar_fields_with_subfields(merged)
 
     return existing_mappings, index_lookup, combined_mappings
