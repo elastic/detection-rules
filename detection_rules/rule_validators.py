@@ -828,7 +828,7 @@ class ESQLValidator(QueryValidator):
         tree = self.ast if query == self.query else esql.parse_query(query)
         sources = esql.get_from_sources(tree)
         sources_list = [source.split(":", 1)[-1].strip() if ":" in source else source.strip() for source in sources]
-        # Preserve original formatting so remote validation can ``query.replace(sources_str, …)``.
+        # Preserve original formatting so remote validation can `query.replace(sources_str, …)`.
         match = FROM_SOURCES_REGEX.search(query)
         sources_str = match.group("sources") if match else ", ".join(sources)
         return sources_str, sources_list

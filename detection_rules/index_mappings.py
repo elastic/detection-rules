@@ -218,7 +218,7 @@ def combine_index_mappings(dest: dict[str, Any], src: dict[str, Any]) -> None:
 
 
 def prune_scalar_fields_with_subfields(mapping: dict[str, Any]) -> dict[str, Any]:
-    """Drop ``properties``/``fields`` under scalar types (invalid ES mappings)."""
+    """Drop `properties`/`fields` under scalar types (invalid ES mappings)."""
     for value in mapping.values():
         if not isinstance(value, dict):
             continue

@@ -89,8 +89,8 @@ def infer_packages_from_indices(indices: list[str]) -> list[str]:
 def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
     """Merge non-ECS / custom field schemas for the given FROM indices.
 
-    Mirrors remote ``prepare_mappings`` so offline validation includes alert fields
-    (``kibana.alert.*``), integration gaps tracked in ``non-ecs-schema.json``, and
+    Mirrors remote `prepare_mappings` so offline validation includes alert fields
+    (`kibana.alert.*`), integration gaps tracked in `non-ecs-schema.json`, and
     custom index schemas.
     """
     fields: dict[str, Any] = {}
