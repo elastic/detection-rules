@@ -249,7 +249,10 @@ class RuleResource(BaseResource):
         )
         response = Kibana.current().post(url, headers=headers, params=params, raw_data=raw_data)
         errors = response.get("errors", [])
-        error_rule_ids = [e['rule_id'] for e in errors]
+        # Error entries are not guaranteed to carry a rule_id: ndjson schema-parse
+        # failures come back with only an `error` object, and action-connector
+        # errors are keyed by `id` instead.
+        error_rule_ids = [e.get('rule_id') or e.get('id') for e in errors]
 
         # successful rule_ids are not returned, so they must be implicitly inferred from errored rule_ids
         successful_rule_ids = [r for r in rule_ids if r not in error_rule_ids]
