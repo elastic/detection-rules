@@ -12,7 +12,7 @@ from typing import Any
 
 from detection_rules.kbwrap import kibana_export_rules
 from detection_rules.main import import_rules_into_repo
-from detection_rules.rule_loader import RawRuleCollection
+from detection_rules.rule_loader import RawRuleCollection, dict_filter, path_getter
 
 DUPLICATE_NAME = "Duplicate Name Rule"
 ACTIVE_RULE_ID = "11111111-1111-4111-8111-111111111111"
@@ -84,6 +84,27 @@ class TestRawRuleCollectionDeprecatedSplit(unittest.TestCase):
 
             self.assertEqual(len(collection.rules), 1)
             self.assertEqual(len(collection.deprecated.rules), 1)
+
+
+class TestDictFilter(unittest.TestCase):
+    """path_getter/dict_filter must not crash on a missing key and must AND all criteria."""
+
+    def test_path_getter_missing_key_returns_none(self) -> None:
+        """A dotted path whose final key is absent should resolve to None, not raise KeyError."""
+        getter = path_getter("metadata__integration")
+        self.assertIsNone(getter({"metadata": {"maturity": "production"}}))
+
+    def test_dict_filter_requires_every_criterion_to_match(self) -> None:
+        """dict_filter must reject an object that fails any one of several criteria."""
+        flt = dict_filter(maturity="production", integration="okta")
+        self.assertTrue(flt({"maturity": "production", "integration": "okta"}))
+        self.assertFalse(flt({"maturity": "production", "integration": "aws"}))
+        self.assertFalse(flt({"maturity": "development", "integration": "okta"}))
+
+    def test_dict_filter_missing_optional_field_does_not_match(self) -> None:
+        """A criterion on a field the object doesn't have should fail closed, not raise."""
+        flt = dict_filter(maturity="production", integration="okta")
+        self.assertFalse(flt({"maturity": "production"}))
 
 
 class TestLoadRuleLoadingFlagBackwardsCompatibility(unittest.TestCase):

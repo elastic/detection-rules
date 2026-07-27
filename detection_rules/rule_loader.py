@@ -44,7 +44,7 @@ def path_getter(value: str) -> Callable[[dict[str, Any]], Any]:
 
     def callback(obj: dict[str, Any]) -> Any:
         for p in path:
-            if p in path:
+            if isinstance(obj, dict) and p in obj:
                 obj = obj[p]
             else:
                 return None
@@ -76,9 +76,10 @@ def dict_filter(_obj: dict[str, Any] | None = None, **criteria: Any) -> Callable
                 else {target_values}
             )
 
-            return bool(expected.intersection(target_values))  # type: ignore[reportUnknownArgumentType]
+            if not expected.intersection(target_values):  # type: ignore[reportUnknownArgumentType]
+                return False
 
-        return False
+        return True
 
     return callback
 
