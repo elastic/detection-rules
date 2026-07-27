@@ -568,7 +568,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
 class DataValidator:
     """Additional validation beyond base marshmallow schema validation."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         name: definitions.RuleName,
         is_elastic_rule: bool,
