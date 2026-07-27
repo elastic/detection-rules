@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["aws_bedrock"]
+maturity = "production"
+updated_date = "2026/07/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a Bedrock model is prompted to invoke high-risk tools associated with shell execution, filesystem
+operations, or process spawning. Adversaries may use compromised AI agent pipelines or manipulated prompts to
+instruct the model to execute arbitrary system commands, read or write sensitive files, or spawn subprocesses —
+extending the blast radius of a credential compromise or prompt injection attack.
+"""
+false_positives = [
+    """
+    Authorized AI agent workflows that include shell or filesystem tools may trigger this rule. Validate that the
+    user identity and tool usage pattern are consistent with expected application behavior.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock High Risk Filesystem or Execution Tool Invocation"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock High Risk Filesystem or Execution Tool Invocation
+
+This rule detects Bedrock model invocations where the prompt contains patterns associated with shell execution, filesystem access, or process spawning. These patterns may indicate a prompt injection attack, a compromised AI agent pipeline, or an insider attempting to use a Bedrock-backed application to execute unauthorized system operations.
+
+### Possible investigation steps
+
+- Review `gen_ai.prompt` to identify the specific tool invocation pattern that triggered the rule and determine whether it represents a legitimate tool call or a malicious instruction.
+- Identify the user (`user.id`) and determine whether they are expected to interact with tools that perform filesystem or shell operations.
+- Review the model ID (`gen_ai.model.id`) and the application context to understand whether shell or filesystem tools are part of the intended agent architecture.
+- Correlate with other Bedrock invocation events from the same user in the preceding hour to assess whether this is an isolated event or part of a pattern.
+- If the application uses Bedrock Agents, review the agent's configured action groups and Lambda functions to determine whether the tool invocation could have resulted in actual execution.
+- Check for downstream evidence of execution: CloudTrail Lambda invocation events, SSM RunCommand, or EC2 activity correlated with the same time window.
+
+### False positive analysis
+
+- AI coding assistants and developer tools built on Bedrock may legitimately reference shell commands or file operations in their prompt templates.
+- Security tooling that uses Bedrock to analyze shell scripts or code may produce prompts containing these patterns.
+
+### Response and remediation
+
+- If a prompt injection is confirmed, identify the injection source and remediate the input validation gap in the application layer.
+- Review and restrict the tools available to the Bedrock Agent to the minimum required for its function.
+- Apply Bedrock Guardrails to block or flag prompts containing high-risk tool invocation patterns.
+- If credentials were compromised, rotate them immediately and audit all Bedrock and downstream API activity.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/agents-action-groups.html",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html",
+    "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+]
+risk_score = 73
+rule_id = "51d50385-aa3d-448c-bc48-7d6bc39108a3"
+setup = """The AWS Bedrock integration must be enabled with model invocation logging configured to capture prompt
+and completion content. Ensure `logs-aws_bedrock.invocation-*` is ingested into Elasticsearch."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws_bedrock.invocation-*
+
+| eval Esql.lowercase_prompt = TO_LOWER(gen_ai.prompt)
+
+| where
+    Esql.lowercase_prompt like "*/bin/sh*" or
+    Esql.lowercase_prompt like "*/bin/bash*" or
+    Esql.lowercase_prompt like "*bash -c*" or
+    Esql.lowercase_prompt like "*sh -c*" or
+    Esql.lowercase_prompt like "*cmd.exe*" or
+    Esql.lowercase_prompt like "*powershell*" or
+    Esql.lowercase_prompt like "*exec(*" or
+    Esql.lowercase_prompt like "*os.system*" or
+    Esql.lowercase_prompt like "*subprocess*" or
+    Esql.lowercase_prompt like "*python -c*" or
+    Esql.lowercase_prompt like "*python3 -c*" or
+    Esql.lowercase_prompt like "*curl *" or
+    Esql.lowercase_prompt like "*wget *" or
+    Esql.lowercase_prompt like "*/dev/tcp/*"
+
+| stats
+    Esql.invocation_count = count(*),
+    Esql.model_id_values = values(gen_ai.request.model.id),
+    Esql.prompt_sample = values(gen_ai.prompt)
+  by
+    user.id,
+    cloud.account.id
+
+| keep user.id, cloud.account.id, Esql.*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "gen_ai.model.id",
+    "gen_ai.prompt",
+    "gen_ai.completion",
+    "cloud.account.id",
+]
