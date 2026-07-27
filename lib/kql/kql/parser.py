@@ -338,6 +338,8 @@ class KqlParser(BaseKqlParser):
     def field_range_expression(self, tree):
         field_tree, operator, literal = tree.children
         with self.scope(self.visit(field_tree)) as field:
+            # check the field against the schema
+            self.get_field_types(field.name, field_tree)
             value = self.convert_value(field.name, self.visit(literal), literal)
             return FieldRange(field, operator, Value.from_python(value))
 
