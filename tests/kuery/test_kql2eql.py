@@ -22,6 +22,16 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("not field:*", "field == null")
         self.validate("field:*", "field != null")
 
+    def test_quoted_and_escaped_asterisk_is_literal(self):
+        # A quoted `*`, or an escaped `\*`, is a literal asterisk and must convert to
+        # an exact `==` comparison, not a wildcard() glob match - this already matches
+        # kql.parse()/kql.to_dsl() for the same input (see issue #441).
+        for kql_source in ['field:"foo*bar"', r"field:foo\*bar"]:
+            converted = kql.to_eql(kql_source)
+            self.assertIsInstance(converted, eql.ast.Comparison)
+            self.assertEqual(converted.comparator, "==")
+            self.assertEqual(converted.right.value, "foo*bar")
+
     def test_field_inequality(self):
         self.validate("field < value", "field < 'value'")
         self.validate("field > -1", "field > -1")

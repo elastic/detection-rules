@@ -108,8 +108,12 @@ class KqlToEQL(BaseKqlParser):
         field_name = self.scoped_field
         field = self.to_eql_field(field_name)
 
-        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
-        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in str(token.value)):
+        # Handle wildcard literals (may contain spaces) and unquoted literals with an
+        # *unescaped* wildcard. A quoted string, or an unquoted literal whose only `*`
+        # are escaped (`\*`), is a literal asterisk and must not be treated as a glob -
+        # mirrors kql.parser.BaseKqlParser.value (see issue #441).
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL"
+                                                and self.has_unescaped_wildcard(token.value)):
             if eql.utils.is_string(value) and value.replace("*", "").strip() == "":
                 return eql.ast.IsNotNull(field)
             value_ast = eql.ast.Literal.from_python(value)
@@ -120,12 +124,6 @@ class KqlToEQL(BaseKqlParser):
 
         if value is None:
             return eql.ast.IsNull(field)
-
-        if eql.utils.is_string(value) and value.replace("*", "") == "":
-            return eql.ast.IsNotNull(field)
-
-        if eql.utils.is_string(value) and "*" in value:
-            return eql.ast.FunctionCall("wildcard", [field, value_ast])
 
         if self.get_field_types(field_name) == {"ip"} and "/" in value:
             return eql.ast.FunctionCall("cidrMatch", [field, value_ast])
