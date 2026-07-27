@@ -8,7 +8,7 @@ updated_date = "2026/07/27"
 author = ["Elastic"]
 description = """
 Detects the first time a principal modifies an S3 bucket ACL to grant public read or write access
-using canned ACLs such as public-read, public-read-write, or authenticated-read. ACL-based
+using canned ACLs such as public-read or public-read-write. ACL-based
 public access is a distinct API path (PutBucketAcl) that can bypass some Block Public Access
 controls. Monitoring for new identities performing this change helps surface freshly compromised
 credentials being used to stage data for exfiltration or inadvertently expose sensitive content.
@@ -36,7 +36,7 @@ This rule fires when a `PutBucketAcl` call sets a canned ACL that grants public 
 ### Possible investigation steps
 
 - Identify the modifying principal (`aws.cloudtrail.user_identity.arn`) and determine whether they are authorized to modify S3 bucket ACLs.
-- Review `aws.cloudtrail.request_parameters` to confirm the specific canned ACL applied (`public-read`, `public-read-write`, `authenticated-read`).
+- Review `aws.cloudtrail.request_parameters` to confirm the specific canned ACL applied (`public-read`, `public-read-write`).
 - Check whether AWS S3 Block Public Access is enabled at the account or bucket level — if so, the ACL change may have been silently blocked despite CloudTrail recording the attempt.
 - Enumerate the bucket contents to assess the sensitivity of any exposed data.
 - Check for recent `GetObject` or `ListObjects` calls from unauthenticated sources against the same bucket.
@@ -81,8 +81,7 @@ data_stream.dataset: "aws.cloudtrail"
     and not user_agent.original: (*Terraform* or *terraform* or "cloudformation.amazonaws.com" or *pulumi* or *Pulumi*)
     and aws.cloudtrail.request_parameters: (
         *public-read* or
-        *public-read-write* or
-        *authenticated-read*
+        *public-read-write*
     )
 '''
 
