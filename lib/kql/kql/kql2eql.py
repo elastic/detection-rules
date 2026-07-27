@@ -128,6 +128,8 @@ class KqlToEQL(BaseKqlParser):
         if self.get_field_types(field_name) == {"ip"} and "/" in value:
             return eql.ast.FunctionCall("cidrMatch", [field, value_ast])
 
+        # For values with a literal `*`, this `==` Comparison is exact-match at the AST Level
+        # If re-parsing its string output with py eql, the value folds `== "foo*bar"` back into wildcard()
         return eql.ast.Comparison(field, "==", value_ast)
 
     def literal(self, tree):
