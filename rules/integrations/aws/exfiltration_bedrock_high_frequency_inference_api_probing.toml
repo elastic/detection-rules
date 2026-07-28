@@ -100,64 +100,53 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-*
- 
-// Bedrock runtime inference APIs (CloudTrail management events, logged by default) used to probe at scale
-| where
-  event.provider == "bedrock.amazonaws.com"
-  and event.action in (
-    "InvokeModel",
-    "Converse",
-    "ConverseStream",
-    "InvokeModelWithResponseStream"
-  )
-  and event.outcome == "success"
-  and aws.cloudtrail.user_identity.arn IS NOT NULL
-  and aws.cloudtrail.request_parameters IS NOT NULL
- 
-| grok aws.cloudtrail.request_parameters """modelId=(?<Esql.model_id>[^,}\]]+)"""
-| where Esql.model_id IS NOT NULL
- 
-// preserve the grouping keys plus the ECS context fields collected via VALUES() below
-| keep
-  aws.*,
-  cloud.*,
-  Esql.model_id,
-  event.*,
-  source.*,
-  user_agent.original
- 
-// aggregate per principal + account + model, capturing analyst context with VALUES()
-| stats
-    Esql.inference_call_count = count(*),
+FROM logs-aws.cloudtrail-*
+| WHERE event.provider == "bedrock.amazonaws.com"
+    AND event.action IN (
+      "InvokeModel",
+      "Converse",
+      "ConverseStream",
+      "InvokeModelWithResponseStream"
+    )
+    AND event.outcome == "success"
+    AND aws.cloudtrail.user_identity.arn IS NOT NULL
+    AND aws.cloudtrail.request_parameters IS NOT NULL
+| GROK aws.cloudtrail.request_parameters """
+    modelId=(?<Esql.model_id>[^,}\]]+)
+  """
+| WHERE Esql.model_id IS NOT NULL
+| STATS
+    Esql.inference_call_count = COUNT(*),
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp),
+    Esql.event_ingested_min = MIN(event.ingested),
+    Esql.event_ingested_max = MAX(event.ingested),
     Esql.event_action_values = VALUES(event.action),
     Esql.source_ip_values = VALUES(source.ip),
+    Esql.source_as_organization_name_values =
+      VALUES(source.as.organization.name),
+    Esql.source_geo_country_iso_code_values =
+      VALUES(source.geo.country_iso_code),
+    Esql.source_geo_city_name_values =
+      VALUES(source.geo.city_name),
+    Esql.user_name_values = VALUES(user.name),
     Esql.user_agent_original_values = VALUES(user_agent.original),
-    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
-    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.aws_cloudtrail_user_identity_type_values =
+      VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values =
+      VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.session_issuer_arn_values =
+      VALUES(aws.cloudtrail.user_identity.session_context.session_issuer.arn),
     Esql.cloud_region_values = VALUES(cloud.region),
-    Esql.source_as_organization_name_values = VALUES(source.as.organization.name)
-  by
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace)
+  BY aws.cloudtrail.user_identity.arn,
+     cloud.account.id,
+     Esql.model_id
+| WHERE Esql.inference_call_count >= 500
+| KEEP
     aws.cloudtrail.user_identity.arn,
     cloud.account.id,
-    Esql.model_id
- 
-| where Esql.inference_call_count >= 500
- 
-| keep
-  aws.*,
-  cloud.*,
-  Esql.model_id,
-  Esql.inference_call_count,
-  Esql.event_action_values,
-  Esql.source_ip_values,
-  Esql.user_agent_original_values,
-  Esql.aws_cloudtrail_user_identity_type_values,
-  Esql.aws_cloudtrail_user_identity_access_key_id_values,
-  Esql.cloud_region_values,
-  Esql.source_as_organization_name_values
- 
-| sort Esql.inference_call_count desc
+    Esql.*
 '''
 
 [rule.alert_suppression]
