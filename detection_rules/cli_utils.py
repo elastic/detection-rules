@@ -238,7 +238,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     return get_collection
 
 
-def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
+def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     path: Path | None = None,
     rule_type: str | None = None,
     required_only: bool = True,

@@ -644,7 +644,7 @@ class EQLValidator(QueryValidator):
 
         raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
-    def validate_query_text_with_schema(  # noqa: PLR0913
+    def validate_query_text_with_schema(  # noqa: PLR0913, PLR0917
         self,
         query_text: str,
         schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
@@ -878,7 +878,7 @@ class ESQLValidator(QueryValidator):
             verbosity=verbosity,
         )
 
-    def remote_validate_rule(  # noqa: PLR0913
+    def remote_validate_rule(  # noqa: PLR0913, PLR0917
         self,
         kibana_client: Kibana,
         elastic_client: Elasticsearch,
