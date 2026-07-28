@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/28"
 
 [rule]
 author = ["Elastic"]
@@ -44,14 +44,24 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "mofcomp.exe" and process.args : "*.mof" and
   not user.id : "S-1-5-18" and
-  not
-  (
-    process.parent.name : "ScenarioEngine.exe" and
-    process.args : (
-      "*\\MSSQL\\Binn\\*.mof",
-      "*\\Microsoft SQL Server\\???\\Shared\\*.mof",
-      "*\\OLAP\\bin\\*.mof"
-    )
+  not process.args : (
+    "?:\\Program Files\\Microsoft SQL Server\\*\\MSSQL\\Binn\\*.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server\\*\\MSSQL\\Binn\\*.mof",
+    "?:\\Program Files\\Microsoft SQL Server\\???\\Shared\\*.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server\\???\\Shared\\*.mof",
+    "?:\\Program Files\\Microsoft SQL Server\\*\\OLAP\\bin\\*.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server\\*\\OLAP\\bin\\*.mof",
+    "?:\\Program Files\\Microsoft SQL Server Reporting Services\\*\\WMI\\reportingservices.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server Reporting Services\\*\\WMI\\reportingservices.mof",
+    "?:\\Program Files\\Microsoft Power BI Report Server\\*\\WMI\\reportingservices.mof",
+    "?:\\Program Files (x86)\\Microsoft Power BI Report Server\\*\\WMI\\reportingservices.mof",
+    "?:\\Program Files\\Microsoft Policy Platform\\*.mof",
+    "?:\\Windows\\System32\\wbem\\Framework\\root\\*_SN_*_Version_*.mof",
+    "?:\\Windows\\SysWOW64\\wbem\\Framework\\root\\*_SN_*_Version_*.mof",
+    "?:\\Windows\\System32\\wbem\\Veeam.Backup.*.mof",
+    "?:\\Windows\\System32\\wbem\\com.hp.provider.*.mof",
+    "?:\\Windows\\System32\\wbem\\CxAudioSvc_*.mof",
+    "?:\\Windows\\System32\\wbem\\ZTITatoo.mof"
   )
 '''
 
@@ -76,22 +86,23 @@ note = """## Triage and analysis
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
 ### Investigating Mofcomp Activity
-Mofcomp.exe is a tool used to compile Managed Object Format (MOF) files, which define classes and namespaces in the Windows Management Instrumentation (WMI) repository. Adversaries exploit this by creating malicious WMI scripts for persistence or execution. The detection rule identifies suspicious mofcomp.exe activity by filtering out legitimate processes and focusing on unusual executions, excluding known safe parent processes and system accounts.
+Mofcomp.exe is a tool used to compile Managed Object Format (MOF) files, which define classes and namespaces in the Windows Management Instrumentation (WMI) repository. Adversaries exploit this by creating malicious WMI scripts for persistence or execution. The detection rule identifies suspicious mofcomp.exe activity by excluding the system account and MOF files that reside in ACL-protected product directories, so that compilation of MOF files from user-writable locations stands out.
 
 ### Possible investigation steps
 
 - Review the process execution details to confirm the presence of mofcomp.exe and verify the command-line arguments used, focusing on any unusual or unexpected MOF file paths.
 - Investigate the user account associated with the process execution, especially if it is not the system account (S-1-5-18), to determine if the account has been compromised or is being misused.
-- Examine the parent process of mofcomp.exe to ensure it is not a known safe process like ScenarioEngine.exe, and assess whether the parent process is legitimate or potentially malicious.
+- Examine the parent process of mofcomp.exe and assess whether it is a legitimate product installer or a script host, remote shell, or other interactive launcher that would not normally register a WMI provider.
+- Verify the directory holding the MOF file. Compilation from ACL-protected product directories is routine installer behavior, while a MOF staged in a user-writable path such as a temp folder, user profile, or ProgramData warrants investigation.
 - Check for any recent changes or additions to the WMI repository, including new namespaces or classes, which could indicate malicious activity or persistence mechanisms.
 - Correlate the alert with other security events or logs from data sources like Microsoft Defender XDR or Crowdstrike to identify any related suspicious activities or patterns.
 
 ### False positive analysis
 
-- Legitimate SQL Server operations may trigger the rule when SQL Server components compile MOF files. To handle this, exclude processes with parent names like ScenarioEngine.exe and specific MOF file paths related to SQL Server.
-- System maintenance tasks executed by trusted system accounts can cause false positives. Exclude activities initiated by the system account with user ID S-1-5-18 to reduce noise.
-- Regular administrative tasks involving WMI may appear suspicious. Identify and document these tasks, then create exceptions for known safe parent processes or specific MOF file paths to prevent unnecessary alerts.
-- Software installations or updates that involve MOF file compilation might be flagged. Monitor installation logs and exclude these processes if they are verified as part of legitimate software updates.
+- Product installers routinely register WMI providers by compiling a MOF, and the launching process varies widely, including installers, setup bootstrappers, cmd.exe, and remote PowerShell sessions. The rule therefore excludes the MOF file path rather than the parent process. When extending the path list, pair a canonical ACL-protected product directory with an exact MOF basename or a stable vendor-generated filename structure confirmed across recurring alerts, and avoid non-canonical directory prefixes that a user-writable lookalike path could satisfy. A directory-wide wildcard should be a deliberate exception, justified only where the directory is a canonical vendor-owned protected path holding a large and frequently versioned file set, as with the Microsoft Policy Platform entry.
+- System maintenance tasks executed by trusted system accounts can cause false positives. Exclude activities initiated by the system account with user ID S-1-5-18 to reduce noise. Note that this exclusion depends on user.id, which is not populated by all supported data sources, so SYSTEM activity can still surface on sources that omit it.
+- Rebuilding a corrupted WMI repository recompiles the built-in MOF files shipped in the WMI directory, often invoked with a bare file name and no path. Correlate with the surrounding administrative session before dismissing.
+- Operating system deployment tooling such as MDT and SCCM compiles MOF files during imaging. Exclude the specific deployment MOF path once verified.
 
 ### Response and remediation
 
