@@ -28,40 +28,30 @@ note = """## Triage and analysis
 
 ### Investigating AWS IAM User Created Own Access Key
 
-AWS IAM access keys are long-term credentials that grant programmatic access to AWS resources. Unlike a temporary
-session token, an access key does not expire on its own, so an adversary who has compromised a set of short-lived
-credentials (for example, an assumed-role session or SSO session) can use `iam:CreateAccessKey` on their own identity
-to mint a durable credential that persists after the original access vector is closed.
+AWS IAM access keys are long-term credentials that grant programmatic access to AWS resources. Unlike a temporary session token, an access key does not expire on its own, so an adversary who has compromised a set of short-lived credentials (for example, a compromised IAM user credentials or console session) can use `iam:CreateAccessKey` on their own identity to mint a durable credential that persists after the original access vector is closed.
 
 This rule identifies `CreateAccessKey` API calls where the target user is not explicitly specified (common for self-service key creation) or matches the calling user (`user.name`).
+
 This corresponds to `user.target.name` being null or equal to `user.name` in ECS-mapped CloudTrail events.
 
 ### Possible investigation steps
 
-- **Confirm intent.** Contact the account owner to confirm whether this was expected credential rotation or initial
-  CLI/SDK setup.
-- **Review CloudTrail event details.** Check `source.ip`, `user_agent.original`, and `source.geo` for anomalies
-  relative to the identity's normal behavior.
-- **Correlate with recent authentication changes.** Look for a recent password change, MFA device registration, or a
-  new session immediately preceding this event — these can indicate the identity was recently compromised and the
-  attacker is establishing a durable credential.
-- **Inspect the new access key's usage.** Search for the new key ID (`aws.cloudtrail.response_elements.accessKey.accessKeyId`)
-  in subsequent CloudTrail events for unusual source IPs, geographies, or API activity.
-- **Check for related persistence activity.** Look for `CreateLoginProfile`, `UpdateAssumeRolePolicy`, or policy
-  attachment events by the same identity around the same time.
+- **Confirm intent.** Contact the account owner to confirm whether this was expected credential rotation or initial CLI/SDK setup.
+- **Review CloudTrail event details.** Check `source.ip`, `user_agent.original`, and `source.geo` for anomalies relative to the identity's normal behavior.
+- **Correlate with recent authentication changes.** Look for a recent password change, MFA device registration, or a new session immediately preceding this event — these can indicate the identity was recently compromised and the attacker is establishing a durable credential.
+- **Inspect the new access key's usage.** Search for the new key ID (`aws.cloudtrail.response_elements.accessKey.accessKeyId`) in subsequent CloudTrail events for unusual source IPs, geographies, or API activity.
+- **Check for related persistence activity.** Look for `CreateLoginProfile`, `UpdateAssumeRolePolicy`, or policy attachment events by the same identity around the same time.
 
 ### False positive analysis
 
-- Self-service key creation for legitimate CLI/SDK setup or scheduled rotation is common. Tune with exceptions for
-  known onboarding automation, expected user agents, or identities with a documented rotation cadence.
+- Self-service key creation for legitimate CLI/SDK setup or scheduled rotation is common. Tune with exceptions for known onboarding automation, expected user agents, or identities with a documented rotation cadence.
 
 ### Response and remediation
 
 - If unauthorized, deactivate or delete the new access key (`DeleteAccessKey`) immediately.
 - Rotate or reset credentials for the identity and investigate how it was initially compromised.
 - Review all activity performed with the new key since its creation.
-- Restrict `iam:CreateAccessKey` (self-targeted) to identities that have a legitimate need for long-lived
-  credentials; prefer temporary credentials (assumed roles, SSO) elsewhere.
+- Restrict `iam:CreateAccessKey` (self-targeted) to identities that have a legitimate need for long-lived credentials; prefer temporary credentials (assumed roles, SSO) elsewhere.
 
 """
 references = [
@@ -69,9 +59,9 @@ references = [
     "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
     "https://github.com/RhinoSecurityLabs/pacu/tree/master/pacu/modules/iam__backdoor_users_keys",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "dfb7dc0b-2caf-4186-9b59-5752bc59bc19"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Cloud",
     "Data Source: AWS",
