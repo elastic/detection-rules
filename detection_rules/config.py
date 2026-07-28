@@ -27,6 +27,16 @@ from .utils import (
 ROOT_DIR = Path(__file__).parent.parent
 CUSTOM_RULES_DIR = os.getenv("CUSTOM_RULES_DIR", None)
 
+# Output threat-mapping selection (which framework/version is emitted as the API `threat`).
+# Defaults to MITRE ATT&CK v18 for stacks <= 9.4; auto-promotes to v19 for stacks >= 9.5.
+# Either may be overridden via _config.yaml (`threat_mapping_framework` /
+# `threat_mapping_version`) or the environment variables below, with the environment taking
+# precedence (an explicit env var suppresses auto-promotion).
+DEFAULT_THREAT_MAPPING_FRAMEWORK = "MITRE ATT&CK"
+DEFAULT_THREAT_MAPPING_VERSION = "18"
+THREAT_MAPPING_FRAMEWORK_ENV = "DR_THREAT_MAPPING_FRAMEWORK"
+THREAT_MAPPING_VERSION_ENV = "DR_THREAT_MAPPING_VERSION"
+
 
 @dataclass
 class UnitTest:
@@ -208,7 +218,12 @@ class RulesConfig:
 
     action_dir: Path | None = None
     action_connector_dir: Path | None = None
+    attack_version_maps_dir: Path | None = None
     auto_gen_schema_file: Path | None = None
+    threat_mapping_framework: str = DEFAULT_THREAT_MAPPING_FRAMEWORK
+    threat_mapping_version: str = DEFAULT_THREAT_MAPPING_VERSION
+    # True when the version came from an explicit config key or env var (suppresses auto-promotion)
+    threat_mapping_version_pinned: bool = False
     bbr_rules_dirs: list[Path] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     bypass_version_lock: bool = False
     exception_dir: Path | None = None
@@ -354,6 +369,33 @@ def parse_rules_config(path: Path | None = None) -> RulesConfig:  # noqa: PLR091
 
     # no_tactic_filename
     contents["no_tactic_filename"] = loaded.get("no_tactic_filename", False)
+
+    # attack version mapping configs directory (used by `dev attack convert-threat-mappings`).
+    # Defaults to the stock etc/attack-version-maps directory; custom rules repos may point this at
+    # their own directory of per-pair mapping configs.
+    attack_maps_dir = loaded.get("attack_version_maps_dir")
+    if attack_maps_dir:
+        contents["attack_version_maps_dir"] = base_dir.joinpath(attack_maps_dir).resolve()
+    else:
+        default_maps_dir = Path(get_etc_path(["attack-version-maps"]))
+        contents["attack_version_maps_dir"] = default_maps_dir if default_maps_dir.exists() else None
+
+    # threat-mapping output selection (which framework/version is emitted as the API `threat`).
+    # Environment variables take precedence over the config file values. A version set explicitly
+    # by either source is recorded as pinned, which suppresses stack-based auto-promotion.
+    contents["threat_mapping_framework"] = os.getenv(
+        THREAT_MAPPING_FRAMEWORK_ENV,
+        loaded.get("threat_mapping_framework", DEFAULT_THREAT_MAPPING_FRAMEWORK),
+    )
+    contents["threat_mapping_version"] = str(
+        os.getenv(
+            THREAT_MAPPING_VERSION_ENV,
+            loaded.get("threat_mapping_version", DEFAULT_THREAT_MAPPING_VERSION),
+        )
+    )
+    contents["threat_mapping_version_pinned"] = (
+        os.getenv(THREAT_MAPPING_VERSION_ENV) is not None or "threat_mapping_version" in loaded
+    )
 
     # return the config
     try:
