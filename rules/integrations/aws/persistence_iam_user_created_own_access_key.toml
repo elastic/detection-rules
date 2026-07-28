@@ -75,33 +75,114 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws.cloudtrail-* metadata _id, _version, _index
-| where data_stream.dataset == "aws.cloudtrail"
-    and event.provider == "iam.amazonaws.com"
-    and event.action == "CreateAccessKey"
-    and event.outcome == "success"
-    and (
-          (
-            aws.cloudtrail.user_identity.type == "IAMUser"
-            and (user.target.name IS NULL or user.name == user.target.name)
-          )
-          or (
-            aws.cloudtrail.user_identity.type == "Root"
-            and user.target.name IS NULL
-          )
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND (
+      (
+        event.provider == "iam.amazonaws.com"
+        AND event.action == "CreateAccessKey"
+        AND event.outcome == "success"
+        AND aws.cloudtrail.user_identity.type == "IAMUser"
+      )
+      OR (
+        aws.cloudtrail.user_identity.type == "IAMUser"
+        AND aws.cloudtrail.user_identity.access_key_id LIKE "AKIA*"
+        AND NOT (
+          event.provider == "iam.amazonaws.com"
+          AND event.action == "CreateAccessKey"
         )
-| keep
-    _id,
-    _version,
-    _index,
-    @timestamp,
-    data_stream.dataset,
-    aws.*,
-    cloud.*,
-    event.*,
-    source.*,
-    user.*,
-    user_agent.*
+      )
+    )
+| GROK aws.cloudtrail.response_elements """.*accessKeyId=(?<Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id>AKIA[A-Z0-9]{16}).*"""
+| EVAL
+    Esql.aws_cloudtrail_self_access_key_creation_flag = CASE(
+      event.provider == "iam.amazonaws.com"
+        AND event.action == "CreateAccessKey"
+        AND event.outcome == "success"
+        AND aws.cloudtrail.user_identity.type == "IAMUser"
+        AND (
+          user.target.name IS NULL
+          OR user.name == user.target.name
+        )
+        AND Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id IS NOT NULL,
+      1,
+      0
+    ),
+    Esql.aws_cloudtrail_created_access_key_use_flag = CASE(
+      aws.cloudtrail.user_identity.type == "IAMUser"
+        AND aws.cloudtrail.user_identity.access_key_id LIKE "AKIA*"
+        AND NOT (
+          event.provider == "iam.amazonaws.com"
+          AND event.action == "CreateAccessKey"
+        ),
+      1,
+      0
+    )
+| EVAL
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator = CASE(
+      Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+      aws.cloudtrail.user_identity.access_key_id,
+      null
+    ),
+    Esql_priv.aws_cloudtrail_access_key_id_correlation = CASE(
+      Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+      Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id,
+      aws.cloudtrail.user_identity.access_key_id
+    )
+| WHERE Esql_priv.aws_cloudtrail_access_key_id_correlation IS NOT NULL
+    AND aws.cloudtrail.user_identity.arn IS NOT NULL
+| STATS
+    Esql.aws_cloudtrail_self_access_key_creation_count =
+      COUNT(*) WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.aws_cloudtrail_created_access_key_use_count =
+      COUNT(*) WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator_values =
+      VALUES(Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id_values =
+      VALUES(Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_created_key_use_values =
+      VALUES(aws.cloudtrail.user_identity.access_key_id)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.timestamp_self_access_key_creation_min =
+      MIN(@timestamp)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.timestamp_created_access_key_use_min =
+      MIN(@timestamp)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.source_ip_self_access_key_creation_values =
+      VALUES(source.ip)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.source_ip_created_access_key_use_values =
+      VALUES(source.ip)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.user_agent_original_self_access_key_creation_values =
+      VALUES(user_agent.original)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.user_agent_original_created_access_key_use_values =
+      VALUES(user_agent.original)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.event_action_created_access_key_use_values =
+      VALUES(event.action)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1
+  BY cloud.account.id,
+     aws.cloudtrail.user_identity.arn,
+     Esql_priv.aws_cloudtrail_access_key_id_correlation
+| WHERE Esql.aws_cloudtrail_self_access_key_creation_count > 0
+    AND Esql.aws_cloudtrail_created_access_key_use_count > 0
+    AND Esql.timestamp_created_access_key_use_min >
+        Esql.timestamp_self_access_key_creation_min
+    AND DATE_DIFF(
+      "seconds",
+      Esql.timestamp_self_access_key_creation_min,
+      Esql.timestamp_created_access_key_use_min
+    ) <= 3600
+| KEEP
+    cloud.account.id,
+    aws.cloudtrail.user_identity.arn,
+    Esql.*,
+    Esql_priv.*
 '''
 
 
@@ -140,9 +221,4 @@ field_names = [
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements",
 ]
-
-[rule.alert_suppression]
-group_by = ["aws.cloudtrail.user_identity.arn"]
-duration = { value = 24, unit = "h" }
-missing_fields_strategy = "doNotSuppress"
 
