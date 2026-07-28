@@ -1359,7 +1359,7 @@ class BaseRuleContents(ABC):
     @property
     def is_prebuilt(self) -> bool:
         """Determine if this is an Elastic prebuilt rule exported from a cluster."""
-        return is_prebuilt_rule_data(self.data)
+        return is_prebuilt_rule_data(self.data)  # type: ignore[reportAttributeAccessIssue]
 
     @property
     def saved_version(self) -> int | None:
