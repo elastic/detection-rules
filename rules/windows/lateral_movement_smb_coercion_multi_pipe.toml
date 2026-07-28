@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/07/28"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/07/28"
+
+[rule]
+author = ["Char0n1507"]
+description = """
+Detects potential SMB authentication coercion attacks by identifying access to multiple
+RPC-related named pipes from a single source within a short timeframe. Tools such as
+NetExec (coerce_plus module), PetitPotam, DFSCoerce, PrinterBug, and ShadowCoerce
+abuse these named pipes to force privileged NTLM authentication from Domain Controllers
+to an attacker-controlled listener, enabling NTLM relay or credential capture.
+"""
+false_positives = [
+    """
+    Legitimate backup software or monitoring tools may access multiple named pipes.
+    Validate the source host and user context before escalating.
+    """
+]
+from = "now-9m"
+index = ["winlogbeat-*", "logs-system.security*", "logs-windows.forwarded*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential SMB Authentication Coercion via Multiple RPC Named Pipes"
+note = """
+## Triage and Analysis
+
+### Investigating Potential SMB Authentication Coercion via Multiple RPC Named Pipes
+
+Authentication coercion forces a privileged host (typically a Domain Controller) to
+authenticate outbound to an attacker-controlled machine. This is a prerequisite for
+NTLM relay attacks targeting ADCS (ESC8), LDAP, or SMB signing-disabled hosts.
+
+### Possible investigation steps
+
+- Identify the source IP and determine if it is a legitimate host or attacker-controlled machine.
+- Check if the source host is a known Domain Controller — DC-to-DC pipe access may be legitimate.
+- Look for downstream NTLM relay activity: Event ID 4624 logon type 3 from the attacker IP shortly after.
+- Review whether Responder, ntlmrelayx, or similar tools were active on the attacker IP.
+- Check for ADCS enrollment events (Event ID 4886/4887) following this alert.
+- Correlate with network logs for outbound SMB (port 445) from the coerced DC to the source IP.
+
+### False Positive Analysis
+
+- Backup agents and EDR platforms may access named pipes legitimately.
+- Verify if the source is a management server with known pipe access patterns.
+
+### Response and Remediation
+
+- Isolate the source host if confirmed malicious.
+- Enable SMB signing on all hosts to mitigate relay attacks.
+- Disable Print Spooler on Domain Controllers to block PrinterBug (MS-RPRN).
+- Apply patches for PetitPotam (MS-EFSR) where applicable.
+- Review ADCS HTTP enrollment endpoints for ESC8 exposure.
+"""
+references = [
+    "https://github.com/Pennyw0rth/NetExec",
+    "https://github.com/topotam/PetitPotam",
+    "https://github.com/Wh04m1001/DFSCoerce",
+    "https://attack.mitre.org/techniques/T1187/",
+    "https://attack.mitre.org/techniques/T1557/"
+]
+risk_score = 73
+rule_id = "0538fe0d-da01-4584-8490-fb1cf014c9db"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Lateral Movement",
+    "Data Source: Windows Security Event Logs"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by source.ip with maxspan=30s
+  [authentication where event.code == "5145" and
+   winlog.event_data.ShareName == "\\\\*\\IPC$" and
+   winlog.event_data.RelativeTargetName : ("\\efsr", "\\lsarpc", "\\efsrpc")]
+  [authentication where event.code == "5145" and
+   winlog.event_data.ShareName == "\\\\*\\IPC$" and
+   winlog.event_data.RelativeTargetName : ("\\netdfs", "\\spoolss", "\\Fssagentrpc", "\\samr", "\\netlogon")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1187"
+name = "Forced Authentication"
+reference = "https://attack.mitre.org/techniques/T1187/"
+
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
