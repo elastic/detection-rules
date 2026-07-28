@@ -191,7 +191,7 @@ class NavigatorBuilder:
             layer_key = tag.replace(" ", "-").lower()  # type: ignore[reportUnknownVariableType]
             self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)  # type: ignore[reportUnknownArgumentType]
 
-    def add_rule_to_technique(  # noqa: PLR0913
+    def add_rule_to_technique(  # noqa: PLR0913, PLR0917
         self,
         rule: TOMLRule,
         layer_name: str,
