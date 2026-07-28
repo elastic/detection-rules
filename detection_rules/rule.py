@@ -386,6 +386,20 @@ class Filter:
     query: Query | dict[str, Any] | None = None
 
 
+def is_prebuilt_rule_data(data: Any) -> bool:
+    """Determine whether rule data describes an Elastic prebuilt rule.
+
+    Kibana marks prebuilt rules `immutable` and reports their provenance in `rule_source`. A rule
+    claiming to be immutable while reporting an internal source is not prebuilt, so the flag on
+    its own cannot be used to opt out of the version lock. `rule_source` is absent on exports from
+    stacks predating the field, which are still prebuilt.
+    """
+    if data.get("immutable") is not True:
+        return False
+    rule_source = data.get("rule_source")
+    return rule_source is None or rule_source.get("type") == "external"
+
+
 @dataclass(frozen=True, kw_only=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     """Base rule data."""
@@ -527,7 +541,7 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
         # Validate version and revision fields not supplied. Prebuilt rules are exempt: their
         # version and revision are assigned by the cluster, not by the local version lock.
         disallowed_fields = [field for field in ["version", "revision"] if data.get(field) is not None]
-        if not disallowed_fields or data.get("immutable") is True:
+        if not disallowed_fields or is_prebuilt_rule_data(data):
             return
 
         # If version and revision fields are supplied, and using locked versions raise an error.
@@ -1343,9 +1357,9 @@ class BaseRuleContents(ABC):
         return None
 
     @property
-    def is_immutable(self) -> bool:
+    def is_prebuilt(self) -> bool:
         """Determine if this is an Elastic prebuilt rule exported from a cluster."""
-        return self.data.get("immutable") is True  # type: ignore[reportAttributeAccessIssue]
+        return is_prebuilt_rule_data(self.data)
 
     @property
     def saved_version(self) -> int | None:
@@ -1354,6 +1368,11 @@ class BaseRuleContents(ABC):
         toml_version = self.data.get("version")  # type: ignore[reportAttributeAccessIssue]
 
         if BYPASS_VERSION_LOCK:
+            return toml_version  # type: ignore[reportUnknownVariableType]
+
+        # The cluster owns the version of a prebuilt rule, so the local lock has no authority over
+        # it. Deferring to the lock here would contradict the version exported by to_api_format.
+        if self.is_prebuilt:
             return toml_version  # type: ignore[reportUnknownVariableType]
 
         if toml_version:
@@ -1866,7 +1885,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             converted["meta"] = rule_dict["metadata"]
 
         if include_version:
-            if self.is_immutable and self.data.get("version") is not None:
+            if self.is_prebuilt and self.data.get("version") is not None:
                 # Prebuilt rules carry the version/revision assigned by the cluster, which the
                 # local version lock does not track.
                 converted["version"] = self.data.get("version")
