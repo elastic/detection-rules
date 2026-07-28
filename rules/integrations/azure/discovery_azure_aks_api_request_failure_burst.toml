@@ -105,7 +105,11 @@ data_stream.dataset:azure.platformlogs and
   azure.platformlogs.category:"kube-audit" and
   azure.platformlogs.properties.log.stage:"ResponseComplete" and
   azure.platformlogs.properties.log.responseStatus.code:"403" and
-  azure.platformlogs.properties.log.responseStatus.reason:"Forbidden"
+  azure.platformlogs.properties.log.responseStatus.reason:"Forbidden" and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:*
+  )
 '''
 
 [rule.investigation_fields]
