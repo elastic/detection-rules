@@ -1053,7 +1053,7 @@ class ESQLRuleData(QueryRuleData):
     @validates_schema
     def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
-        import esql  # type: ignore[reportMissingModuleSource]
+        import esql  # type: ignore[reportMissingTypeStubs]
 
         if data.get("index"):
             raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
@@ -2057,7 +2057,7 @@ def set_eql_config(min_stack_version_val: str) -> eql.parser.ParserConfig:
 
 def set_esql_config(min_stack_version_val: str) -> Any:
     """Configure python-esql for a rule's minimum stack version."""
-    import esql  # type: ignore[reportMissingModuleSource]
+    import esql  # type: ignore[reportMissingTypeStubs]
 
     stack_version = min_stack_version_val or load_current_package_version()
 
@@ -2082,7 +2082,7 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
         raise ValueError("Min stack version not found")
 
     if language == "esql":
-        import esql  # type: ignore[reportMissingModuleSource]
+        import esql  # type: ignore[reportMissingTypeStubs]
 
         if not query:
             raise ValueError("ES|QL rule is missing a query")
