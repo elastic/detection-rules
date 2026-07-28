@@ -96,9 +96,7 @@ FROM logs-aws.cloudtrail-*
     )
     AND event.outcome == "success"
     AND aws.cloudtrail.user_identity.type != "AWSService"
-| GROK aws.cloudtrail.request_parameters """
-    .*roleArn=(?<Esql.aws_cloudtrail_request_parameters_role_arn>arn:aws[a-z-]*:iam::[0-9]{12}:role/[^,}]+).*
-  """
+| GROK aws.cloudtrail.request_parameters """.*roleArn=(?<Esql.aws_cloudtrail_request_parameters_role_arn>arn:aws[a-z-]*:iam::[0-9]{12}:role/[^,}]+).*"""
 | WHERE Esql.aws_cloudtrail_request_parameters_role_arn IS NOT NULL
 | EVAL Esql.principal_arn = COALESCE(
     aws.cloudtrail.user_identity.session_context.session_issuer.arn,
