@@ -5,7 +5,6 @@
 
 """Validation logic for rules containing queries."""
 
-import re
 from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
@@ -17,7 +16,7 @@ from semver import Version
 
 from . import ecs, integrations, utils
 from .config import load_current_package_version
-from .esql import EventDataset
+from .esql import EventDataset, index_patterns_match, infer_packages_from_indices
 from .esql_errors import (
     EsqlKibanaBaseError,
     EsqlSchemaError,
@@ -245,15 +244,20 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     filtered_keys.update(non_ecs_indices.keys())
     filtered_keys.update(custom_indices.keys())
     filtered_keys.add("logs-endpoint.alerts-*")
+    filtered_keys.add("packetbeat-*")
 
     matches: list[str] = []
+    unknown_indices: list[str] = []
     for index in indices:
-        pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
-        matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
+        index_matches = [key for key in filtered_keys if index_patterns_match(index, key)]
+        if not index_matches:
+            unknown_indices.append(index)
+        matches.extend(index_matches)
 
-    if not matches:
+    if unknown_indices:
+        known_patterns = ", ".join(sorted(filtered_keys))
         raise EsqlUnknownIndexError(
-            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
+            f"Unknown index pattern(s): {', '.join(unknown_indices)}. Known patterns: {known_patterns}"
         )
 
     if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
@@ -488,6 +492,9 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
 
     # Collect mappings for the integrations
     rule_integrations = get_rule_integrations(metadata)
+    for package in infer_packages_from_indices(indices):
+        if package not in rule_integrations:
+            rule_integrations.append(package)
 
     # Collect mappings for all relevant integrations for the given stack version
     package_manifests = load_integrations_manifests()

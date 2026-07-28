@@ -1441,7 +1441,7 @@ def esql_validation(
     for r in esql_rules:
         try:
             validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-            _ = validator.remote_validate_rule_contents(None, None, r.contents, verbosity)
+            _ = validator.local_validate_rule_contents(r.contents, verbosity)
         except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
             e_type = type(e)  # type: ignore[reportUnknownMemberType]
             if isinstance(e, ESQL_EXCEPTION_TYPES):
