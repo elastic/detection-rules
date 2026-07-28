@@ -190,7 +190,9 @@ class RemoteValidator(RemoteConnector):
         if index_replacement:
             try:
                 validator = ESQLValidator(contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                response = validator.remote_validate_rule_contents(self.kibana_client, self.es_client, contents)
+                # Index replacement is now represented by isolated local schemas;
+                # the non-replacement path below remains a genuine live-stack query.
+                return validator.local_validate_rule_contents(contents)
             except Exception as exc:
                 if isinstance(exc, elasticsearch.BadRequestError):
                     raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc

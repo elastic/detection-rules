@@ -38,12 +38,16 @@ def cleanup_empty_indices(
 class EsqlKibanaBaseError(ClientError):
     """Base class for ESQL exceptions with cleanup logic."""
 
+    # elastic_client is optional: it's only used to clean up stale rule-test-* /
+    # test-* indices from previous remote runs. Local-only callers pass None and
+    # the cleanup is skipped.
     def __init__(
         self,
         message: str,
-        elastic_client: Elasticsearch,
+        elastic_client: Elasticsearch | None = None,
     ) -> None:
-        cleanup_empty_indices(elastic_client)
+        if elastic_client is not None:
+            cleanup_empty_indices(elastic_client)
         super().__init__(message, original_error=self)
 
 

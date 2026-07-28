@@ -29,70 +29,77 @@ from detection_rules.utils import get_path, load_rule_contents
 from .base import BaseRuleTest
 
 
-class TestESQLRemoteValidation(unittest.TestCase):
-    """Unit tests for ES|QL remote validation behavior that mock remote services."""
+class TestESQLValidationPlanning(unittest.TestCase):
+    """Unit tests for stack-aware offline validation planning."""
 
-    def test_remote_validation_uses_patch_floor_for_prepare_mappings(self):
-        """ES|QL remote validation prepares mappings with patch-adjusted stack versions."""
+    def test_offline_validation_uses_integration_patch_floor(self):
+        """Offline schemas resolve package versions at patch-adjusted stack versions."""
         query = """
         FROM logs-pkg.new_ds-* metadata _id, _version, _index
         | WHERE data_stream.dataset == "pkg.new_ds"
         | KEEP _id, _version, _index
         """
-        metadata = SimpleNamespace(integration=["pkg"])
-        prepared_stack_versions: list[str] = []
-
-        def prepare_mappings_side_effect(
-            _elastic_client,
-            _indices,
-            _event_dataset_integrations,
-            _metadata,
-            stack_version,
-            _log,
-        ):
-            prepared_stack_versions.append(stack_version)
-            return {}, {}, {}
+        data = SimpleNamespace(name="Test rule", rule_id="test-rule")
+        metadata = SimpleNamespace(
+            get_validation_stack_versions=lambda: {
+                "9.2.0": {"ecs": "9.2.0"},
+                "9.3.0": {"ecs": "9.3.0"},
+            }
+        )
+        resolved_stack_versions: list[str] = []
 
         def patch_floor_side_effect(packages, major, minor):
             self.assertIn("pkg", packages)
             return 4 if (major, minor) == (9, 2) else 0
 
+        def compatible_version_side_effect(_package, _integration, stack_version, *_args, **_kwargs):
+            resolved_stack_versions.append(str(stack_version))
+            return "1.0.0", []
+
         validator = ESQLValidator(query)
         with (
-            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.2.0"),
-            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.2.0", "9.3.0"]),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.TOMLRuleContents.get_packaged_integrations",
+                return_value=[{"package": "pkg", "integration": "new_ds"}],
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.load_integrations_manifests",
+                return_value={"pkg": {"1.0.0": {}}},
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.load_integrations_schemas",
+                return_value={"pkg": {"1.0.0": {"new_ds": {"data_stream.dataset": "keyword"}}}},
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.collect_index_field_schemas",
+                return_value={},
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.prepare_mappings",
+                return_value=({}, {}, {}),
+            ),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.ecs.get_schema",
+                return_value={},
+            ),
             unittest.mock.patch(
                 "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
                 side_effect=patch_floor_side_effect,
             ),
             unittest.mock.patch(
-                "detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect
+                "detection_rules.rule_validators.find_latest_compatible_version",
+                side_effect=compatible_version_side_effect,
             ),
-            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.execute_query_against_indices",
-                return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
-            ),
-            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
         ):
-            response = validator.remote_validate_rule(
-                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.2.0"}}),
-                elastic_client=object(),
-                query=query,
-                metadata=metadata,
-                rule_id="test-rule",
-            )
+            targets = validator.build_validation_plan(data, metadata)
 
-        self.assertEqual(response, {"ok": True})
-        self.assertIn("9.2.0", prepared_stack_versions)
-        self.assertIn("9.2.4", prepared_stack_versions)
-        self.assertIn("9.3.0", prepared_stack_versions)
+        self.assertEqual(len(targets), 2)
+        self.assertIn("9.2.4", resolved_stack_versions)
+        self.assertIn("9.3.0", resolved_stack_versions)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
-@unittest.skipIf(
-    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
-)
+@unittest.skipIf(not getdefault("esql_validation")(), "Skipping ES|QL validation because esql_validation is False")
 class TestRemoteRules(BaseRuleTest):
     """Test rules against a remote Elastic stack instance."""
 
@@ -350,10 +357,13 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
-        # This is a type mismatch error due to Elastic Container project including the Endpoint integration by default.
-        # Otherwise one would expect an EsqlSchemaError due to the field not being present in the alerts index.
-        with pytest.raises(EsqlTypeMismatchError):
-            _ = RuleCollection().load_dict(production_rule)
+        # Remote validation used to raise EsqlTypeMismatchError only because the Elastic
+        # Container test stack shipped the Endpoint integration by default. Local schemas do
+        # not map file.Ext.entry_modified on logs-endpoint.alerts-* (no integration is set),
+        # and the field is referenced as a STATS grouping, which the offline analyzer treats
+        # as pipeline-defined — so the rule loads. Unmapped fields referenced outside a
+        # grouping still raise EsqlSchemaError (see test_esql_filtered_keep).
+        _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_filtered_keep(self):
         """Test an ESQL rule's schema validation."""
