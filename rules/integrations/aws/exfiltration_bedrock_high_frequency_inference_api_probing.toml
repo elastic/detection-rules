@@ -111,9 +111,7 @@ FROM logs-aws.cloudtrail-*
     AND event.outcome == "success"
     AND aws.cloudtrail.user_identity.arn IS NOT NULL
     AND aws.cloudtrail.request_parameters IS NOT NULL
-| GROK aws.cloudtrail.request_parameters """
-    modelId=(?<Esql.model_id>[^,}\]]+)
-  """
+| GROK aws.cloudtrail.request_parameters """modelId=(?<Esql.model_id>[^,}\]]+)"""
 | WHERE Esql.model_id IS NOT NULL
 | STATS
     Esql.inference_call_count = COUNT(*),
