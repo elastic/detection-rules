@@ -2,14 +2,14 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies potential fake CAPTCHA phishing attack based on PowerShell or Cmd argument values. Adversaries employ this
+Identifies potential fake CAPTCHA phishing attacks based on PowerShell, Cmd, or Mshta command-line values. Adversaries employ this
 technique via compromised websites with browser injects, posing either as fake CAPTCHAs to access the site or as a page
-loading error requiring a fix to display the page. The victim is instructed to copy and past a malicious command to
+loading error requiring a fix to display the page. The victim is instructed to copy and paste a malicious command to
 the Windows Run dialog box.
 """
 from = "now-9m"
@@ -26,34 +26,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Fake CAPTCHA Phishing Attack"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Fake CAPTCHA Phishing Attack
-
-### Possible investigation steps
-
-- Review the process command line and arguments to identify any malicious intent.
-- Review web activity preceeding the alert to identify the initial vector.
-- Investigate any network activity or child processes from the suspected process.
-- Correlate the event with other security alerts or logs from the same host or user to identify patterns or additional indicators of compromise.
-- Assess the risk and impact of the detected activity by considering the context of the environment, such as the presence of sensitive data or critical systems that might be affected.
-
-### False positive analysis
-
-- Legitimate administrative scripts containing the suspicious keywords such as CAPTCHA.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Terminate any suspicious processes identified by the detection rule to halt ongoing malicious activities.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious payloads or scripts.
-- Review and clean up any unauthorized changes to system configurations or scheduled tasks that may have been altered by the malicious PowerShell activity.
-- Restore any affected files or system components from known good backups to ensure system integrity and functionality.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement additional monitoring and logging for PowerShell activities across the network to enhance detection of similar threats in the future."""
 risk_score = 73
 rule_id = "fbad57ec-4442-48db-a34f-5ee907b44a22"
 severity = "high"
@@ -81,6 +53,171 @@ process where host.os.type == "windows" and event.type == "start" and
                          "*Cloudflare ID*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Fake CAPTCHA Phishing Attack
+#### Possible investigation steps
+
+- What does the pasted command do after the CAPTCHA or verification text?
+  - Why: lure text is the wrapper; payload behavior separates clickfix execution from testing or inert copy text.
+  - Focus: `process.name`, `process.command_line`, `process.parent.name`, and `process.parent.command_line` for URLs, encoded content, inline script, archive handling, or handoff to "mshta.exe", "cmd.exe", or "powershell.exe".
+  - Hint: fake-update or page-fix wording is the same abuse path when the command downloads, decodes, or hands execution to another utility.
+  - Implication: escalate when the command downloads content, rebuilds a payload, invokes another script host, or hides work after CAPTCHA wording; lower suspicion only for a bounded authorized simulation or lab command with no second-stage behavior.
+
+- Is the shell or proxy binary and launch context consistent with paste-and-run clickfix?
+  - Focus: `process.executable`, `process.parent.executable`, `process.parent.command_line`, and `user.id`.
+  - Implication: escalate faster when the binary is renamed, user-writable, or launched from an unusual parent context for the user; a native shell path confirms identity but does not clear suspicious command content.
+
+- Do children from the alerting instance show payload execution or follow-on tooling?
+  - Focus: child starts where `process.parent.entity_id` maps to `process.entity_id`, reviewing child `process.executable` and `process.command_line`. $investigate_2
+  - Hint: if `process.entity_id` is absent, recover children with `host.id` + `process.pid` in a tight alert-time window and treat the match as weaker.
+  - Implication: escalate when the same shell or "mshta.exe" starts installers, script hosts, archive tools, credential tooling, or more shells; no children reduce scope only if command intent and artifact/destination evidence also stay bounded.
+
+- If file telemetry is available, did the process stage scripts, HTAs, archives, or payloads?
+  - Focus: process-scoped file events using `host.id` + `process.entity_id`, or `host.id` + `process.pid` as fallback, reviewing `file.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier`. $investigate_4
+  - Implication: escalate when artifacts land in temp, downloads, desktop, public, startup, or other user-writable paths, carry internet provenance, or later execute; missing file telemetry is unresolved, not benign.
+
+- If network telemetry is available, did the process retrieve payloads or contact callbacks?
+  - Focus: process-scoped network events using `host.id` + `process.entity_id`, separating DNS `dns.question.name` from connection `destination.ip` / `destination.port`. $investigate_3
+  - Hint: if `process.entity_id` is absent, use `host.id` + `process.pid` and a tight alert-time window. Missing network telemetry is unresolved, not benign.
+  - Implication: escalate when the same process reaches rare public domains, direct IPs, paste/file hosts, or service ports fitting retrieval or callback behavior; lower suspicion only when destinations belong to the same authorized simulation or lab workflow.
+
+- Do surrounding process events explain the lure path into "explorer.exe"?
+  - Focus: same `host.id` and `user.id` process timeline, especially browser, chat, mail, archive, or download-manager starts in `process.name`, `process.parent.executable`, and `process.parent.command_line`. $investigate_5
+  - Implication: escalate when a browser/chat/download chain immediately precedes the paste-run shell or no controlled source explains the lure; lower suspicion when the sequence matches a planned awareness platform or lab harness and the command remains bounded.
+
+- If local findings stay suspicious or unresolved, do related alerts change scope?
+  - Focus: recent alerts for the same `host.id`, then `user.id`, emphasizing reuse of the command fragment, shell/proxy binary, recovered artifact, destination, or persistence chain. $investigate_0
+  - Hint: use the user view after the host view, or when a shared host needs actor scoping for the command or lure pattern. $investigate_1
+  - Implication: broaden response when related alerts show the same lure-driven execution pattern on this host or user; quiet alert history does not close the case without a telemetry-backed benign workflow.
+
+- Escalate on clickfix command intent plus suspicious children, staged artifacts, process-scoped destinations, delivery context, or related alerts; close only when alert-local evidence and recovery bind one authorized simulation or lab workflow with no contradiction; if evidence is mixed or visibility incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Security-awareness, phishing-simulation, red-team, malware-analysis, browser-security, and QA labs can intentionally execute fake CAPTCHA samples. Confirm one exact workflow: stable `process.command_line` fragment, expected `process.executable` and `process.parent.name`, bounded `user.id` / `host.id`, and recovered children, artifacts, and destinations that stay inside the exercise or lab set.
+- Without exercise or lab records, close only when telemetry proves the same command fragment, parent context, `user.id`, `host.id`, and recovered evidence stayed bounded across prior alerts from this rule. Do not close when child execution, artifact staging, destination activity, or related alerts contradict the expected workflow.
+- Build exceptions only from the minimum confirmed workflow: command fragment, process identity, parent context, `user.id`, `host.id`, and any recovered artifact or destination pattern. Avoid exceptions on lure text, "explorer.exe", `process.name`, or a user alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the command, process identity, parent context, `user.id`, `host.id`, and recovered supporting evidence that proved the authorized simulation or lab workflow. Create an exception only when that exact workflow recurs.
+- If suspicious but unconfirmed, export the alert, process tree, `process.entity_id`, `process.command_line`, child command lines, volatile state, and any recovered artifact paths, domains, IPs, or ports before containment. Apply reversible controls first, such as temporary destination blocks, browser-session reset, heightened monitoring, or endpoint isolation when retrieval, staging, or second-stage execution makes continued connectivity risky.
+- If confirmed malicious, isolate the host when command intent plus child, artifact, or destination evidence establishes compromise. Terminate the malicious shell, "mshta.exe", or follow-on children only after evidence is recorded, then block confirmed domains, IPs, hashes, or URLs and reset credentials only if the investigation shows account misuse.
+- Eradicate only the staged scripts, HTAs, archives, payloads, or persistence artifacts found during the investigation, then remediate the web, chat, mail, or download path that led the user to run the lure.
+- Post-incident hardening: retain process, file, and network telemetry needed for future clickfix triage; review browser protections, clipboard/paste execution controls, and user-awareness coverage; record the confirmed lure wording and paste-run chain in the case notes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.pid",
+    "process.entity_id",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the same alerting instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the alerting instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File activity for the alerting instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process timeline for the host and user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

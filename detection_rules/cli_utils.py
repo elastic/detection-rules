@@ -29,6 +29,10 @@ from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
 
+# Fields the cluster assigns to Elastic prebuilt rules to track customizations against the
+# base version. They are preserved on import so an export/import round trip stays faithful.
+PREBUILT_RULE_FIELDS = ("immutable", "revision", "rule_source", "version")
+
 
 def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
     """Interactively prompt based on schema requirements."""
@@ -215,17 +219,21 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
 
         # Warn that if the path does not match the expected path, it will be saved to the expected path
         for rule in rules:
-            threat = rule.contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
-            tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            # Accept a filename built from the baseline tactic or any versioned (e.g. v19) threat_mappings
+            # tactic, since a rule may still use its older tactic name in the filename until it's renamed.
+            tactic_names = [] if no_tactic_filename else rule.contents.data.get_primary_tactic_names()
+            candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=t) for t in tactic_names]
+            if not candidate_names:
+                candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=None)]
+            rule_name = candidate_names[0]
             if not rule.path:
                 click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+            elif rule.path.name not in candidate_names:
+                expected = rule_name if len(candidate_names) == 1 else f"one of {candidate_names}"
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected}", fg="yellow"
                 )
 
         kwargs["rules"] = rules
@@ -234,7 +242,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     return get_collection
 
 
-def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
+def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     path: Path | None = None,
     rule_type: str | None = None,
     required_only: bool = True,
@@ -274,6 +282,10 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 
+    # `props` is sorted alphabetically, so `immutable` is popped off kwargs below before
+    # `revision` and `version` are reached. Capture it up front instead.
+    is_immutable = kwargs.get("immutable") is True
+
     for name, options in props.items():
         if name == "index" and kwargs.get("type") == "esql":
             continue
@@ -282,12 +294,14 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
             contents[name] = rule_type_val
             continue
 
-        # these are set at package release time depending on the version strategy;
-        # for immutable rules preserve version/revision from the cluster
-        if name in ("version", "revision") and not BYPASS_VERSION_LOCK and not kwargs.get("immutable"):
+        # Prebuilt rules are versioned by the cluster, so carry those values through untouched.
+        preserve_prebuilt = is_immutable and name in PREBUILT_RULE_FIELDS and name in kwargs
+
+        # these are set at package release time depending on the version strategy
+        if name in ("version", "revision") and not BYPASS_VERSION_LOCK and not preserve_prebuilt:
             continue
 
-        if required_only and name not in required_fields:
+        if required_only and name not in required_fields and not preserve_prebuilt:
             continue
 
         # build this from technique ID

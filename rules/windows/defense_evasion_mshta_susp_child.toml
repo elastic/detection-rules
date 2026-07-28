@@ -2,7 +2,7 @@
 creation_date = "2025/08/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic"]
@@ -25,39 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Microsoft HTML Application Child Process"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Microsoft HTML Application Child Process
-
-Mshta.exe is a legitimate Windows utility used to execute Microsoft HTML Application (HTA) files. Adversaries exploit it to run malicious scripts, leveraging its trusted status to bypass security measures. The detection rule identifies suspicious network activity by Mshta.exe, excluding known benign processes, to flag potential threats. This approach helps in identifying unauthorized network connections indicative of malicious intent.
-
-### Possible investigation steps
-
-- Review the process tree to understand the parent-child relationship of mshta.exe, focusing on any unusual or unexpected parent processes that are not excluded by the rule, such as Microsoft.ConfigurationManagement.exe or known benign executables.
-- Analyze the command-line arguments used by mshta.exe to identify any suspicious or unexpected scripts being executed, especially those not matching the excluded ADSelfService_Enroll.hta.
-- Examine the network connections initiated by mshta.exe, including destination IP addresses, domains, and ports, to identify any connections to known malicious or suspicious endpoints.
-- Check for any related alerts or logs from the same host around the time of the mshta.exe activity to identify potential lateral movement or additional malicious behavior.
-- Investigate the user account associated with the mshta.exe process to determine if it has been compromised or is exhibiting unusual activity patterns.
-
-### False positive analysis
-
-- Mshta.exe may be triggered by legitimate software updates or installations, such as those from Microsoft Configuration Management. To handle this, add exceptions for processes with parent names like Microsoft.ConfigurationManagement.exe.
-- Certain applications like Amazon Assistant and TeamViewer may use Mshta.exe for legitimate purposes. Exclude these by specifying their executable paths, such as C:\\Amazon\\Amazon Assistant\\amazonAssistantService.exe and C:\\TeamViewer\\TeamViewer.exe.
-- Custom scripts or internal tools that utilize HTA files for automation might cause false positives. Identify these scripts and exclude them by their specific arguments, such as ADSelfService_Enroll.hta.
-- Regularly review and update the list of exceptions to ensure that only verified benign activities are excluded, minimizing the risk of overlooking genuine threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further unauthorized access or data exfiltration.
-- Terminate the mshta.exe process if it is confirmed to be making unauthorized network connections.
-- Conduct a thorough scan of the affected system using updated antivirus and anti-malware tools to identify and remove any malicious scripts or files.
-- Review and analyze the process tree and network connections associated with mshta.exe to identify any additional compromised processes or systems.
-- Restore the system from a known good backup if malicious activity is confirmed and cannot be fully remediated.
-- Implement application whitelisting to prevent unauthorized execution of mshta.exe and similar system binaries.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on the broader network."""
 references = [
     "https://lolbas-project.github.io/lolbas/Binaries/Mshta/",
 ]
@@ -83,13 +50,190 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- process.parent.name : "mshta.exe" and
- (
-  process.name : ("cmd.exe", "powershell.exe", "certutil.exe", "bitsadmin.exe", "curl.exe", "msiexec.exe", "schtasks.exe", "reg.exe", "wscript.exe", "rundll32.exe") or
-  process.executable : ("C:\\Users\\*\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\*.exe")
-  )
+  process.parent.name : "mshta.exe" and process.command_line != null and
+  (
+   process.name : (
+       "cmd.exe", "powershell.exe", "certutil.exe", "bitsadmin.exe", "curl.exe", "msiexec.exe",
+       "schtasks.exe", "reg.exe", "wscript.exe", "rundll32.exe"
+   ) or
+   process.executable : ("C:\\Users\\*\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\*.exe")
+  ) and
+  not (process.name : "cmd.exe" and process.command_line : "*\\HP\\HP*HPUDC*") and
+  not ?process.parent.command_line : "*\\HP\\*\\HPSolutionsPortal.hta*"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Microsoft HTML Application Child Process
+
+#### Possible investigation steps
+
+- What did mshta broker into the child process?
+  - Focus: `process.name`, `process.executable`, `process.command_line`, and `process.parent.command_line`, separating interpreters, script engines, transfer tools, installers, persistence utilities, DLL proxy loaders, and user-profile binaries; for transfer, installer, or user-profile children, recover same-child file and network/DNS events. $investigate_0 $investigate_1
+  - Implication: treat download, staging, persistence, scripting, or arbitrary user-space execution as high-risk proxy execution; narrow only when child arguments and mshta command line identify one recognized HTA-driven deployment, enrollment, support, or internal-portal flow. Missing file, network, or DNS telemetry is unresolved, not benign.
+
+- Is the child binary identity consistent with its claimed role?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: renamed, unsigned/untrusted, user-writable, newly seen, or PE-mismatched children strengthen proxy-execution; a trusted signer identifies the binary but does not clear the mshta chain.
+
+- What source did mshta execute?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.parent.code_signature.subject_name`, and `process.parent.code_signature.trusted`, checking expected System32/SysWOW64 mshta plus inline "vbscript:"/"javascript:", "script:" monikers, remote URLs, ADS syntax, UNC paths, temp/downloads, or "INetCache" sources.
+  - Implication: inline scriptlets, remote/ADS-backed content, user-writable sources, obfuscation, or unexpected signer/path make mshta the likely delivery mechanism; internal HTAs, vendor packages, or deployment sources must still match the child workflow.
+
+- What process launched mshta?
+  - Why: recovering the mshta start event shows whether a browser, document, archive tool, installer, or management process initiated the chain.
+  - Focus: process-start events on `host.id` where recovered `process.entity_id` equals alert `process.parent.entity_id`; if absent, use `host.id`, `process.parent.pid`, and a tight alert window, then inspect recovered `process.parent.executable` and `process.parent.command_line`. $investigate_2
+  - Implication: Office, browser, archive, chat, script-host, or unexpected-service launchers indicate delivery or user-execution risk; software-distribution, support, enrollment, or portal launchers explain the chain only when they start the same flow on the same host cohort.
+
+- Did the same mshta instance launch more suspicious children?
+  - Focus: process-start events on `host.id` where `process.parent.entity_id` matches alert `process.parent.entity_id`; fall back to `host.id`, `process.parent.pid`, and a tight alert window; inspect child `process.name`, `process.executable`, and `process.command_line`. $investigate_3
+  - Implication: same-instance fan-out into shells, transfer tools, schedulers, configuration changes, script hosts, or multiple user-space binaries widens response beyond one child; a single child stays narrow only if it matches the recovered benign workflow.
+
+- Does the user, session, and host cohort fit that workflow?
+  - Focus: `user.id`, `host.name`, `process.Ext.session_info.logon_type`, and recovered launcher `process.parent.executable`, using `host.id` as the stable host anchor.
+  - Implication: standard-user, shared-workstation, unusual remote/service-session, or non-management-host context raises priority without matching workflow history; cohort fit is reassuring only when session type and launcher match the deployment, support, enrollment, or portal pattern.
+
+- If local evidence is suspicious or unresolved, does alert history show broader proxy execution?
+  - Focus: related alerts for `user.id` in 48 hours where the same child `process.executable` or mshta command pattern (`process.command_line`, `process.parent.command_line`) recurs in proxy-execution alerts. $investigate_4
+  - Hint: if the user view is quiet or ambiguous, compare related alerts for `host.id` in 48 hours; quiet history does not clear unresolved local evidence. $investigate_5
+  - Implication: escalate scope when the same delivery path or child-command pattern recurs across proxy-execution alerts; stay local only when the chain is resolved and related history fits the same recognized workflow.
+
+- Escalate on suspicious child intent, identity mismatch, inline/remote/ADS mshta source, abnormal launcher, same-mshta fan-out, or broader proxy-execution history; close only when process evidence binds one exact recognized workflow on this host and no contradictions remain; preserve the process tree and escalate mixed or incomplete evidence.
+
+### False positive analysis
+
+- HP printer software (HPSolutionsPortal.hta) uses mshta to run a vendor portal that spawns cmd.exe for UDC telemetry cleanup and rundll32.exe for printui operations. The rule excludes the UDC cmd.exe pattern cross-source and the parent HTA path when `process.parent.command_line` is available. On sources without parent command_line (CrowdStrike, SecurityLog), these alerts still fire; confirm by matching `process.command_line` to HP ProgramData paths or printui.dll printer-name arguments before closing.
+- Treat software distribution, device enrollment, remote support, or internal HTA portals as benign candidates only after process telemetry proves the same chain. Confirm child `process.executable`, `process.command_line`, `process.hash.sha256`, signer, mshta `process.parent.command_line`, recovered launcher executable/command line, and `user.id` plus `host.id` cohort. Use change records, support tickets, asset-role inventories, or prior alerts only as corroboration; never close unresolved local process evidence on recurrence or workflow labels alone.
+- Do not close on partial matches. Inline scriptlets, remote URLs, ADS syntax, user-profile child executables, unexpected launchers, or same-mshta fan-out contradict a benign HTA workflow unless process telemetry and outside confirmation verify that exact activity.
+- Build exceptions from the minimum confirmed pattern: recovered launcher `process.parent.executable`, mshta `process.parent.command_line`, child `process.executable` plus `process.command_line`, and stable `user.id` or `host.id` cohort. Avoid exceptions on mshta alone, `process.name` alone, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, record the child `process.command_line`, mshta `process.parent.command_line`, recovered launcher `process.parent.executable`, `user.id`, and `host.id` evidence that validated the workflow, then reverse temporary containment. Create an exception only for that narrow process pattern, using prior alerts as stability evidence when available.
+- If suspicious but unconfirmed, preserve the alert record, process tree, child `process.entity_id`, alert `process.parent.entity_id`, child and mshta command lines, child `process.hash.sha256`, signer evidence, recovered launcher, `process.Ext.session_info.logon_type`, and related-alert results before containment. Apply reversible controls first, such as blocking the exact HTA URL or share visible in `process.parent.command_line`, restricting the child hash or path, or increasing monitoring on the affected `host.id` and `user.id`.
+- If confirmed malicious, isolate the host or terminate the mshta/child process only after recording the child and mshta entity IDs, command lines, launcher, hash, signer, user, and host evidence. If endpoint response is unavailable, hand off that preserved evidence to the team that can contain the endpoint or affected account.
+- After containment, block confirmed malicious child hashes, child executable paths, and exact mshta command-line sources, then remove only scripts, binaries, scheduled tasks, or persistence changes proven to belong to this chain. Remediate the delivery vector that started mshta, such as browser download, attachment, archive extraction, remote share, software package, or compromised management workflow.
+- Post-incident hardening: restrict mshta use for users and hosts that do not need HTA execution, package legitimate HTA workflows through signed deployment tooling, and record adjacent variants such as inline "vbscript:" / "javascript:", remote "script:" monikers, ADS-backed HTAs, and INetCache retrievals for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.Ext.session_info.logon_type",
+    "process.pe.original_file_name",
+    "process.hash.sha256",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Mshta parent process event"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events launched by the same mshta instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

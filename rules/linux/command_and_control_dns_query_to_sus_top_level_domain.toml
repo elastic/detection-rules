@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/07/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects DNS queries to commonly abused top level domains. Malware authors may use these
+domains to host command and control infrastructure, exfiltrate data, or to download payloads
+for later execution.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "DNS Request to Suspicious Top Level Domain"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating DNS Request to Suspicious Top Level Domain
+
+This rule flags a Linux process making DNS lookups for top-level domains that threat actors frequently abuse, which can reveal command-and-control staging, payload retrieval, or data theft paths that blend into normal name resolution. A common pattern is a compromised Linux server or container resolving a .xyz, .top, or .ru domain immediately before a downloader, backdoor, or script beacon starts exchanging instructions or uploading collected data.
+
+### Possible investigation steps
+
+- Review the originating binary’s full command line, executable path, parent or child lineage, and user or service account to determine whether the lookup came from approved software, an admin script, or an unexpected downloader or shell.
+- Correlate the DNS event with nearby outbound connections, HTTP or TLS sessions, and file activity on the same host to see whether the domain was followed by beaconing, payload retrieval, or data transfer.
+- Enrich the queried domain and any resolved IPs with passive DNS, registration age, reputation, ASN or geolocation, and prevalence in your environment to distinguish newly created or low-reputation infrastructure from known business services.
+- Determine whether the host is a server, workstation, or containerized workload and validate if the domain fits its normal role by comparing against recent activity, peer hosts, deployed applications, and change or deployment records.
+- If the activity is not readily explained, inspect for adjacent compromise indicators such as new cron jobs or systemd timers, unexpected binaries in writable paths, recent package or script changes, and authentication or privilege escalation events around the same timeframe.
+
+### False positive analysis
+
+- Newly deployed or updated Linux applications, scripts, or package retrieval tasks may legitimately resolve domains in low-cost or regional TLDs for updates, licensing, or content delivery; verify the process path and parent chain match approved software and that similar lookups appear on peer hosts during the same change window.
+- A user or service performing legitimate research or accessing region-specific content may query a country-code or commonly abused TLD from a browser or expected application; confirm the domain aligns with the host’s business purpose and that the activity is limited to normal browsing without subsequent suspicious connections, downloads, or persistence changes.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container from the network except for approved management access, and immediately block the suspicious domain, its resolved IP addresses, and any follow-on destinations at DNS, proxy, and firewall controls.
+- Terminate the offending process and remove persistence tied to the activity, including unauthorized systemd services or timers, cron entries, startup scripts, shell profile changes, and newly added SSH authorized_keys for the impacted account.
+- Preserve the malicious binary or script and relevant logs for scoping, then rebuild the system from a known-good image or snapshot rather than cleaning in place, and restore altered files only from trusted backups.
+- Rotate credentials and secrets exposed on the host, especially SSH keys, API tokens, service account passwords, and cloud or instance metadata credentials, because DNS-based command-and-control often precedes remote tasking and data theft.
+- Escalate to incident response immediately if the same domain or related infrastructure appears on multiple hosts, if the process ran as root or a privileged service account, or if you identify outbound uploads, payload downloads, or lateral movement activity.
+- Harden the environment by forcing outbound DNS through approved resolvers, restricting egress to required destinations, monitoring Linux systems for new systemd or cron persistence, and adding detections for the domain, executable hash, and related infrastructure.
+"""
+risk_score = 21
+rule_id = "44a2de72-fe41-4558-b7ec-3e42de5f0432"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Network",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and dns.question.name != null and process.name != null and
+dns.question.name like~ (
+  "*.forum", "*.pro", "*.team", "*.lol", "*.kr", "*.ke", "*.nu", "*.space", "*.capital", "*.in", "*.cfd", "*.online",
+  "*.ru", "*.info", "*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.network",
+  "*.monster", "*.marketing", "*.cyou", "*.quest", "*.cc", "*.bar", "*.click", "*.cam", "*.surf", "*.tk", "*.shop",
+  "*.club", "*.icu", "*.pw", "*.ws", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.mom",
+  "*.beauty", "*.bond", "*.biz", "*.live", "*.zone"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[[rule.threat.technique]]
+id = "T1568"
+name = "Dynamic Resolution"
+reference = "https://attack.mitre.org/techniques/T1568/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1568.002"
+name = "Domain Generation Algorithms"
+reference = "https://attack.mitre.org/techniques/T1568/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.001"
+name = "Exfiltration to Code Repository"
+reference = "https://attack.mitre.org/techniques/T1567/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.003"
+name = "Exfiltration to Text Storage Sites"
+reference = "https://attack.mitre.org/techniques/T1567/003/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"

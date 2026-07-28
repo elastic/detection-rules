@@ -2,33 +2,7 @@
 creation_date = "2021/03/15"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -49,58 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Startup Shell Folder Modification"
-note = """## Triage and analysis
-
-### Investigating Suspicious Startup Shell Folder Modification
-
-Techniques used within malware and by adversaries often leverage the Windows registry to store malicious programs for persistence. Startup shell folders are often targeted as they are not as prevalent as normal Startup folder paths so this behavior may evade existing AV/EDR solutions. These programs may also run with higher privileges which can be ideal for an attacker.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Review the source process and related file tied to the Windows Registry entry.
-- Validate if the activity is not related to planned patches, updates, network administrator activity, or legitimate software installations.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the file using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Investigate potentially compromised accounts. Analysts can do this by searching for login events (for example, 4624) to the target host after the registry modification.
-
-### False positive analysis
-
-- There is a high possibility of benign legitimate programs being added to shell folders. This activity could be based on new software installations, patches, or other network administrator activity. Before undertaking further investigation, it should be verified that this activity is not benign.
-
-### Related rules
-
-- Startup or Run Key Registry Modification - 97fc44d3-8dae-4019-ae83-298c3015600f
-- Persistent Scripts in the Startup Directory - f7c4dc5a-a58d-491d-9f14-9b66507121c0
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- If the malicious file was delivered via phishing:
-  - Block the email sender from sending future emails.
-  - Block the malicious web pages.
-  - Remove emails from the sender from mailboxes.
-  - Consider improvements to the security awareness program.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://www.elastic.co/security-labs/elastic-security-uncovers-blister-malware-campaign",
     "https://www.elastic.co/security-labs/revisiting-blister-new-developments-of-the-blister-loader",
@@ -113,7 +35,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
@@ -158,34 +79,172 @@ registry where host.os.type == "windows" and event.type == "change" and
            )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Startup Shell Folder Modification
+
+#### Possible investigation steps
+
+- What shell-folder scope changed, and which local path now receives Startup items?
+  - Why: `registry.value` separates per-user "Startup" from all-users "Common Startup"; all-users scope broadens persistence beyond one profile.
+  - Focus: `registry.path`, `registry.value`, `registry.hive`, `registry.data.type`, `registry.data.strings`.
+  - Implication: escalate when `registry.data.strings` points to a user-writable, hidden, deceptive, or all-users local path; lower concern here only for a recognized managed redirection target, then continue through process and user/host checks.
+
+- Which process and lineage changed the shell-folder value?
+  - Focus: `process.executable`, `process.command_line`, `process.parent.executable`, `process.parent.command_line`, `process.code_signature.subject_name`.
+  - Implication: escalate when the writer is a COM broker such as dllhost.exe, script host, LOLBin, renamed binary, user-writable executable, or unrelated parent chain; lower concern for management or packaging tooling only when command line and lineage explain this exact shell-folder write. Signed identity never clears the behavior by itself.
+
+- Was a startup artifact staged or executed from the redirected path?
+  - Why: the registry change can be setup only; persistence is proven by startup content in the redirected directory, and delayed staging or value reversion can hide the chain.
+  - Focus: same-process activity, redirected-directory file events, and command lines referencing `registry.data.strings`.
+    - $investigate_0
+    - $investigate_1
+    - $investigate_2
+  - Hint: if file telemetry is available, check file-event writes to that directory; missing file-event visibility is unresolved, not benign.
+  - Implication: escalate when the modifier or later process writes, launches, or reverts around shortcuts, scripts, or binaries in the redirected directory.
+
+- Does the creating identity and host context fit one recognized redirection workflow?
+  - Focus: `user.id`, `user.name`, `user.domain`, `host.id`, `host.name`.
+  - Implication: escalate when an interactive or ad hoc identity changes Startup resolution on a host that does not normally customize shell folders; lower concern only when identity, host cohort, path, and lineage converge on one recognized management or packaging workflow.
+
+- If local evidence is suspicious or unresolved, does same-host activity change scope?
+  - Why: sibling autostart `registry.path` changes can preserve persistence if the redirected Startup folder is noticed, restored, or cleaned.
+  - Focus: use $investigate_3 for the same `host.id`, then filter for the exact `registry.data.strings` path, sibling autostart `registry.path` changes, and process starts referencing the redirected path.
+  - Implication: broaden response when the host shows additional shell-folder or Run-key changes, execution from the redirected path, or repeated attempts to use it; keep scope local only when the pivot finds no matching autostart or execution evidence.
+
+- Do the path, process, payload-use, and context findings support startup-folder evasion?
+  - Implication: escalate for an unexpected process or actor, suspicious local path, shortcut/script/binary content, redirected-path execution, or same-host persistence/evasion; close only when telemetry narrows the case to one exact recognized workflow and outside confirmation verifies legitimacy where telemetry alone cannot; preserve and escalate when file visibility, process context, or workflow evidence is incomplete.
+
+### False positive analysis
+
+- Managed shell-folder redirection or application packaging can repoint "Startup" or "Common Startup" to a nondefault local path, but this is operationally sensitive. Treat these explanations as benign only when alert-window telemetry proves the exact redirected folder, process lineage, expected startup content, and managed host cohort all match one management or packaging job. Use deployment records, management configuration, packaging job logs, or owner confirmation when telemetry alone cannot prove legitimacy; do not close on a management label without this evidence.
+- Before exceptioning, validate recurrence of the same `registry.value`, `registry.data.strings`, `process.executable`, `process.command_line`, `process.parent.executable`, `user.id`, and `host.id` pattern after confirming the benign workflow. Build the exception from that minimum workflow, and avoid exceptions on all Startup shell-folder modifications, the whole Explorer shell-folder key family, or the rule name alone.
+
+### Response and remediation
+
+- If confirmed benign, record the exact registry path/value/data, process lineage, `user.id`, and `host.id` pattern that proved the recognized workflow, then reverse temporary containment. Keep any exception narrow and require recurrence of that same workflow.
+- If suspicious but unconfirmed, preserve the alert, Timeline or case exports, the current shell-folder value, process tree, command line, and redirected-directory contents or metadata when available before changing state. Apply reversible containment first, such as blocking execution from the redirected directory or increasing monitoring on the host. Restore the legitimate Startup path only after evidence capture, dependency review, and validation of the correct per-user or Common Startup path. Isolate the host only when payload execution or related alerts show active compromise.
+- If confirmed malicious, collect staged shortcuts, scripts, binaries, hashes, and registry evidence before eradication. Contain the endpoint when its role allows, contain the creating account when the evidence shows account misuse, validate the correct per-user or Common Startup value, restore that value, and remove only the artifacts identified in the investigation. If direct response is unavailable, escalate with the preserved evidence to the team that can act on the host.
+- Before cleanup, review other user profiles and the all-users Startup scope for the same redirected path, then verify no process execution still points to that directory. After recovery, restrict shell-folder redirection to controlled management tooling, retain registry/process and available file telemetry needed to connect redirection to later payload staging, and document delayed-staging or value-reversion blind spots for future cases.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "registry.path",
+    "registry.hive",
+    "registry.value",
+    "registry.data.type",
+    "registry.data.strings",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Activity from this process instance on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events in the redirected Startup path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.directory", queryType = "phrase", value = "{{registry.data.strings}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process command lines referencing the redirected path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.command_line", queryType = "phrase", value = "{{registry.data.strings}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Recent activity on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1547"
 name = "Boot or Logon Autostart Execution"
 reference = "https://attack.mitre.org/techniques/T1547/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1547.001"
 name = "Registry Run Keys / Startup Folder"
 reference = "https://attack.mitre.org/techniques/T1547/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1112"
 name = "Modify Registry"
 reference = "https://attack.mitre.org/techniques/T1112/"
 
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

@@ -2,7 +2,7 @@
 creation_date = "2021/09/08"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic"]
@@ -25,41 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Control Panel Process with Unusual Arguments"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Control Panel Process with Unusual Arguments
-
-The Control Panel in Windows is a system utility that allows users to view and adjust system settings. Adversaries may exploit this by using control.exe to execute malicious code under the guise of legitimate processes. The detection rule identifies anomalies in command-line arguments, such as unexpected file types or suspicious paths, which may indicate an attempt to evade defenses or execute unauthorized actions.
-
-### Possible investigation steps
-
-- Review the command line arguments of the control.exe process to identify any unusual file types or suspicious paths, such as image file extensions or paths like */AppData/Local/*.
-- Check the parent process of control.exe to determine if it was spawned by a legitimate application or a potentially malicious one.
-- Investigate the user account associated with the process to verify if the activity aligns with their typical behavior or if it appears suspicious.
-- Examine recent file modifications or creations in directories like \\AppData\\Local\\ or \\Users\\Public\\ to identify any unauthorized or unexpected changes.
-- Correlate the event with other security alerts or logs from data sources like Microsoft Defender XDR or Sysmon to gather additional context on the potential threat.
-- Assess the network activity of the host during the time of the alert to identify any unusual outbound connections that may indicate data exfiltration or command and control communication.
-
-### False positive analysis
-
-- Image file paths in command-line arguments may trigger false positives if users or applications are legitimately accessing image files through control.exe. To mitigate this, create exceptions for known applications or user activities that frequently access image files.
-- Paths involving AppData or Users\\Public directories might be flagged if legitimate software installations or updates use these locations. Review and whitelist specific software processes that are known to use these directories for legitimate purposes.
-- Relative path traversal patterns like ../../.. could be used by legitimate scripts or applications for configuration purposes. Identify and exclude these scripts or applications from the detection rule if they are verified as non-malicious.
-- Frequent use of control.exe with specific command-line arguments by system administrators or IT personnel for legitimate system management tasks can be excluded by creating user-based exceptions for these roles.
-- If certain security tools or monitoring software are known to trigger this rule due to their operational behavior, consider excluding these tools after confirming their legitimacy and necessity.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate the suspicious control.exe process to stop any ongoing malicious execution.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or remnants.
-- Review and clean up any unauthorized changes or files in the directories specified in the alert, such as AppData/Local or Users/Public, to ensure no persistence mechanisms remain.
-- Restore any affected files or system settings from a known good backup to ensure system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement additional monitoring and alerting for similar command-line anomalies to enhance detection and prevent recurrence of this threat."""
 references = ["https://www.joesandbox.com/analysis/476188/1/html"]
 risk_score = 73
 rule_id = "416697ae-e468-4093-a93d-59661fa619ec"
@@ -69,7 +34,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Tactic: Execution",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
@@ -97,6 +61,165 @@ process where host.os.type == "windows" and event.type == "start" and
 )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Control Panel Process with Unusual Arguments
+
+#### Possible investigation steps
+
+- Which suspicious argument family did the alert preserve, and what does it imply?
+  - Focus: `process.command_line` and `@timestamp`, identifying image or INF targets, ".cpl:" indirection, traversal (".."), "AppData\\Local", or "Users\\Public" fragments.
+  - Implication: escalate when Control Panel points at non-applet content, user-writable paths, traversal, or URL-like ".cpl:" loading; lower suspicion only when the path and argument resolve to one recognized vendor applet, driver package, or support workflow.
+
+- Is the alerting binary really the expected Control Panel executable?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.hash.sha256`.
+  - Implication: escalate if "control.exe" is renamed, unsigned or untrusted, has an unfamiliar hash, or runs outside the Windows system path; Microsoft identity lowers masquerade risk but does not clear the arguments.
+
+- Does the parent and user context fit this launch?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, and `user.name`.
+  - Implication: Office, browser, script-host, archive-tool, remote-admin, or mismatched-user launches make the command abnormal; keep validating only when parent and user context fit the applet, driver, support, or lab workflow named by the command line.
+
+- Did Control Panel hand off to follow-on execution?
+  - Focus: child starts on the same `host.id` where `process.parent.entity_id` equals the alert `process.entity_id`; review child `process.executable`, `process.command_line`, and `process.pe.original_file_name`. $investigate_0
+  - Implication: follow-on execution confirms proxy-abuse risk when the chain uses "rundll32.exe" or "Control_RunDLL", or spawns PowerShell, cmd, mshta, regsvr32, wscript, cscript, or another unexpected LOLBin; a clean stop at the expected applet or support component narrows scope.
+  - Hint: if `process.entity_id` is absent, recover children with `host.id` + `process.pid` near `@timestamp`; treat ambiguity as unresolved.
+
+- Did the referenced path contain staged or renamed payload content?
+  - Focus: file events for `host.id` + `process.entity_id`, or `host.id` + `process.pid` near `@timestamp`; review `file.path`, `file.Ext.original.path`, `file.Ext.header_bytes`, and `file.Ext.windows.zone_identifier`. $investigate_1
+  - Implication: escalate when file events show executable or script content, mismatched headers, recent renames, internet provenance, or payloads under "AppData\\Local" or "Users\\Public"; artifacts confined to the same recognized vendor package layout reduce file concern. Missing file telemetry is unresolved, not benign.
+
+- Did the process or host contact delivery or command-and-control infrastructure?
+  - Focus: DNS and connection events for `host.id` + `process.entity_id`, or `host.id` + `process.pid` near `@timestamp`; compare DNS `dns.question.name` and `dns.resolved_ip` with `destination.ip` and `destination.port`. $investigate_2
+  - Implication: escalate when network events show the same process or host reaching rare external domains, payload hosts, or mismatched service ports after launch; urgency drops only when traffic stays limited to the same recognized vendor or internal service. Missing network telemetry is unresolved, not benign.
+  - Hint: separate DNS events from connection events before correlating `dns.resolved_ip` to `destination.ip`.
+
+- If local evidence is suspicious or unresolved, does related alert activity change the user or host scope?
+  - Focus: alerts for the same `user.id` showing delivery, persistence, defense evasion, suspicious children, or other proxy-execution utilities such as "rundll32.exe", "mshta.exe", or "regsvr32.exe". $investigate_3
+  - Hint: use the host pivot separately for the same patterns on `host.id`, especially when user context is absent or shared. $investigate_4
+  - Implication: broaden scope when either pivot shows related delivery, persistence, proxy execution, or repeated suspicious Control Panel launches; keep local only when local evidence is explained and related alerts do not contradict it.
+
+- Escalate when command intent plus any meaningful corroborator indicates proxy execution, staged payloads, unexpected child execution, suspicious destinations, or spread; close only when alert-local process evidence and supported recovery bind the exact activity to one recognized workflow with no contradictions; if evidence is mixed or visibility is incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- Vendor applets, printer/display drivers, hardware-management packages, support troubleshooting, or lab validation can trigger unusual Control Panel paths. Confirm `process.command_line` names the expected CPL or INF target, `process.executable` is the Microsoft system binary, `process.parent.executable` and `process.parent.command_line` match the installer or support component, `user.id` and `host.id` fit the endpoint or lab cohort, artifacts stay inside the vendor package layout, and no suspicious child process or unexpected external destination follows. Use package, change, or lab records only as corroboration; without them, close only when this case's telemetry binds the exact workflow. Treat it as a candidate exception until records or recurrence confirm stability.
+- Before creating an exception, validate that the same `process.executable`, `process.parent.executable`, stable `process.command_line` pattern, `user.id`, and `host.id` recur across prior alerts from this rule. Build the exception from that minimum confirmed workflow pattern. Avoid exceptions on "control.exe" alone, on a file extension alone, or on a host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the command, binary identity, parent workflow, account, host, artifact, and destination evidence that proved one recognized workflow. Create an exception only if that same workflow recurs across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve a case export with `process.command_line`, `process.entity_id`, parent and child lineage, referenced artifacts, and network indicators when available before containment. Apply reversible containment first, such as temporary egress restrictions or heightened monitoring on the affected `host.id` and `user.id`, and avoid deleting files or killing child processes until follow-on execution is scoped.
+- Do not isolate or suspend based on the alert alone. Escalate suspicious-but-unconfirmed cases to host isolation or account action only when child-process, artifact, network, or related-alert evidence shows likely follow-on execution or broader exposure.
+- If confirmed malicious, preserve the same process, artifact, and network evidence before destructive action. Isolate the endpoint to stop further execution while keeping telemetry available; if direct endpoint response is unavailable, hand off the preserved `host.id`, `user.id`, `process.entity_id`, and command-line evidence to the team that can isolate the host or suspend the account.
+- After scoping related hosts, users, parent processes, command-line fragments, referenced paths, and follow-on children, quarantine or remove the malicious applets, DLLs, scripts, archives, or dropped artifacts identified during the investigation. Restore affected Control Panel or shell-association paths to the expected baseline and verify no persistence remains.
+- Post-incident hardening: restrict document-, script-, and archive-driven launches of Control Panel on privileged or shared systems, retain any file or network telemetry that limited the case, and record the confirmed workflow or malicious artifact pattern for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.working_directory",
+    "process.pe.original_file_name",
+    "process.parent.entity_id",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Child process events for Control Panel"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for Control Panel"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for Control Panel"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -109,10 +232,7 @@ id = "T1218.002"
 name = "Control Panel"
 reference = "https://attack.mitre.org/techniques/T1218/002/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

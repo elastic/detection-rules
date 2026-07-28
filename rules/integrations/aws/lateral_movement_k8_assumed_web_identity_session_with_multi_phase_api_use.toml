@@ -1,0 +1,221 @@
+[metadata]
+creation_date = "2026/04/22"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when credentials issued through `AssumeRoleWithWebIdentity` for a Kubernetes service account identity are later
+used for several distinct AWS control-plane actions on the same session access key. Workloads that use EKS IAM Roles
+for Service Accounts routinely exchange a projected service-account token for short-lived IAM credentials; this rule
+highlights sessions where that exchange is followed by a spread of sensitive APIs—reconnaissance, secrets and parameter
+access, IAM changes, or compute creation—beyond what routine pod traffic usually shows. High-volume S3 object reads and
+writes are excluded from the correlation set to reduce noise from normal data-plane work.
+"""
+false_positives = [
+    """
+    In-cluster automation may produce the same pattern: validate `Esql.user_name_values`, workload ownership, and
+    whether `Esql.source_ip_values` / `Esql.source_asn_names` match expected egress before tuning or allowlisting.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Lateral Movement from Kubernetes SA via AssumeRoleWithWebIdentity"
+note = """## Triage and analysis
+
+### Investigating AWS Lateral Movement from Kubernetes SA via AssumeRoleWithWebIdentity
+
+The rule output is already aggregated per session key. Start from **`aws.cloudtrail.user_identity.access_key_id`**, then
+use the bundled fields to scope time, identity, and network context before drilling into raw CloudTrail.
+
+**What to review first**
+
+- **`Esql.first_seen` / `Esql.last_seen`**: time window for the whole session; pull raw CloudTrail for this key between
+  those timestamps and confirm ordering (assume before follow-ons).
+- **`Esql.assume_count`**: should be at least 1; verify the assume row is `AssumeRoleWithWebIdentity` with a Kubernetes
+  service account in **`Esql.user_name_values`** (`system:serviceaccount:*`).
+- **`Esql.post_exploit_count`**, **`Esql.event_action_values`**, **`Esql.attack_phases`**: which distinct APIs fired on the
+  same key; flag unexpected IAM, secrets, or `RunInstances` alongside recon.
+- **`Esql.total_calls`**: volume beyond “three distinct actions”—helps separate quick probes from sustained abuse.
+- **`Esql.source_ip_values`**, **`Esql.source_asn_names`**, **`Esql.user_agent_values`**: compare to known cluster egress,
+  NAT, or approved automation; divergent ASNs or clients can indicate token use off-cluster.
+
+**Next pivots**
+
+- In CloudTrail assume events for this key: role ARN, OIDC provider, and `sub` / `aud` in `request_parameters` and
+  `resources`.
+- In Kubernetes: map `Esql.user_name_values` to namespace and workload; check audit logs around `Esql.first_seen` for
+  `exec`, secret reads, or new RBAC.
+
+### False positive analysis
+
+- In-cluster operators (GitOps, scanners, backups) can still satisfy the distinct-action bar; validate workload image,
+  schedule, and approved IRSA role scope.
+- Sessions that barely exceed the distinct-action threshold: use **`Esql.total_calls`** and IAM impact of
+  **`Esql.event_action_values`** to decide urgency.
+
+### Response and remediation
+
+- Revoke or constrain the IAM role session; tighten OIDC trust conditions; rotate or patch the affected workload; reduce
+  service account permissions and egress where abuse is confirmed.
+
+### Additional information
+
+- [IAM OIDC identity provider](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [EKS IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+- [AssumeRoleWithWebIdentity](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html",
+    "https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html",
+]
+risk_score = 73
+rule_id = "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS IAM",
+    "Data Source: AWS STS",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE (event.action == "AssumeRoleWithWebIdentity" AND user.name like "system:serviceaccount:*")
+  // S3 PutObject/GetObject is too  common in legit pod SA behavior 
+  OR (event.action IN ("ListBuckets", "DescribeInstances", "GetCallerIdentity",
+    "ListUsers", "ListRoles", "ListAttachedRolePolicies", "GetRolePolicy",
+    "GetSecretValue", "ListSecrets",
+    "GetParameters", "DescribeParameters", "ListKeys", "Decrypt",
+    "ListFunctions", "GetAuthorizationToken",
+    "SendCommand", "StartSession",
+    "CreateUser", "CreateAccessKey", "AttachRolePolicy", "CreateRole",
+    "PutRolePolicy", "UpdateAssumeRolePolicy",
+    "UpdateFunctionCode", "UpdateFunctionConfiguration", "ModifyInstanceAttribute",
+    "StopLogging", "DeleteTrail")
+    AND aws.cloudtrail.user_identity.type == "AssumedRole")
+| GROK aws.cloudtrail.response_elements "accessKeyId=%{NOTSPACE:issued_key_id},"
+| EVAL access_key = COALESCE(issued_key_id, aws.cloudtrail.user_identity.access_key_id)
+| EVAL is_assume = CASE(event.action == "AssumeRoleWithWebIdentity", 1, 0)
+| EVAL is_post_exploit = CASE(event.action != "AssumeRoleWithWebIdentity", 1, 0)
+| EVAL phase = CASE(
+    event.action == "AssumeRoleWithWebIdentity", "initial_access",
+    event.action IN ("ListBuckets", "DescribeInstances", "ListUsers", "ListRoles",
+      "GetCallerIdentity", "ListAttachedRolePolicies", "GetRolePolicy",
+      "ListFunctions"), "recon",
+    event.action IN ("GetSecretValue", "ListSecrets", "GetParameters",
+      "GetAuthorizationToken", "Decrypt"), "credential_access",
+    event.action IN ("SendCommand", "StartSession"), "lateral_movement",
+    event.action IN ("CreateUser", "CreateAccessKey", "AttachRolePolicy",
+      "CreateRole", "PutRolePolicy", "UpdateAssumeRolePolicy",
+      "UpdateFunctionCode", "UpdateFunctionConfiguration",
+      "ModifyInstanceAttribute"), "persistence",
+    event.action IN ("StopLogging", "DeleteTrail"), "defense_evasion"
+  )
+| STATS 
+    Esql.assume_count = SUM(is_assume),
+    Esql.post_exploit_count = COUNT_DISTINCT(event.action),
+    Esql.attack_phases = VALUES(phase),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
+    Esql.user_name_values = VALUES(user.name),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.cloud_account_id_values = VALUES(cloud.account.id),
+    Esql.data_stream_namespace_values = VALUES(data_stream.namespace),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.total_calls = COUNT(*)
+  BY access_key
+| WHERE access_key is not null and Esql.assume_count >= 1 AND Esql.post_exploit_count >= 3
+| EVAL aws.cloudtrail.user_identity.access_key_id = MV_FIRST(access_key)
+| KEEP aws.cloudtrail.user_identity.access_key_id, Esql.*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.user_identity.access_key_id",
+    "Esql.assume_count",
+    "Esql.post_exploit_count",
+    "Esql.attack_phases",
+    "Esql.event_action_values",
+    "Esql.source_ip_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.user_name_values",
+    "Esql.user_agent_original_values",
+    "Esql.first_seen",
+    "Esql.last_seen",
+    "Esql.total_calls",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.007"
+name = "Cloud Services"
+reference = "https://attack.mitre.org/techniques/T1021/007/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1555"
+name = "Credentials from Password Stores"
+reference = "https://attack.mitre.org/techniques/T1555/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1555.006"
+name = "Cloud Secrets Management Stores"
+reference = "https://attack.mitre.org/techniques/T1555/006/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

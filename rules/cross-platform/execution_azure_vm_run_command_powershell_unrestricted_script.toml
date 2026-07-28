@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure", "endpoint"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Correlates successful Azure Virtual Machine Run Command operations with endpoint process execution on the same host
+within minutes. Adversaries abuse Run Command to run scripts remotely as SYSTEM or root while activity logs only record the
+control-plane action; Elastic Defend process telemetry reveals the on-guest payload.
+"""
+false_positives = [
+    """
+    Legitimate automation that deploys configuration via Azure Run Command and launches PowerShell with unrestricted
+    policy and numbered script files (for example `script1.ps1`) may match. Baseline known deployment pipelines, VM
+    names, and principal IDs before tuning.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure Run Command Correlated with Process Execution"
+note = """## Triage and analysis
+
+### Investigating Azure Run Command Correlated with Process Execution
+
+This ES|QL rule correlates Azure Activity Log `MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION` events with
+endpoint process starts, joined on host name within a two-minute bucket and a 0–120 second delay between Run Command and process start.
+
+Pivot into raw `logs-azure.activitylogs-*` and `logs-endpoint.events.process-*` events for full command lines and
+resource identifiers.
+
+### Possible investigation steps
+
+- Review `user.email` and `azure.activitylogs.identity.authorization.evidence.principal_id` for who invoked Run Command.
+- Inspect `Esql.process_command_line_values` for script paths and arguments beyond the matched pattern.
+- Confirm `Esql.host_name` maps to the intended VM and whether Run Command timing aligns with change windows.
+- Hunt for additional Run Command or PowerShell activity from the same principal or subscription.
+
+### Response and remediation
+
+- If unauthorized, isolate the VM, revoke credentials used for Run Command, and review role assignments on the VM and
+  subscription.
+- Collect endpoint artifacts and Azure activity logs for incident reporting.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#virtual-machine-contributor",
+    "https://posts.specterops.io/attacking-azure-azure-ad-and-introducing-powerzure-ca70b330511a",
+    "https://adsecurity.org/?p=4277",
+]
+risk_score = 47
+rule_id = "ebbc1959-3309-4abf-b6cb-2bee3dbc9a7b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Azure",
+    "Data Source: Microsoft Azure",
+    "Data Source: Azure Activity Logs",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _version, _index
+| WHERE 
+  (
+    event.category == "process" AND KQL("event.action:start")
+    AND process.parent.name == "powershell.exe"
+    AND process.parent.command_line LIKE "powershell  -ExecutionPolicy Unrestricted -File script?.ps1"
+    AND process.name != "conhost.exe"
+  ) OR
+  (
+    KQL("event.category:process and event.action:exec and process.parent.name:(dash or bash or sh) and process.parent.args:/var/lib/waagent/run-command/download/*/script.sh")
+   ) OR 
+  (
+    event.module == "azure"
+    AND event.action == "MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION"
+    AND NOT KQL("event.outcome:failure")
+   )
+
+// Azure hostname comes as upper-case while Endpoint event comes as lowercase
+| EVAL Esql.host_name = COALESCE(
+    TO_LOWER(host.name),
+    TO_LOWER(azure.resource.name)
+  )
+| EVAL ts_runcommand = CASE(event.module == "azure", @timestamp, null)
+| EVAL ts_endpoint = CASE(event.category == "process", @timestamp, null)
+| EVAL is_runcommand = CASE(event.module == "azure", 1, null)
+| EVAL is_endpoint = CASE(event.category == "process", 1, null)
+| EVAL Esql.time_bucket = DATE_TRUNC(2 minutes, @timestamp)
+| STATS
+    runcommand_count = COUNT(is_runcommand),
+    endpoint_count = COUNT(is_endpoint),
+    user.email = VALUES(user.email),
+    azure.activitylogs.identity.authorization.evidence.principal_id = VALUES(azure.activitylogs.identity.authorization.evidence.principal_id),
+    azure.activitylogs.tenant_id = VALUES(azure.activitylogs.tenant_id),
+    azure.subscription_id = VALUES(azure.subscription_id),
+    source.ip = VALUES(source.ip),
+    source.geo.country_name = VALUES(source.geo.country_name),
+    source.as.number = VALUES(source.as.number),
+    Esql.process_command_line_values = VALUES(process.command_line),
+    first_runcommand = MIN(ts_runcommand),
+    first_ps_exec = MIN(ts_endpoint),
+    outcome = VALUES(event.outcome)
+  BY Esql.host_name, Esql.time_bucket
+| WHERE runcommand_count >= 1 AND endpoint_count >= 1
+| EVAL delta_ms = TO_LONG(first_ps_exec) - TO_LONG(first_runcommand)
+| EVAL delta_sec = delta_ms / 1000
+| WHERE delta_sec >= 0 AND delta_sec <= 120
+| KEEP
+    user.email,
+    azure.activitylogs.identity.authorization.evidence.principal_id,
+    source.ip,
+    source.as.number,
+    source.geo.country_name,
+    azure.activitylogs.tenant_id,
+    azure.subscription_id,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

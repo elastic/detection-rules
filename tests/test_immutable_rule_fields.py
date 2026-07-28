@@ -3,107 +3,159 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Test immutable rule fields (immutable, rule_source, version, revision) in TOML export/import."""
+"""Test prebuilt rule fields (immutable, rule_source, version, revision) in TOML export/import."""
 
 import unittest
-from pathlib import Path
+from typing import Any
 
-import pytoml
+from detection_rules.cli_utils import rule_prompt
+from detection_rules.rule import TOMLRule, TOMLRuleContents
+from detection_rules.utils import get_path
 
-from detection_rules.rule_loader import RuleCollection
-
-# Valid ESQL query with metadata and keep so load_dict passes validation
-VALID_ESQL_QUERY = """
-FROM logs-windows.powershell_operational* METADATA _id, _version, _index
-| WHERE event.code == "4104"
-| KEEP event.code, _id, _version, _index
-"""
+DEFAULT_RULE_SOURCE = {
+    "type": "external",
+    "is_customized": False,
+    "customized_fields": [],
+    "has_base_version": True,
+}
 
 
-def _load_rule_dict_with_immutable_fields(rule_path: Path, immutable: bool = True, **kwargs) -> dict:
-    """Load rule dict from TOML and set valid ESQL query plus immutable-related fields."""
-    rule_body = rule_path.read_text()
-    rule_dict = pytoml.loads(rule_body)
-    rule_dict["rule"]["query"] = VALID_ESQL_QUERY.strip()
-    rule_dict["rule"]["immutable"] = immutable
-    rule_dict["rule"]["rule_source"] = kwargs.get(
-        "rule_source",
-        {"type": "external", "is_customized": False, "customized_fields": [], "has_base_version": True},
-    )
-    rule_dict["rule"]["version"] = kwargs.get("version", 107)
-    rule_dict["rule"]["revision"] = kwargs.get("revision", 0)
-    return rule_dict
+def build_rule_resource(
+    immutable: bool = True,
+    version: int = 107,
+    revision: int = 2,
+    rule_source: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a rule resource mimicking what `kibana export-rules` returns for a prebuilt rule.
+
+    Uses a KQL query rule so the test does not depend on a live Kibana cluster for validation.
+    """
+    resource = {
+        "id": "9cda25df-2fd0-4969-9671-17532a494614",
+        "rule_id": "34fde489-94b0-4500-a76f-b8a157cf9269",
+        "name": "Accepted Default Telnet Port Connection",
+        "description": "Sample prebuilt rule for unit tests.",
+        "author": ["Elastic"],
+        "license": "Elastic License v2",
+        "risk_score": 47,
+        "severity": "medium",
+        "type": "query",
+        "language": "kuery",
+        "index": ["logs-endpoint.events.network-*"],
+        "query": "destination.port:23 and network.transport:tcp",
+        "tags": ["Domain: Endpoint"],
+        "from": "now-9m",
+        "to": "now",
+        "interval": "5m",
+        "max_signals": 100,
+        "enabled": False,
+        "setup": "",
+        "investigation_fields": None,
+        "related_integrations": [],
+        "required_fields": [],
+        "threat": [],
+        "immutable": immutable,
+        "rule_source": rule_source or DEFAULT_RULE_SOURCE,
+        "version": version,
+        "revision": revision,
+    }
+
+    if not immutable:
+        # The schema only permits version and revision on prebuilt rules.
+        del resource["version"]
+        del resource["revision"]
+
+    return resource
 
 
 class TestImmutableRuleFields(unittest.TestCase):
-    """Round-trip and export of immutable rule fields."""
+    """Round-trip and export of prebuilt rule fields."""
 
-    def test_to_api_format_includes_immutable_fields_when_present(self):
-        """When a rule has immutable, rule_source, version, revision in TOML, to_api_format() includes them."""
-        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
-        rule_dict = _load_rule_dict_with_immutable_fields(rule_path)
+    def test_to_api_format_includes_prebuilt_fields(self):
+        """A prebuilt rule exports immutable, rule_source, version and revision to the API format."""
+        contents = TOMLRuleContents.from_rule_resource(build_rule_resource())
+        api = contents.to_api_format(include_version=True)
 
-        rc = RuleCollection()
-        rule = rc.load_dict(rule_dict, path=rule_path)
-        api = rule.contents.to_api_format(include_version=True)
-
-        self.assertTrue(api.get("immutable") is True)
-        self.assertEqual(
-            api.get("rule_source"),
-            {
-                "type": "external",
-                "is_customized": False,
-                "customized_fields": [],
-                "has_base_version": True,
-            },
-        )
+        self.assertIs(api.get("immutable"), True)
+        self.assertEqual(api.get("rule_source"), DEFAULT_RULE_SOURCE)
         self.assertEqual(api.get("version"), 107)
-        self.assertEqual(api.get("revision"), 0)
+        self.assertEqual(api.get("revision"), 2)
 
-    def test_to_api_format_includes_customized_rule_source(self):
-        """When a rule has customized rule_source, to_api_format() preserves customized_fields."""
-        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
-        rule_dict = _load_rule_dict_with_immutable_fields(
-            rule_path,
-            rule_source={
-                "type": "external",
-                "is_customized": True,
-                "customized_fields": [
-                    {"field_name": "tags"},
-                    {"field_name": "query"},
-                ],
-                "has_base_version": True,
-            },
-            version=3,
-            revision=5,
+    def test_to_api_format_preserves_customized_rule_source(self):
+        """Customization tracking in rule_source survives the export."""
+        contents = TOMLRuleContents.from_rule_resource(
+            build_rule_resource(
+                version=3,
+                revision=5,
+                rule_source={
+                    "type": "external",
+                    "is_customized": True,
+                    "customized_fields": [{"field_name": "tags"}, {"field_name": "query"}],
+                    "has_base_version": True,
+                },
+            )
         )
-
-        rc = RuleCollection()
-        rule = rc.load_dict(rule_dict, path=rule_path)
-        api = rule.contents.to_api_format(include_version=True)
+        api = contents.to_api_format(include_version=True)
 
         self.assertEqual(api.get("version"), 3)
         self.assertEqual(api.get("revision"), 5)
-        self.assertEqual(api["rule_source"]["is_customized"], True)
-        self.assertEqual(
-            [f["field_name"] for f in api["rule_source"]["customized_fields"]],
-            ["tags", "query"],
-        )
+        self.assertIs(api["rule_source"]["is_customized"], True)
+        self.assertEqual([f["field_name"] for f in api["rule_source"]["customized_fields"]], ["tags", "query"])
 
-    def test_round_trip_immutable_fields_via_to_dict(self):
-        """Rule with immutable fields survives to_dict -> from_dict and to_api_format still has them."""
-        rule_path = Path("tests/data/command_control_dummy_production_rule.toml")
-        rule_dict = _load_rule_dict_with_immutable_fields(rule_path, version=42, revision=1)
+    def test_round_trip_through_toml_dict(self):
+        """Prebuilt fields survive the to_dict/from_dict round trip used when saving TOML."""
+        contents = TOMLRuleContents.from_rule_resource(build_rule_resource(version=42, revision=1))
 
-        rc = RuleCollection()
-        rule = rc.load_dict(rule_dict, path=rule_path)
-        # Round-trip through to_dict (as when saving TOML) and back
-        from detection_rules.rule import TOMLRuleContents
+        rule_dict = contents.to_dict()
+        self.assertIs(rule_dict["rule"].get("immutable"), True)
+        self.assertEqual(rule_dict["rule"].get("version"), 42)
+        self.assertEqual(rule_dict["rule"].get("revision"), 1)
 
-        round_trip_contents = TOMLRuleContents.from_dict(rule.contents.to_dict())
-        api = round_trip_contents.to_api_format(include_version=True)
-
-        self.assertTrue(api.get("immutable") is True)
+        api = TOMLRuleContents.from_dict(rule_dict).to_api_format(include_version=True)
+        self.assertIs(api.get("immutable"), True)
         self.assertEqual(api["rule_source"]["type"], "external")
         self.assertEqual(api.get("version"), 42)
         self.assertEqual(api.get("revision"), 1)
+
+    def test_custom_rule_still_uses_version_lock(self):
+        """Rules that are not prebuilt keep using the version lock, and can omit the version."""
+        contents = TOMLRuleContents.from_rule_resource(build_rule_resource(immutable=False))
+
+        self.assertNotIn("version", contents.to_api_format(include_version=False))
+
+        api = contents.to_api_format(include_version=True)
+        self.assertEqual(api.get("version"), contents.autobumped_version)
+        self.assertNotIn("revision", api)
+
+    def test_rule_prompt_preserves_prebuilt_fields(self):
+        """Regression test for the `import-rules-to-repo` path.
+
+        `immutable` is popped off kwargs before `revision` and `version` are reached, so a
+        naive `kwargs.get("immutable")` check silently drops the cluster-assigned versions.
+        """
+        resource = build_rule_resource(version=111, revision=2)
+        # Mirror how main.import_rules_into_repo builds the additional required fields.
+        additional = ["index"] + [key for key in resource if key != "index" and resource.get(key)]
+
+        rule = rule_prompt(
+            get_path(["tests", "data", "command_control_dummy_production_rule.toml"]),
+            required_only=True,
+            save=False,
+            additional_required=additional,
+            skip_errors=True,
+            **resource,
+        )
+
+        self.assertIsInstance(rule, TOMLRule, msg=f"rule_prompt failed: {rule}")
+        assert isinstance(rule, TOMLRule)
+
+        toml_rule = rule.contents.to_dict()["rule"]
+        self.assertIs(toml_rule.get("immutable"), True)
+        self.assertEqual(toml_rule.get("version"), 111)
+        self.assertEqual(toml_rule.get("revision"), 2)
+        self.assertEqual(toml_rule.get("rule_source", {}).get("type"), "external")
+
+        api = rule.contents.to_api_format(include_version=True)
+        self.assertIs(api.get("immutable"), True)
+        self.assertEqual(api.get("version"), 111)
+        self.assertEqual(api.get("revision"), 2)

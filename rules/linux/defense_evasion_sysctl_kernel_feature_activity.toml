@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/17"
 
 [rule]
 author = ["Elastic"]
@@ -99,7 +99,8 @@ not (
   process.parent.executable like "/tmp/CVU_19_resource*/checkmemlock.sh" or
   process.parent.args == "/usr/share/mysql/mysql-systemd-start" or
   process.parent.command_line like "*ansible*" or
-  (process.parent.name in ("crond", "cron") and process.command_line like "*drop_caches*")
+  (process.parent.name in ("crond", "cron") and process.command_line like "*drop_caches*") or
+  (process.parent.name == "python.original" and process.parent.args == "/usr/lib/venv-salt-minion/bin/salt-minion")
 )
 '''
 [[rule.threat]]

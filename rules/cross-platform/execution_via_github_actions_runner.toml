@@ -2,16 +2,17 @@
 creation_date = "2025/11/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/22"
+
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects potentially dangerous commands spawned by the GitHub Actions Runner.Worker process on self-hosted runner
-machines. Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute
-arbitrary commands on the runner host. This behavior may indicate malicious or unexpected workflow activity, including
-code execution, file manipulation, or network exfiltration initiated through a compromised repository or unauthorized
-workflow.
+This rule detects potentially dangerous commands spawned by the GitHub Actions Runner.Worker process or by shell
+interpreters launched via a runner entrypoint script on self-hosted runner machines. Adversaries who gain the ability
+to modify or trigger workflows in a linked GitHub repository can execute arbitrary commands on the runner host. This
+behavior may indicate malicious or unexpected workflow activity, including code execution, reconnaissance, credential
+harvesting, or network exfiltration initiated through a compromised repository or unauthorized workflow.
 """
 false_positives = [
     "Authorized GitHub actions runner with no malicious workflow actions.",
@@ -37,18 +38,48 @@ note = """## Triage and analysis
 
 ### Investigating Execution via GitHub Actions Runner
 
-Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute arbitrary commands on the runner host.
+Adversaries who gain the ability to modify or trigger workflows in a linked GitHub repository can execute arbitrary
+commands on the runner host. This rule covers two parent process paths:
+- **Direct execution**: process spawned directly by `Runner.Worker` / `Runner.Worker.exe`.
+- **Entrypoint script execution**: process spawned by a shell (`sh`, `bash`, `zsh`) whose command line references
+  a runner `entrypoint.sh` script, a common pattern when the runner bootstraps workflow steps via a shell script.
 
 ### Possible investigation steps
 
-- Review the execution details like process.command_line and if it's expected or not.
-- Examine associated network and file activities and if there is any ingress tool transfer activity.
-- Verify if there is adjascent any sensitive file access or collection.
-- Correlate with other alerts and investiguate if this activity is related to a supply chain attack.
+- Review `process.command_line` and `process.parent.command_line` to determine whether the activity matches a known,
+  authorized workflow step.
+- For `grep`, `find`, `pgrep`, `printenv`, and `env` hits, assess whether the command targets sensitive paths, environment
+  variables (e.g. secrets, tokens), or process listings inconsistent with the declared workflow.
+- For `openssl` and `base64` hits, inspect arguments for encoding/decoding operations that may indicate credential
+  harvesting, data staging, or a C2 channel.
+- For `tr` and `cat` hits, assess whether they are chained with other suspicious commands (e.g. `cat /etc/passwd | base64`,
+  `cat ~/.ssh/id_rsa`) to read and encode sensitive files for exfiltration.
+- For `nc`, `ncat`, `netcat`, and `socat` hits, check arguments for reverse shell patterns or port-forwarding to
+  attacker-controlled infrastructure.
+- For `wg` and `wg-quick` hits, inspect arguments for tunnel configuration that may establish a covert egress channel.
+- For `ssh` hits, review arguments for reverse tunnel flags (`-R`) or connections to unexpected remote hosts.
+- For `kubectl` and `helm` hits, assess whether commands target sensitive namespaces, extract secrets, or deploy
+  workloads inconsistent with the declared workflow.
+- For `vault` hits, inspect arguments for secret reads (`vault kv get`) or token operations that may indicate
+  credential harvesting from a HashiCorp Vault instance.
+- For `gh` hits, review arguments for repository cloning, secret access (`gh secret`), or actions that escalate
+  access via the runner's GitHub token.
+- For `nmap` hits, assess whether the command performs host or port discovery against internal network ranges,
+  indicating lateral movement preparation.
+- Examine associated network activity for unexpected outbound connections, especially following `curl`, `wget`, or
+  `openssl s_client` invocations.
+- Verify whether the triggering workflow run was initiated by an authorized actor and matches the repository's
+  expected workflow definitions.
+- Correlate with file-write and file-access events to identify any sensitive file staging or collection activity.
+- Correlate with other alerts to determine if this activity is part of a broader supply chain or CI/CD compromise.
 
 ### False positive analysis
 
-- Authorized github workflow actions.
+- Authorized GitHub workflow actions that legitimately use discovery utilities (`find`, `grep`, `env`, `nmap`), data
+  manipulation tools (`cat`, `tr`), encoding tools (`openssl`, `base64`), remote access tools (`ssh`), or
+  infrastructure CLIs (`kubectl`, `helm`, `vault`, `gh`) as part of their build, test, or deploy steps may trigger
+  this rule. Validate against known workflow definitions and consider adding workflow-specific exclusions if the
+  volume is high.
 
 ### Response and remediation
 
@@ -88,10 +119,58 @@ type = "eql"
 
 query = '''
 process where event.type == "start" and event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
- process.parent.name in ("Runner.Worker", "Runner.Worker.exe") and
  (
-   process.name like ("curl", "curl.exe", "wget", "wget.exe", "powershell.exe", "cmd.exe", "pwsh.exe", "certutil.exe", "rundll32.exe", "bash", "sh", "zsh", "tar", "rm",
-                     "sed", "osascript", "chmod", "nohup", "setsid", "dash", "ash", "tcsh", "csh", "ksh", "fish", "python*", "perl*", "ruby*", "lua*", "php*", "node", "node.exe") or
+   /* Direct child of the GitHub Actions Runner.Worker process */
+   process.parent.name in ("Runner.Worker", "Runner.Worker.exe") or
+
+   /* Child of a shell interpreter launched via a runner entrypoint script
+      (e.g. /home/runner/runners/<ver>/run/entrypoint.sh or similar paths) */
+   (
+     process.parent.name in ("sh", "bash", "zsh") and
+     process.parent.command_line like "*runner*entrypoint.sh"
+   )
+ ) and
+ (
+   process.name : (
+     /* Network / download utilities */
+     "curl", "curl.exe", "wget", "wget.exe",
+     /* Windows scripting & LOLBins */
+     "powershell.exe", "cmd.exe", "pwsh.exe", "certutil.exe", "rundll32.exe",
+     /* Unix shells */
+     "bash", "sh", "zsh", "dash", "ash", "tcsh", "csh", "ksh", "fish", "mksh", "busybox", "pwsh",
+     /* File / archive manipulation */
+     "tar", "gzip", "rm", "sed", "chmod",
+     /* macOS-specific */
+     "osascript",
+     /* Process persistence helpers */
+     "nohup", "setsid",
+     /* Scripting runtimes */
+     "python*", "perl*", "ruby*", "lua*", "php*", "node", "nodejs", "node.exe",
+     /* Discovery & reconnaissance */
+     "pgrep", "grep", "find", "printenv", "env", "nmap",
+     /* Crypto / encoding (potential exfiltration or C2 channel) */
+     "openssl", "base64", "basez", "base64plain", "base64url", "base64mime", "base64pem", "basenc", "base32", "base16", "xxd",
+     /* Data manipulation / inspection */
+     "tr", "cat",
+     /* Network relay / tunneling */
+     "nc", "ncat", "netcat", "nc.traditional", "nc.openbsd", "socat", "wg", "wg-quick",
+     /* Remote access */
+     "ssh", "ssh.exe", "ftp", "tftp", "scp", "sftp",
+     /* Kubernetes / infrastructure */
+     "kubectl", "helm", "docker", "ctr", "crictl",
+     /* Secret management */
+     "vault",
+     /* GitHub CLI */
+     "gh",
+     /* AWS CLI */
+     "aws",
+     /*Azure CLI */
+     "az",
+     /*GCP CLI */
+     "gcloud",
+     /* Google Workspace CLI */
+     "gws"
+   ) or
    process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "?:\\Users\\*")
  )
 '''

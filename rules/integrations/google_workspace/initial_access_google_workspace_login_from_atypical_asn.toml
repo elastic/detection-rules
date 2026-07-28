@@ -1,0 +1,150 @@
+[metadata]
+creation_date = "2026/05/14"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2026/05/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time a Google Workspace user successfully signs in from a given source ASN within a 14-day historical
+window. Most users have a stable set of egress ASNs (home ISP, corporate VPN, mobile carrier). A new ASN for a user is a
+meaningful anomaly as it surfaces ISP changes and travel, but also catches AiTM phishing-kit relays whose egress ASN was
+never previously associated with the user.
+"""
+false_positives = [
+    """
+    Legitimate first-time use of a new network: ISP change, new VPN provider, travel to a region using a different
+    mobile carrier, new home office.
+    """,
+    """
+    Carrier-grade NAT or load-balanced corporate egress that occasionally routes through alternate ASNs.
+    """
+]
+from = "now-130m"
+index = ["logs-google_workspace.login*", "logs-google_workspace.token*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace User Login with Unusual ASN"
+note = """## Triage and analysis
+
+### Investigating Google Workspace User Login with Unusual ASN
+
+This rule emits when a user signs in successfully from an ASN that has not been observed for that user in the prior 14 days. Most legitimate users cluster around a small number of egress ASNs (corporate VPN, home ISP, primary mobile carrier). New ASNs are not all malicious, but new ASNs that match hosting providers, anonymization networks, or geographies inconsistent with the user's profile are high-fidelity suspicious.
+
+### Possible investigation steps
+
+- Inspect `source.as.organization.name` and `source.as.number`. Categorize: residential ISP (low concern absent other indicators), corporate VPN (validate against tenant baseline), mobile carrier (validate by region), hosting provider / VPS (Clouvider, Host Telecom, Alibaba, OVH, M247, DigitalOcean, Vultr) - high concern for interactive sign-ins.
+- Inspect `source.geo.country_name` and `source.geo.region_name`. New geo + known travel is fine. New geo + unexpected travel needs user confirmation.
+- Pull the user's full `google_workspace.login` history across the lookback. Is this a one-off sign-in or sustained activity from the new ASN?
+- Cross-reference `logs-google_workspace.token` for any `event.action: "authorize"` events from the same `user.email` immediately following the sign-in. An OAuth grant minted from the new ASN within seconds of sign-in is the AiTM kit signature.
+- Cross-reference `logs-google_workspace.device` for any `DEVICE_REGISTER_UNREGISTER_EVENT` with `account_state: "REGISTERED"` from the same user near the same time. New device + new ASN is a stronger compromise signal than either alone.
+- Confirm with the user whether they signed in from a new network intentionally.
+
+### False positive analysis
+
+- Users on rotating VPN exits, hotspot sharing, or coffee-shop Wi-Fi will produce new ASNs legitimately.
+- Mobile users in unfamiliar regions (travel, conference attendance) will geo-resolve to new ASNs.
+- Engineering teams using cloud workstations (Cloud Workstations, Codespaces, etc.) will egress through hosting ASNs even for legitimate sign-ins. Tune by allowlisting your tenant's known cloud-workstation egress.
+- For high-noise tenants, expand `history_window_start` to 14 days to reduce false-positive rate at the cost of slower-to-fire detection for genuinely new ASNs.
+
+### Response and remediation
+
+- If the new ASN is a hosting provider and the user has not knowingly used such a network: treat as likely AiTM. Suspend user, revoke OAuth tokens, reset password, clear recovery info, sign out all sessions.
+- If the new ASN is benign (verified ISP change, travel, new VPN): add to the user's baseline. Consider broader hardening (require MFA re-verification on new-network sign-in via Workspace Context-Aware Access).
+"""
+references = [
+    "https://any.run/malware-trends/tycoon/",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 21
+rule_id = "1f489c86-d9c4-40de-9316-931721ca9b45"
+setup = """## Setup
+
+### Important Information Regarding Google Workspace Event Lag Times
+- Google Workspace Reports API ingestion lag commonly runs in the 30-minute to 3-hour range. This rule's 130-minute lookback gives partial coverage but will miss events delayed beyond that envelope.
+- See https://support.google.com/a/answer/7061566 for Google's published guidance on event availability.
+- Check your integration's Login lag time to ensure it is configured to meet the needs of this rule.
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Google Workspace",
+    "Data Source: Google Workspace Audit Logs",
+    "Data Source: Google Workspace User Log Events",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: ("google_workspace.login" or "google_workspace.token") and
+    event.action: ("login_success" or "authorize") and
+    source.as.number: * and
+    user.email: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.name",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "source.geo.region_name",
+    "google_workspace.login.type",
+    "google_workspace.login.challenge_method",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.email", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

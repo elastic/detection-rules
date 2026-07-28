@@ -1,0 +1,176 @@
+[metadata]
+creation_date = "2026/06/05"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an AWS principal performing a high volume of Amazon Bedrock inference API calls against a single model within
+a short window. Membership inference attacks require hundreds to thousands of statistically similar queries whose
+prompts and responses are intentionally content-benign, making guardrail- and content-based rules ineffective. This rule
+detects the high-frequency single-model probing pattern that precedes membership inference and related exfiltration via
+the inference API. It is a behavioral / volumetric precursor: it does not observe model confidence scores and a fixed
+call-count threshold only catches the loud variant, so paced, low-and-slow, or credential-distributed probing will evade
+it. Definitive membership inference detection requires ML anomaly analysis over per-entity inference-rate and
+response-distribution baselines.
+"""
+false_positives = [
+    """
+    Automated agents, chat applications, retrieval-augmented generation services, evaluation pipelines, and load tests
+    routinely generate high Bedrock inference volume against one model and will exceed any fixed threshold. Validate the
+    principal, user agent, source IP, and application context before treating the activity as malicious, and tune the
+    threshold to the deployment.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Bedrock High-Frequency Single-Model Inference API Probing"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock High-Frequency Single-Model Inference API Probing
+
+Membership inference compares many samples against a model to infer whether
+specific records were present in training data. Because prompts and responses often appear benign, the
+actionable signal is frequently statistical: unusually high inference rates concentrated on one model from
+a single principal. AWS CloudTrail records the core Bedrock runtime operations (`InvokeModel`,
+`InvokeModelWithResponseStream`, `Converse`, `ConverseStream`) as management events, which are logged by
+default, so this probing phase is observable at the API layer even when Bedrock model invocation logging is
+disabled. CloudTrail does not capture the prompt body, so this rule is purely volumetric.
+
+This rule is tuned to the loud case. Treat it as corroborating signal alongside other Bedrock alerts, not
+as conclusive membership inference detection.
+
+#### Possible investigation steps
+
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and the targeted model in the extracted
+  `Esql.model_id`.
+- Determine whether the call volume exceeds the principal's historical baseline for the same model.
+- Review companion Bedrock invocation logs, if enabled, for short prompts, repeated inputs, or low-variance
+  responses that may indicate membership testing.
+- Inspect `source.ip`, `user_agent.original`, and recent IAM activity for signs of compromised credentials
+  or unexpected automation.
+- Correlate with bulk output-extraction or guardrail alerts that may indicate a broader inference abuse
+  campaign.
+
+### Response and remediation
+
+- Apply Bedrock service quotas and IAM least privilege for inference APIs while investigating.
+- Enable model invocation logging for content-level review if not already configured.
+- If abuse is confirmed, rotate access keys or disable the compromised principal.
+
+### Additional information
+
+- For further details on how Amazon Bedrock integrates with AWS CloudTrail to log control plane and data plane runtime operations, see the [AWS Bedrock User Guide on CloudTrail Logging](https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html).
+- To explore the adversarial tactics, techniques, and case studies surrounding machine learning model data leakage, consult the [MITRE ATLAS Exfiltration via Inferences (AML.T0024)](https://atlas.mitre.org/techniques/AML.T0024) documentation.
+
+"""
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0024",
+    "https://atlas.mitre.org/techniques/AML.T0024.000",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html",
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+]
+risk_score = 47
+rule_id = "56312ef5-656c-4bf7-ad9a-affed052b102"
+setup = """## Setup
+
+This rule requires AWS CloudTrail management events for Amazon Bedrock and ingestion via the AWS
+integration (`aws.cloudtrail` data stream). The core Bedrock runtime operations are logged as management
+events by default; no Bedrock model invocation logging is required.
+
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: T0024",
+    "Mitre Atlas: T0024.000",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-aws.cloudtrail-*
+ 
+// Bedrock runtime inference APIs (CloudTrail management events, logged by default) used to probe at scale
+| where
+  event.provider == "bedrock.amazonaws.com"
+  and event.action in (
+    "InvokeModel",
+    "Converse",
+    "ConverseStream",
+    "InvokeModelWithResponseStream"
+  )
+  and event.outcome == "success"
+  and aws.cloudtrail.user_identity.arn IS NOT NULL
+  and aws.cloudtrail.request_parameters IS NOT NULL
+ 
+| grok aws.cloudtrail.request_parameters """modelId=(?<Esql.model_id>[^,}\]]+)"""
+| where Esql.model_id IS NOT NULL
+ 
+// preserve the grouping keys plus the ECS context fields collected via VALUES() below
+| keep
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  Esql.model_id,
+  event.action,
+  source.ip,
+  user_agent.original,
+  aws.cloudtrail.user_identity.type,
+  aws.cloudtrail.user_identity.access_key_id,
+  cloud.region,
+  source.as.organization.name
+ 
+// aggregate per principal + account + model, capturing analyst context with VALUES()
+| stats
+    Esql.inference_call_count = count(*),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.aws_cloudtrail_user_identity_type_values = VALUES(aws.cloudtrail.user_identity.type),
+    Esql.aws_cloudtrail_user_identity_access_key_id_values = VALUES(aws.cloudtrail.user_identity.access_key_id),
+    Esql.cloud_region_values = VALUES(cloud.region),
+    Esql.source_as_organization_name_values = VALUES(source.as.organization.name)
+  by
+    aws.cloudtrail.user_identity.arn,
+    cloud.account.id,
+    Esql.model_id
+ 
+| where Esql.inference_call_count >= 500
+ 
+| keep
+  aws.cloudtrail.user_identity.arn,
+  cloud.account.id,
+  Esql.model_id,
+  Esql.inference_call_count,
+  Esql.event_action_values,
+  Esql.source_ip_values,
+  Esql.user_agent_original_values,
+  Esql.aws_cloudtrail_user_identity_type_values,
+  Esql.aws_cloudtrail_user_identity_access_key_id_values,
+  Esql.cloud_region_values,
+  Esql.source_as_organization_name_values
+ 
+| sort Esql.inference_call_count desc
+'''
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.user_identity.arn","cloud.account.id"]
+missing_fields_strategy = "suppress"
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60
+  
+[rule.investigation_fields]
+field_names = ["aws.cloudtrail.user_identity.arn", "cloud.account.id", "Esql.model_id", "Esql.inference_call_count"]
+

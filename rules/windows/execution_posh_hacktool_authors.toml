@@ -2,7 +2,7 @@
 creation_date = "2024/05/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/02/09"
+updated_date = "2026/05/01"
 
 [rule]
 author = ["Elastic"]
@@ -12,90 +12,15 @@ example, public tool author names). Attackers often run public PowerShell toolin
 artifacts in comments or headers.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential PowerShell HackTool Script by Author"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
-
-### Investigating Potential PowerShell HackTool Script by Author
-
-This rule Detects PowerShell scripts that contains attribution strings commonly found in publicly available offensive PowerShell tooling. These artifacts are often present in headers or comment blocks but may also appear within embedded modules or minimally modified scripts. Use the script block content and metadata to reconstruct what ran, determine the likely source, and scope related activity across hosts and users.
-
-#### Key alert fields to review
-
-- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
-- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
-- `powershell.file.script_block_text`: Script block content that matched the detection logic.
-- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
-- `powershell.file.script_block_length`: Script block length (size) context.
-
-#### Possible investigation steps
-
-- Capture basic context and triage priority:
-  - Record `@timestamp`, `host.name`/`host.id`, and `user.name`/`user.domain`/`user.id`.
-  - Use host and identity context (asset owner, role, and expected admin activity) to determine whether this execution is likely authorized for the alerted user and endpoint.
-
-- Reconstruct the complete script block before making an assessment:
-  - Review `powershell.file.script_block_text` and identify the specific author handle or attribution string and its surrounding lines.
-  - If the content appears truncated or the event indicates multiple parts, use `powershell.file.script_block_id` together with `powershell.sequence` and `powershell.total` to assemble the full script in the correct order. Confirm all sequence parts are present.
-  - Use `powershell.file.script_block_length` as additional context (for example, to distinguish short snippets from large modules) and preserve the reconstructed content for evidence and hunting.
-
-- Determine the likely source of the script content:
-  - If `file.path`/`file.name` (and `file.directory`) are present, treat this as file-backed execution and note whether the location and filename align with approved script storage or deployment paths for that host.
-  - If `file.path` is a network share (UNC) or otherwise unusual for the host, treat it as higher risk until validated.
-  - If file fields are absent, treat the script block as inline, interactive, or dynamically generated content. Prioritize review for scripts that fetch, decode, or build additional code at runtime.
-  - If a file path is present, pivot on `file.path` and `file.name` to identify other executions or duplicates of the same script across users and hosts.
-
-- Assess intent from the content and extract observables:
-  - Determine whether the match is limited to comments/metadata or is accompanied by functional code.
-  - Look for behaviors that commonly accompany offensive PowerShell tooling, such as broad host or domain discovery, credential access helpers, privilege manipulation, remote execution primitives, persistence logic, or payload delivery mechanisms.
-  - Extract and record observables embedded in `powershell.file.script_block_text` (for example, domains, IPs, URLs, hostnames, usernames, file paths, or registry paths) and use them to pivot for additional activity.
-
-- Scope and correlate related activity:
-  - Search for additional script block events containing the same author handle within `powershell.file.script_block_text` across the environment. Start with the same `user.id` and `host.id`, then expand to other users and hosts.
-  - On the same `host.name`, review other script block events from the same `user.name` in the minutes before and after the alert to identify setup actions (module imports, function definitions) and follow-on execution.
-  - If other endpoint telemetry is available, correlate around `@timestamp` on the same host to identify:
-    - The PowerShell host process and any parent process responsible for launching it.
-    - Network connections, file writes, or registry changes consistent with the script content and extracted observables.
-    - Authentication activity for `user.name` that could explain the session context (interactive use vs remote access).
-
-### False positive analysis
-
-- Legitimate administrative scripts may incorporate third-party modules that include author headers; these are typically file-backed and executed from expected locations or managed repositories.
-- False positives are more likely when the author string is isolated within comments and there is minimal additional script functionality; they are less likely when the script implements operational capabilities aligned with offensive tooling.
-
-### Response and remediation
-
-- If activity is unauthorized or suspicious:
-  - Preserve the full reconstructed script content (all parts) and retain supporting context: `powershell.file.script_block_id`, `host.id`, `host.name`, `user.id`, `user.name`, `user.domain`, and `@timestamp`.
-  - Scope impact by searching for the same author handle and extracted observables across PowerShell script block logs to identify additional affected hosts and accounts.
-  - If `file.path` is present, locate and quarantine the referenced script per your procedures and review the endpoint for other copies that share the same `file.name`.
-  - Apply containment measures appropriate to the risk (for example, isolate the endpoint from the network) if the content indicates credential access, remote execution, or payload delivery.
-  - Review the initiating account for compromise and take credential and access control actions consistent with your incident response process.
-
-- If activity is authorized:
-  - Document the activity (owner, timeframe, intended hosts) and validate alignment with change management or testing approvals.
-  - Ensure the SOC has an up-to-date list of approved users and endpoints for testing. Consider environment-specific tuning to reduce recurring noise while preserving coverage elsewhere.
-
-- Post-incident hardening:
-  - Verify PowerShell logging coverage and retention are sufficient to reconstruct multi-part scripts during future investigations.
-  - Use observed handles and extracted observables to perform retrospective searches for earlier executions and related activity patterns in historical script block logs.
-"""
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0109_windows_powershell_script_block_log.md",
 ]
 risk_score = 73
 rule_id = "2553a9af-52a4-4a05-bb03-85b2a479a0a0"
-setup = """## Setup
-
-PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
-Setup instructions: https://ela.st/powershell-logging-setup
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -133,29 +58,84 @@ host.os.type:windows and event.category:process and
       "_nullbind" or "_tmenochet" or
       "jaredcatkinson" or "ChrisTruncer" or
       "monoxgas" or "TheRealWover" or
-      "splinter_code"
+      "splinter_code" or "samratashok" or
+      "leechristensen" or "nikhil_mitt"
   ) and
   not powershell.file.script_block_text : ("Get-UEFIDatabaseSigner" or "Posh-SSH")
 '''
 
+note = """## Triage and analysis
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.001"
-name = "PowerShell"
-reference = "https://attack.mitre.org/techniques/T1059/001/"
+### Investigating Potential PowerShell HackTool Script by Author
 
+#### Possible investigation steps
 
+- What did the alert-local author match show?
+  - Focus: `powershell.file.script_block_text`, `powershell.file.script_block_length`, `file.path`, and `user.id` on `host.id`.
+  - Implication: escalate when the handle appears beside executable functions, encoded strings, download, credential, discovery, remote-execution, or persistence logic; lower suspicion when it is only an inert header or comment in a recognized lab, test, or community-module path with harmless surrounding code.
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+- Can you reconstruct the complete script block before judging intent?
+  - Focus: collect and order fragments on `host.id` with `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`, and `powershell.file.script_block_text`. $investigate_0
+  - Implication: escalate when reconstruction reveals hidden stages, helper functions, obfuscation, decoding, or payload logic; keep unresolved if fragments are missing because they can hide decisive code.
+
+- Was the script file-backed or fileless, and what does that say about delivery?
+  - Focus: `file.path`, `file.directory`, and `file.name` when present; absent `file.path` suggests inline, generated, or interactive execution.
+  - Implication: escalate when fileless execution, user-writable paths, shares, temp or staging folders, or suspicious names pair with hacktool code; lower suspicion when a stable repository, lab path, or community-module path matches benign content.
+
+- Can you recover the PowerShell process and explain launch?
+  - Focus: With endpoint process telemetry, recover the matching process via `host.id + process.pid` before interpreting `process.*` or `process.parent.*`. Capture `process.entity_id`, `process.command_line`, `process.parent.executable`, and `process.parent.command_line`. $investigate_1
+  - Hint: confirm timestamps to reduce PID-reuse ambiguity; if no process start event appears, expand time before falling back to `host.id`, `user.id`, and alert time.
+  - Implication: escalate when a document, browser, chat client, remote-management tool, scheduled task, service, or unexpected script host launched the code without matching lab, assessment, support, or deployment evidence; lower suspicion when lineage matches the exact workflow proven by script content.
+
+- What capability or observables move this beyond attribution text?
+  - Focus: reconstructed script for credential access, discovery, remote execution, payload delivery, persistence, AMSI or logging tampering, reflection, or decode-and-execute logic; extract domains, IPs, URLs, paths, accounts, registry targets, and reusable function or module names.
+  - Implication: escalate when the body implements offensive capability or yields high-signal observables; lower suspicion only when it remains benign utility logic tied to a recognized workflow.
+
+- Did script-extracted file or registry targets appear on the host?
+  - Focus: With file or registry telemetry, search same-PID events around `@timestamp` for extracted `file.path`, `registry.path`, `registry.value`, or `registry.data.strings`. $investigate_4
+  - Implication: escalate when extracted payload paths are created or executed, or registry targets indicate persistence or security changes; missing artifact or configuration telemetry is unresolved, not benign.
+
+- Did extracted network or identity observables confirm active offensive use?
+  - Focus: With network telemetry, search same-PID DNS and connection events for extracted domains in `dns.question.name` or `dns.resolved_ip` and IPs in `destination.ip`. $investigate_5 Review Windows 4624 or 4648 with `winlog.event_data.TargetUserName` and `winlog.event_data.SubjectUserName` for extracted accounts.
+  - Implication: escalate when the host contacts extracted infrastructure, downloads content, or shows remote, credential, or lateral-use evidence. Missing network or authentication telemetry is unresolved, not benign.
+
+- If the script content or launch chain remains suspicious or unresolved, does recurrence change scope?
+  - Focus: related alerts for `user.id` in the last 48 hours, comparing author string, reconstructed script body, file source, launch pattern, and extracted observables. $investigate_2
+  - Hint: if the user view is quiet or ambiguous, compare related alerts for `host.id` in the last 48 hours. $investigate_3
+  - Implication: broaden when the same script body or extracted observables reach unrelated users or hosts; keep local when recurrence stays within the same lab, assessment, support, or deployment host/user cohort. Do not close on recurrence alone if script content or recovery remains unresolved.
+
+- Escalate on reconstructed capability, unauthorized launch, follow-on evidence, or missing/conflicting required telemetry; close only when the author match, reconstructed script, source path, launch context, observables, and `user.id` or `host.id` scope bind one exact benign workflow, with outside confirmation when telemetry cannot verify it.
+
+### False positive analysis
+
+- Authorized testing, red-team, malware-analysis, validation, community-module, or admin scripts can retain author strings. Confirm the reconstructed body, exact `user.id` and `host.id` scope, `file.path` or launch context, recognized test or lab records when telemetry cannot prove legitimacy, and no contradictory observables or follow-on activity.
+- Before creating an exception, validate recurrence of the same benign workflow with the same `powershell.file.script_block_text` fragment, `file.path` or launch source, and `user.id` or `host.id` scope. Avoid author-string-only exceptions because unrelated offensive scripts can reuse the same handle.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse temporary containment and document the reconstructed script, source path, launch context, `user.id`, and `host.id` evidence confirming the legitimate workflow. Build an exception only for that exact workflow and scope.
+- If suspicious but unconfirmed:
+  - Preserve or export alert details, reconstructed script with fragment metadata, process PID, source path, extracted indicators, and recovered launch details before containment or cleanup.
+  - Apply reversible containment tied to the evidence, such as temporary restrictions for extracted destinations or heightened monitoring on affected `host.id` and `user.id`.
+  - Escalate to host isolation or stronger account action only if the script is still executing, staging payloads, reaching suspicious destinations, or showing credential or lateral-use evidence, and the host role tolerates isolation.
+- If confirmed malicious:
+  - Preserve the reconstructed script, recovered process entity ID and launch details, extracted indicators, staged artifacts, and timeline before isolation, process termination, or cleanup.
+  - Isolate the host when script capability, launch context, follow-on artifacts, or destination evidence confirms unauthorized activity and the host role tolerates isolation.
+  - Block confirmed malicious destinations, URLs, file hashes, and script paths found during triage.
+  - Eradicate only dropped files, registry changes, scheduled tasks, services, and follow-on payloads tied to this script, then remediate the path that delivered or launched it.
+  - Review related hosts and users for the same author string, reconstructed script body, or extracted indicators before destructive cleanup so scoping is complete.
+- Post-incident hardening:
+  - Verify PowerShell 4104 logging coverage and retention are sufficient to reconstruct multi-part scripts and preserve process recovery context.
+  - Restrict authorized testing of public offensive PowerShell tooling to controlled hosts and identities.
+  - Document matched author strings, extracted observables, and author-stripped or rebranded variants surfaced during triage for future analyst reference.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 
 [rule.investigation_fields]
 field_names = [
@@ -176,3 +156,105 @@ field_names = [
     "powershell.file.script_block_length"
 ]
 
+[transform]
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File and registry events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

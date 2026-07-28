@@ -18,6 +18,7 @@ This technique is useful for identifying phishing campaigns, misconfigured infra
 
 ```sql
 FROM logs-* METADATA _score
+| WHERE @timestamp > now() - 30 day
 | WHERE (
     url.domain IS NOT NULL OR
     url.original IS NOT NULL OR

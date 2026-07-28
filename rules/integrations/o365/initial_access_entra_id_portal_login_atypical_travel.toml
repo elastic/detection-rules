@@ -2,14 +2,15 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects successful Microsoft 365 portal logins from rare locations. Rare locations are defined as locations that are not
-commonly associated with the user's account. This behavior may indicate an adversary attempting to access a Microsoft
-365 account from an unusual location or behind a VPN.
+Detects successful Microsoft 365 portal logins from a country and region the user has not previously authenticated
+from in a specific time window. Atypical regions are identified by combining the user's country and region geolocation history; an
+authentication from a new country/region pair for that user may indicate an adversary attempting to access the
+account from an unusual location or behind a VPN. 
 """
 false_positives = [
     """
@@ -23,12 +24,12 @@ from = "now-15m"
 index = ["logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "M365 Identity Login from Atypical Travel Location"
+name = "M365 Identity Login from Atypical Region"
 note = """## Triage and analysis
 
-### Investigating M365 Identity Login from Atypical Travel Location
+### Investigating M365 Identity Login from Atypical Region
 
-Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon locations, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical locations, flagging potential unauthorized access attempts by analyzing login events and user location patterns.
+Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon regions, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical country/region pairs for a given user, flagging potential unauthorized access attempts by analyzing login events and user location patterns at country and region granularity.
 
 ### Possible investigation steps
 
@@ -76,11 +77,15 @@ data_stream.dataset:o365.audit and
     event.outcome:success and
     o365.audit.Target.Type:(0 or 10 or 2 or 3 or 5 or 6) and
     o365.audit.UserId:(* and not "Not Available") and
-    source.geo.country_iso_code:* and
+    source.geo.country_name:* and
+    source.geo.region_name:* and
     not o365.audit.ApplicationId:(
         29d9ed98-a469-4536-ade2-f981bc1d605e or
         38aa3b87-a06d-4817-b275-7a316988d93b or
-        a809996b-059e-42e2-9866-db24b99a9782
+        a809996b-059e-42e2-9866-db24b99a9782 or
+        08e18876-6177-487e-b8b5-cf950c1e598c or
+        3e62f81e-590b-425b-9531-cad6683656cf or
+        d7b530a4-7680-4c23-a8bf-c52c121d2e87
     ) and not o365.audit.ExtendedProperties.RequestType:(
         "Consent:Set" or
         "DeviceAuth:ReprocessTls" or
@@ -123,12 +128,13 @@ field_names = [
     "o365.audit.ApplicationId",
     "o365.audit.ExtendedProperties.RequestType",
     "o365.audit.Target.ID",
-    "source.geo.country_iso_code",
+    "source.geo.country_name",
+    "source.geo.region_name",
 ]
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.geo.country_iso_code"]
+value = ["o365.audit.UserId", "source.geo.country_name", "source.geo.region_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"

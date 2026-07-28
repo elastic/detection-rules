@@ -24,6 +24,7 @@ from logs-aws.cloudtrail-*
 | DISSECT aws.cloudtrail.request_parameters "%{?protocol_key}=%{protocol}, %{?endpoint_key}=%{redacted}, %{?return_arn}=%{return_bool}, %{?topic_arn_key}=%{topic_arn}}"
 | DISSECT user_agent.original "%{user_agent_name} %{?user_agent_remainder}"
 | WHERE protocol == "email"
+| KEEP cloud.region, source.address, aws.cloudtrail.user_identity.arn, user_agent_name
 | STATS regional_topic_subscription_count = COUNT(*) by aws.cloudtrail.user_identity.arn, cloud.region, source.address, user_agent_name
 | WHERE regional_topic_subscription_count == 1
 | SORT regional_topic_subscription_count ASC

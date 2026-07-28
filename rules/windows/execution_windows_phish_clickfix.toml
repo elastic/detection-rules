@@ -2,13 +2,13 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the execution of Windows commands or downloaded files via the browser's dialog box. Adversaries may use phishing
-to instruct the victim to copy and paste malicious commands for execution via crafted phsihing web pages.
+Identifies the execution of Windows commands or downloaded files via the browser's dialog box. Adversaries may use
+phishing to instruct the victim to copy and paste malicious commands for execution via crafted phishing web pages.
 """
 from = "now-9m"
 index = [
@@ -21,34 +21,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Execution via FileFix Phishing Attack"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Potential Execution via FileFix Phishing Attack
-
-### Possible investigation steps
-
-- Review the process command line and arguments to identify any malicious intent.
-- Review web activity preceeding the alert to identify the initial vector.
-- Investigate any files, network or child process events from the suspected process.
-- Correlate the event with other security alerts or logs from the same host or user to identify patterns or additional indicators of compromise.
-- Assess the risk and impact of the detected activity by considering the context of the environment, such as the presence of sensitive data or critical systems that might be affected.
-
-### False positive analysis
-
-- Legitimate administrative scripts containing the suspicious keywords such as CAPTCHA.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread or communication with potential command and control servers.
-- Terminate any suspicious processes identified by the detection rule to halt ongoing malicious activities.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious payloads or scripts.
-- Review and clean up any unauthorized changes to system configurations or scheduled tasks that may have been altered by the malicious PowerShell activity.
-- Restore any affected files or system components from known good backups to ensure system integrity and functionality.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are compromised.
-- Implement additional monitoring and logging for PowerShell activities across the network to enhance detection of similar threats in the future."""
 references = ["https://mrd0x.com/filefix-clickfix-alternative/"]
 risk_score = 73
 rule_id = "7dc45430-7407-4790-b89e-c857c3f6bf23"
@@ -58,8 +30,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Execution",
-    "Tactic: Initial Access",
-    "Tactic: Defense Evasion",
     "Data Source: Windows Security Event Logs",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
@@ -80,6 +50,180 @@ process where host.os.type == "windows" and event.type == "start" and
 not (process.name : "rundll32.exe" and process.args : ("ndfapi.dll,NdfRunDllDiagnoseWithAnswerFile", "shwebsvc.dll,AddNetPlaceRunDll"))
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Execution via FileFix Phishing Attack
+
+#### Possible investigation steps
+
+- Does the alert show the FileFix browser-to-Explorer execution path?
+  - Focus: alert-local `process.parent.executable`, `process.parent.args`, `process.name`, `process.executable`, and `process.command_line`.
+  - Implication: escalate when a Chromium-style file-picker parent using "--message-loop-type-ui" and "--service-sandbox-type=none" launches PowerShell, curl, certutil, certreq, msiexec, mshta, rundll32, wscript, cscript, or a "?:\\Users\\*\\Downloads\\*" executable; lower suspicion only when the child is a signed installer or diagnostic tool and the parent/command shape matches a recognized browser-initiated support or install flow.
+- Is the launched child the expected binary for that workflow?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`; recover absent values from same-process events. $investigate_0
+  - Implication: escalate when the path is user-writable or signer/original name mismatches the expected tool; lower identity risk when signer, original name, path, and known hash history fit, but continue command-intent checks.
+- Does the command line reveal pasted-command social engineering?
+  - Focus: `process.command_line` and `process.name`.
+  - Implication: escalate when the command hides execution before a fake path or comment, invokes PowerShell or a LOLBin to retrieve/run content, or starts a "%USERPROFILE%\\Downloads" payload directly; lower suspicion only when arguments open the signed installer or diagnostic tool with no hidden command, URL, or shell operator.
+- Does a Downloads-path child look newly staged or renamed?
+  - Focus: `process.executable`, `process.Ext.relative_file_creation_time`, `process.Ext.relative_file_name_modify_time`, `process.code_signature.thumbprint_sha256`, and same-process file writes/renames; recover absent process values from same-process events. $investigate_2
+  - Hint: for the downloaded-EXE variant, process file-age is the recovery signal; absent file provenance does not make a Downloads path benign.
+  - Implication: escalate when a Downloads or other user-profile executable runs shortly after creation or rename, especially with weak identity; lower suspicion when file age, stable signer, and path match the same recognized update or support workflow.
+- Did the launched child spawn follow-on tools?
+  - Focus: child process starts from `process.entity_id`, then descendant `process.executable` and `process.command_line`. $investigate_1
+  - Hint: if entity IDs are unavailable, fall back to parent PID plus a tight alert-time window on the same host.
+  - Implication: escalate when the chain fans out into shells, script hosts, installers, archive tools, or task/scheduler utilities; no descendants keeps scope local but does not clear suspicious command intent or identity mismatch.
+- Did the launched child contact retrieval or staging destinations?
+  - Focus: same-process network events for `destination.ip`, `destination.port`, and destination ownership when available. $investigate_3
+  - Implication: escalate when PowerShell, curl, certutil, certreq, mshta, or another child reaches external staging, paste, storage, or command-and-control infrastructure; missing network telemetry is unresolved, not benign.
+- If local evidence remains suspicious or unresolved, does the pattern recur for this user or host?
+  - Focus: related alerts and process starts for the same `user.id` and `host.id`, comparing `process.parent.args` and child `process.command_line`.
+  - Hint: review related user alerts with $investigate_4
+  - Hint: review related host alerts with $investigate_5
+  - Implication: broaden scope when the same browser-parented shell, LOLBin, or Downloads-path launch repeats for this user, host, or other users; keep the case local when it is isolated and the process evidence resolves cleanly.
+- Escalate when ancestry, child identity, command intent, file age, descendants, network, or recurrence supports user-assisted command execution or downloaded payload launch; close only when process evidence shows a signed installer or diagnostic identity, non-hidden command shape, expected file age/path, no suspicious descendants, no suspicious network where telemetry exists, and no related spread; preserve evidence and escalate when facts conflict or remain incomplete.
+
+### False positive analysis
+
+- Signed browser-initiated installer/diagnostic workflows or authorized security tests can trigger. Confirm exact alignment across parent flags, child path, signer, hash, command line, user, host, timing, and absence of suspicious descendants; do not close on a ticket or owner statement if process evidence conflicts.
+- Before creating an exception, require recurrence with stable `process.parent.executable`, `process.parent.args`, `process.executable`, `process.code_signature.thumbprint_sha256`, command-line shape, `user.id`, and `host.id`. Avoid exceptions on browser parentage, `process.name`, or Downloads-path execution alone.
+
+### Response and remediation
+
+- If suspicious but unconfirmed, first preserve the alert event, same-process event export, descendant process timeline, command-line text, parent context, child binary copy, hash and signature details, and the affected user/host identifiers.
+- Apply reversible containment only after preservation, such as restricting the affected browser session or account, blocking the exact child hash, or quarantining the downloaded child binary. Escalate to host isolation only when command intent, identity, or descendants indicate likely payload execution.
+- If confirmed malicious, isolate the host when the launched child or descendants executed payloads, then terminate the child and descendants after recording identifiers. Do not reset credentials from this alert alone; use identity response only when separate evidence proves credential exposure or account misuse.
+- Eradicate only the downloaded executables, scripts, task utilities, or secondary payloads identified in the process timeline, then remediate the phishing page access or browser session that enabled the user-assisted execution.
+- If confirmed benign, reverse temporary containment and document the exact parent flags, child identity, command shape, user, host, and outside confirmation that proved the workflow. Create an exception only after the stable bounded pattern recurs.
+- Post-incident hardening: restrict direct execution from user download locations where feasible, warn on browser-file-picker social engineering, retain process telemetry needed for the pivots above, and document the FileFix variant observed in the case record."""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.code_signature.thumbprint_sha256",
+    "process.Ext.relative_file_creation_time",
+    "process.Ext.relative_file_name_modify_time",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Events for the launched process on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

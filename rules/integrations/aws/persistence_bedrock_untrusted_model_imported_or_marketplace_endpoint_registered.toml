@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an AWS Bedrock custom model is imported or deployed, or when a marketplace model endpoint is created or
+registered, via the CreateModelImportJob, CreateCustomModelDeployment, CreateMarketplaceModelEndpoint, or
+RegisterMarketplaceModelEndpoint API calls. These actions introduce a model artifact from outside the organization's
+trusted training and approval pipeline. A backdoored, poisoned, or attacker-supplied model that downstream applications
+subsequently invoke represents a software supply-chain compromise. New model imports and marketplace endpoint
+registrations should be validated for artifact provenance (S3 source ownership), the registering identity, and whether
+the model originates from an approved internal pipeline.
+"""
+false_positives = [
+    """
+    Machine learning engineers, MLOps automation, or platform teams may legitimately import custom models or stand up
+    marketplace model endpoints as part of normal model lifecycle operations. Verify whether the user identity, user
+    agent, source IP, and model artifact source (S3 location) are expected for your environment. Imports performed by
+    approved CI/CD or IaC pipelines can be exempted from this rule. Activity from unfamiliar identities or untrusted
+    artifact sources should be investigated.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Untrusted Model Imported or Marketplace Endpoint Registered"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Untrusted Model Imported or Marketplace Endpoint Registered
+
+Amazon Bedrock allows organizations to import custom models, deploy them, and register marketplace model endpoints for inference. Each of these paths introduces a model artifact that did not necessarily originate from the organization's trusted training and approval pipeline. Adversaries who can import a backdoored or poisoned model — or register an untrusted marketplace endpoint — can influence the output of any downstream application that invokes that model, constituting a supply-chain compromise. This detection identifies `CreateModelImportJob`, `CreateCustomModelDeployment`, `CreateMarketplaceModelEndpoint`, and `RegisterMarketplaceModelEndpoint` calls so responders can verify model provenance before the model is trusted for inference.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, `aws.cloudtrail.user_identity.access_key_id`, `user_agent.original`, and `source.ip`.
+  - Confirm whether a related change request or model onboarding ticket exists.
+  - Determine if the identity is an approved ML/MLOps role or automation principal.
+- **Validate the model artifact source**
+  - In `aws.cloudtrail.flattened.request_parameters`, review the model source location (e.g., the S3 URI for an import job) and confirm the bucket belongs to your organization and is not attacker-controlled.
+  - For marketplace endpoints, confirm the model package ARN / product corresponds to an approved vendor.
+- **Correlate activity**
+  - Look for subsequent `InvokeModel` / `InvokeModelWithResponseStream` activity targeting the new model or endpoint.
+  - Check for prior enumeration such as `ListFoundationModels`, `ListCustomModels`, or `ListImportedModels`.
+  - Review other recent actions by the same identity for signs of broader compromise.
+
+### False positive analysis
+- **Planned model onboarding**: ML teams routinely import models and register endpoints. Validate against a ticket and confirm the artifact source.
+- **Automation**: IaC or MLOps pipelines may create these resources during deployment. Confirm the source IP and ARN match expected automation infrastructure.
+
+### Response and remediation
+- **If unauthorized**
+  - Delete or disable the imported model, custom model deployment, or marketplace endpoint.
+  - Prevent downstream applications from invoking the untrusted model until provenance is established.
+  - Disable the access key in `aws.cloudtrail.user_identity.access_key_id` and rotate credentials if compromise is suspected.
+  - Audit the S3 source bucket for tampering and review the model artifact for backdoors.
+- **Hardening**
+  - Restrict `bedrock:CreateModelImportJob`, `bedrock:CreateCustomModelDeployment`, and marketplace endpoint creation/registration permissions to approved roles.
+  - Enforce that model artifacts originate only from organization-owned, controlled S3 locations.
+
+### Additional information
+
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateModelImportJob.html",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/model-import.html"
+]
+risk_score = 47
+rule_id = "c435defe-8438-4d5a-b4d0-86ab0faf9a49"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "bedrock.amazonaws.com"
+    and event.action: (
+        "CreateModelImportJob" or
+        "CreateCustomModelDeployment" or
+        "CreateMarketplaceModelEndpoint" or
+        "RegisterMarketplaceModelEndpoint"
+    )
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1525"
+name = "Implant Internal Image"
+reference = "https://attack.mitre.org/techniques/T1525/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.flattened.request_parameters",
+    "aws.cloudtrail.response_elements",
+]

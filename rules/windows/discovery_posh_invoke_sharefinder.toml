@@ -2,105 +2,20 @@
 creation_date = "2022/08/17"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/02/09"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell scripts that uses ShareFinder functions (Invoke-ShareFinder/Invoke-ShareFinderThreaded) or Windows
+Detects PowerShell scripts that use ShareFinder functions (Invoke-ShareFinder/Invoke-ShareFinderThreaded) or Windows
 share enumeration APIs (shi1_netname/shi1_remark with NetShareEnum/NetApiBufferFree). Attackers use share enumeration to
 map accessible network shares for collection, lateral movement, or ransomware targeting.
 """
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "PowerShell Share Enumeration Script"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
-
-### Investigating PowerShell Share Enumeration Script
-
-This alert indicates PowerShell script block content consistent with Windows network share enumeration. The matched text includes ShareFinder functions (for example, `Invoke-ShareFinder` or `Invoke-ShareFinderThreaded`) and/or native share enumeration API references (for example, `NetShareEnum` / `NetApiBufferFree` and `shi1_netname` / `shi1_remark`). Share discovery can be a normal administrative activity, but in attacks it is frequently used to map accessible shares prior to data collection, lateral movement, or impact activity.
-
-#### Key alert fields to review
-
-- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
-- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
-- `powershell.file.script_block_text`: Script block content that matched the detection logic.
-- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
-- `powershell.file.script_block_length`: Script block length (size) context.
-
-#### Possible investigation steps
-
-- Establish context and triage priority:
-  - Use `@timestamp` as the activity anchor and note the executing `user.name` / `user.domain` / `user.id` and affected `host.name` / `host.id`.
-  - Determine whether the account and host are expected to perform share inventory (for example, administrative workstation or management server vs. a standard user endpoint).
-  - Check whether similar share enumeration activity has occurred recently for the same `user.id` or on the same `host.id` to identify repeated scanning or automation.
-
-- Review the script block content and classify the activity:
-  - Inspect `powershell.file.script_block_text` and capture relevant excerpts for the case record (function names, API calls, and any referenced hosts/shares).
-  - Differentiate between a function definition/import and an actual invocation:
-    - Function definition or module load (lower confidence): the text contains the function name as part of a definition or import logic.
-    - Function invocation (higher confidence): the text shows parameters, target lists, or loops that initiate enumeration.
-  - Identify which pattern is present and what it implies about scope:
-    - `Invoke-ShareFinder`: share discovery logic implemented in PowerShell.
-    - `Invoke-ShareFinderThreaded`: broader or faster discovery due to concurrent enumeration.
-    - `NetShareEnum` / `NetApiBufferFree` with `shi1_netname` / `shi1_remark`: direct use of Windows share enumeration APIs and may reflect customized scripting.
-  - Extract scoping and intent details from the text when available:
-    - Target hostnames/IPs, server lists, domain-related identifiers, or UNC paths.
-    - Filters for share names and remarks, or include/exclude logic that focuses discovery on specific systems or shares.
-    - Use of alternate credentials or explicit authentication material embedded in the script (if present).
-    - Any output handling (formatting, writing results to disk, or staging).
-
-- Reconstruct full content when script blocks are split:
-  - Pivot on `powershell.file.script_block_id` to collect all related fragments for the same execution context.
-  - Use `powershell.sequence` and `powershell.total` to order fragments and identify missing pieces (if populated).
-  - Review adjacent script blocks for the same `host.id` and `user.id` near `@timestamp` to capture supporting functions or follow-on actions that may not appear in the triggering fragment.
-
-- Determine whether the activity originated from an on-disk script:
-  - If present, use `file.path` / `file.directory` / `file.name` to identify the script source.
-  - Assess whether the script location and name align with approved administrative tooling. Scripts originating from user-writable or temporary locations are higher risk than centrally managed locations.
-  - If an on-disk script is involved, preserve the file for further analysis and determine whether it appears on additional hosts (pivot on `file.name` where applicable).
-
-- Scope across users and hosts:
-  - Look for additional events containing the same discovery keywords in `powershell.file.script_block_text` to identify other affected endpoints.
-  - Check whether the same `user.id` performed similar activity from multiple `host.id` values in a short period, which can indicate automation or credential misuse.
-  - Identify whether multiple users are performing similar enumeration from the same host, which can indicate a shared jump box or a compromised administrative endpoint.
-
-- Correlate with adjacent telemetry (as available) to confirm intent and detect follow-on behavior:
-  - Process execution telemetry on the same `host.id` around `@timestamp` to determine how PowerShell was launched and whether the initiating process and execution pattern are consistent with expected activity for `user.id`.
-  - Network telemetry around `@timestamp` for access to multiple remote hosts consistent with share enumeration and subsequent SMB activity.
-  - Authentication telemetry for `user.id` around `@timestamp` for unusual access to file servers or multiple servers, especially if the behavior is new for the account.
-  - File activity telemetry (endpoint and/or file server) for unusual access patterns to shared locations following the enumeration (for example, rapid directory traversal or access to sensitive paths).
-
-- Assess risk and impact:
-  - Prioritize investigation if the script targets high-value systems (for example, file servers) or if the discovery appears broad (large target lists, threading, repeated runs).
-  - If the executing `user.id` is privileged or the host is sensitive, treat the alert as higher risk and expand scoping to additional related activity.
-
-### False positive analysis
-
-- Legitimate administrative share inventory, auditing, or documentation activity performed by IT or infrastructure teams.
-- Approved operational scripts used for backup validation, migration planning, access reviews, or troubleshooting that enumerate shares across servers.
-
-### Response and remediation
-
-- If the activity is unauthorized or suspicious:
-  - Contain the affected endpoint (`host.id`) following your incident response procedures to reduce the risk of further discovery and lateral movement.
-  - Preserve evidence by retaining the complete `powershell.file.script_block_text` content and all fragments linked by `powershell.file.script_block_id` (including ordered reconstruction using `powershell.sequence` / `powershell.total` when available).
-  - Identify and prioritize potential targets referenced in the script content (servers and shares) and coordinate review of access patterns to those resources.
-  - Investigate the executing account (`user.name` / `user.id`) for compromise, including recent authentication activity and unexpected resource access, and take appropriate containment actions (credential reset, privilege review, and session invalidation where applicable).
-  - Expand hunting for additional share enumeration and subsequent access attempts associated with the same `user.id` or originating from the same `host.id`.
-  - If an on-disk script was used (`file.path` / `file.name` present), remove or quarantine the artifact per your response process and check for the same file on other systems.
-
-- If the activity is confirmed benign:
-  - Document the owner, purpose, expected timing, and expected scope (accounts and endpoints) of the share enumeration.
-  - If tuning is required, scope it narrowly to stable identifiers present in the alert (for example, specific `user.id` values and known management `host.id` endpoints) and continue to monitor for deviations from the expected pattern.
-  - Consider establishing a documented allowlist of approved share inventory scripts and their expected execution locations to reduce future triage time.
-"""
 references = [
     "https://www.advintel.io/post/hunting-for-corporate-insurance-policies-indicators-of-ransom-exfiltrations",
     "https://thedfirreport.com/2022/04/04/stolen-images-campaign-ends-in-conti-ransomware/",
@@ -108,19 +23,12 @@ references = [
 ]
 risk_score = 73
 rule_id = "4c59cff1-b78a-41b8-a9f1-4231984d1fb6"
-setup = """## Setup
-
-PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
-Setup instructions: https://ela.st/powershell-logging-setup
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
-    "Tactic: Collection",
-    "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: PowerShell Logs",
 ]
@@ -138,58 +46,65 @@ event.category:process and host.os.type:windows and
     ) or
     (
       "NetShareEnum" and
-      "NetApiBufferFree"
+    "NetApiBufferFree"
     )
   ) and not user.id : "S-1-5-18"
 '''
 
+note = """## Triage and analysis
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1135"
-name = "Network Share Discovery"
-reference = "https://attack.mitre.org/techniques/T1135/"
+### Investigating PowerShell Share Enumeration Script
 
+#### Possible investigation steps
 
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.001"
-name = "PowerShell"
-reference = "https://attack.mitre.org/techniques/T1059/001/"
+- Does the reconstructed script block show active share enumeration or only helper code loading?
+  - Why: PowerView-style modules can define functions before invocation, so a function name alone is weaker than target selection, loops, output handling, or access checks.
+  - Focus: reconstruct the script with `powershell.file.script_block_id` + `powershell.sequence` + `powershell.total` on the same `host.id`, then inspect `powershell.file.script_block_text` for ShareFinder calls, NetShareEnum wrappers, and share result fields such as "shi1_netname" or "shi1_remark". $investigate_0
+  - Implication: escalate when reconstruction shows active enumeration, target lists, loops, share output, or access testing; lower concern when it only defines helper code and no later invocation appears. Missing fragments keep intent unresolved, not benign.
 
+- Can the PowerShell launch context be recovered?
+  - Why: script block events preserve code; command line and parentage require a matching process event.
+  - Focus: when endpoint process telemetry exists, recover the matching process via `host.id` + `process.pid` before using `process.*` or `process.parent.*`; review `process.command_line`, `process.parent.executable`, and session type. $investigate_1
+  - Hint: anchor returned process starts to `@timestamp`; empty, multiple, or distant PID matches keep launch context unresolved.
+  - Implication: escalate when the launcher is a document, script host, remote session, scheduled task, or user-writable path; lower concern when launcher, arguments, and session type match the same script path, target scope, and user/host anchors for a recurring inventory or storage-audit job. If endpoint process telemetry is missing, continue with script content, source path, user/host anchors, and related-alert scope instead of closing.
 
-[[rule.threat.technique]]
-id = "T1106"
-name = "Native API"
-reference = "https://attack.mitre.org/techniques/T1106/"
+- Does the script widen discovery with broad targets, threading, or access checks?
+  - Focus: reconstructed `powershell.file.script_block_text` for threading, host/domain lists, access-check options, ADMIN$ testing, ping suppression, delay/jitter, credential objects, or loops over many hosts or shares.
+  - Implication: escalate when the script uses threading, access checks, alternate credentials, broad domain or host-list discovery, or ADMIN$ testing; lower concern when the target set is tightly bounded to one recognized inventory, access-review, or storage-audit task.
 
+- Are source or output artifacts risky?
+  - Focus: source path when present, fileless execution, output redirection/export, target/share arrays or excluded-share logic, and same-host/user file events for surrounding output or staging artifacts. $investigate_4
+  - Implication: escalate when execution is fileless or sourced from temp, downloads, mounted shares, or user-writable paths; also escalate when the script writes reusable share results, prioritizes ADMIN$ or accessible shares, or builds target lists for collection or ransomware staging. Lower concern only when a stable admin repository path, transient output, script content, and user/host anchors all match one bounded recurring workflow. Path alone does not clear the behavior.
 
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1039"
-name = "Data from Network Shared Drive"
-reference = "https://attack.mitre.org/techniques/T1039/"
+- Do the user and host anchors fit the expected administrative scope?
+  - Focus: user identity, host identity, reconstructed target scope, and recovered launch context.
+  - Implication: escalate when a non-admin user, unusual service account, workstation, or unexpected host performs broad share discovery; lower concern when the same user and host anchors match the bounded management cohort, script path, and target set shown by local evidence.
 
+- If local findings stay suspicious or unresolved, does the same share-discovery pattern change scope?
+  - Focus: related alerts for `user.id` carrying the same ShareFinder/API-wrapper, access-check, or target-list pattern, plus same-host/user network events for SMB or file-server activity when script content suggests access testing or follow-on collection. $investigate_2 $investigate_5
+  - Hint: if user scope is inconclusive, check related alerts for the same `host.id` before widening beyond this host. $investigate_3
+  - Hint: network events need destination or share corroboration before they prove access or collection; missing network telemetry is unresolved, not benign.
+  - Implication: broaden when the same script pattern, operator account, or host appears in unrelated share-discovery alerts; keep the case local when it stays confined to one `host.id`, one `user.id`, one script/source pattern, and one bounded target set.
 
-[rule.threat.tactic]
-id = "TA0009"
-name = "Collection"
-reference = "https://attack.mitre.org/tactics/TA0009/"
+- Escalate when reconstructed content, discovery breadth, access-check markers, source/output pattern, recovered launcher context, or user/host scope show unauthorized share discovery; close only when those categories bind to one recognized workflow with no contradictory evidence; preserve and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- PowerView's Invoke-ShareFinder and raw P/Invoke NetShareEnum wrappers with shi1_netname/shi1_remark are offensive tooling patterns with near-zero legitimate administrative use. Legitimate share inventory uses built-in cmdlets (Get-SmbShare, net share) or management platforms, not these APIs. Close as benign true positive only for confirmed authorized red-team, penetration testing, or security validation where reconstructed script content, `user.id`, `host.id`, test-engagement scope, and recovered launch context all align. Do not close on an IT-administration claim when the script uses these specific offensive patterns.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and record the script owner, source path or recurring fileless content, expected `user.id`, expected `host.id`, target scope, and recovered launch context when available. Create a narrow exception only after the local evidence is confirmed and prior alerts, when present, show the same stable workflow.
+- If suspicious but unconfirmed, preserve the reconstructed `powershell.file.script_block_text`, all fragments linked by `powershell.file.script_block_id`, alert process PID, recovered process record when available, source path, output or target/share list, `user.id`, and `host.id` before containment. Apply reversible containment first: heightened monitoring, temporary SMB restrictions from the affected host to named servers/shares, or temporary restrictions for the implicated account when access testing or credential misuse is indicated. Escalate to host isolation or stronger credential actions only if access testing, staging, or credential misuse is confirmed and host criticality permits it.
+- If confirmed malicious, isolate the host or restrict the account only after preserving the reconstructed script, recovered launch context, source/output artifacts, and target/share list. Review the named servers, shares, accounts, and related alerts for the same indicators before deleting scripts, killing processes, or resetting credentials; remove malicious scripts, scheduled tasks, or credential material only after scope is complete.
+- Post-incident hardening: keep PowerShell script block logging enabled, restrict unsigned or user-writable PowerShell execution on management hosts where feasible, retain endpoint and file-server telemetry needed to confirm share access, and record the confirmed workflow or malicious server/share list for future triage.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
 
 [rule.investigation_fields]
 field_names = [
@@ -210,3 +125,123 @@ field_names = [
     "powershell.file.script_block_length"
 ]
 
+[transform]
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same host and user file events"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same host and user network events"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1135"
+name = "Network Share Discovery"
+reference = "https://attack.mitre.org/techniques/T1135/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique]]
+id = "T1106"
+name = "Native API"
+reference = "https://attack.mitre.org/techniques/T1106/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1039"
+name = "Data from Network Shared Drive"
+reference = "https://attack.mitre.org/techniques/T1039/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"

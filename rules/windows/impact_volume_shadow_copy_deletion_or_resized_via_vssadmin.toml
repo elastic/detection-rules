@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,63 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Volume Shadow Copy Deleted or Resized via VssAdmin"
-note = """## Triage and analysis
-
-### Investigating Volume Shadow Copy Deleted or Resized via VssAdmin
-
-The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes that can later be restored or mounted to recover specific files or folders.
-
-A typical step in the playbook of an attacker attempting to deploy ransomware is to delete Volume Shadow Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow copies worth monitoring.
-
-This rule monitors the execution of Vssadmin.exe to either delete or resize shadow copies.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account owner and confirm whether they are aware of this activity.
-- In the case of a resize operation, check if the resize value is equal to suspicious values, like 401MB.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Use process name, command line, and file hash to search for occurrences in other hosts.
-- Check if any files on the host machine have been encrypted.
-
-
-### False positive analysis
-
-- This rule may produce benign true positives (B-TPs). If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of user and command line conditions.
-
-### Related rules
-
-- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
-- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- Priority should be given due to the advanced stage of this activity on the attack.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- If data was encrypted, deleted, or modified, activate your data recovery plan.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "b5ea4bfe-a1b2-421f-9d47-22a75a6f2921"
 severity = "high"
@@ -108,17 +51,149 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : ("delete", "resize") and process.args : "shadows*"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Volume Shadow Copy Deleted or Resized via VssAdmin
+
+#### Possible investigation steps
+
+- What recovery-inhibition path does the alert-local command express?
+  - Focus: `process.command_line` and `process.args`; separate "delete shadows" with "/all", "/quiet", "/for=", "/oldest", or "/shadow=" from "resize shadowstorage" with "/for=", "/on=", and "/maxsize=".
+  - Implication: escalate faster when the command deletes all shadows, suppresses prompts, targets broad restore scope, or forces a tiny maximum; lower suspicion when it targets one volume, one shadow ID, or capacity-aligned resize inside a recognized retention, storage, or reset workflow.
+
+- Is the VssAdmin binary identity consistent with the tool being invoked?
+  - Focus: `process.executable`, `process.pe.original_file_name`, and, when available, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when path, PE metadata, hash, signer, or trust does not fit Microsoft VssAdmin; lower suspicion when identity matches the expected Microsoft tool, but identity never clears broad deletion or forced shrinkage.
+
+- Does the launcher and account explain why VssAdmin changed shadow-copy state?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, `user.name`, and `user.domain`.
+  - Implication: escalate when Office, a browser, script host, remote-access tool, or unusual account launches the command; lower suspicion when the parent and account match the same backup agent, deployment runner, storage-management console, image-prep script, or lab-reset workflow.
+
+- Are surrounding process events part of the same recovery-inhibition or impact chain?
+  - Why: destructive operators often pair VssAdmin with recovery tampering ("wmic shadowcopy delete", "diskshadow", "wbadmin delete catalog", "bcdedit recoveryenabled no", "reagentc /disable"), service stops, or encryption launchers.
+  - Focus: same-parent starts by `host.id` plus `process.parent.entity_id`; compare `process.name`, `process.command_line`, parent context, and timing. $investigate_2
+  - Range: start with the alert window through the next 15 minutes; expand only if the same lineage shows recovery tampering or encryption prep.
+  - Implication: escalate when the same lineage or short window shows backup deletion, recovery disablement, service stops, security-tool interference, or encryption tooling; lower suspicion when activity stays within one coherent maintenance or reset sequence.
+
+- If endpoint file telemetry is available, is destructive file impact already visible from this process or host?
+  - Focus: file events by `host.id` plus `process.entity_id`; fallback to `host.id`, `process.pid`, and a tight alert window, checking `file.path`, `file.extension`, and `file.Ext.original.extension`. $investigate_3
+  - Implication: escalate when file activity shows mass renames, unfamiliar extensions, ransom-note drops, or destructive cleanup after VssAdmin starts; absence of file telemetry is unresolved, not benign.
+
+- Do same-user or same-host alerts show spread beyond this VssAdmin event?
+  - Focus: same-`user.id` related alerts, especially impact, backup tampering, execution, credential, or lateral-movement activity. $investigate_0
+  - Hint: if local scope, lineage, process activity, or file impact remains suspicious or unresolved, review the same `host.id` for other shadow-copy, backup-catalog, service-stop, encryption, or ransom-note alerts. $investigate_1
+  - Implication: broaden containment when same-user or same-host alerts show additional recovery inhibition, encryption, credential access, or lateral movement; keep scope local when both pivots match the same exact retention, storage-maintenance, image-prep, or lab-reset pattern.
+
+- Escalate when command intent plus launch context or surrounding process/file evidence supports unauthorized recovery inhibition; close only when command scope, identity, lineage, account, host, and follow-on telemetry bind to one exact recognized workflow, with outside confirmation if telemetry cannot prove legitimacy. Preserve evidence and escalate on conflict or incomplete visibility.
+
+### False positive analysis
+
+- Backup retention, storage maintenance, disaster-recovery testing, image preparation, and lab resets can delete one shadow copy or resize shadow storage. Confirm command scope (`process.command_line`), lineage (`process.parent.executable` and `process.parent.command_line`), actor/asset (`user.id`, `host.id`, `host.name`), and follow-on evidence with no same-window recovery tampering, encryption, ransom-note, or destructive cleanup outside that workflow. External records can corroborate after telemetry matches; otherwise require recurring command scope, parent, account, and host pattern across prior alerts without contradictory process or file evidence.
+- Before creating an exception, validate recurring `process.executable`, `process.pe.original_file_name`, `process.parent.executable`, stable `process.command_line` scope, `user.id` or `user.name`, and `host.id` for the confirmed workflow. Keep it constrained to that workflow and avoid exceptions on `process.name`, "vssadmin.exe", "resize", "delete", or "shadows" alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary controls and record the command scope, parent lineage, account, host, and external evidence that tied the event to recognized maintenance or reset activity. Create an exception only if the same command scope, lineage, account, and host recur consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert document, raw process event, parent tree, full command line, account and host identifiers, same-window process activity, and any file-impact artifacts before containment. Apply reversible containment first: isolate the host if destructive activity appears and host criticality allows it; otherwise restrict the implicated admin channel or account while scope is confirmed. Broaden containment only if same-user or same-host pivots show spread.
+- If confirmed malicious, keep the preserved evidence and isolate the endpoint to stop further impact while retaining telemetry. Suspend related accounts or admin channels when session, lineage, or related-alert evidence shows misuse. Record `process.entity_id` and `process.command_line` before termination. Remove only malicious scripts, payloads, scheduled tasks, services, ransom notes, and backup-tampering changes identified during the investigation.
+- Restore affected VSS, backup, and recovery settings, validate that snapshots or backup jobs work again, and recover impacted data from trusted backups after containment and eradication are complete.
+- Post-incident hardening: restrict VSS-management workflows on sensitive hosts, limit backup-administration rights, protect offline or out-of-band backups from the same accounts, and validate controls for adjacent recovery-inhibition variants such as "wmic shadowcopy delete", "diskshadow", "wbadmin delete catalog", "bcdedit", and "reagentc".
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events from the same parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events from VssAdmin"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1490"
 name = "Inhibit System Recovery"
 reference = "https://attack.mitre.org/techniques/T1490/"
 
-
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-

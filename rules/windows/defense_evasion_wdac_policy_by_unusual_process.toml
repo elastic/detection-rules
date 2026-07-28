@@ -2,13 +2,13 @@
 creation_date = "2025/02/28"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the creation of a Windows Defender Application Control (WDAC) policy file by an unusual process. Adversaries
-may use a secially crafted WDAC policy to restrict the execution of security products.
+may use a specially crafted WDAC policy to restrict the execution of security products.
 """
 from = "now-9m"
 index = [
@@ -23,33 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "WDAC Policy File by an Unusual Process"
-note = """## Triage and analysis
-
-### Investigating WDAC Policy File by an Unusual Process
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account owner and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-  - Verify if any other anti-forensics behaviors were observed.
-- Investigate the event logs prior to the action for suspicious behaviors that an attacker may be trying to cover up.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Re-enable affected logging components, services, and security monitoring.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://github.com/logangoins/Krueger/tree/main",
     "https://beierle.win/2024-12-20-Weaponizing-WDAC-Killing-the-Dreams-of-EDR/",
@@ -84,10 +57,169 @@ file where host.os.type == "windows" and event.action != "deletion" and
   ) and
   not process.executable : (
     "C:\\Windows\\System32\\poqexec.exe",
-    "\\Device\\HarddiskVolume*\\Windows\\System32\\poqexec.exe"
-  )
+    "\\Device\\HarddiskVolume*\\Windows\\System32\\poqexec.exe",
+    "?:\\Windows\\WinSxS\\*\\TiWorker.exe",
+    "?:\\Windows\\System32\\omadmclient.exe"
+  ) and
+  /* System / ntoskrnl.exe (PID 4) */
+  not process.pid == 4
 '''
 
+note = """## Triage and analysis
+
+### Investigating WDAC Policy File by an Unusual Process
+
+#### Possible investigation steps
+
+- Does the alert show active WDAC policy placement by a non-servicing writer?
+  - Focus: `file.path`, `file.extension`, optional rename source `file.Ext.original.path`, writer `process.executable`, and `process.entity_id`. Separate "CodeIntegrity\\SiPolicy.p7b" base-policy placement from "CodeIntegrity\\CiPolicies\\Active\\*.cip" activation.
+  - Implication: escalate when an active WDAC path is written or renamed by anything other than a recognized WDAC or Windows servicing component such as "poqexec.exe"; lower suspicion only when active path, original path when present, and writer align with one recognized WDAC rollout or servicing package.
+- Is the writer a recognized deployment component or suspicious execution host?
+  - Focus: `process.executable`, `process.command_line`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when a script host, LOLBin, remote administration tool, or custom .NET assembly writes the policy, especially from temp, user, or share-backed paths; lower suspicion when the signer, hash, executable path, and command line all match a recognized WDAC deployment component.
+- Does the launch chain and user context fit WDAC administration?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, and `user.id`.
+  - Implication: escalate when the parent chain suggests in-memory tooling, service-control abuse, remote execution, or an unexpected admin/service identity; lower suspicion when parent context and `user.id` match the same recognized WDAC workflow for this host.
+- Was the policy staged, renamed, or rapidly replaced before activation?
+  - Focus: same-writer file events on `host.id` and `process.entity_id`: `file.path`, optional `file.Ext.original.path`, `file.size`, and `file.Ext.header_bytes` when populated. $investigate_3
+  - Hint: file telemetry does not decode WDAC policy intent; preserve the written policy artifact for offline review before cleanup.
+  - Implication: escalate when rename evidence shows the policy moving from a temp, user-writable, or share-backed location into the active Code Integrity path, or when repeated writes suggest last-minute replacement; lower suspicion when file movement stays inside one recognized rollout cache path and preserves the same writer. Missing rename or header detail is unresolved, not benign.
+- Was the write followed by reboot preparation or activation behavior?
+  - Why: Krueger-style WDAC abuse relies on the next boot to make the malicious policy block security tooling, so reboot preparation changes response urgency.
+  - Focus: later process activity from the writer or its children on `host.id`: `process.name`, `process.executable`, and `process.command_line` for "shutdown.exe", restart tooling, service-control utilities, or custom reboot helpers. $investigate_4 $investigate_5
+  - Implication: escalate when the writer or parent chain quickly prepares a reboot; absence of a visible reboot helper leaves activation timing unresolved, not benign.
+- If local evidence is suspicious or unresolved, does the same writer or host pattern repeat?
+  - Focus: related alerts for `user.id` and `host.id`, compared against `process.executable`, `process.hash.sha256`, active-policy `file.path`, and any staging `file.Ext.original.path`.
+  - Hint: review Alerts associated with the user, host, and writer process. $investigate_0 $investigate_1 $investigate_2
+  - Implication: broaden scope when the same writer, hash, user, or host pattern repeats across active WDAC placements; keep scope local only when the activity is confined to one host and one bounded change window.
+- Based on active placement, writer identity, launch context, staging, reboot behavior, and recurrence, what disposition is supported?
+  - Implication: escalate on suspicious writer identity, lineage, staging, reboot, or recurrence; close only when active path, writer, lineage, and any observed staging or reboot evidence bind one recognized WDAC rollout or servicing workflow; preserve the policy artifact and escalate when evidence stays mixed or incomplete.
+
+### False positive analysis
+
+- WDAC management, servicing, security management, OEM device-control, or endpoint-hardening products can legitimately place active "SiPolicy.p7b" or "*.cip" policies. Confirm writer identity (`process.executable`, `process.hash.sha256`, `process.code_signature.subject_name`), launch context (`process.parent.executable`, `process.parent.command_line`, `user.id`), artifact path (`file.path`, and `file.Ext.original.path` when present), cache location, and reboot behavior all align with the same rollout or product writer. External change records or product inventory can corroborate only after those telemetry anchors align; contradictory identity, lineage, staging, or reboot evidence should not close as benign.
+- Bootable media creation, disk imaging, and backup tools (e.g., Rufus, Acronis, Windows Backup Engine) writing to non-system drives or volumes can trigger the rule when copying or restoring Windows installations that include CodeIntegrity policies. Check `file.path` drive letter or volume number against the host's system drive; writes to removable, secondary, or high-numbered volumes do not affect the host's WDAC protection.
+- Before creating an exception, require recurrence for the same stable writer identity, signer, parent workflow, `user.id`, `host.id`, and bounded active `file.path`. Avoid exceptions on `file.extension`, `file.name`, or the broad "CodeIntegrity" prefix alone because those conditions would suppress malicious lookalike policies.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the evidence that justified closure: writer identity, parent workflow, `user.id`, `file.path`, staging path, and reboot behavior all pointed to one recognized WDAC rollout or maintenance path. Create an exception only after that bounded pattern recurs.
+- If suspicious but unconfirmed, preserve the alert file event, the written "SiPolicy.p7b" or "*.cip" artifact, any rename-source evidence, the writer identity bundle, parent command context, `user.id`, and reboot-command evidence before destructive action. Apply reversible containment first, such as delaying an imminent reboot when operationally safe or temporarily restricting the writer, `user.id`, or management channel that introduced the policy.
+- If confirmed malicious, first export the preserved policy artifact and process/file evidence set. Then isolate the host when active policy placement by an unauthorized writer, repeated placement, or reboot preparation makes containment necessary. After evidence export and containment decisions, remove only the malicious WDAC policy artifacts, restore the known-good WDAC state, and review other hosts and users for the same writer, hash, active `file.path`, or staging pattern.
+- Post-incident hardening should restrict who can write to active Code Integrity paths, limit management channels that can copy policy files and reboot hosts, require controlled WDAC deployment records, and retain process and file telemetry around "CodeIntegrity" changes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "file.path",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{process.executable}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -2,11 +2,11 @@
 creation_date = "2024/09/09"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
-description = "Identifies PowerShell.exe or Cmd.exe execution spawning from Windows Script Host processes Wscript.exe."
+description = "Identifies PowerShell, PowerShell ISE, or Cmd execution spawned from Windows Script Host or MSHTA."
 from = "now-9m"
 index = [
     "logs-m365_defender.event-*",
@@ -21,40 +21,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Command and Scripting Interpreter via Windows Scripts"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Command and Scripting Interpreter via Windows Scripts
-
-PowerShell, a powerful scripting language in Windows, is often targeted by adversaries for executing malicious scripts. Attackers exploit Windows Script Host processes like cscript or wscript to launch PowerShell with obfuscated commands, evading detection. The detection rule identifies such suspicious activity by monitoring PowerShell executions with specific patterns and parent processes, while filtering out known legitimate use cases to reduce false positives.
-
-### Possible investigation steps
-
-- Review the process command line and arguments to identify any obfuscation patterns or suspicious commands, such as Base64 encoding or web requests, that match the query's suspicious patterns.
-- Examine the parent process details, specifically focusing on wscript.exe, cscript.exe, or mshta.exe, to determine if the PowerShell execution was initiated by a legitimate script or a potentially malicious one.
-- Check the process execution context, including the user account and host, to assess if the activity aligns with expected behavior for that user or system.
-- Investigate any network connections or file downloads initiated by the PowerShell process, especially those involving external IP addresses or domains, to identify potential data exfiltration or further malicious activity.
-- Correlate the alert with other security events or logs from the same host or user to identify any preceding or subsequent suspicious activities that could indicate a broader attack campaign.
-
-### False positive analysis
-
-- Legitimate PowerShell commands using non-shortened execution flags may trigger false positives. To manage this, exclude processes with arguments like "-EncodedCommand", "Import-Module*", and "-NonInteractive" unless they are associated with suspicious activity.
-- Third-party installation scripts, such as those related to Microsoft System Center or WebLogic, can cause false positives. Exclude these by filtering out specific parent process arguments or command lines, such as "Microsoft.SystemCenter.ICMPProbe.WithConsecutiveSamples.vbs" and "WEBLOGIC_ARGS_CURRENT_1.DATA".
-- Routine administrative tasks, like gathering network information, may be flagged. Exclude known scripts like "gatherNetworkInfo.vbs" from detection to prevent unnecessary alerts.
-- Exclude specific user scripts or tools that are known to be safe, such as those located in user directories like "C:\\Users\\Prestige\\AppData\\Local\\Temp\\Rar$*\\KMS_VL_ALL_AIO.cmd" if they are verified as non-malicious.
-- Regularly review and update exclusion lists to ensure they reflect current legitimate activities and do not inadvertently allow new threats.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate any suspicious PowerShell processes identified by the alert to stop ongoing malicious execution.
-- Conduct a thorough review of the affected system's PowerShell execution logs to identify any additional malicious scripts or commands that may have been executed.
-- Remove any malicious scripts or files identified during the investigation from the system to prevent re-execution.
-- Restore the system from a known good backup if any critical system files or configurations have been altered by the malicious activity.
-- Update and patch the system to the latest security standards to close any vulnerabilities that may have been exploited.
-- Escalate the incident to the security operations center (SOC) or incident response team for further analysis and to determine if additional systems are affected."""
 risk_score = 73
 rule_id = "2d62889e-e758-4c5e-b57e-c735914ee32a"
 severity = "high"
@@ -102,6 +68,173 @@ process where host.os.type == "windows" and event.type == "start" and
   ) 
 '''
 
+note = """## Triage and analysis
+
+### Investigating Command and Scripting Interpreter via Windows Scripts
+
+#### Possible investigation steps
+
+- What script-host-to-interpreter chain did the alert capture?
+  - Focus: `process.parent.name`, `process.parent.executable`, `process.parent.command_line`, `process.name`, and `process.command_line`.
+  - Implication: escalate when "wscript.exe" or "mshta.exe" launches PowerShell/pwsh/ISE/cmd from user-writable script/HTA, archive, download path, or URL; lower suspicion only when parent source, child command, `user.id`, and `host.id` fit one recognized logon, deployment, or vendor workflow.
+
+- Does the child command express staging, retrieval, persistence, or defense evasion?
+  - Focus: `process.command_line`: "-EncodedCommand"/"-e", "-NoProfile", hidden windows, execution-policy bypass, Invoke-Expression/DownloadString, cmd "/c" chaining, curl/bitsadmin retrieval, or schtasks/sc.exe changes.
+  - Hint: decode or reconstruct encoded or inline PowerShell before deciding intent; use script-block logs as optional corroboration.
+  - Follow-on: inspect child starts from `process.entity_id`; PID-only matches are timestamp-bound candidates. $investigate_2
+  - Implication: escalate when the command fetches content, decodes or executes inline script, launches another shell, or changes tasks/services; lower risk only when it runs a local script from the same logon, deployment, or vendor source without staging or unexpected egress.
+
+- Does the child binary identity fit the observed command line and location?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the child is renamed, unsigned or untrusted from a user-writable path, or mismatched to original file name; lower identity risk when signer, path, and hash history fit the expected interpreter, but identity alone never clears suspicious command intent.
+
+- Did the alerting process stage scripts, archives, or follow-on payloads?
+  - Focus: file events scoped by `host.id` plus `process.entity_id`, or `host.id` plus `process.pid` in a tight window, checking `file.path`, `file.Ext.original.path`, `file.Ext.original.extension`, `file.Ext.header_bytes`, and `file.Ext.windows.zone_identifier`. $investigate_0
+  - Hint: for PID fallback, require file time within the child lifetime.
+  - Implication: escalate when the child writes or renames scriptable or executable content under temp, profile, public, startup, or deceptive paths, especially with internet provenance or type/extension mismatch; absent file telemetry is unresolved, not benign.
+
+- Did same-process network events show retrieval, staging, or callback behavior?
+  - Focus: network events scoped by `host.id` plus `process.entity_id`, or `host.id` plus `process.pid` in a tight window, separating DNS `dns.question.name` and `dns.resolved_ip` from connection `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_1
+  - Hint: map DNS `dns.resolved_ip` to later connections before treating a domain as confirmed.
+  - Implication: escalate when the process reaches external script-delivery, paste, storage, or C2 infra unrelated to the workflow; lower network risk when connections stay on recognized internal, proxy, or vendor services. Missing network telemetry is unresolved, not benign.
+
+- If local evidence stays suspicious or unresolved, does the same pattern appear in related alerts?
+  - Focus: related alerts for `user.id`, checking execution, persistence, defense-evasion, or outbound context before comparing preserved `process.parent.executable`, `process.parent.command_line`, or `process.command_line` fragments. $investigate_3
+  - Hint: use `host.id` alerts to test whether the chain is isolated, repeats with suspicious activity, or appears as adjacent variants such as "cscript.exe" launchers or delayed descendant shells. $investigate_4
+  - Implication: broaden scope when the same user or host shows repeated script-host launches, task or service changes, persistence, or outbound staging; keep local only when the pattern is isolated and local evidence supports one recognized workflow.
+
+- Escalate when parent provenance, command intent, identity, artifacts, destinations, or related alerts support proxy execution or second-stage activity; close only when alert-local evidence and recovery bind one recognized workflow, with outside confirmation for telemetry gaps; preserve artifacts and escalate when evidence conflicts or visibility is incomplete.
+
+### False positive analysis
+
+- Logon scripts and deployment wrappers can legitimately launch cmd or PowerShell through Windows Script Host. Confirm only when `process.parent.executable`, `process.parent.command_line`, `process.command_line`, `user.id`, `host.id`, and same-process `file.path` or `destination.ip` recovered through `host.id` plus `process.entity_id`, or `host.id` plus `process.pid` in a tight window, align with one recognized workflow. If file or network telemetry is absent, use outside confirmation. Stable recurrence for that parent source, child command, user, and host can support closure when script inventory or change context exists; first-observed workflows need outside confirmation before exceptioning. Any mismatch keeps the case suspicious.
+- Vendor/installer/hardware-diagnostic HTA/VBS launchers can trigger this rule. Confirm only when `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, parent script path, file writes, and destinations match one vendor package. Without package context, recurring signer/hash, parent source, child command, and host cohort can support closure; first-observed packages need outside confirmation.
+- For exceptions, validate: `process.parent.executable`, `process.parent.command_line`, child `process.executable`, stable `process.command_line` fragment, `process.code_signature.subject_name`, `user.id`, and `host.id`. Avoid exceptions on `process.name`, child `process.executable`, or parent process name alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the parent script path, child command pattern, signer, `user.id`, and `host.id` proving the workflow. Create exceptions only for exact workflows recurring in prior rule alerts.
+- If suspicious but unconfirmed, preserve the process event, `process.entity_id` or `process.pid` with `host.id` and time, command lines, suspicious `file.path` values, and confirmed `dns.question.name`, `destination.ip`, or `destination.port` before response. Apply reversible containment first: temporary destination blocking, disabling newly created scripts or tasks, or heightened host monitoring. Isolate only when corroborating staging, persistence, or outbound activity is confirmed and interruption is tolerable. Avoid destructive cleanup until scope is clearer.
+- If confirmed malicious, preserve `process.entity_id`, `process.parent.entity_id`, command lines, written `file.path` artifacts, and confirmed destinations, then isolate the host or block destinations based on staging and network evidence. Terminate malicious child or descendant processes after evidence capture; if direct endpoint response is unavailable, hand off artifacts for isolation or destination blocking.
+- Review related hosts and users for the same parent-child command pattern, confirmed destinations, and confirmed staged files only when endpoint file telemetry or related alerts preserve them. Then remove malicious scripts, HTA content, scheduled tasks, or dropped payloads, and remediate the delivery path.
+- Post-incident hardening: restrict unsupported "mshta.exe" and Windows Script Host use on workstations, retain process/file/network telemetry needed for this investigation, and record adjacent variants found during triage.
+"""
+
+setup = """## Setup
+
+This rule requires telemetry from one of the configured source integrations to be enabled and ingested.
+
+### Supported data sources
+
+This rule can use the following data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.parent.args",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the script-launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the script-launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the script-launched process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

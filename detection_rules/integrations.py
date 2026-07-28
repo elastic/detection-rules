@@ -8,9 +8,9 @@
 import fnmatch
 import gzip
 import json
-import re
-from collections import OrderedDict, defaultdict
-from collections.abc import Iterator
+from collections import defaultdict
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -182,41 +182,203 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
-def find_least_compatible_version(
-    package: str,
-    integration: str,
-    current_stack_version: str,
-    packages_manifest: dict[str, Any],
-) -> str:
-    """Finds least compatible version for specified integration based on stack version supplied."""
-    integration_manifests = dict(sorted(packages_manifest[package].items(), key=lambda x: Version.parse(x[0])))
-    stack_version = Version.parse(current_stack_version, optional_minor_and_patch=True)
+def _parse_clause(clause: str) -> tuple[Version, Version | None]:
+    """Parse a single AND'd clause of npm-style range tokens into [lo, hi) bounds.
 
-    # filter integration_manifests to only the latest major entries
+    hi is None when the clause has no upper bound. Supports the subset of
+    npm semver currently emitted by EPR conditions.kibana.version strings:
+    ^X.Y.Z, ~X.Y.Z, >=X.Y.Z, >X.Y.Z, <=X.Y.Z, <X.Y.Z,
+    =X.Y.Z, and bare X.Y.Z. Unsupported tokens raise ValueError so
+    we fail loudly if EPR's grammar grows.
+    """
+    lo = Version(0, 0, 0)
+    hi: Version | None = None
+
+    def tighten_hi(current: Version | None, candidate: Version) -> Version:
+        return candidate if current is None else min(current, candidate)
+
+    for token in clause.strip().split():
+        if not token:
+            continue
+        if token.startswith("^"):
+            base = Version.parse(token[1:])
+            if base.major == 0:
+                raise ValueError(f"caret on 0.x kibana version is unsupported: {token!r}")
+            lo = max(lo, base)
+            hi = tighten_hi(hi, Version(base.major + 1, 0, 0))
+        elif token.startswith("~"):
+            base = Version.parse(token[1:])
+            lo = max(lo, base)
+            hi = tighten_hi(hi, Version(base.major, base.minor + 1, 0))
+        elif token.startswith(">="):
+            lo = max(lo, Version.parse(token[2:]))
+        elif token.startswith("<="):
+            hi = tighten_hi(hi, Version.parse(token[2:]).bump_patch())
+        elif token.startswith(">"):
+            lo = max(lo, Version.parse(token[1:]).bump_patch())
+        elif token.startswith("<"):
+            hi = tighten_hi(hi, Version.parse(token[1:]))
+        elif token.startswith("="):
+            exact = Version.parse(token[1:])
+            lo = max(lo, exact)
+            hi = tighten_hi(hi, exact.bump_patch())
+        elif token[0].isdigit():
+            exact = Version.parse(token)
+            lo = max(lo, exact)
+            hi = tighten_hi(hi, exact.bump_patch())
+        else:
+            raise ValueError(f"unsupported kibana version token: {token!r}")
+    return lo, hi
+
+
+def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
+    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses.
+
+    Clauses separated by || are OR'd; whitespace-separated tokens within a
+    clause are AND'd.
+    """
+    return [_parse_clause(c) for c in version_requirement.split("||")]
+
+
+def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
+    """Return True iff stack satisfies the EPR conditions.kibana.version string."""
+    return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
+
+
+def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
+    """Find the latest stack patch integration packages need for a major.minor."""
+    # stack-schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its latest
+    # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10).
+    # Resolving against the literal .0 falls back to an older package that predates the
+    # stream. Return the latest patch a package gates on for the minor.
+    #
+    # Track the *newest* package version's floor (not the max floor across all versions):
+    # Fleet always installs the latest compatible package, so that floor is the patch a
+    # stack actually needs. A newer package occasionally lowers its floor (e.g. apm 7.16.1
+    # gates ^7.16.1 but the newer 7.16.2 gates ^7.16.0); honoring the newest version
+    # matches what Fleet installs rather than an older, higher floor.
+    manifests = load_integrations_manifests()
+    latest_patch = 0
+    for package in packages:
+        latest_package_version: Version | None = None
+        latest_package_patch = 0
+        for package_version, manifest in manifests.get(package, {}).items():
+            version_requirement = manifest.get("conditions", {}).get("kibana", {}).get("version")
+            if not version_requirement:
+                continue
+            try:
+                clauses = _parse_kibana_range(version_requirement)
+            except ValueError:
+                # Skip manifests whose kibana condition uses tokens we cannot parse.
+                continue
+            floors = [lo.patch for lo, _ in clauses if lo.major == major and lo.minor == minor]
+            if not floors:
+                continue
+            parsed_package_version = Version.parse(package_version)
+            if latest_package_version is None or parsed_package_version > latest_package_version:
+                latest_package_version = parsed_package_version
+                latest_package_patch = max(floors)
+        latest_patch = max(latest_patch, latest_package_patch)
+    return latest_patch
+
+
+# Sentinel written by parse_datasets when a rule indexes a package but not a data stream.
+UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
+# Stack versions at/above this use >= for related_integrations.version (caret below).
+RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
+
+
+def _package_version_has_integration(
+    version: str,
+    integration: str,
+    package_schemas: dict[str, Any],
+) -> bool:
+    """Return True when schema data is absent or includes the integration/data stream."""
+    if version not in package_schemas:
+        return True
+    return integration in package_schemas[version]
+
+
+def _find_least_compatible_for_stack(
+    stack_version: Version,
+    integration_manifests: dict[str, Any],
+    integration: str | None = None,
+    package_schemas: dict[str, Any] | None = None,
+) -> str | None:
+    """Stack-dependent least compatible integration version (pre-#5601 behavior)."""
     major_versions = sorted(
         {Version.parse(manifest_version).major for manifest_version in integration_manifests},
         reverse=True,
     )
     for max_major in major_versions:
         major_integration_manifests = {
-            k: v for k, v in integration_manifests.items() if Version.parse(k).major == max_major
+            version: manifest
+            for version, manifest in integration_manifests.items()
+            if Version.parse(version).major == max_major
         }
+        for version, manifest in sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0])):
+            version_requirement = manifest["conditions"]["kibana"]["version"]
+            if not _satisfies_kibana_range(stack_version, version_requirement):
+                continue
+            if (
+                integration
+                and package_schemas is not None
+                and not _package_version_has_integration(version, integration, package_schemas)
+            ):
+                continue
+            return version
+    return None
 
-        # iterates through ascending integration manifests
-        # returns latest major version that is least compatible
-        for version, manifest in OrderedDict(
-            sorted(major_integration_manifests.items(), key=lambda x: Version.parse(x[0]))
-        ).items():
-            compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", manifest["conditions"]["kibana"]["version"]).split(
-                " || "
-            )
-            for kibana_ver in compatible_versions:
-                _kibana_ver = Version.parse(kibana_ver)
-                # check versions have the same major
-                if _kibana_ver.major == stack_version.major and _kibana_ver <= stack_version:
-                    return f"^{version}"
 
-    raise ValueError(f"no compatible version for integration {package}:{integration}")
+@dataclass(frozen=True)
+class RelatedIntegrationVersion:
+    """Resolved related_integrations.version value for the current package stack."""
+
+    expression: str
+    manifest_versions: tuple[str, ...]
+
+
+class IntegrationVersionNotFoundError(ValueError):
+    """Raised when a package has no compatible version for the requested stack/integration."""
+
+
+def _related_integration_version_operator(stack_version: Version) -> str:
+    """Return the semver operator for related_integrations.version on the current stack.
+
+    Stack ≥ 9.5 uses ``>=``; older stacks keep caret ranges. The
+    ``related_integrations_gte`` emit transform still rewrites any remaining
+    ``^`` values on ≥ 9.5 so export/view/package paths stay consistent.
+    """
+    if stack_version >= RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK:
+        return ">="
+    return "^"
+
+
+def resolve_related_integration_version(
+    package: str,
+    packages_manifest: dict[str, Any],
+    integration: str | None = None,
+) -> RelatedIntegrationVersion:
+    """Return the current-stack related_integrations.version expression."""
+    package_manifest = packages_manifest.get(package)
+    if package_manifest is None:
+        raise ValueError(f"Package {package} not found in manifest.")
+
+    package_schemas: dict[str, Any] = {}
+    if integration:
+        package_schemas = load_integrations_schemas().get(package, {})
+
+    integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
+    current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    manifest_version = _find_least_compatible_for_stack(
+        current_stack, integration_manifests, integration, package_schemas
+    )
+    if manifest_version is None:
+        package_label = f"{package}:{integration}" if integration else package
+        raise IntegrationVersionNotFoundError(f"no compatible version for integration {package_label}")
+
+    operator = _related_integration_version_operator(current_stack)
+    return RelatedIntegrationVersion(expression=f"{operator}{manifest_version}", manifest_versions=(manifest_version,))
 
 
 def find_latest_compatible_version(
@@ -224,6 +386,7 @@ def find_latest_compatible_version(
     integration: str,
     rule_stack_version: Version,
     packages_manifest: dict[str, Any],
+    package_schemas: dict[str, Any] | None = None,
 ) -> tuple[str, list[str]]:
     """Finds latest compatible version for specified integration based on stack version supplied."""
 
@@ -236,7 +399,8 @@ def find_latest_compatible_version(
 
     # Converts the dict keys (version numbers) to Version objects for proper sorting (descending)
     integration_manifests = sorted(package_manifest.items(), key=lambda x: Version.parse(x[0]), reverse=True)
-    notice = [""]
+    notice: list[str] = [""]
+    newest_skipped: tuple[str, Version] | None = None
 
     for version, manifest in integration_manifests:
         kibana_conditions = manifest.get("conditions", {}).get("kibana", {})
@@ -244,30 +408,31 @@ def find_latest_compatible_version(
         if not version_requirement:
             raise ValueError(f"Manifest for {package}:{integration} version {version} is missing conditions.")
 
-        compatible_versions = re.sub(r"\>|\<|\=|\^|\~", "", version_requirement).split(" || ")
-
-        if not compatible_versions:
-            raise ValueError(f"Manifest for {package}:{integration} version {version} is missing compatible versions")
-
-        highest_compatible_version = Version.parse(max(compatible_versions, key=Version.parse))
-
-        if highest_compatible_version > rule_stack_version:
-            # generate notice message that a later integration version is available
-            integration = f" {integration.strip()}" if integration else ""
-
-            notice = [
-                f"There is a new integration {package}{integration} version {version} available!",
-                f"Update the rule min_stack version from {rule_stack_version} to "
-                f"{highest_compatible_version} if using new features in this latest version.",
-            ]
-
-        if highest_compatible_version.major == rule_stack_version.major:
+        if _satisfies_kibana_range(rule_stack_version, version_requirement):
+            if (
+                integration
+                and package_schemas is not None
+                and not _package_version_has_integration(version, integration, package_schemas)
+            ):
+                continue
+            if newest_skipped is not None:
+                skipped_version, skipped_floor = newest_skipped
+                integration_label = f" {integration.strip()}" if integration else ""
+                notice = [
+                    f"There is a new integration {package}{integration_label} version {skipped_version} available!",
+                    (
+                        f"Update the rule min_stack version from {rule_stack_version} to "
+                        f"{skipped_floor} if using new features in this latest version."
+                    ),
+                ]
             return version, notice
 
-        # Check for rules that cross majors
-        for compatible_version in compatible_versions:
-            if Version.parse(compatible_version) <= rule_stack_version:
-                return version, notice
+        # Track the newest manifest we had to skip so the notice can still
+        # point the reader at the most recent incompatible version and its floor.
+        if newest_skipped is None:
+            clauses = _parse_kibana_range(version_requirement)
+            floor = min(lo for lo, _ in clauses)
+            newest_skipped = (version, floor)
 
     raise ValueError(f"no compatible version for integration {package}:{integration}")
 
@@ -335,16 +500,23 @@ def get_integration_schema_data(
         for stack_version, mapping in meta.get_validation_stack_versions().items():
             ecs_version = mapping["ecs"]
             endgame_version = mapping["endgame"]
+            parsed_stack_version = Version.parse(stack_version)
+            patch_floor = find_latest_integration_patch_for_minor(
+                {pk_int["package"] for pk_int in package_integrations},
+                parsed_stack_version.major,
+                parsed_stack_version.minor,
+            )
+            min_stack = Version(
+                parsed_stack_version.major,
+                parsed_stack_version.minor,
+                max(parsed_stack_version.patch, patch_floor),
+            )
 
             ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
 
             for pk_int in package_integrations:
                 package = pk_int["package"]
                 integration = pk_int["integration"]
-
-                # Use the minimum stack version from the package not the rule
-                min_stack = meta.min_stack_version or load_current_package_version()
-                min_stack = Version.parse(min_stack, optional_minor_and_patch=True)
 
                 # Extract the integration schema fields
                 integration_schema, package_version = get_integration_schema_fields(
@@ -368,7 +540,7 @@ def get_integration_schema_data(
                 }
 
 
-def get_integration_schema_fields(  # noqa: PLR0913
+def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     integrations_schemas: dict[str, Any],
     package: str,
     integration: str,
@@ -379,7 +551,14 @@ def get_integration_schema_fields(  # noqa: PLR0913
 ) -> tuple[dict[str, Any], str]:
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     """Extracts the integration fields to schema based on package integrations."""
-    package_version, notice = find_latest_compatible_version(package, integration, min_stack, packages_manifest)
+    package_schemas = integrations_schemas.get(package, {}) if integration else None
+    package_version, notice = find_latest_compatible_version(
+        package,
+        integration,
+        min_stack,
+        packages_manifest,
+        package_schemas=package_schemas,
+    )
     notify_user_if_update_available(data, notice, integration)
 
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
@@ -435,7 +614,7 @@ def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> lis
         # cleanup extra quotes pulled from ast field
         value = _value.strip('"')
 
-        integration = "Unknown"
+        integration = UNKNOWN_PACKAGE_INTEGRATION
         if "." in value:
             package, integration = value.split(".", 1)
             # Handle cases where endpoint event datasource needs to be parsed uniquely (e.g endpoint.events.network)

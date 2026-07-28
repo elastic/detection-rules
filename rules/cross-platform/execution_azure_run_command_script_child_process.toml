@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["endpoint", "windows"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies process start events whose parent matches Azure Virtual Machine Run Command execution patterns on Windows
+or Linux. On Windows, Run Command often launches PowerShell with `-ExecutionPolicy Unrestricted` and a `script?.ps1`
+file; on Linux, the Azure Linux Agent (waagent) runs downloaded script.sh under "/var/lib/waagent/run-command/".
+Child process telemetry exposes the on-guest payload that cloud activity logs do not fully describe.
+"""
+false_positives = [
+    """
+    Legitimate configuration management, extension deployment, or automation that uses Azure Run Command with the same
+    PowerShell or shell script paths may match. Baseline approved VM names, script naming, and deployment windows
+    before tuning.
+    """,
+]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "logs-windows.sysmon_operational-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Azure Run Command Script Child Process"
+note = """## Triage and analysis
+
+### Investigating Azure Run Command Script Child Process
+
+Azure VM Run Command executes scripts on guests without interactive RDP or SSH. On Windows, a parent PowerShell
+process with `-ExecutionPolicy Unrestricted -File script?.ps1` often precedes child utilities; on Linux, `waagent`
+invokes `/var/lib/waagent/run-command/download/*/script.sh` via `bash`, `sh`, or `dash`.
+
+Correlate with `logs-azure.activitylogs-*` for `MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION` when available.
+
+### Possible investigation steps
+
+- Review `process.command_line`, `process.name`, and `process.parent.command_line` or `process.parent.args`.
+- Confirm whether the host is an Azure VM and whether Run Command was expected for that asset.
+- Pivot on `host.name` or `host.id` for other suspicious process or network activity in the same window.
+
+### False positive analysis
+
+- Extension handlers, guest configuration, and patch orchestration may use the same parent patterns.
+- Exclude known automation hosts or script paths after validating with platform teams.
+
+### Response and remediation
+
+- If unauthorized, review Azure RBAC on the VM and subscription, revoke compromised credentials, and isolate the guest.
+- Collect endpoint artifacts and Azure activity logs for incident reporting.
+"""
+references = [
+    "https://docs.microsoft.com/en-us/azure/virtual-machines/run-command",
+    "https://hackingthe.cloud/azure/run-command-abuse/"
+    ]
+risk_score = 47
+rule_id = "cb9554e8-9f31-41a8-b4f5-d82144e6dc33"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Azure",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type in ("start", "process_started") and
+  (
+    (process.parent.name == "powershell.exe" and
+      process.parent.command_line like "powershell  -ExecutionPolicy Unrestricted -File script?.ps1") or
+    (process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "mksh", "busybox") and
+      process.parent.args like "/var/lib/waagent/run-command/download/*/script.sh")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

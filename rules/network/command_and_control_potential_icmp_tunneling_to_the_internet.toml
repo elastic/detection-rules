@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/06/25"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies ICMP Echo traffic from an internal host to an external destination with a larger-than-typical transaction
+size. Covert channels and ICMP tunneling tools embed data in echo payloads that exceed normal OS ping behavior, which is
+usually limited to small fixed-size packets.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.icmp-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential ICMP Tunneling Activity to the Internet"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential ICMP Tunneling Activity to the Internet
+
+ICMP tunneling encodes C2 or exfiltrated data inside echo request and reply payloads. This rule focuses on internal
+hosts sending unusually large echo transactions to external destinations, a pattern that differs from routine
+operating-system ping and most availability monitoring.
+
+### Possible investigation steps
+
+- Identify the `source.ip` host role. Servers and workstations that rarely initiate ICMP externally are higher concern.
+- Review the volume and cadence of echo traffic to the same `destination.ip` for beacon-like regularity.
+- Compare `network.bytes` across the conversation for asymmetric or variable payload sizes.
+- Correlate with endpoint process telemetry for non-standard ping utilities or custom clients if available.
+
+### False positive analysis
+
+- Some network path MTU discovery, diagnostic suites, or vendor appliances generate larger ICMP payloads. Validate and
+  except known monitoring sources and destinations.
+- Cloud health checks occasionally use ICMP with non-default sizes; confirm against provider documentation before
+  excepting.
+
+### Response and remediation
+
+- Block unauthorized outbound ICMP at the perimeter where policy permits, or restrict it to approved monitoring paths.
+- Isolate the source host if covert-channel tooling is confirmed.
+- Inspect the external destination against threat intelligence and block if malicious."""
+references = [
+    "https://attack.mitre.org/techniques/T1572/",
+    "https://www.rfc-editor.org/rfc/rfc792",
+    "https://www.levelblue.com/blogs/spiderlabs-blog/backdoor-at-the-end-of-the-icmp-tunnel",
+]
+risk_score = 47
+rule_id = "96dd08d8-8f3d-4f55-ada8-7dc1e05dbd47"
+setup = """## Setup
+
+This rule requires the Elastic network_traffic integration capturing ICMP transactions (`network_traffic.icmp` data
+stream). Flow-only telemetry without ICMP payload size is insufficient.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Tactic: Command and Control",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:network_traffic.icmp
+  and (network_traffic.icmp.request.type:(8 or 128) or icmp.request.type:(8 or 128))
+  and network.transport:(icmp or ipv6-icmp)
+  and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FC00::/7")
+  and network.bytes >= 256
+  and not destination.ip:(
+    10.0.0.0/8 or 100.64.0.0/10 or 127.0.0.0/8 or 169.254.0.0/16 or 172.16.0.0/12 or 192.168.0.0/16 or
+    192.0.0.0/24 or 192.0.0.0/29 or 192.0.0.8/32 or 192.0.0.9/32 or 192.0.0.10/32 or 192.0.0.170/32 or
+    192.0.0.171/32 or 192.0.2.0/24 or 192.175.48.0/24 or 192.31.196.0/24 or 192.52.193.0/24 or 192.88.99.0/24 or
+    198.18.0.0/15 or 198.51.100.0/24 or 203.0.113.0/24 or 224.0.0.0/4 or 240.0.0.0/4 or "::1" or "FC00::/7" or
+    "FE80::/10" or "FF00::/8"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

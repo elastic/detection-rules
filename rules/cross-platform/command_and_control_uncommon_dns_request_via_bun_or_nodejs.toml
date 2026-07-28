@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/05/21"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+updated_date = "2026/06/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects uncommon DNS requests via Bun or Node.js. Adversaries may leverage these tools
+via a supply chain attack of a compromised developer's package to execute malicious code and
+steal/exfiltrate data.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Uncommon DNS Request via Bun or Node.js"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Uncommon DNS Request via Bun or Node.js
+
+This rule flags rare DNS lookups made by Bun or Node.js on an endpoint, which can reveal unexpected network activity from developer tooling or JavaScript runtimes. It matters because a compromised package or script can use these processes to contact attacker-controlled infrastructure, hide command-and-control traffic, or stage data theft. A common pattern is a poisoned dependency that runs during install or execution and resolves a unique subdomain before pulling a second-stage payload.
+
+### Possible investigation steps
+
+- Review the full command line, parent and ancestor chain, execution path, and working directory to determine whether the lookup came from a developer workflow, package install hook, build task, or an unexpected script.
+- Identify the code or dependency responsible by examining recent changes to package manifests, lockfiles, installed modules, and any preinstall, postinstall, prepare, or other lifecycle scripts near the alert time.
+- Enrich the queried domain to determine whether it belongs to expected registries or internal services, and treat newly registered, low-reputation, typo-squatted, or high-entropy subdomains as stronger indicators of compromise.
+- Pivot on nearby runtime and network activity from the same execution context to see whether the DNS request was followed by outbound connections, downloads, archive extraction, credential access, or child processes that suggest staging or exfiltration.
+- Validate the user and host context by checking whether the activity occurred in a CI runner, developer workstation, or production server, and compare it against that asset’s normal JavaScript runtime behavior to separate legitimate builds from anomalous execution.
+
+### False positive analysis
+
+- A legitimate dependency installation, build, or test run can cause Bun or Node.js to resolve previously unseen domains introduced by new modules or lifecycle scripts, so verify the lookup aligns with an expected package operation by reviewing the command line, parent process, and recent changes to package manifests or lockfiles.
+- An approved internal application or automation script may use Bun or Node.js for service discovery or environment-specific hostname resolution, so confirm the queried domain belongs to known internal infrastructure and that the script path and execution context match the host’s normal role.
+
+### Response and remediation
+
+- Isolate the affected workstation, server, or CI runner from the network, stop the suspicious Bun or Node.js process tree, and preserve the working directory, package files, and user profile artifacts for follow-on analysis.
+- Remove the malicious package or script and delete attacker persistence such as modified package.json lifecycle hooks, poisoned lockfiles, startup folder entries, scheduled tasks, cron jobs, launch agents, systemd services, and shell profile changes created around the compromise.
+- Block the resolved domains and any follow-on destinations at DNS, proxy, and firewall controls, and revoke or rotate credentials the runtime could access, including repository tokens, cloud keys, SSH keys, API secrets, and values stored in .npmrc files or environment variables.
+- Restore the asset to a known-good state by rebuilding it from a clean image or trusted baseline, reinstalling dependencies only from vetted registries and approved lockfiles, and verifying no unexpected Bun or Node.js scripts remain in application, temp, or user-writable paths.
+- Escalate to incident response immediately if the same package, domain, or script is present on multiple hosts, if developer repositories or CI pipelines were modified, or if there is any sign that source code, secrets, or customer data was accessed or exfiltrated.
+- Harden the environment by enforcing dependency pinning and package allowlists, disabling unnecessary install-time script execution, restricting direct internet access for build systems, and adding detections for Bun or Node.js making DNS requests to rare or newly registered domains.
+"""
+references = [
+    "https://github.com/nrwl/nx-console/issues/3139",
+]
+risk_score = 21
+rule_id = "55be0398-e72d-4c02-a916-b11d62af0e29"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:network and host.os.type:(linux or macos or windows) and event.action:lookup_requested and
+process.name:(bun or bun.exe or node or node.exe or nodejs) and dns.question.name:(* and not localhost)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Command and Control"
+  id = "TA0011"
+  reference = "https://attack.mitre.org/tactics/TA0011/"
+
+  [[rule.threat.technique]]
+  name = "Web Service"
+  id = "T1102"
+  reference = "https://attack.mitre.org/techniques/T1102/"
+
+  [[rule.threat.technique]]
+  name = "Application Layer Protocol"
+  id = "T1071"
+  reference = "https://attack.mitre.org/techniques/T1071/"
+
+    [[rule.threat.technique.subtechnique]]
+    name = "DNS"
+    id = "T1071.004"
+    reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "dns.question.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

@@ -8,6 +8,30 @@ from eql import Walker
 from .errors import KqlCompileError
 
 
+# Lucene `query_string` reserved characters. Mirrors Kibana's
+# `escapeQueryString` in src/plugins/data/common/es_query/kuery/node_types/wildcard.ts:
+#   /[+\-=&|><!(){}[\]^"~*?:\\/]/g
+# The leading `/` in particular must be escaped because Lucene treats `/.../`
+# as a regex delimiter (see https://github.com/elastic/detection-rules/issues/441).
+_LUCENE_QUERY_STRING_SPECIALS = set('+-=&|><!(){}[]^"~*?:\\/')
+
+
+def _escape_query_string_wildcard(value: str) -> str:
+    """Convert a KQL wildcard value into a Lucene query_string.query string."""
+    # Escapes Lucene specials while preserving `*` as the wildcard marker, mirroring
+    # Kibana's `toQueryStringQuery`. Only called for `Wildcard` nodes (always a string).
+    escaped = []
+    for char in value:
+        if char == '*':
+            escaped.append('*')
+        elif char in _LUCENE_QUERY_STRING_SPECIALS:
+            escaped.append('\\')
+            escaped.append(char)
+        else:
+            escaped.append(char)
+    return ''.join(escaped)
+
+
 def boolean(**kwargs):
     """Wrap a query in a boolean term and optimize while building."""
     assert len(kwargs) == 1
@@ -81,7 +105,8 @@ class ToDsl(Walker):
         return lambda field: {"exists": {"field": field}}
 
     def _walk_wildcard(self, tree):
-        return lambda field: {"query_string": {"fields": [field], "query": tree.value}}
+        query = _escape_query_string_wildcard(tree.value)
+        return lambda field: {"query_string": {"fields": [field], "query": query}}
 
     def _walk_value(self, tree):
         return lambda field: {"match": {field: tree.value}}

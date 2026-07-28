@@ -11,6 +11,7 @@ import unittest
 import uuid
 from collections import defaultdict
 from pathlib import Path
+from typing import ClassVar
 
 import eql
 import kql
@@ -375,6 +376,107 @@ class TestThreatMappings(BaseRuleTest):
                     f"Flatten to a single entry per tactic"
                 )
 
+    def test_versioned_threat_mappings_tactic_technique_correlations(self):
+        """Validate threat_mappings entries against their declared version's ATT&CK data."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue  # no local data for this version; validation skipped
+
+                for entry in versioned_block.threat:
+                    tactic = entry.tactic
+                    techniques = entry.technique or []
+                    version_label = f"v{versioned_block.version}"
+
+                    if tactic.name not in lookups.tactics_map:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"unknown ATT&CK tactic '{tactic.name}'"
+                        )
+
+                    expected_tactic_id = lookups.tactics_map[tactic.name]
+                    self.assertEqual(
+                        expected_tactic_id,
+                        tactic.id,
+                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                        f"tactic ID mismatch for '{tactic.name}': "
+                        f"expected {expected_tactic_id}, got {tactic.id}",
+                    )
+
+                    mismatched = [t.id for t in techniques if t.id not in lookups.matrix.get(tactic.name, [])]
+                    if mismatched:
+                        self.fail(
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"techniques {mismatched} not under tactic '{tactic.name}' "
+                            f"in ATT&CK {version_label}"
+                        )
+
+                    for technique in techniques:
+                        if technique.id not in lookups.technique_lookup:
+                            self.fail(
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"unknown ATT&CK technique ID '{technique.id}'"
+                            )
+                        expected_name = lookups.technique_lookup[technique.id]["name"]
+                        self.assertEqual(
+                            expected_name,
+                            technique.name,
+                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                            f"technique name mismatch for {technique.id}: "
+                            f"expected '{expected_name}', got '{technique.name}'",
+                        )
+
+                        for sub in technique.subtechnique or []:
+                            if sub.id not in lookups.technique_lookup:
+                                self.fail(
+                                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                    f"unknown ATT&CK subtechnique ID '{sub.id}'"
+                                )
+                            expected_sub_name = lookups.technique_lookup[sub.id]["name"]
+                            self.assertEqual(
+                                expected_sub_name,
+                                sub.name,
+                                f"{self.rule_str(rule)} threat_mappings {version_label}: "
+                                f"subtechnique name mismatch for {sub.id}: "
+                                f"expected '{expected_sub_name}', got '{sub.name}'",
+                            )
+
+    def test_versioned_threat_mappings_deprecations(self):
+        """Check that threat_mappings entries don't use techniques deprecated in their declared version."""
+        for rule in self.all_rules:
+            threat_mappings = rule.contents.data.threat_mappings
+            if not threat_mappings:
+                continue
+            for versioned_block in threat_mappings:
+                if versioned_block.framework != "MITRE ATT&CK":
+                    continue
+                try:
+                    lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                except FileNotFoundError:
+                    continue
+
+                bad: dict[str, str] = {}
+                for entry in versioned_block.threat:
+                    for technique in entry.technique or []:
+                        if technique.id in lookups.revoked or technique.id in lookups.deprecated:
+                            bad[technique.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
+                        for sub in technique.subtechnique or []:
+                            if sub.id in lookups.revoked or sub.id in lookups.deprecated:
+                                bad[sub.id] = f"revoked/deprecated in ATT&CK v{versioned_block.version}"
+
+                if bad:
+                    self.fail(
+                        f"{self.rule_str(rule)} threat_mappings v{versioned_block.version} "
+                        f"uses deprecated/revoked techniques: " + ", ".join(f"{k} ({v})" for k, v in bad.items())
+                    )
+
 
 @unittest.skipIf(os.environ.get("DR_BYPASS_TAGS_VALIDATION") is not None, "Skipping tag validation")
 class TestRuleTags(BaseRuleTest):
@@ -487,11 +589,16 @@ class TestRuleTags(BaseRuleTest):
             if threat:
                 missing = []
                 threat_tactic_names = [e.tactic.name for e in threat]
-                primary_tactic = f"Tactic: {threat_tactic_names[0]}"
+
+                # Accept a primary-tactic tag matching the baseline or any versioned (e.g. v19)
+                # threat_mappings tactic name, since renamed tactics (e.g. Stealth) are still valid.
+                primary_tactic_candidates = {
+                    f"Tactic: {name}" for name in rule.contents.data.get_primary_tactic_names()
+                }
 
                 # missing primary tactic
-                if primary_tactic not in rule.contents.data.tags:
-                    missing.append(primary_tactic)
+                if not primary_tactic_candidates.intersection(rule.contents.data.tags):
+                    missing.append(" | ".join(sorted(primary_tactic_candidates)))
 
                 # listed tactic that is not in threat mapping
                 tag_tactics = set(rule_tags).intersection(tactics)
@@ -500,7 +607,7 @@ class TestRuleTags(BaseRuleTest):
                 if missing or missing_from_threat:
                     err_msg = self.rule_str(rule)
                     if missing:
-                        err_msg += f"\n    expected: {missing}"
+                        err_msg += f"\n    expected one of: {missing}"
                     if missing_from_threat:
                         err_msg += f"\n    unexpected (or missing from threat mapping): {missing_from_threat}"
 
@@ -640,11 +747,14 @@ class TestRuleFiles(BaseRuleTest):
             authors = rule.contents.data.author
 
             if threat and "Elastic" in authors:
-                primary_tactic = threat[0].tactic.name
-                tactic_str = primary_tactic.lower().replace(" ", "_")
+                # Accept the baseline tactic name or any versioned (e.g. v19) threat_mappings tactic
+                # name, so a rule isn't forced to rename its file until it's actually migrated.
+                primary_tactics = rule.contents.data.get_primary_tactic_names()
+                tactic_strs = [t.lower().replace(" ", "_") for t in primary_tactics]
 
-                if tactic_str != filename[: len(tactic_str)]:
-                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {tactic_str}")
+                if not any(filename.startswith(tactic_str) for tactic_str in tactic_strs):
+                    expected = " or ".join(tactic_strs)
+                    bad_name_rules.append(f"{rule.id} - {Path(rule.path).name} -> expected: {expected}")
 
         if bad_name_rules:
             error_msg = "filename does not start with the primary tactic - update the tactic or the rule filename"
@@ -760,6 +870,30 @@ class TestRuleMetadata(BaseRuleTest):
 
             rule_str = f"{rule_id} - {entry['rule_name']} ->"
             self.assertIn(rule_id, deprecated_rules, f'{rule_str} is logged in "deprecated_rules.json" but is missing')
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Skipping deprecated version lock check")
+    def test_newly_deprecated_rules_have_reason(self):
+        """Newly deprecated rules must include `deprecated_reason` in [metadata].
+
+        Rules already in `deprecated_rules.json` are grandfathered.
+        """
+        already_deprecated = set(self.rules_config.deprecated_rules)
+        missing: list[str] = []
+
+        for rule in self.deprecated_rules:
+            if rule.id in already_deprecated:
+                continue
+            if not rule.contents.metadata.get("deprecated_reason"):
+                missing.append(self.rule_str(rule))
+
+        if missing:
+            rules_str = "\n  ".join(missing)
+            self.fail(
+                "The following newly deprecated rules are missing `deprecated_reason` in "
+                "[metadata]. Add a short explanation (e.g. 'Replaced by <rule name>'). This "
+                "field is only required for NEW deprecations on this branch; rules already "
+                f"tracked in `deprecated_rules.json` are grandfathered.\n  {rules_str}"
+            )
 
     def test_deprecated_rules_modified(self):
         """Test to ensure deprecated rules are not modified."""
@@ -1528,6 +1662,19 @@ class TestAlertSuppression(BaseRuleTest):
                         for data_source in int_schema:
                             schema.update(**int_schema[data_source])
                 for fld in group_by_fields:
+                    # ES|QL rules may suppress on dynamic fields computed by the query (e.g. EVAL/GROK
+                    # columns using the `Esql.` prefix convention), which are not in any schema. The field
+                    # must still be produced by the query: an assignment (EVAL/STATS/ENRICH ... WITH),
+                    # a RENAME ... AS target, or a GROK/DISSECT capture.
+                    if rule.contents.data.type == "esql" and fld.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES):
+                        field = re.escape(fld)
+                        self.assertRegex(
+                            rule.contents.data.query,
+                            rf"\b{field}\s*=(?!=)|\bAS\s+{field}\b|[:{{]{field}}}",
+                            f"{self.rule_str(rule)} alert suppression field {fld} is a dynamic "
+                            "ES|QL field but is not computed anywhere in the query",
+                        )
+                        continue
                     if fld not in schema:
                         self.fail(
                             f"{self.rule_str(rule)} alert suppression field {fld} not \
@@ -1548,3 +1695,100 @@ class TestAlertSuppression(BaseRuleTest):
                 # is_sequence method not yet available during schema validation
                 # so we have to check in a unit test
                 self.fail(f"{self.rule_str(rule)} Sequence rules cannot have alert suppression")
+
+
+class TestEQLEventFieldUsage(BaseRuleTest):
+    """Test that EQL rules reference fields mapped in the endpoint integration schema."""
+
+    SAFE_EVENT_TYPES: ClassVar[set[str]] = {"process", "any"}
+    ALERT_INDEX_HINTS: ClassVar[tuple[str, ...]] = (
+        ".alerts-security.",
+        "logs-endpoint.alerts",
+        "-alerts-",
+    )
+    EVENT_TYPE_TO_DATASET: ClassVar[dict[str, str]] = {
+        "file": "file",
+        "network": "network",
+        "registry": "registry",
+        "library": "library",
+        "dns": "network",
+    }
+
+    @classmethod
+    def _bad_fields_for_event_query(
+        cls,
+        event_query: eql.ast.EventQuery,
+        schema_by_dataset: dict[str, dict[str, str]],
+    ) -> tuple[str, list[str]] | None:
+        if event_query.event_type in cls.SAFE_EVENT_TYPES:
+            return None
+        dataset = cls.EVENT_TYPE_TO_DATASET.get(event_query.event_type)
+        if not dataset or dataset not in schema_by_dataset:
+            return None
+        schema_fields = schema_by_dataset[dataset]
+        bad_fields = sorted(
+            {
+                str(node)
+                for node in event_query
+                if isinstance(node, eql.ast.Field)
+                and str(node).startswith("process.")
+                and str(node) not in schema_fields
+            }
+        )
+        return (dataset, bad_fields) if bad_fields else None
+
+    def test_process_fields_present_in_endpoint_schema(self):
+        """Ensure process.* fields used in non-process EQL clauses exist in the endpoint integration schema."""
+        load_integrations_schemas.clear()
+        schemas = load_integrations_schemas()
+        endpoint_versions = schemas.get("endpoint", {})
+        if not endpoint_versions:
+            self.skipTest("endpoint integration schema not available")
+        latest = sorted(endpoint_versions, key=Version.parse)[-1]
+        schema_by_dataset = endpoint_versions[latest]
+
+        offenders: list[str] = []
+        for rule in self.all_rules:
+            data = rule.contents.data
+            if not isinstance(data, EQLRuleData):
+                continue
+
+            indices = data.get("index") or []
+            if not any("logs-endpoint.events." in idx for idx in indices):
+                continue
+            if any(any(hint in idx for hint in self.ALERT_INDEX_HINTS) for idx in indices):
+                continue
+
+            try:
+                rule_ast = data.ast
+            except Exception:  # noqa: BLE001, S112
+                continue
+            if rule_ast is None:
+                continue
+
+            first = rule_ast.first
+            event_queries = (
+                [sq.query for sq in first.queries] if isinstance(first, (eql.ast.Sequence, eql.ast.Join)) else [first]
+            )
+
+            for event_query in event_queries:
+                if not isinstance(event_query, eql.ast.EventQuery):
+                    continue
+                result = self._bad_fields_for_event_query(event_query, schema_by_dataset)
+                if result is None:
+                    continue
+                dataset, bad_fields = result
+                offenders.append(
+                    f"{self.rule_str(rule, trailer=None)} references {bad_fields} "
+                    f"inside `{event_query.event_type} where` but the endpoint integration "
+                    f"schema (dataset `{dataset}`) does not include these fields"
+                )
+                break
+
+        if offenders:
+            self.fail(
+                "process.* fields below are not in the endpoint integration schema for the "
+                "targeted dataset, so the predicates referencing them never match. Move the "
+                "check into a `process where` clause (e.g. via an EQL sequence) or use a field "
+                "that the dataset actually populates.\nOffenders:\n  - " + "\n  - ".join(offenders)
+            )

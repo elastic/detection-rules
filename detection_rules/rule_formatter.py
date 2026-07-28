@@ -16,6 +16,7 @@ from typing import Any, TextIO
 
 import toml
 
+from .config import CUSTOM_RULES_DIR
 from .schemas import definitions
 from .utils import cached
 
@@ -29,6 +30,10 @@ TRIPLE_DQ = DQ * 3
 # Excluded fields:
 # - actions[].params.message
 NESTED_PRESERVED_FIELD_NAMES: set[str] = {"message"}
+
+# rule.filters.query (ES DSL): dict keys whose string values skip word-wrap in TOML.
+# NOTE: add keys when a clause type stores long literals under another name.
+FILTER_QUERY_LITERAL_STRING_KEYS: set[str] = {"query", "value"}
 
 
 @cached
@@ -104,6 +109,19 @@ class NonformattedField(str):  # noqa: SLOT000
 def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preserve: list[str]) -> OrderedDict[str, Any]:
     """Preserve formatting for specified nested fields in an action."""
 
+    def preserve_descendant_values(target: Any) -> None:
+        """Preserve any string value fields under query DSL nodes."""
+        if isinstance(target, dict):
+            for key, value in target.items():  # type: ignore[reportUnknownVariableType]
+                if key in FILTER_QUERY_LITERAL_STRING_KEYS and isinstance(value, str):
+                    target[key] = NonformattedField(value)
+                elif isinstance(value, dict | list):
+                    preserve_descendant_values(value)
+
+        if isinstance(target, list):
+            for value in target:  # type: ignore[reportUnknownVariableType]
+                preserve_descendant_values(value)
+
     def apply_preservation(target: OrderedDict[str, Any], keys: list[str]) -> None:
         """Apply NonformattedField preservation based on keys path."""
         for key in keys[:-1]:
@@ -116,6 +134,10 @@ def preserve_formatting_for_fields(data: OrderedDict[str, Any], fields_to_preser
 
         final_key = keys[-1]
         if final_key in target:
+            if final_key == "query":
+                preserve_descendant_values(target[final_key])
+                return
+
             # Apply NonformattedField to the target field if it exists
             target[final_key] = NonformattedField(target[final_key])
 
@@ -217,19 +239,33 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
         return obj
 
-    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]) -> None:  # noqa: PLR0912
+    def _do_write(f: TextIO | None, _data: str, _contents: dict[str, Any]) -> None:  # noqa: PLR0912, PLR0915
         query = None
         threat_query = None
+        # Track whether a present-but-empty query / threat_query should still be emitted.
+        # Filter-only custom rules (e.g. indicator match rules without an indicator index query)
+        # carry an empty string here, and dropping it makes export/import lossy because the
+        # Kibana API requires the field to be present (see issues #6283 and #6167).
+        preserve_empty_query = False
+        preserve_empty_threat_query = False
 
         if _data == "rule":
+            missing = object()
+
             # - We want to avoid the encoder for the query and instead use kql-lint.
             # - Linting is done in rule.normalize() which is also called in rule.validate().
             # - Until lint has tabbing, this is going to result in all queries being flattened with no wrapping,
             #     but will at least purge extraneous white space
-            query = contents["rule"].pop("query", "").strip()
+            raw_query = contents["rule"].pop("query", missing)
+            if isinstance(raw_query, str):
+                query = raw_query.strip()
+                preserve_empty_query = bool(CUSTOM_RULES_DIR) and not query
 
             # - As tags are expanding, we may want to reconsider the need to have them in alphabetical order
-            threat_query = contents["rule"].pop("threat_query", "").strip()
+            raw_threat_query = contents["rule"].pop("threat_query", missing)
+            if isinstance(raw_threat_query, str):
+                threat_query = raw_threat_query.strip()
+                preserve_empty_threat_query = not threat_query
 
         top: OrderedDict[str, Any] = OrderedDict()
         bottom: OrderedDict[str, Any] = OrderedDict()
@@ -243,8 +279,8 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
                 v = [preserve_formatting_for_fields(action, preserved_fields) for action in v] if v is not None else []
 
             if k == "filters":
-                # explicitly preserve formatting for value field in filters
-                preserved_fields = ["meta.value"]
+                # explicitly preserve formatting for value field and query subfields in filters
+                preserved_fields = ["meta.value", "query"]
                 v = [preserve_formatting_for_fields(meta, preserved_fields) for meta in v] if v is not None else []
 
             if k == "note" and isinstance(v, str):
@@ -284,9 +320,13 @@ def toml_write(rule_contents: dict[str, Any], out_file_path: Path | None = None)
 
         if query:
             top.update({"query": "XXxXX"})  # type: ignore[reportUnknownMemberType]
+        elif preserve_empty_query:
+            top.update({"query": ""})  # type: ignore[reportUnknownMemberType]
 
         if threat_query:
             top.update({"threat_query": "XXxXX"})  # type: ignore[reportUnknownMemberType]
+        elif preserve_empty_threat_query:
+            top.update({"threat_query": ""})  # type: ignore[reportUnknownMemberType]
 
         top.update(bottom)  # type: ignore[reportUnknownMemberType]
         top_out = toml.dumps(OrderedDict({data: top}), encoder=encoder)  # type: ignore[reportUnknownMemberType]

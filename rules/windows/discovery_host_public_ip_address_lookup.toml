@@ -2,12 +2,13 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/06"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies DNS queries to known public IP address lookup web services. Malwares tend to perform this action to assess potential targets.
+Identifies DNS queries to known public IP address lookup web services from suspicious Windows processes, which
+can reveal external IP or internet-connectivity discovery before follow-on activity.
 """
 from = "now-9m"
 index = [
@@ -22,35 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "System Public IP Discovery via DNS Query"
-note = """## Triage and analysis
-
-### Investigating System Public IP Discovery via DNS Query
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes or malicious scripts.
-- Verify if the executed process is persistent on the host like common mechanisms Startup folder, task or Run key.
-- Review any unusual network, files or registry events by the same process.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Extract this communication's indicators of compromise (IoCs) and use traffic logs to search for other potentially compromised hosts.
-
-### False positive analysis
-
-- Trusted domain from an expected process running in the environment.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Immediately block the identified indicators of compromise (IoCs).
-- Implement any temporary network rules, procedures, and segmentation required to contain the attack.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Update firewall rules to be more restrictive.
-- Reimage the host operating system or restore the compromised files to clean versions.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = ["https://attack.mitre.org/techniques/T1016/"]
 risk_score = 73
 rule_id = "642ce354-4252-4d43-80c9-6603f16571c1"
@@ -76,13 +48,16 @@ network where host.os.type == "windows" and dns.question.name != null and proces
 (
   process.name : ("MSBuild.exe", "mshta.exe", "wscript.exe", "powershell.exe", "pwsh.exe", "msiexec.exe", "rundll32.exe",
   "bitsadmin.exe", "InstallUtil.exe", "RegAsm.exe", "vbc.exe", "RegSvcs.exe", "python.exe", "regsvr32.exe", "dllhost.exe",
-  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com") or
+  "node.exe", "javaw.exe", "java.exe", "*.pif", "*.com", "curl.exe", "bun.exe") or
 
   (?process.code_signature.trusted == false or ?process.code_signature.exists == false) or
 
   ?process.code_signature.subject_name : ("AutoIt Consulting Ltd", "OpenJS Foundation", "Python Software Foundation") or
 
-  ?process.executable : ("?:\\Users\\*.exe", "?:\\ProgramData\\*.exe")
+  ?process.executable : (
+    "?:\\Users\\Public\\*.exe", "?:\\ProgramData\\*.exe", "?:\\Users\\*\\Downloads\\*.exe",
+    "\\Device\\HarddiskVolume*\\Users\\Public\\*.exe", "\\Device\\HarddiskVolume*\\ProgramData\\*.exe", "\\Device\\HarddiskVolume*\\Users\\*\\Downloads\\*.exe"
+  )
  ) and
  dns.question.name :
          (
@@ -112,7 +87,6 @@ network where host.os.type == "windows" and dns.question.name != null and proces
           "iplogger.*",
           "freegeoip.net",
           "freegeoip.app",
-          "ipinfo.io",
           "geoplugin.net",
           "myip.dnsomatic.com",
           "www.geoplugin.net",
@@ -120,14 +94,168 @@ network where host.os.type == "windows" and dns.question.name != null and proces
           "ip4.seeip.org",
           "*.geojs.io",
           "*portmap.io",
-          "api.2ip.ua",
           "api.db-ip.com",
           "geolocation-db.com",
           "httpbin.org",
           "myip.opendns.com"
-         )
+         ) and
+not (
+  process.executable : (
+    "?:\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe",
+    "\\Device\\HarddiskVolume*\\ProgramData\\Microsoft\\Windows Defender\\platform\\*\\*.exe"
+  ) and user.id == "S-1-5-18"
+)
 '''
 
+note = """## Triage and analysis
+
+### Investigating System Public IP Discovery via DNS Query
+
+#### Possible investigation steps
+
+- Does the alert-local DNS event show request-only, successful resolution, or lookup failure for a public-IP service?
+  - Why: request events show intent to resolve the service; result events plus `dns.resolved_ip` show resolver response, not a connection.
+  - Focus: `dns.question.name`, `event.action`, `dns.resolved_ip`, `dns.Ext.status`, and `@timestamp`.
+  - Implication: escalate faster when a suspicious process resolves a service that reports public egress IP; lower concern only when the lookup failed or stayed request-only and identity, lineage, and network checks all fit the same recognized connectivity test.
+
+- Is the alerting binary a recognized tool or a suspicious LOLBin/script host in this context?
+  - Focus: alert or recovered process identity: `process.name`, `process.executable`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the lookup comes from a LOLBin, scripting runtime, unsigned binary, user-writable path, or signer mismatch; lower concern when a stable signed updater, endpoint-management, or managed connectivity-check component owns the exact binary. Identity alone does not close the alert.
+
+- Does the launch chain explain why this process needed external-IP discovery?
+  - Focus: recovered process start and parent context on `host.id` and `process.entity_id`: `process.command_line`, `process.parent.executable`, `process.parent.command_line`, `user.id`, and `process.Ext.session_info.logon_type`. $investigate_2
+  - Implication: escalate when Office, a browser child, a script host, a service session, or an unexpected remote session launched the lookup; lower concern when parent, command line, user, and session all match one recognized troubleshooting, updater, endpoint-management, or managed connectivity-check workflow.
+
+- Did the process connect to the resolved public-IP service or pivot to other external infrastructure?
+  - Focus: same-process network events on `host.id` and `process.entity_id`, separating DNS results from connections and correlating `dns.resolved_ip` to `destination.ip`, `destination.port`, and `destination.as.organization.name`. $investigate_3
+  - Hint: Missing network telemetry is unresolved, not benign. When present, treat `dns.question.name` as DNS evidence and `destination.ip` as connection evidence, including direct public-IP connections that bypass DNS.
+  - Implication: escalate when the process reaches the resolved service, contacts unrelated public infrastructure, or later connects directly to public IPs without DNS; lower concern only when connection telemetry shows no related external connection or an environment-confirmed proxy path aligned with the same workflow.
+
+- Did the same process launch follow-on commands that turn the lookup into staging, discovery, or C2 preparation?
+  - Focus: child process starts where `process.parent.entity_id` matches `process.entity_id`: `process.name`, `process.command_line`, `process.executable`, and `process.code_signature.subject_name`. $investigate_4
+  - Implication: escalate when shells, downloaders, installers, reconnaissance commands, or persistence tooling follow the lookup; lower concern when no child activity appears and earlier identity and lineage support one recognized connectivity check.
+
+- If local evidence stays suspicious or unresolved, do related alerts show the same binary-and-domain tuple around this user or host?
+  - Focus: related alert history for `user.id` and `host.id`: `dns.question.name`, `process.hash.sha256`, `process.code_signature.subject_name`, and recovered `process.parent.executable`. Review user and host alerts only after local DNS result, lineage, and follow-on network checks stay suspicious or unresolved.
+    - $investigate_0
+    - $investigate_1
+  - Implication: broaden the case when the same hash, signer, parent, and public-IP service recur across other hosts for the same user or other users on the same host; keep response local when related alerts remain limited to one confirmed maintenance cohort.
+
+- Based on DNS outcome, binary identity, launch chain, same-process network behavior, child processes, and scope, what disposition is supported?
+  - Implication: escalate on unauthorized public-IP discovery plus suspicious lineage, external egress, child commands, or spread; close only when DNS outcome, binary identity, parent chain, user/session context, connection behavior, child activity, and scope bind one recognized workflow with no contradictions; preserve mixed or incomplete cases and escalate.
+
+### False positive analysis
+
+- Administrative troubleshooting, software updater, endpoint-management, and managed connectivity-check workflows may query public-IP services to confirm egress or NAT behavior. Confirm that identity (`process.executable`, `process.hash.sha256`, `process.code_signature.subject_name`), lineage (`process.parent.executable`, `process.parent.command_line`), user/session context, DNS evidence (`dns.question.name`, `dns.resolved_ip`), and any connection evidence converge on the same exact workflow. Without organizational confirmation, close only when telemetry proves the exact component and workflow; otherwise treat the pattern as candidate exception evidence.
+- Before creating an exception, require a stable `process.hash.sha256` or `process.code_signature.subject_name`, `process.parent.executable`, the specific `dns.question.name`, and scope anchor (`host.id`, `host.name`, or `user.id`). Avoid exceptions on `dns.question.name` alone, `process.name` alone, or the full public-IP service list because benign tooling and malware use the same services.
+
+### Response and remediation
+
+- If confirmed benign, document the exact evidence that proved the workflow: binary identity, parent chain, user/session context, DNS result, connection behavior, and recurrence scope. Then reverse any temporary containment and build a narrow exception only for that confirmed workflow.
+- If suspicious but unconfirmed, preserve the alert, process start, DNS result, same-process connection events, child process starts, and related alert history before containment. Apply reversible containment such as temporary domain or DNS blocking, outbound restrictions for the affected process or host, or heightened monitoring on the affected `host.id` or `user.id`; escalate to host isolation only if follow-on child processes, suspicious external egress, or broader spread appears and host criticality allows it.
+- If confirmed malicious, isolate the host or restrict egress when binary identity, lineage, DNS, connection, or child-process evidence shows unauthorized internet discovery or pre-C2 activity. Block confirmed malicious `dns.question.name`, `dns.resolved_ip`, `destination.ip`, `process.hash.sha256`, and related domains, then scope other hosts and users for the same indicators before terminating processes or deleting artifacts.
+- Eradicate only the scripts, binaries, scheduled tasks, run keys, or configuration changes identified during the investigation after scoping related hosts and users. Remediate the launcher, user context, or deployment path that introduced the public-IP lookup.
+- Post-incident hardening: restrict unsigned or user-writable scripting and LOLBin execution where feasible, keep endpoint DNS and network telemetry enabled, and document any connectivity-check pattern or visibility gap for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 22 - DNS Query](https://ela.st/sysmon-event-22-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.trusted",
+    "process.code_signature.subject_name",
+    "dns.question.name",
+    "dns.Ext.status",
+    "dns.resolved_ip",
+    "destination.ip",
+    "event.action",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the DNS-querying process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the DNS-querying process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child processes spawned by the DNS-querying process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

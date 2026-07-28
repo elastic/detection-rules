@@ -1,0 +1,80 @@
+[metadata]
+bypass_bbr_timing = true
+creation_date = "2026/05/04"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/05/04"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Detects successful Kubernetes pod creation requests using commonly abused base and debugging container
+images such as BusyBox, Alpine, Ubuntu, Netshoot, and network multitool variants. These images are
+frequently used by attackers to deploy short-lived or interactive "throwaway" containers for
+reconnaissance, payload staging, or command execution due to their small footprint or built-in tooling.
+"""
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Pod Creation Using Common Debug or Base Images"
+risk_score = 21
+rule_id = "93120a05-caf5-47f6-a305-e8abee463fb9"
+severity = "low"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Rule Type: BBR",
+    ]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.dataset:"kubernetes.audit_logs" and
+kubernetes.audit.stage:"ResponseComplete" and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and
+kubernetes.audit.objectRef.resource:"pods" and
+kubernetes.audit.verb:"create" and
+kubernetes.audit.requestObject.spec.containers.image:(alpine* or busybox* or ubuntu\:* or debian\:* or *netshoot\:* or *network-multitool\:* or *curl\:*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "user_agent.original", "user.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

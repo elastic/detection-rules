@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/04/28"
 
 [rule]
 author = ["Elastic"]
@@ -56,9 +56,9 @@ references = [
     "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
     "https://www.aquasec.com/blog/kubernetes-exposed-exploiting-the-kubelet-api/"
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "b4bd186b-69c6-45ad-8bef-5c35bbadeaef"
-severity = "medium"
+severity = "high"
 tags = [
     "Data Source: Elastic Defend for Containers",
     "Domain: Container",
@@ -72,7 +72,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-process.args like "http*:10250*" and process.interactive == true and container.id like "?*"
+process.args like ("http*:10250*", "http*:10255*", "wss:*:10250*", "wss:*:10255*") and container.id like "?*"
 '''
 
 [[rule.threat]]

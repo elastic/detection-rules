@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -24,42 +24,11 @@ index = [
 ]
 language = "eql"
 license = "Elastic License v2"
-name = "Attempt to Install Kali Linux via WSL"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Attempt to Install Kali Linux via WSL
-
-Windows Subsystem for Linux (WSL) allows users to run Linux distributions on Windows, providing a seamless integration of Linux tools. Adversaries may exploit WSL to install Kali Linux, a penetration testing distribution, to evade detection by traditional Windows security tools. The detection rule identifies suspicious processes and file paths associated with Kali Linux installations, flagging potential misuse for defense evasion.
-
-### Possible investigation steps
-
-- Review the process details to confirm the presence of "wsl.exe" with arguments indicating an attempt to install or use Kali Linux, such as "-d", "--distribution", "-i", or "--install".
-- Check the file paths associated with the Kali Linux installation, such as "?:\\Users\\*\\AppData\\Local\\packages\\kalilinux*" or "?:\\Program Files*\\WindowsApps\\KaliLinux.*\\kali.exe", to verify if the installation files exist on the system.
-- Investigate the user account associated with the process to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Correlate the event with other security logs or alerts from data sources like Microsoft Defender XDR or Sysmon to identify any related suspicious activities or patterns.
-- Assess the risk and impact of the detected activity by considering the context of the environment and any potential threats posed by the use of Kali Linux on the system.
-
-### False positive analysis
-
-- Legitimate use of Kali Linux for development or educational purposes may trigger the rule. Users can create exceptions for specific user accounts or groups known to use Kali Linux for authorized activities.
-- Automated scripts or deployment tools that install or configure Kali Linux as part of a legitimate IT process might be flagged. Consider whitelisting these scripts or processes by their hash or path.
-- Security researchers or IT professionals conducting penetration testing on a Windows machine may cause false positives. Implement user-based exclusions for these professionals to prevent unnecessary alerts.
-- System administrators testing WSL features with various Linux distributions, including Kali, could inadvertently trigger the rule. Establish a policy to document and approve such activities, then exclude them from detection.
-- Training environments where Kali Linux is used to teach cybersecurity skills might be mistakenly flagged. Set up environment-specific exclusions to avoid disrupting educational activities.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent any potential lateral movement or data exfiltration.
-- Terminate any suspicious processes related to the Kali Linux installation attempt, specifically those involving `wsl.exe` with arguments indicating a Kali distribution.
-- Remove any unauthorized installations of Kali Linux by deleting associated files and directories, such as those found in `AppData\\\\Local\\\\packages\\\\kalilinux*` or `Program Files*\\\\WindowsApps\\\\KaliLinux.*`.
-- Conduct a thorough review of user accounts and permissions on the affected system to ensure no unauthorized access or privilege escalation has occurred.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement additional monitoring and alerting for similar activities across the network, focusing on WSL usage and installation attempts of known penetration testing tools.
-- Review and update endpoint protection configurations to enhance detection and prevention capabilities against similar threats, leveraging data sources like Microsoft Defender XDR and Sysmon."""
-references = ["https://learn.microsoft.com/en-us/windows/wsl/wsl-config"]
+name = "Attempt to Install or Run Kali Linux via WSL"
+references = [
+    "https://learn.microsoft.com/en-us/windows/wsl/basic-commands",
+    "https://learn.microsoft.com/en-us/windows/wsl/wsl-config",
+]
 risk_score = 73
 rule_id = "dd34b062-b9e3-4a6b-8c0c-6c8ca6dd450e"
 severity = "high"
@@ -97,6 +66,153 @@ process where host.os.type == "windows" and event.type == "start" and
 )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Attempt to Install or Run Kali Linux via WSL
+
+#### Possible investigation steps
+
+- What Kali/WSL behavior path did the alert prove?
+  - Focus: alert-local `process.name`, `process.executable`, and `process.args`, separating "wsl.exe" Kali install or distro arguments from direct Kali package-path execution.
+  - Hint: do not require install flags before escalating; an installed Kali distro may appear only as direct package-path launcher execution.
+  - Implication: escalate when "wsl.exe" selects or installs Kali with "-d", "--distribution", "-i", or "--install", or when `process.executable` runs from KaliLinux package or WindowsApps paths without a confirmed endpoint exception; lower suspicion only when exact user, host, parent, and command path match the same previously confirmed Kali/WSL workflow.
+- Is the launcher identity and parent chain credible, or does it suggest masquerading or hands-on abuse?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.parent.command_line`.
+  - Implication: escalate when unsigned, renamed, running from a user-writable non-package path, or launched by Office, browser, script, or unexpected remote-admin tooling; lower suspicion when signed Microsoft or Store WSL identity and parent workflow both fit recognized Kali/WSL use. Identity alone does not clear the behavior.
+- Which account and Windows session started Kali or "wsl.exe", and does that fit the endpoint cohort?
+  - Focus: `user.id`, `user.name`, `host.id`, and `process.Ext.session_info.logon_type`.
+  - Implication: escalate when a non-admin user, service account, or remote/service logon starts Kali on a workstation or server cohort that does not normally run WSL; lower suspicion when account, logon type, and endpoint cohort align with a recognized developer, lab, training, or image-build pattern.
+- Did process telemetry show WSL lifecycle or configuration intent around the alert?
+  - Focus: surrounding process starts on `host.id`, using `process.Ext.ancestry`, `process.command_line`, and `process.parent.command_line`.
+  - Hint: prefer `host.id` plus `process.entity_id`; if unavailable, use `host.id`, `process.pid`, and a tight alert-time window because PID reuse can mislead process recovery. $investigate_2 $investigate_4
+  - Implication: escalate when `process.command_line` shows WSL install, shutdown, terminate, configuration editing, or stop/relaunch in the same lineage; lower suspicion when surrounding starts show only one previously confirmed distro launch and no lifecycle or configuration intent.
+- Did Kali/WSL lead to Windows-visible follow-on execution?
+  - Focus: child or descendant starts tied by `process.parent.entity_id` or `process.Ext.ancestry` to the alert process, reviewing `process.executable` and `process.command_line`.
+  - Hint: direct child starts are high-confidence pivots; manually expand ancestry when WSL launches through intermediate hosts. $investigate_3
+  - Implication: escalate for shells, archivers, credential tools, scanners, tunneling clients, Windows interop launches, or repeated distro starts; lower suspicion when visible follow-on activity stays limited to recognized setup or status commands.
+- If local evidence remains suspicious or unresolved, is the same user or host repeating Kali/WSL activity elsewhere?
+  - Focus: related alerts and recent process starts scoped by `user.id` or `host.id`, compared with the suspicious `process.executable` and `process.parent.command_line` pattern.
+  - Hint: review user or host alerts only after local Kali/WSL evidence stays suspicious or unresolved. $investigate_0 $investigate_1
+  - Implication: expand scope when the same user, host, parent chain, or Kali/WSL argument pattern appears on other endpoints or repeats outside the recognized workflow; keep scope local when exact activity stays confined to one recognized endpoint and bounded window, but do not close a suspicious local alert from recurrence alone.
+- Escalate for unsupported user/host, suspicious launcher, masqueraded binary, lifecycle/configuration activity, offensive follow-on process, or spread; close only when process evidence binds to one exact recognized workflow with no contradictions; preserve evidence and escalate when mixed or incomplete.
+
+### False positive analysis
+
+- Developer, security-lab, training, red-team, provisioning, or image-build systems can legitimately run or install Kali under WSL. First confirm process telemetry ties `user.id` or `host.id` cohort, `process.executable`, `process.args` or package path, `process.parent.command_line`, and signer or hash identity to the same recognized workflow, with no unexpected WSL stop/relaunch, tooling, or follow-on activity. Use rosters, training, build records, owner confirmation, or inventory only as corroboration after process evidence matches; if they conflict or telemetry is incomplete, do not close as benign.
+- If workflow context is missing, keep the alert unresolved unless process telemetry proves the exact same bounded user/host, parent, binary identity, and Kali argument or package-path pattern with no contradictory lifecycle or follow-on evidence.
+- Before creating an exception, require recurrence for the minimum confirmed pattern: `user.id` or `host.id` cohort, `process.executable`, `process.code_signature.subject_name` or `process.hash.sha256`, `process.parent.command_line`, and the Kali-specific `process.args` or package-path `process.executable`. Avoid exceptions on `process.name`, the substring "kali", or "kali.exe" alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the exact workflow evidence: user and host cohort, launcher path, signer or hash identity, parent command line, and Kali argument or package-path pattern. Create an exception only after the same bounded pattern recurs without contradictory follow-on behavior.
+- If suspicious but unconfirmed, export the alert and surrounding process timeline, preserve process instance IDs, command lines, binary identity, user/host/session anchors, and any WSL configuration or package paths visible in process telemetry before containment. Apply reversible containment first, such as terminating the active Kali or "wsl.exe" process, disabling the initiating account's WSL access, or running "wsl --shutdown" when operationally safe. Escalate to host isolation only if the activity spreads, reconfigures WSL, or launches offensive tooling.
+- If confirmed malicious, isolate the endpoint when the identity, lineage, lifecycle, or follow-on process evidence shows active abuse. Before cleanup, record the Kali/WSL process identity, parent chain, affected `user.id` and `host.id`, package paths, and WSL configuration paths seen in command lines. Then stop active WSL instances, remove the unauthorized Kali distribution and WSL configuration changes, reset credentials exposed to the Kali environment, and scope other endpoints for the same user, launcher identity, or package-path pattern.
+- Post-incident hardening should decide whether WSL is permitted for the affected endpoint cohort, restrict who can install or run WSL distributions, and retain process telemetry for Kali package paths, ".wslconfig", "wsl.conf", and "wsl.exe" lifecycle commands.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.pe.original_file_name",
+    "process.code_signature.trusted",
+    "process.code_signature.subject_name",
+    "process.Ext.session_info.logon_type",
+    "process.parent.entity_id",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same-parent process starts on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the Kali or WSL process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "WSL lifecycle commands on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.name", queryType = "phrase", value = "wsl.exe", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

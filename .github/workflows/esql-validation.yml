@@ -2,13 +2,17 @@ name: ES|QL Validation
 on:
     pull_request:
       branches: [ "*" ]
+
+permissions:
+  contents: read
+
 jobs:
   build-and-validate:
     runs-on: ubuntu-latest
 
     steps:
       - name: Setup Detection Rules
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
             fetch-depth: 0
             path: detection-rules
@@ -45,7 +49,7 @@ jobs:
           DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
           DR_API_KEY: ${{ secrets.dr_api_key }}
         if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY && env.run_esql == 'true' }}
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           path: elastic-container
           repository: peasead/elastic-container
@@ -62,6 +66,7 @@ jobs:
           echo "::add-mask::$GENERATED_PASSWORD"
           echo "GENERATED_PASSWORD=$GENERATED_PASSWORD" >> $GITHUB_ENV
           set -x
+          bash elastic-container.sh update-version
           bash elastic-container.sh start
           
       - name: Get API Key and setup auth

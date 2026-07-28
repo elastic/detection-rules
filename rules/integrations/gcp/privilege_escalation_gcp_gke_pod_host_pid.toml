@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GKE pod create, update, or patch events that enable host PID namespace sharing. HostPID exposes host processes
+and can support privilege escalation, especially with ptrace or privileged containers. System identities and
+controller-owned workloads are excluded.
+"""
+false_positives = [
+    """
+    Debug pods may legitimately use hostPID. Exclude trusted admin workflows after baselining.
+    """,
+]
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Pod Created With HostPID"
+note = """## Triage and analysis
+
+### Investigating GKE Pod Created With HostPID
+
+HostPID visibility into host processes is high risk. Confirm whether the pod spec change was authorized.
+
+### Investigation steps
+
+- Review actor (`user.email`), target pod, and images in the audit request.
+- Correlate with exec, secret access, or RBAC changes from the same identity.
+
+### False positives
+
+- Break-glass troubleshooting; tune by user or namespace.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/concepts/security/pod-security-standards/",
+    "https://bishopfox.com/blog/kubernetes-pod-privilege-escalation",
+]
+risk_score = 47
+rule_id = "f2108687-553d-45ac-b8f0-d0efeac5d45f"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and
+event.action:("io.k8s.core.v1.pods.create" or "io.k8s.core.v1.pods.update" or "io.k8s.core.v1.pods.patch") and
+gcp.audit.request.spec.hostPID:true and not user.email:system\:* and
+not gcp.audit.request.metadata.ownerReferences.kind:("ReplicaSet" or "DaemonSet" or "StatefulSet")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

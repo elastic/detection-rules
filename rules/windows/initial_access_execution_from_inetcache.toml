@@ -2,7 +2,7 @@
 creation_date = "2024/02/14"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -25,41 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Execution from INET Cache"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Execution from INET Cache
-
-The INetCache folder stores temporary internet files, which can be exploited by adversaries to execute malicious payloads delivered via WININET. Attackers may disguise malware as legitimate files cached during browsing. The detection rule identifies suspicious processes initiated from this cache, especially when launched by common file explorers, signaling potential initial access or command and control activities.
-
-### Possible investigation steps
-
-- Review the process details to confirm the executable path and arguments match the INetCache folder pattern specified in the query.
-- Identify the parent process, such as explorer.exe, winrar.exe, 7zFM.exe, or Bandizip.exe, to determine if the process launch is consistent with typical user behavior or potentially malicious activity.
-- Check the user account associated with the process to assess if the activity aligns with the user's normal behavior or if the account may be compromised.
-- Investigate the file in the INetCache directory for known malware signatures or anomalies using antivirus or endpoint detection tools.
-- Analyze network activity from the host to identify any suspicious connections that may indicate command and control communication.
-- Correlate the event with other security alerts or logs to identify patterns or additional indicators of compromise related to the initial access or command and control tactics.
-
-### False positive analysis
-
-- Legitimate software updates or installations may temporarily use the INetCache folder for storing executable files. Users can create exceptions for known update processes by identifying their specific executable paths and excluding them from the rule.
-- Some browser extensions or plugins might cache executable files in the INetCache folder during normal operations. Users should monitor and whitelist these extensions if they are verified as safe and frequently trigger alerts.
-- Automated scripts or tools that interact with web content might inadvertently store executables in the INetCache folder. Users can adjust the rule to exclude these scripts by specifying their parent process names or paths.
-- Certain enterprise applications may use the INetCache folder for legitimate purposes. Users should collaborate with IT departments to identify these applications and configure exceptions based on their unique process signatures.
-- Regularly review and update the list of excluded processes to ensure that only verified and non-threatening activities are exempt from triggering alerts.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further communication with potential command and control servers.
-- Terminate any suspicious processes identified as originating from the INetCache folder to halt any ongoing malicious activity.
-- Delete any malicious files found within the INetCache directory to remove the immediate threat.
-- Conduct a full antivirus and antimalware scan on the affected system to identify and remove any additional threats.
-- Review and analyze recent email logs and web browsing history to identify potential phishing attempts or malicious downloads that may have led to the initial compromise.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
-- Implement enhanced monitoring and logging for the INetCache directory and related processes to detect similar threats in the future."""
 references = [
     "https://www.trendmicro.com/en_us/research/24/b/cve202421412-water-hydra-targets-traders-with-windows-defender-s.html",
 ]
@@ -71,7 +36,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
-    "Tactic: Command and Control",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
     "Data Source: Windows Security Event Logs",
@@ -110,6 +74,176 @@ process where host.os.type == "windows" and event.type == "start" and
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Execution from INET Cache
+
+#### Possible investigation steps
+
+- Did the alert execute a payload from INetCache, or did another process only reference cached content?
+  - Focus: `process.executable` and `process.command_line`, checking whether `AppData\\Local\\Microsoft\\Windows\\INetCache\\IE` or `\\Device\\HarddiskVolume*\\Users\\*\\INetCache\\IE` is the image path, loader input, or only a document/image argument.
+  - Implication: escalate faster when the image runs from cache or feeds cached script, archive, shortcut, or DLL content to a loader; lower suspicion when the cache path is only a file argument to a recognized viewer and later lineage shows no execution.
+
+- Does identity and launch context fit a recognized file-opening, archive, or installer workflow?
+  - Focus: `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when identity, signer, path, or parent command line conflicts with Explorer/archive-manager file handling; lower suspicion only when identity and launcher context fit one coherent workflow. Identity alone does not clear cache execution.
+
+- Do launcher-scoped file events show a downloaded or disguised lure chain?
+  - Why: parent-scoped provenance distinguishes routine cache use from shortcut, archive, script, or DLL handoff.
+  - Focus: file events from the parent launcher via `process.parent.entity_id`; fallback to `host.id` plus parent PID and alert time, checking `file.path`, `file.origin_url`, `file.origin_referrer_url`, `file.Ext.windows.zone_identifier`, and `file.Ext.original.extension`. $investigate_0
+  - Implication: escalate when provenance shows internet delivery, deceptive extensions, shortcut-to-archive/script transitions, or renamed cache payloads. Missing file telemetry is unresolved, not benign.
+
+- Do process-scoped DNS or connection events show delivery or follow-on infrastructure?
+  - Why: network evidence separates local file-opening from remote retrieval, payload transfer, or follow-on command and control.
+  - Focus: DNS and connection events from `process.entity_id`; fallback to `host.id` plus `process.pid` and alert time, checking DNS `dns.question.name` and `dns.resolved_ip` plus connection `destination.ip` and `destination.port`. $investigate_1
+  - Hint: compare `lookup_result` DNS `dns.resolved_ip` values to connection `destination.ip` before judging infrastructure.
+  - Implication: escalate when the process reaches rare external, WebDAV-like, dotted-quad, or payload-transfer destinations that do not match file provenance; lower suspicion when destinations align with the same recognized vendor workflow. Missing network telemetry is unresolved, not benign.
+
+- Did the cached content lead to script, archive, DLL, or staged executable execution?
+  - Focus: child starts where `process.parent.entity_id` matches `process.entity_id`, checking child `process.name`, `process.executable`, and `process.command_line`. $investigate_2
+  - Hint: if entity IDs are unavailable, use parent PID plus alert time as a weaker fallback.
+  - Implication: escalate when the chain quickly launches "cmd.exe", "powershell.exe", "rundll32.exe", "mshta.exe", "wscript.exe", "cscript.exe", or another staged executable; lower suspicion when the lineage stops at the original viewer, archiver, or installer.
+
+- If local evidence remains suspicious or unresolved after lineage review, is the same user or host part of broader delivery activity?
+  - Focus: `host.id`, `user.id`, and related alerts that repeat the same cache-path role, parent launcher, child-process family, recovered destination, or provenance pattern.
+  - Hint: pivot same-user alerts. $investigate_3
+  - Hint: pivot same-host alerts. $investigate_4
+  - Implication: broaden containment when related alerts show the same lure or delivery pattern across the user or host; skip broadening when local evidence supports a coherent benign workflow or single-host containment.
+
+- Escalate on disguised/downloaded cache execution, loader handoff, suspicious infrastructure, or broader delivery; close only when process evidence and recovery bind one coherent benign workflow with no contradictions; when evidence is mixed or visibility incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- Browser-driven installers, vendor updaters, and archive-based delivery can launch signed helpers from cache or reference cached installer content. Confirm `process.executable`, hash/signer, parent executable/command line, `user.id`, and `host.id` align with one recognized vendor workflow, and recovered provenance/destinations do not contradict it. Without deployment records, require recurring signer or hash, parent workflow, account, and host pattern without loader children or unrelated external delivery.
+- Archive preview, document viewing, or browser-open workflows can reference cached paths without executing a cached payload. Confirm `process.command_line` uses the cache path as a document, image, or shortcut argument, the parent workflow is stable for `user.id` and `host.id`, and recovered file, network, and child-process evidence lacks `.url/.lnk`, `.cmd/.bat/.js/.hta`, archive-to-script, or DLL-loader transitions.
+- Before creating an exception, validate recurrence across prior alerts from this rule with stable `process.executable`, signer or hash, `process.parent.executable`, cache-path role, `user.id`, and `host.id`. Avoid exceptions on INetCache alone, Explorer alone, archive-manager name alone, or a user alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the process identity, command line, parent workflow, account, host, and any recovered provenance or destination evidence that proved the benign workflow. Create an exception only for the recurring signer or hash, cache-path role, parent workflow, `user.id`, and `host.id` combination.
+- If suspicious but unconfirmed, preserve `process.entity_id`, `process.command_line`, parent/child lineage, runtime hash and signer, payload files, origin/referrer URLs, DNS names, destination IPs/ports, and related alert IDs before containment. Apply reversible containment first, such as temporary destination blocking or heightened monitoring for the affected `host.id` and `user.id`; isolate only when loader execution or network evidence suggests active payload delivery or command and control.
+- If confirmed malicious, preserve the same process, file, and network artifacts before destructive action. Isolate the endpoint when host criticality permits, block confirmed malicious domains, destinations, and hashes, collect suspicious payloads, then terminate processes or delete files only after scope and evidence capture are complete.
+- Eradicate only the shortcut, script, archive, DLL, extracted payload, startup item, or persistence artifact identified during the investigation. Verify the original browser-download, archive, WebDAV-like, or cache delivery path no longer reaches the host.
+- Post-incident hardening: retain the evidence set that proved the case, review SmartScreen, Mark-of-the-Web, WebDAV, archive-handling, and web-download controls for the affected host class, and record adjacent variants such as disguised `.url` lures, archive-extracted scripts, or cache-based DLL launchers in the case notes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.pid",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.parent.args",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the launcher process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.parent.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the executed process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the cached-content process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

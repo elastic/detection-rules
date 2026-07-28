@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/01"
 
 [rule]
 author = ["Elastic"]
@@ -16,53 +16,6 @@ interval = "60m"
 language = "eql"
 license = "Elastic License v2"
 name = "Execution of File Written or Modified by Microsoft Office"
-note = """## Triage and analysis
-
-### Investigating Execution of File Written or Modified by Microsoft Office
-
-Microsoft Office, a widely used suite of productivity applications, is frequently targeted by attackers due to its popularity in corporate environments. Attackers exploit its extensive capabilities, like macro scripts in Word and Excel, to gain initial access to systems. They often use Office documents as delivery mechanisms for malware or phishing attempts, taking advantage of their trusted status in professional settings.
-
-This rule searches for executable files written by MS Office applications executed in sequence. This is most likely the result of the execution of malicious documents or exploitation for initial access or privilege escalation. This rule can also detect suspicious processes masquerading as the MS Office applications.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Retrieve MS Office documents received and opened by the user that could cause this behavior. Common locations include, but are not limited to, the Downloads and Document folders and the folder configured at the email client.
-- Determine if the collected files are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell `Get-FileHash` cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-  - If the malicious file was delivered via phishing:
-    - Block the email sender from sending future emails.
-    - Block the malicious web pages.
-    - Remove emails from the sender from mailboxes.
-    - Consider improvements to the security awareness program.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "0d8ad79f-9025-45d8-80c1-4f0cd3c5e8e5"
 severity = "high"
@@ -80,14 +33,10 @@ type = "eql"
 query = '''
 sequence with maxspan=2h
   [file where host.os.type == "windows" and event.type != "deletion" and file.extension : "exe" and
-     (process.name : "WINWORD.EXE" or
-      process.name : "EXCEL.EXE" or
-      process.name : "OUTLOOK.EXE" or
-      process.name : "POWERPNT.EXE" or
-      process.name : "eqnedt32.exe" or
-      process.name : "fltldr.exe" or
-      process.name : "MSPUB.EXE" or
-      process.name : "MSACCESS.EXE")
+    process.name : (
+      "WINWORD.EXE", "EXCEL.EXE", "OUTLOOK.EXE", "POWERPNT.EXE",
+      "eqnedt32.exe", "fltldr.exe", "MSPUB.EXE", "MSACCESS.EXE"
+    )
   ] by host.id, file.path
   [process where host.os.type == "windows" and event.type == "start" and 
    not (process.name : "NewOutlookInstaller.exe" and process.code_signature.subject_name : "Microsoft Corporation" and process.code_signature.trusted == true) and 
@@ -95,6 +44,113 @@ sequence with maxspan=2h
   ] by host.id, process.executable
 '''
 
+note = """## Triage and analysis
+
+### Investigating Execution of File Written or Modified by Microsoft Office
+
+#### Possible investigation steps
+
+- Which source events matched the Office write-to-execute sequence?
+  - Why: this sequence can merge fields from different file and process events, so source events are the evidence for writer and executed-process identity.
+  - Focus: open Investigate in Timeline for the alert window on the same host; compare written `file.path` with executed `process.executable`, then record source `process.name`, `process.entity_id`, and stable `user.id`.
+  - Implication: escalate when Office creates an executable that later starts from the same path; lower suspicion when the recovered sequence resolves to a recognized signed add-in or helper updater in a controlled product tree. Signed Microsoft NewOutlookInstaller.exe and Citrix ShareFileForOutlook helpers are excluded, so a generic updater label is not closure.
+
+- Is the Office writer the expected Office component and parent context?
+  - Focus: writer `process.executable`, signer/trust, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when WINWORD.EXE, EXCEL.EXE, OUTLOOK.EXE, POWERPNT.EXE, MSPUB.EXE, MSACCESS.EXE, eqnedt32.exe, or fltldr.exe is renamed, untrusted, user-writable, or launched by an unusual parent; lower suspicion when writer path, signer, and parent chain match the user's recognized Office integration. Writer identity never clears the executed file by itself.
+
+- Does the written executable look staged for payload delivery?
+  - Focus: `file.path`, original path/extension, `file.Ext.header_bytes`, `file.Ext.windows.zone_identifier`, and same-host file activity on the written path. $investigate_1
+  - Implication: escalate for Temp, Downloads, AppData, mail cache, startup, unrelated product paths, Internet Zone evidence, or executable content after rename; lower suspicion when the artifact stays in a recognized add-in or update tree and path history fits that workflow.
+
+- Does the executed file's identity and command line fit the same workflow?
+  - Focus: executed `process.executable`, `process.hash.sha256`, signer, `process.command_line`, and `process.Ext.relative_file_creation_time`.
+  - Hint: use prior endpoint process starts or related alerts for `process.hash.sha256` only after identity and command line fit the suspected workflow. $investigate_2
+  - Implication: escalate when the executable is newly created, unsigned, user-writable, mismatched to signer or path, or launched with script, LOLBin, unpacking, or self-extracting arguments; lower suspicion only when signer, hash history, path, age, and arguments all fit the same recognized helper workflow.
+
+- What document, email, archive, or integration source caused Office to write the executable?
+  - Focus: file events from writer `process.entity_id`; review `file.path`, `file.origin_url`, `file.origin_referrer_url`, and `file.Ext.windows.zone_identifier`.
+  - Hint: if records are incomplete or the entity pivot returns none, use the same host, writer `process.pid`, and tight write-time window.
+  - Implication: escalate when the write follows a downloaded document, email attachment, archive extraction, or web referrer outside the same recognized workflow; lower suspicion when provenance points to a recognized deployment package or Office integration source. Missing provenance is inconclusive, not benign.
+
+- Did the executed file produce malicious follow-on process or file activity?
+  - Focus: process and file events scoped to executed `process.entity_id`: child `process.parent.entity_id`, child `process.command_line`, and new `file.path` values.
+  - Hint: if records are incomplete or the entity pivot returns none, use the same host, executed `process.pid`, and post-start window.
+  - Implication: escalate when the payload launches script interpreters, LOLBins, unpackers, or additional binaries, or stages files outside the recognized product tree; lower urgency when follow-on activity stays limited to expected local install or update actions. Preserve Office-written DLLs, scripts, or shortcut launchers in the same scope as adjacent payload variants.
+
+- If local findings remain suspicious or unresolved, do related alerts show the same delivery chain or spread?
+  - Focus: related alerts for `host.id`, then pivot on recovered stable `user.id`; prioritize document delivery, script execution, persistence, and outbound connection alerts. $investigate_0
+  - Implication: broaden scope when related alerts connect the same host or user to delivery, scripting, persistence, or beaconing; keep scope local when the sequence is isolated and local evidence supports one recognized workflow.
+
+- Escalate when sequence, artifact, identity, delivery, behavior, or related-alert evidence supports suspicious Office write-to-execute activity; close only when all categories align with one recognized add-in, updater, or integration workflow and no contradictory artifacts remain; if evidence is mixed or incomplete, preserve artifacts and escalate.
+
+### False positive analysis
+
+- Office add-in, repair, updater, document-management, e-signature, DLP, or collaboration integrations can write and launch helper executables. Confirm that writer identity, written path, executed hash or signer, parent context, provenance, command line, and follow-on activity all point to the same product or integration workflow. If records are unavailable, require telemetry-only recurrence of the same writer, path tree, signer/hash pattern, and `host.id` or `user.id` cohort across prior alerts.
+- Before creating an exception, validate that the same Office writer, path tree, executed signer or `process.hash.sha256`, provenance pattern, and `host.id`/`user.id` cohort recur across prior alerts from this rule. Build the exception from that minimum workflow pattern; avoid exceptions on Office process names, `process.name`, or `file.extension` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the writer identity, written path tree, executed hash and signer, parent/delivery context, and recurrence evidence. Create an exception only for the same stable workflow pattern.
+- If suspicious but unconfirmed, preserve Timeline source events, copies of the written executable and source document/archive, process tree details, recovered entity IDs, command line, hash, path, and provenance URLs before containment. Apply reversible containment first: quarantine the lure or executable, block the confirmed hash/path temporarily where controls support it, or increase monitoring on the affected `host.id` and `user.id`. Isolate the host only if follow-on process/file evidence shows malicious staging or execution and the host can tolerate interruption.
+- If confirmed malicious, isolate the host and terminate the executed payload after preserving the source events, process tree, written executable, lure document or archive, hash, signer, and provenance evidence. Block the confirmed hash or path where controls support it, then remove the malicious executable, lure, archive, and staged files identified during the investigation.
+- Review related hosts and users for the same written path pattern, executed hash, signer, and provenance evidence before deleting artifacts. Then remediate the delivery path, such as the phishing message, archive, or malicious Office document, that led to the write-execute sequence.
+- Post-incident hardening: restrict Office-driven writes and launches of executable content in user-writable paths, retain endpoint file-provenance and process-start telemetry, and record confirmed adjacent variants, such as Office-written DLLs, scripts, or shortcut launchers, in the case history for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "kibana.alert.reason",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the written executable path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-2h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the executed file hash"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "process.hash.sha256", queryType = "phrase", value = "{{process.hash.sha256}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

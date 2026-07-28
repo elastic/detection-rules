@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a potential privilege escalation sequence via a suspicious UID change sequence. This rule checks for
+non-root execution of a process executable in a user or world-writable directory followed by a UID change
+event to 0 (root). This sequence is indicative of a potential local privilege escalation exploit.
+"""
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Privilege Escalation via a Suspicious UID Change"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Privilege Escalation via a Suspicious UID Change
+
+This rule catches a Linux process launched by a non-root user from a user- or world-writable location that soon changes to run as root, a strong sign of local privilege escalation. Attackers often stage an exploit or wrapper in /tmp or /dev/shm, execute it as an ordinary user, and use a vulnerable setuid binary or kernel flaw to flip the process to UID 0 and gain full system control.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and execution context around the UID transition to determine whether it originated from a user shell, script interpreter, scheduled task, container runtime, or another trusted administrative workflow.
+- Inspect the executed file and nearby artifacts in the writable location for creation and modification times, ownership, permissions, package ownership, hashes, and evidence that the binary or script was recently dropped, replaced, or unpacked.
+- Determine how root was obtained by identifying any vulnerable or misconfigured setuid or file-capability helper, writable library or search path abuse, environment variable manipulation, or host exposure to known local privilege escalation vulnerabilities.
+- Review the same user’s and host’s surrounding activity for staging behavior such as downloads, compilation, archive extraction, permission changes, and repeated exploit attempts that can distinguish malicious escalation from benign testing or software installation.
+- Assess post-escalation behavior by looking for root shells, changes to authentication or sudo configuration, persistence creation, security control tampering, sensitive file access, and new outbound network connections to scope impact and prioritize containment.
+
+### False positive analysis
+
+- Developers or administrators may intentionally execute a custom setuid test binary or troubleshooting script from `/home`, `/tmp`, or `/dev/shm` during maintenance, so verify the file owner, creation time, and parent shell session match an authorized user and approved change window.
+- A legitimate install, upgrade, or recovery workflow may unpack files into `/tmp`, `/var/tmp`, or `/run/user` and invoke a helper that transitions to UID 0, so confirm the executable and its parent process are expected for the host and coincide with documented software maintenance activity.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while keeping a controlled management channel, then stop the suspicious root process and any child shell or payload launched from writable paths such as `/tmp`, `/dev/shm`, `/var/tmp`, or a user home directory.
+- Remove attacker persistence by deleting the dropped binary or script and reversing malicious changes such as new cron entries, systemd services or timers, modified shell startup files, unauthorized `authorized_keys` entries, unexpected setuid binaries, and altered `/etc/sudoers` or `/etc/passwd`.
+- Preserve and review the malicious file and recent privileged changes across `/etc/shadow`, `/etc/sudoers`, `/root/.ssh/`, loaded kernel modules, and package contents, and escalate immediately to the incident response team if you find a new privileged account, outbound command-and-control traffic, or signs of access to other hosts.
+- Restore the system to a known-good state by reimaging or replacing the host from a trusted baseline, reinstalling only verified software, and applying fixes for the vulnerable kernel, setuid helper, or misconfigured file capability that allowed the UID change.
+- Reset credentials and secrets exposed on the host, including the affected user account, local service accounts, SSH keys, API tokens, and any cached credentials, then review adjacent systems for the same dropped files, persistence artifacts, or root-level changes.
+- Harden the environment by removing unnecessary setuid programs and file capabilities, mounting writable directories with `nosuid` and `noexec` where feasible, tightening sudo access, and maintaining detections for execution from world-writable paths followed by a transition to UID 0.
+"""
+risk_score = 73
+rule_id = "156f8c1d-bc54-46c0-a870-04e6a75526a1"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+sequence by host.id, process.entity_id with maxspan=30s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  user.id != "0" and process.parent.user.id != "0" and process.parent.group.id != "0" and
+  (
+    process.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/home/*/*", "/run/user/*", "/var/run/user/*") or
+    process.parent.executable like (".*", "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/home/*/*", "/run/user/*", "/var/run/user/*")
+  )]
+  [process where host.os.type == "linux" and event.type == "change" and event.action == "uid_change" and
+  user.id == "0" and process.parent.user.id != "0" and process.parent.group.id != "0" and
+  not process.executable in ("/usr/bin/sudo", "/bin/sudo")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.001"
+name = "Setuid and Setgid"
+reference = "https://attack.mitre.org/techniques/T1548/001/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

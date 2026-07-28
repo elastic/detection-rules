@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects modification or deletion of resource-based access policies on AWS Bedrock resources via the PutResourcePolicy
+and DeleteResourcePolicy API calls. Resource-based policies govern which principals (including external accounts) may
+access Bedrock resources such as agents, knowledge bases, and custom models. An adversary may attach a resource policy
+granting an external or unexpected principal access to a Bedrock resource to establish persistence or enable
+cross-account access, or may delete an existing policy to weaken access controls. These changes should be validated for
+principal ownership and least-privilege intent.
+"""
+false_positives = [
+    """
+    Resource policy changes may be performed by administrators, infrastructure-as-code pipelines, or automation during
+    legitimate onboarding, sharing, or access-management activities. Verify whether the user identity, user agent, and
+    source IP are expected to manage Bedrock resource policies in your environment. Known automation can be exempted
+    from the rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Resource-Based Policy Modified or Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Resource-Based Policy Modified or Deleted
+
+AWS Bedrock resource-based policies control which principals can access Bedrock resources such as agents,
+knowledge bases, and custom models. Adversaries can attach a policy that grants an external principal
+access for persistence or cross-account access, or delete a policy to break existing access controls. This
+rule detects successful `PutResourcePolicy` and `DeleteResourcePolicy` calls against the Bedrock control
+plane.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`,
+    `aws.cloudtrail.user_identity.access_key_id`, `user_agent.original`, and `source.ip`.
+  - Confirm the identity is expected to manage Bedrock resource policies and that a related change request
+    exists.
+- **Validate the policy change**
+  - For `PutResourcePolicy`, inspect `aws.cloudtrail.request_parameters` and
+    `aws.cloudtrail.flattened.request_parameters` for the target resource ARN and the policy document.
+    Look for `Principal` values referencing external AWS account IDs, `"*"`, or unfamiliar roles.
+  - For `DeleteResourcePolicy`, determine which resource lost its policy and whether that resource should
+    have remained restricted.
+- **Correlate activity**
+  - Look for related Bedrock actions (model invocation, agent updates, knowledge base access) from the same
+    identity or the newly granted principal.
+  - Check for prior enumeration of Bedrock resources or other recent IAM/resource-policy changes.
+
+### False positive analysis
+
+- **Planned access management**: Legitimate sharing or onboarding may add or remove resource policies.
+  Validate against change tickets and standard templates.
+- **Automation**: IaC or platform pipelines may set or remove resource policies during deployment. Confirm
+  the actor matches known automation infrastructure.
+
+### Response and remediation
+
+- If the change is unauthorized, revert the resource policy to its approved state and remove any external
+  or overly permissive principals.
+- Disable or rotate the credentials in `aws.cloudtrail.user_identity.access_key_id` if compromise is
+  suspected.
+- Review all Bedrock and IAM activity from the same identity in the surrounding time window for further
+  access grants or persistence.
+- Restrict `bedrock:PutResourcePolicy` and `bedrock:DeleteResourcePolicy` to administrative roles and
+  enforce least-privilege resource policies.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutResourcePolicy.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteResourcePolicy.html"
+]
+risk_score = 47
+rule_id = "de0e9ed8-b68f-4249-957a-2c2bbdbd1c1b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: ("PutResourcePolicy" or "DeleteResourcePolicy") and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

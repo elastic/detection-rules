@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/05/07"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/05/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects modifications to the CoreDNS or kube-dns ConfigMap in the kube-system namespace. These ConfigMaps control
+cluster DNS resolution for all pods. An attacker who modifies the CoreDNS Corefile can redirect internal service
+DNS names to attacker-controlled IP addresses, enabling man-in-the-middle attacks against the Kubernetes API server,
+database services, and other internal endpoints. Pods that resolve service names via cluster DNS will transparently
+connect to the attacker instead of the legitimate service, allowing interception of service account tokens, database
+credentials, and API traffic. DNS poisoning at the cluster level is particularly dangerous because it affects every
+pod in every namespace simultaneously and does not require any modification to the victim workloads. CoreDNS
+configuration changes are rare in normal operations and any unexpected modification should be investigated immediately.
+"""
+false_positives = [
+    """
+    Cluster administrators may legitimately update CoreDNS configuration for forwarding, stub domains, or cluster DNS
+    troubleshooting. Baseline approved operators and automation identities; tune exclusions for known change pipelines.
+    """,
+]
+from = "now-9m"
+index = ["logs-kubernetes.audit_logs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes CoreDNS or Kube-DNS Configuration Modified"
+note = """## Triage and analysis
+
+### Investigating Kubernetes CoreDNS or Kube-DNS Configuration Modified
+
+Identify who performed the change (user.name, groups), from where (source.ip), and which ConfigMap was modified.
+If request/response capture is available, review the changed Corefile content for upstream redirection, wildcard
+rewrites, or unexpected forward/proxy targets.
+
+### Possible investigation steps
+
+- Confirm the actor is authorized to modify kube-system DNS configuration and whether the change aligns with a change window.
+- Review the ConfigMap diff for added rewrite rules, hosts entries, or forwarding to external or unexpected internal IPs.
+- Correlate with follow-on suspicious activity such as secret reads, token minting, or RBAC modifications.
+- Check for cluster-wide symptoms: service connection failures, TLS errors, or sudden endpoint changes across namespaces.
+
+### Response and remediation
+
+- Revert the ConfigMap to a known-good version and restart DNS pods if required by your deployment.
+- Restrict RBAC permissions that allow update/patch/delete on kube-system DNS ConfigMaps and investigate the source identity.
+"""
+references = [
+    "https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/",
+    "https://coredns.io/plugins/rewrite/",
+    "https://attack.mitre.org/techniques/T1565/001/",
+]
+risk_score = 73
+rule_id = "a643e6b8-ba2a-45f1-8d71-d265bfe2ae43"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"kubernetes.audit_logs" and 
+kubernetes.audit.objectRef.resource:"configmaps" and
+kubernetes.audit.objectRef.name:("coredns" or "kube-dns" or "coredns-custom") and
+kubernetes.audit.objectRef.namespace:"kube-system" and
+kubernetes.audit.verb:("update" or "patch" or "delete") and
+kubernetes.audit.annotations.authorization_k8s_io/decision:"allow" and 
+not user.name:(
+  system\:serviceaccount\:kube-system\:coredns or
+  system\:serviceaccount\:kube-system\:kube-dns or
+  system\:node\:* or
+  eks\:* or aksService or acsService
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

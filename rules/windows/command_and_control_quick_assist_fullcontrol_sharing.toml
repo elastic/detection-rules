@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/06/21"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/06/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when Microsoft Quick Assist sharing mode is set to FullControl on a Windows host. This grants the remote
+helper full interactive control of the target device and may indicate IT help desk fraud, unauthorized remote access,
+or lateral movement preparation.
+"""
+from = "now-9m"
+index = ["logs-system.application*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Quick Assist Full Control Sharing Mode Enabled"
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2024/05/15/threat-actors-misusing-quick-assist-in-social-engineering-attacks-leading-to-ransomware/",
+	"https://attack.mitre.org/software/S1209/"
+]
+risk_score = 47
+rule_id = "1b1b4236-175f-4863-89f7-7f0d2da0f0e8"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Lateral Movement",
+    "Data Source: Windows Application Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:windows and winlog.channel:"Application" and event.provider:"Quick Assist" and event.code:"0" and
+  winlog.event_data.param1:(*FullControl* and *setsharingmode*)
+'''
+
+note = """## Triage and analysis
+
+### Investigating Quick Assist Full Control Sharing Mode Enabled
+
+Microsoft Quick Assist is a built-in remote support tool. When a sharer grants FullControl, the helper can interact with
+the desktop as if physically present. Adversaries abuse Quick Assist in help desk fraud and social engineering to gain
+interactive access without deploying separate remote access software.
+
+Quick Assist logs these transitions in the Windows Application log under the Quick Assist provider. A `setsharingmode`
+command with sharing mode `FullControl` is written to `winlog.event_data.param1`, often alongside a JSON payload that
+includes `"result":"true"` when consent is granted.
+
+#### Possible investigation steps
+
+- Review `winlog.event_data.param1` and any related Quick Assist Application log events around `@timestamp` for
+  `beginsharing`, `setsharingmode`, and `endsharing` commands to reconstruct the session timeline.
+- Identify the local user on `host.id` who initiated or approved the session and determine whether Quick Assist use is
+  expected for that user, host role, or business unit.
+- Correlate with process telemetry for `QuickAssist.exe` on the same host and timeframe, including parent process,
+  command line, and code signature details when available.
+- Check for related alerts on the same `host.id` or `user.id`, such as credential access, defense evasion, or
+  additional remote access activity during or shortly after the session.
+- If the host is a server or privileged workstation, determine whether any follow-on actions occurred during the
+  FullControl window, such as new logons, service creation, or lateral movement.
+
+### False positive analysis
+
+- IT help desk, managed service providers, and internal support teams legitimately use Quick Assist with FullControl
+  during approved troubleshooting. Confirm the session aligns with an open ticket, known support staff, and expected
+  host and user pairings before closing as benign.
+- Before creating an exception, anchor it on the minimum confirmed workflow: `host.id`, `user.id`, and recurring
+  support patterns. Avoid broad exceptions on the Quick Assist provider alone.
+
+### Response and remediation
+
+- If confirmed malicious, terminate the Quick Assist session, isolate the affected host when feasible, and reset
+  credentials for accounts used or exposed during the session.
+- Preserve Application log events containing `winlog.event_data.param1` and related Quick Assist telemetry before
+  remediation.
+- Review whether Quick Assist should remain enabled organization-wide or be restricted via policy for high-value hosts.
+- Hunt for additional hosts where the same remote helper pattern or concurrent Quick Assist FullControl sessions
+  occurred."""
+
+setup = """## Setup
+
+Windows Application event log collection must be enabled via the Elastic Agent System integration to ingest Application log events.
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "user.id",
+    "user.name",
+    "event.provider",
+    "event.code",
+    "winlog.event_id",
+    "winlog.event_data.param1",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

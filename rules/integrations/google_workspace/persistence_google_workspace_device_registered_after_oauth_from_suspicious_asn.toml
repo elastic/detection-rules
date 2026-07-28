@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a Google Workspace account completes OAuth authorization for a specific Google OAuth client from a
+high-risk autonomous system number (ASN), followed within 30 seconds by a device registration event with account state
+REGISTERED. This sequence can indicate device enrollment or join flows initiated from attacker-controlled or
+residential-proxy infrastructure after a user authorizes a sensitive client.
+"""
+false_positives = [
+    """
+    Users on VPNs, carrier NAT, or cloud egress that map to flagged ASNs may match. Legitimate bulk enrollment or
+    scripted onboarding that uses the same OAuth client can also produce the sequence. Baseline `source.as.organization.name`
+    and successful registration sources before adding exclusions.
+    """,
+]
+from = "now-15m"
+index = ["logs-google_workspace*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Google Workspace Device Registration After OAuth from Suspicious ASN"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Device Registration After OAuth from Suspicious ASN
+
+Review `user.name`, `user.email`, `source.ip`, `source.as.organization.name`, `google_workspace.token.client.id`,
+`google_workspace.token.app_name`, and device fields on the second event (for example device display name or ID if
+present in your schema).
+
+Confirm whether the user intentionally registered a device and whether the OAuth client and ASN are expected for your
+mobile device management or enrollment program.
+
+### Possible investigation steps
+
+- Correlate both events on `user.name` and timestamps to confirm the sequence is a single enrollment story.
+- Revoke or audit OAuth grants for the client if the authorization was not expected.
+- Search for additional `google_workspace.device` registrations from the same ASN in the same period.
+
+### Response and remediation
+
+- If malicious, remove the unauthorized device from the Google Admin console, reset the user password, and revoke
+  active sessions and tokens per incident policy.
+- Restrict device registration and review OAuth app access policies.
+
+## Setup
+
+The Google Workspace Fleet integration or Filebeat Google Workspace module must ingest `google_workspace.token` and
+`google_workspace.device` audit streams.
+
+### Event lag
+
+Google Workspace audit data can lag minutes to days behind real time. If sequences are missed, increase `from` and
+lower the integration poll interval per Google and Elastic documentation.
+"""
+references = [
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+    "https://support.google.com/a/answer/7061566",
+]
+risk_score = 73
+rule_id = "012bfca7-45cb-4507-a3ba-3777167f8b81"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Google Workspace",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Threat: Tycoon2FA",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by user.name with maxspan=30s
+  [iam where data_stream.dataset == "google_workspace.token" and event.action == "authorize" and
+      google_workspace.token.client.id == "77185425430.apps.googleusercontent.com" and
+      source.as.number in (9009, 45102, 215540, 29802, 62240, 204957, 395092)]
+  [any where data_stream.dataset == "google_workspace.device" and google_workspace.device.account_state == "REGISTERED"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

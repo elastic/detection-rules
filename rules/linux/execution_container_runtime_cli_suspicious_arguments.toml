@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/04/29"
+integration = ["endpoint", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects execution of container runtime CLI tools (ctr, crictl, nerdctl) with arguments indicating container creation,
+command execution inside existing containers, image manipulation, or host filesystem mounting. These tools interact
+directly with the container runtime socket, bypassing the Kubernetes API server, RBAC authorization, admission webhooks,
+pod security standards, and Kubernetes audit logging entirely. Attackers with host-level access may use these tools to
+create privileged ghost containers, exec into other pods to steal service account tokens and secrets, pull
+attacker-controlled images, and destroy evidence, all while remaining invisible to Kubernetes-level monitoring.
+"""
+false_positives = [
+    """
+    Platform automation, node bootstrap, and legitimate break-glass admin sessions may use these CLIs with overlapping
+    arguments. Tune by parent process, user, or host role (worker vs bastion).
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Container Runtime CLI Execution with Suspicious Arguments"
+note = """## Triage and analysis
+
+### Investigating Container Runtime CLI Execution with Suspicious Arguments
+
+Review the full argv list and working directory. Confirm whether the session is interactive, whether the image or bundle
+referenced is trusted, and whether bind mounts or privileged flags target host paths such as `/`, `/etc`, or Docker
+sockets.
+
+### Possible investigation steps
+
+- Reconstruct the container ID or snapshot key passed to `tasks`, `snapshots`, or `content` subcommands.
+- Correlate with file, network, and Kubernetes audit activity for pulls from unusual registries or subsequent pod
+  changes.
+- Check whether the parent should legitimately be kubelet, containerd, or systemd on that host class.
+
+### Response and remediation
+
+- If unauthorized, isolate the node, revoke credentials available to the session, and hunt for new privileged
+  workloads or image imports.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1609/",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/containerd-ctr-privilege-escalation",
+]
+risk_score = 47
+rule_id = "86b3a245-03de-49a5-ab57-ae44d8f064da"
+setup = """## Setup
+
+Requires process execution telemetry with arguments from **Elastic Defend** (`logs-endpoint.events.process*`) and/or
+**Auditd Manager** / Auditbeat (`logs-auditd_manager.auditd-*`, `auditbeat-*`).
+
+Ensure exec-related auditing captures full argv for `ctr`, `crictl`, and `nerdctl`. See
+https://docs.elastic.co/integrations/auditd_manager
+"""
+severity = "medium"
+tags = [
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Domain: Container",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "executed") and
+(
+  (
+    process.name in ("ctr", "crictl", "nerdctl") and
+    (
+      (process.args == "tasks" and process.args == "exec") or
+      (process.args == "run" and process.args in ("--privileged", "--rm", "--mount", "--net-host", "--pid-host")) or
+      (process.args == "snapshots" and process.args == "mount")
+    )
+  ) or
+  (
+    (process.executable like ("/dev/shm/*", "/tmp/*", "/var/tmp/*") or process.name : ".*") and
+    process.args like ("*containerd.sock*", "k8s.io")
+  )
+) and
+not process.parent.executable in (
+  "/usr/bin/kubelet", "/usr/local/bin/kubelet",
+  "/usr/bin/containerd", "/usr/sbin/containerd",
+  "/lib/systemd/systemd", "/usr/lib/systemd/systemd", "/sbin/init"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

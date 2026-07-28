@@ -2,7 +2,7 @@
 creation_date = "2021/07/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic", "Austin Songer"]
@@ -25,62 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Volume Shadow Copy Deletion via PowerShell"
-note = """## Triage and analysis
-
-### Investigating Volume Shadow Copy Deletion via PowerShell
-
-The Volume Shadow Copy Service (VSS) is a Windows feature that enables system administrators to take snapshots of volumes that can later be restored or mounted to recover specific files or folders.
-
-A typical step in the playbook of an attacker attempting to deploy ransomware is to delete Volume Shadow Copies to ensure that victims have no alternative to paying the ransom, making any action that deletes shadow copies worth monitoring.
-
-This rule monitors the execution of PowerShell cmdlets to interact with the Win32_ShadowCopy WMI class, retrieve shadow copy objects, and delete them.
-
-#### Possible investigation steps
-
-- Investigate the program execution chain (parent process tree).
-- Check whether the account is authorized to perform this operation.
-- Contact the account owner and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- If unsigned files are found on the process tree, retrieve them and determine if they are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Use process name, command line, and file hash to search for occurrences in other hosts.
-- Check if any files on the host machine have been encrypted.
-
-
-### False positive analysis
-
-- This rule has chances of producing benign true positives (B-TPs). If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of user and command line conditions.
-
-### Related rules
-
-- Volume Shadow Copy Deleted or Resized via VssAdmin - b5ea4bfe-a1b2-421f-9d47-22a75a6f2921
-- Volume Shadow Copy Deletion via PowerShell - d99a037b-c8e2-47a5-97b9-170d076827c4
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Consider isolating the involved host to prevent destructive behavior, which is commonly associated with this activity.
-- Priority should be given due to the advanced stage of this activity on the attack.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- If data was encrypted, deleted, or modified, activate your data recovery plan.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Perform data recovery locally or restore the backups from replicated copies (cloud, other servers, etc.).
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://docs.microsoft.com/en-us/previous-versions/windows/desktop/vsswmi/win32-shadowcopy",
     "https://powershell.one/wmi/root/cimv2/win32_shadowcopy",
@@ -94,7 +38,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Impact",
-    "Tactic: Execution",
     "Resources: Investigation Guide",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
@@ -115,6 +58,154 @@ process where host.os.type == "windows" and event.type == "start" and
   process.args : ("*.Delete()*", "*Remove-WmiObject*", "*rwmi*", "*Remove-CimInstance*", "*rcim*")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Volume Shadow Copy Deletion via PowerShell
+
+#### Possible investigation steps
+
+- Does the alert-local PowerShell command show broad shadow-copy deletion, remote targeting, or obscured execution?
+  - Focus: `process.command_line`, checking whether "Win32_ShadowCopy" is paired with WMI or CIM enumeration and deletion.
+  - Hint: treat `Get-WmiObject`, `gwmi`, `Get-CimInstance`, `gcim`, `Remove-WmiObject`, `rwmi`, `Remove-CimInstance`, `rcim`, "$_.Delete()", `-ComputerName`, and `-CimSession` as high-signal command cues. This rule requires plaintext cmdlet tokens in `process.args`; fully encoded commands or script-file invocations that hide the deletion logic will not fire this rule.
+  - Implication: escalate when the command deletes all returned shadow-copy instances, targets remote systems, or hides WMI or CIM deletion behind aliases; lower suspicion only when narrowly scoped to one recognized backup-retention, image-reset, or lab-test workflow on the expected host.
+
+- Is the PowerShell host binary expected rather than renamed or tampered?
+  - Focus: `process.executable`, `process.name`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when path, signer, trust state, or original file name does not match the expected PowerShell host; lower suspicion when identity matches a trusted system PowerShell installation, but continue because legitimate PowerShell can still delete recovery points.
+
+- Does the parent process and user context explain why this host removed shadow copies?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, `user.name`, and `user.domain`.
+  - Implication: escalate when Office, a browser, a script host, an unexpected remote-management chain, or a standard user launches deletion; lower suspicion when parent, account, and host match a recognized backup, imaging, disaster-recovery, or lab-reset workflow.
+
+- Do surrounding process events show recovery inhibition or ransomware preparation from the same host or lineage?
+  - Why: ransomware commonly pairs shadow-copy deletion with other recovery removal or encryption preparation before impact.
+  - Focus: process starts on `host.id` and, when present, the same `process.entity_id` or lineage, using `process.name`, `process.command_line`, and `process.parent.executable`. $investigate_0
+  - Range: start with the alert window and following 15 minutes; expand only when the same lineage shows recovery tampering or encryption behavior.
+  - Implication: escalate when the same window shows `vssadmin`, `wmic`, `diskshadow`, `wbadmin`, backup service stops, recovery-setting changes, or likely encryptor launchers; lower suspicion when activity stays bounded to the same parent-launched cleanup or reset sequence and no other recovery-inhibition utilities appear.
+
+- If command or lineage remains suspicious and endpoint file telemetry is available, does file activity show encryption or destructive cleanup?
+  - Focus: recover file events with `host.id` + `process.entity_id`; if absent, use `host.id` + `process.pid` plus a tight alert window as a weaker fallback, then review `file.path`, `file.extension`, and `file.Ext.original.extension`. $investigate_1
+  - Implication: escalate when recovered file events show mass renames, unfamiliar extensions, replaced user files, or ransom-note paths after deletion; lower suspicion only when changes stay inside the recovered backup or reset target. Missing endpoint file telemetry leaves file impact unanswered; do not treat absence of file evidence as benign.
+
+- If local evidence remains suspicious or unresolved, does related alerting show the same VSS deletion or backup-tampering pattern?
+  - Focus: related impact or execution alerts for the same `user.id` involving VSS deletion, backup tampering, credential access, or the same parent tool. $investigate_2
+  - Hint: check the same `host.id` for shadow-copy deletion by other binaries, encryption, ransom-note creation, backup tampering, or service tampering. $investigate_3
+  - Implication: expand scope when the same user touches multiple hosts or the same host shows a broader ransomware chain; keep the case local only when related alerts are absent and local telemetry already fits one recognized workflow.
+
+- Escalate broad or remote shadow-copy deletion that lacks a recognized workflow, has suspicious lineage, destructive process or file evidence, or related spread; close only when narrow command scope, identity, lineage, and supported surrounding telemetry fit one workflow; preserve and escalate mixed or visibility-limited evidence.
+
+### False positive analysis
+
+- PowerShell WMI or CIM shadow-copy deletion is suspicious by default outside controlled backup-retention cleanup, disaster-recovery testing, gold-image preparation, lab reset, or ransomware simulation. Close as benign only when `process.command_line` is narrowly scoped, `process.parent.executable` matches the backup, orchestration, reset, or test tool, `user.id` or `user.name` matches the expected admin or service account, `host.id` plus `host.name` fit the target, and surrounding telemetry shows no destructive process or file impact. Use change records or lab schedules only as corroboration; generic storage maintenance is not enough.
+- Before creating an exception, validate historical stability for the same `process.executable`, `process.parent.executable`, stable `process.command_line` scope, `user.id` or `user.name`, and `host.id`. Build the exception from that minimum confirmed workflow pattern. Avoid exceptions on "powershell.exe", `process.name`, or "Win32_ShadowCopy" alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and record the `process.command_line`, `process.parent.executable`, `user.id` or `user.name`, `host.id`, and maintenance evidence that proved the workflow. Create an exception only if the same command scope, lineage, account, and host recur consistently across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert, `process.entity_id`, full `process.command_line`, `process.args`, parent chain, `user.id`, `user.name`, `host.id`, surrounding process commands, and any recovered file-impact examples before containment. Apply reversible containment first: isolate the host only when destructive process or file evidence suggests ongoing impact and the host can tolerate isolation; otherwise restrict the implicated admin channel or account while scope is confirmed. Expand containment to related hosts or accounts only if the same-user or same-host pivots show spread.
+- If confirmed malicious, preserve the same process, command, lineage, and recovered file-impact artifacts before destructive action. Prefer endpoint isolation to stop further impact while keeping telemetry available; if direct response is unavailable, escalate with the preserved `host.id`, `user.id`, `user.name`, `process.entity_id`, `process.command_line`, and suspected ransom-note or renamed-extension indicators to the team that can isolate the host and suspend related accounts or services. If the malicious process chain is still active, record `process.entity_id` and `process.command_line` before suspending or terminating it.
+- After scope review, remove only the malicious scripts, scheduled tasks, services, payloads, or dropped notes identified during the investigation, then restore affected backup or recovery settings and validate that snapshots or backup jobs are functioning before closure.
+- Post-incident hardening: restrict VSS-management workflows and remote CIM deletion patterns to controlled administrative channels, retain the process and file telemetry that proved the case, and review whether adjacent VSS methods such as "vssadmin", "wmic", `diskshadow`, `wbadmin`, COM-based deletion, or diff-area resizing need the same controls.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.pe.original_file_name",
+    "process.command_line",
+    "process.args",
+    "process.parent.entity_id",
+    "process.parent.pid",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Process starts on the same host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events from the PowerShell process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

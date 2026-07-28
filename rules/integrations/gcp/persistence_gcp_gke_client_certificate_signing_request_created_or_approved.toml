@@ -1,0 +1,180 @@
+[metadata]
+creation_date = "2026/07/10"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or approval of a GKE CertificateSigningRequest (CSR) by a non-system identity. This is a breadth
+baseline rule for human or custom automation CSR activity on GKE. Attackers with cluster access can submit and approve
+CSRs to obtain long-lived client certificates that survive token revocation and RBAC changes. Use companion rules to
+evaluate signer choice, requested identity, and self-approval behavior.
+"""
+false_positives = [
+    """
+    Approved certificate workflows (for example cert-manager, internal PKI rotation, or node bootstrap) may create or
+    update CSRs from identities not in the exclusion list if they run under a custom service account. Baseline
+    automation that legitimately approves CSRs and tune exclusions for those principals.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Client Certificate Signing Request Created or Approved"
+note = """## Triage and analysis
+
+### Investigating GKE Client Certificate Signing Request Created or Approved
+
+Identify the actor (`client.user.email`), `source.ip`, and `user_agent.original`. Confirm whether the principal is
+expected to create or approve CSRs. Review `event.action`, `gcp.audit.resource_name`, and when audit level captures
+request bodies, the CSR spec in `gcp.audit.request` (requested signer, usages, and requested identity / Common Name).
+
+### Extracting the Certificate Common Name
+
+For create events, `gcp.audit.request.spec.request` may hold the base64-encoded PEM certificate signing request.
+On GKE this is base64 of the full PEM CSR. Decode and inspect the subject for high-risk Common Names such as
+`system:masters`, `system:kube-controller-manager`, and `system:admin`. The companion rule "GKE Certificate Signing
+Request Privileged Identity Requested" decodes the CSR body and matches those identities automatically.
+
+```bash
+# Full decoded PEM block
+echo "<gcp.audit.request.spec.request>" | base64 -d
+
+# Parsed CSR details (subject, key type/size, extensions, signature)
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -text
+
+# Subject only
+echo "<gcp.audit.request.spec.request>" | base64 -d | openssl req -noout -subject
+```
+
+Priority CNs that usually indicate privilege escalation intent:
+
+- `system:masters` (cluster-admin group)
+- `system:kube-controller-manager` (broad control-plane-style access, including secrets and token minting)
+- `system:kube-scheduler` (scheduling across the cluster)
+- `system:kube-proxy` (node/network-adjacent access)
+- Any CN that matches an existing ClusterRoleBinding subject name
+
+### Possible investigation steps
+
+- Compare the CSR name and extracted CN against approved PKI or bootstrap processes.
+- Determine whether the same identity both created and approved the CSR in a short window (`approval.update`, `update`,
+  or `patch`), which matches self-approval abuse.
+- Review `gcp.audit.resource_name` and subsequent authentication or API activity from unusual networks.
+- Correlate with RBAC changes, secret access, or TokenRequest activity that preceded CSR activity.
+
+### False positive analysis
+
+- Admins testing CSR workflows with kubectl are common in lab clusters. Baseline expected operators and tune exclusions.
+- cert-manager or custom PKI automation outside the exclusion list may create or approve CSRs during normal rotation.
+
+### Related rules
+
+- GKE Certificate Signing Request API Client Signer Requested - 1e344fba-a2f7-462b-aaec-d6c8f80d5a28
+- GKE Certificate Signing Request Privileged Identity Requested - 4159bec9-76ad-4cdc-a797-4a8572073bbe
+- GKE Certificate Signing Request Self-Approved - e155e658-3dcd-4d27-a4e5-1d8da6704b0e
+
+### Response and remediation
+
+- If malicious, deny further approval, delete or deny the CSR per incident policy, revoke or rotate cluster signing
+  trust if the CA or signer was abused, and invalidate issued credentials.
+- Remove excessive RBAC that allows `certificatesigningrequests` create/update/patch or approval for untrusted
+  identities; enforce signer restrictions and approved issuers where supported.
+
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/",
+    "https://kubernetes.io/docs/concepts/security/rbac-good-practices/",
+    "https://stratus-red-team.cloud/attack-techniques/kubernetes/k8s.persistence.create-client-certificate/",
+    "https://raesene.github.io/blog/2022/12/21/Kubernetes-persistence-with-Tocan-and-Teisteanas/",
+    "https://www.aquasec.com/blog/kubernetes-rbac-privilige-escalation/",
+]
+risk_score = 47
+rule_id = "ec67ab57-945a-4edb-84f8-1d7a51f46544"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: GCP Audit Logs",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"gcp.audit" and service.name:"k8s.io" and event.outcome:"success" and
+event.action:(
+  "io.k8s.certificates.v1.certificatesigningrequests.create" or
+  "io.k8s.certificates.v1.certificatesigningrequests.approval.update"
+) and not client.user.email:(
+  "system:gcp-controller-manager" or
+  "system:kube-controller-manager" or
+  "system:serviceaccount:kube-system:certificate-controller"
+) and not (
+  event.action:"io.k8s.certificates.v1.certificatesigningrequests.create" and
+  client.user.email:(
+    "kubelet-bootstrap" or
+    "kubelet-nodepool-bootstrap" or
+    system\:node\:*
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request",
+    "gcp.audit.response",
+    "data_stream.namespace",
+]

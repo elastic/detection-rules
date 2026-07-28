@@ -2,7 +2,7 @@
 creation_date = "2025/09/25"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -15,28 +15,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Suspicious SeIncreaseBasePriorityPrivilege Use"
-note = """## Triage and analysis
-
-### Investigating Suspicious SeIncreaseBasePriorityPrivilege Use
-
-SeIncreaseBasePriorityPrivilege allows to increase the priority of processes running on the system so that the CPU scheduler allows them to pre-empt other lower priority processes when the higher priority process has something to do.
-
-### Possible investigation steps
-
-- Review the process.executable reputation and it's execution chain.
-- Investiguate if the SubjectUserName is expected to perform this action.
-- Correlate the event with other security alerts or logs to identify any patterns or additional suspicious activities that might suggest a broader attack campaign.
-- Check the agent health status and verify if there is any tampering with endpoint security processes.
-
-### False positive analysis
-
-- Administrative tasks involving legitimate CPU scheduling priority changes.
-
-### Response and remediation
-
-- Immediately isolate the affected machine from the network to prevent further unauthorized access or lateral movement within the domain.
-- Terminate the processes involved in the execution chain.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
 references = [
     "https://github.com/Octoberfest7/ThreadCPUAssignment_POC/tree/main",
     "https://x.com/sixtyvividtails/status/1970721197617717483",
@@ -44,22 +22,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "6fa0f15b-1926-419b-8de2-fce1429797ba"
-setup = """## Setup
-
-Ensure advanced audit policies for Windows are enabled, specifically:
-Audit Sensitive Privilege Use [Event ID 4674](https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4674) (An operation was attempted on a privileged object.)
-
-```
-Computer Configuration >
-Policies >
-Windows Settings >
-Security Settings >
-Advanced Audit Policies Configuration >
-Audit Policies >
-Privilege Use >
-Audit Sensitive Privilege Use (Success)
-```
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -78,17 +40,157 @@ winlog.event_data.PrivilegeList:"SeIncreaseBasePriorityPrivilege" and event.outc
 winlog.event_data.AccessMask:"512" and not winlog.event_data.SubjectUserSid:("S-1-5-18" or "S-1-5-19" or "S-1-5-20")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious SeIncreaseBasePriorityPrivilege Use
+
+#### Possible investigation steps
+
+- What priority-change path did 4674 preserve?
+  - Why: this privilege manipulates process or thread priority; the target object matters as much as the requester.
+  - Focus: Security 4674 on `host.id`: `winlog.event_data.PrivilegeList`, `winlog.event_data.AccessMask`, `winlog.event_data.ProcessName`, `winlog.event_data.ObjectType`, and `winlog.event_data.ObjectName`.
+  - Hint: sparse or numeric-only `winlog.event_data.ObjectName` is the main visibility gap; keep the target unresolved and use same-session Security records, not assumed self-tuning.
+  - Implication: escalate when the object is a "Process" or "Thread" tied to security tooling, LSASS, or another user's workload; lower suspicion only when requester, object, and `host.name` fit bounded tuning or testing.
+
+- Is the requesting image path expected for priority control on this host?
+  - Focus: `winlog.event_data.ProcessName`, `winlog.event_data.ProcessId`, `winlog.event_data.SubjectUserSid`, `host.name`, and `@timestamp`.
+  - Hint: `winlog.event_data.ProcessId` is hexadecimal; use it only inside a tight host/time window; PID reuse can mislead.
+  - Implication: escalate when the path is user-writable, temporary, renamed, or unrelated to local tuning; treat a recurring full path and SID as identity support, not closure, until object and session evidence align.
+
+- Which subject and local session requested this privilege use?
+  - Focus: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, and `winlog.event_data.SubjectLogonId`.
+  - Implication: escalate when a normal user, rare admin, machine account, or service account lacks a clear scheduling-priority role; matching SID, domain, and session support benignity only with matching requester and object evidence.
+
+- Does the 4624 session origin fit a priority-tuning operator?
+  - Focus: on the same `host.id`, match alert `winlog.event_data.SubjectLogonId` to 4624 `winlog.event_data.TargetLogonId`, then read `source.ip`, `winlog.logon.type`, and `winlog.event_data.AuthenticationPackageName`.
+  - Hint: query `event.code` 4624 with alert `host.id` and `winlog.event_data.TargetLogonId`; search backward from `@timestamp` because the session can predate 4674. $investigate_0 Missing 4624 or empty `source.ip` is unresolved, not benign.
+  - Implication: escalate when source, logon type, or authentication method is rare for `host.name` or subject SID; matching origin supports authorized tuning only after requester path and target object fit.
+
+- Do surrounding Security records show repeated or multi-target priority use by the same requester?
+  - Focus: Security events around `@timestamp` on the same `host.id`, grouped by `winlog.event_data.SubjectLogonId`, `winlog.event_data.ProcessId`, `winlog.event_data.ProcessName`, and `winlog.event_data.ObjectName`.
+  - Hint: start in the alert window with `event.code` 4674 and alert `winlog.event_data.SubjectLogonId`; expand only if the same session continues around `@timestamp`. Add `event.outcome` to separate failed attempts from successful use. $investigate_1
+  - Implication: escalate when one session or requester touches multiple process/thread objects, repeats against security targets, or continues after failures; a single 4674 keeps scope local but still requires requester, object, and session answers for closure.
+
+- If local evidence is suspicious or unresolved, do related alerts expand scope or urgency?
+  - Focus: related alerts for the same `host.id`, prioritizing privilege abuse, defense evasion, security-tool interference, service-control, or authentication findings. $investigate_2
+  - Hint: if the subject remains suspicious, use the subject pivot; use the `user.id` provider only after confirming it maps to `winlog.event_data.SubjectUserSid`. $investigate_3
+  - Implication: broaden scope when the host or user also shows privilege escalation, defense evasion, or unusual authentication; keep scope local when related alerts are absent and 4674/session evidence supports bounded work.
+
+- Escalate for unauthorized process/thread priority manipulation or security-tool interference; close only when object, requester, subject, session, and related alerts bind to one authorized tuning or troubleshooting workflow; preserve 4674 and recovered 4624 evidence and escalate when sparse object or session evidence leaves suspicious findings unresolved.
+
+### False positive analysis
+
+- Performance engineering, benchmark, QA, vendor, or internal support work can trigger when an administrator adjusts scheduling priority or CPU assignment for a test or latency-sensitive workload. Confirm only when `winlog.event_data.ProcessName`, `winlog.event_data.ObjectType`, `winlog.event_data.ObjectName`, `winlog.event_data.SubjectUserSid`, recovered `source.ip`, and `winlog.logon.type` align with the same recognized host, accounts, and workload. If records are unavailable, require telemetry-only recurrence of the same full requester path, SID, object family, and host class before treating as benign.
+- If the target object is sparse or numeric-only, do not close solely on tool name or user claim.
+- Before creating an exception, validate that `winlog.event_data.ProcessName`, `winlog.event_data.ObjectType`, `winlog.event_data.ObjectName`, `winlog.event_data.SubjectUserSid`, `host.id`, and recovered `source.ip` or `winlog.logon.type` stay stable across known-benign occurrences. Build the exception from that minimum confirmed pattern; avoid exceptions on `winlog.event_data.PrivilegeList` or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the validated `winlog.event_data.ProcessName`, `winlog.event_data.ObjectType`, `winlog.event_data.ObjectName`, `winlog.event_data.SubjectUserSid`, recovered `source.ip`, `winlog.logon.type`, and `host.id` values proving the tuning or troubleshooting workflow. Create an exception only after the same pattern repeats benignly.
+- If suspicious but unconfirmed, preserve a case export of triggering 4674, recovered 4624 session record, surrounding same-session Security records, and related-alert links before containment. Record requester path and PID, subject SID, target object, session origin, and event time as case anchors.
+- If suspicious but unconfirmed, apply reversible containment first, such as restricting the subject's remote access, pausing the support workflow, or raising monitoring on `host.id`. Escalate to host isolation or account disablement only if the target maps to a security-critical process, related alerts show additional privilege abuse or defense evasion, or the recovered session suggests credential misuse.
+- If confirmed malicious, isolate the host when the object, requester, session, or related-alert evidence shows unauthorized priority manipulation of a security-critical process or another user's workload. Record the requester path and PID, subject SID, target object, recovered session origin, and event time before stopping processes or deleting tooling.
+- Reset or suspend the implicated account only when the recovered session and related alerts show likely credential misuse, and review other hosts for the same `winlog.event_data.ProcessName`, `winlog.event_data.ObjectName`, or `winlog.event_data.SubjectUserSid` before eradicating artifacts so scoping finishes before evidence is destroyed.
+- Eradicate only the unauthorized tuning or interference tooling and any persistence or launcher artifacts identified during the investigation, then restore affected security or service configurations to a known-good state.
+- Hardening: restrict assignment of "SeIncreaseBasePriorityPrivilege" to the smallest admin cohort, retain Security 4674 and 4624 visibility, and record visibility gaps that limited the case decision.
+"""
+
+setup = """## Setup
+
+Audit Sensitive Privilege Use must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-sensitive-privilege-use
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.outcome",
+    "host.id",
+    "user.id",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ProcessName",
+    "winlog.event_data.ProcessId",
+    "winlog.event_data.ObjectType",
+    "winlog.event_data.ObjectName",
+    "winlog.event_data.PrivilegeList",
+    "winlog.event_data.AccessMask",
+    "winlog.activity_id",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Linked logon for the priority-change session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "4674 priority-use events from this requester session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4674", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ProcessId", queryType = "phrase", value = "{{winlog.event_data.ProcessId}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4674", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ProcessName", queryType = "phrase", value = "{{winlog.event_data.ProcessName}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the subject"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1134"
 name = "Access Token Manipulation"
 reference = "https://attack.mitre.org/techniques/T1134/"
 
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

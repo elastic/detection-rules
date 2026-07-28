@@ -2,92 +2,20 @@
 creation_date = "2021/10/14"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects PowerShell scripts that combines Win32 APIs for allocation/protection or process access (for example,
-VirtualAlloc/VirtualProtect/OpenProcess/AdjustTokenPrivileges/LoadLibrary/GetProcAddress) with injection or execution
-APIs (WriteProcessMemory/CreateRemoteThread/NtCreateThreadEx/QueueUserAPC/ResumeThread). Attackers use these API chains
-to inject code into remote processes and execute payloads in memory for defense evasion.
+Detects PowerShell scripts that combine Win32 APIs for allocation, protection, process access, or dynamic resolution with
+injection or execution APIs. Attackers use these API chains for potential process injection or in-memory payload execution.
 """
-false_positives = ["Legitimate PowerShell scripts that make use of these functions."]
+false_positives = ["Controlled red-team, malware-analysis, detection-validation, or harness activity where script content, target process set, origin, user/host scope, and recovered launcher align."]
 from = "now-9m"
-index = ["winlogbeat-*", "logs-windows.powershell*"]
+index = ["logs-windows.powershell*", "winlogbeat-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Process Injection via PowerShell"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This guide was created by humans with the assistance of generative AI. While its contents have been manually curated to include the most valuable information, always validate assumptions and adjust procedures to match your internal runbooks and incident triage and response policies.
-
-### Investigating Potential Process Injection via PowerShell
-
-This rule Detects PowerShell scripts that references a combination of Win32 APIs commonly used to open a target process, allocate or change memory protections, write data into another process, and execute it via a remote thread or APC. This behavior is frequently associated with process injection and in-memory payload execution on Windows hosts.
-
-#### Key alert fields to review
-
-- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
-- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
-- `powershell.file.script_block_text`: Script block content that matched the detection logic.
-- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
-- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
-- `powershell.file.script_block_length`: Script block length (size) context.
-
-#### Possible investigation steps
-
-- Review and preserve the script content:
-  - Inspect `powershell.file.script_block_text` for the full API chain and surrounding logic (function definitions, payload construction, and execution flow).
-  - If the content is split across multiple events, reconstruct it by grouping on `powershell.file.script_block_id`, ordering by `powershell.sequence`, and validating completeness with `powershell.total`. Preserve the reconstructed content for follow-up analysis.
-  - Use `powershell.file.script_block_length` to help gauge whether the script is a small launcher or a larger framework with embedded payloads.
-
-- Identify the injection technique and likely target:
-  - Determine which execution primitive is being used (for example, `CreateRemoteThread`, `NtCreateThreadEx`, `QueueUserAPC`, or thread `SuspendThread`/`ResumeThread` patterns) and whether it suggests immediate or deferred execution.
-  - Look for how the target process is selected (process name strings, PID variables, or process enumeration logic) and capture any referenced process names or IDs for scoping.
-  - Note any privilege manipulation via `OpenProcessToken` and `AdjustTokenPrivileges`, which can indicate attempts to access protected processes.
-
-- Assess how native APIs are being invoked:
-  - Identify dynamic resolution patterns such as `LoadLibrary*`/`LdrLoadDll` with `GetProcAddress`, which are commonly used to avoid static imports and hinder analysis.
-  - If `GetDelegateForFunctionPointer` is present, review the surrounding text for delegate definitions and indirect invocation logic.
-
-- Validate execution context and script provenance:
-  - Review `user.name`, `user.domain`, and `user.id` for signs of unusual execution (unexpected account type, first-time observation on the host, or activity outside expected administrative workflows).
-  - Review `host.name` and `host.id` to understand the asset impacted and whether the behavior aligns with the host's role in your environment.
-  - If `file.path`, `file.directory`, or `file.name` are populated, assess whether the script originated from a controlled location and naming convention, or from a user-writable or temporary location.
-
-- Scope related PowerShell activity:
-  - On the same `host.id` and `user.id`, review additional script block events near `@timestamp` to identify staging actions that commonly bracket injection attempts (download, decode/decrypt, reflective loading, or cleanup).
-  - Search for repeated use of distinctive substrings from `powershell.file.script_block_text` across other hosts or users to determine prevalence and potential reuse.
-
-- Correlate with adjacent host telemetry (if available in your environment):
-  - Pivot from `host.name` and `@timestamp` to process activity to identify the PowerShell host process, its parent process, and any processes that may have been targeted for injection.
-  - Review network activity from the same `host.name` around the alert time for potential payload retrieval, command-and-control, or lateral movement.
-  - Review file activity related to `file.path` (when present) and for any new or modified scripts or binaries referenced by the script block.
-
-- Make a disposition:
-  - Treat as higher risk when the script combines process access (`OpenProcess`), memory modification (`VirtualAlloc*`/`VirtualProtect`), and execution (`CreateRemoteThread`/`NtCreateThreadEx`/`QueueUserAPC`), especially when coupled with privilege adjustment or dynamic API resolution.
-  - Treat as lower risk only when there is a clear, documented administrative or testing justification tied to the same `user.id`, `host.id`, and script origin.
-
-### False positive analysis
-
-- Legitimate PowerShell can use Win32 API interop for diagnostics, automation, or compatibility work; however, the combination of remote memory operations and remote execution APIs is uncommon in routine administration.
-- Developer tooling or monitoring frameworks may load libraries or resolve symbols dynamically; validate that the script content aligns with expected tool behavior and that the script origin (`file.path`/`file.name`) is consistent and controlled.
-
-### Response and remediation
-
-- If the activity is confirmed or strongly suspected malicious:
-  - Contain the affected host to prevent follow-on actions and lateral movement.
-  - Preserve evidence by retaining the reconstructed `powershell.file.script_block_text` (and associated `powershell.file.script_block_id`) and recording the alert context (`user.*`, `host.*`, and `file.*` where present).
-  - Identify the intended injection target from the script content and investigate that process and its recent activity for signs of compromise or anomalous behavior.
-  - Review the associated user account activity for additional suspicious behavior on the same host and other hosts, and take appropriate account actions if compromise is suspected.
-  - Hunt for the same script patterns across the environment using stable substrings from `powershell.file.script_block_text` and common `file.path`/`file.name` values, and remediate any additional impacted systems.
-
-- If the activity is verified as benign:
-  - Document the script purpose, owner, expected execution context (hosts and accounts), and expected script origin (`file.path`/`file.name`).
-  - Consider controlled rule tuning using stable, high-confidence identifiers from the verified benign workflow to reduce repeat alerts while maintaining coverage for new or unauthorized variants.
-"""
 references = [
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-PSInject.ps1",
     "https://github.com/EmpireProject/Empire/blob/master/data/module_source/management/Invoke-ReflectivePEInjection.ps1",
@@ -96,11 +24,6 @@ references = [
 ]
 risk_score = 73
 rule_id = "2e29e96a-b67c-455a-afe4-de6183431d0d"
-setup = """## Setup
-
-PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
-Setup instructions: https://ela.st/powershell-logging-setup
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -128,6 +51,69 @@ event.category:process and host.os.type:windows and
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Process Injection via PowerShell
+
+#### Possible investigation steps
+
+- Does the reconstructed script show an executable injection path or only isolated helper code?
+  - Focus: reconstruct with `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total`, then review `powershell.file.script_block_text` and `powershell.file.script_block_length`. $investigate_2
+  - Implication: escalate when the ordered script combines target access, memory allocation/protection, remote write, and thread/APC execution; lower concern when reconstruction proves only comments, imports, or unused helper functions in a bounded test script.
+
+- If endpoint process telemetry is available for this host, can you recover how PowerShell was launched?
+  - Focus: same-host process starts for the PowerShell instance: `process.command_line`, `process.parent.executable`, `process.parent.command_line`, and `process.entity_id`. $investigate_3
+  - Hint: recover the matching process via `host.id + process.pid` before interpreting `process.*` or `process.parent.*`; if absent, expand the same-host window. Missing endpoint process telemetry is unresolved, not benign.
+  - Implication: escalate when the launcher is a document, browser, remote-management tool, scheduled task, encoded command, or user-writable path that does not fit the user; lower concern when launch chain and script origin match the same recognized lab or validation workflow.
+
+- What payload style does the reconstructed script stage?
+  - Why: Empire-style loaders commonly patch or reflectively load PE bytes before injection, so payload form changes what to preserve and how urgently to respond.
+  - Focus: `powershell.file.script_block_text` for byte arrays, Base64 PE blobs, reflective loader names, Mimikatz or credential-dumping commands, and PE/DLL paths or URLs. If endpoint telemetry is available, recover same-PID file and network/DNS events surrounding `@timestamp` to validate writes, staging, or retrieval. Missing file or network/DNS telemetry is unresolved, not benign. $investigate_4 $investigate_5
+  - Implication: escalate when the script embeds or fetches shellcode/PE content, calls reflective loading, or references credential dumping; lower concern only when payload handling is absent and the code remains a controlled harness with no execution path.
+
+- Which target and access path does the script choose?
+  - Focus: `powershell.file.script_block_text` for process-name or PID selectors, credential-rich or security-sensitive targets, token changes, broad access masks, and thread/APC primitives.
+  - Implication: escalate when the script targets credential-rich, security-sensitive, user-facing, or many candidate processes and requests broad rights or debug privilege; lower concern when the target is one controlled lab process and the access path matches the recognized exercise.
+
+- Does the user, host, and script origin fit one controlled workflow?
+  - Focus: `user.id`, `user.domain`, `host.id`, `host.name`, and `file.path` when present, interpreted with the reconstructed script and recovered launch chain.
+  - Implication: escalate when the script is fileless or sourced from temp, profile, share, or staging paths under an unexpected account or host; lower concern only when user, host cohort, source path or fileless launcher pattern, target process, and payload choice all align with one controlled test or diagnostic workflow.
+
+- If local evidence remains suspicious or unresolved, does the same injection pattern appear elsewhere?
+  - Focus: smallest stable suspicious pattern from `powershell.file.script_block_text`, such as loader function, target process, Mimikatz command, or distinctive payload string, plus `user.id` for actor scope. $investigate_0
+  - Hint: run the `host.id` asset-scope check only after script logic, target/access path, and launch context remain suspicious or incomplete. $investigate_1
+  - Implication: broaden when the same injection pattern or target selection appears on unrelated hosts or users; keep scope local when it stays confined to one recognized testing cohort or one unresolved host.
+
+- What disposition is supported?
+  - Escalate on script logic plus payload, sensitive target, broad access, suspicious launcher, or spread; close only when telemetry proves one controlled workflow with no contradictory payload or target abuse; preserve artifacts and escalate when evidence is mixed or endpoint process recovery is unavailable.
+
+### False positive analysis
+
+- Authorized red-team, malware-analysis, or detection-validation exercises can trigger this rule when the reconstructed script injects only into controlled targets on lab or canary hosts. Require `powershell.file.script_block_text`, target process names, `file.path` when present, `user.id`, and `host.id` to align with the exercise. If endpoint process telemetry is available, recover via `host.id + process.pid` and require `process.command_line` plus `process.parent.executable` to align. Use calendars or change records only to document telemetry-aligned activity; do not close when script, target, or launcher evidence conflicts.
+- Security-product validation or compatibility harnesses are rare; do not close unless the script stays limited to the product's expected target set and lacks embedded payloads, Mimikatz commands, privilege escalation, or broad target loops. If endpoint process telemetry is available, recover via `host.id + process.pid` and require `process.parent.executable` plus `process.command_line` to match the same controlled path or harness. Build exceptions only from the minimum confirmed pattern: stable script origin or distinctive harness substring, bounded target set, `host.id` or `user.id`, and recovered launcher when available; never exempt generic API names alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Document the reconstructed script, target process set, script origin, `user.id`, `host.id`, and the exercise or harness evidence that established the workflow before reversing temporary containment. If endpoint process telemetry was available and recovered via `host.id + process.pid`, include the recovered `process.command_line` and `process.parent.executable`. Build exceptions only from the minimum confirmed workflow pattern, not from generic API names.
+- If suspicious but unconfirmed:
+  - Preserve the reconstructed `powershell.file.script_block_text`, every fragment tied to `powershell.file.script_block_id`, target process names or PIDs, payload strings, `file.path` when present, alert `process.pid`, `user.id`, and `host.id` before cleanup. If endpoint process telemetry was available and recovered via `host.id + process.pid`, also preserve `process.entity_id`, `process.command_line`, and `process.parent.command_line`.
+  - Apply reversible containment such as temporary network restrictions, heightened monitoring, or access limits on the affected `host.id` and `user.id`; escalate to host isolation only when host criticality permits or payload execution, sensitive target selection, or spread evidence raises confidence.
+- If confirmed malicious:
+  - Record the preserved evidence set and recovered process identifiers first when endpoint process telemetry was available. Then isolate the host when script logic, target selection, payload style, recovered launcher, or related-alert scope confirms malicious injection; if direct endpoint response is unavailable, hand off that evidence set to the team that can contain the host.
+  - Block confirmed malicious payload file paths and infrastructure indicators found during investigation, then review related hosts and users for the same loader, payload, target process, or recovered launcher pattern before eradication. Do not block on generic API names.
+  - Remove the malicious script, payload files, scheduled tasks, startup paths, or delivery artifacts identified during the investigation. Reset or investigate affected accounts when the payload, target process, or Mimikatz command indicates credential access, then remediate the path that launched PowerShell.
+- Post-incident hardening:
+  - Keep Script Block logging and the endpoint process telemetry needed for `host.id + process.pid` recovery enabled on the affected host class.
+  - Restrict PowerShell execution, Constrained Language Mode, or code-signing policy where appropriate for the host role, and record any telemetry gaps that limited reconstruction or process recovery.
+"""
+
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
+
 [[rule.filters]]
 
 [rule.filters.meta]
@@ -136,6 +122,106 @@ negate = true
 case_insensitive = true
 value = "?:\\\\ProgramData\\\\Microsoft\\\\Windows Defender Advanced Threat Protection\\\\DataCollection\\\\*"
 
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.directory",
+    "file.name",
+    "process.pid",
+    "host.name",
+    "host.id",
+    "powershell.file.script_block_length"
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Script block fragments for the same script"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "powershell.file.script_block_id", queryType = "phrase", value = "{{powershell.file.script_block_id}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the PowerShell instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for the PowerShell PID"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -192,22 +278,3 @@ reference = "https://attack.mitre.org/techniques/T1106/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "user.name",
-    "user.id",
-    "user.domain",
-    "powershell.file.script_block_text",
-    "powershell.file.script_block_id",
-    "powershell.sequence",
-    "powershell.total",
-    "file.path",
-    "file.directory",
-    "file.name",
-    "process.pid",
-    "host.name",
-    "host.id",
-    "powershell.file.script_block_length"
-]
-

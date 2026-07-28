@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/03/18"
+updated_date = "2026/05/13"
 
 [rule]
 author = ["Elastic"]
@@ -61,7 +61,7 @@ type = "eql"
 query = '''
 process where host.os.type == "macos" and event.type in ("start", "process_started") and process.name == "pluginkit" and
   process.args == "-e" and process.args like~ "use" and process.args == "-i" and
-  (process.name like~ ("python*", "node", "osascript", "bash", "sh", "zsh") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
+  (process.parent.name like~ ("python*", "node", "osascript", "bash", "sh", "zsh") or (process.parent.code_signature.exists == false or process.parent.code_signature.trusted == false))
 '''
 note = """## Triage and analysis
 

@@ -2,13 +2,13 @@
 creation_date = "2025/11/13"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the presence of unicode modifier letters in the process command_line. Adversaries sometimes replace ASCII characters
-with visually similar Unicode modifier letters or combining marks to evade simple string-based detections.
+Identifies the presence of Unicode modifier letters in the process command_line. Adversaries sometimes replace ASCII
+characters with visually similar Unicode modifier letters to evade simple string-based detections.
 """
 from = "now-9m"
 index = [
@@ -25,38 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Command Obfuscation via Unicode Modifier Letters"
-note = """ ## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Command Obfuscation via Unicode Modifier Letters
-
-Adversaries sometimes replace ASCII characters with visually similar Unicode modifier letters or combining marks to evade simple string-based detections.
-
-### Possible investigation steps
-
-- Review the process execution details (command_line, parent, code signature, hash).
-- Analyze the full execution process tree to identify the root cause.
-- Check the creation of any persistence using scheduled tasks, Run key, services, shortcuts or startup folders.
-- Cross-reference with other logs or alerts to identify any related incidents or patterns of activity that might indicate a larger threat campaign.
-
-### False positive analysis
-
-- Legitimate internationalized applications and installers use Unicode (e.g., localized product names, non-Latin scripts).
-- Dev tools or fonts may create commands with combining marks (rare) — check installer/tool provenance.
-- Command lines that include user input, file names, or paths with non-ASCII characters (e.g., user folders) can trigger the rule.
-
-### Response and remediation
-
-- Isolate the host if there are signs of active compromise (outbound C2, credential theft, lateral movement).
-- Terminate the suspicious process and any direct descendants after collecting forensic evidence (memory, artifacts).
-- Collect EDR snapshots, full disk image or targeted file copies, registry hives, and network logs for investigation.
-- Remove any persistence entries (scheduled task, startup, services) tied to the activity.
-- Qurantine and submit samples to malware analysis; if confirmed malicious, remove and restore from known good backups.
-- Block and update indicators related to this activity (hashes, exact normalized command patterns, codepoint sequences, IPs/domains).
-- Run global hutning queries for same Unicode patterns, normalized variants, and identical parent/child process chains.
-"""
 references = ["https://www.wietzebeukema.nl/blog/windows-command-line-obfuscation"]
 risk_score = 73
 rule_id = "37148ae6-c6ec-4fe4-88b1-02f40aed93a9"
@@ -80,13 +48,174 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
- (
-   process.name : ("reg.exe", "net.exe", "net1.exe", "certutil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump.exe", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe") or
-   ?process.pe.original_file_name in ("reg.exe", "net.exe", "net1.exe", "CertUtil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe", "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EX", "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump", "ntdsutil.exe", "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE", "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe")
+  (
+    process.name : (
+      "reg.exe", "net.exe", "net1.exe", "certutil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe",
+      "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EXE",
+      "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump.exe", "ntdsutil.exe",
+      "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE",
+      "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe"
+    ) or
+    ?process.pe.original_file_name in (
+      "reg.exe", "net.exe", "net1.exe", "CertUtil.exe", "MSHTA.EXE", "msiexec.exe", "bitsadmin.exe", "CertReq.exe",
+      "PrintBrm.exe", "MSBuild.exe", "wuauclt.exe", "curl.exe", "wget.exe", "ssh.exe", "Cmd.Exe", "PowerShell.EXE",
+      "CONHOST.EXE", "wscript.exe", "cscript.exe", "REGSVR32.EXE", "RUNDLL32.EXE", "procdump", "ntdsutil.exe",
+      "diskshadow.exe", "schtasks.exe", "sc.exe", "wmic.exe", "VSSADMIN.EXE", "WBADMIN.EXE", "iCACLS.EXE",
+      "sftp.exe", "scp.exe", "esentutl.exe", "InstallUtil.exe", "wevtutil.exe"
+    )
  ) and
  process.command_line regex """.*[ʰ-˿ᴬ-ᶻ]+.*"""
 '''
 
+note = """## Triage and analysis
+
+### Investigating Command Obfuscation via Unicode Modifier Letters
+
+#### Possible investigation steps
+
+- What did the raw modifier-letter command hide after ASCII normalization?
+  - Focus: raw `process.command_line` and modifier-letter code points in `U+02B0-U+02FF` or `U+1D2C-U+1D7B`.
+  - Hint: preserve the raw string, view code points, then compare with NFKC or ASCII-folded rendering; visual review can miss modifier letters a Windows utility may parse as ASCII.
+  - Implication: escalate when normalization reveals a behavior-changing verb, flag, URL, path, or target; lower suspicion when characters remain in localized names, package names, or path text and behavior is unchanged.
+
+- What operational intent does the normalized command express?
+  - Focus: normalized `process.command_line`, `process.name`, and the hidden verb, option, URL, path, or target after ASCII normalization.
+  - Hint: map the hidden token to the utility family: "urlcache" or remote retrieval for certutil/bitsadmin/curl/wget, "encodedcommand" or script execution for PowerShell/cmd/script hosts, add/create/delete for reg/sc/schtasks, shadow/log deletion for vssadmin/wevtutil, and dump/export for procdump/ntdsutil. Treat paired quote insertion or shorthand options as adjacent obfuscation on the same decision path.
+  - Implication: escalate when the normalized token enables high-risk utility behavior; lower suspicion when it remains read-only status, inventory, or installer activity fitting the same process context.
+
+- Is the utility identity consistent with the normalized behavior?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.hash.sha256`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the binary is renamed, user-writable, unsigned/untrusted, mismatched to its original file name, or new for the host; lower suspicion when a signed, stable utility path fits the normalized behavior. Identity alone never clears obfuscation.
+
+- Does the launch and session context explain why this utility received obfuscated text?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.Ext.session_info.logon_type`, `process.Ext.token.elevation_level`, and the `user.id` / `host.id` cohort.
+  - Implication: escalate when a document, browser, archive tool, script host, unexpected interactive user, remote session, or unexplained service chain introduces the command; lower suspicion when a recognized management, installer, or testing launcher runs the same unchanged pattern under the expected account and host cohort.
+
+- Did the obfuscated process launch follow-on process activity?
+  - Focus: child process starts on the same `host.id` where `process.parent.entity_id` matches alert `process.entity_id`; read child `process.name`, `process.executable`, and `process.command_line`. $investigate_0
+  - Hint: inspect same-process file, network, or registry activity for utility effects without child processes. $investigate_1 Missing network telemetry is unresolved, not benign. If `process.entity_id` is absent, pivot with `host.id`, alert `process.pid`, child `process.parent.pid`, and a tight alert window.
+  - Implication: escalate when child activity shows shells, script hosts, installers, remote clients, credential tools, service/task utilities, or cleanup commands matching normalized intent; lower suspicion when no suspicious child follows and the normalized command fits the local workflow.
+
+- If local evidence is suspicious or unresolved, does related alert history change scope?
+  - Focus: related alerts for the same `host.id`, using the strongest local suspicious anchor: normalized command fragment, modifier-letter sequence, utility identity, or parent launcher. $investigate_2
+  - Hint: if host history does not explain the activity, compare related alerts for the same `user.id` with the same anchors. $investigate_3
+  - Implication: broaden containment when the same obfuscation pattern appears across unrelated hosts or users; keep local when the pattern stays confined to one confirmed workflow and process evidence has no contradiction.
+
+- Based on command meaning, utility identity, lineage/session, follow-on processes, and scope, what disposition is supported?
+  - Implication: escalate when normalization changes behavior and identity, lineage, child-process, or scope evidence supports abuse; close only when normalized meaning is unchanged or clearly benign and every process-context category fits one exact workflow; preserve raw command evidence and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Localized product names, internationalized paths, user-supplied file names, vendor installers, deployment frameworks, or internal admin tools can introduce non-ASCII package names or paths. Confirm only when normalization leaves behavior unchanged, modifier letters sit in content rather than a verb or flag, utility identity and parent command line match one recognized workflow, and `user.id` plus `host.id` fit the same local task. If records exist, use them as corroboration; otherwise require prior alerts from this rule with the same normalized command pattern, launcher, host, and user.
+- Security testing or detection-validation exercises may intentionally use obfuscated commands. Confirm by matching normalized `process.command_line`, modifier-letter sequence, `process.parent.executable`, `host.id`, and `user.id` to the test scope; outside test records can corroborate but should not override contradictory process evidence.
+- Before creating an exception, build it from the minimum confirmed pattern: normalized `process.command_line`, modifier-letter sequence or code-point range, utility identity in `process.executable` or `process.pe.original_file_name`, launcher context in `process.parent.executable`, and the stable `host.id` or `user.id` cohort. Avoid exceptions on `process.name` alone or the mere presence of non-ASCII characters.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and record the raw and normalized `process.command_line`, recovered code points, utility identity, parent command line, and `user.id` / `host.id` evidence that validated the workflow. Create an exception only for the same recurring pattern.
+- If suspicious but unconfirmed, preserve the raw command string, normalized rendering, recovered code points, alerting and child `process.entity_id` values, parent command line, and `user.id` / `host.id` scope before containment. Apply reversible containment first, such as heightened monitoring, temporary account restrictions, or host isolation only when the normalized command, lineage, or follow-on process activity suggests active compromise and the host can tolerate isolation.
+- If confirmed malicious, isolate the host or restrict the affected account based on the normalized intent, launcher chain, child process activity, and related-alert scope. Record alerting and child `process.entity_id` values before suspending or terminating processes, then eradicate only the payloads, configuration changes, or destructive actions identified in the case evidence.
+- Post-incident hardening: replace scripts that require modifier-letter arguments, pin administrative automation to stable signed launcher paths and expected parent command lines, and retain full process command-line, parentage, child-process, and user-host telemetry for future alerts.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.Ext.session_info.logon_type",
+    "process.Ext.token.elevation_level",
+    "process.hash.sha256",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Child process activity from the obfuscated process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File, network, or registry activity by the obfuscated process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -104,5 +233,3 @@ reference = "https://attack.mitre.org/techniques/T1027/010/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-

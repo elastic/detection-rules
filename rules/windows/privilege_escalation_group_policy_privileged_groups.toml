@@ -2,7 +2,7 @@
 creation_date = "2021/11/08"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/03/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -14,56 +14,12 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Group Policy Abuse for Privilege Addition"
-note = """## Triage and analysis
-
-### Investigating Group Policy Abuse for Privilege Addition
-
-Group Policy Objects (GPOs) can be used to add rights and/or modify Group Membership on GPOs by changing the contents of an INF file named GptTmpl.inf, which is responsible for storing every setting under the Security Settings container in the GPO. This file is unique for each GPO, and only exists if the GPO contains security settings. Example Path: "\\\\DC.com\\SysVol\\DC.com\\Policies\\{PolicyGUID}\\Machine\\Microsoft\\Windows NT\\SecEdit\\GptTmpl.inf"
-
-#### Possible investigation steps
-
-- This attack abuses a legitimate mechanism of Active Directory, so it is important to determine whether the activity is legitimate and the administrator is authorized to perform this operation.
-- Retrieve the contents of the `GptTmpl.inf` file, and under the `Privilege Rights` section, look for potentially dangerous high privileges, for example: SeTakeOwnershipPrivilege, SeEnableDelegationPrivilege, etc.
-- Inspect the user security identifiers (SIDs) associated with these privileges, and if they should have these privileges.
-
-### False positive analysis
-
-- Inspect whether the user that has done the modifications should be allowed to. The user name can be found in the `winlog.event_data.SubjectUserName` field.
-
-### Related rules
-
-- Scheduled Task Execution at Scale via GPO - 15a8ba77-1c13-4274-88fe-6bd14133861e
-- Startup/Logon Script added to Group Policy Object - 16fac1a1-21ee-4ca6-b720-458e3855d046
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- The investigation and containment must be performed in every computer controlled by the GPO, where necessary.
-- Remove the script from the GPO.
-- Check if other GPOs have suspicious scripts attached.
-"""
 references = [
     "https://github.com/atc-project/atc-data/blob/master/docs/Logging_Policies/LP_0025_windows_audit_directory_service_changes.md",
-    "https://labs.f-secure.com/tools/sharpgpoabuse",
+    "https://labs.withsecure.com/tools/sharpgpoabuse",
 ]
 risk_score = 73
 rule_id = "b9554892-5e0e-424b-83a0-5aef95aa43bf"
-setup = """## Setup
-
-The 'Audit Directory Service Changes' audit policy must be configured (Success Failure).
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Policies >
-Windows Settings >
-Security Settings >
-Advanced Audit Policies Configuration >
-Audit Policies >
-DS Access >
-Audit Directory Service Changes (Success,Failure)
-```
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -85,22 +41,166 @@ any where host.os.type == "windows" and event.code: "5136" and
   winlog.event_data.AttributeValue: "*803E14A0-B4FB-11D0-A0D0-00A0C90F574B*"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Group Policy Abuse for Privilege Addition
+#### Possible investigation steps
+
+- What GPO extension change was preserved?
+  - Focus: `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, `winlog.event_data.OperationType`, `winlog.event_data.ObjectDN`, and `winlog.event_data.ObjectGUID` confirm the 5136 "gPCMachineExtensionNames" GPO change.
+  - Implication: escalate when the value enables Security CSE GUID "827D319E-6EAC-11D2-A4EA-00C04F79F83A" plus Computer Restricted Groups GUID "803E14A0-B4FB-11D0-A0D0-00A0C90F574B" on an unexpected GPO; lower concern only when artifacts/scope confirm a recognized hardening refresh.
+- Who changed the GPO, and from where?
+  - Focus: identify the writer: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectLogonId`, and `winlog.computer_name`.
+  - Hint: on `winlog.computer_name`, find "4624" where `winlog.event_data.TargetLogonId` equals the 5136 `winlog.event_data.SubjectLogonId`; search "4648" on `winlog.event_data.SubjectLogonId` for explicit credentials, then check `source.ip`, `winlog.logon.type`, `winlog.event_data.TargetUserName`, and `winlog.event_data.TargetServerName`. Missing logon telemetry is unresolved, not benign.
+    - $investigate_0
+    - $investigate_1
+  - Implication: escalate when the writer is outside GPO admin cohort, uses an unusual source or direct domain-controller session, or shows alternate-credential use; lower concern when account/session match a recognized GPO administration path.
+- Do surrounding directory changes show a coordinated GPO update?
+  - Why: "5136" can record related object modifications; `winlog.event_data.OpCorrelationID` separates one GPO edit from directory noise.
+  - Focus: reconstruct surrounding "5136" records from the same domain controller with `winlog.event_data.OpCorrelationID`, `winlog.event_data.SubjectLogonId`, `winlog.event_data.ObjectGUID`, changed attribute, and operation type.
+  - Hint: prefer one `winlog.event_data.OpCorrelationID`; if absent, use the same `winlog.event_data.SubjectLogonId` plus tight `@timestamp` and `winlog.record_id` ordering. $investigate_2
+  - Implication: escalate when the operation touches other sensitive GPO attributes or combines this privilege path with GPO execution or persistence; lower concern when the 5136 set stays narrow and artifact/scope checks confirm one recognized security-template task.
+- What grants and recipients does the SYSVOL template define?
+  - Why: the alert proves machine security extensions were enabled; rights or local group membership live in "GptTmpl.inf" under the SYSVOL policy folder.
+  - Focus: use the policy GUID from the CN portion of `winlog.event_data.ObjectDN` with `winlog.event_data.DSName` to inspect "Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf"; map SIDs/groups to admin tier, service-account role, and whether `winlog.event_data.SubjectUserSid` benefits. Treat `winlog.event_data.ObjectGUID` as the AD object pivot, not the SYSVOL folder name, unless it matches the CN.
+  - Hint: if SYSVOL is unavailable, preserve `winlog.event_data.ObjectDN`, `winlog.event_data.ObjectGUID`, `winlog.event_data.DSName`, and expected policy path; suspicious writer/session or companion 5136 evidence makes the missing grant an evidence gap.
+  - Implication: escalate when "[Privilege Rights]" grants high-impact rights ("SeDebugPrivilege", "SeTakeOwnershipPrivilege", "SeEnableDelegationPrivilege", or "SeImpersonatePrivilege"), when "[Group Membership]" adds broad/unexpected identities to local Administrators ("S-1-5-32-544"), or when the writer benefits; lower concern when entries and recipients match the recognized baseline for that GPO.
+- Which computers consume the changed GPO?
+  - Why: GPO privilege abuse scales with link scope, security filtering, WMI filters, and reach to admin workstations, servers, or domain controllers.
+  - Focus: use `winlog.event_data.ObjectDN` and the recovered policy-folder GUID to review GPO links, security filtering, WMI filters, and roles.
+  - Hint: if scope data is unavailable, preserve `winlog.event_data.ObjectDN` and `winlog.event_data.ObjectGUID`; do not assume narrow scope, and escalate if writer/session, companion-change, or grant evidence is suspicious.
+  - Implication: prioritize escalation when the GPO reaches domain controllers, admin workstations, servers, or broad workstations; lower urgency only when scope matches the recognized maintenance/test population established by the grant evidence.
+- If evidence remains suspicious or unresolved, do related events show broader abuse?
+  - Focus: after confirming `user.id` is the writer, review recent modifying-account activity. $investigate_3
+  - Hint: compare with activity scoped to the same `winlog.event_data.ObjectGUID`. $investigate_4
+  - Implication: escalate scope when the writer or same GPO appears in other GPO abuse, credential access, privilege escalation, or lateral movement; quiet history only narrows scope and cannot close unresolved grant or blast-radius questions.
+- Escalate for unexpected writer/session, companion change, high-impact grant, sensitive scope, or related abuse; close only when the same GPO, writer/session, recovered grants, and scope prove one recognized hardening or restricted-groups workflow; if evidence stays mixed or incomplete, preserve GPO artifacts and escalate.
+
+### False positive analysis
+
+- Authorized GPO hardening, restricted-groups maintenance, red-team, or detection-validation can update "gPCMachineExtensionNames" and "GptTmpl.inf". Confirm only when writer/session, GPO object, `winlog.event_data.OpCorrelationID`, recovered template entries, and linked scope match the admin tier, change window, template, or test plan. Quiet history supports but cannot replace that proof; if any anchor diverges, do not close as benign.
+- For exceptions, validate one authorized workflow matching writer SID, GPO object, grant pattern, and linked OU/host scope. Build the exception from that pattern, not broad `event.code`, "gPCMachineExtensionNames", or GPO modification activity.
+
+### Related rules
+
+- Scheduled Task Execution at Scale via GPO - 15a8ba77-1c13-4274-88fe-6bd14133861e
+- Startup/Logon Script added to Group Policy Object - 16fac1a1-21ee-4ca6-b720-458e3855d046
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document writer SID, GPO object, logon/correlation IDs, recovered "GptTmpl.inf", and OU/host scope matching the workflow. Keep exceptions narrow and tied to that stable pattern.
+- If suspicious but unconfirmed, preserve the "5136" event, object and writer/session IDs, `winlog.event_data.OpCorrelationID`, `winlog.computer_name`, exported "GptTmpl.inf", available SYSVOL metadata, linked "4624"/"4648" events, and related activity before containment. Use reversible controls first: restrict affected-GPO edits, limit the writer's GPO admin path, or monitor linked systems during scoping. Disable accounts or roll back GPOs only if follow-on abuse or malicious grants are confirmed.
+- If confirmed malicious, preserve evidence first, remove unauthorized "[Privilege Rights]" or "[Group Membership]" entries, roll the GPO back to known-good state, and verify exported SYSVOL metadata before forcing policy refresh. Use identity/endpoint response to contain the writer account and admin workstation identified by `source.ip` or `winlog.logon.type`; if unavailable, escalate with writer/session, GPO, correlation, and SYSVOL artifacts.
+- Review linked OUs and affected computers before deleting artifacts or forcing "gpupdate"; complete scoping before evidence changes.
+- Harden: restrict GPO edit rights to dedicated admin tiers, retain "5136" auditing, keep security-template baselines, and document abuse variants or visibility gaps for detection engineering.
+"""
+
+setup = """## Setup
+
+Audit Directory Service Changes must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-directory-service-changes
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ObjectDN",
+    "winlog.event_data.ObjectGUID",
+    "winlog.event_data.AttributeLDAPDisplayName",
+    "winlog.event_data.AttributeValue",
+    "winlog.event_data.OperationType",
+    "winlog.event_data.OpCorrelationID",
+    "winlog.event_data.DSName",
+    "host.id",
+    "winlog.computer_name",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Linked logon for the GPO writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Explicit-credential events for the GPO writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "5136 events in this GPO change operation"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.OpCorrelationID", queryType = "phrase", value = "{{winlog.event_data.OpCorrelationID}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "5136", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Recent events associated with the source account"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Events associated with the modified GPO"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.event_data.ObjectGUID", queryType = "phrase", value = "{{winlog.event_data.ObjectGUID}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1484"
 name = "Domain or Tenant Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1484.001"
 name = "Group Policy Modification"
 reference = "https://attack.mitre.org/techniques/T1484/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

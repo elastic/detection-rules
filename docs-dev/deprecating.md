@@ -13,9 +13,11 @@ release package to Kibana.
 1. Update the `maturity` to `deprecated`
 2. Move the rule file to [rules/_deprecated](../rules/_deprecated)
 3. Add `deprecation_date` and update `updated_date` to match
+4. Add `deprecated_reason` in `[metadata]` with a short explanation (e.g. "Replaced by <rule name>"). Required in the
+   same PR that flips `maturity = "deprecated"`; surfaced in Kibana on stacks >= 9.4 and ignored on older stacks.
 
 Next time the versions are locked, the rule will be added to the [deprecated_rules.json](../detection_rules/etc/deprecated_rules.json)
-file.
+file, and `deprecated_reason` is copied into the package asset (gated at build time by `MIN_STACK_VERSION_DEPRECATED_STUBS`).
 
 
 ### Using the deprecate-rule command

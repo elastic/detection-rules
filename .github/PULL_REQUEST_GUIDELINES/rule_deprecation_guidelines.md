@@ -9,8 +9,9 @@ These guidelines serve as a reminder set of considerations when recommending the
 
 ### Rule Metadata Checks
 
-- [ ] `deprecated = true` added to the rule metadata.
-- [ ] `updated_date` should be the date of the PR.
+- [ ] `maturity = "deprecated"` added to the rule metadata.
+- [ ] `deprecation_date` set to the date of the PR and `updated_date` matches.
+- [ ] `deprecated_reason` added to `[metadata]` with a short explanation (e.g. `"Replaced by <rule name>"`). Required in the same PR that flips `maturity = "deprecated"`; surfaced in Kibana on stacks >= 9.4.
 
 ### Testing and Validation
 

@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an AWS Bedrock model invocation logging configuration is deleted or overwritten via the
+DeleteModelInvocationLoggingConfiguration or PutModelInvocationLoggingConfiguration API calls. Model invocation logging
+is the source that feeds the logs-aws_bedrock.invocation-* dataset relied upon by all data-plane Bedrock detections. An
+adversary who has gained access to a Bedrock environment can blind defenders by deleting this configuration, or by using
+the Put API to redirect logs to an attacker-controlled or non-monitored S3 bucket or CloudWatch log group. Because this
+single control-plane action can neutralize the entire data-plane detection stack, it is a high-value evasion technique
+that should be validated against expected administrative change activity.
+"""
+false_positives = [
+    """
+    Cloud or security administrators may legitimately delete or reconfigure Bedrock model invocation logging during
+    onboarding, log destination migrations, or compliance changes. Verify whether the user identity, user agent, and
+    source IP are expected to make this change. For PutModelInvocationLoggingConfiguration, confirm that the destination
+    S3 bucket or CloudWatch log group remains owned and monitored by your organization. Known, planned changes can be
+    exempted from this rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Model Invocation Logging Disabled or Modified"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Model Invocation Logging Disabled or Modified
+
+AWS Bedrock model invocation logging captures the prompts and responses processed by foundation models and delivers them
+to an S3 bucket or CloudWatch log group. This data feeds the `logs-aws_bedrock.invocation-*` dataset that all data-plane
+Bedrock detections depend on. Deleting the configuration stops this telemetry entirely, while overwriting it with `Put`
+can silently redirect logs to a destination the defender does not monitor. Either action effectively blinds the
+data-plane detection stack, making this a high-priority defense-evasion event.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, `aws.cloudtrail.user_identity.access_key_id`, `user_agent.original`, and `source.ip`.
+  - Determine whether the identity is an approved Bedrock administrator and whether a change request exists.
+- **Determine the exact action**
+  - For `DeleteModelInvocationLoggingConfiguration`, logging is being turned off entirely — confirm this is intentional.
+  - For `PutModelInvocationLoggingConfiguration`, inspect `aws.cloudtrail.flattened.request_parameters` for the new
+    `s3Config` bucket name / key prefix and `cloudWatchConfig` log group, and verify they are owned and monitored by your org.
+- **Correlate surrounding activity**
+  - Pivot on the same identity, `source.ip`, and `cloud.account.id` for prior enumeration
+    (`GetModelInvocationLoggingConfiguration`) or follow-on Bedrock data-plane activity (model invocations) that would now
+    be unlogged.
+  - Check for parallel logging-tampering against CloudTrail, Config, or GuardDuty.
+
+### False positive analysis
+
+- **Planned changes**: Logging migrations or compliance updates may legitimately reconfigure or remove the
+  configuration. Validate against change tickets and infrastructure-as-code pipelines.
+
+### Response and remediation
+
+- If unauthorized, restore model invocation logging to the approved destination and verify log delivery resumes into
+  `logs-aws_bedrock.invocation-*`.
+- Review and secure any attacker-specified S3 bucket or CloudWatch log group, and treat data sent there as exposed.
+- Audit the actor's recent Bedrock and IAM activity and rotate credentials if compromise is suspected.
+- Restrict `bedrock:DeleteModelInvocationLoggingConfiguration` and `bedrock:PutModelInvocationLoggingConfiguration` to a
+  small set of administrative roles and alert on changes.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteModelInvocationLoggingConfiguration.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutModelInvocationLoggingConfiguration.html",
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html"
+]
+risk_score = 73
+rule_id = "fa830742-fd41-4b12-a287-2c57bdf079ef"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: ("DeleteModelInvocationLoggingConfiguration" or "PutModelInvocationLoggingConfiguration") and 
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.flattened.request_parameters",
+    "aws.cloudtrail.response_elements",
+]

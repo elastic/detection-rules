@@ -2,13 +2,13 @@
 creation_date = "2021/06/01"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies modifications of the AmsiEnable registry key to 0, which disables the Antimalware Scan Interface (AMSI). An
-adversary can modify this key to disable AMSI protections.
+Identifies modifications of the AmsiEnable registry key to 0, which disables Windows Script AMSI scanning for the
+affected user. Adversaries can modify this key to bypass AMSI protections for Windows Script Host or JScript execution.
 """
 from = "now-9m"
 index = [
@@ -23,56 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Modification of AmsiEnable Registry Key"
-note = """## Triage and analysis
-
-### Investigating Modification of AmsiEnable Registry Key
-
-The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product on a machine. AMSI integrates with multiple Windows components, ranging from User Account Control (UAC) to VBA macros and PowerShell.
-
-Since AMSI is widely used across security products for increased visibility, attackers can disable it to evade detections that rely on it.
-
-This rule monitors the modifications to the Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable registry key.
-
-#### Possible investigation steps
-
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate the execution of scripts and macros after the registry modification.
-- Retrieve scripts or Microsoft Office files and determine if they are malicious:
-  - Use a private sandboxed malware analysis system to perform analysis.
-    - Observe and collect information about the following activities:
-      - Attempts to contact external domains and addresses.
-      - File and registry access, modification, and creation activities.
-      - Service creation and launch activities.
-      - Scheduled task creation.
-  - Use the PowerShell Get-FileHash cmdlet to get the files' SHA-256 hash values.
-    - Search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Use process name, command line, and file hash to search for occurrences on other hosts.
-
-### False positive analysis
-
-- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and monitored by the security team as these modifications expose the host to malware infections.
-
-### Related rules
-
-- Microsoft Windows Defender Tampering - fe794edd-487f-4a90-b285-3ee54f2af2d3
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Delete or set the key to its default value.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://hackinparis.com/data/slides/2019/talks/HIP2019-Dominic_Chell-Cracking_The_Perimeter_With_Sharpshooter.pdf",
     "https://docs.microsoft.com/en-us/windows/win32/amsi/antimalware-scan-interface-portal",
@@ -97,7 +47,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type == "change" and
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
   registry.value : "AmsiEnable" and registry.data.strings: ("0", "0x00000000")
 
   /*
@@ -106,6 +56,153 @@ registry where host.os.type == "windows" and event.type == "change" and
   */
 '''
 
+note = """## Triage and analysis
+
+### Investigating Modification of AmsiEnable Registry Key
+
+#### Possible investigation steps
+
+- Does the registry event prove Windows Script AMSI was disabled for a user hive?
+  - Focus: `registry.path`, `registry.value`, `registry.data.type`, and `registry.data.strings` for "Software\\Microsoft\\Windows Script\\Settings\\AmsiEnable" under "HKEY_USERS\\<SID>".
+  - Implication: escalate true disablement when `registry.path` resolves to that user-hive value and `registry.data.strings` is "0" or "0x00000000"; lower suspicion only when the path or data does not disable AMSI, or same-host evidence proves controlled validation or image-build deliberately toggled Windows Script AMSI.
+
+- Is the writing process a recognized validation tool or an abuse launcher?
+  - Focus: writer identity: `process.entity_id`, `process.executable`, `process.command_line`, `process.code_signature.subject_name`, and `process.code_signature.trusted`. $investigate_0
+  - Hint: reconstruct activity with `host.id` plus `process.entity_id`; if missing, use `host.id`, `process.pid`, and a tight time window.
+  - Implication: escalate when the writer is unsigned, untrusted, user-writable, renamed, script-launched, or writes "AmsiEnable" outside a recognized validation or image-build command line. Identity alone never clears the registry change.
+
+- Does lineage and session explain the AMSI disablement?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.Ext.session_info.logon_type`, and `user.id`.
+  - Implication: escalate when lineage involves Office, a browser, script host, remote shell, scheduled task, unexpected service account, or a standard user context that does not fit script-control testing; lower suspicion only when parent, session, and `user.id` match controlled validation or image-build launch context.
+
+- Did follow-on process activity use the disablement path?
+  - Focus: post-write process activity in the recovered process scope, especially `process.executable`, `process.command_line`, and `process.parent.command_line`. $investigate_1
+  - Implication: escalate when the same lineage later launches or reopens "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "wmic.exe", "regsvr32.exe", or Office-child script execution. A write followed by a second script open matches SharpShooter-style AMSI-stub behavior; activity confined to recognized validation is lower risk.
+
+- Did the same process change related registry state for evasion, persistence, or cleanup?
+  - Focus: same-process registry activity in the recovered process scope, with `registry.path`, `registry.value`, and `registry.data.strings`. $investigate_2
+  - Implication: escalate when the process also weakens script policy, security-control, Run, Startup, COM, or other persistence-relevant keys, or quickly restores `registry.path` after script execution. Risk is narrower when surrounding registry writes stay limited to the Windows Script validation task and return to baseline.
+
+- If local evidence stays suspicious or unresolved, do related alerts broaden scope?
+  - Focus: related alerts for the same `user.id` that show execution, persistence, delivery, or defense evasion. $investigate_3
+  - Hint: query related alerts for the same `host.id` to find adjacent script execution, persistence, related registry tampering, or other AMSI-bypass alerts. $investigate_4
+  - Implication: broaden scope and urgency when either pivot shows related execution, persistence, or defense evasion; quiet related-alert pivots only lower urgency when local registry, process, and user evidence already supports one exact benign workflow.
+
+- Escalate when true AMSI disablement combines with suspicious writer, lineage, script follow-on, related registry weakening, or related alerts; close only when same-host registry and process evidence proves one controlled workflow, with outside confirmation when telemetry cannot prove legitimacy; preserve and escalate mixed or incomplete evidence.
+
+### False positive analysis
+
+- Controlled security validation or golden-image build validation can legitimately toggle AMSI on lab, build, or pre-production assets. Confirm `registry.path`, `registry.value`, and `registry.data.strings` match the intended user hive; `process.executable`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.command_line`, `process.parent.command_line`, `user.id`, and `host.id` align with that workflow; and surrounding process plus registry activity stays inside the task. Use change records, testing plans, owner confirmation, or toolchain confirmation only to verify telemetry-proven workflow, not override unresolved telemetry.
+- Base exceptions on the minimum confirmed workflow pattern: `process.executable`, `process.code_signature.subject_name`, `process.command_line`, `process.parent.executable`, `registry.path`, `user.id`, and `host.id`. Use prior alerts, when available, to validate stability. Avoid exceptions on the AmsiEnable value alone, on `user.name` alone, or on a host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the exact registry, process, parent, user, and host evidence that justified closure. Create an exception only when that confirmed pattern is specific enough to avoid suppressing lookalike AMSI tampering; use recurrence as supporting evidence when it exists.
+- If suspicious but unconfirmed, preserve the registry event, same-host process timeline, parent command line, related registry changes, and affected user and host before containment. Apply reversible containment first, such as heightened monitoring, temporary network restriction, or carefully scoped endpoint isolation based on host role; escalate to account action or stronger host isolation only if follow-on execution, related registry tampering, or broader alert scope is confirmed.
+- If confirmed malicious, preserve the registry, process, user, host, and related-alert evidence plus any recovered script or payload identifiers before destructive action. Use endpoint isolation to stop follow-on execution while retaining telemetry, then terminate malicious processes or suspend accounts only after recording the process and user evidence needed for follow-up.
+- After scoping related `host.id`, `user.id`, `process.executable`, and `registry.path` evidence across affected assets, restore `registry.value` to the expected baseline and remove only the scripts, binaries, Run keys, COM changes, scheduled tasks, or other persistence artifacts identified during the investigation.
+- Post-incident hardening: restrict who can modify the Windows Script settings path, review controls around script hosts and Office macro execution, and retain the registry and process telemetry that proved the case.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.executable",
+    "process.command_line",
+    "process.entity_id",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "registry.path",
+    "registry.value",
+    "registry.data.strings",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Process events for the writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry events for the writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -123,10 +220,7 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

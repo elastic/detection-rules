@@ -2,7 +2,7 @@
 creation_date = "2022/02/07"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/09/11"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -16,65 +16,14 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Windows Service Installed via an Unusual Client"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Windows Service Installed via an Unusual Client
-
-Windows services are crucial for running background processes with elevated privileges. Adversaries exploit this by creating services to escalate privileges from administrator to SYSTEM. The detection rule identifies anomalies by flagging service installations initiated by atypical processes, excluding known legitimate services. This helps in spotting potential privilege escalation attempts by monitoring unusual client activity.
-
-### Possible investigation steps
-
-- Review the event logs to identify the specific client process that initiated the service installation by examining the winlog.event_data.ClientProcessId and winlog.event_data.ParentProcessId fields.
-- Investigate the parent process associated with the unusual client process to determine if it is a known legitimate application or potentially malicious.
-- Check the winlog.event_data.ServiceFileName to verify the path and name of the service file, ensuring it is not a known legitimate service excluded in the query.
-- Analyze the timeline of events around the service installation to identify any preceding suspicious activities or related alerts that might indicate a broader attack.
-- Conduct a reputation check on the client process and service file using threat intelligence sources to assess if they are associated with known malicious activities.
-- Examine the system for any additional indicators of compromise, such as unexpected network connections or changes to critical system files, that may suggest privilege escalation or lateral movement attempts.
-
-### False positive analysis
-
-- Legitimate software installations or updates may trigger the rule if they create services using unusual client processes. To manage this, identify and whitelist these processes in the detection rule to prevent unnecessary alerts.
-- System management tools like Veeam and PDQ Inventory are already excluded, but other similar tools might not be. Regularly review and update the exclusion list to include any additional legitimate tools used in your environment.
-- Custom scripts or administrative tools that create services for maintenance or monitoring purposes can also cause false positives. Document these scripts and consider adding them to the exclusion list if they are verified as safe.
-- Temporary or one-time service installations for troubleshooting or testing can be mistaken for threats. Ensure that such activities are logged and communicated to the security team to avoid confusion and unnecessary alerts.
-- Changes in system configurations or updates to existing software might alter the behavior of legitimate processes, causing them to be flagged. Regularly review and adjust the detection rule to accommodate these changes while maintaining security integrity.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or lateral movement by the adversary.
-- Terminate the suspicious service and any associated processes identified by the alert to stop potential privilege escalation or malicious activity.
-- Conduct a thorough review of the service's configuration and associated files to identify any unauthorized changes or malicious code.
-- Restore any altered or compromised system files from a known good backup to ensure system integrity.
-- Change all administrator and SYSTEM account passwords on the affected system and any connected systems to prevent further unauthorized access.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine the scope of the breach.
-- Implement additional monitoring and logging on the affected system and similar environments to detect any recurrence of the threat or related suspicious activities."""
 references = [
     "https://www.x86matthew.com/view_post?id=create_svc_rpc",
-    "https://docs.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4697",
+    "https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4697",
     "https://github.com/atc-project/atomic-threat-coverage/blob/master/Atomic_Threat_Coverage/Logging_Policies/LP_0100_windows_audit_security_system_extension.md",
     "https://www.elastic.co/security-labs/siestagraph-new-implant-uncovered-in-asean-member-foreign-ministry",
 ]
 risk_score = 73
 rule_id = "55c2bf58-2a39-4c58-a384-c8b1978153c2"
-setup = """## Setup
-
-The 'Audit Security System Extension' logging policy must be configured for (Success)
-Steps to implement the logging policy with Advanced Audit Configuration:
-
-```
-Computer Configuration >
-Policies >
-Windows Settings >
-Security Settings >
-Advanced Audit Policies Configuration >
-Audit Policies >
-System >
-Audit Security System Extension (Success)
-```
-"""
 severity = "high"
 tags = [
     "Domain: Endpoint",
@@ -93,7 +42,7 @@ configuration where host.os.type == "windows" and
   (winlog.event_data.ClientProcessId == "0" or winlog.event_data.ParentProcessId == "0") and
   startswith~(user.domain, winlog.computer_name) and winlog.event_data.ServiceAccount == "LocalSystem" and 
   not winlog.event_data.ServiceFileName : (
-    "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe",
+    "?:\\Windows\\VeeamVssSupport\\VeeamGuestHelper.exe*",
     "?:\\Windows\\VeeamLogShipper\\VeeamLogShipper.exe",
     "%SystemRoot%\\system32\\Drivers\\Crowdstrike\\*-CsInstallerService.exe",
     "\"%windir%\\AdminArsenal\\PDQInventory-Scanner\\service-1\\PDQInventory-Scanner-1.exe\" ",
@@ -106,22 +55,164 @@ configuration where host.os.type == "windows" and
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Windows Service Installed via an Unusual Client
+#### Possible investigation steps
+
+- Which unusual service-control path did the alert preserve?
+  - Why: Custom Service Control Manager RPC clients can create services without normal attribution; PID 0 is the path this alert needs interpreted.
+  - Focus: `winlog.event_data.ClientProcessId`, `winlog.event_data.ParentProcessId`, `user.domain`, `winlog.computer_name`, and `winlog.event_data.ServiceAccount`.
+  - Implication: escalate when PID 0 attribution combines with a local-account domain and LocalSystem; lower suspicion only when exact host, account, service, and time match a recognized deployment or test explaining zeroed attribution.
+
+- What would the new service execute and how privileged is it?
+  - Why: Event 4697 captures the create-time image path only; later service changes can contradict a clean create-time string.
+  - Focus: `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceType`, `winlog.event_data.ServiceStartType`, and `winlog.event_data.ServiceAccount`.
+  - Implication: escalate when the image path is user-writable, temporary, ProgramData, or system-masqueraded; type is driver; start type is boot, system, or disabled; or LocalSystem lacks a matching product. Lower suspicion when all service fields align with one recognized installer, endpoint agent, backup, or deployment tool.
+
+- Which account and logon session requested the service creation?
+  - Focus: service-install `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, and `winlog.event_data.SubjectLogonId`; 4624 `source.ip` and `winlog.logon.type`; 4648 explicit-credential context.
+  - Implication: escalate when the subject is an unexpected local admin or machine account, origin is remote or rare for the host, explicit credentials appear, or source is absent where remote administration is expected; lower suspicion when subject, logon type, source, and service target fit one recognized management session. Missing 4624/4648 or source fields leaves origin unresolved, not benign.
+  - Hint: on `host.id`, search 4624 where `winlog.event_data.TargetLogonId` equals service-install `winlog.event_data.SubjectLogonId`; search 4648 where `winlog.event_data.SubjectLogonId` matches.
+    - $investigate_0
+    - $investigate_1
+
+- Do surrounding Windows Security records show a contained install or follow-on control activity?
+  - Focus: same-host `event.code`, `winlog.record_id`, `winlog.event_data.ServiceName`, and `winlog.event_data.SubjectLogonId` around `@timestamp`.
+  - Implication: escalate when the same logon session creates multiple services, pairs install with explicit credentials, or shows account changes or failures around service creation; lower suspicion when records stay limited to one expected installer session for the same service. Missing Security telemetry is unresolved, not benign.
+  - Hint: inspect same-session 4697 records for clustered service creation. $investigate_2
+
+- Is the same service-install pattern recurring in a bounded cohort or spreading?
+  - Focus: historical Event ID 4697 records by `winlog.event_data.SubjectUserSid`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, and `winlog.computer_name`.
+  - Implication: escalate when the same subject creates PID 0 LocalSystem services across unrelated hosts, or service names or paths rotate; lower suspicion when exact service fields recur in the same managed host cohort with a stable subject and no contradictory service metadata.
+  - Hint: query 4697 for the same subject or service fields, group by `winlog.computer_name`, `winlog.event_data.ServiceName`, and `winlog.event_data.ServiceFileName`, then compare PID 0 recurrence. $investigate_3
+
+- Based on the Windows Security evidence, what disposition is supported?
+  - Implication: escalate when PID 0, LocalSystem image, actor/session evidence, or 4697 recurrence does not bind to one recognized workflow; close only when the same fields prove one exact service deployment or test on this host and no contradictory Security evidence remains; if mixed, preserve service-install and logon records, then escalate.
+
+### False positive analysis
+
+- Software deployment, endpoint agent, backup, configuration tools, or authorized service-control/RPC testing can trigger when Service Control Manager behavior leaves PID 0 attribution. Examples include Veeam, PDQ, CrowdStrike installer, SCCM/SMS, nsnetpush, or pbpsdeploy-style patterns. Confirm service name, file, account, subject SID, host cohort, logon session, and test timing align with one product or test workflow, with no contradictory Security records.
+- Before creating an exception, require stable recurrence for the same `winlog.event_data.SubjectUserSid`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceAccount`, and host cohort. Avoid broad exceptions on `user.name`, `host.name`, or service name alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse any temporary containment and record the exact evidence that confirmed the workflow: service fields, subject and logon IDs, affected host, and recurrence or change context.
+  - Build any exception only from the stable workflow anchors validated above, not from a broad user, host, or service-name match.
+- If suspicious but unconfirmed:
+  - Preserve the alert, original Event ID 4697 record, related 4624/4648 records, `winlog.record_id` values, service configuration, and the service binary named by `winlog.event_data.ServiceFileName` before containment.
+  - Apply reversible containment tied to the findings, such as isolating the host if lateral movement risk is present, restricting the subject account, or disabling the new service after preserving its configuration. Avoid deleting the service or binary until maliciousness and scope are clear.
+- If confirmed malicious:
+  - Preserve the original Event ID 4697 record, related 4624/4648 records, service configuration, service binary, and recurrence evidence before containment or eradication.
+  - Contain the host and affected account based on the service definition, actor/session evidence, and recurrence pattern; weigh host criticality before isolation.
+  - Disable or stop the malicious service after preserving configuration and binary evidence, then remove the service and service binary only after scope is established.
+  - Reset or rotate credentials for the subject account when logon evidence shows misuse, and review other hosts where the same subject or service pattern created LocalSystem services.
+- Post-incident hardening:
+  - Restrict service creation to controlled deployment accounts and administrative hosts.
+  - Retain Audit Security System Extension success logging and enough Windows Security history to correlate 4624, 4648, and 4697 records.
+  - Record the confirmed benign workflow or malicious service pattern so future alerts can compare exact service, subject, and host evidence."""
+
+setup = """## Setup
+
+Audit Security System Extension must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-security-system-extension
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "host.id",
+    "winlog.computer_name",
+    "user.id",
+    "user.domain",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ServiceName",
+    "winlog.event_data.ServiceFileName",
+    "winlog.event_data.ServiceType",
+    "winlog.event_data.ServiceStartType",
+    "winlog.event_data.ServiceAccount",
+    "winlog.event_data.ClientProcessId",
+    "winlog.event_data.ParentProcessId",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Linked logon for the service-install session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Explicit-credential events for the service-install session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same-session service-install events"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Historical 4697 service-install recurrence"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectUserSid", queryType = "phrase", value = "{{winlog.event_data.SubjectUserSid}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ServiceName", queryType = "phrase", value = "{{winlog.event_data.ServiceName}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.ServiceFileName", queryType = "phrase", value = "{{winlog.event_data.ServiceFileName}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-7d/d"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1543"
 name = "Create or Modify System Process"
 reference = "https://attack.mitre.org/techniques/T1543/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1543.003"
 name = "Windows Service"
 reference = "https://attack.mitre.org/techniques/T1543/003/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

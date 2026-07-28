@@ -1,0 +1,181 @@
+[metadata]
+creation_date = "2026/04/21"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Surfaces an AWS identity whose successful API traffic is dominated by a small set of large cloud-provider source AS
+organization labels, yet also shows a very small share of traffic from other AS organization names—including at least one
+sensitive control-plane, credential, storage, or model-invocation action on that uncommon network path with recent
+activity from the uncommon path. The intent is to highlight disproportionate “baseline” cloud egress versus sparse use
+from rarer networks on the same principal, a shape that can appear when automation or CI credentials are reused or
+pivoted outside their usual hosted-cloud footprint.
+"""
+false_positives = [
+    """
+    Global employees on VPNs, split DNS or proxy paths that change AS labels, regional carrier rebrands, or mobile
+    hotspots can produce a small non-cloud AS share on the same IAM user as hyperscaler- or SaaS-classified traffic.
+    Corporate travel, emergency break-glass from a home ISP, and multi-region runners may also widen AS diversity without
+    malice. Tune thresholds, add account or principal allowlists, or narrow the sensitive-action list after baseline review.
+    """,
+]
+from = "now-7d"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Rare Source AS Organization Activity"
+note = """## Triage and analysis
+
+### Investigating AWS Rare Source AS Organization Activity After High Cloud-Provider Volume
+
+The rule aggregates roughly seven days of successful CloudTrail per `user.name` and `aws.cloudtrail.user_identity.type`.
+It expects a **high count** of events whose GeoIP AS organization matches a short allowlist of large cloud/SaaS providers,
+**at least one** event from a different AS organization, a **low ratio** of uncommon-network events to all events, few
+**distinct** uncommon AS labels, and **recent** uncommon-network timestamps. It further requires at least one
+**sensitive** API from an uncommon network (see query `event.action` list).
+
+#### Possible investigation steps
+
+- Compare `Esql.src_asn_values` to `Esql.user_agent_values` and map each `source.ip` (from raw CloudTrail) to expected
+  admin paths, pipelines, or offices.
+- Pivot on `user.name` and `aws.cloudtrail.user_identity.access_key_id` (from underlying events) for IAM, STS, S3, and
+  Secrets Manager activity around `Esql.most_recent_low_asn_day`.
+- Confirm whether the identity is meant for automation only; if so, rare human ISP ASNs warrant higher scrutiny.
+- Review `Esql.untrusted_suspicious_actions` for the mix of discovery versus privilege-changing APIs.
+
+### False positive analysis
+
+- **Threshold sensitivity**: Raise `Esql.trusted_cloud_event_count` or Lower `Esql.rare_asn_ratio` and `Esql.untrusted_event_count` if legitimate rare-ASN
+  noise persists.
+- **MongoDB / other allowlist labels**: Extend `is_trusted_cloud` if your approved automation consistently appears under
+  another legal-entity string.
+
+### Response and remediation
+
+- If abuse is plausible: rotate credentials for the principal, enforce OIDC or short-lived keys for automation, and
+  tighten IAM and data-plane permissions.
+
+### Additional information
+
+- [CloudTrail user identity](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference.html",
+]
+risk_score = 73
+rule_id = "d1b37c0b-4f8b-4cfb-9a1d-639bf8c028b7"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE event.dataset == "aws.cloudtrail"
+  AND event.outcome == "success"
+  AND source.as.organization.name IS NOT NULL
+  AND user.name IS NOT NULL
+
+| EVAL is_trusted_cloud = CASE(
+    source.as.organization.name LIKE "Amazon*" OR
+    source.as.organization.name == "Google LLC" OR
+    source.as.organization.name == "Microsoft Corporation" OR
+	source.as.organization.name == "MongoDB, Inc.",
+    true, false
+  )
+
+| EVAL is_suspicious_action = CASE(
+    event.action IN (
+      "GetCallerIdentity", "GetAccountSummary", "ListAccountAliases",
+      "GetSecretValue", "ListSecrets", "DescribeSecret",
+      "GetParameter", "GetParameters", "GetParametersByPath",
+      "AssumeRole", "AssumeRoleWithWebIdentity", "AssumeRoleWithSAML",
+      "AttachUserPolicy", "AttachRolePolicy",
+      "PutUserPolicy", "PutRolePolicy",
+      "CreateAccessKey", "UpdateAccessKey",
+      "CreateUser", "CreateLoginProfile",
+      "UpdateLoginProfile", "AddUserToGroup",
+      "GetObject", "ListBuckets", "ListObjects", "ListObjectsV2",
+      "InvokeModel", "InvokeModelWithResponseStream", "Converse"
+    ), true, false
+  )
+
+// Single aggregation — full event count preserved for ratio logic
+// suspicious action tracking is additive on top
+| STATS
+    Esql.total_events_all_asns = COUNT(*),
+    Esql.count_distinct_asns = COUNT_DISTINCT(source.as.organization.name),
+    Esql.src_asn_values = VALUES(source.as.organization.name),
+	Esql.user_agent_values = VALUES(user_agent.original),
+	Esql.related_users = VALUES(user.changes.name),
+	Esql.source_ip_values = VALUES(source.address),
+    Esql.has_trusted_cloud_asn = MAX(is_trusted_cloud),
+    Esql.trusted_cloud_event_count = SUM(CASE(is_trusted_cloud == true, 1, 0)),
+    Esql.untrusted_event_count = SUM(CASE(is_trusted_cloud == false, 1, 0)),
+    // Suspicious action visibility from untrusted ASNs — informational only, not a filter
+    Esql.untrusted_suspicious_count  = SUM(CASE(
+        is_trusted_cloud == false AND is_suspicious_action == true, 1, 0
+      )),
+    Esql.untrusted_suspicious_actions = VALUES(CASE(
+        is_trusted_cloud == false AND is_suspicious_action == true,
+        event.action, null
+      )),
+    Esql.most_recent_low_asn_day   = MAX(CASE(
+        is_trusted_cloud == false, @timestamp, null
+      ))
+    BY user.name, aws.cloudtrail.user_identity.type
+
+| EVAL Esql.rare_asn_ratio = TO_DOUBLE(Esql.untrusted_event_count) / TO_DOUBLE(Esql.total_events_all_asns), 
+       Esql.unique_action_from_untrusted_asn = MV_COUNT(Esql.untrusted_suspicious_actions)
+
+// Detection thresholds — unchanged, full event counts drive the logic
+| WHERE Esql.has_trusted_cloud_asn == true
+  AND Esql.untrusted_event_count >= 1
+  AND Esql.trusted_cloud_event_count >= 100
+  AND Esql.rare_asn_ratio <= 0.01
+  AND Esql.unique_action_from_untrusted_asn >= 2 
+  AND Esql.count_distinct_asns <= 5
+  AND Esql.most_recent_low_asn_day >= NOW() - 1 hour
+
+| KEEP user.name,
+       aws.cloudtrail.user_identity.type,
+       Esql.*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "aws.cloudtrail.user_identity.type",
+    "Esql.*"
+]
+
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
