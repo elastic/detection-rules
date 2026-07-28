@@ -90,7 +90,16 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and event.provider == "iam.amazonaws.com"
     and event.action == "CreateAccessKey"
     and event.outcome == "success"
-    and (user.target.name IS NULL or user.name == user.target.name)
+    and (
+          (
+            aws.cloudtrail.user_identity.type == "IAMUser"
+            and (user.target.name IS NULL or user.name == user.target.name)
+          )
+          or (
+            aws.cloudtrail.user_identity.type == "Root"
+            and user.target.name IS NULL
+          )
+        )
 | keep
     _id,
     _version,
