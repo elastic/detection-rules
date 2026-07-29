@@ -63,6 +63,7 @@ def get_data_files(*folder, ext="ndjson", recursive=False):
 
 
 def get_data_file(*folder):
+    """Get data from a single file by folder path."""
     path = pathlib.Path(DATA_DIR) / os.path.sep.join(folder)
     if path.exists():
         with path.open() as f:
