@@ -2,98 +2,19 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Non-Microsoft Drivers with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
-issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
-authenticode.path JOIN hash ON drivers.image = hash.path WHERE NOT (provider == "Microsoft" AND signed == "1")
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Unsigned Drivers with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, class, description, directory, image,
-issuer_name, manufacturer, service, signed, subject_name FROM drivers JOIN authenticode ON drivers.image =
-authenticode.path JOIN hash ON drivers.image = hash.path WHERE signed == "0"
-"""
-
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation of a new Windows service with suspicious Service command values. Windows services typically run
-as SYSTEM and can be used for privilege escalation and persistence.
+Identifies the creation of a new Windows service with a suspicious service name or command value. Windows services
+typically run as SYSTEM and can be used for privilege escalation and persistence.
 """
 from = "now-9m"
 index = ["logs-system.security*", "logs-system.system*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Service was Installed in the System"
-note = """## Triage and analysis
-
-### Investigating Suspicious Service was Installed in the System
-
-Attackers may create new services to execute system shells and other command execution utilities to elevate their privileges from administrator to SYSTEM. They can also configure services to execute these utilities with persistence payloads.
-
-This rule looks for suspicious services being created with suspicious traits compatible with the above behavior.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Identify how the service was created or modified. Look for registry changes events or Windows events related to service activities (for example, 4697 and/or 7045).
-  - Examine the created and existent services, the executables or drivers referenced, and command line arguments for suspicious entries.
-    - $osquery_0
-    - $osquery_1
-    - $osquery_2
-    - $osquery_3
-    - $osquery_4
-  - Retrieve the referenced files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Contact the account owner and confirm whether they are aware of this activity.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
-
-
-### False positive analysis
-
-- Certain services such as PSEXECSVC may happen legitimately. The security team should address any potential benign true positive (B-TP) by excluding the relevant FP by pattern.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Delete the service.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 
 setup = """## Setup
 
@@ -118,32 +39,174 @@ type = "eql"
 
 query = '''
 any where host.os.type == "windows" and
-  (event.code : "4697" and
-   (winlog.event_data.ServiceFileName : 
-           ("*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
-            "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*", 
+(
+  (
+    event.code : "4697" and
+    (
+      (
+        (
+          winlog.event_data.ServiceFileName : (
+            "*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
+            "*echo*", "*RemComSvc*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*",
             "*\\Users\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
-            "*regsvr32*", "*msbuild*") or
-   winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe""") and
-   not winlog.event_data.ServiceFileName:
-                                     ("%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
-                                      "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
-                                      "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
-                                      "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service")) or
-
-  (event.code : "7045" and
-   winlog.event_data.ImagePath : (
-       "*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
-       "*echo*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*",
-       "*\\Users\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
-       "*regsvr32*", "*msbuild*") and
-   not winlog.event_data.ImagePath : ("%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
-                                      "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
-                                      "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
-                                      "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"))
+            "*regsvr32*", "*msbuild*", "*winexesvc.exe*", "*DumpSvc.exe*", "*pwsh.exe*", "*PAExec*"
+          ) or
+          winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe"""
+        ) and
+        not winlog.event_data.ServiceFileName: (
+              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+              "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+              "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
+        )
+      ) or
+      winlog.event_data.ServiceName : (
+         "mssecsvc2.0", "WCESERVICE*", "WCE SERVICE*", "pwdump*", "gsecdump*", "cachedump*"
+      )
+    )
+  ) or
+  (
+    event.code : "7045" and
+    (
+      (
+        winlog.event_data.ImagePath : (
+          "*COMSPEC*", "*\\127.0.0.1*", "*Admin$*", "*powershell*", "*rundll32*", "*cmd.exe*",
+          "*echo*", "*.bat*", "*.cmd*", "*certutil*", "*vssadmin*", "*certmgr*", "*bitsadmin*",
+          "*\\Users\\*", "*\\Windows\\Tasks\\*", "*\\PerfLogs\\*", "*\\Windows\\Debug\\*",
+          "*regsvr32*", "*msbuild*", "*winexesvc.exe*", "*DumpSvc.exe*", "*pwsh.exe*", "*PAExec*"
+        ) and
+        not winlog.event_data.ImagePath : (
+              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
+              "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+              "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
+        )
+      ) or
+      winlog.event_data.ServiceName : (
+         "mssecsvc2.0", "WCESERVICE*", "WCE SERVICE*", "pwdump*", "gsecdump*", "cachedump*"
+      )
+    )
+  )
+)
 '''
 
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Service was Installed in the System
+
+#### Possible investigation steps
+
+- What exact service creation event and matched artifact caused the alert?
+  Focus: `event.code`, `host.name`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ImagePath`.
+  Implication: Event `4697` uses `winlog.event_data.ServiceFileName`; event `7045` uses `winlog.event_data.ImagePath`. Treat malware or credential-dump service names such as `mssecsvc2.0`, `WCESERVICE*`, `WCE SERVICE*`, `pwdump*`, `gsecdump*`, or `cachedump*`, or a command containing PAExec, Winexe, DumpSvc, PowerShell, command shell, admin share, user-writable, or service-control utility traits, as suspicious unless the exact host, service name, command, and alert time map to a validated change record or verified owner confirmation.
+  Review matching service events with $investigate_0
+
+- Do the installing account and service account explain this specific service creation?
+  Focus: `event.code`, `user.name`, `user.domain`, `winlog.logon.id`, `winlog.event_data.ServiceAccount` for event `4697`, and `winlog.event_data.AccountName` for event `7045`.
+  Implication: Event `4697` can identify the installing account and logon session and records the service account in `winlog.event_data.ServiceAccount`. Event `7045` records the service account in `winlog.event_data.AccountName`, but identifying the installer may require recovery of a matching Security event or surrounding service-control and process telemetry. Escalate if the recovered installer identity cannot be tied to the exact service install, if the service runs as a privileged or unexpected account, or if the account context conflicts with the claimed workflow. A benign branch requires recovered evidence that the same account created this same service during a validated maintenance or deployment window on this host. Missing Security or corroborating telemetry remains unresolved.
+  Search recent service install events on the matched host with $investigate_1
+
+- Does the live host still show the same service configuration and referenced artifact?
+  Focus: On the matched `host.id` or `host.name`, retrieve the current service by exact `winlog.event_data.ServiceName` with `sc.exe qc`, `sc.exe queryex`, or `Get-CimInstance Win32_Service -Filter Name='<service name>'`; record the service path, account, status, and start context, then inspect the referenced executable or script on disk when it is still present.
+  Implication: Live service configuration can confirm current path, account, status, and start context, but configuration alone does not prove the service command executed. Escalate when the current service or referenced artifact supports persistence, or when process telemetry, service-control logs, or other execution events show the service command ran. If live-host retrieval or artifact inspection is unavailable, the unavailable live-host evidence remains unresolved. A benign branch requires the live or recovered service state to match the exact expected service lifecycle, such as a short-lived remote support service removed after the named deployment task, without extra commands or altered paths.
+
+- Are there corroborating process, file, registry, or authentication events on the same host around the service installation?
+  Focus: `host.id`, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceAccount` for event `4697`, `winlog.event_data.AccountName` for event `7045`, `user.name`, and `winlog.record_id`.
+  Implication: Process, file, registry, and service-control telemetry are supporting sources and may be absent from the final alert; recover them manually by host and time before drawing conclusions. Escalate if recovered events show the service launching shell, LOLBin, credential-dumping, or user-writable path payloads. If those supporting sources are missing, keep the case unresolved instead of treating absence as benign.
+
+- If local evidence is suspicious or unresolved, has the same service name appeared on other hosts?
+  Focus: `winlog.event_data.ServiceName`, `host.name`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ImagePath`, `user.name`.
+  Implication: Use this only after the local service and artifact checks above. Reuse across hosts supports a lateral movement, remote administration, or shared deployment hypothesis; scope containment and account review to matching hosts when the service name or installer context is suspicious. A benign branch requires recovered events on the additional hosts to share the same deployment window, installing account when available, and exact service command for one validated change record. Absence of related alerts does not prove benign.
+  Pivot on the service name across hosts with $investigate_2
+
+Disposition: Escalate suspicious service commands, mismatched installer or service-account context, persistent live service state, or repeated hosts; close only when alert-local fields plus recovered service and host evidence prove the exact expected workflow; preserve and escalate mixed or incomplete cases for more context before final disposition.
+
+### False positive analysis
+
+- Remote administration and deployment tools such as PAExec, RemCom, and Winexe can create temporary services that match the suspicious service-name or command patterns. Close only when the recovered `winlog.event_data.ServiceName`, command field, installing account, target host, and timing all match one validated maintenance or deployment action.
+- PowerShell, `pwsh.exe`, `cmd.exe`, `rundll32`, `regsvr32`, `msbuild`, `bitsadmin`, `certutil`, or `vssadmin` in a service command should remain suspicious until the referenced script or command content, service account, and owner confirmation explain the exact alert artifact on this host.
+- Scope exceptions to durable alert fields. For event `4697`, use exact `winlog.event_data.ServiceName` and `winlog.event_data.ServiceFileName`; for event `7045`, use exact `winlog.event_data.ServiceName` and `winlog.event_data.ImagePath`. Add `host.id` or `host.name`, plus `user.name` and `user.domain`, when those fields repeat in the validated benign pattern.
+
+### Response and remediation
+
+- Collect and preserve case evidence, export the alert and matched service event, and preserve volatile process, memory, executable, script, service configuration, and file-system artifacts that could be lost before isolation, process termination, service removal, cleanup, or other disruptive action.
+- Review recovered evidence and scope affected hosts/accounts by service name, service command, installing account, target host, and related authentication before containment decisions.
+- If malicious service execution is confirmed, use the endpoint response integration as the preferred path to isolate affected hosts, and disable exposed accounts as reversible containment while retaining evidence. When direct response is unavailable, document handoff to the responsible incident-response or endpoint-operations owner for host isolation and to the identity owner for account containment.
+- After scoping and preservation, stop malicious service processes if running, remove the malicious service or persistence entry, quarantine associated executable or script files, and run an antimalware scan.
+- Reset or rotate credentials for accounts that installed, ran, or were accessed by the malicious service after credential exposure review.
+- Record confirmed service names, commands, recovered file hashes, installing accounts, affected hosts, and telemetry or detection gaps for responsible detection and logging owners after scoping and containment.
+"""
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "event.code",
+    "winlog.event_data.ServiceName",
+    "winlog.event_data.ServiceFileName",
+    "winlog.event_data.ImagePath",
+    "winlog.event_data.ServiceAccount",
+    "winlog.event_data.AccountName",
+    "winlog.event_data.ServiceStartType",
+    "winlog.event_data.StartType",
+    "user.id",
+    "user.name",
+    "user.domain",
+]
+
+
+[[transform.investigate]]
+label = "Matched service on host"
+description = "Find Windows service creation events for the same service name on the matched host."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "winlog.event_data.ServiceName", queryType = "phrase", value = "{{winlog.event_data.ServiceName}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    ],
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "winlog.event_data.ServiceName", queryType = "phrase", value = "{{winlog.event_data.ServiceName}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "7045", valueType = "string" },
+    ],
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Recent service installs on host"
+description = "Find recent Windows service creation events on the matched host for installer and service-account comparison."
+providers = [
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    ],
+    [
+        { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "7045", valueType = "string" },
+    ],
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Same service name across hosts"
+description = "Find Windows service creation events for the same service name across the environment."
+providers = [
+    [
+        { excluded = false, field = "winlog.event_data.ServiceName", queryType = "phrase", value = "{{winlog.event_data.ServiceName}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" },
+    ],
+    [
+        { excluded = false, field = "winlog.event_data.ServiceName", queryType = "phrase", value = "{{winlog.event_data.ServiceName}}", valueType = "string" },
+        { excluded = false, field = "event.code", queryType = "phrase", value = "7045", valueType = "string" },
+    ],
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -161,3 +224,21 @@ reference = "https://attack.mitre.org/techniques/T1543/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1569"
+name = "System Services"
+reference = "https://attack.mitre.org/techniques/T1569/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1569.002"
+name = "Service Execution"
+reference = "https://attack.mitre.org/techniques/T1569/002/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
