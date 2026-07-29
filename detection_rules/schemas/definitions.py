@@ -87,6 +87,9 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse("8.6.0"), None),
     "elasticsearch_validate_optional_fields": (Version.parse("7.16.0"), None),
 }
+# Optional overrides for python-esql feature gates (merged on top of esql.ESQL_FEATURES).
+# Shape: feature_name -> (introduced Version, removed Version | None)
+ELASTICSEARCH_ESQL_FEATURES: dict[str, tuple[Version, Version | None]] = {}
 NON_DATASET_PACKAGES = [
     "apm",
     "auditd_manager",
