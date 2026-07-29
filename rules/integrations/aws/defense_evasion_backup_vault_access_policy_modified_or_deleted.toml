@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/06/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies modification or removal of an AWS Backup vault access policy via PutBackupVaultAccessPolicy or
+DeleteBackupVaultAccessPolicy. The vault access policy is a resource-based policy that controls which principals,
+including external accounts, can act on the vault and its recovery points. Adversaries may add or broaden principals to
+gain cross-account access to backups (data theft), or weaken or delete the policy to remove protections such as
+deny-delete guardrails. These changes are infrequent and should align with approved access design.
+"""
+false_positives = [
+    """
+    Security and platform teams legitimately set vault access policies for cross-account backup and disaster-recovery
+    designs, often via infrastructure-as-code. Review the policy document in "aws.cloudtrail.request_parameters" for new
+    or external principals, and confirm recipients are approved. Known automation roles can be excluded after
+    validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Vault Access Policy Modified or Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Vault Access Policy Modified or Deleted
+
+The backup vault access policy is a resource-based policy governing who can access the vault and its recovery points. "PutBackupVaultAccessPolicy" replaces the policy and "DeleteBackupVaultAccessPolicy" removes it. Unexpected changes can grant external accounts access to backups (enabling copy/exfiltration of protected data) or strip deny-delete and other guardrails, weakening protection ahead of destruction.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin.
+- Inspect the policy document in "aws.cloudtrail.request_parameters" for new "Principal" entries, external account IDs, or removal of restrictive statements.
+- Determine which vault and recovery points are affected and whether cross-account copy or restore activity followed.
+- Correlate with adjacent backup activity by the same principal (StartCopyJob, DeleteRecoveryPoint, Vault Lock changes).
+
+### False positive analysis
+
+- Cross-account backup/DR designs legitimately set vault policies, often via IaC. Confirm recipients are approved and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, restore a known-good vault access policy, remove rogue or external principals, and review for any cross-account copy or restore of recovery points.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:PutBackupVaultAccessPolicy" and "backup:DeleteBackupVaultAccessPolicy" to trusted administrators.
+
+### Additional information
+
+- [Backup vault access policies](https://docs.aws.amazon.com/aws-backup/latest/devguide/create-a-vault-access-policy.html)
+- [PutBackupVaultAccessPolicy API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_PutBackupVaultAccessPolicy.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/create-a-vault-access-policy.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_PutBackupVaultAccessPolicy.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteBackupVaultAccessPolicy.html",
+]
+risk_score = 47
+rule_id = "0e5af193-c983-4d08-8d85-cff6f46454cc"
+setup = """This rule requires AWS CloudTrail management events for AWS Backup and ingestion via the Elastic AWS CloudTrail integration. See https://docs.elastic.co/integrations/aws/cloudtrail."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: ("PutBackupVaultAccessPolicy" or "DeleteBackupVaultAccessPolicy")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
