@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/06/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies changes to an AWS Backup recovery point lifecycle via UpdateRecoveryPointLifecycle. The lifecycle controls
+when a recovery point transitions to cold storage and when it is deleted. Shortening the retention causes recovery
+points to expire and be deleted automatically, achieving the same anti-recovery outcome as an explicit deletion but in a
+stealthier, delayed manner that can bypass detections focused on DeleteRecoveryPoint. Adversaries may shorten lifecycle
+retention to quietly destroy backups. These changes are infrequent and should align with approved retention management.
+"""
+false_positives = [
+    """
+    Backup or platform teams may adjust recovery point retention during cost optimization or policy changes, sometimes
+    via infrastructure-as-code. Verify the principal in `aws.cloudtrail.user_identity.arn` and the new lifecycle values
+    in `aws.cloudtrail.request_parameters`, and confirm the change aligns with an approved request. Known administration
+    roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Recovery Point Lifecycle Modified"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Recovery Point Lifecycle Modified
+
+"UpdateRecoveryPointLifecycle" changes when a recovery point moves to cold storage and when it is deleted. Reducing the "DeleteAfterDays" value causes AWS Backup to expire and delete the recovery point sooner, which can destroy backups without an explicit DeleteRecoveryPoint call. Adversaries use this as a stealthier anti-recovery technique. Note that recovery points stored in a vault with Vault Lock in compliance mode cannot have their retention shortened below the lock's minimum.
+
+### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` for an unexpected origin.
+- Inspect `aws.cloudtrail.request_parameters` for the new lifecycle values (especially a reduced "DeleteAfterDays") and the affected recovery point and vault.
+- Determine whether multiple recovery points were modified in the same window, indicating a broader anti-recovery effort.
+- Correlate with adjacent destructive or evasion activity by the same principal (recovery point deletion, Vault Lock removal, vault or plan deletion).
+
+### False positive analysis
+
+- Retention/cost optimization can legitimately shorten lifecycles. Confirm the change is expected and exclude known administration roles on `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If unauthorized, restore appropriate retention, preserve affected recovery points before they expire, and consider enabling Vault Lock in compliance mode.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:UpdateRecoveryPointLifecycle" to trusted administrators.
+
+### Additional information
+
+- [UpdateRecoveryPointLifecycle API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_UpdateRecoveryPointLifecycle.html)
+"""
+references = ["https://docs.aws.amazon.com/aws-backup/latest/devguide/API_UpdateRecoveryPointLifecycle.html"]
+risk_score = 47
+rule_id = "704e8fd1-0ac1-4cff-91fb-eadfe7cb9ff2"
+setup = """## Setup
+
+This rule requires the AWS CloudTrail integration and CloudTrail management events for AWS Backup (enabled by default). For more information, see https://docs.elastic.co/integrations/aws/cloudtrail
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: "UpdateRecoveryPointLifecycle"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not aws.cloudtrail.user_identity.invoked_by: (
+        "cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com"
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
