@@ -2,7 +2,7 @@
 creation_date = "2026/04/03"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/07/15"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,7 @@ This rule applies a [New Terms](https://www.elastic.co/guide/en/security/current
 `ListRoles`, `ListAccessKeys`, `GetAccountSummary`, `ListAccountAliases`, `ListGroups`, `ListMFADevices`; S3 `ListBuckets`;
 EC2 `DescribeInstances`, `DescribeRegions`, `DescribeVpcs`, `DescribeSecurityGroups`; Lambda `ListFunctions`; RDS
 `DescribeDBInstances`, `DescribeDBSnapshots`; DynamoDB `ListTables`; KMS `ListKeys`, `ListAliases`; CloudTrail
-`DescribeTrails`, `LookupEvents`. Clone the rule to add actions (for example ELB or Secrets Manager) if needed.
+`DescribeTrails`, `LookupEvents`; Bedrock `ListFoundationModels`. Clone the rule to add actions (for example ELB or Secrets Manager) if needed.
 
 **Curated VPN-oriented ASNs (verify locally)** — examples this rule matches (subject to registry and enrichment updates):
 
@@ -59,6 +59,9 @@ EC2 `DescribeInstances`, `DescribeRegions`, `DescribeVpcs`, `DescribeSecurityGro
 | 39351 | 31173 Services AB (Sweden) — colocation/hosting; cited in TeamPCP-related reporting (**dual-use**). Not the same as **AS31173** (unrelated Ukrainian ISP). |
 | 51765 | Oy Crea Nova Hosting Solution Ltd (Finland) — hosting; cited in TeamPCP-related reporting (**dual-use**) |
 | 204187 | Oy Crea Nova Hosting Solution Ltd — related network under the same operator (**dual-use**) |
+| 208172 | Proton AG — additional VPN egress network (same Proton operator as 209103 / ProtonVPN) |
+| 9002 | RETN Limited — pan-European/global transit backbone; carries VPN/proxy egress plus heavy legitimate traffic (**high dual-use**) |
+| 49981 | WorldStream B.V. (Netherlands) — dedicated-server/hosting; VPN exits and many legitimate workloads (**dual-use**) |
 
 Other ASNs sometimes seen for VPN or reseller egress (not in this rule by default) include **16276** (OVH), **14061**
 (DigitalOcean), **24940** (Hetzner), **51167** (Contabo), and **49453** (Global Layer). Add them only if your baseline
@@ -109,7 +112,6 @@ type = "new_terms"
 
 query = '''
 event.dataset: "aws.cloudtrail"
-    and event.outcome: "success"
     and aws.cloudtrail.user_identity.arn:(* and not *AWSServiceRoleForConfig*)
     and not aws.cloudtrail.user_identity.type: "AWSService"
     and event.provider: (
@@ -121,7 +123,8 @@ event.dataset: "aws.cloudtrail"
         "rds.amazonaws.com" or
         "dynamodb.amazonaws.com" or
         "kms.amazonaws.com" or
-        "cloudtrail.amazonaws.com"
+        "cloudtrail.amazonaws.com" or
+        "bedrock.amazonaws.com"
     )
     and event.action: (
         "GetCallerIdentity" or
@@ -144,7 +147,8 @@ event.dataset: "aws.cloudtrail"
         "ListKeys" or
         "ListAliases" or
         "DescribeTrails" or
-        "LookupEvents"
+        "LookupEvents" or
+        "ListFoundationModels"
     )
     and source.as.number: (
         216025 or
@@ -165,7 +169,10 @@ event.dataset: "aws.cloudtrail"
         51765 or
         204187 or 
         29066 or 
-        206092
+        206092 or
+        208172 or
+        9002 or
+        49981
     )
 '''
 
