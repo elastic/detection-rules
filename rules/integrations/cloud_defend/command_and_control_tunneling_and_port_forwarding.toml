@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -87,6 +87,8 @@ process where event.type == "start" and event.action == "exec" and (
     (process.name == "socat" and process.args : ("TCP4-LISTEN:*", "SOCKS*")) or
     // chisel
     (process.name : "chisel*" and process.args in ("client", "server")) or
+    // tailscaled
+    (process.name == "tailscaled" and process.args like~ ("*--socks5-server*", "*--outbound-http-proxy-listen*")) or
     // iodine(d), dnscat, hans, ptunnel-ng, ssf, 3proxy & ngrok 
     (process.name in ("iodine", "iodined", "dnscat", "hans", "hans-ubuntu", "ptunnel-ng", "ssf", "3proxy", "ngrok", "wstunnel", "pivotnacci", "frps", "proxychains"))
   )
