@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/20"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,38 @@ index = ["logs-endpoint.events.network*", "logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Payload Downloaded by Interpreter and Piped to Interpreter"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Payload Downloaded by Interpreter and Piped to Interpreter
+
+This rule flags a Linux interpreter that reaches out to an external address and then immediately starts another interpreter with no script argument, a strong sign that downloaded content is being fed directly into code execution. Attackers use this to avoid writing files and blend into admin activity, for example by having Python fetch a remote shell script with urllib and pipe the response into `sh` or `bash` to run a stager in memory.
+
+### Possible investigation steps
+
+- Reconstruct the full process lineage and execution context, including the initiating user, shell history, service unit, cron job, container entrypoint, or remote session that triggered the download-and-execute chain, to distinguish sanctioned automation from attacker activity.
+- Validate the remote endpoint by reviewing DNS, proxy, HTTP/TLS, and reputation data for the contacted infrastructure and compare it with known package mirrors, internal tooling, and recent maintenance activity to quickly identify likely benign installers versus suspicious staging hosts.
+- Attempt to recover the downloaded payload from proxy caches, packet capture, endpoint telemetry, memory, or command history and analyze its behavior to determine whether it is a legitimate bootstrap script or a stager that enables persistence, credential theft, or additional downloads.
+- Investigate post-alert activity on the host for concrete follow-on actions such as writes to temporary or startup locations, cron or systemd persistence, new accounts, SSH key changes, privilege escalation, lateral movement tooling, or security-control tampering.
+- If the activity cannot be confidently tied to approved administration, isolate the system and pivot across the environment for the same parent-child lineage, remote infrastructure, script fragments, and resulting artifacts to scope impact and block recurrence.
+
+### False positive analysis
+
+- Legitimate provisioning or maintenance on a Linux host may use a shell or Python one-liner to download an installation or update script from an approved external repository and pipe it to `sh` or `bash`; verify the parent process aligns with a known admin action or change window and that the destination and script content match an approved baseline.
+- Scheduled automation can trigger this when a service account or system task fetches a small bootstrap script from a sanctioned internet endpoint and feeds it directly to an interpreter during deployment or configuration refresh; verify it was started by the expected cron or systemd context and that the same process lineage and destination recur consistently across managed hosts.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while preserving forensic access, stop the active interpreter chain, and block the contacted external IPs, domains, and download URLs at egress controls to prevent reinfection.
+- Remove attacker footholds created by the downloaded script, including malicious cron entries, systemd services or timers, `/etc/rc.local` changes, shell profile modifications, unauthorized `authorized_keys` entries, and payloads dropped in `/tmp`, `/var/tmp`, `/dev/shm`, or user home directories.
+- Revoke access the payload may have exposed by resetting passwords, rotating SSH keys, API tokens, and application secrets present on the host, and disabling any unauthorized local or service accounts created during the intrusion.
+- Restore the host to a known-good state by rebuilding or reimaging from a trusted baseline or verified backup, applying current security patches, and validating that only approved packages, startup items, and scheduled tasks remain before reconnecting it to production.
+- Escalate to incident response immediately if the script executed as root, the same download source or script fragment appears on multiple hosts, authentication material was accessed or modified, or you observe follow-on behaviors such as lateral movement, data staging, or persistent outbound beaconing.
+- Harden the environment by restricting direct internet access from interpreters and automation accounts, allowlisting approved package mirrors and script repositories, enforcing least privilege for service users, and alerting on future `curl` or `wget` to shell and interpreter-to-interpreter execution patterns.
+
+"""
 risk_score = 47
 rule_id = "5dc3519c-1f56-42fc-9a70-7e6b705c2781"
 setup = """## Setup
@@ -52,6 +84,7 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 query = '''
