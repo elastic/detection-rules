@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/06/25"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a burst of destructive or mutating NFS operations (WRITE, REMOVE, RENAME) from a single client to one export
+server within a one-minute window. Ransomware and destructive actors often encrypt or rename large numbers of files on
+mounted NFS shares; this aggregation surfaces that mass-write behavior using NFS opcode telemetry when file paths are
+not available on the wire.
+"""
+false_positives = [
+    """
+    Backup deduplication engines, migration utilities, and filesystem sync tools can generate high volumes of legitimate
+    NFS writes. Validate the source against known backup or storage-management hosts before escalating.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+max_signals = 5
+name = "Potential NFS Mass Write Activity"
+note = """## Triage and analysis
+
+### Investigating Potential NFS Mass Write Activity
+
+Remote encryption over NFS typically manifests as sustained WRITE activity, often paired with REMOVE/RENAME operations,
+from one client IP against a single export. This rule aggregates mutating NFS opcodes because Packetbeat does not
+publish individual file paths in the NFS data stream.
+
+### Possible investigation steps
+
+- Review `Esql.values_opcodes` for a dominant WRITE/RENAME mix and compare `source.ip` to approved backup or admin hosts.
+- Pivot to endpoint telemetry on the source for ransomware families, suspicious processes, or recent `mount.nfs` activity.
+- Inspect the export for ransom notes, mass extension changes, or abnormal file timestamps following the alert window.
+- Correlate with preceding AUTH_SYS root UID or READDIR-heavy activity from the same client.
+
+### False positive analysis
+
+- Scheduled backup, rsync-style sync, or VM storage migration from known infrastructure is the most common benign cause.
+  Exception stable backup clients after validating opcode mix and timing against maintenance windows.
+
+### Response and remediation
+
+- Isolate the source host from the export if ransomware is suspected and snapshot the export where possible.
+- Revoke export access for the client IP and audit `/etc/exports` for overly permissive entries.
+- Restore affected data from immutable backups after confirming the encryption stage has ended.
+"""
+references = ["https://attack.mitre.org/techniques/T1486/", "https://attack.mitre.org/techniques/T1039/"]
+risk_score = 73
+rule_id = "8e78b1a5-9674-4a96-8ce7-76ef54566a85"
+setup = """## Setup
+
+This rule requires the Elastic **network_traffic** integration with the **NFS** protocol module enabled on a sensor that
+observes NFS traffic to monitored export servers.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Impact",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.nfs-*, packetbeat-*
+| eval Esql.opcode = TO_UPPER(COALESCE(network_traffic.nfs.opcode, nfs.opcode))
+| where Esql.opcode in ("WRITE", "REMOVE", "RENAME") and source.ip is not null and destination.ip is not null
+| eval Esql.time_window = DATE_TRUNC(1 minutes, @timestamp)
+| stats
+    Esql.mutating_ops = COUNT(*),
+    Esql.values_opcodes = VALUES(Esql.opcode)
+  by Esql.time_window, source.ip, destination.ip
+| where Esql.mutating_ops >= 100
+| keep source.ip, destination.ip, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference = "https://attack.mitre.org/techniques/T1486/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
