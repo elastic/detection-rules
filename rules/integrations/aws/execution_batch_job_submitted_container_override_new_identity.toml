@@ -31,12 +31,12 @@ note = """## Triage and analysis
 
 ### Investigating AWS Batch Job Submitted with Container Override by New Identity
 
-This rule fires the first time an identity submits a Batch job with container overrides in the prior 7 days. Container overrides at submission time bypass job definition review — an adversary can inject a malicious command into an approved job definition without modifying it, making the change invisible to IaC drift detection or configuration compliance tools.
+This rule fires when an identity submits a Batch job with a container command override and has not been observed doing so in the prior 7 days. Container overrides at submission time bypass job definition review — an adversary can inject a malicious command into an approved job definition without modifying it, making the change invisible to IaC drift detection or configuration compliance tools.
 
 ### Possible investigation steps
 
 - Identify the submitting principal (`aws.cloudtrail.user_identity.arn`) and determine whether they are expected to use AWS Batch with runtime overrides.
-- Review `aws.cloudtrail.request_parameters` to extract the overridden command, environment variables, and resource requirements. Look for shell commands, curl/wget calls, base64-encoded payloads, or references to external endpoints in the command override.
+- Review `aws.cloudtrail.request_parameters` to extract the overridden command in `containerOverrides.command` - this is the trigger. Also inspect any environment variables or resource requirements present. Look for shell commands, curl/wget calls, base64-encoded payloads, or references to external endpoints in the command override.
 - Identify the job queue and job definition used to understand the compute environment and IAM role the job will execute under.
 - Search for `DescribeJobs` events after the submission to track execution status and output.
 - Correlate with S3 `GetObject` or `PutObject` events from the Batch execution role during the job's execution window to identify data access or exfiltration.
