@@ -2,7 +2,7 @@
 creation_date = "2023/08/23"
 integration = ["endpoint", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/28"
 
 [rule]
 author = ["Elastic"]
@@ -44,14 +44,20 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.name : "mofcomp.exe" and process.args : "*.mof" and
   not user.id : "S-1-5-18" and
-  not
-  (
-    process.parent.name : "ScenarioEngine.exe" and
-    process.args : (
-      "*\\MSSQL\\Binn\\*.mof",
-      "*\\Microsoft SQL Server\\???\\Shared\\*.mof",
-      "*\\OLAP\\bin\\*.mof"
-    )
+  not process.args : (
+    "?:\\Program Files (x86)\\Microsoft Power BI Report Server\\*.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server Reporting Services\\*.mof",
+    "?:\\Program Files (x86)\\Microsoft SQL Server\\*.mof",
+    "?:\\Program Files\\Microsoft Policy Platform\\*.mof",
+    "?:\\Program Files\\Microsoft Power BI Report Server\\*.mof",
+    "?:\\Program Files\\Microsoft SQL Server Reporting Services\\*.mof",
+    "?:\\Program Files\\Microsoft SQL Server\\*.mof",
+    "?:\\Windows\\System32\\wbem\\com.hp.provider.*.mof",
+    "?:\\Windows\\System32\\wbem\\CxAudioSvc_*.mof",
+    "?:\\Windows\\System32\\wbem\\Framework\\root\\*.mof",
+    "?:\\Windows\\System32\\wbem\\Veeam.Backup.*.mof",
+    "?:\\Windows\\System32\\wbem\\ZTITatoo.mof",
+    "?:\\Windows\\SysWOW64\\wbem\\Framework\\root\\*.mof"
   )
 '''
 

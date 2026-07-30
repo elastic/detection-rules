@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a principal account creating or replacing - or attempts to create or replace - an AWS Network 
+Access Control List (NACL) entry using protocol -1 (all traffic). Both successful and failed outcomes 
+are included. A NACL entry with protocol -1 passes all traffic regardless of port, which would disable 
+network-layer controls for the affected subnets. Monitoring for new identities performing this change 
+helps surface freshly compromised credentials or unauthorized principals removing a defense-in-depth 
+layer to facilitate lateral movement or data exfiltration. This signal only flags if this behavior was 
+not observed historically in a specific time window.
+"""
+false_positives = [
+    """
+    Some legitimate architectures use permissive NACLs as a passthrough layer while relying
+    on security groups for access control. Validate that the modified NACL is associated with
+    subnets where this design pattern is expected and that the change was authorized through
+    a change management process.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 NACL Entry Created or Replaced Allowing All Traffic by New Identity"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 NACL Entry Created or Replaced Allowing All Traffic by New Identity
+
+This rule fires when a NACL entry specifying all ports (0–65535) and all protocols is created or replaced. While NACLs are stateless and secondary to security groups, a permissive NACL entry can neutralize a defense-in-depth layer and may indicate an adversary attempting to ensure unrestricted connectivity for their tools or exfiltration channels.
+
+### Possible investigation steps
+
+- Identify the creating principal (`aws.cloudtrail.user_identity.arn`) and determine whether they are authorized to modify network ACLs.
+- Review `aws.cloudtrail.request_parameters` to identify the NACL ID, rule number, egress/ingress direction, and CIDR block (`0.0.0.0/0` for any-source rules are highest severity).
+- Determine which subnets are associated with the modified NACL and assess the sensitivity of workloads in those subnets.
+- Check for accompanying security group modifications that also expand access.
+- Review VPC flow logs for unusual traffic to or from the affected subnets following the NACL change.
+- Review `event.outcome` — `success` means the permissive entry was applied and the subnet's network-layer controls are weakened now; `failure` means the change was blocked, which from a new identity often indicates credential probing or permission reconnaissance.
+
+### False positive analysis
+
+- Architectures that use NACLs as a stateless passthrough while relying on security groups for granular control may legitimately create permissive NACL entries.
+- Development environments sometimes use open NACLs for convenience.
+
+### Response and remediation
+
+- If unauthorized, immediately delete the permissive NACL entry and replace it with an appropriately restrictive rule.
+- Review VPC flow logs for evidence of network activity that exploited the open rule.
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateNetworkAclEntry.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReplaceNetworkAclEntry.html",
+]
+risk_score = 47
+rule_id = "5d9a3c71-2b84-4e58-f693-1c7f0a4e8b26"
+setup = "The AWS CloudTrail integration must be enabled and configured to collect EC2 management events."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: ("CreateNetworkAclEntry" or "ReplaceNetworkAclEntry")
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and event.outcome: ("success" or "failure")
+    and aws.cloudtrail.flattened.request_parameters.aclProtocol: "-1"
+    and aws.cloudtrail.flattened.request_parameters.ruleAction: "allow"
+    and not user_agent.original: (*Terraform* or *terraform* or "cloudformation.amazonaws.com" or *pulumi* or *Pulumi*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
