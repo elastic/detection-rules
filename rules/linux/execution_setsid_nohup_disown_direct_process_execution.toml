@@ -1,26 +1,27 @@
 [metadata]
 creation_date = "2026/07/30"
-integration = ["endpoint", "crowdstrike", "auditd_manager", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
 updated_date = "2026/07/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-This is a New Terms rule that identifies the first occurrence of setsid or nohup being used to directly execute a process (process.args_count:2) on a host. Attackers may leverage these tools to execute commands in a new session and/or to ignore signals.
+This is a New Terms rule that identifies the first occurrence of setsid or nohup being used to directly
+execute a process on a host. Attackers may leverage these tools to execute commands in a new session
+and/or to ignore signals.
 """
 from = "now-9m"
 index = [
-          "logs-endpoint.events.process*",
-          "logs-sentinel_one_cloud_funnel.*",
-          "logs-crowdstrike.fdr*",
-          "endgame-*",
-          "auditbeat-*",
-          "logs-auditd_manager.auditd-*",
+    "endgame-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
 ]
 language = "kuery"
 license = "Elastic License v2"
-name = "Direct Process Execution via setsid, nohup, or disown"
+name = "Direct Process Execution via Background Utility"
 references = [
   "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
 ]
@@ -60,15 +61,14 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Data Source: Elastic Endgame",
-    "Data Source: Crowdstrike",
-    "Data Source: Auditd Manager",
     "Data Source: SentinelOne",
+    "Data Source: Auditd Manager",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 query = '''
 host.os.type:linux and event.category:process and
-event.action:("exec" or "exec_event" or "executed" or "process_started" or "start" or "ProcessRollup2") and
+event.action:("exec" or "exec_event" or "executed" or "process_started" or "start") and
 process.name:("setsid" or "nohup" or "disown") and process.args_count:2
 '''
 
