@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies MySQL statements that create a user-defined function backed by a shared library. Adversaries with sufficient
+database privileges can place a malicious library in the MySQL plugin directory and register it with `CREATE FUNCTION
+... SONAME`, establishing a database-resident primitive for operating-system command execution.
+"""
+false_positives = [
+    """
+    Database administrators may install approved native MySQL user-defined functions during planned maintenance.
+    Validate the function and library names, the client address, the maintenance window, and whether the shared library
+    was supplied through an approved software deployment process.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.mysql-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "MySQL User-Defined Function Injection"
+note = """## Triage and analysis
+
+### Investigating MySQL User-Defined Function Injection
+
+MySQL can load native user-defined functions from shared libraries. Attackers who obtain the `FILE` privilege and write
+access to the plugin directory can write a malicious `.so` or `.dll`, register it with `CREATE FUNCTION ... SONAME`,
+and invoke operating-system commands as the MySQL service account.
+
+### Possible investigation steps
+
+- Review `client.ip`, `server.ip`, `network.community_id`, `network_traffic.mysql.query`,
+  `network_traffic.mysql.path`, and any response error fields.
+- Extract the function and library names and verify whether they belong to an approved MySQL extension.
+- Search prior queries on the same connection for `INTO DUMPFILE`, `INTO OUTFILE`, `LOAD_FILE`, plugin-directory
+  discovery, or hexadecimal payload construction.
+- On the database host, inspect the MySQL plugin directory for newly created `.so`, `.dll`, or other unexpected files.
+- Correlate with child processes spawned by `mysqld` and with outbound connections from the database host.
+
+### False positive analysis
+
+- Approved native UDF installation is uncommon but legitimate. Confirm the package source and change record.
+- Do not exclude all DBA clients permanently; a compromised DBA workstation can perform the same operation.
+
+### Response and remediation
+
+- Terminate unauthorized database sessions and isolate the database host if command execution is suspected.
+- Remove the malicious function and library only after preserving evidence.
+- Rotate database credentials, review grants containing `FILE`, and restrict writes to the plugin directory.
+"""
+references = [
+    "https://legalhackers.com/advisories/MySQL-Exploit-Remote-Root-Code-Execution-Privesc-CVE-2016-6662.html",
+    "https://attack.mitre.org/techniques/T1505/001/",
+]
+risk_score = 73
+rule_id = "c375532d-069d-41e0-af70-8ca032eb58f5"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the MySQL protocol analyzer enabled and
+cleartext visibility into MySQL query traffic. TLS-encrypted sessions and incomplete or asymmetric capture can hide
+query text. Use MySQL audit logs and endpoint telemetry for authoritative user attribution and proof of library
+creation or command execution.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:network_traffic.mysql and
+(
+  (
+    network_traffic.mysql.query:"*CREATE FUNCTION*" and
+    network_traffic.mysql.query:"*SONAME*"
+  ) or
+  (
+    network_traffic.mysql.query:"*create function*" and
+    network_traffic.mysql.query:"*soname*"
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+[[rule.threat.technique.subtechnique]]
+id = "T1505.001"
+name = "SQL Stored Procedures"
+reference = "https://attack.mitre.org/techniques/T1505/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
