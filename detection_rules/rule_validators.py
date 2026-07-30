@@ -644,7 +644,7 @@ class EQLValidator(QueryValidator):
 
         raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
-    def validate_query_text_with_schema(  # noqa: PLR0913
+    def validate_query_text_with_schema(  # noqa: PLR0913, PLR0917
         self,
         query_text: str,
         schema: ecs.KqlSchema2Eql | endgame.EndgameSchema,
@@ -852,10 +852,15 @@ class ESQLValidator(QueryValidator):
                 misc.get_kibana_client(**resolved_kibana_options) as kibana_client,  # type: ignore[reportUnknownVariableType]
                 misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
             ):
+                query = data.query
+                # QueryRuleData permits None for custom filter-only KQL rules; ES|QL still requires a query.
+                if query is None:
+                    raise ValueError("ES|QL remote validation requires a query.")
+
                 _ = self.remote_validate_rule(
                     kibana_client,
                     elastic_client,
-                    data.query,
+                    query,
                     rule_meta,
                     data.rule_id,
                 )
@@ -873,7 +878,7 @@ class ESQLValidator(QueryValidator):
             verbosity=verbosity,
         )
 
-    def remote_validate_rule(  # noqa: PLR0913
+    def remote_validate_rule(  # noqa: PLR0913, PLR0917
         self,
         kibana_client: Kibana,
         elastic_client: Elasticsearch,

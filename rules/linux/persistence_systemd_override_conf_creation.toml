@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/06/05"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the creation or renaming of a new Systemd override configuration file in any
+of the Systemd service locations for both root and regular users. Systemd override configuration
+files are configuration files in Linux systems used to override the default Systemd service
+configuration for a specific service. Malicious actors can leverage systemd override configuration
+files to achieve persistence by creating or modifying services to execute malicious commands or
+payloads during system startup or at a predefined interval by adding a systemd timer. This allows
+them to maintain unauthorized access, execute additional malicious activities, or evade detection.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Systemd Service Override Configuration File Created"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Systemd Service Override Configuration File Created
+
+This alert fires when a new systemd service override file appears in standard system or user service directories, which can silently change how a service starts and make malicious behavior survive reboots or user logins. An attacker might drop an override for sshd.service or a common daemon to add an ExecStartPre or timer-triggered command that launches a backdoor every boot while leaving the original unit intact.
+
+### Possible investigation steps
+
+- Open the new override and compare it with the base unit and any recent approved change, focusing on directives like ExecStart, ExecStartPre, ExecStartPost, Environment, User, WorkingDirectory, OnCalendar, and WantedBy that could introduce persistence or alter privileges.
+- Trace the creation back to the initiating binary, parent process chain, account, and session context to determine whether it originated from expected package management or configuration automation versus an interactive shell, script, or unknown tool.
+- Review nearby host activity for `systemctl daemon-reload`, `enable`, `start`, `restart`, or timer operations, then verify whether the affected service or timer loaded the override and launched any newly referenced command.
+- Examine any scripts, binaries, environment files, sockets, or network destinations referenced by the override for newly dropped or suspicious content, and hunt for similar override files on the same host and peer systems to assess spread.
+
+### False positive analysis
+
+- A system administrator may legitimately create `/etc/systemd/system/<service>.d/override.conf` during maintenance to change startup order, resource limits, or environment settings for a supported service, so verify a corresponding approved change and confirm the creating process and user session map to expected administrative activity.
+- A user or root account may create a user-level `override.conf` under `~/.config/systemd/user/` or `~/.local/share/systemd/user/` to customize a legitimate per-user service, so confirm the file owner matches the affected account and that any `Exec*` or `Environment` entries reference the expected application path and business use.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while keeping it powered on, preserve the malicious `override.conf`, the base unit file, any referenced scripts or binaries, and the output of `systemctl cat <service>` and `systemctl status <service>` for evidence and scoping.
+- Remove attacker persistence by disabling and stopping the altered service or timer, deleting the malicious drop-in directory or `override.conf`, reversing any added `Exec*`, `Environment`, or `OnCalendar` directives, and running `systemctl daemon-reload` before confirming the unit now matches the approved baseline.
+- Search the host and peer systems for additional drop-ins under `/etc/systemd/system`, `/usr/lib/systemd/system`, and user service paths, then quarantine any newly referenced payloads, kill related processes, and block their hashes or paths in endpoint controls.
+- Restore the system to a known-good state by reinstalling or replacing any modified unit files, scripts, and binaries from trusted packages or backups, rotating credentials and secrets used by the affected service account, and rebuilding the host if integrity cannot be confidently verified.
+- Escalate to incident response immediately if the override modified a high-value service such as `sshd`, a security agent, or a network-facing daemon, if root-level user service paths were abused, or if the same persistence appears on multiple hosts, because these signs indicate broader compromise.
+- Harden the environment by restricting write access to systemd service directories, tightening sudo and configuration-management permissions, enforcing file integrity monitoring on `*.service.d/override.conf`, and alerting on unauthorized `systemctl enable`, `daemon-reload`, and service or timer changes.
+"""
+risk_score = 47
+rule_id = "9e8c185c-8237-4b13-a4da-4a8d4e9bb6ef"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("rename", "creation") and
+file.extension == "conf" and file.path like (
+  "/etc/systemd/system/*.d/*.conf", "/etc/systemd/user/*.d/*.conf", "/usr/local/lib/systemd/system/*.d/*.conf",
+  "/lib/systemd/system/*.d/*.conf", "/usr/lib/systemd/system/*.d/*.conf", "/usr/lib/systemd/user/*.d/*.conf",
+  "/home/*/.config/systemd/user/*.d/*.conf", "/home/*/.local/share/systemd/user/*.d/*.conf",
+  "/root/.config/systemd/user/*.d/*.conf", "/root/.local/share/systemd/user/*.d/*.conf",
+  "/run/systemd/system/*.d/*.conf", "/var/run/systemd/system/*.d/*.conf"
+) and
+not process.executable in (
+  "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
+  "/usr/bin/microdnf", "/bin/rpm", "/usr/bin/rpm", "/bin/snapd", "/usr/bin/snapd", "/bin/yum", "/usr/bin/yum",
+  "/bin/dnf", "/usr/bin/dnf", "/bin/podman", "/usr/bin/podman", "/bin/dnf-automatic", "/usr/bin/dnf-automatic",
+  "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/dnf5",
+  "/usr/bin/apt", "/usr/bin/puppet", "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/pacman",
+  "/usr/bin/chef-client", "/bin/chef-client", "/usr/bin/pamac-daemon", "/bin/pamac-daemon", "/usr/local/bin/dockerd",
+  "/usr/bin/crio", "/usr/bin/podman", "/usr/bin/tdnf", "/usr/bin/apk"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

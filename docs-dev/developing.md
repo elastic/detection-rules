@@ -55,6 +55,14 @@ Using the environment variable `DR_BYPASS_ESQL_METADATA_VALIDATION` will bypass 
 In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of these bypass env vars when config is loaded. You can instead set individual top-level flags (`bypass_note_validation_and_parse`, `bypass_bbr_lookback_validation`, `bypass_tags_validation`, `bypass_timeline_template_validation`, `bypass_esql_keep_validation`, `bypass_esql_metadata_validation`); the bulk flag takes precedence if it is true. See `detection_rules/etc/_config.yaml` for an example.
 
 
+#### Package build environment variables
+
+On package stacks `9.5.0` and newer, generated `related_integrations.version` values use
+`>=` ranges (for example `>=1.0.0`). Older stacks continue to use caret ranges such as
+`^1.0.0`. The `related_integrations_gte` emit transform rewrites any remaining caret values
+to `>=` when emitting for ≥ 9.5 so export, view-rule, and package builds stay consistent.
+
+
 ## Using the `RuleResource` methods built on detections `_bulk_action` APIs
 
 The following is meant to serve as a simple example of to use the methods

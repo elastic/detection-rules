@@ -320,7 +320,7 @@ class KibanaSecurityDocs:
 class IntegrationSecurityDocs:
     """Generate docs for prebuilt rules in Elastic documentation."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         registry_version: str,
         directory: Path,
@@ -841,7 +841,7 @@ class MDX:
 class IntegrationSecurityDocsMDX:
     """Generate docs for prebuilt rules in Elastic documentation using MDX."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         release_version: str,
         directory: Path,

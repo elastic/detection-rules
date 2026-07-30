@@ -2,7 +2,7 @@
 creation_date = "2023/01/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/01"
+updated_date = "2026/07/02"
 
 [rule]
 author = ["Elastic"]
@@ -39,12 +39,14 @@ driver where host.os.type == "windows" and process.pid == 4 and
   /* errorExpired and errorRevoked are handled by d12bac54-ab2a-4159-933f-d7bcefa7b61d */
   not dll.code_signature.status : ("errorExpired", "errorRevoked", "errorCode_endpoint:*") and
   
-  /* HP DOT4 printer driver family FPs (Dot4.sys, Dot4Prt.sys, Dot4usb.sys, Dot4Scan.sys) */
   not dll.hash.sha256 : (
+        /* HP DOT4 printer driver family FPs (Dot4.sys, Dot4Prt.sys, Dot4usb.sys, Dot4Scan.sys) */
         "f21c1d478180bc5e932bb2c2e4618e3ed463ca87acedeb139682d218435f82f1",
         "7e2f2a139e897eae56038b920bda9381094bc0ae9e626f6634e6b444b8b0c91f",
         "12ffdf5f48a79b1b4adbb88ba2cb6c59dd6719554e8ea6beefe99b3e3c66f1ac",
-        "dbc6afaf80141e2480e19878f581edfe9c2b018da2ec527c4025ff04d5587afd"
+        "dbc6afaf80141e2480e19878f581edfe9c2b018da2ec527c4025ff04d5587afd",
+        /* (dc3d.sys, test-signed) */
+        "ca8f9564733ded4c3895cf7150bb254995d66889e6be08d6654e4f897e4ff7a4"
   )
 '''
 

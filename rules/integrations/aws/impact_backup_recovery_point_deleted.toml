@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/06/26"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies deletion of an AWS Backup recovery point via DeleteRecoveryPoint. A recovery point is a stored backup of a
+protected resource (EBS, RDS, DynamoDB, EFS, S3, and others). Deleting recovery points removes the ability to restore
+the associated data and is a core anti-recovery technique used in ransomware and data-destruction attacks to ensure
+victims cannot recover without paying or rebuilding. Routine lifecycle expirations are performed by the AWS Backup
+service itself; deletion by a non-service principal is rare and should be reviewed.
+"""
+false_positives = [
+    """
+    Backup, platform, or infrastructure-as-code teams may delete recovery points during retention cleanup, migration, or
+    decommissioning. Verify the principal in "aws.cloudtrail.user_identity.arn", the affected recovery point and vault
+    in "aws.cloudtrail.request_parameters", and whether the deletion aligns with an approved change. Known
+    administration roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Recovery Point Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Recovery Point Deleted
+
+AWS Backup recovery points are the restorable copies of protected resources. "DeleteRecoveryPoint" permanently removes a recovery point from its vault, eliminating the ability to restore that backup. Adversaries delete recovery points to inhibit recovery after data destruction or encryption, maximizing the impact of ransomware or sabotage. Because scheduled expirations are carried out by the AWS Backup service itself (excluded by this rule), a deletion by a user or role principal is uncommon and high-signal, especially when several recovery points are removed in a short window.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip", "source.as.organization.name", and "user_agent.original" for an unexpected origin.
+- Identify the affected recovery point and vault from "aws.cloudtrail.request_parameters", and determine which resource and data it protected.
+- Determine whether multiple recovery points or vaults were affected in the same window, indicating a broader anti-recovery effort.
+- Correlate with adjacent destructive or evasion activity by the same principal, such as DeleteBackupVault, Vault Lock removal, KMS key deletion, or resource deletions.
+
+### False positive analysis
+
+- Retention cleanup, migration, or decommissioning may delete recovery points. Confirm the deletion is expected and exclude known administration roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If the deletion is unauthorized, treat it as a potential precursor to or part of a destructive attack: preserve remaining backups, enable Vault Lock where possible, and engage incident response.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:DeleteRecoveryPoint" to a small set of trusted administrators via IAM and SCPs.
+
+### Additional information
+
+- [DeleteRecoveryPoint API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteRecoveryPoint.html)
+- [AWS Backup Vault Lock](https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteRecoveryPoint.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html",
+]
+risk_score = 73
+rule_id = "042b35f3-afa6-4441-92b2-ef41976b48a3"
+setup = """This rule requires AWS CloudTrail management events for AWS Backup and ingestion via the Elastic AWS CloudTrail integration. See https://docs.elastic.co/integrations/aws/cloudtrail."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: "DeleteRecoveryPoint"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

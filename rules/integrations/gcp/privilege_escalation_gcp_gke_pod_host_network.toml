@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GKE pod create, update, or patch events that enable host network namespace sharing. HostNetwork grants access to
+the node network stack and can bypass namespace network policies. System identities and controller-owned workloads are
+excluded.
+"""
+false_positives = [
+    """
+    Monitoring agents and CNI components may require hostNetwork. Exclude known platform identities after review.
+    """,
+]
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Pod Created With HostNetwork"
+note = """## Triage and analysis
+
+### Investigating GKE Pod Created With HostNetwork
+
+HostNetwork pods can observe or interact with node-local services. Validate the actor and workload purpose.
+
+### Investigation steps
+
+- Review `user.email`, pod name, namespace, and container images in `gcp.audit.request`.
+- Hunt for secret access or exec from the same identity after the change.
+
+### False positives
+
+- Platform DaemonSets often use hostNetwork; controller ownerReferences exclusion reduces noise.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/concepts/security/pod-security-standards/",
+    "https://bishopfox.com/blog/kubernetes-pod-privilege-escalation",
+]
+risk_score = 47
+rule_id = "0030f681-0142-4231-b728-49bb9fc12066"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and
+event.action:("io.k8s.core.v1.pods.create" or "io.k8s.core.v1.pods.update" or "io.k8s.core.v1.pods.patch") and
+gcp.audit.request.spec.hostNetwork:true and
+not gcp.audit.request.metadata.ownerReferences.kind:("ReplicaSet" or "DaemonSet" or "StatefulSet") and
+not user.email:system\:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

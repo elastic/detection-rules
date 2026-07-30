@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/07/01"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/07/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies potential SQL injection attempts against Microsoft SQL Server by detecting obfuscated T-SQL patterns in SQL
+Server Audit events. Attackers use CHAR concatenation, CONVERT-based subqueries, and CASE/UNION constructs to bypass
+input validation and extract data or execute unauthorized statements.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential SQL Injection Against Microsoft SQL Server"
+references = [
+    "https://learn.microsoft.com/en-us/sql/relational-databases/security/auditing/sql-server-audit-action-groups-and-actions",
+    "https://owasp.org/www-community/attacks/SQL_Injection",
+]
+risk_score = 73
+rule_id = "e5d219fd-8362-4b67-a0b8-e3dd4331acdd"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Windows Application Event Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-system.application-*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
+| where host.os.type == "windows" and winlog.provider_name like "MSSQL*" and event.code == "33205"
+| EVAL message_upper = TO_UPPER(message)
+| where (
+    message_upper RLIKE ".*CONVERT\\(INT,\\(SELECT (CHAR\\(\\d{1,3}\\)\\+){3,}.*" or 
+    message_upper RLIKE ".*(CHAR\\(\\d{1,3}\\)\\+){3,}CHAR\\(\\d{1,3}\\).*" or 
+    message_upper RLIKE ".*CASE WHEN \\(\\d+=\\d+\\).*UNION SELECT \\d+.*" or
+    message_upper RLIKE ".*WAITFOR DELAY \\'0:0:\\d+\\'.*" or
+    message_upper RLIKE ".*;\\s*(EXEC|EXECUTE)\\s*\\(?\\s*(MASTER\\.)?\\.?XP_CMDSHELL.*" or
+    message_upper RLIKE ".*UNION SELECT (NULL\\s*,\\s*){2,}NULL.*" or
+    message_upper RLIKE ".*'\\w*'\\s*\\+\\s*\\(\\(SELECT @@VERSION\\)\\)\\s*\\+\\s*'\\w*'.*" or
+    message_upper RLIKE ".*(OR|AND)\\s+'?\\d+'?\\s*=\\s*'?\\d+'?\\s*--.*"
+  )
+| eval Esql.original_message = message
+| keep
+    @timestamp,
+    host.id,
+    host.name,
+    host.ip,
+    winlog.computer_name,
+    message,
+    event.outcome,
+    Esql.original_message,
+    _id,
+    _version,
+    _index,
+    data_stream.namespace
+    
+| limit 10
+'''
+
+note = """## Triage and analysis
+
+### Investigating Potential SQL Injection Against Microsoft SQL Server
+
+Microsoft SQL Server can write audit records to the Windows Application log as event ID 33205 when SQL Server Audit is
+enabled. Adversaries exploit SQL injection vulnerabilities in applications that query SQL Server, often using obfuscated
+T-SQL such as CHAR concatenation or UNION-based payloads to evade simple signature checks.
+
+#### Possible investigation steps
+
+- Review `Esql.original_message` and `message` for the full audited statement, including the application name, client
+  address, database, and object targeted by the query.
+- Identify the source application or service account associated with the audited session and determine whether it should
+  execute dynamic or user-supplied SQL against the affected database.
+- Correlate with web server, application, or proxy logs around `@timestamp` to identify the HTTP request or client that
+  delivered the malicious input.
+- Check for additional SQL Server Audit events (33205) from the same `host.id` or client address before and after the
+  alert for follow-on statements such as xp_cmdshell, credential access, or data exfiltration.
+- Investigate other alerts on `host.id` during the past 48 hours for signs of post-exploitation or lateral movement.
+
+### False positive analysis
+
+- Security scanners, penetration tests, or authorized application vulnerability assessments may generate matching audit
+  events. Confirm the activity aligns with an approved test window, source address, and application before closing as
+  benign.
+- Custom applications that legitimately build dynamic SQL using CHAR concatenation are uncommon but possible. Review the
+  full statement context and application owner before adding exceptions.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- If exploitation is confirmed, isolate the affected SQL Server or application tier, block the source IP at the
+  perimeter, and preserve SQL Server Audit and application logs for forensic analysis.
+- Patch or remediate the vulnerable application code path that allowed unsanitized input to reach SQL Server.
+- Review SQL Server permissions for the compromised application account and restrict access to only required databases
+  and objects.
+- Ensure SQL Server is not directly exposed to the internet and that SQL Server Audit remains enabled with appropriate
+  retention.
+"""
+
+setup = """## Setup
+
+SQL Server Audit must be configured to write audit events to the Windows Application log so that event ID 33205 is
+generated by the MSSQLSERVER provider (or MSSQL$<instance> for named instances).
+
+Setup instructions: https://learn.microsoft.com/en-us/sql/relational-databases/security/auditing/create-a-server-audit-and-server-audit-specification
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "host.ip",
+    "winlog.computer_name",
+    "message",
+    "event.outcome",
+    "Esql.original_message",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

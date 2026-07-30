@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/30"
+updated_date = "2026/06/04"
 
 [rule]
 author = ["Elastic"]
@@ -124,7 +124,36 @@ process.name : ("curl", "curl.exe") and
   process.command_line like ("*http:*", "*https:*", "*ftp:*", "*ftps:*") or
   process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}.*"
 ) and 
-not process.args : ("https://*/ap/fleet/*", "https://*/api/saved_objects/*", "http*localhost:*", "http*127.0.0.*", "*ApiKey*", "http*.us-central1.run.app/*", "*Authorization*", "*session.id*", "http*.elastic-cloud.com*", "http*.elastic.dev*", "http*.elastic.cloud*", "http*.aws.found.io*", "http*.gcp.cloud.es.io*", "http*.cisco.com/api/*", "-u", "http://192.168*")
+not (
+  process.args : (
+    "https://*/ap/fleet/*", "https://*/api/saved_objects/*", "http*localhost:*", "http*127.0.0.*", "*ApiKey*", "http*.us-central1.run.app/*",
+    "*Authorization*", "*session.id*", "http*.elastic-cloud.com*", "http*.elastic.dev*", "http*.elastic.cloud*", "http*.aws.found.io*",
+    "http*.gcp.cloud.es.io*", "http*.cisco.com/api/*", "-u", "http://192.168*"
+  ) or
+  process.parent.executable in ("/usr/bin/clevis-decrypt-tang", "/bin/clevis-decrypt-tang") or
+  (
+    process.working_directory == "/home/oracle" and
+    process.args == "--trace" and
+    process.parent.executable like "/home/oracle/retina/vvaa-*-oracle/app/*.sh"
+  ) or
+  (
+    process.working_directory == "/home/service/common/system.check" and
+    process.parent.command_line == "/bin/bash ./check.sh"
+  ) or
+  (
+    process.parent.executable == "C:\\Windows\\SysWOW64\\cmd.exe" and
+    process.parent.args like "?:\\*\\temp-app\\caller_batch_*.bat"
+  ) or
+  (
+    process.parent.executable == "/opt/rudder/share/commands/agent-run" and
+    process.parent.command_line == "/bin/sh /opt/rudder/share/commands/agent-run -uRN" and
+    process.args like "/var/rudder/reports/ready/*"
+  ) or
+  (
+    process.parent.executable like "/var/lib/docker/overlay2/*/merged/usr/bin/bash" and
+    process.parent.command_line like "bash /home/*/old/scripts/crawler.sh start"
+  )
+)
 '''
 
 [[rule.threat]]

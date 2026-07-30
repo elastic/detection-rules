@@ -2,7 +2,7 @@
 creation_date = "2023/02/13"
 integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/17"
 
 [transform]
 [[transform.osquery]]
@@ -55,7 +55,7 @@ This rule identifies the usages of `usermod`, `adduser` and `gpasswd` to assign 
 
 #### Possible investigation steps
 
-- Investigate whether the user was succesfully added to the privileged group.
+- Investigate whether the user was successfully added to the privileged group.
   - $osquery_0
 - Investigate whether the user is currently logged in and active.
   - $osquery_1
@@ -137,6 +137,16 @@ process.executable != null and process.args in (
 (
   process.name in ("usermod", "adduser") or
   (process.name == "gpasswd" and process.args in ("-a", "--add", "-M", "--members"))
+) and
+not (
+  ?process.parent.executable like (
+    "/usr/lib/google/guest_agent/core_plugin", "/usr/libexec/platform-python*", "/usr/lib/google/guest_agent/GuestAgentCorePlugin/core_plugin",
+    "/usr/bin/google_guest_agent"
+  ) or
+  (
+    ?process.entry_leader.executable == "/usr/lib/venv-salt-minion/bin/python.original" and
+    ?process.entry_leader.args == "/usr/lib/venv-salt-minion/bin/salt-minion"
+  )
 )
 '''
 

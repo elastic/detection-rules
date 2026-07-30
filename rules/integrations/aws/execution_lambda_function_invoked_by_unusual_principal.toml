@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time within the prior 14 days that a principal directly invokes an AWS Lambda function in an
+account, excluding invocations made on behalf of AWS services (normal event-source triggers). Adversaries who compromise
+credentials or move laterally may directly invoke functions to execute code, retrieve data returned by a function, or
+abuse an over-permissioned execution role. Direct, ad hoc invocation by a principal that does not normally call Lambda
+deviates from the usual event-driven invocation pattern and is worth reviewing. This rule relies on AWS Lambda data
+event logging, which is not enabled by default.
+"""
+false_positives = [
+    """
+    Developers, operators, and CI/CD or automation identities legitimately invoke functions directly for testing,
+    operations, and deployments. New automation roles or first-time operators will generate this alert. Verify the
+    principal in `aws.cloudtrail.user_identity.arn`, the function, and the source before treating it as malicious, and
+    exclude known operational identities after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Function Invoked by an Unusual Principal"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function Invoked by an Unusual Principal
+
+Most Lambda invocations are driven by event sources (S3, EventBridge, SQS, API Gateway, etc.), which CloudTrail records with `aws.cloudtrail.user_identity.invoked_by` set to the calling service. A principal invoking a function **directly** (via the SDK, CLI, or console) is comparatively rare and, when it comes from an identity that does not normally do so, can indicate lateral movement, credential abuse, or data retrieval from a function. This rule uses a new terms approach to surface the first time a given principal directly invokes a function in an account within the prior 14 days.
+
+### Possible investigation steps
+
+- Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and `aws.cloudtrail.user_identity.access_key_id` to identify the actor, and `source.ip` / `user_agent.original` to determine how the call was made.
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and sensitivity.
+- Determine whether the principal is expected to invoke functions directly and whether the activity aligns with an approved operation, test, or deployment.
+- Correlate with recent activity by the same principal or access key, such as credential issuance, role assumption, or other data-plane access, and check whether the credential was recently seen from an unusual source.
+
+### False positive analysis
+
+- Direct invocation is a normal operational and testing activity. Confirm whether the principal is a known operator or automation identity and exclude it on `aws.cloudtrail.user_identity.arn` after validation.
+
+### Response and remediation
+
+- If the invocation is unauthorized, review what the function returns and accesses, and assess data exposure.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:InvokeFunction` to the identities and services that require it.
+
+### Additional information
+
+- [Invoke API](https://docs.aws.amazon.com/lambda/latest/api/API_Invoke.html)
+- [Logging Lambda data events with CloudTrail](https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/api/API_Invoke.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html",
+]
+risk_score = 47
+rule_id = "07cd35a6-c267-4394-a782-6a9428aea9d3"
+setup = """## Setup
+
+This rule requires AWS Lambda data events to be logged in CloudTrail and ingested via the AWS integration
+(`aws.cloudtrail` data stream). Lambda invocation (`Invoke`) is a data-plane event and is NOT logged by default; enable
+data event logging for Lambda functions in the trail (optionally scoped to sensitive functions to manage volume).
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: Invoke*
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.invoked_by: *
+    and aws.cloudtrail.user_identity.arn: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

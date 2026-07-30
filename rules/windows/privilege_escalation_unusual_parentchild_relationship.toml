@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/06"
 
 [transform]
 [[transform.osquery]]
@@ -146,7 +146,7 @@ type = "eql"
 
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
-process.parent.name != null and
+process.parent.name != null and process.parent.executable like ("?:\\*", "\\Device\\*") and
  (
    /* suspicious parent processes */
    (process.name:"autochk.exe" and not process.parent.name:"smss.exe") or
@@ -169,11 +169,12 @@ process.parent.name != null and
    (process.name:"userinit.exe" and not process.parent.name:("dwm.exe", "winlogon.exe", "KUsrInit.exe")) or
    (process.name:("wmiprvse.exe", "wsmprovhost.exe", "winrshost.exe") and not process.parent.name:"svchost.exe") or
    /* suspicious child processes */
-   (process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe", "conhost.exe", "ngentask.exe")) or
+   (process.parent.name:("SearchProtocolHost.exe", "taskhost.exe", "csrss.exe") and not process.name:("werfault.exe", "wermgr.exe", "WerFaultSecure.exe", "conhost.exe", "ngentask.exe", "SearchProtocolHost.exe")) or
    (process.parent.name:"autochk.exe" and not process.name:("chkdsk.exe", "doskey.exe", "WerFault.exe")) or
    (process.parent.name:"smss.exe" and not process.name:("autochk.exe", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "setupcl.exe", "WerFault.exe", "wpbbin.exe", "PvsVmBoot.exe", "SophosNA.exe", "omnissa-ic-nga.exe", "icarus_rvrt.exe", "poqexec.exe")) or
-   (process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe")) or
-   (process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe"))
+   (process.parent.name:"wermgr.exe" and not process.name:("WerFaultSecure.exe", "wermgr.exe", "WerFault.exe") and
+     not (process.name:"rundll32.exe" and process.command_line : "*WerConCpl.dll*LaunchErcApp*")) or
+   (process.parent.name:"conhost.exe" and not process.name:("mscorsvw.exe", "wermgr.exe", "WerFault.exe", "WerFaultSecure.exe", "conhost.exe"))
   )
 '''
 

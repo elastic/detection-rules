@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an IAM user that successfully signs in to the AWS Management Console from two or more distinct countries
+within a short window. A single user authenticating from multiple geographic locations in a brief period is physically
+implausible and indicates that the account's credentials or console session are being used from more than one place at
+once. This is a hallmark of adversary-in-the-middle (AiTM) phishing and session theft, where the legitimate user signs
+in from their location while the attacker replays the captured session or credentials from their own infrastructure.
+Because the attacker logs in from a different network, the divergent sign-in geolocations are the detectable signal even
+when MFA appears satisfied (AiTM relays the live MFA challenge). This is the CloudTrail-native analog of
+identity-provider impossible-travel sign-in detections.
+"""
+false_positives = [
+    """
+    Legitimate users may appear in multiple countries within the window when using VPNs or proxies with exit nodes in
+    different countries, when traveling near borders, or when mobile networks geolocate to different countries. Verify
+    the source IPs and ASNs in "Esql.source_ip_values", confirm whether the locations are consistent with the user's
+    expected activity, and exclude known VPN egress patterns after validation. Shared IAM users (an anti-pattern) used
+    by multiple people will also match.
+    """,
+]
+from = "now-65m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM User Console Login from Multiple Geolocations"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Console Login from Multiple Geolocations
+
+This rule aggregates successful "ConsoleLogin" events for each IAM user over the lookback window and alerts when the logins originate from two or more distinct countries. Concurrent sign-ins from different geographies indicate the credentials or console session are in use from more than one location, a strong signal of adversary-in-the-middle (AiTM) phishing or session theft. AiTM relays the victim's live MFA, so the console login records MFA as used; the divergent geolocations, not the MFA field, are the indicator.
+
+### Possible investigation steps
+
+- Review "Esql.source_geo_country_iso_code_values" and "Esql.source_ip_values" to identify the locations and networks, and determine which (if any) is the user's expected origin.
+- Compare "Esql.timestamp_min" and "Esql.timestamp_max" to assess how implausible the travel is.
+- Identify the user in "aws.cloudtrail.user_identity.arn" and check for hands-on-keyboard activity immediately after the logins (CreateAccessKey, login profile or MFA changes, IAM policy changes, data access).
+- Determine whether any of the source networks are VPNs, proxies, or hosting providers inconsistent with the user.
+
+### False positive analysis
+
+- VPN/proxy exit nodes, border travel, and mobile roaming can place a legitimate user in multiple countries. Confirm the activity is expected and exclude known networks after validation. Shared IAM users will also trigger this and should be remediated.
+
+### Response and remediation
+
+- If unauthorized, revoke the user's console sessions, reset the password and MFA, and rotate access keys.
+- Review and revert changes made during the sessions, and migrate console access to IAM Identity Center with phishing-resistant MFA (FIDO2/passkeys), which defeats AiTM relay.
+
+### Additional information
+
+- [AWS sign-in CloudTrail events](https://docs.aws.amazon.com/IAM/latest/UserGuide/cloudtrail-integration.html)
+"""
+references = ["https://securitylabs.datadoghq.com/articles/behind-the-console-aws-aitm-phishing-kit-and-beyond/"]
+risk_score = 47
+rule_id = "5301ac83-7a43-4c92-95e7-c372afea807d"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Sign-In",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE event.provider == "signin.amazonaws.com"
+  AND event.action == "ConsoleLogin"
+  AND event.outcome == "success"
+  AND aws.cloudtrail.user_identity.type == "IAMUser"
+  AND source.geo.country_iso_code IS NOT NULL
+| STATS
+    Esql.source_geo_country_iso_code_count_distinct = COUNT_DISTINCT(source.geo.country_iso_code),
+    Esql.source_as_organization_name_count_distinct = COUNT_DISTINCT(source.as.organization.name),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.source_geo_country_iso_code_values = VALUES(source.geo.country_iso_code),
+    Esql.timestamp_min = MIN(@timestamp),
+    Esql.timestamp_max = MAX(@timestamp)
+  BY aws.cloudtrail.user_identity.arn, cloud.account.id
+| WHERE Esql.source_geo_country_iso_code_count_distinct >= 2
+| KEEP aws.cloudtrail.user_identity.arn, cloud.account.id, Esql.source_geo_country_iso_code_count_distinct, Esql.source_as_organization_name_count_distinct, Esql.source_ip_values, Esql.source_geo_country_iso_code_values, Esql.timestamp_min, Esql.timestamp_max
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+

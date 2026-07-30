@@ -2,7 +2,7 @@
 creation_date = "2023/01/12"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/06/05"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ Windows Subsystem for Linux (WSL) allows users to run a Linux environment direct
 ### Possible investigation steps
 
 - Review the process details for the "dllhost.exe" instance that triggered the alert, focusing on the command line arguments to confirm the presence of the Plan9FileSystem CLSID "{DFB65C4C-B34F-435D-AFE9-A86218684AA8}".
-- Examine the file paths involved in the alert to determine if any sensitive or critical files were accessed or modified outside of typical user directories, excluding the Downloads folder.
+- Examine the file paths involved in the alert to determine if any sensitive or critical files were accessed or modified outside of typical user directories.
 - Investigate the parent process of "dllhost.exe" to understand the context of its execution and identify any potentially malicious parent processes.
 - Check the timeline of events leading up to and following the alert to identify any other suspicious activities or related alerts that may indicate a broader attack pattern.
 - Correlate the alert with user activity logs to determine if the actions were performed by a legitimate user or if there are signs of compromised credentials or unauthorized access.
@@ -55,7 +55,10 @@ Windows Subsystem for Linux (WSL) allows users to run a Linux environment direct
 - Update and patch the Windows Subsystem for Linux and related components to mitigate any known vulnerabilities that could be exploited.
 - Monitor for any recurrence of similar activities by setting up alerts for processes and file operations involving "dllhost.exe" and the Plan9FileSystem.
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
-references = ["https://github.com/microsoft/WSL"]
+references = [
+  "https://github.com/microsoft/WSL",
+  "https://detect.fyi/the-interesting-case-of-wsl-for-payload-staging-bfaa0f69329a",
+]
 risk_score = 47
 rule_id = "e88d1fe9-b2f4-48d4-bace-a026dc745d4b"
 severity = "medium"
@@ -80,9 +83,7 @@ sequence by process.entity_id with maxspan=5m
   /* Plan9FileSystem CLSID - WSL Host File System Worker */
  process.command_line : "*{DFB65C4C-B34F-435D-AFE9-A86218684AA8}*"]
 [file where host.os.type == "windows" and process.name : "dllhost.exe" and
-  not file.path : (
-        "?:\\Users\\*\\Downloads\\*",
-        "?:\\Windows\\Prefetch\\DLLHOST.exe-????????.pf")]
+  not file.path : "?:\\Windows\\Prefetch\\DLLHOST.exe-????????.pf"]
 '''
 
 setup = """## Setup

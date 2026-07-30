@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["network_traffic", "zeek", "suricata"]
+maturity = "production"
+updated_date = "2026/06/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a POST to the Splunk Enterprise PostgreSQL backup endpoint followed by a POST to the restore endpoint from the
+same client to the same host within a 15-minute window. This sequence is unusual and can align with the public
+CVE-2026-20253 pre-authentication RCE chain, where an attacker stages a database dump via the backup path and executes
+attacker-controlled SQL via the restore path.
+"""
+false_positives = [
+    """
+    Legitimate PostgreSQL recovery operations performed by Splunk administrators through the backup and restore API.
+    These should be rare and originate from known management networks. If such operations occur in your environment,
+    scope exceptions by source IP or approved management network rather than suppressing the rule entirely.
+    """,
+]
+from = "now-19m"
+language = "esql"
+license = "Elastic License v2"
+max_signals = 5
+name = "Splunk Enterprise PostgreSQL Backup-to-Restore Potential RCE Sequence"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Splunk Enterprise PostgreSQL Backup-to-Restore Potential RCE Sequence
+
+This rule fires when the same source IP sends a POST to both the `/backup` and `/restore` recovery
+endpoints on the same Splunk host within 15 minutes. This two-step sequence is unusual and aligns with
+the watchTowr CVE-2026-20253 RCE chain: the backup request can place an attacker-controlled
+PostgreSQL dump on the Splunk filesystem (using `backupFile` path traversal or absolute path
+injection), and the restore request can load that dump and execute attacker-controlled SQL through the
+local PostgreSQL instance. A backup-plus-restore pair from an unrecognized source IP on a production
+Splunk host should be investigated as potential exploitation.
+
+### Possible investigation steps
+
+- Review `http.response.status_code` for both requests. A `400` on the backup step indicates the
+  sidecar handler was reached (the request parsed but failed), consistent with a vulnerable host.
+- Check whether the backup request body (if captured by a WAF or proxy) contains `hostaddr=`,
+  `host=`, or `passfile=` in the `database` field, or path traversal (`../`) or absolute paths
+  in the `backupFile` field. These are the connection-string injection and file-placement artifacts
+  specific to this exploit chain.
+- Correlate with host telemetry on the Splunk server: look for new or modified files under
+  `/opt/splunk/etc/apps/`, `/opt/splunk/var/packages/`, or `/tmp/` around the time of the requests.
+- Check for Splunk process execution of `pg_dump` or `pg_restore` with unusual arguments,
+  particularly connection strings containing external hostnames or IP addresses.
+- Check for outbound network connections from the Splunk host to external PostgreSQL services
+  (port 5432 or similar) following the backup request — this indicates successful connection-string
+  injection causing the server to pivot to an attacker-controlled database.
+- Verify whether the target Splunk host is running an affected version (10.0.0–10.0.6 or
+  10.2.0–10.2.3). Splunk Enterprise 10.4 and Splunk Cloud are not affected.
+
+### False positive analysis
+
+- Authorized administrative recovery operations using the sidecar API. These should originate from
+  known management IPs; create exceptions for approved management network ranges.
+- Red-team or vulnerability management tooling that runs a full backup-to-restore probe as part of
+  a CVE-2026-20253 exposure check.
+
+### Response and remediation
+
+- Treat a confirmed backup-and-restore sequence from an unrecognized source as active exploitation.
+  Isolate the Splunk host from the network immediately and preserve forensic state.
+- Examine the Splunk host for new or modified files, scheduled tasks, and PostgreSQL extension
+  objects that may have been placed by the restore step.
+- Patch Splunk Enterprise to an unaffected version (SVD-2026-0603). There is no vendor-provided
+  workaround; patching is the only mitigation.
+- Block Splunk Web port (default 8000) at the perimeter and restrict access to management networks
+  while patching is in progress.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-20253",
+    "https://advisory.splunk.com/advisories/SVD-2026-0603",
+    "https://labs.watchtowr.com/why-use-app-level-auth-when-every-database-has-auth-splunk-enterprise-cve-2026-20253-pre-auth-rce/",
+    "https://attack.mitre.org/techniques/T1190/",
+]
+risk_score = 47
+rule_id = "7c7d2a89-b7e9-4e8d-bbf2-5a782fdcc803"
+setup = """## Setup
+
+This rule requires HTTP request metadata with `url.path` and `http.request.method` populated from
+one of the following sources visible to the sensor without TLS decryption:
+- Zeek (`logs-zeek.http*`) where Splunk Web traffic is cleartext or the sensor is downstream of TLS
+  termination.
+- Suricata (`logs-suricata.eve*`) in the same deployment conditions
+- Elastic Agent `network_traffic` integration (`logs-network_traffic.http*`) with HTTP parsing enabled
+
+Splunk Web listens on TCP port 8000 by default (`web.conf` `httpport`), which is included in the
+default Network Packet Capture/Packetbeat HTTP port list. Add any custom Splunk Web `httpport` value
+to the HTTP protocol configuration. Splunk's management service defaults to TCP port 8089
+(`mgmtHostPort`) and commonly uses TLS; add 8089 only if management/API traffic is directly exposed or
+visible to the sensor after decryption. If the PostgreSQL sidecar is directly exposed or monitored
+locally on TCP port 5435, add port 5435 as an HTTP port as well. Zeek and Suricata can identify
+plaintext HTTP on non-standard ports through protocol detection when their HTTP analyzers are enabled.
+For TLS deployments, the sensor must observe decrypted HTTP, sit downstream of TLS termination, or use
+proxy or load balancer logs that expose the HTTP path, method, and status code.
+
+The rule uses a 19-minute lookback and verifies that the first and last matching recovery events are
+no more than 15 minutes apart. Ensure `event.ingested` is populated and `timestamp_override` is set.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Zeek",
+    "Data Source: Suricata",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.http*, logs-zeek.http*, logs-suricata.eve*
+| where http.request.method == "POST"
+  and (
+    url.path like "*splunkd/__raw/v1/postgres/recovery/*" or
+    url.path like "/v1/postgres/recovery/*"
+  )
+| eval Esql.is_backup = case(url.path like "*/backup", 1, 0)
+| eval Esql.is_restore = case(url.path like "*/restore", 1, 0)
+| stats
+    Esql.backup_count = SUM(Esql.is_backup),
+    Esql.restore_count = SUM(Esql.is_restore),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.statuses = VALUES(http.response.status_code)
+  by source.ip, destination.ip
+| eval Esql.duration_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
+| where Esql.backup_count >= 1 and Esql.restore_count >= 1
+  and Esql.duration_minutes <= 15
+| keep source.ip, destination.ip, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+

@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/06/10"
+integration = ["corelight", "network_traffic", "panw", "pfsense", "zeek"]
+maturity = "production"
+updated_date = "2026/06/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects network events that may indicate inbound Windows file sharing (SMB or CIFS) traffic originating from
+the Internet. SMB should never be directly reachable from the Internet, as it is a primary target for exploitation by
+threat actors seeking initial access. Inbound SMB from a public IP is a direct precondition for attacks such as
+EternalBlue (MS17-010) and related SMB remote code execution vulnerabilities.
+"""
+from = "now-9m"
+index = ["logs-corelight.*", "logs-network_traffic.*", "logs-panw.panos*", "logs-pfsense.log-*", "logs-zeek.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "SMB (Windows File Sharing) Activity from the Internet"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SMB (Windows File Sharing) Activity from the Internet
+
+Inbound SMB from a public IP is one of the highest-signal perimeter events observable at a network boundary. SMB (ports 139/445) should never be reachable from the Internet. When it is, it is almost always either a deliberate exposure (misconfiguration) or active exploitation, both of which warrant investigation. Classic attacks in this category include EternalBlue (MS17-010), WannaCry, NotPetya, and subsequent SMB RCE chains.
+
+This rule uses `new_terms` to suppress repeat scans from the same source, surfacing only the first time each external IP reaches an internal host on SMB ports.
+
+### Possible investigation steps
+
+- Identify the destination IP. Determine whether this host has a legitimate reason to expose SMB to the Internet (nearly always: no). Check whether the port was reachable externally due to a misconfigured NAT rule or security group.
+- Review firewall allow/deny context alongside the alert. If the session was blocked, the immediate risk is lower, but the exposure is still worth addressing.
+- Check the source IP against threat intelligence. Mass-Internet SMB scanning is common and source IPs are frequently tracked in public feeds.
+- Correlate with endpoint telemetry on the destination host: look for process creation events, new services, or lateral movement activity that might indicate exploitation succeeded.
+- Review patch status of the destination host for MS17-010 and subsequent SMB vulnerabilities.
+- Check whether this external IP has been seen targeting other internal hosts or ports in the same timeframe, which would indicate a broader scan or intrusion campaign.
+
+### False positive analysis
+
+- Hosts with public IPs that explicitly expose SMB (rare, but occurs in some lab or legacy setups): this is the intended detection; the exposure is itself the finding. Add a per-host exception only after confirming the exposure is authorized and risk-accepted.
+- Site-to-site VPN or MPLS setups where a remote office segment routes through a public IP and appears as an external source: confirm with network architecture and add the IP range to the exclusion list if legitimate.
+
+### Response and remediation
+
+- If the destination host is reachable from the Internet on port 139 or 445, immediately close the exposure at the firewall or security group level. This is the single most impactful remediation step.
+- Isolate the destination host if any signs of compromise exist (unexpected processes, new scheduled tasks, lateral movement alerts).
+- Patch the host for MS17-010 and related SMB vulnerabilities if not already current.
+- Audit NAT and firewall rules to ensure no other hosts have inadvertent Internet-facing SMB exposure.
+- Review the pfSense / network perimeter ruleset to confirm that inbound TCP 139/445 is explicitly denied at the border.
+
+## Setup
+
+This rule requires network flow or firewall log data that captures inbound TCP connections with 5-tuple information (source IP, destination IP, destination port). Compatible data sources include:
+
+- **Elastic Network Traffic** integration (Packetbeat)
+- **Corelight** integration (network and SMB telemetry)
+- **PAN-OS** integration (Palo Alto Networks firewall logs)
+- **pfSense** integration (syslog-based firewall flow logs; requires pfSense syslog forwarding enabled)
+- **Zeek** integration (SMB-specific log types: `smb_cmd`, `smb_files`, `smb_mapping`)
+
+For pfSense, ensure the firewall logging rules are configured to log connection events and that the Elastic pfSense integration is forwarding logs to the `logs-pfsense.log-*` data stream."""
+references = [
+    "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml",
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2017-0144",
+]
+risk_score = 73
+rule_id = "0ffc3d78-44ce-4a55-b2be-98219e0eed05"
+severity = "high"
+tags = [
+    "Tactic: Initial Access",
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Data Source: Corelight",
+    "Data Source: PAN-OS",
+    "Data Source: Network Traffic",
+    "Data Source: pfSense",
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+(data_stream.dataset:(network_traffic.flow or zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping or pfsense.log) or event.category:(network or network_traffic))
+  and network.transport:tcp and destination.port:(139 or 445)
+  and destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+  and not source.ip:(
+    10.0.0.0/8
+    or 100.64.0.0/10
+    or 127.0.0.0/8
+    or 169.254.0.0/16
+    or 172.16.0.0/12
+    or 192.0.0.0/24
+    or 192.0.0.0/29
+    or 192.0.0.10/32
+    or 192.0.0.170/32
+    or 192.0.0.171/32
+    or 192.0.0.8/32
+    or 192.0.0.9/32
+    or 192.0.2.0/24
+    or 192.168.0.0/16
+    or 192.175.48.0/24
+    or 192.31.196.0/24
+    or 192.52.193.0/24
+    or 192.88.99.0/24
+    or 198.18.0.0/15
+    or 198.51.100.0/24
+    or 203.0.113.0/24
+    or 224.0.0.0/4
+    or 240.0.0.0/4
+    or "::1"
+    or "FE80::/10"
+    or "FF00::/8"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+
