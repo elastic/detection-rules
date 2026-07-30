@@ -4,12 +4,12 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects when an interactive process creates a file inside of a system binary location, inside of a running
+This rule detects when a process creates a file inside of a system binary location, inside of a running
 container. The system binary locations are /etc, /root, /bin, /usr/bin, /usr/local/bin, and /entrypoint. Adversaries
 may use these locations to create files that can be used to execute commands on the underlying host, or to evade
 detection by security controls.
@@ -27,7 +27,7 @@ note = """## Triage and analysis
 
 ### Investigating System Path File Creation and Execution Detected via Defend for Containers
 
-This detects an interactive session in a running Linux container creating new files under system binary paths like /etc, /root, /bin, /usr/bin, /usr/local/bin, or /entrypoint, which often signals an attempt to tamper with execution flow or hide tooling. Attackers commonly gain a shell, then use curl/wget (or a busybox variant) from a writable staging area to drop a new executable into /usr/local/bin or overwrite an entrypoint script to ensure their code runs on start.
+This detects activity in a running Linux container creating new files under system binary paths like /etc, /root, /bin, /usr/bin, /usr/local/bin, or /entrypoint, which often signals an attempt to tamper with execution flow or hide tooling. Attackers commonly gain a shell, then use curl/wget (or a busybox variant) from a writable staging area to drop a new executable into /usr/local/bin or overwrite an entrypoint script to ensure their code runs on start.
 
 ### Possible investigation steps
 
@@ -65,7 +65,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-file where host.os.type == "linux" and event.type == "creation" and process.interactive == true and
+file where host.os.type == "linux" and event.type == "creation" and
 file.path like (
   "/etc/*", "/root/*", "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/entrypoint*"
 ) and (
