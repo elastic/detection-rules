@@ -59,7 +59,7 @@ references = [
     "https://www.postgresql.org/docs/current/sql-copy.html",
     "https://www.aquasec.com/blog/pg_mem-a-malware-hidden-in-the-postgres-processes/",
     "https://www.wiz.io/blog/postgresql-cryptomining",
-    "https://attack.mitre.org/techniques/T1059/004/",
+    "https://attack.mitre.org/techniques/T1059/",
 ]
 risk_score = 73
 rule_id = "8ab64631-17ee-46b9-9800-9acacbeee1b3"
@@ -84,16 +84,7 @@ type = "query"
 
 query = '''
 data_stream.dataset:network_traffic.pgsql and
-(
-  (
-    network_traffic.pgsql.query:*COPY* and
-    network_traffic.pgsql.query:*PROGRAM*
-  ) or
-  (
-    network_traffic.pgsql.query:*copy* and
-    network_traffic.pgsql.query:*program*
-  )
-)
+network_traffic.pgsql.query:(*COPY* and *PROGRAM* or *copy* and *program*)
 '''
 
 
@@ -103,11 +94,6 @@ framework = "MITRE ATT&CK"
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-[[rule.threat.technique.subtechnique]]
-id = "T1059.004"
-name = "Unix Shell"
-reference = "https://attack.mitre.org/techniques/T1059/004/"
-
 
 
 [rule.threat.tactic]
