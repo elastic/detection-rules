@@ -117,11 +117,18 @@ packetbeat.protocols:
   - type: tls
     ports: [443, 8443, 9443]
     include_detailed_fields: true
+    transaction_timeout: 30s
 ```
 
 Adjust the port list to cover all TLS listeners in your environment that could be targeted, including
 reverse proxy listeners and custom TLS service ports. The `include_detailed_fields` key defaults to
 `true`; if it was explicitly disabled, re-enable it and restart the agent.
+
+Packetbeat's default TLS `transaction_timeout` is 10 seconds. Incomplete handshakes that remain idle
+beyond this timeout can expire without producing a `network_traffic.tls` event. Configure
+`transaction_timeout` to exceed the longest incomplete-handshake interval you intend to observe. The
+example above uses 30 seconds; increasing this value retains connection state longer and can increase
+memory usage on high-volume sensors.
 """
 severity = "low"
 tags = [
