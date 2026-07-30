@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies MongoDB commands that can drop databases, collections, indexes, users, or roles. Adversaries with access to
+an exposed or compromised MongoDB service may use these commands to destroy data, disrupt applications, or prepare a
+wipe-and-extort attack.
+"""
+false_positives = [
+    """
+    Database administrators, deployment automation, test teardown jobs, and schema migration tools may issue destructive
+    commands legitimately. Validate the client address, target resource, change window, and associated administrator
+    activity before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.mongodb-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Destructive MongoDB Command"
+note = """## Triage and analysis
+
+### Investigating Destructive MongoDB Command
+
+MongoDB wipe-and-extort campaigns commonly enumerate databases before dropping databases or collections and inserting
+a ransom note. This rule detects decoded MongoDB commands capable of destructive schema, data, identity, or access
+changes.
+
+### Possible investigation steps
+
+- Review `client.ip`, `server.ip`, `network.community_id`, `network_traffic.mongodb.method`,
+  `network_traffic.mongodb.query`, `network_traffic.mongodb.resource`, and
+  `network_traffic.mongodb.fullCollectionName`.
+- Determine whether the client is an approved application, DBA workstation, migration host, or automation service.
+- Search earlier events on the same `network.community_id` for `listDatabases`, `listCollections`, `usersInfo`, or
+  `rolesInfo`, which may indicate reconnaissance before destruction.
+- Search subsequent activity for database or collection creation and ransom-related strings such as `README`,
+  `RECOVER`, `bitcoin`, or `meow`.
+- Confirm the operation and affected resources in MongoDB audit logs and assess whether data was deleted.
+
+### False positive analysis
+
+- Schema migrations and test cleanup can legitimately drop collections or indexes.
+- Authorized identity lifecycle operations can drop users or roles.
+- Scope exceptions to approved clients and maintenance windows rather than excluding command names globally.
+
+### Response and remediation
+
+- Block the client and isolate the MongoDB service if the activity is unauthorized.
+- Preserve MongoDB audit logs and packet evidence, identify affected databases, and begin recovery from immutable
+  backups.
+- Rotate database credentials, remove unauthorized users or roles, and restrict MongoDB network access to approved
+  application and administration hosts.
+"""
+references = [
+    "https://www.bleepingcomputer.com/news/security/mongo-lock-attack-ransoming-deleted-mongodb-databases/",
+    "https://flare.io/learn/resources/blog/mongodb-ransom",
+    "https://attack.mitre.org/techniques/T1485/",
+]
+risk_score = 73
+rule_id = "0d8a33be-5595-400c-a677-c4474829ed55"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the MongoDB protocol analyzer enabled and
+cleartext visibility into MongoDB transactions. TLS-encrypted or compressed MongoDB wire traffic may not expose
+`network_traffic.mongodb.query`. Modern OP_MSG traffic often reports `network_traffic.mongodb.method` as `msg`, so the
+query-text branch is required. Use MongoDB audit logs for authoritative user attribution and operation outcomes.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:network_traffic.mongodb and
+(
+  network_traffic.mongodb.method:(
+    "dropDatabase" or "drop" or "dropIndexes" or
+    "dropAllUsersFromDatabase" or "dropAllRolesFromDatabase"
+  ) or
+  network_traffic.mongodb.query:(
+    "*dropDatabase*" or "*dropIndexes*" or
+    "*dropAllUsersFromDatabase*" or "*dropAllRolesFromDatabase*" or
+    "*\"drop\"*"
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
