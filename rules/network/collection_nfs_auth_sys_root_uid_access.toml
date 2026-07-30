@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/06/25"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies NFS traffic where the client asserts AUTH_SYS (RPC UNIX) credentials with UID 0 (root). NFSv3 and NFSv4
+clients can claim arbitrary UIDs through AUTH_SYS, and weak export controls may honor root-equivalent access from
+unexpected hosts. This is a common precursor to unauthorized mounts, sensitive file reads, and remote encryption of
+exported shares.
+"""
+false_positives = [
+    """
+    Legitimate NFS root squashing misconfiguration, administrative automation, or backup appliances may present UID 0
+    from known infrastructure. Confirm the source IP against approved NFS client inventories before closing.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.nfs*"]
+language = "eql"
+license = "Elastic License v2"
+name = "NFS AUTH_SYS Root UID Access"
+note = """## Triage and analysis
+
+### Investigating NFS AUTH_SYS Root UID Access
+
+NFS AUTH_SYS allows the client to assert UID/GID values on the wire. UID 0 maps to superuser access on many exports
+unless root squashing or Kerberos (RPCSEC_GSS) is enforced. Attackers abuse this to read secrets, traverse exports, or
+stage ransomware writes without a local root shell on the NFS server.
+
+### Possible investigation steps
+
+- Identify `source.ip` and confirm whether it is an approved NFS client for the targeted `destination.ip` export server.
+- Review adjacent NFS operations from the same source for `READDIR`, `READ`, `WRITE`, or `REMOVE` activity that suggests
+  enumeration, collection, or impact.
+- Validate export policy on the server (`/etc/exports`, `exportfs -v`) for `no_root_squash`, overly broad client lists, or
+  missing `sec=krb5`.
+- Check endpoint telemetry on the source host for tooling such as `showmount`, `mount.nfs`, or Impacket-style NFS abuse.
+
+### False positive analysis
+
+- Known backup, imaging, or virtualization platforms sometimes mount exports as root from fixed infrastructure IPs.
+  Exception those sources only after confirming stable client identity and expected operation mix.
+- Migration or DR runbooks may temporarily mount with root to preserve ownership. Correlate with change tickets and
+  bounded maintenance windows.
+
+### Response and remediation
+
+- Block unauthorized `source.ip` at the host firewall or export ACL and rotate any credentials read from the export.
+- Enforce `root_squash`, narrow client allowlists, and RPCSEC_GSS on sensitive exports.
+- Hunt for follow-on `WRITE`/`RENAME` bursts from the same client that may indicate ransomware activity.
+"""
+references = ["https://attack.mitre.org/techniques/T1213/", "https://attack.mitre.org/techniques/T1039/"]
+risk_score = 47
+rule_id = "35ef761a-7136-4cb9-a32d-4e7abddb3bac"
+setup = """## Setup
+
+This rule requires the Elastic **network_traffic** integration (Packetbeat via Elastic Agent) with the **NFS** protocol
+module enabled on a sensor that observes NFS traffic to or from monitored exports (host agent, SPAN/mirror, or gateway).
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Collection",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where data_stream.dataset == "network_traffic.nfs" and
+  network_traffic.nfs.rpc.cred.uid == 0 and
+  network_traffic.nfs.rpc.auth_flavor == "unix"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1039"
+name = "Data from Network Shared Drive"
+reference = "https://attack.mitre.org/techniques/T1039/"
+
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
