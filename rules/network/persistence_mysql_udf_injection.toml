@@ -7,9 +7,9 @@ updated_date = "2026/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies MySQL statements that create a user-defined function backed by a shared library. Adversaries with sufficient
-database privileges can place a malicious library in the MySQL plugin directory and register it with `CREATE FUNCTION
-... SONAME`, establishing a database-resident primitive for operating-system command execution.
+Identifies MySQL statements that create a user-defined function backed by a shared library. Adversaries with
+sufficient database privileges can place a malicious library in the MySQL plugin directory and register it with
+`CREATE FUNCTION ... SONAME`, establishing a database-resident primitive for operating-system command execution.
 """
 false_positives = [
     """
@@ -79,16 +79,7 @@ type = "query"
 
 query = '''
 data_stream.dataset:network_traffic.mysql and
-(
-  (
-    network_traffic.mysql.query:*CREATE FUNCTION* and
-    network_traffic.mysql.query:*SONAME*
-  ) or
-  (
-    network_traffic.mysql.query:*create function* and
-    network_traffic.mysql.query:*soname*
-  )
-)
+network_traffic.mysql.query:(("*CREATE FUNCTION*" or "*create function*") and (*SONAME* or *soname*))
 '''
 
 
