@@ -186,6 +186,27 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(kql.KqlParseError):
             kql.lark_parse(r"field: *foo\' bar")
 
+        # A backslash may only appear as part of a recognized escape pair, so an invalid
+        # escape whose second character is otherwise a normal character (e.g. `\q`) is
+        # also rejected rather than lexing as a literal backslash + character.
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: foo\qbar*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: *foo\q bar*")
+
+    def test_wildcard_with_spaces_and_unescaped_angle_brackets(self):
+        """Test that unescaped < and > are rejected in wildcard values, same as UNQUOTED_CHAR."""
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: foo<bar*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: *foo bar<baz*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: *foo bar>baz*")
+
+        # Escaped, they are accepted and resolve to the bare character.
+        self.validate(r"field: *foo\<bar baz*", FieldComparison(Field("field"), Wildcard("*foo<bar baz*")))
+        self.validate(r"field: *foo\>bar baz*", FieldComparison(Field("field"), Wildcard("*foo>bar baz*")))
+
     def test_wildcard_with_spaces_and_keywords(self):
         """Test wildcard values containing spaces followed by keywords."""
         # Wildcard followed by 'and' keyword

@@ -48,15 +48,18 @@ RANGE_OPERATOR: "<="
 // char, so escaped specials work inside the value (e.g. "*\: No such file*"), matching
 // Kibana's unquoted-literal escaping. The escape pair intentionally mirrors UNQUOTED_CHAR's
 // whitelist rather than accepting "\\" + any character, so an invalid escape (e.g. \')
-// is rejected the same way whether or not the value contains a space.
+// is rejected the same way whether or not the value contains a space. The normal-char
+// classes exclude backslash (so a backslash can only appear as part of a recognized
+// escape pair, and an invalid escape like \q is rejected) and < > (which UNQUOTED_CHAR
+// also requires to be escaped).
 // Pattern 1: Starts with * (e.g., *S3 Browser, *S3 Browser*)
 // Pattern 2: Ends with * but doesn't start with * (e.g., S3 Browser*)
 // Pattern 3a: Middle * - star appears AFTER a space (e.g., S3 B*owser)
 // Pattern 3b: Middle * - star appears BEFORE a space (e.g., S3* Browser)
-WILDCARD_LITERAL.3: /\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)+\*?(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)+\*(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"'*:{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"'*:{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
+WILDCARD_LITERAL.3: /\*(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+)+\*?(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+)+\*(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"'*:<>{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"'*:<>{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n\\()"':<>{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
 
 UNQUOTED_LITERAL: UNQUOTED_CHAR+
 UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace
