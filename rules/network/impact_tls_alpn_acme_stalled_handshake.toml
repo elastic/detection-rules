@@ -16,7 +16,7 @@ anomalous outside of scheduled ACME TLS-ALPN-01 certificate validation activity.
 false_positives = [
     """
     Legitimate ACME certificate renewal agents (cert-manager, Certbot, Caddy) use acme-tls/1 during TLS-ALPN-01
-    challenges. A single stalled challenge due to a network timeout can occur normally, but five or more stalled
+    challenges. A single incomplete challenge due to a network timeout can occur normally, but five or more incomplete
     sessions from the same source within the detection window is abnormal even for misconfigured ACME clients. TLS
     decode_error or illegal_parameter alerts can also be produced by buggy TLS clients or misconfigured load balancers.
     Suppress by adding known ACME client source IPs or ACME CA validation IP ranges to an exception list.
@@ -37,11 +37,14 @@ note = """## Triage and analysis
 
 This rule fires when five or more TLS connections from the same source IP to the same destination IP
 are recorded where the ClientHello advertises `acme-tls/1` as an ALPN protocol, the handshake never
-completes (`tls.established: false`), fewer than 1 KB are transferred, and each connection was held
-open for at least 10 seconds. Individually, a stalled ACME challenge can be a transient network issue.
-In volume, this pattern is the per-connection observable for CVE-2026-22045 (Traefik goroutine
-exhaustion): an attacker opens many stalled connections to exhaust reverse proxy resources and cause a
+completes (`tls.established: false`), or where malformed ALPN data produces a relevant TLS alert.
+Individually, an incomplete ACME challenge can be a transient network issue. In volume, this pattern is
+consistent with attempts to exhaust reverse proxy resources, including CVE-2026-22045, and cause a
 denial of service.
+
+Packetbeat TLS events describe the TLS handshake and do not include connection byte totals or reliable
+elapsed duration for an incomplete handshake. Use `network_traffic.flow` events correlated by
+`network.community_id` when byte counts or connection duration are required during investigation.
 
 `acme-tls/1` is legitimately used only by ACME certificate clients performing TLS-ALPN-01 domain
 validation. Repeated stalled sessions outside of scheduled certificate renewal windows are anomalous.
@@ -59,10 +62,12 @@ validation. Repeated stalled sessions outside of scheduled certificate renewal w
   ```esql
   FROM logs-network_traffic.tls*
   | WHERE tls.detailed.client_hello.extensions.application_layer_protocol_negotiation == "acme-tls/1"
-    AND tls.established == false AND network.bytes < 1024
+    AND tls.established == false
   | STATS count = COUNT(*) BY source.ip, destination.ip, destination.port
   | SORT count DESC
   ```
+- If flow reporting is enabled, correlate `logs-network_traffic.flow-*` events on `network.community_id`
+  to review `network.bytes`, `source.bytes`, `destination.bytes`, and `event.duration`.
 - Check server-side metrics on the destination host around the alert time: goroutine count for Go
   services (Traefik, Caddy), worker or thread count for nginx or HAProxy, and TCP accept queue depth.
   Saturation aligned with the alert window confirms impact.
@@ -120,7 +125,7 @@ reverse proxy listeners and custom TLS service ports. The `include_detailed_fiel
 """
 severity = "low"
 tags = [
-    "Domain: Endpoint",
+    "Domain: Network",
     "Use Case: Threat Detection",
     "Use Case: Network Security Monitoring",
     "Use Case: Vulnerability",
@@ -134,8 +139,6 @@ query = '''
 (
   tls.detailed.client_hello.extensions.application_layer_protocol_negotiation : "acme-tls/1"
     and tls.established : false
-    and network.bytes < 1024
-    and event.duration >= 10000000000
 ) or (
   tls.detailed.client_hello.extensions._unparsed_ : *alpn*
     and (
