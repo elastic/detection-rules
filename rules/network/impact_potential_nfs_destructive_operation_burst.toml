@@ -77,10 +77,12 @@ from logs-network_traffic.nfs-*, packetbeat-*
 | where Esql.opcode in ("WRITE", "REMOVE", "RENAME") and Esql.status == "NFS_OK" and
     source.ip is not null and destination.ip is not null
 | eval Esql.time_window = DATE_TRUNC(1 minutes, @timestamp)
+| eval Esql.is_write = CASE(Esql.opcode == "WRITE", 1, 0),
+    Esql.is_destructive = CASE(Esql.opcode == "REMOVE" or Esql.opcode == "RENAME", 1, 0)
 | stats
     Esql.mutating_ops = COUNT(*),
-    Esql.write_ops = SUM(CASE(Esql.opcode == "WRITE", 1, 0)),
-    Esql.destructive_ops = SUM(CASE(Esql.opcode in ("REMOVE", "RENAME"), 1, 0)),
+    Esql.write_ops = SUM(Esql.is_write),
+    Esql.destructive_ops = SUM(Esql.is_destructive),
     Esql.values_opcodes = VALUES(Esql.opcode)
   by Esql.time_window, source.ip, destination.ip
 | where Esql.mutating_ops >= 100 and Esql.write_ops > 0 and Esql.destructive_ops >= 20
