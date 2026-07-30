@@ -63,8 +63,6 @@ severity = "high"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
     "Data Source: AWS Bedrock",
     "Use Case: Threat Detection",
     "Tactic: Execution",
@@ -81,7 +79,6 @@ from logs-aws_bedrock.invocation-*
 | where
     Esql.lowercase_prompt like "*/bin/sh*" or
     Esql.lowercase_prompt like "*/bin/bash*" or
-    Esql.lowercase_prompt like "*bash -c*" or
     Esql.lowercase_prompt like "*sh -c*" or
     Esql.lowercase_prompt like "*cmd.exe*" or
     Esql.lowercase_prompt like "*powershell*" or
@@ -92,7 +89,17 @@ from logs-aws_bedrock.invocation-*
     Esql.lowercase_prompt like "*python3 -c*" or
     Esql.lowercase_prompt like "*curl *" or
     Esql.lowercase_prompt like "*wget *" or
-    Esql.lowercase_prompt like "*/dev/tcp/*"
+    Esql.lowercase_prompt like "*/dev/tcp/*" or
+    Esql.lowercase_prompt like "*nc -e*" or
+    Esql.lowercase_prompt like "*ncat *" or
+    Esql.lowercase_prompt like "*socat *" or
+    Esql.lowercase_prompt like "*openssl s_client*" or
+    Esql.lowercase_prompt like "*perl -e*" or
+    Esql.lowercase_prompt like "*ruby -e*" or
+    Esql.lowercase_prompt like "*php -r*" or
+    Esql.lowercase_prompt like "*node -e*" or
+    Esql.lowercase_prompt like "*base64 -d*" or
+    Esql.lowercase_prompt like "*bash -i*"
 
 | stats
     Esql.invocation_count = count(*),
@@ -121,10 +128,9 @@ reference = "https://attack.mitre.org/tactics/TA0002/"
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
     "user.id",
-    "gen_ai.model.id",
-    "gen_ai.prompt",
-    "gen_ai.completion",
     "cloud.account.id",
+    "Esql.invocation_count",
+    "Esql.model_id_values",
+    "Esql.prompt_sample"
 ]
