@@ -75,10 +75,12 @@ query = '''
 data_stream.dataset: "aws.cloudtrail"
     and event.provider: "ec2.amazonaws.com"
     and event.action: ("CreateNetworkAclEntry" or "ReplaceNetworkAclEntry")
-    and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
+    and event.outcome: ("success" or "failure")
+    and aws.cloudtrail.request_parameters: (*protocol=-1*)
+    and aws.cloudtrail.request_parameters: (*ruleAction=allow*)
+    and aws.cloudtrail.request_parameters: (*cidrBlock=0.0.0.0/0* or *cidrBlock=::/0*)
     and not user_agent.original: (*Terraform* or *terraform* or "cloudformation.amazonaws.com" or *pulumi* or *Pulumi*)
-    and aws.cloudtrail.request_parameters: (*Protocol=-1* or *protocol=-1*)
 '''
 
 [[rule.threat]]
