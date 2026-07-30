@@ -4,12 +4,12 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects the execution of an interactive process from a suspicious directory inside a container.
+This rule detects the execution of a process from a suspicious directory inside a container.
 The suspicious directories are /tmp, /dev/shm, /var/tmp, /run, /var/run, /mnt, /media, and /boot.
 Adversaries may use these directories to execute malicious code or exfiltrate data.
 """
@@ -26,7 +26,7 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Process Execution Detected via Defend for Containers
 
-This alert flags an interactive program launched inside a container from transient or low-trust locations such as tmpfs-backed or runtime directories, common staging points for hands-on misuse, data theft, or persistence that avoids the image filesystem. A frequent pattern is an attacker gaining a shell via kubectl exec, fetching a static reverse shell or tunneling tool into /dev/shm or /tmp, and running it interactively to pivot or siphon data. Such behavior signals live operator control and attempts to evade forensics and policy controls.
+This alert flags a program launched inside a container from transient or low-trust locations such as tmpfs-backed or runtime directories, common staging points for hands-on misuse, data theft, or persistence that avoids the image filesystem. A frequent pattern is an attacker gaining a shell via kubectl exec, fetching a static reverse shell or tunneling tool into /dev/shm or /tmp, and running it interactively to pivot or siphon data. Such behavior signals live operator control and attempts to evade forensics and policy controls.
 
 ### Possible investigation steps
 
@@ -63,7 +63,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.interactive == true and (
+process where event.type == "start" and event.action == "exec" and (
   process.executable like (
     "/tmp/*", "/dev/shm/*", "/var/tmp/*", "/run/*", "/var/run/*", "/mnt/*", "/media/*", "/boot/*"
   ) or
