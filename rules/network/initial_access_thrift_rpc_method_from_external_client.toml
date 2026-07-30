@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first decoded Apache Thrift RPC relationship from a public client address to a server. Thrift commonly
+connects trusted internal microservices and data platforms, and an externally originated method invocation can indicate
+an exposed service, unauthorized access, or exploitation of a public-facing Thrift endpoint.
+"""
+false_positives = [
+    """
+    Publicly accessible Thrift APIs, partner integrations, remote offices, and routed environments that preserve public
+    client addresses can generate legitimate alerts. Validate the client, service, method, server role, and expected
+    network path before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.thrift-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Thrift RPC Method from an External Client"
+note = """## Triage and analysis
+
+### Investigating Thrift RPC Method from an External Client
+
+Thrift is frequently used by internal microservices and Hadoop ecosystem services such as HBase, Hive, Spark, and
+Impala. Many deployments rely on network trust or application-specific authentication. This rule uses a five-day
+new-terms history window to surface the first observed public client and Thrift server pair that completes a decoded
+method invocation.
+
+The alert proves that a Thrift transaction was decoded, but it does not prove authentication bypass or successful
+exploitation.
+
+### Possible investigation steps
+
+- Review `client.ip`, `server.ip`, `server.port`, `network_traffic.thrift.service`,
+  `network_traffic.thrift.method`, `network_traffic.thrift.path`, `network_traffic.thrift.exceptions`, and
+  `network.community_id`.
+- Identify the server application and determine whether the service is intended to accept Internet-originated Thrift
+  calls.
+- Validate the client against partner, VPN, administrator, and approved service inventories.
+- Review the service IDL and determine whether the invoked method reads sensitive data, changes configuration, deletes
+  resources, or executes jobs.
+- Correlate with service authentication and audit logs because the passive transaction does not expose authoritative
+  authentication state.
+
+### False positive analysis
+
+- Authorized partner APIs and intentionally public Thrift services may alert on a new client/server relationship.
+- NAT, proxies, or sensor placement can cause an expected caller to appear under a public address.
+- Add narrow exceptions for approved client and server pairs rather than excluding a service or method globally.
+
+### Response and remediation
+
+- Restrict exposed Thrift listeners to approved networks and require authenticated, encrypted transport.
+- Block unauthorized clients and isolate the server if sensitive or administrative methods were invoked.
+- Review downstream data access and endpoint activity for evidence of collection, lateral movement, or execution.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2018-1320",
+    "https://attack.mitre.org/techniques/T1190/",
+    "https://thrift.apache.org/docs/",
+]
+risk_score = 47
+rule_id = "3b15d24d-03e8-422c-b260-e0834e5fec83"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the Thrift protocol analyzer enabled. Packetbeat
+supports TBinary over TSocket or TFramed transport. Compact, JSON, HTTP-wrapped, SASL-wrapped, custom, and encrypted
+Thrift transports may not decode. Configure the relevant service IDL files so service, method, parameter, and exception
+names are available where supported.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:network_traffic.thrift and
+client.ip:* and server.ip:* and network_traffic.thrift.method:* and
+not client.ip:(
+  10.0.0.0/8 or
+  100.64.0.0/10 or
+  127.0.0.0/8 or
+  169.254.0.0/16 or
+  172.16.0.0/12 or
+  192.0.0.0/24 or
+  192.0.2.0/24 or
+  192.168.0.0/16 or
+  198.18.0.0/15 or
+  198.51.100.0/24 or
+  203.0.113.0/24 or
+  224.0.0.0/4 or
+  240.0.0.0/4 or
+  "::1" or
+  "fc00::/7" or
+  "fe80::/10" or
+  "ff00::/8"
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["client.ip", "server.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
+
+
