@@ -104,7 +104,7 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
 
         if field_type in ("array", ["array"]):
             if isinstance(result, list):
-                return result
+                return result  # type: ignore[reportUnknownVariableType]
             result_list = result.split(",")
 
             if not (min_item < len(result_list) < max_items):
