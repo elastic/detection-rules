@@ -1,14 +1,14 @@
 [metadata]
 creation_date = "2025/11/19"
 maturity = "production"
-updated_date = "2026/04/27"
+updated_date = "2026/07/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule uses alert data to determine when multiple alerts in different phases of an attack involving the same host are
-triggered and where the accumulated risk score is higher than a defined threshold. Analysts can use this to prioritize
-triage and response, as these hosts are more likely to be compromised.
+This rule correlates medium-or-higher severity alerts involving the same host from at least two distinct detection rules
+mapped to three or more ATT&CK tactics. Analysts can use this to prioritize triage and response, as this combination may
+indicate host compromise.
 """
 from = "now-8h"
 interval = "1h"
@@ -25,44 +25,51 @@ type = "esql"
 query = '''
 from .alerts-security.*  metadata _id
 
-// filter for alerts with populated risk score, excluding threat_match rules, deprecated and some other noisy ones.
-| where kibana.alert.risk_score > 0 and
-        kibana.alert.rule.name IS NOT NULL and
+// filter for medium-or-higher severity alerts, excluding threat_match, machine_learning, and deprecated rules.
+| where kibana.alert.risk_score > 21 and
+        kibana.alert.rule.name IS NOT NULL and kibana.alert.rule.rule_id IS NOT NULL and
         host.id is not null and event.dataset is not null and
-        kibana.alert.rule.type != "threat_match" and
-        // Top noisy influencing rules
-        not kibana.alert.rule.name in ("Agent Spoofing - Mismatched Agent ID", "Compression DLL Loaded by Unusual Process", "Process Termination followed by Deletion", "Suspicious PrintSpooler Service Executable File Creation", "Potential PrintNightmare File Modification") and
+        kibana.alert.rule.type not in ("threat_match", "machine_learning") and
+        // Exclude a deprecated rule whose alert name does not carry the standard prefix
+        kibana.alert.rule.name != "Potential PrintNightmare File Modification" and
         not kibana.alert.rule.name like "Deprecated - *" and
         not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 
 // extract unique counts and values by host.id
 | stats Esql.alerts_count = COUNT(*),
         Esql.kibana_alert_rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
-        Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
+        Esql.kibana_alert_rule_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.rule_id),
         Esql.event_module_values = VALUES(event.module),
+        Esql.host_name_values = VALUES(host.name),
         Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name),
+        Esql.kibana_alert_rule_id_values = VALUES(kibana.alert.rule.rule_id),
         Esql.threat_tactic_id_distinct_count = COUNT_DISTINCT(kibana.alert.rule.threat.tactic.id),
         Esql.threat_tactic_name_values = VALUES(kibana.alert.rule.threat.tactic.name),
-        Esql.kibana_alert_risk_score_sum = sum(kibana.alert.risk_score),
         Esql.process_executable_values = VALUES(process.executable),
         Esql.process_parent_executable_values = VALUES(process.parent.executable),
         Esql.process_command_line_values = VALUES(process.command_line),
         Esql.process_entity_id_distinct_count = COUNT_DISTINCT(process.entity_id) by host.id
 
-// divide the sum of risk scores by the total number of alerts
-| eval Esql.risk_alerts_count_ratio = Esql.kibana_alert_risk_score_sum/Esql.alerts_count
+// filter for risky hosts with multiple distinct rules across multiple tactics
+// Distinct rule IDs prevent one rule mapped to multiple tactics from satisfying the correlation.
+| where Esql.kibana_alert_rule_name_distinct_count >= 2 and
+        Esql.kibana_alert_rule_id_distinct_count >= 2 and
+        Esql.threat_tactic_id_distinct_count >= 3
 
-// filter for risky hosts by risk score and unique count of rules and tactics
-| where Esql.kibana_alert_rule_name_distinct_count >= 5 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.threat_tactic_id_distinct_count >= 3 and Esql.alerts_count <= 500 and Esql.risk_alerts_count_ratio >= 50
+// Populate the native host name for alert triage without changing the host.id correlation key.
+| eval host.name = MV_FIRST(Esql.host_name_values)
 
-// fiels populated in the resulting alert
+// fields populated in the resulting alert
 | keep host.id,
+       host.name,
        Esql.alerts_count,
-       Esql.kibana_alert_risk_score_sum,
-       Esql.risk_alerts_count_ratio,
        Esql.kibana_alert_rule_name_distinct_count,
+       Esql.kibana_alert_rule_id_distinct_count,
+       Esql.process_entity_id_distinct_count,
        Esql.event_module_values,
+       Esql.host_name_values,
        Esql.kibana_alert_rule_name_values,
+       Esql.kibana_alert_rule_id_values,
        Esql.threat_tactic_name_values,
        Esql.process_executable_values,
        Esql.process_parent_executable_values,
@@ -75,7 +82,7 @@ note = """## Triage and analysis
 
 ### Investigating Alerts in Different ATT&CK Tactics by Host
 
-The detection rule identifies hosts with alerts across various attack phases, indicating potential compromise. Adversaries exploit system vulnerabilities, moving through different tactics like execution, persistence, and exfiltration. This rule prioritizes hosts with diverse tactic alerts, aiding analysts in focusing on high-risk threats by correlating alert data to detect complex attack patterns.
+The rule identifies hosts with alerts across multiple ATT&CK tactics, which may indicate compromise. It helps analysts focus on high-risk hosts by correlating diverse alerts. The resulting alert is grouped, so the `Esql.*_values` fields summarize contributing alerts without preserving event order or relationships between values.
 
 ### Possible investigation steps
 
@@ -104,4 +111,11 @@ The detection rule identifies hosts with alerts across various attack phases, in
 - Monitor the host and network for any signs of re-infection or further suspicious activity, using enhanced logging and alerting based on the identified attack patterns.
 - Escalate the incident to the appropriate internal or external cybersecurity teams for further investigation and potential legal action if the attack is part of a larger campaign."""
 
-
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "host.id",
+    "Esql.threat_tactic_name_values",
+    "Esql.kibana_alert_rule_name_values",
+    "Esql.alerts_count",
+]
