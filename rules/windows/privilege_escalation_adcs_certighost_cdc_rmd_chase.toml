@@ -7,19 +7,19 @@ updated_date = "2026/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies Active Directory Certificate Services (AD CS) certificate requests that combine legacy enrollment chase
-attributes (`cdc` / `rmd`) with an explicit SAN DNS override. That pattern is the hallmark of Certighost
-(CVE-2026-54121) and related requester-influenced identity binding during enrollment, where a chase target and DNS SAN
-are supplied so the CA resolves or binds certificate identity outside the normal requester computer object. The rule
-matches request receipt (4886) and denial (4888), so patched environments still surface exploitation attempts. Broader
-chase inventory and CA network hunts are documented alongside this rule for AD CS chase-path coverage beyond this CVE.
+Identifies Active Directory Certificate Services (AD CS) certificate request, issuance, or denial events whose request
+attributes include legacy enrollment chase fields (`cdc` or `rmd`). Those attributes steer how the CA resolves directory
+identity during enrollment and are used by Certighost (CVE-2026-54121) as well as other requester-influenced chase /
+referral paths. The rule does not require PoC-specific extras such as `SAN:dns` — those raise investigative confidence
+when present but omitting them as hard requirements avoids false negatives against alternate chase abuse shapes.
+Matches 4886 (received), 4887 (issued), and 4888 (denied) so patched denials and successful issuance both surface.
 """
 false_positives = [
   """
-  Domain Controller template enrollment can include `cdc`/`rmd` (and `ccm`) without a SAN override. This rule requires
-  `SAN:dns` inside request attributes, which was present on Certighost PoC Machine-template requests and absent on the
-  observed DC self-enrollment path. Remaining FPs would be rare authorized Machine enrollments that still set chase
-  attributes plus an explicit SAN DNS — exception those by CA host and requester after validation.
+  Domain Controller and some multi-domain enrollment workflows legitimately set `cdc`/`rmd` (often with `ccm`). Prefer
+  exceptions scoped to `host.name` (CA), `winlog.event_data.CertificateTemplate` (for example DomainController), and
+  known requesters after baselining. Escalate rather than except when `SAN:dns` is also present, when `cdc` is an IP or
+  non-DC hostname, or when `event.code` is 4887 (issued) for an unexpected template/requester.
   """,
 ]
 from = "now-9m"
@@ -38,7 +38,7 @@ risk_score = 73
 rule_id = "2daeb466-b3ea-46e3-b874-649cc8c7957b"
 setup = """## Setup
 
-AD CS auditing must be enabled so Security events 4886/4888 are generated:
+AD CS auditing must be enabled so Security events 4886/4887/4888 include request attributes:
 
 ```
 certutil -setreg CA\\AuditFilter 127
@@ -65,11 +65,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-any where host.os.type == "windows" and event.code in ("4886", "4888") and
-  /* Chase attributes used by Certighost / legacy AD CS referral enrollment */
-  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*") and
-  /* PoC Machine requests embed SAN:dns=<target>; DC self-enrollment chase did not */
-  winlog.event_data.Attributes : "*SAN:dns*"
+any where host.os.type == "windows" and event.code in ("4886", "4887", "4888") and
+  /* Chase attrs: cdc (Client DC) or rmd (Remote Machine/Domain). Do not require SAN:dns. */
+  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*")
 '''
 
 note = """## Triage and analysis
@@ -78,20 +76,28 @@ note = """## Triage and analysis
 
 Certighost (CVE-2026-54121) abuses AD CS enrollment chase attributes so a low-privileged principal can influence which
 directory host the CA contacts while building certificate identity material. Patched CAs reject non-DC / non-FQDN chase
-targets, but the request attributes are still logged on 4886 (received) and 4888 (denied).
+targets, but the request attributes are still logged on 4886 (received), 4887 (issued), and 4888 (denied). Presence of
+`SAN:dns` in Attributes is a strong triage escalator (seen on Certighost PoC Machine requests) but is not required to
+alert — other chase abuse may omit it.
 
 #### Possible investigation steps
 
 - What chase target and remote principal did the request supply?
-  - Focus: `winlog.event_data.Attributes` (`cdc:`, `rmd:`), `winlog.event_data.Requester`,
-    `winlog.event_data.CertificateTemplate`, `winlog.event_data.SubjectAlternativeName`, and `event.code`.
+  - Focus: `winlog.event_data.Attributes` (`cdc:`, `rmd:`, optional `SAN:dns=` / `ccm:`),
+    `winlog.event_data.Requester`, `winlog.event_data.CertificateTemplate`, `winlog.event_data.SubjectAlternativeName`,
+    and `event.code`.
   - Implication: escalate when `cdc` is an IP, a non-DC hostname, or any host not expected for CA chase; treat denials
-    (4888) as exploitation attempts, not as benign failures.
+    (4888) as exploitation attempts, not as benign failures; treat issuance (4887) as domain-compromise urgency.
 
-- Does the SAN/DNS identity disagree with the requester machine account?
-  - Focus: `winlog.event_data.Subject`, `winlog.event_data.SubjectAlternativeName`, and `winlog.event_data.Requester`.
-  - Implication: high concern when a newly created `GHOST*` / random machine account requests a Machine template while
-    the SAN names a domain controller (`DNS Name=<DC FQDN>`).
+- Is this baselined DomainController-template chase, or something sharper?
+  - Focus: `CertificateTemplate`, requester ending in `$`, `ccm:` without suspicious `cdc`, and absence of `SAN:dns`.
+  - Implication: lower urgency for known DC lifecycle on that CA; keep open for Machine/user templates or odd requesters.
+
+- Does any SAN/DNS identity disagree with the requester machine account?
+  - Focus: `winlog.event_data.Subject`, `winlog.event_data.SubjectAlternativeName`, Attributes `SAN:dns=`, and
+    `winlog.event_data.Requester`.
+  - Implication: high concern when a newly created machine account requests a Machine template while the SAN names a
+    domain controller (`DNS Name=<DC FQDN>`).
 
 - Was a computer account created by a low-privileged user immediately before enrollment?
   - Focus: nearby Security `event.code` 4741 for the same domain, matching `winlog.event_data.TargetUserName` to the
@@ -111,7 +117,8 @@ targets, but the request attributes are still logged on 4886 (received) and 4888
 
 ### False positive analysis
 
-- Chase attributes are rare outside legacy multi-DC enrollment designs. Do not broadly except `cdc`/`rmd`.
+- Expect DC-template / multi-domain chase on CA hosts. Exception tightly by CA + template + requester after baseline.
+- Do not globally suppress `cdc`/`rmd` — that recreates the false-negative gap this rule is meant to close.
 - Authorized AD CS / Certighost lab testing will match; exception only with known lab CA host + requester scope.
 
 ### Response and remediation
