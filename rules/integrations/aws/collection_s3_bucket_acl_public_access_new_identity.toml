@@ -7,11 +7,12 @@ updated_date = "2026/07/27"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first time a principal modifies an S3 bucket ACL to grant public read or write access
-using canned ACLs such as public-read or public-read-write. ACL-based
-public access is a distinct API path (PutBucketAcl) that can bypass some Block Public Access
-controls. Monitoring for new identities performing this change helps surface freshly compromised
-credentials being used to stage data for exfiltration or inadvertently expose sensitive content.
+Detects a principal modifying an S3 bucket ACL to grant public read or write access that has not
+been observed doing so within the history window, using canned ACLs such as public-read or 
+public-read-write. ACL-based public access is a distinct API path (PutBucketAcl) that can bypass 
+some Block Public Access controls. Monitoring for new identities performing this change helps surface 
+freshly compromised credentials being used to stage data for exfiltration or inadvertently expose sensitive 
+content.
 """
 false_positives = [
     """
@@ -37,14 +38,13 @@ This rule fires when a `PutBucketAcl` call sets a canned ACL that grants public 
 
 - Identify the modifying principal (`aws.cloudtrail.user_identity.arn`) and determine whether they are authorized to modify S3 bucket ACLs.
 - Review `aws.cloudtrail.request_parameters` to confirm the specific canned ACL applied (`public-read`, `public-read-write`).
-- Check whether AWS S3 Block Public Access is enabled at the account or bucket level — if so, the ACL change may have been silently blocked despite CloudTrail recording the attempt.
+- Check whether AWS S3 Block Public Access is enabled at the account or bucket level — if so, it may still be preventing effective public exposure even though this ACL change succeeded.
 - Enumerate the bucket contents to assess the sensitivity of any exposed data.
 - Check for recent `GetObject` or `ListObjects` calls from unauthenticated sources against the same bucket.
 
 ### False positive analysis
 
 - Static website hosting buckets are commonly configured with `public-read` ACLs.
-- Third-party tools that use ACL-based sharing for data exchange may legitimately set `authenticated-read`.
 
 ### Response and remediation
 
