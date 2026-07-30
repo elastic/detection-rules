@@ -10,10 +10,7 @@ description = """
 Detects the first time an AWS identity successfully deletes an IAM managed policy whose ARN contains
 guardrail-related keywords (for example Boundary, Deny, Restrict, Guard, SCP, Guardrail). Adversaries who have
 obtained elevated IAM privileges may delete policies to remove restrictive permissions boundaries,
-eliminate deny-based guardrails, or clean up after a privilege escalation operation. IaC tools
-(Terraform, CloudFormation, Pulumi, Ansible) are excluded since policy lifecycle management is a routine part of
-time outside of known IaC callers — a pattern consistent with freshly compromised credentials
-being used to modify the account's permission structure.
+eliminate deny-based guardrails, or clean up after a privilege escalation operation. Infrastructure-as-code tools (Terraform, CloudFormation, Pulumi, and Ansible) are excluded because policy lifecycle management is a routine part of automated deployments. A policy deletion by an identity not seen performing this activity during the prior seven days may indicate newly compromised credentials being used to modify the account's permission structure.
 """
 false_positives = [
     """
