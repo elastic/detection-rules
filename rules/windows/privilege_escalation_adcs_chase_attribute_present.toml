@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Active Directory Certificate Services (AD CS) certificate request, issuance, or denial events whose request
+attributes include legacy enrollment chase / referral fields (`cdc`, `rmd`, or `ccm`). These attributes steer how the CA
+resolves directory identity during enrollment and are used by Certighost (CVE-2026-54121) as well as uncommon
+multi-controller enrollment paths. This rule is broader than the SAN-dns Certighost rule and is intended to surface any
+chase-influenced enrollment for investigation and baselining.
+"""
+false_positives = [
+  """
+  Domain Controller and some multi-domain enrollment workflows legitimately set `cdc`/`rmd`/`ccm`. Expect noise on CA
+  hosts during DC certificate lifecycle events. Prefer exceptions scoped to `host.name` (CA),
+  `winlog.event_data.CertificateTemplate` (for example DomainController), and known requesters after baselining. For a
+  higher-fidelity Certighost-oriented alert, use the companion rule that also requires `SAN:dns` in Attributes.
+  """,
+]
+from = "now-9m"
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AD CS Certificate Request Attributes Include Chase Fields"
+references = [
+  "https://gist.github.com/H0j3n/a5ef2609b5f2944ac2390a191a534c26",
+  "https://github.com/aniqfakhrul/CVE-2026-54121",
+  "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-54121",
+  "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/",
+]
+risk_score = 47
+rule_id = "840aa5aa-2835-45eb-b6e5-d5b6d5d6ec23"
+setup = """## Setup
+
+AD CS auditing must be enabled so Security events 4886/4887/4888 include request attributes:
+
+```
+certutil -setreg CA\\AuditFilter 127
+Restart-Service CertSvc -Force
+```
+
+Collect these events from Enterprise CA hosts with the Elastic System/Windows integrations or Winlogbeat.
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Tactic: Credential Access",
+  "Use Case: Active Directory Monitoring",
+  "Data Source: Active Directory",
+  "Use Case: Vulnerability",
+  "Data Source: Windows Security Event Logs",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.code in ("4886", "4887", "4888") and
+  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*", "*ccm:*")
+'''
+
+note = """## Triage and analysis
+
+### Investigating AD CS Certificate Request Attributes Include Chase Fields
+
+Chase attributes tell the CA which directory host/principal path to use during enrollment. Most environments rarely set
+them outside DC certificate workflows. Abuse (including Certighost) injects `cdc`/`rmd` to influence identity resolution.
+
+#### Possible investigation steps
+
+- Which chase fields and template were used?
+  - Focus: `winlog.event_data.Attributes`, `winlog.event_data.CertificateTemplate`, `winlog.event_data.Requester`,
+    and `event.code` (4886 received / 4887 issued / 4888 denied).
+  - Implication: escalate when `cdc` is an IP or non-DC hostname, when `SAN:dns` names a privileged host different from
+    the requester, or when `event.code` is 4887 (issued).
+
+- Is this a known DomainController-template lifecycle event on the CA?
+  - Focus: `winlog.event_data.CertificateTemplate`, `winlog.event_data.Requester` ending in `$`, and presence of `ccm:`
+    without `SAN:dns`.
+  - Implication: lower urgency when template/requester/ccm pattern matches baselined DC enrollment; keep open when the
+    Machine template or a non-DC requester appears.
+
+- Correlate with higher-fidelity Certighost signals and machine-account staging
+  - Focus: companion alerts requiring `SAN:dns`, Security 4741 near the same requester SAM, and `certsrv.exe` egress.
+
+### False positive analysis
+
+- DC and some cross-domain enrollments set chase fields. Baseline per CA before broad enablement, or start disabled and
+  promote after inventory.
+
+### Response and remediation
+
+- For unexplained non-DC chase requests: contain requester/machine account, review issuance (4887), patch CAs for
+  CVE-2026-54121, and consider clearing `EDITF_ENABLECHASECLIENTDC` only after staging validation.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1649"
+name = "Steal or Forge Authentication Certificates"
+reference = "https://attack.mitre.org/techniques/T1649/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

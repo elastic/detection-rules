@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful Active Directory Certificate Services (AD CS) certificate issuance (Event 4887) where the request
+attributes include enrollment chase fields (`cdc` and/or `rmd`). Chase-influenced issuance is uncommon and, in the
+context of Certighost (CVE-2026-54121) and related AD CS identity-binding abuse, may indicate a CA followed
+requester-supplied directory routing while producing a trusted certificate. Treat matches as high urgency even when the
+template appears routine.
+"""
+false_positives = [
+  """
+  Legitimate multi-domain or DC enrollment that both uses chase attributes and results in issuance can match. Confirm
+  against known CA maintenance windows, DomainController/Machine templates, and expected requester computer accounts
+  before closing. After CVE-2026-54121, unexplained issuance with chase attributes should remain suspicious until proven
+  benign.
+  """,
+]
+from = "now-9m"
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AD CS Certificate Issued with Chase Attributes cdc or rmd"
+references = [
+  "https://gist.github.com/H0j3n/a5ef2609b5f2944ac2390a191a534c26",
+  "https://github.com/aniqfakhrul/CVE-2026-54121",
+  "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-54121",
+  "https://gist.github.com/f-bader/8c447a8f3b58cb8a85bcf013436e312b",
+  "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/",
+]
+risk_score = 99
+rule_id = "afe50dd6-4b32-42ef-bb08-a2a0dc5f354a"
+setup = """## Setup
+
+AD CS auditing must be enabled so Security event 4887 includes request attributes:
+
+```
+certutil -setreg CA\\AuditFilter 127
+Restart-Service CertSvc -Force
+```
+
+Collect these events from Enterprise CA hosts with the Elastic System/Windows integrations or Winlogbeat.
+"""
+severity = "critical"
+tags = [
+  "Domain: Endpoint",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Tactic: Credential Access",
+  "Use Case: Active Directory Monitoring",
+  "Data Source: Active Directory",
+  "Use Case: Vulnerability",
+  "Data Source: Windows Security Event Logs",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.code == "4887" and
+  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*")
+'''
+
+note = """## Triage and analysis
+
+### Investigating AD CS Certificate Issued with Chase Attributes cdc or rmd
+
+Event 4887 means the CA approved and issued a certificate. When issuance still carries `cdc`/`rmd`, the enrollment
+path used chase routing. On vulnerable CAs this is the Certighost success condition; on patched CAs it may still
+reflect unusual or legacy chase enrollment that produced a trusted cert.
+
+#### Possible investigation steps
+
+- What identity did the issued certificate bind?
+  - Focus: `winlog.event_data.Attributes` (`cdc:`, `rmd:`, `SAN:dns=`), `winlog.event_data.Requester`,
+    `winlog.event_data.CertificateTemplate`, and `winlog.event_data.SubjectAlternativeName` when present.
+  - Implication: domain-compromise urgency when SAN/DNS or `rmd` names a domain controller or other tier-0 host while
+    the requester is a newly created or low-priv machine/user context.
+
+- Was this preceded by machine-account creation or failed/denied chase attempts?
+  - Focus: nearby 4741 for the requester SAM, and 4886/4888 with the same chase attributes.
+  - Implication: escalate when a low-priv subject created the computer via MAQ minutes earlier.
+
+- Hunt post-issuance use
+  - Focus: Kerberos certificate logons (4768) for the bound identity and DCSync/replication 4662 from non-DC sources.
+  - Implication: active abuse if the issued identity authenticates or replicates afterward.
+
+### False positive analysis
+
+- Rare legitimate chase-based issuance exists in some multi-DC designs. Require CA host, template, requester, and change
+  control evidence before exceptioning.
+
+### Response and remediation
+
+- Preserve CA database / `certutil -view` rows for the Request ID; revoke the certificate if identity binding is
+  unauthorized; reset impacted machine accounts; patch CAs; hunt for lateral use of the cert; consider disabling chase
+  (`EDITF_ENABLECHASECLIENTDC`) after staging validation.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1649"
+name = "Steal or Forge Authentication Certificates"
+reference = "https://attack.mitre.org/techniques/T1649/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies first-seen egress network connections from the Active Directory Certificate Services process
+(`certsrv.exe`) to LDAP (389), SMB (445), or LDAPS (636) destinations on a Windows host. During enrollment chase /
+referral processing the CA contacts directory endpoints; Certighost (CVE-2026-54121) and related chase abuse can steer
+that traffic toward unexpected hosts. Steady CA-to-Domain-Controller traffic becomes quiet after the history window;
+alerts focus on new destination IPs from each CA host.
+"""
+false_positives = [
+  """
+  Legitimate CA-to-DC and multi-domain directory contacts will alert once per new destination until the history window
+  learns them. Baseline Domain Controller and enrollment-helper IPs for each CA, then exception known pairs of
+  `host.name` + `destination.ip`. Transient IP changes (DHCP/rebuild) can re-alert; prefer stable DC inventories over
+  broad private-CIDR excludes.
+  """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AD CS Certsrv First-Seen Egress to Directory Ports"
+references = [
+  "https://gist.github.com/f-bader/8c447a8f3b58cb8a85bcf013436e312b",
+  "https://gist.github.com/H0j3n/a5ef2609b5f2944ac2390a191a534c26",
+  "https://github.com/aniqfakhrul/CVE-2026-54121",
+  "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-54121",
+]
+risk_score = 47
+rule_id = "3ba93fb1-d237-499a-b186-1460c944b7e3"
+setup = """## Setup
+
+This rule requires Elastic Defend network events from Enterprise CA hosts (where `certsrv.exe` runs).
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+Ensure CA hosts are covered by an Elastic Agent policy that collects network events. Pair alerts with AD CS Security
+events 4886/4887/4888 (`Attributes` containing `cdc:` / `rmd:`) for chase context.
+"""
+severity = "medium"
+tags = [
+  "Domain: Endpoint",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Tactic: Credential Access",
+  "Use Case: Active Directory Monitoring",
+  "Data Source: Active Directory",
+  "Use Case: Vulnerability",
+  "Data Source: Elastic Defend",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.os.type:windows and event.category:network and network.direction:egress and
+process.name:certsrv.exe and destination.port:(389 or 445 or 636) and destination.ip:* and
+not destination.ip:(127.0.0.1 or "::1" or "0:0:0:0:0:0:0:1")
+'''
+
+note = """## Triage and analysis
+
+### Investigating AD CS Certsrv First-Seen Egress to Directory Ports
+
+`certsrv.exe` contacting LDAP/SMB/LDAPS is expected toward Domain Controllers during enrollment and chase. A
+**first-seen** destination from a given CA host can indicate chase steered to an unexpected endpoint (attacker host,
+non-DC LDAP, or newly introduced directory path).
+
+#### Possible investigation steps
+
+- Who is the new destination relative to known DCs?
+  - Focus: `host.name` (CA), `destination.ip`, `destination.port`, and asset inventory / DC IP list.
+  - Implication: escalate when the destination is not a DC/GC, resolves to a workstation, or matches a recent
+    attacker-controlled host from 4741/DHCP telemetry.
+
+- Correlate with chase-attribute AD CS events
+  - Focus: nearby 4886/4887/4888 on the same CA with `winlog.event_data.Attributes` containing `cdc:` / `rmd:` and
+    optionally `SAN:dns`.
+  - Implication: high confidence when the `cdc` value maps to the same destination IP/hostname.
+
+- Was this preceded by machine-account staging?
+  - Focus: 4741 computer creates by low-priv users minutes earlier for the enrollment requester.
+  - Implication: classic Certighost / AD CS prep pattern.
+
+### False positive analysis
+
+- New DCs, site expansion, and CA rebuilds create first-seen destinations. Exception after verifying the destination is
+  an authorized directory host for that CA.
+
+### Response and remediation
+
+- If the destination is unauthorized: isolate/block CA→destination, review concurrent certificate requests, revoke
+  suspect issued certs (4887), patch for CVE-2026-54121, and hunt Kerberos/DCSync follow-on.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1649"
+name = "Steal or Forge Authentication Certificates"
+reference = "https://attack.mitre.org/techniques/T1649/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.name", "destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
