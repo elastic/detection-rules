@@ -22,12 +22,20 @@ from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
 from .config import parse_rules_config
 from .mixins import get_dataclass_required_fields
-from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
+from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents, is_prebuilt_rule_data
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
 from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
+
+# Fields the cluster assigns to Elastic prebuilt rules to track customizations against the
+# base version. They are preserved on import so an export/import round trip stays faithful.
+PREBUILT_RULE_FIELDS = ("immutable", "revision", "rule_source", "version")
+
+# The subset that only ever describes a prebuilt rule. Setting these on a custom rule would let it
+# opt out of the version lock, so they are never offered as a prompt.
+PREBUILT_ONLY_FIELDS = ("immutable", "rule_source")
 
 
 def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
@@ -278,6 +286,10 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 
+    # `props` is sorted alphabetically and each match is popped off kwargs below, so `immutable`
+    # and `rule_source` are already gone by the time `revision` and `version` are reached.
+    is_prebuilt = is_prebuilt_rule_data(kwargs)
+
     for name, options in props.items():
         if name == "index" and kwargs.get("type") == "esql":
             continue
@@ -286,11 +298,18 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
             contents[name] = rule_type_val
             continue
 
-        # these are set at package release time depending on the version strategy
-        if name in ("version", "revision") and not BYPASS_VERSION_LOCK:
+        # Prebuilt rule fields are assigned by the cluster, so they are only ever carried over from
+        # an export, and are then passed through untouched.
+        from_prebuilt_export = is_prebuilt and name in PREBUILT_RULE_FIELDS and name in kwargs
+
+        if name in PREBUILT_ONLY_FIELDS and not from_prebuilt_export:
             continue
 
-        if required_only and name not in required_fields:
+        # these are set at package release time depending on the version strategy
+        if name in ("version", "revision") and not BYPASS_VERSION_LOCK and not from_prebuilt_export:
+            continue
+
+        if required_only and name not in required_fields and not from_prebuilt_export:
             continue
 
         # build this from technique ID

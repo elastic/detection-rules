@@ -386,6 +386,20 @@ class Filter:
     query: Query | dict[str, Any] | None = None
 
 
+def is_prebuilt_rule_data(data: Any) -> bool:
+    """Determine whether rule data describes an Elastic prebuilt rule.
+
+    Kibana marks prebuilt rules `immutable` and reports their provenance in `rule_source`. A rule
+    claiming to be immutable while reporting an internal source is not prebuilt, so the flag on
+    its own cannot be used to opt out of the version lock. `rule_source` is absent on exports from
+    stacks predating the field, which are still prebuilt.
+    """
+    if data.get("immutable") is not True:
+        return False
+    rule_source = data.get("rule_source")
+    return rule_source is None or rule_source.get("type") == "external"
+
+
 @dataclass(frozen=True, kw_only=True)
 class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     """Base rule data."""
@@ -449,6 +463,8 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     timestamp_override: str | None = None
     to: str | None = None
     version: definitions.PositiveInteger | None = None
+    immutable: bool | None = None
+    rule_source: dict[str, Any] | None = None
 
     @classmethod
     def save_schema(cls) -> None:
@@ -522,9 +538,10 @@ class BaseRuleData(MarshmallowDataclassMixin, StackCompatMixin):
     def validates_data(self, data: dict[str, Any], **_: Any) -> None:
         """Validate fields and data for marshmallow schemas."""
 
-        # Validate version and revision fields not supplied.
+        # Validate version and revision fields not supplied. Prebuilt rules are exempt: their
+        # version and revision are assigned by the cluster, not by the local version lock.
         disallowed_fields = [field for field in ["version", "revision"] if data.get(field) is not None]
-        if not disallowed_fields:
+        if not disallowed_fields or is_prebuilt_rule_data(data):
             return
 
         # If version and revision fields are supplied, and using locked versions raise an error.
@@ -1340,12 +1357,22 @@ class BaseRuleContents(ABC):
         return None
 
     @property
+    def is_prebuilt(self) -> bool:
+        """Determine if this is an Elastic prebuilt rule exported from a cluster."""
+        return is_prebuilt_rule_data(self.data)  # type: ignore[reportAttributeAccessIssue]
+
+    @property
     def saved_version(self) -> int | None:
         """Retrieve the version from the version.lock or from the file if version locking is bypassed."""
 
         toml_version = self.data.get("version")  # type: ignore[reportAttributeAccessIssue]
 
         if BYPASS_VERSION_LOCK:
+            return toml_version  # type: ignore[reportUnknownVariableType]
+
+        # The cluster owns the version of a prebuilt rule, so the local lock has no authority over
+        # it. Deferring to the lock here would contradict the version exported by to_api_format.
+        if self.is_prebuilt:
             return toml_version  # type: ignore[reportUnknownVariableType]
 
         if toml_version:
@@ -1858,13 +1885,18 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             converted["meta"] = rule_dict["metadata"]
 
         if include_version:
-            # Prefer stack_emit/baseline shipped version when locked; autobumped
-            # defaults unlocked rules to 1 and handles baseline dirty bumps.
-            converted["version"] = (
-                self.autobumped_version
-                if self.is_dirty
-                else (self.shipped_version if self.shipped_version is not None else self.autobumped_version)
-            )
+            if self.is_prebuilt and self.data.get("version") is not None:
+                # Prebuilt rules carry the version/revision assigned by the cluster, which the
+                # local version lock does not track.
+                converted["version"] = self.data.get("version")
+            else:
+                # Prefer stack_emit/baseline shipped version when locked; autobumped
+                # defaults unlocked rules to 1 and handles baseline dirty bumps.
+                converted["version"] = (
+                    self.autobumped_version
+                    if self.is_dirty
+                    else (self.shipped_version if self.shipped_version is not None else self.autobumped_version)
+                )
 
         return converted
 
