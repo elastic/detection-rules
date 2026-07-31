@@ -7,8 +7,8 @@ updated_date = "2026/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first successful or no-reply Memcached store operation from a client to a server. Memcached commonly has
-no authentication, so an unauthorized writer can overwrite session tokens, poison cached application content, or alter
+Identifies the first successful or no-reply Memcached store command from a client to a server. Memcached commonly has no
+authentication, so an unauthorized writer can overwrite session tokens, poison cached application content, or alter
 security-sensitive state. This behavior can enable session hijacking such as the exposure described by CVE-2026-29093.
 """
 false_positives = [
@@ -27,27 +27,17 @@ note = """## Triage and analysis
 
 ### Investigating First Time Seen Memcached Writer
 
-Memcached permits store commands without authentication by default. A client with network access can use `set`, `add`,
-`replace`, `append`, `prepend`, or `cas` to overwrite session objects or inject content consumed by an application. This
-rule uses a seven-day new-terms history window to surface the first observed client and Memcached server pair performing
-a successful store operation or issuing a store command with `noreply`.
+Memcached permits store commands without authentication by default. A client with network access can use `set`, `add`, `replace`, `append`, `prepend`, or `cas` to overwrite session objects or inject content consumed by an application. This rule uses a seven-day new-terms history window to surface the first observed client, Memcached server, and store command combination performing a successful operation or issuing a store command with `noreply`.
 
-The rule does not inspect cached values and does not prove that a session was hijacked. It identifies an unusual writer
-relationship that requires application and asset context.
+The rule does not inspect cached values and does not prove that a session was hijacked. It identifies an unusual writer relationship that requires application and asset context.
 
 ### Possible investigation steps
 
-- Review `client.ip`, `server.ip`, `server.port`, `network.community_id`,
-  `network_traffic.memcached.request.command`, `network_traffic.memcached.request.keys`,
-  `network_traffic.memcached.response.type`, and `network_traffic.memcached.response.status_code`.
-- Determine whether the client is an approved application server, cache warmer, administrative host, deployment job, or
-  newly scaled workload.
-- Inspect key names for application-specific session prefixes such as `memc.sess.key`, `PHPSESSID`, or `session`. Do not
-  retrieve or ingest cached values unless incident response requires it and access controls permit it.
-- Search earlier Memcached events from the same client for `get`, `gets`, `stats`, `lru_crawler`, or key enumeration
-  activity that could indicate discovery before modification.
-- Search subsequent events for `flush_all`, delete bursts, privileged web sessions from new source addresses or user
-  agents, and administrative actions without the normal authentication sequence.
+- Review `client.ip`, `server.ip`, `server.port`, `network.community_id`, `network_traffic.memcached.request.command`, `network_traffic.memcached.request.keys`, `network_traffic.memcached.response.type`, and `network_traffic.memcached.response.status_code`.
+- Determine whether the client is an approved application server, cache warmer, administrative host, deployment job, or newly scaled workload.
+- Inspect key names for application-specific session prefixes such as `memc.sess.key`, `PHPSESSID`, or `session`. Do not retrieve or ingest cached values unless incident response requires it and access controls permit it.
+- Search earlier Memcached events from the same client for `get`, `gets`, `stats`, `lru_crawler`, or key enumeration activity that could indicate discovery before modification.
+- Search subsequent events for `flush_all`, delete bursts, privileged web sessions from new source addresses or user agents, and administrative actions without the normal authentication sequence.
 - Review application and identity logs to determine whether the write was followed by session reuse or impersonation.
 
 ### False positive analysis
@@ -93,7 +83,7 @@ type = "new_terms"
 
 query = '''
 data_stream.dataset:network_traffic.memcached and
-client.ip:* and server.ip:* and server.port:11211 and
+client.ip:* and server.ip:* and
 network_traffic.memcached.request.command:("set" or "add" or "replace" or "append" or "prepend" or "cas") and
 (
   network_traffic.memcached.response.type:("Success" or "success") or
@@ -138,7 +128,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["client.ip", "server.ip"]
+value = ["client.ip", "server.ip", "network_traffic.memcached.request.command"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
