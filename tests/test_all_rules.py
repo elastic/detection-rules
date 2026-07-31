@@ -673,7 +673,7 @@ class TestRuleTags(BaseRuleTest):
     def test_llm_completion_tag(self):
         """Test that Resources: LLM is present on rules that use ES|QL COMPLETION."""
         invalid = []
-        completion_re = re.compile(r"(?m)^\s*\|\s*COMPLETION\b")
+        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
 
         for rule in self.all_rules:
             query = rule.contents.data.get("query") or ""
