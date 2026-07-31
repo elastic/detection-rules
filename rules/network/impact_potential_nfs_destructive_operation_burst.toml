@@ -71,13 +71,16 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from
-    (from logs-network_traffic.nfs-* metadata _source
-    | eval Esql.opcode = TO_UPPER(JSON_EXTRACT(_source, "network_traffic.nfs.opcode"))
-    | eval Esql.status = TO_UPPER(JSON_EXTRACT(_source, "network_traffic.nfs.status"))),
-    (from packetbeat-* metadata _source
-    | eval Esql.opcode = TO_UPPER(JSON_EXTRACT(_source, "nfs.opcode"))
-    | eval Esql.status = TO_UPPER(JSON_EXTRACT(_source, "nfs.status")))
+from logs-network_traffic.nfs-*, packetbeat-* metadata _source
+| eval
+    Esql.opcode = TO_UPPER(COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.nfs.opcode"),
+        JSON_EXTRACT(_source, "nfs.opcode")
+    )),
+    Esql.status = TO_UPPER(COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.nfs.status"),
+        JSON_EXTRACT(_source, "nfs.status")
+    ))
 | where Esql.opcode in ("WRITE", "REMOVE", "RENAME") and Esql.status == "NFS_OK" and
     source.ip is not null and destination.ip is not null
 | eval Esql.time_window = DATE_TRUNC(1 minutes, @timestamp)
