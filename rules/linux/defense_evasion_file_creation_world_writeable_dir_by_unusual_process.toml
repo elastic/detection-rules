@@ -2,7 +2,7 @@
 creation_date = "2026/04/09"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/13"
+updated_date = "2026/07/10"
 
 [rule]
 author = ["Elastic"]
@@ -34,7 +34,7 @@ This alert flags a Linux process that normally should not stage content in share
 ### Possible investigation steps
 
 - Reconstruct the full process lineage and execution context around the file creation to determine whether it originated from an interactive session, scheduled task, container, service account, or a parent process already running from an unusual location.
-- Inspect the dropped file’s type, permissions, ownership, hash, and contents to assess whether it is a script, ELF, archive, or disguised payload, and determine if it was later executed, renamed, or moved to a more persistent path.
+- Inspect the dropped file's type, permissions, ownership, hash, and contents to assess whether it is a script, ELF, archive, or disguised payload, and determine if it was later executed, renamed, or moved to a more persistent path.
 - Correlate the alert with nearby authentication, privilege escalation, and network activity on the same host to identify signs of compromise such as recent SSH access, sudo use, remote command execution, or outbound connections to untrusted infrastructure.
 - Validate whether the activity aligns with known administrative or software deployment behavior by checking package ownership, change records, automation tooling, and host or user prevalence, since one-off staging in shared writable paths is more suspicious than common fleetwide behavior.
 
@@ -105,15 +105,19 @@ not (
     /tmp/new_root/* or /tmp/newroot/* or /run/user/*/.bubblewrap/newroot/* or /tmp/tmp.*/docker-scout_* or
     /var/tmp/portage/* or /tmp/yarn--* or /run/k3s/containerd/* or /var/tmp/pamac-build-* or
     /tmp/mkinitcpio* or /run/user/*/netns/netns-* or /tmp/apt-key* or /tmp/tmp.*/pubring.orig.gpg or
-    /tmp/CVU_19_* or /tmp/ut-backup-files.* or /tmp/tmp.*/terraform/*
+    /tmp/CVU_19_* or /tmp/ut-backup-files.* or /tmp/tmp.*/terraform/* or
+    /run/initramfs/* or /run/samba/* or /run/qemu/* or /var/run/qemu/* or /run/containerd/* or
+    /var/run/sophos/* or /tmp/*sophos-tmpfs* or /tmp/*sophos_sensor*
   ) or
-  file.extension:("json" or "txt") or
+  file.extension:("json" or "txt" or "log" or "pid" or "conf" or "cnf" or "pem" or "lock" or "xml" or "bak" or "gz") or
   process.executable:(
-    /tmp/par-* or /tmp/snap.rootfs_* or /tmp/CVU_*/exectask or /tmp/.mount_*/usr/bin/QGroundControl or
+    /tmp/par-* or /tmp/par_tmp.* or /tmp/snap.rootfs_* or /tmp/CVU_*/exectask or /tmp/.mount_*/usr/bin/QGroundControl or
     ./snap/snapd/*/usr/lib/snapd/snap-update-ns or "./usr/lib/snapd/snap-update-ns" or
     "/tmp/newroot/snap/snapd/current/usr/bin/snap" or /tmp/newroot/snap/snapd/*/usr/lib/snapd/snap-confine or
-    "./usr/bin/podman" or "/tmp/newroot/usr/lib/systemd/systemd"
-  )
+    "./usr/bin/podman" or "/tmp/newroot/usr/lib/systemd/systemd" or
+    /tmp/pip-install-* or /tmp/pip-build-env-* or /tmp/*Actions*/* or /tmp/GridSetupActions*/*
+  ) or
+  process.name:("build-script-build" or "conftest" or "maturin")
 )
 '''
 
