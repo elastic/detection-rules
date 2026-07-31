@@ -2,7 +2,7 @@
 creation_date = "2026/06/30"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2026/06/30"
+updated_date = "2026/07/10"
 
 [rule]
 author = ["Elastic"]
@@ -22,16 +22,15 @@ Identify who created or changed the binding and which subject received cluster-a
 
 ### Investigation steps
 
-- Review `user.email`, `source.ip`, and `gcp.audit.request` for the bound subject.
+- Review `client.user.email`, `source.ip`, and `gcp.audit.request` for the bound subject.
 - Hunt for secret reads, privileged pod creation, or webhook changes from the same actor or new subject.
 
 ### False positives
 
-- Bootstrap, recovery, or GitOps workflows may recreate cluster-admin bindings during approved changes.
+- Bootstrap and recovery may recreate cluster-admin bindings via `system:apiserver` during control plane reconciliation (excluded).
 
-## Setup
-
-The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
 references = [
     "https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control",
     "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
@@ -59,7 +58,8 @@ event.action:(
   "io.k8s.authorization.rbac.v1.clusterrolebindings.patch" or
   "io.k8s.authorization.rbac.v1.clusterrolebindings.update"
 ) and gcp.audit.request.kind:"ClusterRoleBinding" and
-gcp.audit.resource_name:"rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin"
+gcp.audit.resource_name:"rbac.authorization.k8s.io/v1/clusterrolebindings/cluster-admin" and
+not client.user.email:"system:apiserver"
 '''
 
 [[rule.threat]]
@@ -97,3 +97,18 @@ reference = "https://attack.mitre.org/techniques/T1098/006/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request.kind",
+    "gcp.audit.request.roleRef.name",
+    "gcp.audit.request.subjects.name",
+    "data_stream.namespace",
+]

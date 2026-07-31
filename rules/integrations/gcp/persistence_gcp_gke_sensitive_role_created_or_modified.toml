@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2026/07/10"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or modification of GKE Roles or ClusterRoles that grant high-risk permissions, such as wildcard
+access or RBAC escalation verbs (bind, escalate, impersonate), which may enable privilege escalation or unauthorized
+access within the cluster.
+"""
+false_positives = [
+    """
+    Platform installers, GitOps controllers, and RBAC refactoring may legitimately create roles with broad permissions.
+    Baseline approved automation and tune exclusions for known operators.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Creation or Modification of Sensitive Role"
+note = """## Triage and analysis
+
+### Investigating GKE Creation or Modification of Sensitive Role
+
+This rule detects allowed create, update, or patch actions on Roles and ClusterRoles that introduce high-risk RBAC
+permissions, including wildcard access and escalation verbs like bind, escalate, or impersonate.
+
+### Possible investigation steps
+
+- Identify `client.user.email`, `source.ip`, and `user_agent.original`.
+- Review `gcp.audit.resource_name`, `event.action`, and `gcp.audit.request` for the changed role.
+- Enumerate RoleBindings or ClusterRoleBindings that reference the role and hunt for follow-on secret or exec activity.
+
+### False positive analysis
+
+- GitOps or platform bootstrap may create broad roles during onboarding. `system:addon-manager` patch reconciliation on built-in Roles and ClusterRoles is excluded.
+
+### Response and remediation
+
+- Revert unauthorized roles, remove unexpected bindings, and restrict RBAC change permissions to governed pipelines.
+
+"""
+setup = "The GCP Fleet integration with GKE audit logs enabled is required. Request body capture on RBAC resources is required."
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
+]
+risk_score = 47
+rule_id = "2af7f1d7-d02c-476f-a130-e17ea4e556e6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.action:(
+  "io.k8s.authorization.rbac.v1.roles.create" or
+  "io.k8s.authorization.rbac.v1.roles.update" or
+  "io.k8s.authorization.rbac.v1.roles.patch" or
+  "io.k8s.authorization.rbac.v1.clusterroles.create" or
+  "io.k8s.authorization.rbac.v1.clusterroles.update" or
+  "io.k8s.authorization.rbac.v1.clusterroles.patch"
+) and not source.ip:("::1" or "127.0.0.1") and not (
+  client.user.email:"system:serviceaccount:kube-system:clusterrole-aggregation-controller" and
+  gcp.audit.request.metadata.name:(admin or edit) and
+  event.action:"io.k8s.authorization.rbac.v1.clusterroles.patch"
+) and not (
+  client.user.email:"system:addon-manager" and
+  event.action:(
+    "io.k8s.authorization.rbac.v1.roles.patch" or
+    "io.k8s.authorization.rbac.v1.clusterroles.patch"
+  )
+) and (
+  gcp.audit.request.rules.verbs:("*" or escalate or bind or impersonate) or
+  (
+    gcp.audit.request.rules.verbs:("*" or create or patch or update) and
+    gcp.audit.request.rules.resources:(
+      "*" or clusterroles or clusterrolebindings or roles or rolebindings or
+      pods/exec or serviceaccounts/token or nodes/proxy or daemonsets
+    )
+  ) or
+  (
+    gcp.audit.request.rules.verbs:("*" or get or list) and
+    gcp.audit.request.rules.resources:("*" or secrets)
+  ) or
+  gcp.audit.response.rules.verbs:("*" or escalate or bind or impersonate) or
+  (
+    gcp.audit.response.rules.verbs:("*" or create or patch or update) and
+    gcp.audit.response.rules.resources:(
+      "*" or clusterroles or clusterrolebindings or roles or rolebindings or
+      pods/exec or serviceaccounts/token or nodes/proxy or daemonsets
+    )
+  ) or
+  (
+    gcp.audit.response.rules.verbs:("*" or get or list) and
+    gcp.audit.response.rules.resources:("*" or secrets)
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request.kind",
+    "data_stream.namespace",
+]

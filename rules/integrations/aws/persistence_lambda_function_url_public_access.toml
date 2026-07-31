@@ -2,7 +2,7 @@
 creation_date = "2026/06/18"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/18"
+updated_date = "2026/07/09"
 
 [rule]
 author = ["Elastic"]
@@ -82,6 +82,8 @@ query = '''
 any where data_stream.dataset == "aws.cloudtrail"
     and event.provider == "lambda.amazonaws.com"
     and event.outcome == "success"
+    and not (user_agent.original : "*terraform*" or user_agent.original : "*pulumi*" or user_agent.original : "*ansible*")
+    and not (aws.cloudtrail.user_identity.arn : "*terraform*" or aws.cloudtrail.user_identity.arn : "*pulumi*" or aws.cloudtrail.user_identity.arn : "*ansible*")
     and (event.action : "CreateFunctionUrlConfig*" or event.action : "UpdateFunctionUrlConfig*")
     and stringContains(aws.cloudtrail.request_parameters, "authType=NONE")
 '''

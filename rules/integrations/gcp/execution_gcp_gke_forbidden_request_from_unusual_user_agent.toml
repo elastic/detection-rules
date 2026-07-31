@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first occurrence of a failed GKE API request from a previously unseen user agent. Adversary tooling often
+uses non-standard clients; combined with authorization failures this can indicate RBAC probing or exploitation attempts.
+"""
+false_positives = [
+    """
+    New internal tools, SDKs, or CI runners introduce novel user agents. Baseline expected clients, then exclude stable
+    automation UAs after review.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Forbidden Request from Unusual User Agent"
+note = """## Triage and analysis
+
+### Investigating GKE Forbidden Request from Unusual User Agent
+
+A novel user agent with failed API calls may be scanner or post-compromise tooling probing RBAC.
+
+### Investigation steps
+
+- Review `user_agent.original`, `client.user.email`, `event.action`, `gcp.audit.resource_name`, and `source.ip`.
+- Determine whether the client is expected (new SDK, CI image) or external reconnaissance.
+- Hunt for successful requests from the same UA or source after the failures.
+
+### False positives
+
+- First use of a legitimate new client library; add a scoped UA exception after validation.
+
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+]
+risk_score = 47
+rule_id = "e1147459-a3e1-4bdc-bab9-965807801774"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.outcome:failure and
+user_agent.original:(* and not (*kubernetes/$Format or kube-probe* or gke-exec-auth-plugin*)) and
+not client.user.email:(
+  "system:addon-manager" or system\:*controller* or system\:gke-* or
+  "system:apiserver" or "system:kube-scheduler" or "system:metrics-server-nanny" or
+  "system:kube-proxy" or "system:clustermetrics" or "system:vpa-recommender" or
+  "system:cluster-autoscaler" or "system:kubestore-collector" or
+  "system:konnectivity-server" or
+  "system:serviceaccount:kube-system:pod-garbage-collector" or
+  "system:serviceaccount:kube-system:generic-garbage-collector" or system\:node\:* or
+  "gcp:kube-bootstrap" or *container-engine-robot*
+)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "orchestrator.resource.name",
+    "orchestrator.namespace",
+]
