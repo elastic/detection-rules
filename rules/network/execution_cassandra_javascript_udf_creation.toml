@@ -20,34 +20,27 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-network_traffic.cassandra-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Cassandra JavaScript UDF Creation"
 note = """## Triage and analysis
 
 ### Investigating Cassandra JavaScript UDF Creation
 
-CVE-2021-44521 allows a JavaScript UDF to escape the Nashorn sandbox when Cassandra is vulnerable and scripted UDFs
-are enabled with unsafe thread settings. Even on patched systems, JavaScript UDF creation is a sensitive control-plane
-operation that should be rare and restricted to approved administrators.
+CVE-2021-44521 allows a JavaScript UDF to escape the Nashorn sandbox when Cassandra is vulnerable and scripted UDFs are enabled with unsafe thread settings. Even on patched systems, JavaScript UDF creation is a sensitive control-plane operation that should be rare and restricted to approved administrators.
 
 ### Possible investigation steps
 
-- Review `client.ip`, `server.ip`, `network.community_id`, and
-  `network_traffic.cassandra.request.query`.
+- Review `client.ip`, `server.ip`, `network.community_id`, and `network_traffic.cassandra.request.query`.
 - Extract the function name, keyspace, declared language, and function body.
-- Look for Java interoperability, reflection, process execution, class loading, file access, or network-access strings
-  in the UDF body.
-- Confirm the Cassandra version and the values of `enable_user_defined_functions`,
-  `enable_scripted_user_defined_functions`, and `enable_user_defined_functions_threads`.
-- Correlate with Cassandra audit logs and endpoint telemetry for child processes, file creation, or outbound
-  connections from the Cassandra service.
+- Look for Java interoperability, reflection, process execution, class loading, file access, or network-access strings in the UDF body.
+- Confirm the Cassandra version and the values of `enable_user_defined_functions`, `enable_scripted_user_defined_functions`, and `enable_user_defined_functions_threads`.
+- Correlate with Cassandra audit logs and endpoint telemetry for child processes, file creation, or outbound connections from the Cassandra service.
 
 ### False positive analysis
 
 - Approved application deployments may create JavaScript UDFs, though this should be uncommon.
-- Scope exceptions to known deployment clients and reviewed function definitions rather than excluding UDF creation
-  globally.
+- Scope exceptions to known deployment clients and reviewed function definitions rather than excluding UDF creation globally.
 
 ### Response and remediation
 
@@ -80,14 +73,12 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-data_stream.dataset:network_traffic.cassandra and
-network_traffic.cassandra.request.query:(
-  (*CREATE* and *FUNCTION* and *LANGUAGE* and *JAVASCRIPT*) or
-  (*create* and *function* and *language* and *javascript*)
-)
+any where data_stream.dataset == "network_traffic.cassandra" and
+    network_traffic.cassandra.request.query like~ "*create*function*" and
+    network_traffic.cassandra.request.query like~ "*language*javascript*"
 '''
 
 
