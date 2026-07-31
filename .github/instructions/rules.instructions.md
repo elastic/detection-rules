@@ -55,6 +55,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - Include `OS:` tags (Windows, Linux, macOS) where applicable.
   - Include `Data Source:` tags matching the used integrations.
   - Include `Resources: Investigation Guide` if the `note` field is present.
+  - Include `Resources: LLM` if the query uses the ES|QL `COMPLETION` command (token cost indicator).
   - Include `Rule Type: BBR` for building block rules.
   - Include `Rule Type: ML` or `Rule Type: Machine Learning` for ML rules.
   - Include `Tactic:` tags matching each MITRE tactic in the threat mapping.
