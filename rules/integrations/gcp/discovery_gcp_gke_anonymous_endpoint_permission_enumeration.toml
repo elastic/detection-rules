@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects bursts of GKE API requests from an anonymous identity that probe many distinct actions and resources with
+mostly failed outcomes. This pattern is consistent with unauthenticated permission enumeration against an exposed API
+server. On GKE GCP audit logs, unauthenticated probes often omit "client.user.email" (null principal) with
+Unauthorized failures; those events are included alongside "system:anonymous" / "system:unauthenticated".
+"""
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "GKE Anonymous Endpoint Permission Enumeration"
+note = """## Triage and analysis
+
+### Investigating GKE Anonymous Endpoint Permission Enumeration
+
+Anonymous multi-endpoint failure bursts map which APIs are reachable before credential theft or exploitation.
+Treat missing `client.user.email` with Unauthorized/failure bursts as anonymous on GKE.
+
+### Investigation steps
+
+- Review `Esql.event_action_values` and `Esql.resource_name_values` for targeted APIs (secrets, RBAC, CRDs).
+- Confirm whether `source.ip` is Internet-routable and whether the API endpoint is publicly exposed.
+- Hunt for later successful anonymous or authenticated activity from the same source or user agent.
+
+### False positives
+
+- Misconfigured auth proxies that strip credentials can make legitimate clients appear anonymous during outages.
+
+"""
+references = [
+    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access",
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+]
+risk_score = 47
+rule_id = "bd7345e5-c822-41de-a393-7573fec07ef4"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Reconnaissance",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+
+query = '''
+from logs-gcp.audit-* metadata _id, _index, _version
+| where data_stream.dataset == "gcp.audit"
+    and service.name == "k8s.io"
+    and (
+      client.user.email in ("system:anonymous", "system:unauthenticated")
+      or client.user.email is null
+    )
+    and not gcp.audit.resource_name in ("readyz", "livez", "healthz", "version")
+| stats
+    Esql.document_count = count(),
+    Esql.failure_count = sum(case(event.outcome == "failure", 1, 0)),
+    Esql.event_action_count_distinct = count_distinct(event.action),
+    Esql.resource_name_count_distinct = count_distinct(gcp.audit.resource_name),
+    Esql.event_action_values = values(event.action),
+    Esql.resource_name_values = values(gcp.audit.resource_name),
+    Esql.event_outcome_values = values(event.outcome),
+    Esql.client_user_email_values = values(client.user.email),
+    Esql.timestamp = VALUES(@timestamp),
+    Esql.data_stream_namespace = VALUES(data_stream.namespace),
+    Esql.user_agent_original_values = VALUES(user_agent.original)
+  by source.ip
+| where Esql.event_action_count_distinct > 5
+    and Esql.resource_name_count_distinct > 3
+    and Esql.document_count < 50
+    and Esql.failure_count >= 1
+| keep Esql.*, source.ip
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
