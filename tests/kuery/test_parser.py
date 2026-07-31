@@ -90,6 +90,25 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(kql.KqlParseError):
             kql.parse("@time > 5", schema=schema)
 
+    def test_range_expression_unknown_field(self):
+        """Range comparisons must validate the field against the schema, like `:` does."""
+        schema = {"process.pid": "long"}
+
+        self.validate("process.pid > 5", FieldRange(Field("process.pid"), ">", Number(5)), schema=schema)
+
+        for query in ("typo.pid > 5", "typo.pid >= 5", "typo.pid < 5", "typo.pid <= 5"):
+            with self.assertRaises(kql.KqlParseError) as exc:
+                kql.parse(query, schema=schema)
+            self.assertEqual(exc.exception.error_msg, "Unknown field")
+
+        # a wildcard field that matches nothing used to raise AttributeError instead
+        with self.assertRaises(kql.KqlParseError) as exc:
+            kql.parse('"process.*.nope" > 5', schema=schema)
+        self.assertEqual(exc.exception.error_msg, "Unknown field")
+
+        # without a schema there is nothing to check against
+        self.validate("typo.pid > 5", FieldRange(Field("typo.pid"), ">", Number(5)))
+
     def test_optimization(self):
         query = 'host.name: test-* and not (destination.ip : "127.0.0.53" and destination.ip : "169.254.169.254")'
         dsl_str = str(kql.to_dsl(query))
