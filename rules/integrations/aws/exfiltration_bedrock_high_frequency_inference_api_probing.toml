@@ -33,40 +33,23 @@ note = """## Triage and analysis
 
 ### Investigating AWS Bedrock High-Frequency Single-Model Inference API Probing
 
-Membership inference compares many samples against a model to infer whether
-specific records were present in training data. Because prompts and responses often appear benign, the
-actionable signal is frequently statistical: unusually high inference rates concentrated on one model from
-a single principal. AWS CloudTrail records the core Bedrock runtime operations (`InvokeModel`,
-`InvokeModelWithResponseStream`, `Converse`, `ConverseStream`) as management events, which are logged by
-default, so this probing phase is observable at the API layer even when Bedrock model invocation logging is
-disabled. CloudTrail does not capture the prompt body, so this rule is purely volumetric.
+Membership inference compares many samples against a model to infer whether specific records were present in training data. Because prompts and responses often appear benign, the actionable signal is frequently statistical: unusually high inference rates concentrated on one model from a single principal. AWS CloudTrail records the core Bedrock runtime operations (`InvokeModel`, `InvokeModelWithResponseStream`, `Converse`, `ConverseStream`) as management events, which are logged by default, so this probing phase is observable at the API layer even when Bedrock model invocation logging is disabled. CloudTrail does not capture the prompt body, so this rule is purely volumetric.
 
-This rule is tuned to the loud case. Treat it as corroborating signal alongside other Bedrock alerts, not
-as conclusive membership inference detection.
+This rule is tuned to the loud case. Treat it as corroborating signal alongside other Bedrock alerts, not as conclusive membership inference detection.
 
 #### Possible investigation steps
 
-- Identify the principal in `aws.cloudtrail.user_identity.arn` and the targeted model in the extracted
-  `Esql.model_id`.
+- Identify the principal in `aws.cloudtrail.user_identity.arn` and the targeted model in the extracted `Esql.model_id`.
 - Determine whether the call volume exceeds the principal's historical baseline for the same model.
-- Review companion Bedrock invocation logs, if enabled, for short prompts, repeated inputs, or low-variance
-  responses that may indicate membership testing.
-- Inspect `source.ip`, `user_agent.original`, and recent IAM activity for signs of compromised credentials
-  or unexpected automation.
-- Correlate with bulk output-extraction or guardrail alerts that may indicate a broader inference abuse
-  campaign.
+- Review companion Bedrock invocation logs, if enabled, for short prompts, repeated inputs, or low-variance responses that may indicate membership testing.
+- Inspect `Esql.source_ip_values`, `Esql.user_agent_original_values`, and recent IAM activity for signs of compromised credentials or unexpected automation.
+- Correlate with bulk output-extraction or guardrail alerts that may indicate a broader inference abuse campaign.
 
 ### Response and remediation
 
 - Apply Bedrock service quotas and IAM least privilege for inference APIs while investigating.
 - Enable model invocation logging for content-level review if not already configured.
 - If abuse is confirmed, rotate access keys or disable the compromised principal.
-
-### Additional information
-
-- For further details on how Amazon Bedrock integrates with AWS CloudTrail to log control plane and data plane runtime operations, see the [AWS Bedrock User Guide on CloudTrail Logging](https://docs.aws.amazon.com/bedrock/latest/userguide/logging-using-cloudtrail.html).
-- To explore the adversarial tactics, techniques, and case studies surrounding machine learning model data leakage, consult the [MITRE ATLAS Exfiltration via Inferences (AML.T0024)](https://atlas.mitre.org/techniques/AML.T0024) documentation.
-
 """
 references = [
     "https://atlas.mitre.org/techniques/AML.T0024",
@@ -160,6 +143,9 @@ field_names = [
 "aws.cloudtrail.user_identity.arn", 
 "cloud.account.id", 
 "Esql.model_id", 
-"Esql.inference_call_count"
+"Esql.inference_call_count",
+"Esql.user_agent_original_values",
+"Esql.source_ip_values",
+"Esql.user_name_values"
 ]
 
