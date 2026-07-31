@@ -172,6 +172,7 @@ EXPECTED_RULE_TAGS = [
     "Promotion: External Alerts",
     "Rule Type: BBR",
     "Resources: Investigation Guide",
+    "Resources: LLM",
     "Rule Type: Higher-Order Rule",
     "Rule Type: Machine Learning",
     "Rule Type: ML",
