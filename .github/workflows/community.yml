@@ -12,16 +12,24 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  id-token: write
 
 jobs:
   label:
     runs-on: ubuntu-latest
     steps:
+      - name: Fetch ephemeral GitHub token
+        id: fetch-ephemeral-token
+        uses: elastic/ci-gh-actions/fetch-github-token@2feb1c6f5086cf8e06f61ef35e275abed3456f7b # v1.5.3
+        with:
+          vault-instance: "ci-prod"
+          vault-role: "token-policy-6a609e518e74"
+
       - name: Check if member of elastic org
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         id: membership
         with:
-          github-token: ${{ secrets.READ_ELASTIC_DETECTION_RULES_ORG_TOKEN }}
+          github-token: ${{ steps.fetch-ephemeral-token.outputs.token }}
           result-encoding: string
           script: |
 
