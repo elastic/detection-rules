@@ -12,14 +12,14 @@ attributes include legacy enrollment chase fields (`cdc` or `rmd`). Those attrib
 identity during enrollment and are used by Certighost (CVE-2026-54121) as well as other requester-influenced chase /
 referral paths. The rule does not require PoC-specific extras such as `SAN:dns` — those raise investigative confidence
 when present but omitting them as hard requirements avoids false negatives against alternate chase abuse shapes.
-Matches 4886 (received), 4887 (issued), and 4888 (denied) so patched denials and successful issuance both surface.
+Routine Domain Controller template enrollments (common legitimate chase users) are excluded. Matches 4886 (received),
+4887 (issued), and 4888 (denied) so patched denials and successful issuance both surface.
 """
 false_positives = [
   """
-  Domain Controller and some multi-domain enrollment workflows legitimately set `cdc`/`rmd` (often with `ccm`). Prefer
-  exceptions scoped to `host.name` (CA), `winlog.event_data.CertificateTemplate` (for example DomainController), and
-  known requesters after baselining. Escalate rather than except when `SAN:dns` is also present, when `cdc` is an IP or
-  non-DC hostname, or when `event.code` is 4887 (issued) for an unexpected template/requester.
+  Some multi-domain or non-DC enrollment workflows still set `cdc`/`rmd`. Prefer exceptions scoped to `host.name` (CA),
+  remaining templates, and known requesters after baselining. Escalate when `SAN:dns` is also present, when `cdc` is an
+  IP or non-DC hostname, or when `event.code` is 4887 (issued) for an unexpected template/requester.
   """,
 ]
 from = "now-9m"
@@ -66,8 +66,19 @@ type = "eql"
 
 query = '''
 any where host.os.type == "windows" and event.code in ("4886", "4887", "4888") and
-  /* Chase attrs: cdc (Client DC) or rmd (Remote Machine/Domain). Do not require SAN:dns. */
-  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*")
+  /* Chase attrs: cdc (Client DC) or rmd (Remote Machine/Domain).
+  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*") and
+  /* Drop routine DC / Kerberos authentication template chase observed in lab baselines */
+  not winlog.event_data.CertificateTemplate : (
+    "DomainController",
+    "DomainControllerAuthentication",
+    "KerberosAuthentication"
+  ) and
+  not winlog.event_data.Attributes : (
+    "*CertificateTemplate:DomainController*",
+    "*CertificateTemplate:DomainControllerAuthentication*",
+    "*CertificateTemplate:KerberosAuthentication*"
+  )
 '''
 
 note = """## Triage and analysis
@@ -117,7 +128,8 @@ alert — other chase abuse may omit it.
 
 ### False positive analysis
 
-- Expect DC-template / multi-domain chase on CA hosts. Exception tightly by CA + template + requester after baseline.
+- DomainController / DomainControllerAuthentication / KerberosAuthentication template chase is excluded in-query.
+- Remaining multi-domain or custom-template chase may still alert — exception by CA + template + requester after baseline.
 - Do not globally suppress `cdc`/`rmd` — that recreates the false-negative gap this rule is meant to close.
 - Authorized AD CS / Certighost lab testing will match; exception only with known lab CA host + requester scope.
 

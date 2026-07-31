@@ -62,7 +62,12 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:network and network.direction:egress and
 process.name:certsrv.exe and destination.port:(389 or 445 or 636) and destination.ip:* and
-not destination.ip:(127.0.0.1 or "::1" or "0:0:0:0:0:0:0:1")
+not destination.ip:(
+  127.0.0.0/8 or "::1" or "0:0:0:0:0:0:0:1" or
+  169.254.0.0/16 or "FE80::/10" or
+  224.0.0.0/4 or "FF00::/8" or
+  255.255.255.255
+)
 '''
 
 note = """## Triage and analysis
