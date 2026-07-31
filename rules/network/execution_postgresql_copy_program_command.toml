@@ -7,8 +7,8 @@ updated_date = "2026/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PostgreSQL `COPY` statements that invoke an operating-system command through the `PROGRAM` option. A
-superuser or role with `pg_execute_server_program` can use this feature to execute arbitrary commands as the PostgreSQL
+Identifies PostgreSQL "COPY" statements that invoke an operating-system command through the "PROGRAM" option. A
+superuser or role with "pg_execute_server_program" can use this feature to execute arbitrary commands as the PostgreSQL
 service account, a technique used after credential compromise and by cryptomining campaigns.
 """
 false_positives = [
@@ -20,34 +20,27 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-network_traffic.pgsql-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "PostgreSQL COPY PROGRAM Command Execution"
 note = """## Triage and analysis
 
 ### Investigating PostgreSQL COPY PROGRAM Command Execution
 
-PostgreSQL supports `COPY ... FROM PROGRAM` and `COPY ... TO PROGRAM` for server-side process execution. Attackers who
-obtain a privileged database identity can use this feature to launch shells, download payloads, establish persistence,
-or deploy cryptominers from the PostgreSQL process context.
+PostgreSQL supports `COPY ... FROM PROGRAM` and `COPY ... TO PROGRAM` for server-side process execution. Attackers who obtain a privileged database identity can use this feature to launch shells, download payloads, establish persistence, or deploy cryptominers from the PostgreSQL process context.
 
 ### Possible investigation steps
 
 - Review `client.ip`, `server.ip`, `network.community_id`, `network_traffic.pgsql.query`, and PostgreSQL error fields.
-- Extract the command passed to `PROGRAM` and identify referenced shells, interpreters, downloaders, files, or network
-  destinations.
-- Confirm the database role and whether it has superuser or `pg_execute_server_program` privileges using PostgreSQL
-  audit and server logs.
-- Correlate the event with endpoint telemetry for `postgres` spawning `sh`, `bash`, `curl`, `wget`, `python`, `perl`,
-  `nc`, miners, or other unusual child processes.
-- Search earlier events from the client for authentication failures, role changes, extension creation, or database
-  enumeration.
+- Extract the command passed to `PROGRAM` and identify referenced shells, interpreters, downloaders, files, or network destinations.
+- Confirm the database role and whether it has superuser or `pg_execute_server_program` privileges using PostgreSQL audit and server logs.
+- Correlate the event with endpoint telemetry for `postgres` spawning `sh`, `bash`, `curl`, `wget`, `python`, `perl`, `nc`, miners, or other unusual child processes.
+- Search earlier events from the client for authentication failures, role changes, extension creation, or database enumeration.
 
 ### False positive analysis
 
 - Approved ETL, backup, and administrative automation can use COPY PROGRAM.
-- Scope exceptions to a documented client, command family, and maintenance context; do not globally exclude the
-  `PROGRAM` keyword.
+- Scope exceptions to a documented client, command family, and maintenance context; do not globally exclude the `PROGRAM` keyword.
 
 ### Response and remediation
 
@@ -80,11 +73,14 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-data_stream.dataset:network_traffic.pgsql and
-network_traffic.pgsql.query:(*COPY* and *PROGRAM* or *copy* and *program*)
+any where data_stream.dataset == "network_traffic.pgsql" and
+    (
+        network_traffic.pgsql.query like~ "*copy*from*program*" or
+        network_traffic.pgsql.query like~ "*copy*to*program*"
+    )
 '''
 
 
