@@ -27,26 +27,17 @@ note = """## Triage and analysis
 
 ### Investigating Thrift RPC Method from an External Client
 
-Thrift is frequently used by internal microservices and Hadoop ecosystem services such as HBase, Hive, Spark, and
-Impala. Many deployments rely on network trust or application-specific authentication. This rule uses a five-day
-new-terms history window to surface the first observed public client and Thrift server pair that completes a decoded
-method invocation.
+Thrift is frequently used by internal microservices and Hadoop ecosystem services such as HBase, Hive, Spark, and Impala. Many deployments rely on network trust or application-specific authentication. This rule uses a five-day new-terms history window to surface the first observed public client and Thrift server pair that completes a decoded method invocation.
 
-The alert proves that a Thrift transaction was decoded, but it does not prove authentication bypass or successful
-exploitation.
+The alert proves that a Thrift transaction was decoded, but it does not prove authentication bypass or successful exploitation.
 
 ### Possible investigation steps
 
-- Review `client.ip`, `server.ip`, `server.port`, `network_traffic.thrift.service`,
-  `network_traffic.thrift.method`, `network_traffic.thrift.path`, `network_traffic.thrift.exceptions`, and
-  `network.community_id`.
-- Identify the server application and determine whether the service is intended to accept Internet-originated Thrift
-  calls.
+- Review `client.ip`, `server.ip`, `server.port`, `network_traffic.thrift.service`, `network_traffic.thrift.method`, `network_traffic.thrift.path`, `network_traffic.thrift.exceptions`, and `network.community_id`.
+- Identify the server application and determine whether the service is intended to accept Internet originated Thrift calls.
 - Validate the client against partner, VPN, administrator, and approved service inventories.
-- Review the service IDL and determine whether the invoked method reads sensitive data, changes configuration, deletes
-  resources, or executes jobs.
-- Correlate with service authentication and audit logs because the passive transaction does not expose authoritative
-  authentication state.
+- Review the service IDL and determine whether the invoked method reads sensitive data, changes configuration, deletes resources, or executes jobs.
+- Correlate with service authentication and audit logs because the passive transaction does not expose authoritative authentication state.
 
 ### False positive analysis
 
