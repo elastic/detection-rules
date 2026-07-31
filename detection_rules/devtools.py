@@ -43,6 +43,7 @@ from .config import (
 )
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
+from .ecs_scope import scan_and_report as scan_ecs_scope_violations
 from .endgame import EndgameSchemaManager
 from .esql_errors import (
     ESQL_EXCEPTION_TYPES,
@@ -1627,6 +1628,17 @@ def build_integration_schemas(overwrite: bool, integration: str) -> None:
         build_integrations_schemas(overwrite=overwrite)
         end_time = time.perf_counter()
         click.echo(f"Time taken to generate schemas: {(end_time - start_time) / 60:.2f} minutes")
+
+
+@integrations_group.command("find-ecs-scope-violations")
+@click.option("--output", "-o", type=Path, help="Path to write a CSV report")
+@click.option("--json-output", "-j", type=Path, help="Path to write a JSON report")
+@click.option("--package", "-p", help="Only report rules referencing this package")
+def find_ecs_scope_violations(output: Path | None, json_output: Path | None, package: str | None) -> None:
+    """Identify rules using ECS fields their related integrations do not declare."""
+    violations = scan_ecs_scope_violations(output=output, json_output=json_output, package_filter=package)
+    if violations:
+        raise click.exceptions.Exit(1)
 
 
 @integrations_group.command("show-latest-compatible")

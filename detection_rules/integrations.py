@@ -27,12 +27,15 @@ from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
+    import zipfile
+
     from .rule import QueryRuleData, RuleMeta
 
 
 MANIFEST_FILE_PATH = get_etc_path(["integration-manifests.json.gz"])
 DEFAULT_MAX_RULE_VERSIONS = 1
 SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
+ECS_ADDITIONS_FILE_PATH = get_etc_path(["integration-ecs-additions.json"])
 
 
 _notified_integrations: set[str] = set()
@@ -110,6 +113,61 @@ def build_integrations_manifest(
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
+# Data streams declare the ECS fields they populate in ecs.yml, with some packages using
+# name variants (protocol_ecs.yml in network_traffic; ecs-extended.yml in o365, azure,
+# and m365_defender).
+ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
+
+
+def _is_ecs_field_file(file_name: str) -> bool:
+    """Return True when a fields file contains ECS field declarations."""
+    return any(fnmatch.fnmatch(file_name, pattern) for pattern in ECS_FIELD_FILE_PATTERNS)
+
+
+def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
+    """Parse the field files of an EPR package zip into a single version schema."""
+    version_schema: dict[str, Any] = {}
+    ecs_declared: dict[str, set[str]] = {}
+
+    for file in zip_ref.namelist():
+        file_data_bytes = zip_ref.read(file)
+        # Check if the file is a match
+        if fnmatch.fnmatch(file, "*/fields/*.yml"):
+            integration_name = Path(file).parent.parent.name
+            version_schema.setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
+            schema_fields = yaml.safe_load(file_data_bytes)
+
+            # Parse the schema and add to the integration_manifests
+            data = flatten_ecs_schema(schema_fields)
+            flat_data = {field["name"]: field["type"] for field in data}
+
+            version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
+
+            if _is_ecs_field_file(Path(file).name):
+                # ECS fields the data stream explicitly declares; used to scope query
+                # validation to the ECS fields the integration actually populates
+                ecs_declared.setdefault(integration_name, set()).update(flat_data)
+
+        # add machine learning jobs to the schema
+        if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
+            file, "*/ml_module/*ml.json"
+        ):
+            ml_module = json.loads(file_data_bytes)
+            job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
+            version_schema["jobs"] = job_ids
+
+        del file_data_bytes
+
+    for integration_name, declared in ecs_declared.items():
+        version_schema[integration_name]["_ecs_declared"] = sorted(declared)
+
+    # Packages that declare no ECS fields in any data stream rely on the ecs@mappings
+    # component template (applied by Fleet to all spec 3.x packages) to inherit every
+    # ECS field mapping at index time, so they must be validated against the full ECS schema.
+    version_schema["_uses_ecs_mappings"] = not ecs_declared
+    return version_schema
+
+
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
@@ -137,7 +195,8 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
         print(f"processing {package}")
         final_integration_schemas.setdefault(package, {})  # type: ignore[reportUnknownMemberType]
         for version, manifest in versions.items():
-            if package in final_integration_schemas and version in final_integration_schemas[package]:
+            existing_version_schema: dict[str, Any] | None = final_integration_schemas.get(package, {}).get(version)  # type: ignore[reportUnknownMemberType]
+            if existing_version_schema is not None and "_uses_ecs_mappings" in existing_version_schema:
                 continue
 
             # Download the zip file
@@ -145,34 +204,9 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
             response = requests.get(download_url, timeout=30)
             response.raise_for_status()
 
-            # Update the final integration schemas
-            final_integration_schemas[package].update({version: {}})  # type: ignore[reportUnknownMemberType]
-
             # Open the zip file
             with unzip(response.content) as zip_ref:
-                for file in zip_ref.namelist():
-                    file_data_bytes = zip_ref.read(file)
-                    # Check if the file is a match
-                    if fnmatch.fnmatch(file, "*/fields/*.yml"):
-                        integration_name = Path(file).parent.parent.name
-                        final_integration_schemas[package][version].setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
-                        schema_fields = yaml.safe_load(file_data_bytes)
-
-                        # Parse the schema and add to the integration_manifests
-                        data = flatten_ecs_schema(schema_fields)
-                        flat_data = {field["name"]: field["type"] for field in data}
-
-                        final_integration_schemas[package][version][integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
-
-                    # add machine learning jobs to the schema
-                    if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
-                        file, "*/ml_module/*ml.json"
-                    ):
-                        ml_module = json.loads(file_data_bytes)
-                        job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
-                        final_integration_schemas[package][version]["jobs"] = job_ids
-
-                    del file_data_bytes
+                final_integration_schemas[package][version] = parse_version_schema(zip_ref, package)
 
     # Write the final integration schemas to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
@@ -562,10 +596,74 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     notify_user_if_update_available(data, notice, integration)
 
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
-    schema.update(ecs_schema)
+
+    if integration_declares_ecs_fields(integrations_schemas, package, package_version, integration):
+        # The integration explicitly enumerates the ECS fields it populates (per data stream
+        # ecs.yml), so validate strictly against those instead of the entire ECS schema.
+        # Pipeline-injected fields that cannot be determined statically come from the
+        # integration-ecs-additions.json override file.
+        additions = get_integration_ecs_additions(package, integration)
+        schema.update({field: ecs_schema[field] for field in additions if field in ecs_schema})
+    else:
+        # The integration inherits all ECS field mappings via the ecs@mappings component
+        # template (or the cached schema predates ECS scoping), so any ECS field is valid.
+        schema.update(ecs_schema)
 
     integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
     return integration_schema, package_version
+
+
+def integration_declares_ecs_fields(
+    integrations_schemas: dict[str, Any],
+    package: str,
+    package_version: str,
+    integration: str | None = None,
+) -> bool:
+    """Return True when the package version explicitly declares the ECS fields it populates."""
+    # Data streams declare their ECS fields in per-data-stream ECS field files (ecs.yml or the
+    # ECS_FIELD_FILE_PATTERNS name variants, e.g. protocol_ecs.yml, ecs-extended.yml), captured
+    # in the cached schema as `_ecs_declared`.
+    version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
+    if version_schema.get("_uses_ecs_mappings") is not False:
+        # True -> the package declares no ECS fields (e.g. cloud_defend, endpoint) and inherits
+        # every ECS field at index time via the ecs@mappings component template, so it must keep
+        # full-ECS validation. Missing -> legacy cache format built before this metadata existed;
+        # preserve the historical full-ECS behavior until the cache is regenerated.
+        return False
+    if integration:
+        dataset_schema = version_schema.get(integration, {})
+        return isinstance(dataset_schema, dict) and bool(dataset_schema.get("_ecs_declared"))  # type: ignore[reportUnknownMemberType]
+    # package-wide query: only strict when every data stream declares its ECS fields,
+    # otherwise an undeclared data stream could produce false validation failures
+    dataset_schemas: list[dict[str, Any]] = [
+        value
+        for key, value in version_schema.items()
+        if key != "jobs" and not key.startswith("_") and isinstance(value, dict)
+    ]
+    return bool(dataset_schemas) and all(dataset.get("_ecs_declared") for dataset in dataset_schemas)
+
+
+@cached
+def load_integration_ecs_additions() -> dict[str, Any]:
+    """Load the per-integration override file for ECS fields populated outside field definitions."""
+    if not ECS_ADDITIONS_FILE_PATH.exists():
+        return {}
+    return json.loads(ECS_ADDITIONS_FILE_PATH.read_text())
+
+
+def get_integration_ecs_additions(package: str, integration: str | None = None) -> set[str]:
+    """Get ECS fields a package populates outside its field definitions (e.g. ingest pipelines)."""
+    additions_config = load_integration_ecs_additions()
+    # fields the Elastic Agent / Fleet final pipeline stamps on every shipped event
+    additions: set[str] = set(additions_config.get("_all_packages", []))
+    package_additions = additions_config.get(package, {})
+    additions.update(package_additions.get("_all", []))
+    for key, fields_ in package_additions.items():
+        if key == "_all":
+            continue
+        if integration is None or key == integration:
+            additions.update(fields_)
+    return additions
 
 
 def notify_user_if_update_available(
@@ -596,14 +694,19 @@ def collect_schema_fields(
         return {
             field: value
             for dataset in integrations_schemas[package][package_version]
-            if dataset != "jobs"
+            if dataset != "jobs" and not dataset.startswith("_")
             for field, value in integrations_schemas[package][package_version][dataset].items()
+            if not field.startswith("_")
         }
 
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return integrations_schemas[package][package_version][integration]
+    return {
+        field: value
+        for field, value in integrations_schemas[package][package_version][integration].items()
+        if not field.startswith("_")
+    }
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:

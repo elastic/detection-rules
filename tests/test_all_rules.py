@@ -21,6 +21,7 @@ from semver import Version
 from detection_rules import atlas, attack
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
+    collect_schema_fields,
     find_latest_compatible_version,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -1658,9 +1659,9 @@ class TestAlertSuppression(BaseRuleTest):
                     integration_schemas = load_integrations_schemas()
                     for ints in integration_tag:
                         integration_schema = integration_schemas[ints]
-                        int_schema = integration_schema[list(integration_schema.keys())[-1]]
-                        for data_source in int_schema:
-                            schema.update(**int_schema[data_source])
+                        latest_version = list(integration_schema.keys())[-1]
+                        # union of all data stream fields, excluding the ECS scoping metadata keys
+                        schema.update(collect_schema_fields(integration_schemas, ints, latest_version))
                 for fld in group_by_fields:
                     # ES|QL rules may suppress on dynamic fields computed by the query (e.g. EVAL/GROK
                     # columns using the `Esql.` prefix convention), which are not in any schema. The field
