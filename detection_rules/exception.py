@@ -74,7 +74,7 @@ class ExceptionItemEntry(BaseExceptionItemEntry, MarshmallowDataclassMixin):
 
     operator: definitions.ExceptionEntryOperator
     list_vals: ListObject | None = field(default=None, metadata={"data_key": "list"})
-    value: str | None | list[str] = None
+    value: str | list[str] | None = None
 
     @validates_schema
     def validate_entry(self, data: dict[str, Any], **_: Any) -> None:
@@ -306,7 +306,7 @@ def parse_exceptions_results_from_api(
     return exceptions_containers, exceptions_items, [], unparsed_results
 
 
-def build_exception_objects(  # noqa: PLR0913
+def build_exception_objects(  # noqa: PLR0913, PLR0917
     exceptions_containers: dict[str, Any],
     exceptions_items: dict[str, Any],
     exception_list_rule_table: dict[str, Any],

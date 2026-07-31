@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects use of the AKS (Azure Kubernetes Service) API server nodes/proxy subresource to reach a node's Kubelet
+command-execution endpoints (run, exec, attach, portforward, cri). Unlike benign monitoring that scrapes /metrics and
+/stats, a request to these endpoints executes commands inside a pod on the node, the core of the kubeletctl and Peirates
+lateral-movement technique. Even a GET to /exec is command execution because the Kubelet maps the WebSocket upgrade
+handshake to the RBAC get verb, so nodes/proxy GET is sufficient for remote code execution.
+"""
+false_positives = [
+    """
+    Legitimate use of the Kubelet run/exec/attach/portforward endpoints via nodes/proxy is rare. Administrative
+    debugging tools that proxy exec through the API server may match; baseline and exclude verified operators.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Kubelet Proxy to Command Execution Endpoint"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Kubelet Proxy to Command Execution Endpoint
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This rule keys on the Kubelet
+endpoint in `azure.platformlogs.properties.log.requestURI`: `/proxy/run`, `/proxy/exec`, `/proxy/attach`,
+`/proxy/portforward`, and `/proxy/cri` execute commands in a pod on the target node, whereas monitoring uses `/metrics`
+and `/stats`. Any hit here is high-signal command execution regardless of the acting identity, including a stolen
+monitoring service-account token.
+
+### Possible investigation steps
+
+- Confirm the endpoint and target in `azure.platformlogs.properties.log.requestURI` (the path encodes
+  `/<endpoint>/<namespace>/<pod>/<container>`) and the acting identity in
+  `azure.platformlogs.properties.log.user.username`.
+- Evaluate `azure.platformlogs.properties.log.sourceIPs`. This is an array; for an externally operated attack the first
+  element is the operator's real client IP and the trailing entry is the internal API-server/konnectivity hop
+  (`172.31.x`). A first entry that is not the cluster's own egress is a strong signal.
+- Determine what the target pod runs and what secrets or tokens it exposes, and whether the identity should reach the
+  Kubelet at all.
+- Correlate with prior recon (`/proxy/pods`, `/proxy/runningpods`) and follow-on RBAC changes, secret reads, or token
+  requests from the same identity.
+
+### False positive analysis
+
+- Direct use of Kubelet exec endpoints via nodes/proxy is uncommon; validate any administrative debugging tool that
+  proxies exec and exclude verified operators.
+
+### Response and remediation
+
+- Treat as active command execution on a node. Revoke the acting identity's tokens, isolate the affected node and pods,
+  and rotate credentials reachable from them.
+- Review the RBAC that granted `nodes/proxy` and remove it from workload identities that do not require it.
+- Note that direct Kubelet access on port 10250 bypasses the API server and is not in kube-audit; a confirmed proxy exec
+  may indicate broader Kubelet access.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://horizon3.ai/attack-research/when-read-only-isnt-k8s-nodes-proxy-get-to-rce/",
+    "https://stratus-red-team.cloud/attack-techniques/kubernetes/k8s.privilege-escalation.nodes-proxy/",
+    "https://www.cyberark.com/resources/threat-research-blog/using-kubelet-client-to-attack-the-kubernetes-cluster",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://github.com/inguardians/peirates",
+    "https://grahamhelton.com/blog/nodes-proxy-rce"
+]
+risk_score = 73
+rule_id = "4223a0c2-2a96-4742-b6ec-2ce9fa0019ba"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"nodes" and
+  azure.platformlogs.properties.log.objectRef.subresource:"proxy" and
+  azure.platformlogs.properties.log.requestURI:(
+    */proxy/run/* or */proxy/exec* or */proxy/attach* or
+    */proxy/portforward* or */proxy/portForward* or */proxy/cri/*
+  ) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1210"
+name = "Exploitation of Remote Services"
+reference = "https://attack.mitre.org/techniques/T1210/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.requestURI",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
+

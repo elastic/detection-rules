@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or modification of a GKE Service with type NodePort. NodePort exposes a static port on every worker
+node that hosts matching pods, which widens the cluster's external attack surface and can bypass load-balancer and
+firewall controls. Attackers may create NodePort Services to intercept traffic or establish a direct path into the
+cluster.
+"""
+false_positives = [
+    """
+    Developers may legitimately use NodePort for frontends without cloud load balancers, or for nonstandard networking.
+    system:addon-manager patch reconciliation of existing NodePort Services is excluded; create and update from
+    addon-manager still alert.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Exposed Service Created With Type NodePort"
+note = """## Triage and analysis
+
+### Investigating GKE Exposed Service Created With Type NodePort
+
+NodePort opens a port on each worker node hosting the service and forwards external traffic to labeled pods. Confirm
+whether the exposure was approved and which workloads are reachable.
+
+### Possible investigation steps
+
+- Review `client.user.email`, `source.ip`, and `user_agent.original`.
+- Inspect `gcp.audit.resource_name` and `gcp.audit.request` for the service name, namespace, selector, and port.
+- Identify the backing pods and whether the NodePort is required for a legitimate external entrypoint.
+- Correlate with recent Service or networking changes from the same actor.
+
+### False positive analysis
+
+- Approved NodePort Services for lab frontends or custom load balancing may match. Allowlist known automation or
+  namespaces after review.
+- GKE addon reconciliation via `system:addon-manager` patch is excluded; unexpected create or update from that actor
+  should still be investigated.
+
+### Response and remediation
+
+- Remove or change unauthorized NodePort Services, revoke excess RBAC for Services writes, and review firewall exposure
+  for the opened node ports.
+
+"""
+setup = """
+The GCP Fleet integration with GKE audit logs enabled is required. Request body capture for Service resources is
+required so `gcp.audit.request.spec.type` is populated.
+"""
+references = [
+    "https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types",
+    "https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport",
+    "https://www.tigera.io/blog/new-vulnerability-exposes-kubernetes-to-man-in-the-middle-attacks-heres-how-to-mitigate/",
+]
+risk_score = 47
+rule_id = "05ac190c-5d02-4b81-bb57-221d33479570"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:"k8s.io" and event.outcome:success and
+event.action:(
+  "io.k8s.core.v1.services.create" or
+  "io.k8s.core.v1.services.update" or
+  "io.k8s.core.v1.services.patch"
+) and gcp.audit.request.spec.type:"NodePort" and not (
+  client.user.email:"system:addon-manager" and
+  event.action:"io.k8s.core.v1.services.patch"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "gcp.audit.request.spec.type",
+    "gcp.audit.request",
+    "data_stream.namespace",
+]
