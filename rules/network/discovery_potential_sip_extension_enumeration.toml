@@ -2,7 +2,9 @@
 creation_date = "2026/07/30"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/07/30"
+min_stack_comments = "Requires ES|QL JSON_EXTRACT on _source to read SIP fields across current and legacy schemas."
+min_stack_version = "9.4.0"
+updated_date = "2026/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -26,9 +28,7 @@ note = """## Triage and analysis
 
 ### Investigating Potential SIP Extension Enumeration
 
-SIP OPTIONS is commonly used for capability discovery. Attack tools such as SIPvicious send OPTIONS across sequential or
-randomized extensions to map valid users. High cardinality of `network_traffic.sip.to.uri.username` values from one
-client IP is a strong reconnaissance signal on VoIP segments.
+SIP OPTIONS is commonly used for capability discovery. Attack tools such as SIPvicious send OPTIONS across sequential or randomized extensions to map valid users. High cardinality of `Esql.to_user` values from one client IP is a strong reconnaissance signal on VoIP segments.
 
 ### Possible investigation steps
 
@@ -39,8 +39,7 @@ client IP is a strong reconnaissance signal on VoIP segments.
 
 ### False positive analysis
 
-- PBX auto-provisioning, extension audits, or SBC health checks may generate OPTIONS to many extensions from a fixed
-  management IP. Add exceptions for those sources only after documenting the tool and schedule.
+- PBX auto-provisioning, extension audits, or SBC health checks may generate OPTIONS to many extensions from a fixed management IP. Add exceptions for those sources only after documenting the tool and schedule.
 
 ### Response and remediation
 
@@ -48,7 +47,7 @@ client IP is a strong reconnaissance signal on VoIP segments.
 - Enforce SIP authentication and rate limits on the targeted PBX/SBC.
 - Hunt for subsequent credential access or toll-fraud INVITE patterns from the same source.
 """
-references = ["https://attack.mitre.org/techniques/T1595/", "https://attack.mitre.org/techniques/T1087/"]
+references = ["https://attack.mitre.org/techniques/T1595/", "https://attack.mitre.org/techniques/T1046/"]
 risk_score = 47
 rule_id = "e7bf9314-f346-45b5-a6ed-044dc3b839c8"
 setup = """## Setup
@@ -75,11 +74,20 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.sip-*, packetbeat-*
+from logs-network_traffic.sip-*, packetbeat-* metadata _source
 | eval
-    Esql.method = TO_UPPER(COALESCE(network_traffic.sip.method, sip.method)),
-    Esql.to_user = COALESCE(network_traffic.sip.to.uri.username, sip.to.uri.username),
-    Esql.user_agent = COALESCE(network_traffic.sip.user_agent.original, sip.user_agent.original),
+    Esql.method = TO_UPPER(COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.method"),
+        JSON_EXTRACT(_source, "sip.method")
+    )),
+    Esql.to_user = COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.to.uri.username"),
+        JSON_EXTRACT(_source, "sip.to.uri.username")
+    ),
+    Esql.user_agent = COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.user_agent.original"),
+        JSON_EXTRACT(_source, "sip.user_agent.original")
+    ),
     Esql.client_ip = COALESCE(client.ip, source.ip),
     Esql.server_ip = COALESCE(server.ip, destination.ip)
 | where
@@ -99,18 +107,12 @@ from logs-network_traffic.sip-*, packetbeat-*
 '''
 
 
-[rule.alert_suppression]
-group_by = ["Esql.client_ip", "Esql.server_ip"]
-duration = { value = 1, unit = "h" }
-missing_fields_strategy = "suppress"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1087"
-name = "Account Discovery"
-reference = "https://attack.mitre.org/techniques/T1087/"
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
 
 
 [rule.threat.tactic]
@@ -129,4 +131,12 @@ reference = "https://attack.mitre.org/techniques/T1595/"
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.alert_suppression]
+group_by = ["Esql.client_ip", "Esql.server_ip"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
 
