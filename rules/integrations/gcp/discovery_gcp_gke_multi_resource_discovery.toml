@@ -2,7 +2,7 @@
 creation_date = "2026/07/21"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2026/07/21"
+updated_date = "2026/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -43,7 +43,8 @@ included: failures still signal probing.
 
 ### Possible investigation steps
 
-- Review `Esql.enumerated_resources` and `Esql.enumerated_resource_names` for ordering and targeted APIs.
+- Review `Esql.enumerated_resources`, `Esql.enumerated_namespaces`, and `Esql.enumerated_resource_names` for
+  ordering and targeted APIs.
 - Confirm whether `source.ip` and `user_agent.original` match expected admin or automation clients.
 - Correlate with follow-on secret reads, RoleBinding changes, pod exec, or unusual user agents from the same actor.
 
@@ -102,23 +103,24 @@ from logs-gcp.audit-* metadata _id, _index, _version
     )
     and source.ip is not null
     and client.user.email is not null
-    and to_string(source.ip) != "127.0.0.1"
-    and to_string(source.ip) != "::1"
+    and not to_string(source.ip) in ("127.0.0.1", "::1")
     and not client.user.email like "system:kube-*"
     and not client.user.email like "system:gke-*"
     and not client.user.email like "system:node:*"
     and not client.user.email like "system:serviceaccount:kube-system:*"
     and not client.user.email like "system:serviceaccount:gke-managed*"
-    and client.user.email != "system:apiserver"
-    and client.user.email != "system:addon-manager"
-    and client.user.email != "system:kubestore-collector"
-    and client.user.email != "gcp:kube-bootstrap"
+    and not client.user.email in (
+      "system:apiserver",
+      "system:addon-manager",
+      "system:kubestore-collector",
+      "gcp:kube-bootstrap",
+      "system:serviceaccount:security:trivy-operator"
+    )
     and not client.user.email like "system:serviceaccount:flux-system:*"
     and not client.user.email like "system:serviceaccount:argocd:*"
     and not client.user.email like "system:serviceaccount:argocd-system:*"
     and not client.user.email like "system:serviceaccount:cattle-turtles-system:*"
     and not client.user.email like "system:serviceaccount:*:palette-manager"
-    and client.user.email != "system:serviceaccount:security:trivy-operator"
 | eval Esql.time_interval = date_trunc(1 minute, @timestamp),
   Esql.resource_kind = case(
     event.action in ("io.k8s.core.v1.namespaces.get", "io.k8s.core.v1.namespaces.list"), "namespaces",
@@ -163,6 +165,7 @@ from logs-gcp.audit-* metadata _id, _index, _version
     Esql.rbac_event_count = sum(Esql.is_rbac),
     Esql.layout_event_count = sum(Esql.is_layout),
     Esql.enumerated_resources = values(Esql.resource_kind),
+    Esql.enumerated_namespaces = values(orchestrator.namespace),
     Esql.enumerated_resource_names = values(gcp.audit.resource_name),
     Esql.event_outcome_values = values(event.outcome)
   by client.user.email, source.ip, user_agent.original, Esql.time_interval

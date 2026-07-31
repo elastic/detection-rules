@@ -2,7 +2,7 @@
 creation_date = "2026/07/17"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2026/07/17"
+updated_date = "2026/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -92,11 +92,12 @@ from logs-gcp.audit-* metadata _id, _index, _version
     and event.outcome == "success"
     and client.user.email is not null
     and source.ip is not null
-    and to_string(source.ip) != "127.0.0.1"
-    and to_string(source.ip) != "::1"
-    and client.user.email != "system:addon-manager"
-    and client.user.email != "system:apiserver"
-    and client.user.email != "system:kube-controller-manager"
+    and not to_string(source.ip) in ("127.0.0.1", "::1")
+    and not client.user.email in (
+      "system:addon-manager",
+      "system:apiserver",
+      "system:kube-controller-manager"
+    )
     and (
       (
         event.action in (
