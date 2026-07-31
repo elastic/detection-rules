@@ -1,8 +1,8 @@
 [metadata]
-creation_date = "2026/06/25"
+creation_date = "2026/07/31"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/07/30"
+updated_date = "2026/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -71,9 +71,13 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.nfs-*, packetbeat-*
-| eval Esql.opcode = TO_UPPER(COALESCE(network_traffic.nfs.opcode, nfs.opcode))
-| eval Esql.status = TO_UPPER(COALESCE(network_traffic.nfs.status, nfs.status))
+from
+    (from logs-network_traffic.nfs-* metadata _source
+    | eval Esql.opcode = TO_UPPER(JSON_EXTRACT(_source, "network_traffic.nfs.opcode"))
+    | eval Esql.status = TO_UPPER(JSON_EXTRACT(_source, "network_traffic.nfs.status"))),
+    (from packetbeat-* metadata _source
+    | eval Esql.opcode = TO_UPPER(JSON_EXTRACT(_source, "nfs.opcode"))
+    | eval Esql.status = TO_UPPER(JSON_EXTRACT(_source, "nfs.status")))
 | where Esql.opcode in ("WRITE", "REMOVE", "RENAME") and Esql.status == "NFS_OK" and
     source.ip is not null and destination.ip is not null
 | eval Esql.time_window = DATE_TRUNC(1 minutes, @timestamp)
@@ -90,12 +94,6 @@ from logs-network_traffic.nfs-*, packetbeat-*
 '''
 
 
-[rule.alert_suppression]
-group_by = ["source.ip", "destination.ip"]
-duration = { value = 1, unit = "h" }
-missing_fields_strategy = "suppress"
-
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -108,4 +106,12 @@ reference = "https://attack.mitre.org/techniques/T1486/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.alert_suppression]
+group_by = ["source.ip", "destination.ip"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
 
