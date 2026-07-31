@@ -90,7 +90,7 @@ def download_gh_asset(url: str, path: str, overwrite: bool = False) -> None:
     z.close()
 
 
-def update_gist(  # noqa: PLR0913
+def update_gist(  # noqa: PLR0913, PLR0917
     token: str,
     file_map: dict[Path, str],
     description: str,

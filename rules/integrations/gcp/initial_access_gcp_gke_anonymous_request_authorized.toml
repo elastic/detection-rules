@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful GKE API requests from unauthenticated anonymous identities using an unusual user agent.
+Attackers may rely on anonymous access for initial cluster access or to avoid attribution. Matches
+"system:anonymous" / "system:unauthenticated" and GKE audit rows where the principal is missing (common for
+unauthenticated clients). Common kube-probe health checks (readyz/livez/healthz/version) are excluded.
+"""
+false_positives = [
+    """
+    Anonymous API access is a dangerous default. Health probes are excluded; investigate all other authorized
+    anonymous requests and disable anonymous authentication where possible.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Anonymous Request Authorized by Unusual User Agent"
+note = """## Triage and analysis
+
+### Investigating GKE Anonymous Request Authorized by Unusual User Agent
+
+Anonymous success outside health endpoints can indicate a publicly reachable API server or overly permissive RBAC for
+`system:anonymous` / `system:unauthenticated`. On GKE via GCP audit, some unauthenticated clients omit
+`client.user.email`; those successes are included when the user agent is unusual.
+
+### Investigation steps
+
+- Review `client.user.email`, `event.action`, `gcp.audit.resource_name`, `source.ip`, and `user_agent.original`.
+- Confirm whether the API server is Internet-exposed and whether anonymous auth is intentionally enabled.
+- Hunt for follow-on anonymous pod mutations, secret reads, or RBAC changes from the same source.
+
+### False positives
+
+- Custom health or readiness endpoints not covered by the built-in exclusions; add environment-specific exceptions after review.
+
+"""
+references = [
+    "https://media.defense.gov/2022/Aug/29/2003066362/-1/-1/0/CTR_KUBERNETES_HARDENING_GUIDANCE_1.2_20220829.PDF",
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+]
+risk_score = 47
+rule_id = "189f0f31-8f31-48eb-bb3e-c0db8c8b8c4c"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.outcome:success and client.user.email:("system:anonymous" or "system:unauthenticated" or not *) and user_agent.original:(* and not (*kubernetes/$Format or kube-probe*)) and not gcp.audit.resource_name:(healthz or livez or readyz or version or .well-known*)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "orchestrator.resource.name",
+    "orchestrator.namespace",
+]
