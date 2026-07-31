@@ -72,7 +72,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-aws_bedrock.invocation-*
+from logs-aws_bedrock.invocation-* metadata _id, _version, _index
 
 | eval Esql.lowercase_prompt = TO_LOWER(gen_ai.prompt)
 
@@ -101,15 +101,7 @@ from logs-aws_bedrock.invocation-*
     Esql.lowercase_prompt like "*base64 -d*" or
     Esql.lowercase_prompt like "*bash -i*"
 
-| stats
-    Esql.invocation_count = count(*),
-    Esql.model_id_values = values(gen_ai.request.model.id),
-    Esql.prompt_sample = values(gen_ai.prompt)
-  by
-    user.id,
-    cloud.account.id
-
-| keep user.id, cloud.account.id, Esql.*
+| keep _id, _version, _index, @timestamp, user.id, cloud.account.id, gen_ai.request.model.id, gen_ai.prompt, gen_ai.completion
 '''
 
 [[rule.threat]]
@@ -125,12 +117,17 @@ id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
+[rule.alert_suppression]
+group_by = ["user.id", "cloud.account.id"]
+duration = {value = 1, unit = "h"}
+missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
 field_names = [
+    "@timestamp",
     "user.id",
     "cloud.account.id",
-    "Esql.invocation_count",
-    "Esql.model_id_values",
-    "Esql.prompt_sample"
+    "gen_ai.request.model.id",
+    "gen_ai.prompt",
+    "gen_ai.completion",
 ]
