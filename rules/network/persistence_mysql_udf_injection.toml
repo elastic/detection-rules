@@ -7,9 +7,9 @@ updated_date = "2026/07/30"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies MySQL statements that create a user-defined function backed by a shared library. Adversaries with
-sufficient database privileges can place a malicious library in the MySQL plugin directory and register it with
-`CREATE FUNCTION ... SONAME`, establishing a database-resident primitive for operating-system command execution.
+Identifies MySQL statements that create a user-defined function backed by a shared library. Adversaries with sufficient
+database privileges can place a malicious library in the MySQL plugin directory and register it with "CREATE FUNCTION
+... SONAME", establishing a database-resident primitive for operating-system command execution.
 """
 false_positives = [
     """
@@ -20,24 +20,20 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-network_traffic.mysql-*"]
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "MySQL User-Defined Function Injection"
 note = """## Triage and analysis
 
 ### Investigating MySQL User-Defined Function Injection
 
-MySQL can load native user-defined functions from shared libraries. Attackers who obtain the `FILE` privilege and write
-access to the plugin directory can write a malicious `.so` or `.dll`, register it with `CREATE FUNCTION ... SONAME`,
-and invoke operating-system commands as the MySQL service account.
+MySQL can load native user-defined functions from shared libraries. Attackers who obtain the `FILE` privilege and write access to the plugin directory can write a malicious `.so` or `.dll`, register it with `CREATE FUNCTION ... SONAME`, and invoke operating-system commands as the MySQL service account.
 
 ### Possible investigation steps
 
-- Review `client.ip`, `server.ip`, `network.community_id`, `network_traffic.mysql.query`,
-  `network_traffic.mysql.path`, and any response error fields.
+- Review `client.ip`, `server.ip`, `network.community_id`, `network_traffic.mysql.query`, `network_traffic.mysql.path`, and any response error fields.
 - Extract the function and library names and verify whether they belong to an approved MySQL extension.
-- Search prior queries on the same connection for `INTO DUMPFILE`, `INTO OUTFILE`, `LOAD_FILE`, plugin-directory
-  discovery, or hexadecimal payload construction.
+- Search prior queries on the same connection for `INTO DUMPFILE`, `INTO OUTFILE`, `LOAD_FILE`, plugin-directory discovery, or hexadecimal payload construction.
 - On the database host, inspect the MySQL plugin directory for newly created `.so`, `.dll`, or other unexpected files.
 - Correlate with child processes spawned by `mysqld` and with outbound connections from the database host.
 
@@ -75,11 +71,11 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "eql"
 
 query = '''
-data_stream.dataset:network_traffic.mysql and
-network_traffic.mysql.query:(("*CREATE FUNCTION*" or "*create function*") and (*SONAME* or *soname*))
+any where data_stream.dataset == "network_traffic.mysql" and
+    network_traffic.mysql.query like~ "*create*function*soname*"
 '''
 
 
