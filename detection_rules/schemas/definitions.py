@@ -156,6 +156,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Google Cloud Platform",
     "Data Source: Google Workspace",
     "Data Source: Kubernetes",
+    "Data Source: Linux Sysmon Logs",
     "Data Source: Microsoft 365",
     "Data Source: Okta",
     "Data Source: PowerShell Logs",
