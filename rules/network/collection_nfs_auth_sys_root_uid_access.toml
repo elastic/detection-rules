@@ -7,10 +7,10 @@ updated_date = "2026/06/25"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies NFS traffic where the client asserts AUTH_SYS (RPC UNIX) credentials with UID 0 (root). NFSv3 and NFSv4
-clients can claim arbitrary UIDs through AUTH_SYS, and weak export controls may honor root-equivalent access from
-unexpected hosts. This is a common precursor to unauthorized mounts, sensitive file reads, and remote encryption of
-exported shares.
+Identifies the first source and destination IP pair observed in a five-day history window where an NFS client asserts
+AUTH_SYS (RPC UNIX) credentials with UID 0 (root). NFSv3 and NFSv4 clients can claim arbitrary UIDs through AUTH_SYS,
+and weak export controls may honor root-equivalent access from unexpected hosts. This is a common precursor to
+unauthorized mounts, sensitive file reads, and remote encryption of exported shares.
 """
 false_positives = [
     """
@@ -20,32 +20,26 @@ false_positives = [
 ]
 from = "now-9m"
 index = ["logs-network_traffic.nfs*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "NFS AUTH_SYS Root UID Access"
+name = "First Time Seen NFS AUTH_SYS Root UID Access"
 note = """## Triage and analysis
 
-### Investigating NFS AUTH_SYS Root UID Access
+### Investigating First Time Seen NFS AUTH_SYS Root UID Access
 
-NFS AUTH_SYS allows the client to assert UID/GID values on the wire. UID 0 maps to superuser access on many exports
-unless root squashing or Kerberos (RPCSEC_GSS) is enforced. Attackers abuse this to read secrets, traverse exports, or
-stage ransomware writes without a local root shell on the NFS server.
+NFS AUTH_SYS allows the client to assert UID/GID values on the wire. UID 0 maps to superuser access on many exports unless root squashing or Kerberos (RPCSEC_GSS) is enforced. Attackers abuse this to read secrets, traverse exports, or stage ransomware writes without a local root shell on the NFS server. This rule uses a five-day history window to identify the first observed source and destination IP pair presenting root credentials.
 
 ### Possible investigation steps
 
 - Identify `source.ip` and confirm whether it is an approved NFS client for the targeted `destination.ip` export server.
-- Review adjacent NFS operations from the same source for `READDIR`, `READ`, `WRITE`, or `REMOVE` activity that suggests
-  enumeration, collection, or impact.
-- Validate export policy on the server (`/etc/exports`, `exportfs -v`) for `no_root_squash`, overly broad client lists, or
-  missing `sec=krb5`.
+- Review adjacent NFS operations from the same source for `READDIR`, `READ`, `WRITE`, or `REMOVE` activity that suggests enumeration, collection, or impact.
+- Validate export policy on the server (`/etc/exports`, `exportfs -v`) for `no_root_squash`, overly broad client lists, or missing `sec=krb5`.
 - Check endpoint telemetry on the source host for tooling such as `showmount`, `mount.nfs`, or Impacket-style NFS abuse.
 
 ### False positive analysis
 
-- Known backup, imaging, or virtualization platforms sometimes mount exports as root from fixed infrastructure IPs.
-  Exception those sources only after confirming stable client identity and expected operation mix.
-- Migration or DR runbooks may temporarily mount with root to preserve ownership. Correlate with change tickets and
-  bounded maintenance windows.
+- Known backup, imaging, or virtualization platforms sometimes mount exports as root from fixed infrastructure IPs. Create exceptions for those sources only after confirming stable client identity and expected operation mix.
+- Migration or DR runbooks may temporarily mount with root to preserve ownership. Correlate with change tickets and bounded maintenance windows.
 
 ### Response and remediation
 
@@ -71,12 +65,13 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 
 query = '''
-network where data_stream.dataset == "network_traffic.nfs" and
-  network_traffic.nfs.rpc.cred.uid == 0 and
-  network_traffic.nfs.rpc.auth_flavor == "unix"
+data_stream.dataset:network_traffic.nfs and
+network_traffic.nfs.rpc.cred.uid:0 and
+network_traffic.nfs.rpc.auth_flavor:unix and
+source.ip:* and destination.ip:*
 '''
 
 
@@ -98,3 +93,9 @@ id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
