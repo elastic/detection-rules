@@ -113,12 +113,22 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.name == "perl" and process.args == "exec" and
-process.args in (
-  "\"sh\";", "\"dash\";", "\"bash\";", "\"zsh\";",
-  "\"/bin/sh\";", "\"/bin/dash\";", "\"/bin/bash\";", "\"/bin/zsh\";",
-  "\"/usr/bin/sh\";", "\"/usr/bin/dash\";", "\"/usr/bin/bash\";", "\"/usr/bin/zsh\";",
-  "\"/usr/local/bin/sh\";", "\"/usr/local/bin/dash\";", "\"/usr/local/bin/bash\";", "\"/usr/local/bin/zsh\";"
+  (
+    (
+    process.name like~ "perl*" and
+    process.command_line like~ ("*exec*", "*system*") and
+    process.command_line like~ (
+      "*/bin/sh*", "*/bin/bash*", "*/bin/dash*", "*/bin/zsh*", "*/bin/ash*",
+      "*/usr/bin/sh*", "*/usr/bin/bash*", "*/usr/bin/dash*", "*/usr/bin/zsh*",
+      "*\"sh\"*", "*\"bash\"*", "*\"dash\"*", "*\"zsh\"*", "*\"ash\"*",
+      "*'sh'*", "*'bash'*", "*'dash'*", "*'zsh'*", "*'ash'*"
+    )
+  ) or
+  (
+    process.parent.name like~ "perl*" and
+    process.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
+    process.args_count == 1
+  )
 )
 '''
 
