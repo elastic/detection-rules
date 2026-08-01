@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/08/01"
 
 [rule]
 author = ["Elastic"]
@@ -69,8 +69,19 @@ query = '''
     240.0.0.0/4 or
     "::1" or
     "FE80::/10" or
-    "FF00::/8"
-  )
+    "FF00::/8" or
+    "8.8.8.8" or
+    "8.8.4.4" or
+    "1.1.1.1" or
+    "1.0.0.1" or
+    "208.67.222.222" or
+    "208.67.220.220" or
+    "4.2.2.2" or
+    "4.2.2.1" or
+    "9.9.9.9"
+  ) and
+  not event.outcome:"failure" and
+  not network.application:("incomplete" or "not-applicable")
 '''
 note = """## Triage and analysis
 
