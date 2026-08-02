@@ -43,14 +43,19 @@ RANGE_OPERATOR: "<="
 // MUST contain at least one space to differentiate from field names like common.*
 // Must not start with not/or/and so "not /tmp/go-build*" is not matched (value is UNQUOTED_LITERAL)
 // All patterns end with (?=\s|$|[()":{}]) to prevent capturing trailing whitespace
+// Each "safe unit" below is either a backslash-escape pair (mirrors UNQUOTED_CHAR's
+// escapes, e.g. \: \( \" \\) or a single raw character outside the reserved set. Without
+// the escape alternative, a value like `*\: no such file` would fail to lex at all because
+// the escaped colon isn't a "safe" raw char, even though it's not being used as the
+// field:value separator (see #6282).
 // Pattern 1: Starts with * (e.g., *S3 Browser, *S3 Browser*)
 // Pattern 2: Ends with * but doesn't start with * (e.g., S3 Browser*)
 // Pattern 3a: Middle * - star appears AFTER a space (e.g., S3 B*owser)
 // Pattern 3b: Middle * - star appears BEFORE a space (e.g., S3* Browser)
-WILDCARD_LITERAL.3: /\*[^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*?(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)[^\s\r\n()"':{}][^\s\r\n()"':{}]*(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)+\*(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]*\*[^\s\r\n()"':{}]+(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)*(?<!\*)(?=\s|$|[()":{}])/i
-                  | /(?!(?:not|or|and)\b)[^\s\r\n()"'*:{}][^\s\r\n()"':{}]*\*[^\s\r\n()"':{}]*\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+(?:\s+(?!(?:or|and|not)\b)[^\s\r\n()"':{}]+)*(?<!\*)(?=\s|$|[()":{}])/i
+WILDCARD_LITERAL.3: /\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)+\*?(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)+\*(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"'*:{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
+                  | /(?!(?:not|or|and)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"'*:{}])(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\*(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])*\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+(?:\s+(?!(?:or|and|not)\b)(?:\\[trn\\():<>"*{}]|[^\s\r\n()"':{}])+)*(?<!\*)(?=\s|$|[()":{}])/i
 
 UNQUOTED_LITERAL: UNQUOTED_CHAR+
 UNQUOTED_CHAR: "\\" /[trn]/              // escaped whitespace

@@ -172,6 +172,21 @@ class ParserTests(unittest.TestCase):
             FieldComparison(Field("process.args"), Wildcard("/lockscreenurl:http*")),
         )
 
+    def test_wildcard_with_spaces_and_escaped_special_chars(self):
+        """Regression test for #6282: a wildcard value with unquoted spaces that also
+        contains an escaped special char (e.g. `\\:`) must still lex as a single
+        WILDCARD_LITERAL instead of failing to parse outright."""
+        self.validate(
+            r"app_message:*\: no such file present",
+            FieldComparison(Field("app_message"), Wildcard("*: no such file present")),
+        )
+
+        # other escaped specials besides `:` must also be allowed inside a spaced wildcard
+        self.validate(
+            r"field:*\( something",
+            FieldComparison(Field("field"), Wildcard("*( something")),
+        )
+
     def test_escaped_wildcard_is_literal(self):
         """Test that an escaped `\\*` is treated as a literal asterisk, not a wildcard."""
         # Regression test for the literal-`*` -> match-all-wildcard bug: since wildcard
