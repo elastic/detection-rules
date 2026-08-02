@@ -183,7 +183,7 @@ def generate_rules_index(
         "for backwards compatibility."
     ),
 )
-def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915
+def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     input_file: tuple[Path, ...] | None,
     required_only: bool,
     action_connector_import: bool,
@@ -519,7 +519,7 @@ def view_rule(
     return rule
 
 
-def _export_rules_as_yaml(  # noqa: PLR0913
+def _export_rules_as_yaml(  # noqa: PLR0913, PLR0917
     rules: RuleCollection,
     yaml_directory: Path,
     downgrade_version: definitions.SemVer | None = None,
@@ -573,7 +573,7 @@ def _export_rules_as_yaml(  # noqa: PLR0913
             click.echo(f"Skipped {len(unsupported)} unsupported rules: \n- {unsupported_str}")
 
 
-def _export_rules(  # noqa: PLR0913
+def _export_rules(  # noqa: PLR0913, PLR0917
     rules: RuleCollection,
     outfile: Path,
     downgrade_version: definitions.SemVer | None = None,
@@ -679,7 +679,7 @@ def _export_rules(  # noqa: PLR0913
     required=False,
     help="Optional directory to export individual YAML files instead of NDJSON",
 )
-def export_rules_from_repo(  # noqa: PLR0913
+def export_rules_from_repo(  # noqa: PLR0913, PLR0917
     rules: RuleCollection,
     outfile: Path,
     replace_id: bool,
@@ -753,7 +753,7 @@ def validate_all() -> None:
 @click.option("--columns", "-c", multiple=True, help="Specify columns to add the table")
 @click.option("--language", type=click.Choice(["eql", "kql"]), default="kql")
 @click.option("--count", is_flag=True, help="Return a count rather than table")
-def search_rules(  # noqa: PLR0913
+def search_rules(  # noqa: PLR0913, PLR0917
     query: str | None,
     columns: list[str],
     language: Literal["eql", "kql"],
