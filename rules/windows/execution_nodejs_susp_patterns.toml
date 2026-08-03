@@ -2,12 +2,12 @@
 creation_date = "2025/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/01"
+updated_date = "2026/07/31"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies suspicious Node.js execution patterns, including user-writable runtimes, preload arguments, and inline
-eval, decode, or child-process usage.
+Identifies suspicious Node.js execution patterns, including PowerShell-launched module preloads and inline eval,
+decode, or child-process usage.
 """
 
 from = "now-9m"
@@ -27,6 +27,7 @@ license = "Elastic License v2"
 name = "Suspicious Execution with NodeJS"
 references = [
     "https://nodejs.org/api/child_process.html",
+    "https://nodejs.org/api/cli.html#-r---require-module",
     "https://nodejs.org/api/globals.html#atobdata",
 ]
 risk_score = 73
@@ -52,14 +53,14 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
 
-(process.name : "node.exe" or ?process.pe.original_file_name == "node.exe" or ?process.code_signature.subject_name : "OpenJS Foundation") and
+(process.name : "node.exe" or ?process.pe.original_file_name == "node.exe" or
+ ?process.code_signature.subject_name : ("OpenJS Foundation", "Node.js Foundation")) and
 
 (
-  (process.executable : ("?:\\Users\\*\\AppData\\*\\node.exe", "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\*\\node.exe") and process.args : "*.js") or
+  (process.args : ("-r", "--require", "--require=*") and
+   process.parent.name : ("powershell.exe", "pwsh.exe")) or
 
-  (process.args : "-r" and process.parent.name : "powershell.exe") or
-
-   process.command_line : ("*eval(*", "*atob(*", "*require*child_process*")
+  process.command_line : ("*eval(*", "*atob(*", "*require*child_process*")
 )
 '''
 
@@ -71,7 +72,7 @@ note = """## Triage and analysis
 
 - Which Node execution path did the alert capture?
   - Focus: `process.executable`, `process.command_line`, `process.parent.name`, and `process.pe.original_file_name`.
-  - Implication: escalate faster when the match is a user-writable AppData "node.exe", PowerShell-launched preload, or inline decode/spawn pattern; lower suspicion when parent and command-line evidence show a recognized version-manager, IDE, package-manager, or test-runner pattern.
+  - Implication: escalate faster when the match is a PowerShell-launched preload or inline decode/spawn pattern; lower suspicion when parent and command-line evidence show a recognized version-manager, IDE, package-manager, or test-runner pattern.
 
 - Do the runtime identity and launcher context fit recognized Node use?
   - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.command_line`, `user.id`, and `host.id`.

@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/31"
 
 [rule]
 author = ["Elastic"]
@@ -92,9 +92,53 @@ process where host.os.type == "windows" and event.type : "start" and
       process.parent.name : "wsl.exe" and process.parent.command_line : "bash*" and not process.name : "wslhost.exe"
     ) or
     (
-      process.name : "wsl.exe" and process.args : (
-        "curl", "/etc/shadow", "/etc/passwd", "cat", "--system", "root", "-e", "--exec", "bash", "/mnt/c/*"
-      ) and not process.args : ("wsl-bootstrap", "docker-desktop-data", "*.vscode-server*")
+      process.name : "wsl.exe" and
+      (
+        process.args : "--system" or
+        (
+          process.args : "--manage" and process.args : "--set-default-user" and process.args : "root"
+        ) or
+        (
+          (process.args : ("curl", "wget") and process.args : ("http://*", "https://*")) or
+          process.args : ("*curl*http://*", "*curl*https://*", "*wget*http://*", "*wget*https://*")
+        ) or
+        (
+          (
+            process.args : ("*/dev/tcp/*", "*/dev/udp/*") and
+            process.args : ("-i", "*bash -i*", "*sh -i*") and
+            process.args : ("*0>&1*", "*0<&1*", "*>&*")
+          ) or
+          (
+            process.args : ("nc", "ncat", "netcat") and
+            process.args : ("sh", "/bin/sh", "bash", "/bin/bash") and
+            process.args : ("-e", "--exec")
+          ) or
+          process.args : "*socat*exec*"
+        ) or
+        (
+          process.args : ("-e", "--exec") and
+          process.args : (
+            "/mnt/c/*.exe", "/mnt/c/*.ps1", "/mnt/c/*.bat", "/mnt/c/*.cmd", "/mnt/c/*.vbs", "/mnt/c/*.js",
+            "/mnt/c/*.hta"
+          ) and
+          not process.args : "wslpath"
+        ) or
+        process.args : (
+          "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/sudoers.d/*", "/root/.ssh/*", "/home/*/.ssh/*",
+          "/root/.aws/credentials", "/home/*/.aws/credentials", "/root/.kube/config", "/home/*/.kube/config",
+          "*/mnt/c/Windows/System32/config/SAM*",
+          "*/mnt/c/Windows/System32/config/SECURITY*",
+          "*/mnt/c/Windows/System32/config/SYSTEM", "*/mnt/c/Windows/System32/config/SYSTEM.*",
+          "*/mnt/c/Windows/NTDS/ntds.dit*",
+          "*/mnt/c/Users/*/AppData/Roaming/Microsoft/Credentials/*",
+          "*/mnt/c/Users/*/AppData/Local/Microsoft/Credentials/*",
+          "*/mnt/c/Users/*/AppData/Roaming/Microsoft/Protect/*",
+          "/mnt/c/Users/*/.ssh/*",
+          "/mnt/c/Users/*/.aws/credentials",
+          "*/mnt/c/Users/*/AppData/Local/Google/Chrome/User Data/*/Login Data*",
+          "*/mnt/c/Users/*/AppData/Local/Microsoft/Edge/User Data/*/Login Data*"
+        )
+      )
     )
   ) and
     not process.parent.executable : ("?:\\Program Files\\Docker\\*.exe", "?:\\Program Files (x86)\\Docker\\*.exe")
