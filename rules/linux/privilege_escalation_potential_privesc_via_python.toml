@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a UID change event to 0 (root) where the responsible process is a Python interpreter
+running from a user- or world-writeable working directory and the parent process is non-root.
+This may be indicative of a local privilege escalation exploit executed via Python. Using
+the new terms feature, noise from automated tools or system processes is partially filtered out.
+"""
+false_positives = [
+    """
+    Some automation or break-glass tooling may invoke Python from scripts under /home or other temporary directories;
+    validate parent identity and working directory before escalating.
+    """,
+]
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious UID Change to Root via Python"
+references = [
+    "https://research.jfrog.com/post/dissecting-and-exploiting-linux-lpe-variant-dirtyclone-cve-2026-43503/",
+    "https://github.com/mooder1/dirtyclone-CVE-2026-43503"
+]
+risk_score = 47
+rule_id = "792411c3-361a-4ad6-8a38-7f7f6322ada1"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:change and event.action:uid_change and
+user.id:0 and not process.parent.user.id:0 and not process.parent.group.id:0 and process.name:python* and
+process.working_directory:(/tmp* or /var/tmp* or /dev/shm* or /home/* or /run/user* or /var/run/user* or /var/www*) and
+process.parent.working_directory:(/tmp* or /var/tmp* or /dev/shm* or /home/* or /run/user* or /var/run/user* or /var/www*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Privilege Escalation"
+  id = "TA0004"
+  reference = "https://attack.mitre.org/tactics/TA0004/"
+
+    [[rule.threat.technique]]
+    id = "T1068"
+    name = "Exploitation for Privilege Escalation"
+    reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Unix Shell"
+      id = "T1059.004"
+      reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Python"
+      id = "T1059.006"
+      reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.command_line", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
