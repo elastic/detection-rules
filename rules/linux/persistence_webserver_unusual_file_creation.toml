@@ -2,7 +2,7 @@
 creation_date = "2026/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/24"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,37 @@ index = ["logs-endpoint.events.file*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Unusual File Creation via Web Server"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual File Creation via Web Server
+
+This alert flags a Linux web server process creating or renaming a file in web content or application directories that it does not normally touch, which can reveal a compromised service writing attacker-controlled content. That matters because web-facing processes rarely need to drop new executable or template files outside normal deployment activity. A common pattern is an intruder exploiting a vulnerable upload handler or plugin to place a web shell, JSP, PHP, or script-backed page under the site root for persistent remote access.
+
+### Possible investigation steps
+
+- Determine whether the file aligns with an approved deployment, plugin or theme update, package installation, or administrator change in the same time window by reviewing change records and system update history.
+- Inspect the file contents, hash, ownership, permissions, and timestamps for signs of a web shell, dropped payload, hidden redirect, or script stager, and compare it with known-good application files from the same host or image.
+- Review the web service’s parent and child activity around the event for spawned shells, interpreters, archive extraction, or permission changes that would indicate exploitation followed by payload execution or persistence setup.
+- Correlate nearby web access, reverse-proxy, and application log events to identify suspicious upload, template-edit, admin-panel, deserialization, or remote-code-execution requests immediately before the file appeared and any follow-up requests to the new file.
+- Scope the compromise by searching the host and peer web servers for similarly named files, unexpected cron or systemd persistence, modified startup scripts, or outbound connections made by the web service account after the creation event.
+
+### False positive analysis
+
+- Approved application deployment, patching, or first-run initialization can cause the web server or application server to create new files in the web root, so verify the event time against authorized change activity and confirm the file path, owner, and hash match the expected release contents.
+- Legitimate web application features such as user uploads or automatic generation of images, media, attachments, or cache files can create new content under upload-facing directories, so review nearby web or application requests and confirm the file extension, location, and contents are consistent with normal business use.
+
+### Response and remediation
+
+- Isolate the affected web server from the internet and internal network, remove it from the load balancer, and temporarily disable the compromised site or virtual host while keeping only secured management access for containment.
+- Eradicate attacker persistence by deleting the malicious web shell or dropped script, removing any unauthorized cron jobs, systemd units, startup scripts, SSH keys, or writable symlinks created by the web service account, and disabling any backdoored application user or admin account.
+- Restore the service to a known-good state by rebuilding the host from a trusted image or redeploying the application from clean source, recovering web content and configuration from a verified backup taken before the file appeared, and validating expected ownership and permissions across the web root.
+- Rotate all secrets exposed to the host, including web application credentials, API tokens, database passwords, and TLS private keys, and invalidate active sessions or cookies if the malicious file could have intercepted user or administrator access.
+- Escalate to incident response immediately if you find the same malicious file on multiple web servers, observe the web process spawning a shell or making outbound command-and-control connections, or confirm access to databases, payment data, or domain credentials.
+- Harden the environment by patching the exploited CMS, plugin, framework, or server component, restricting the web service account to only required write paths, disabling script execution in upload directories, and adding detections for new executable or template files under the web root.
+"""
 risk_score = 21
 rule_id = "9ab15ca6-be79-4718-bae6-5978a3ac6a46"
 severity = "low"
@@ -30,6 +61,7 @@ tags = [
   "Tactic: Command and Control",
   "Tactic: Initial Access",
   "Data Source: Elastic Defend",
+  "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
