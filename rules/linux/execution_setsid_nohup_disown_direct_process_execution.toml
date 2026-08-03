@@ -2,7 +2,7 @@
 creation_date = "2026/07/30"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/07/30"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,38 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Direct Process Execution via Background Utility"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Direct Process Execution via Background Utility
+
+This rule flags the first time a Linux host uses setsid, nohup, or disown to launch another process directly, which often means someone is detaching execution from the current terminal or login session. Attackers commonly use nohup to start a backdoor, reverse shell, or cryptominer after SSH access so the process keeps running after they disconnect and ignores normal hangup signals.
+
+### Possible investigation steps
+
+- Review the child process launched by the utility, including its full command line, executable path, working directory, and any redirected output files, to quickly separate routine administration from suspicious payload execution.
+- Trace the full ancestry and session context around the launch, such as an interactive shell, SSH login, sudo elevation, script runner, or service account, to determine whether the execution came from an expected workflow or an unusual entry point.
+- Assess the user and host history for similar behavior by checking recent logins, shell history, and prior detached launches on the same asset or by the same account, since a first-seen event from a normally quiet user often increases concern.
+- Inspect immediate follow-on activity from the spawned process, especially outbound network connections, file downloads, child process creation, or persistence changes, because detached execution is commonly used to keep malicious tooling running after logout.
+- Confirm with the system owner whether the command aligns with approved long-running tasks such as maintenance, backups, or software updates, and if not, preserve the binary and related artifacts for deeper analysis and potential containment.
+
+### False positive analysis
+
+- A Linux administrator may legitimately use nohup or setsid to launch an approved maintenance, backup, or data-processing script from an interactive shell so it continues after logout; verify the child command, executable path, initiating user, and execution time match expected operational activity on that host.
+- An engineer troubleshooting or restarting a local application may detach the process with setsid during a remote session to avoid terminal interruption; verify the parent shell and account are authorized and that the spawned binary or script and working directory align with the host's normal application files.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network, terminate the detached child process started with `nohup`, `setsid`, or `disown` and any descendants, and preserve the executable, shell script, redirected output files, and shell history for evidence.
+- Remove attacker persistence by deleting malicious cron jobs, systemd service or timer units, `rc.local` or shell profile modifications, unauthorized `authorized_keys` entries, and any dropped binaries or scripts referenced by the detached command.
+- Reset compromised access by disabling or rotating credentials for the initiating account and any accounts used afterward, revoking active SSH sessions and tokens, and reviewing `sudoers`, newly added local users, and group memberships for unauthorized changes.
+- Rebuild the host from a known-good image or restore from a trusted backup if the detached process ran a backdoor, reverse shell, downloader, or altered system binaries, and verify only approved packages, services, and startup items remain before returning it to production.
+- Escalate to incident response immediately if the detached process contacted an external command-and-control address, executed from a writable temporary or home directory as root, spread to other hosts, or evidence shows credential theft or persistence beyond the original system.
+- Harden the environment by restricting interactive use of backgrounding utilities where not required, tightening SSH and `sudo` access, enforcing application allowlisting and least privilege, and adding detections for detached launches from temporary directories, user home directories, and unexpected service accounts.
+
+"""
 references = [
   "https://cloud.google.com/blog/topics/threat-intelligence/disrupting-gridtide-global-espionage-campaign?hl=en"
 ]
@@ -63,6 +95,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: SentinelOne",
     "Data Source: Auditd Manager",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
