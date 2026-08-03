@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time an AWS identity submits an AWS Batch job with a container command override ("containerOverrides.command"),
+indicating a runtime-modified execution environment. Command overrides allow the submitter to
+replace the default command of a job definition at submission time. This flexibility is commonly abused by adversaries
+to inject malicious commands or exfiltration logic into otherwise legitimate Batch compute environments without modifying
+the underlying job definition — making the malicious activity harder to detect through
+configuration review alone.
+"""
+false_positives = [
+    """
+    Development teams and data pipelines may legitimately use container overrides to parameterize
+    job executions with dynamic inputs. Validate that the submitting identity, job queue, and
+    override content are consistent with expected workload behavior.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Batch Job Submitted with Container Override by Unusual Identity"
+note = """## Triage and analysis
+
+### Investigating AWS Batch Job Submitted with Container Override by Unusual Identity
+
+This rule fires when an identity submits a Batch job with a container command override and has not been observed doing so in the prior 7 days. Container overrides at submission time bypass job definition review — an adversary can inject a malicious command into an approved job definition without modifying it, making the change invisible to IaC drift detection or configuration compliance tools.
+
+### Possible investigation steps
+
+- Identify the submitting principal (`aws.cloudtrail.user_identity.arn`) and determine whether they are expected to use AWS Batch with runtime overrides.
+- Review `aws.cloudtrail.request_parameters` to extract the overridden command in `containerOverrides.command` - this is the trigger. Also inspect any environment variables or resource requirements present. Look for shell commands, curl/wget calls, base64-encoded payloads, or references to external endpoints in the command override.
+- Identify the job queue and job definition used to understand the compute environment and IAM role the job will execute under.
+- Search for `DescribeJobs` events after the submission to track execution status and output.
+- Correlate with S3 `GetObject` or `PutObject` events from the Batch execution role during the job's execution window to identify data access or exfiltration.
+
+### False positive analysis
+
+- ETL and data processing pipelines that parameterize job commands at submission time.
+- CI/CD systems that submit test jobs with dynamic parameters.
+
+### Response and remediation
+
+- If unauthorized, cancel the job immediately using `TerminateJob`.
+- Review the Batch compute environment's IAM execution role for the scope of data access the job had.
+- Restrict `batch:SubmitJob` with `Condition` keys on `batch:Image` and job queue ARNs to prevent arbitrary container override submissions.
+"""
+references = [
+    "https://docs.aws.amazon.com/batch/latest/APIReference/API_SubmitJob.html",
+    "https://docs.aws.amazon.com/batch/latest/APIReference/API_ContainerOverrides.html",
+]
+risk_score = 47
+rule_id = "2b7d9e61-4c83-4f1a-9e52-0b8a3d7c6f29"
+setup = "The AWS CloudTrail integration must be enabled and configured to collect Batch management events (`batch.amazonaws.com`)."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Batch",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "batch.amazonaws.com"
+    and event.action: "SubmitJob"
+    and event.outcome: "success"
+    and aws.cloudtrail.request_parameters: (*containerOverrides* and *command*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
