@@ -4,14 +4,14 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/02"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule detects the enumeration of the cluster by the "jq" command inside a container. The "jq" command is used to
 parse JSON data, and may be used by an adversary to gain information about the cluster and the services running inside it.
-This behavior is uncommon for interactive shells within a container, and is commonly leveraged by attackers to help parse
+This behavior is uncommon within a container, and is commonly leveraged by attackers to help parse
 cluster information in a more readable format, or set the output as environment variables.
 """
 false_positives = [
@@ -42,7 +42,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name == "jq" and
-process.interactive == true and container.id like "?*" 
+container.id like "?*" 
 '''
 
 [[rule.threat]]
