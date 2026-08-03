@@ -670,6 +670,24 @@ class TestRuleTags(BaseRuleTest):
             err_msg = "\n".join(invalid)
             self.fail(f"Rules with missing Investigation tag:\n{err_msg}")
 
+    def test_llm_completion_tag(self):
+        """Test that Resources: LLM is present on rules that use ES|QL COMPLETION."""
+        invalid = []
+        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
+
+        for rule in self.all_rules:
+            query = rule.contents.data.get("query") or ""
+            if not completion_re.search(query):
+                continue
+            if "Resources: LLM" not in (rule.contents.data.tags or []):
+                err_msg = self.rule_str(rule)
+                err_msg += "\n    expected: Resources: LLM (ES|QL COMPLETION incurs token cost)"
+                invalid.append(err_msg)
+
+        if invalid:
+            err_msg = "\n".join(invalid)
+            self.fail(f"Rules with ES|QL COMPLETION missing Resources: LLM tag:\n{err_msg}")
+
     def test_tag_prefix(self):
         """Ensure all tags have a prefix from an expected list."""
         invalid = []
