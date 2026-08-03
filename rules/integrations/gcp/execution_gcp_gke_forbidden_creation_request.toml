@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects denied GKE API create requests from non-control-plane identities. Failed creates can indicate RBAC probing,
+stolen credentials with insufficient privileges, or attempts to deploy unauthorized workloads.
+"""
+false_positives = [
+    """
+    Developers or CI jobs with incomplete RBAC can generate denied creates. Tune after validating expected identities
+    and namespaces. GKE control-plane and bootstrap identities are excluded.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Forbidden Creation Request"
+note = """## Triage and analysis
+
+### Investigating GKE Forbidden Creation Request
+
+Denied creates outside GKE system identities often reflect reconnaissance or misconfigured automation with stolen tokens.
+
+### Investigation steps
+
+- Review `client.user.email`, `event.action`, `gcp.audit.resource_name`, `source.ip`, `user_agent.original`, and `gcp.audit.status.message`.
+- Determine whether the identity should exist and whether the target resource is sensitive (pods, secrets, RBAC).
+- Correlate with later successful creates or RBAC changes from the same actor.
+
+### False positives
+
+- New deployments where RoleBindings lag the workload; exclude approved CI service accounts after review.
+
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+]
+risk_score = 47
+rule_id = "a76f049d-97fb-4058-9379-1bd985d523c2"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.outcome:failure and
+event.action:*.create and
+gcp.audit.status.message:(*forbidden* or *Unauthorized*) and
+not client.user.email:(
+  "system:apiserver" or system\:kube-* or "system:cloud-controller-manager" or system\:gke-* or
+  system\:node\:* or system\:serviceaccount\:kube-system\:* or system\:serviceaccount\:gke-managed* or
+  "kubelet-bootstrap" or "kubelet-nodepool-bootstrap" or "gcp:kube-bootstrap"
+) and
+not user_agent.original:(*kubernetes/$Format)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.status.message",
+    "gcp.audit.resource_name",
+    "orchestrator.resource.name",
+    "orchestrator.namespace",
+]

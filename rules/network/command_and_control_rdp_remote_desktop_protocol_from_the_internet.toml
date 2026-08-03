@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/07/01"
 
 [rule]
 author = ["Elastic"]
@@ -83,6 +83,12 @@ query = '''
     10.0.0.0/8 or
     172.16.0.0/12 or
     192.168.0.0/16
+  ) and
+  not (
+    data_stream.dataset:"panw.panos" and (
+      event.action:("flow_dropped" or "flow_denied") or
+      network.application:("incomplete" or "insufficient-data" or "not-applicable")
+    )
   )
 '''
 note = """## Triage and analysis

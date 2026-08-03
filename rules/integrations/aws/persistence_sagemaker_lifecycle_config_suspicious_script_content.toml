@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an Amazon SageMaker notebook lifecycle configuration whose OnStart or OnCreate script, after base64 decoding,
+contains patterns associated with malicious activity such as reverse shells, EC2 instance metadata (IMDS) credential
+access, or download-and-execute commands. A lifecycle configuration runs as root on the notebook instance, so a script
+with these patterns is a strong indicator of an attempt to backdoor the notebook, steal the execution role's
+credentials, or establish persistent code execution. This rule decodes the script in the request and matches high-signal
+indicators; it is a higher-fidelity companion to the rule that alerts on any lifecycle configuration change.
+"""
+false_positives = [
+    """
+    Legitimate setup scripts may reference metadata endpoints or download tooling. Review the decoded script in
+    "Esql_priv.aws_cloudtrail_lifecycle_script", verify the principal in "aws.cloudtrail.user_identity.arn", and confirm
+    the activity is approved. Note this rule only matches unobfuscated patterns; a clean result does not guarantee a
+    benign script.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS SageMaker Notebook Lifecycle Configuration With Suspicious Script Content"
+note = """## Triage and analysis
+
+### Investigating AWS SageMaker Notebook Lifecycle Configuration With Suspicious Script Content
+
+A SageMaker notebook lifecycle configuration is a shell script that runs as root on the notebook instance at create or start. This rule base64-decodes the OnStart/OnCreate script from the request (surfaced as "Esql_priv.aws_cloudtrail_lifecycle_script") and flags high-signal indicators across several categories: reverse shells ("/dev/tcp/", "/dev/udp/", "bash -i", "nc -e", "ncat", "socat", "mkfifo", "import socket", "pty.spawn", "perl"/"ruby"/"php" socket idioms), IMDS credential access ("169.254.169.254", "/latest/meta-data/", "/latest/api/token"), download-and-execute and decode-and-execute ("| sh", "| bash", "base64 -d"), cryptominers ("xmrig", "minerd", "stratum+"), and persistence ("authorized_keys", "crontab", "/etc/cron"). A match is a strong indicator of an implant attempt.
+
+### Possible investigation steps
+
+- Review the decoded "Esql_priv.aws_cloudtrail_lifecycle_script" field and the full "aws.cloudtrail.request_parameters" to understand what the script does.
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and review "source.ip" and "user_agent.original" for an unexpected origin.
+- Determine which notebook instances reference this configuration and whether they have started since the change.
+- Correlate with adjacent activity by the same principal, such as notebook creation, presigned URL generation, or use of the execution role's credentials outside SageMaker.
+
+### False positive analysis
+
+- Setup scripts can legitimately reference metadata endpoints or download tooling. Confirm the script is expected and exclude known automation roles after validation. This rule only matches unobfuscated indicators, so it can miss obfuscated scripts (use the broad lifecycle-configuration-change rule for full coverage) and can match benign scripts that contain these strings.
+
+### Response and remediation
+
+- If unauthorized, remove the lifecycle configuration, stop affected notebook instances, and rotate the notebook execution role's credentials.
+- Review actions taken by the execution role since the change, and restrict "sagemaker:CreateNotebookInstanceLifecycleConfig" and "sagemaker:UpdateNotebookInstanceLifecycleConfig" to trusted administrators.
+"""
+references = ["https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html"]
+risk_score = 73
+rule_id = "0471a12b-c740-4a72-91f0-12bf95014d3c"
+setup = "This rule requires AWS CloudTrail logs ingested via the Elastic AWS integration. See https://docs.elastic.co/integrations/aws/cloudtrail for setup details."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS SageMaker",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+| WHERE event.provider == "sagemaker.amazonaws.com"
+  AND event.action IN ("CreateNotebookInstanceLifecycleConfig", "UpdateNotebookInstanceLifecycleConfig")
+  AND event.outcome == "success"
+  AND aws.cloudtrail.user_identity.type != "AWSService"
+| GROK aws.cloudtrail.request_parameters "[Cc]ontent=(?<script_b64>[A-Za-z0-9+/=]+)"
+| EVAL Esql_priv.aws_cloudtrail_lifecycle_script = FROM_BASE64(script_b64)
+| WHERE TO_LOWER(Esql_priv.aws_cloudtrail_lifecycle_script) RLIKE """.*(/dev/tcp/|/dev/udp/|bash -i|sh -i|nc -e|ncat |socat |mkfifo|169\.254\.169\.254|/latest/meta-data/|/latest/api/token|\| ?sh|\| ?bash|base64 -d|import socket|pty\.spawn|perl -e|ruby -rsocket|php -r|xmrig|minerd|stratum\+|authorized_keys|/etc/cron|crontab ).*"""
+| KEEP _id, _version, _index, @timestamp, aws.*, cloud.*, event.*, source.*, user.*, user_agent.*, Esql_priv.aws_cloudtrail_lifecycle_script
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "source.ip",
+    "cloud.account.id",
+    "event.action",
+    "Esql_priv.aws_cloudtrail_lifecycle_script",
+    "aws.cloudtrail.request_parameters",
+]
+

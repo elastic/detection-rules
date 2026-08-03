@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/07/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of a PHP file in the WordPress plugin directory, which is a common technique used
+by attackers to establish persistence on a compromised web server. Attackers may upload a malicious PHP
+file and call it from a web browser to gain remote access to the server.
+"""
+false_positives = [
+    """
+    Web servers or administrators may create PHP files in the WordPress plugin directory during maintenance.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "PHP File Creation in WordPress Plugin Directory"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PHP File Creation in WordPress Plugin Directory
+
+This alert flags a new or modified PHP file under a WordPress plugin folder when it was written by a web server, PHP handler, shell, or download utility. That matters because attackers often hide webshells or rogue plugin code there to survive on a compromised site and run commands remotely. A common pattern is exploiting a vulnerable plugin to upload a backdoor into wp-content/plugins and then calling it from a browser.
+
+### Possible investigation steps
+
+- Determine whether the new PHP file is part of a legitimate plugin installation or update by comparing its path, filename, hash, and timestamp against the official plugin package and your deployment records.
+- Review the file contents for common webshell indicators such as obfuscation, eval or base64_decode chains, command execution functions, upload handlers, or hardcoded external URLs, and extract any indicators for broader searching.
+- Correlate the write time with web access logs and WordPress or PHP logs to identify the originating HTTP request, source IP, authenticated user, target endpoint, and any upload or admin action that preceded the file creation.
+- Trace the creating activity through parent and child processes, execution user, working directory, and any concurrent shell or download activity to separate expected maintenance from exploitation or post-compromise staging.
+- Inspect the rest of the WordPress environment for related signs of compromise, including other newly modified plugin or theme files, unexpected administrator accounts, suspicious scheduled tasks, dropped archives, or unusual outbound connections.
+
+### False positive analysis
+
+- A legitimate WordPress plugin installation or update can create or modify PHP files under `wp-content/plugins` through the normal web application update flow; verify the file path, name, hash, and timestamp match an approved plugin package and any recent administrator update activity.
+- Authorized maintenance such as restoring a plugin from backup or deploying plugin code with `bash`, `sh`, `curl`, or `wget` can also trigger this alert; verify the process lineage and maintenance records show an expected bulk file change rather than an isolated unfamiliar PHP file.
+
+### Response and remediation
+
+- Isolate the affected web server or container from the network and disable external access to the compromised WordPress site while preserving the malicious PHP file, related plugin directories, and relevant logs for evidence.
+- Remove attacker persistence by deleting the malicious PHP file and any companion backdoors, rogue plugins, modified `.htaccess` entries, cron jobs, systemd timers, SSH keys, or unauthorized WordPress administrator accounts created during the intrusion.
+- Reset exposed secrets by rotating WordPress admin passwords, hosting control panel credentials, SSH keys, database passwords, API tokens, and session cookies that may have been accessed from the compromised host.
+- Restore the site from a known-good backup or redeploy the affected plugin and WordPress core from trusted packages, then verify hashes and review `wp-content/plugins`, `wp-content/themes`, and `uploads` for any remaining unauthorized PHP files or recent modifications.
+- Escalate to incident response immediately if the webshell executed commands, multiple hosts show similar plugin-directory writes, sensitive data may have been accessed, or the attacker obtained root privileges, and expand scoping across reverse proxy, WAF, database, and authentication logs.
+- Harden the environment by patching the exploited plugin or WordPress version, removing unused plugins, enforcing least-privilege write access so the web server cannot write to plugin directories, enabling MFA for administrators, and adding monitoring for new executable files under web content.
+"""
+references = [
+    "https://github.com/Icex0/wp2shell-poc",
+]
+risk_score = 21
+rule_id = "fb76c80b-3eb2-4c56-9ed1-e4c529425d0f"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Use Case: Vulnerability",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type in ("creation", "change") and (
+  process.name in (
+    "nginx", "apache2", "httpd", "php-cgi", "php-fcgi", "php-cgi.cagefs",  "sw-engine-fpm",
+    "wget", "curl", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "mksh", "busybox"
+  ) or
+  process.name like ("php-fpm*", "lsphp*", "*.cgi", "*.fcgi")
+) and
+file.path like~ "*/wp-content/plugins/*"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1505.003"
+name = "Web Shell"
+reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

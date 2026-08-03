@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/06/25"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies inbound ICMP Timestamp (type 13) or Information (type 15) requests from external addresses to internal
+RFC1918 destinations. These message types are rarely used in modern networks and are commonly associated with host and
+path fingerprinting during reconnaissance.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.icmp-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ICMP Timestamp or Information Request from the Internet"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ICMP Timestamp or Information Request from the Internet
+
+ICMP Timestamp and Information requests are legacy diagnostic messages. Inbound use from the Internet toward internal
+hosts is uncommon in production networks and often indicates active scanning or OS fingerprinting.
+
+### Possible investigation steps
+
+- Review `source.ip` against threat intelligence and prior scan activity on the environment.
+- Determine whether the targeted `destination.ip` is an exposed host, VPN concentrator, or mis-NATed internal asset.
+- Look for adjacent port scans, SYN sweeps, or exploit attempts from the same source around the alert window.
+- Check whether the destination host replied and whether follow-on connections were attempted.
+
+### False positive analysis
+
+- Some legacy network monitoring or SLA probes may still use ICMP Timestamp requests. Maintain exceptions for known
+  monitoring source ranges after validation.
+- Shared hosting or multi-tenant environments with overlapping address space may require destination-specific tuning.
+
+### Response and remediation
+
+- Block or rate-limit the external source at the perimeter if activity is unauthorized.
+- Verify that the targeted internal host is not unintentionally exposed to the Internet.
+- Increase monitoring on targeted assets for follow-on exploitation attempts."""
+references = [
+    "https://www.rfc-editor.org/rfc/rfc792",
+    "https://nmap.org/book/host-discovery-techniques.html",
+    "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml",
+]
+risk_score = 21
+rule_id = "81139742-4d3a-49f3-a6dd-e0fb9834f959"
+setup = """## Setup
+
+This rule requires ICMP transaction telemetry from the Elastic network_traffic integration (`network_traffic.icmp`
+data stream).
+"""
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Tactic: Discovery",
+    "Tactic: Reconnaissance",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:network_traffic.icmp
+  and (network_traffic.icmp.request.type:(13 or 15) or icmp.request.type:(13 or 15))
+  and destination.ip:(
+    10.0.0.0/8 or
+    172.16.0.0/12 or
+    192.168.0.0/16
+  )
+  and not source.ip:(
+    10.0.0.0/8 or
+    100.64.0.0/10 or
+    127.0.0.0/8 or
+    169.254.0.0/16 or
+    172.16.0.0/12 or
+    192.168.0.0/16 or
+    192.0.0.0/24 or
+    192.0.0.0/29 or
+    192.0.0.8/32 or
+    192.0.0.9/32 or
+    192.0.0.10/32 or
+    192.0.0.170/32 or
+    192.0.0.171/32 or
+    192.0.2.0/24 or
+    192.175.48.0/24 or
+    192.31.196.0/24 or
+    192.52.193.0/24 or
+    192.88.99.0/24 or
+    198.18.0.0/15 or
+    198.51.100.0/24 or
+    203.0.113.0/24 or
+    224.0.0.0/4 or
+    240.0.0.0/4 or
+    "::1" or
+    "FE80::/10" or
+    "FF00::/8"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1018"
+name = "Remote System Discovery"
+reference = "https://attack.mitre.org/techniques/T1018/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+[[rule.threat.technique.subtechnique]]
+id = "T1595.001"
+name = "Scanning IP Blocks"
+reference = "https://attack.mitre.org/techniques/T1595/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+

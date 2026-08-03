@@ -2,7 +2,7 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/07/16"
 
 [rule]
 author = ["Elastic"]
@@ -17,54 +17,65 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
-language = "lucene"
+language = "esql"
 license = "Elastic License v2"
 name = "Possible FIN7 DGA Command and Control Behavior"
 note = """## Triage and analysis
 
-In the event this rule identifies benign domains in your environment, the `destination.domain` field in the rule can be modified to include those domains. Example: `...AND NOT destination.domain:(zoom.us OR benign.domain1 OR benign.domain2)`."""
+In the event this rule identifies benign domains in your environment, the `destination.domain` exclusion in the rule can be modified to include those domains. Example: `... | where destination.domain not in ("zoom.us", "benign.domain1", "benign.domain2")`."""
 references = [
     "https://www.fireeye.com/blog/threat-research/2018/08/fin7-pursuing-an-enigmatic-and-evasive-global-criminal-operation.html",
 ]
 risk_score = 73
 rule_id = "4a4e23cf-78a2-449c-bac3-701924c269d3"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Tactic: Command and Control", "Domain: Endpoint", "Data Source: PAN-OS", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Domain: Endpoint",
+    "Data Source: PAN-OS",
+    "Resources: Investigation Guide",
+]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-(data_stream.dataset: (network_traffic.tls OR network_traffic.http) OR
-    (event.category: (network OR network_traffic) AND network.protocol: (tls OR http) AND network.transport: tcp)) AND
-destination.domain:/[a-zA-Z]{4,5}\.(pw|us|club|info|site|top)/ AND NOT destination.domain:zoom.us
+from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos* metadata _id, _version, _index
+| where (
+    data_stream.dataset in ("network_traffic.tls", "network_traffic.http") or
+    (event.category in ("network", "network_traffic") and network.protocol in ("tls", "http") and network.transport == "tcp")
+  )
+| where destination.domain RLIKE "[a-zA-Z]{4,5}\\.(pw|us|club|info|site|top)"
+| where destination.domain != "zoom.us"
+| keep @timestamp, destination.domain, source.ip, destination.ip, network.protocol, network.transport, data_stream.dataset, _id, _version, _index
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1071"
 name = "Application Layer Protocol"
 reference = "https://attack.mitre.org/techniques/T1071/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1071.001"
 name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
 
+
 [[rule.threat.technique]]
 id = "T1568"
 name = "Dynamic Resolution"
 reference = "https://attack.mitre.org/techniques/T1568/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1568.002"
 name = "Domain Generation Algorithms"
 reference = "https://attack.mitre.org/techniques/T1568/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+

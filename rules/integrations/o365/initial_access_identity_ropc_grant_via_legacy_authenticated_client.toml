@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/07/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful login by a user principal through a legacy authenticated client (such as Authenticated SMTP,
+IMAP, POP, or Exchange ActiveSync) in the Microsoft 365 Unified Audit Log, evidenced by the "BAV2ROPC" user agent.
+Legacy basic-authentication clients are translated by Entra ID into a Resource Owner Password Credentials (ROPC) grant,
+a single-factor flow that submits the user's password directly and bypasses interactive multi-factor authentication.
+This is commonly abused during password spraying and account takeover.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Identity OAuth ROPC Grant via Legacy Authentication Client"
+note = """## Triage and analysis
+
+### Investigating M365 Identity OAuth ROPC Grant via Legacy Authentication Client
+
+The Resource Owner Password Credentials (ROPC) flow allows a client to obtain tokens by submitting a user's credentials directly, without interactive sign-in. Legacy authentication clients (Authenticated SMTP, IMAP, POP, Exchange ActiveSync) that use basic authentication are translated by Entra ID into ROPC grants, which are single-factor and bypass interactive MFA. Microsoft 365 records these logins in the Unified Audit Log as `UserLoggedIn` events with the `BAV2ROPC` user agent. Adversaries abuse this flow for password spraying and account takeover against accounts that lack MFA enforcement or fall outside legacy-authentication blocking.
+
+This rule identifies a successful ROPC/legacy-client login for a user principal not seen performing this activity in the last 10 days. Because the Unified Audit Log is a separate pipeline from the Entra ID sign-in diagnostic stream, this rule provides coverage even when non-interactive sign-in logs are not forwarded to the SIEM.
+
+### Possible investigation steps
+- Review `o365.audit.UserId` to identify the account that authenticated and determine whether it is expected to use legacy authentication clients.
+- Review `o365.audit.ApplicationId` and `o365.audit.Target.ID` to identify the targeted resource. `00000002-0000-0ff1-ce00-000000000000` is Office 365 Exchange Online, the typical target of Authenticated SMTP.
+- Confirm the client via `user_agent.original: "BAV2ROPC"`, which indicates a legacy basic-authentication client translated into a ROPC grant.
+- Review `o365.audit.ClientIP` / `source.ip` and geolocation to determine whether the source is expected for this user. Correlate with known-malicious infrastructure or unusual ASNs.
+- Pivot on `o365.audit.UserId` in Entra ID Sign-In Logs (`logs-azure.signinlogs-*`) to corroborate the login, and look for a preceding burst of failed authentications (password spraying) from the same source or against the same account.
+- Review subsequent activity by the account (mailbox access, rule creation, mail forwarding, OAuth consent) for signs of post-compromise actions on objectives.
+
+### False positive analysis
+- Legitimate legacy applications, service accounts, or scripts that still rely on Authenticated SMTP or other basic-authentication clients may trigger this rule. Validate the account, source, and business purpose, and exclude confirmed benign service accounts.
+- Multifunction devices, scan-to-email appliances, and monitoring tools that submit mail via Authenticated SMTP can generate this activity. These are typically stable in source IP and account and can be excluded once verified.
+
+### Response and remediation
+- If the login is confirmed malicious, disable the account, revoke active sessions and refresh tokens, and reset the password.
+- Disable SMTP AUTH and other legacy authentication for the affected mailbox (`Set-CASMailbox -SmtpClientAuthenticationDisabled $true`) and, where feasible, tenant-wide.
+- Enforce a Conditional Access policy that requires MFA and blocks legacy authentication for the affected user and, ideally, all users.
+- Investigate the source IP and any preceding failed-authentication activity to scope a potential password-spray campaign.
+- Review the account's activity after the login (mailbox rules, forwarding, delegate changes, OAuth grants) and remediate any unauthorized changes.
+"""
+references = [
+    "https://www.proofpoint.com/us/blog/threat-insight/attackers-unleash-teamfiltration-account-takeover-campaign",
+    "https://redcanary.com/blog/threat-detection/bav2ropc/",
+    "https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth-ropc",
+    "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema",
+    "https://www.huntress.com/blog/lshiy-password-spray-attack",
+]
+risk_score = 47
+rule_id = "3d753eb2-68c4-404a-9279-91a3ad490765"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "o365.audit" and
+    event.code: "AzureActiveDirectoryStsLogon" and
+    event.action: "UserLoggedIn" and
+    user_agent.original: "BAV2ROPC" and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["o365.audit.UserId"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
