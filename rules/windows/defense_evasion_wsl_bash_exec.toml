@@ -104,18 +104,18 @@ process where host.os.type == "windows" and event.type : "start" and
         ) or
         (
           (
-            process.args : ("*/dev/tcp/*", "*/dev/udp/*") and
-            process.args : ("-i", "*bash -i*", "*sh -i*") and
-            process.args : ("*0<&1*", "*>&*")
+            process.args like~ ("*/dev/tcp/*", "*/dev/udp/*", "*zsh/net/tcp*") and
+            process.args like ("*&>*", "*<>*", "*>&*", "*<&*")
           ) or
           (
-            process.args : ("nc", "ncat", "netcat") and
+            process.args : ("nc", "netcat", "nc.traditional", "ncat", "*/nc", "*/netcat", "*/nc.traditional", "*/ncat") and
             process.args : ("sh", "/bin/sh", "bash", "/bin/bash") and
-            process.args : ("-e", "--exec")
+            process.args : ("-e", "--exec", "-c", "--sh-exec")
           ) or
           (
-            (process.args : "socat" and process.args : "*exec:*") or
-            process.args : "*socat*exec:*"
+            process.args like~ "*socat*" and
+            process.args like~ ("*exec:*", "*system:*", "*shell:*") and
+            process.args like~ ("*tcp*", "*udp*", "*openssl*")
           )
         ) or
         (
@@ -139,7 +139,7 @@ process where host.os.type == "windows" and event.type : "start" and
           "*/mnt/c/Users/*/.ssh/*",
           "*/mnt/c/Users/*/.aws/credentials",
           "*/mnt/c/Users/*/.azure/*",
-          "*/mnt/c/Users/*/.config/gcloud/",
+          "*/mnt/c/Users/*/.config/gcloud/*",
           "*/mnt/c/Users/*/AppData/Local/Google/Chrome/User Data/*/Login Data*",
           "*/mnt/c/Users/*/AppData/Local/Microsoft/Edge/User Data/*/Login Data*"
         )
