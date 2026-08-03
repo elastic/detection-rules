@@ -2,7 +2,7 @@
 creation_date = "2023/01/13"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/07/31"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -113,7 +113,10 @@ process where host.os.type == "windows" and event.type : "start" and
             process.args : ("sh", "/bin/sh", "bash", "/bin/bash") and
             process.args : ("-e", "--exec")
           ) or
-          process.args : "*socat*exec*"
+          (
+            (process.args : "socat" and process.args : "*exec:*") or
+            process.args : "*socat*exec:*"
+          )
         ) or
         (
           process.args : ("-e", "--exec") and
@@ -121,11 +124,11 @@ process where host.os.type == "windows" and event.type : "start" and
             "/mnt/c/*.exe", "/mnt/c/*.ps1", "/mnt/c/*.bat", "/mnt/c/*.cmd", "/mnt/c/*.vbs", "/mnt/c/*.js",
             "/mnt/c/*.hta"
           ) and
-          not process.args : "wslpath"
+          not process.args : "*wslpath*"
         ) or
         process.args : (
-          "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/sudoers.d/*", "/root/.ssh/*", "/home/*/.ssh/*",
-          "/root/.aws/credentials", "/home/*/.aws/credentials", "/root/.kube/config", "/home/*/.kube/config",
+          "*/etc/passwd", "*/etc/shadow*", "*/etc/sudoers*", "*/etc/sudoers.d/*", "*/root/.ssh/*", "*/home/*/.ssh/*",
+          "*/root/.aws/credentials*", "*/home/*/.aws/credentials*", "*/root/.kube/config*", "*/home/*/.kube/config*",
           "*/mnt/c/Windows/System32/config/SAM*",
           "*/mnt/c/Windows/System32/config/SECURITY*",
           "*/mnt/c/Windows/System32/config/SYSTEM", "*/mnt/c/Windows/System32/config/SYSTEM.*",
@@ -133,8 +136,8 @@ process where host.os.type == "windows" and event.type : "start" and
           "*/mnt/c/Users/*/AppData/Roaming/Microsoft/Credentials/*",
           "*/mnt/c/Users/*/AppData/Local/Microsoft/Credentials/*",
           "*/mnt/c/Users/*/AppData/Roaming/Microsoft/Protect/*",
-          "/mnt/c/Users/*/.ssh/*",
-          "/mnt/c/Users/*/.aws/credentials",
+          "*/mnt/c/Users/*/.ssh/*",
+          "*/mnt/c/Users/*/.aws/credentials",
           "*/mnt/c/Users/*/AppData/Local/Google/Chrome/User Data/*/Login Data*",
           "*/mnt/c/Users/*/AppData/Local/Microsoft/Edge/User Data/*/Login Data*"
         )
