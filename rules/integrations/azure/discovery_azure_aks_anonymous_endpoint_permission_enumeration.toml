@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Kubernetes API discovery or access-review activity attributed to the anonymous user on AKS. Anonymous enumeration indicates overly permissive anonymous-auth configuration or probing.
+"""
+false_positives = [
+    """
+    Misconfigured readiness probes rarely use anonymous cluster-scoped reviews; treat matches as high priority for config review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Anonymous Endpoint Permission Enumeration"
+note = """
+## Triage and analysis
+
+### Investigating Azure AKS Anonymous Endpoint Permission Enumeration
+
+AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
+`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
+`azure.platformlogs.category: kube-audit`. Detects Kubernetes API discovery or access-review activity attributed to the anonymous user on AKS. Anonymous enumeration indicates overly permissive anonymous-auth configuration or probing.
+
+### Possible investigation steps
+
+- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
+- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
+- If present, examine `requestObject` for privileged fields or binding subjects.
+- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+
+### False positive analysis
+
+- Misconfigured readiness probes rarely use anonymous cluster-scoped reviews; treat matches as high priority for config review.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
+- Rotate any secrets or tokens that may have been accessed.
+- Harden RBAC to least privilege and review admission controls.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+]
+risk_score = 47
+rule_id = "5d10c492-6940-4555-a0b7-66417c26f7ff"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Reconnaissance",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.verb:("get" or "list" or "create" or "watch") and
+  (
+    azure.platformlogs.properties.log.user.username:("system:anonymous" or "system:unsecured") or
+    azure.platformlogs.properties.log.impersonatedUser.username:("system:anonymous" or "system:unsecured")
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
