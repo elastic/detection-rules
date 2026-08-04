@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects pod exec on AKS where the command line invokes curl or wget, commonly used to stage tooling after compromise.
+"""
+false_positives = [
+    """
+    Admins may curl for diagnostics. Correlate with unusual identities and destinations.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Pod Exec with Curl or Wget to HTTPS"
+note = """
+## Triage and analysis
+
+### Investigating Azure AKS Pod Exec with Curl or Wget to HTTPS
+
+AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
+`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
+`azure.platformlogs.category: kube-audit`. Detects pod exec on AKS where the command line invokes curl or wget, commonly used to stage tooling after compromise.
+
+### Possible investigation steps
+
+- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
+- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
+- If present, examine `requestObject` for privileged fields or binding subjects.
+- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+
+### False positive analysis
+
+- Admins may curl for diagnostics. Correlate with unusual identities and destinations.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
+- Rotate any secrets or tokens that may have been accessed.
+- Harden RBAC to least privilege and review admission controls.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+]
+risk_score = 47
+rule_id = "e215bb76-3614-4869-98ec-08670a844877"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"pods" and
+  azure.platformlogs.properties.log.objectRef.subresource:"exec" and
+  azure.platformlogs.properties.log.verb:("create" or "get") and
+  azure.platformlogs.properties.log.requestURI:(*curl* or *wget*) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
