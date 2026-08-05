@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/06/30"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -34,7 +34,7 @@ note = """## Triage and analysis
 
 ### Investigating File Download Detected via Defend for Containers
 
-This rule flags an interactive session inside a Linux container that runs curl or wget to pull content from a URL or IP and immediately writes a new file, signaling hands-on retrieval of tools, payloads, or data. It matters because attackers often use on-demand downloads to stage second-phase execution and establish application-layer command-and-control without baking artifacts into images. A common pattern is an operator execing into a running container, fetching a script or binary from paste/CDN infrastructure, then saving it for rapid follow-on execution.
+This rule flags activity inside a Linux container where curl or wget is used to pull content from a URL or IP and immediately write a new file, signaling hands-on retrieval of tools, payloads, or data. It matters because attackers often use on-demand downloads to stage second-phase execution and establish application-layer command-and-control without baking artifacts into images. A common pattern is an operator execing into a running container, fetching a script or binary from paste/CDN infrastructure, then saving it for rapid follow-on execution.
 
 ### Possible investigation steps
 
@@ -77,7 +77,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
   (
     (process.name == "curl" or process.args in ("curl", "/bin/curl", "/usr/bin/curl", "/usr/local/bin/curl")) and
     process.args in ("-o", "-O", "--output", "--remote-name", "--remote-name-all", "--output-dir")
