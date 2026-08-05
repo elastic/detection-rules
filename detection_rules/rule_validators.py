@@ -8,7 +8,7 @@
 import re
 import typing
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from functools import cached_property, wraps
 from typing import Any
@@ -75,6 +75,101 @@ class ValidationTarget:
     # Optional context about schema selection
     beat_types: list[str] | None = None
     integration_types: list[str] | None = None
+
+
+DUPLICATE_TRAILER_HEADER = "Also applies to:"
+
+
+def _target_bucket_key(target: ValidationTarget) -> tuple[Any, ...]:
+    """Return the hashable part of a target's deduplication key: all of it but the schema contents."""
+    return (
+        target.query_text,
+        target.min_stack_version,
+        target.kind,
+        tuple(target.beat_types or ()),
+        tuple(target.integration_types or ()),
+    )
+
+
+def _schema_fields(schema: Any) -> dict[str, Any] | None:
+    """Return the field->type mapping a validation schema resolves to, or None if unrecognized."""
+    if isinstance(schema, dict):
+        return schema
+    fields = getattr(schema, "kql_schema", None)  # ecs.KqlSchema2Eql
+    if fields is None:
+        fields = getattr(schema, "endgame_schema", None)  # endgame.EndgameSchema
+    return fields if isinstance(fields, dict) else None
+
+
+def _schemas_equivalent(first: Any, second: Any) -> bool:
+    """Check whether two resolved schemas would validate a query identically."""
+    if first is second:
+        return True
+    # The schema classes carry their own type_mapping, so an equal field map under a different
+    # class is not equivalent.
+    if type(first) is not type(second):
+        return False
+    first_fields = _schema_fields(first)
+    second_fields = _schema_fields(second)
+    if first_fields is None or second_fields is None:
+        # Unrecognized shape: never equivalent, so the target is always validated.
+        return False
+    # Duplicates are separate stack versions resolving to equal-but-distinct field maps, so compare
+    # contents. Compare the dicts directly rather than deriving a hashable identity key: dict
+    # equality short-circuits on length and allocates nothing per field.
+    return first_fields == second_fields
+
+
+def _extra_trailer_lines(base: str, others: list[str]) -> list[str]:
+    """Return the lines from `others` not already present in `base`, in first-seen order."""
+    seen = set(base.splitlines())
+    extra: list[str] = []
+    for other in others:
+        for line in other.splitlines():
+            if line and line not in seen:
+                seen.add(line)
+                extra.append(line)
+    return extra
+
+
+def _merge_duplicate_targets(group: list[ValidationTarget]) -> ValidationTarget:
+    """Collapse a group of equivalent targets into the first one, keeping every trailer's context."""
+    first = group[0]
+    if len(group) == 1:
+        return first
+
+    # The trailers name the stack version, so preserve the lines the duplicates would have reported.
+    extra = _extra_trailer_lines(first.err_trailer, [t.err_trailer for t in group[1:]])
+    if not extra:
+        return first
+    tail = "\n".join(extra)
+    merged = f"{first.err_trailer}\n{DUPLICATE_TRAILER_HEADER}\n{tail}" if first.err_trailer else tail
+    return replace(first, err_trailer=merged)
+
+
+def deduplicate_validation_targets(targets: list[ValidationTarget]) -> list[ValidationTarget]:
+    """Collapse targets that would perform byte-for-byte identical validation work."""
+    # Several stack versions in stack-schema-map.yaml resolve to identical beats/ecs/integration
+    # schemas, so the same query text is otherwise fully re-parsed once per version. Bucket on the
+    # hashable part of the key first, then scan the bucket for a schema-equivalent group. A bucket
+    # only ever holds one group per distinct schema - at most one per stack version - so the scan
+    # stays short. First-appearance order is preserved, so the target reporting a failure is
+    # unchanged.
+    buckets: dict[tuple[Any, ...], list[list[ValidationTarget]]] = {}
+    groups: list[list[ValidationTarget]] = []
+
+    for target in targets:
+        bucket = buckets.setdefault(_target_bucket_key(target), [])
+        for group in bucket:
+            if _schemas_equivalent(group[0].schema, target.schema):
+                group.append(target)
+                break
+        else:
+            group = [target]
+            bucket.append(group)
+            groups.append(group)
+
+    return [_merge_duplicate_targets(group) for group in groups]
 
 
 class ExtendedTypeHint(Enum):
@@ -258,7 +353,7 @@ class KQLValidator(QueryValidator):
                     )
                 )
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: QueryRuleData, meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethod]
         """Validate the query using computed schema combinations, favoring integrations when present."""
@@ -585,7 +680,7 @@ class EQLValidator(QueryValidator):
         if need_stack_targets:
             add_stack_targets(self.query, include_endgame=True)
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
