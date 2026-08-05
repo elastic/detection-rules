@@ -69,7 +69,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
     - Building blocks → `Rule Type: BBR`
     - Higher-order / signal-correlating → `Rule Type: Higher-Order` (legacy spelling `Higher-Order Rule` is still valid)
   - `OS:` — required when the rule lives under `rules/windows|linux|macos/` or is endpoint-scoped: `OS: Windows`, `OS: Linux`, `OS: macOS`.
-  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: AWS CloudTrail`, `Data Source: Entra ID Sign-In Logs`, `Data Source: Elastic Defend`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services).
+  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: AWS CloudTrail`, `Data Source: Entra ID Sign-in Logs`, `Data Source: Elastic Defend`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services). Match existing rule casing during migration (e.g. `Sign-in`, not `Sign-In`).
   - `Resources: Investigation Guide` if `note` contains an investigation guide.
   - `Resources: LLM` if the query uses the ES|QL `COMPLETION` command.
   - `Mitre Atlas: Txxxx` for GenAI-domain rules when an ATLAS technique applies.

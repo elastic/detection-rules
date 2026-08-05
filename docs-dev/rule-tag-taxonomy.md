@@ -53,10 +53,12 @@ Do **not** invent domains for storage, web/app servers, or threat intelligence â
 
 ## Data Source guidance
 
-Prefer the concrete telemetry name (`AWS CloudTrail`, `Entra ID Sign-In Logs`,
+Prefer the concrete telemetry name (`AWS CloudTrail`, `Entra ID Sign-in Logs`,
 `Elastic Defend`) over the vendor alone. Preserve any dual/legacy tags still required
 by index-based unit tests (for example AWS rules still need both `Data Source: AWS` and
-`Data Source: Amazon Web Services`).
+`Data Source: Amazon Web Services`). Match existing rule casing during migration
+(e.g. `Sign-in`, not `Sign-In`); do not add new Data Source spellings to
+`EXPECTED_RULE_TAGS` until outliers are normalized.
 
 ## Service guidance
 
