@@ -17,6 +17,7 @@ from kql.ast import (
     NotExpr,
     NotValue,
     Number,
+    OrExpr,
     String,
     Wildcard,
 )
@@ -138,6 +139,75 @@ class ParserTests(unittest.TestCase):
 
         # Multiple wildcards with spaces
         self.validate("field: foo* bar* baz", FieldComparison(Field("field"), Wildcard("foo* bar* baz")))
+
+    def test_wildcard_with_spaces_and_escaped_specials(self):
+        """Test wildcard values with spaces that also contain escaped special characters."""
+        # Regression for #6282: Kibana allows escaped specials (\: \( \) \{ ...) inside
+        # unquoted values, e.g. "app_message: *\: No such file*". The WILDCARD_LITERAL token
+        # previously excluded these characters and failed to lex such values.
+        # Escaped colon directly after the leading wildcard (the #6282 example shape). The
+        # escape is resolved (backslash dropped) like any other recognized escape.
+        self.validate(r"field: *\: No such file*", FieldComparison(Field("field"), Wildcard("*: No such file*")))
+        self.validate(
+            r"app_message: *\: No such file", FieldComparison(Field("app_message"), Wildcard("*: No such file"))
+        )
+
+        # Escaped parenthesis / brace mid-value
+        self.validate(r"field: *foo\(bar baz*", FieldComparison(Field("field"), Wildcard("*foo(bar baz*")))
+        self.validate(r"field: foo* bar\:baz", FieldComparison(Field("field"), Wildcard("foo* bar:baz")))
+
+    def test_wildcard_with_spaces_escaped_specials_full_issue_query(self):
+        """Test the exact query reported in #6282 end to end."""
+        # Previously this failed to lex at the escaped colon ("Invalid syntax"). It now
+        # lexes, and ` or ` splits the query the same way Kibana does: the wildcard value
+        # ends at "file", followed by OR and the bare term `directory`. Kibana searches
+        # bare terms against default fields, which this library cannot represent, so full
+        # parsing reports "Value not tied to field" at `directory` — not a syntax error.
+        query = r"app_message : *\: No such file or directory"
+        kql.lark_parse(query)  # lexes and builds a parse tree without error
+        with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
+            kql.parse(query)
+
+        # With the trailing bare term tied to a field, the query round-trips fully.
+        self.validate(
+            r"app_message : *\: No such file or app_message : directory",
+            OrExpr(
+                [
+                    FieldComparison(Field("app_message"), Wildcard("*: No such file")),
+                    FieldComparison(Field("app_message"), String("directory")),
+                ]
+            ),
+        )
+
+    def test_wildcard_with_spaces_and_invalid_escape(self):
+        """Test that an escape outside UNQUOTED_CHAR's whitelist is rejected even with spaces."""
+        # `\'` is not a recognized KQL escape; it must fail to lex whether or not the value
+        # contains a space, so the two behave consistently.
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: foo\'bar")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: *foo\' bar")
+
+        # A backslash may only appear as part of a recognized escape pair, so an invalid
+        # escape whose second character is otherwise a normal character (e.g. `\q`) is
+        # also rejected rather than lexing as a literal backslash + character.
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: foo\qbar*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse(r"field: *foo\q bar*")
+
+    def test_wildcard_with_spaces_and_unescaped_angle_brackets(self):
+        """Test that unescaped < and > are rejected in wildcard values, same as UNQUOTED_CHAR."""
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: foo<bar*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: *foo bar<baz*")
+        with self.assertRaises(kql.KqlParseError):
+            kql.lark_parse("field: *foo bar>baz*")
+
+        # Escaped, they are accepted and resolve to the bare character.
+        self.validate(r"field: *foo\<bar baz*", FieldComparison(Field("field"), Wildcard("*foo<bar baz*")))
+        self.validate(r"field: *foo\>bar baz*", FieldComparison(Field("field"), Wildcard("*foo>bar baz*")))
 
     def test_wildcard_with_spaces_and_keywords(self):
         """Test wildcard values containing spaces followed by keywords."""
