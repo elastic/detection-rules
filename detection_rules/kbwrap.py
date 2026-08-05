@@ -192,14 +192,21 @@ def kibana_import_rules(  # noqa: PLR0913, PLR0915
 
     enabled_rule_ids: set[str] = set()
     with kibana:
-        if enable_delay is not None:
+        existing_rule_enabled_by_id: dict[str, bool] = {}
+        if enable_delay is not None and any("enabled" not in rule_dict for rule_dict in rule_dicts):
             # Most DaC rules omit `enabled`. For overwrites, retain the currently deployed state;
             # new Kibana rules default to enabled when the field is omitted.
-            existing_rule_enabled_by_id = {
-                rule["rule_id"]: rule["enabled"]
-                for rule in RuleResource.export_rules(list(rule_ids))  # type: ignore[reportUnknownMemberType]
-                if "rule_id" in rule and "enabled" in rule
-            }
+            existing_rules = cast(
+                list[dict[str, Any]],
+                RuleResource.export_rules(list(rule_ids)),  # type: ignore[reportUnknownMemberType]
+            )
+            for existing_rule in existing_rules:
+                rule_id = existing_rule.get("rule_id")
+                enabled = existing_rule.get("enabled")
+                if isinstance(rule_id, str) and isinstance(enabled, bool):
+                    existing_rule_enabled_by_id[rule_id] = enabled
+
+        if enable_delay is not None:
             for rule_dict in rule_dicts:
                 if rule_dict.get("enabled", existing_rule_enabled_by_id.get(rule_dict["rule_id"], True)):
                     enabled_rule_ids.add(rule_dict["rule_id"])

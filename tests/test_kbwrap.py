@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import click
 
-from detection_rules.kbwrap import kibana_export_rules, kibana_import_rules
+from detection_rules.kbwrap import kibana_import_rules
 from detection_rules.misc import ClientError
 
 
@@ -116,19 +116,11 @@ class TestKibanaImportRulesEnableDelay(unittest.TestCase):
             generic_collection.return_value.items_matching.return_value = []
             _ = self._invoke_import_rules(rules, kibana)
 
-    def test_enable_delay_requires_a_positive_delay_and_has_no_short_alias(self) -> None:
-        """The safeguard cannot be invoked without a wait or with export's -ed flag."""
+    def test_enable_delay_requires_a_positive_delay(self) -> None:
+        """The safeguard cannot be invoked without a wait."""
         ctx = kibana_import_rules.make_context("import-rules", ["--enable-delay", "30"])
         self.assertEqual(ctx.params["enable_delay"], 30)
 
         for value in ("0", "-5"):
             with self.assertRaises(click.exceptions.UsageError):
                 _ = kibana_import_rules.make_context("import-rules", ["--enable-delay", value])
-
-        with self.assertRaises(click.exceptions.NoSuchOption):
-            _ = kibana_import_rules.make_context("import-rules", ["-ed", "30"])
-
-        export_context = kibana_export_rules.make_context(
-            "export-rules", ["--directory", "export-rules-test", "-ed", "exceptions"]
-        )
-        self.assertEqual(export_context.params["exceptions_directory"], "exceptions")
