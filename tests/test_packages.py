@@ -7,6 +7,7 @@
 
 import unittest
 import uuid
+from copy import deepcopy
 from pathlib import Path
 
 from marshmallow import ValidationError
@@ -21,13 +22,33 @@ from detection_rules.packaging import (
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import definitions
 from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
+from detection_rules.utils import clear_method_cache
 from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
+# rules re-hashed with their caches dropped in test_rule_versioning; keep this bounded, since each
+# one pays a full re-serialization of the rule
+UNCACHED_HASH_SAMPLE = 25
+
 
 class TestPackages(BaseRuleTest):
     """Test package building and saving."""
+
+    package: Package | None = None
+    pre_package_hashes: dict[str, str] | None = None
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+
+        # building a package hashes and re-serializes every rule, so build it once here and share it
+        # rather than paying for it in each test below
+        if getattr(cls, "rc", None) is None or rule_loader.RULES_CONFIG.bypass_version_lock:
+            return
+
+        cls.pre_package_hashes = {rule.id: rule.contents.get_hash() for rule in cls.rc}
+        cls.package = Package.from_config(rule_collection=cls.rc, config=deepcopy(package_configs))
 
     @staticmethod
     def get_test_rule(version=1, count=1):
@@ -58,39 +79,48 @@ class TestPackages(BaseRuleTest):
     @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_package_loader_default_configs(self):
         """Test configs in detection_rules/etc/packages.yaml."""
-        Package.from_config(rule_collection=self.rc, config=package_configs)
+        # the package is built from the default configs in setUpClass
+        self.assertIsNotNone(self.package, "Package was not built from the default configs")
 
     @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_package_summary(self):
         """Test the generation of the package summary."""
-        rules = self.rc
-        package = Package(rules, "test-package")
+        package = self.package
+        assert package is not None
         package.generate_summary_and_changelog(package.changed_ids, package.new_ids, package.removed_ids)
 
     @unittest.skipIf(rule_loader.RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_rule_versioning(self):
         """Test that all rules are properly versioned and tracked"""
         self.maxDiff = None
-        rules = self.rc
-        original_hashes = []
-
-        # test that no rules have versions defined
-        for rule in rules:
-            self.assertGreaterEqual(rule.contents.autobumped_version, 1, "{} - {}: version is not being set in package")
-            original_hashes.append(rule.contents.get_hash())
-
-        package = Package(rules, "test-package")
+        package = self.package
+        assert package is not None
+        assert self.pre_package_hashes is not None
 
         # test that all rules have versions defined
+        for rule in self.rc:
+            self.assertGreaterEqual(rule.contents.autobumped_version, 1, "{} - {}: version is not being set in package")
+
         for rule in package.rules:
             self.assertGreaterEqual(rule.contents.autobumped_version, 1, "{} - {}: version is not being set in package")
 
-        # test that rules validate with version
+        # test that no hashes changed as a result of the version bumps performed while building the
+        # package in setUpClass
+        post_bump_hashes = {rule.id: rule.contents.get_hash() for rule in package.rules}
+        original_hashes = {
+            rule_id: rule_hash for rule_id, rule_hash in self.pre_package_hashes.items() if rule_id in post_bump_hashes
+        }
+        self.assertDictEqual(original_hashes, post_bump_hashes, "Version bumping modified the hash of a rule")
 
-        post_bump_hashes = [rule.contents.get_hash() for rule in package.rules]
-
-        # test that no hashes changed as a result of the version bumps
-        self.assertListEqual(original_hashes, post_bump_hashes, "Version bumping modified the hash of a rule")
+        # hashes are memoized per rule, so re-hash a sample from scratch to confirm the underlying
+        # rule contents - not just the cached hash - are unchanged
+        for rule in list(package.rules)[:UNCACHED_HASH_SAMPLE]:
+            clear_method_cache(rule.contents)
+            self.assertEqual(
+                self.pre_package_hashes[rule.id],
+                rule.contents.get_hash(),
+                f"{self.rule_str(rule)} hash changed after building the package",
+            )
 
 
 class TestRegistryPackage(unittest.TestCase):

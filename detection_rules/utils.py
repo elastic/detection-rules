@@ -353,6 +353,35 @@ def clear_caches() -> None:
     _cache.clear()
 
 
+METHOD_CACHE_ATTR = "_method_cache"
+
+
+def cached_method(f: Callable[..., Any]) -> Callable[..., Any]:
+    """Helper function to memoize a method's result on the instance it is called on."""
+    # unlike `cached`, `self` is not part of the cache key, so no `astuple()` deep copy of the
+    # instance is needed to look a result up - only use this where the result is fully determined by
+    # an immutable instance plus the call arguments
+    name = f.__qualname__
+
+    @functools.wraps(f)
+    def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
+        # frozen dataclasses block __setattr__, but their __dict__ is still writable
+        cache: dict[tuple[Any, ...], Any] = self.__dict__.setdefault(METHOD_CACHE_ATTR, {})
+        cache_key = (name, freeze(args), freeze(kwargs))
+
+        if cache_key not in cache:
+            cache[cache_key] = f(self, *args, **kwargs)
+
+        return cache[cache_key]
+
+    return wrapped
+
+
+def clear_method_cache(obj: Any) -> None:
+    """Drop every `cached_method` result memoized on an instance."""
+    _ = obj.__dict__.pop(METHOD_CACHE_ATTR, None)
+
+
 def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = ".toml") -> str:
     """Convert a rule name to a filename."""
     name = re.sub(r"[^_a-z0-9]+", "_", name.strip().lower()).strip("_")

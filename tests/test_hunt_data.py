@@ -6,14 +6,27 @@
 """Test for hunt toml files."""
 
 import unittest
+from functools import lru_cache
+from pathlib import Path
 
-from hunting.definitions import HUNTING_DIR
+from hunting.definitions import HUNTING_DIR, Hunt
 from hunting.markdown import load_toml
 from hunting.utils import load_all_toml, load_index_file
 
 
+@lru_cache
+def load_all_hunts() -> list[tuple[Hunt, Path]]:
+    """Glob and parse every hunting TOML file once for all tests in this module."""
+    return load_all_toml(HUNTING_DIR)
+
+
 class TestHunt(unittest.TestCase):
     """Test hunt toml files."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Load the hunt TOML files once for all tests."""
+        cls.all_hunts = load_all_hunts()
 
     def test_toml_loading(self):
         """Test loading a hunt toml file content."""
@@ -40,8 +53,7 @@ class TestHunt(unittest.TestCase):
     def test_load_toml_files(self):
         """Test loading and validating all Hunt TOML files in the hunting directory."""
 
-        for toml_path in HUNTING_DIR.rglob("*.toml"):
-            hunt = load_toml(toml_path)
+        for hunt, _ in self.all_hunts:
             self.assertTrue(hunt.author)
             self.assertTrue(hunt.description)
             self.assertTrue(hunt.integration)
@@ -51,7 +63,7 @@ class TestHunt(unittest.TestCase):
 
     def test_markdown_existence(self):
         """Ensure each TOML file has a corresponding Markdown file in the docs directory."""
-        for toml_file in HUNTING_DIR.rglob("*.toml"):
+        for _, toml_file in self.all_hunts:
             expected_markdown_path = toml_file.parent.parent / "docs" / toml_file.with_suffix(".md").name
 
             self.assertTrue(
@@ -99,8 +111,7 @@ class TestHuntIndex(unittest.TestCase):
     def test_all_files_in_index(self):
         """Ensure all TOML files are included in the index."""
         missing_index_entries = []
-        all_toml_data = load_all_toml(HUNTING_DIR)
-        uuids = [hunt.uuid for hunt, path in all_toml_data]
+        uuids = [hunt.uuid for hunt, _ in load_all_hunts()]
 
         for queries in self.hunting_index.values():
             missing_index_entries.extend([query_uuid for query_uuid in queries if query_uuid not in uuids])
