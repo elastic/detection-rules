@@ -82,7 +82,10 @@ FROM_SOURCES_REGEX = re.compile(
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
 # Preconfigured Elastic-managed (EIS) inference endpoints referenced by rules. These only exist on
 # Elastic Cloud stacks; self-hosted validation stacks (e.g. elastic-container in CI for fork PRs)
-# will report them as not found, which is expected and should not fail validation.
+# report them as not found. To keep those stacks usable, COMPLETION commands referencing these
+# endpoints are rewritten to an equivalent EVAL before the query is sent (see
+# `rewrite_managed_completion_commands`). If one still reaches the stack, validation fails with
+# `EsqlInferenceEndpointMissingError` rather than being ignored.
 ELASTIC_MANAGED_INFERENCE_ENDPOINTS = {
     ".gp-llm-v2-completion",
 }

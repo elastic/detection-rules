@@ -355,10 +355,16 @@ def create_remote_indices(
 
 
 COMPLETION_COMMAND_REGEX = re.compile(
-    r"\|\s*COMPLETION\s+(?:(?P<col>[\w.@]+)\s*=\s*)?(?P<prompt>.+?)\s+WITH\s*\{(?P<options>[^}]*)\}",
+    r"\|\s*COMPLETION\s+(?:(?P<col>[\w.@]+|`[^`]+`)\s*=\s*)?(?P<prompt>.+?)\s+WITH\s*\{(?P<options>[^{}]*)\}",
     re.IGNORECASE | re.DOTALL,
 )
 INFERENCE_ID_REGEX = re.compile(r'"inference_id"\s*:\s*"([^"]+)"')
+ESQL_STRING_LITERAL_REGEX = re.compile(r'""".*?"""|"(?:\\.|[^"\\])*"', re.DOTALL)
+
+
+def _prompt_spans_command_boundary(prompt: str) -> bool:
+    """Check whether a matched prompt expression ran past the end of its own COMPLETION command."""
+    return "|" in ESQL_STRING_LITERAL_REGEX.sub("", prompt)
 
 
 def rewrite_managed_completion_commands(query: str, log: Callable[[str], None]) -> str:
@@ -367,7 +373,8 @@ def rewrite_managed_completion_commands(query: str, log: Callable[[str], None]) 
     # verification fails with `Inference endpoint not found` before anything else is checked.
     # `EVAL <col> = CONCAT(<prompt>, "")` preserves the output column and its string type and
     # still validates the prompt expression. Cloud stacks keep the original query so the real
-    # endpoint is exercised.
+    # endpoint is exercised; cloud is inferred from a configured `cloud_id`, so a cloud stack
+    # reached by URL alone is rewritten too (validation stays correct, it just skips the LLM call).
     if misc.getdefault("cloud_id")():
         return query
 
@@ -375,8 +382,13 @@ def rewrite_managed_completion_commands(query: str, log: Callable[[str], None]) 
         id_match = INFERENCE_ID_REGEX.search(match.group("options"))
         if not id_match or id_match.group(1) not in ELASTIC_MANAGED_INFERENCE_ENDPOINTS:
             return match.group(0)
-        column = match.group("col") or "completion"
         prompt = match.group("prompt").strip()
+        if _prompt_spans_command_boundary(prompt):
+            # The non-greedy prompt matched into a later command (e.g. a COMPLETION written with
+            # unsupported syntax earlier in the query), so rewriting would corrupt the query. Leave
+            # it untouched and let the missing endpoint surface as EsqlInferenceEndpointMissingError.
+            return match.group(0)
+        column = match.group("col") or "completion"
         log(f"Rewriting COMPLETION command for managed endpoint `{id_match.group(1)}` to EVAL `{column}`")
         return f'| EVAL {column} = CONCAT({prompt}, "")'
 

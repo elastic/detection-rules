@@ -93,6 +93,7 @@ class EsqlUnknownIndexError(ClientError):
 
 ESQL_EXCEPTION_TYPES = (
     EsqlSchemaError,
+    EsqlInferenceEndpointMissingError,
     EsqlSyntaxError,
     EsqlUnsupportedTypeError,
     EsqlTypeMismatchError,

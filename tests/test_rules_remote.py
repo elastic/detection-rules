@@ -8,15 +8,18 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
+from elastic_transport import ApiResponseMeta
+from elasticsearch import BadRequestError
 
 from detection_rules.esql_errors import (
+    EsqlInferenceEndpointMissingError,
     EsqlSchemaError,
     EsqlSemanticError,
     EsqlSyntaxError,
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
-from detection_rules.index_mappings import rewrite_managed_completion_commands
+from detection_rules.index_mappings import execute_query_against_indices, rewrite_managed_completion_commands
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -157,6 +160,56 @@ class TestESQLRemoteValidation(unittest.TestCase):
         managed = 'FROM idx | COMPLETION Esql.x = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
         with unittest.mock.patch.dict("os.environ", {"DR_CLOUD_ID": "fake:cloud-id"}):
             self.assertEqual(rewrite_managed_completion_commands(managed, lambda _msg: None), managed)
+
+    def test_rewrite_managed_completion_command_does_not_corrupt_queries(self):
+        """The COMPLETION rewrite handles quoting edge cases and bails out instead of mangling a query."""
+        with unittest.mock.patch.dict("os.environ", {"DR_CLOUD_ID": ""}):
+            # Braces and pipes inside the prompt expression do not truncate the match
+            braces = (
+                'FROM idx | COMPLETION Esql.x = CONCAT("report WITH { detail", Esql.y, "|") '
+                'WITH { "inference_id": ".gp-llm-v2-completion" }'
+            )
+            rewritten = rewrite_managed_completion_commands(braces, lambda _msg: None)
+            self.assertIn('EVAL Esql.x = CONCAT(CONCAT("report WITH { detail", Esql.y, "|"), "")', rewritten)
+
+            # Backtick-quoted target columns keep their name rather than folding into the prompt
+            backticks = 'FROM idx | COMPLETION `my col` = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+            rewritten = rewrite_managed_completion_commands(backticks, lambda _msg: None)
+            self.assertIn('EVAL `my col` = CONCAT(Esql.prompt, "")', rewritten)
+
+            # A prompt match that runs into a later command is left alone so the failure stays visible
+            runaway = (
+                "FROM idx | COMPLETION Esql.a = Esql.p1 WITH .gp-llm-v2-completion\n"
+                "| STATS Esql.c = COUNT()\n"
+                '| COMPLETION Esql.b = Esql.p2 WITH { "inference_id": ".gp-llm-v2-completion" }'
+            )
+            self.assertEqual(rewrite_managed_completion_commands(runaway, lambda _msg: None), runaway)
+
+    def test_missing_managed_inference_endpoint_raises_typed_error(self):
+        """A managed endpoint that reaches the stack fails validation with a distinct error type."""
+        meta = ApiResponseMeta(status=400, http_version="1.1", headers={}, duration=0.0, node=None)
+
+        def bad_request(endpoint: str) -> BadRequestError:
+            reason = f"Found 1 problem\nline 3:3: Inference endpoint not found [{endpoint}]"
+            return BadRequestError(
+                message="verification_exception",
+                meta=meta,
+                body={
+                    "error": {"type": "verification_exception", "reason": reason, "root_cause": [{"reason": reason}]}
+                },
+            )
+
+        elastic_client = unittest.mock.MagicMock()
+        elastic_client.cat.indices.return_value = []
+
+        elastic_client.esql.query.side_effect = bad_request(".gp-llm-v2-completion")
+        with pytest.raises(EsqlInferenceEndpointMissingError):
+            _ = execute_query_against_indices(elastic_client, "FROM idx", "idx", lambda _msg: None)
+
+        # Endpoints that are not Elastic-managed remain generic verification failures
+        elastic_client.esql.query.side_effect = bad_request("my-endpoint")
+        with pytest.raises(EsqlTypeMismatchError):
+            _ = execute_query_against_indices(elastic_client, "FROM idx", "idx", lambda _msg: None)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
