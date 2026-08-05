@@ -493,4 +493,5 @@ IGNORE_INDICES = [
     "packetbeat-*",
     "auditbeat-*",
     "winlogbeat-*",
+    "logs-aws_logs.eks_audit-*",
 ]
