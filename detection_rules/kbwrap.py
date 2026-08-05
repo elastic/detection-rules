@@ -104,8 +104,7 @@ def upload_rule(ctx: click.Context, rules: RuleCollection, replace_id: bool) -> 
 )
 @click.option(
     "--enable-delay",
-    "-ed",
-    type=click.IntRange(min=0),
+    type=click.IntRange(min=1),
     metavar="SECONDS",
     help="Import rules as disabled, wait the given number of seconds, then enable the rules that were "
     "originally enabled. Guards against a race condition where rules can run before their exceptions "
@@ -192,13 +191,20 @@ def kibana_import_rules(  # noqa: PLR0913, PLR0915
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
 
     enabled_rule_ids: set[str] = set()
-    if enable_delay is not None:
-        for rule_dict in rule_dicts:
-            if rule_dict.get("enabled", False):
-                enabled_rule_ids.add(rule_dict["rule_id"])
-            rule_dict["enabled"] = False
-
     with kibana:
+        if enable_delay is not None:
+            # Most DaC rules omit `enabled`. For overwrites, retain the currently deployed state;
+            # new Kibana rules default to enabled when the field is omitted.
+            existing_rule_enabled_by_id = {
+                rule["rule_id"]: rule["enabled"]
+                for rule in RuleResource.export_rules(list(rule_ids))  # type: ignore[reportUnknownMemberType]
+                if "rule_id" in rule and "enabled" in rule
+            }
+            for rule_dict in rule_dicts:
+                if rule_dict.get("enabled", existing_rule_enabled_by_id.get(rule_dict["rule_id"], True)):
+                    enabled_rule_ids.add(rule_dict["rule_id"])
+                rule_dict["enabled"] = False
+
         cl = GenericCollection.default()
         exception_dicts: list[list[dict[str, Any]]] = [
             d.contents.to_api_format()  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
@@ -244,6 +250,11 @@ def kibana_import_rules(  # noqa: PLR0913, PLR0915
             for enable_error in enable_response.get("attributes", {}).get("errors", []):
                 failed_rules = ", ".join(str(r.get("id")) for r in enable_error.get("rules", []))
                 click.echo(f" - ({enable_error.get('status_code')}) {enable_error.get('message')}: {failed_rules}")
+            if summary.get("failed", 0):
+                raise_client_error(
+                    f"{summary['failed']} imported rule(s) failed to enable after waiting {enable_delay} second(s)",
+                    ctx=ctx,
+                )
 
     return response, results  # type: ignore[reportUnknownVariableType]
 

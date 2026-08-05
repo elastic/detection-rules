@@ -275,16 +275,18 @@ Options:
   -e, --overwrite-exceptions      Overwrite exceptions in existing rules
   -ac, --overwrite-action-connectors
                                   Overwrite action connectors in existing rules
-  -ed, --enable-delay SECONDS     Import rules as disabled, wait the given number of seconds, then enable the rules
+  --enable-delay SECONDS          Import rules as disabled, wait the given number of seconds, then enable the rules
                                   that were originally enabled. Guards against a race condition where rules can run
-                                  before their exceptions and action connectors are fully applied.  [x>=0]
+                                  before their exceptions and action connectors are fully applied.  [x>=1]
   -h, --help                      Show this message and exit.
 ```
 
 When importing rules that have exceptions or action connectors attached, a rule can start running before its
 exceptions are fully applied, which can generate false positive alerts. Use the `--enable-delay` option to guard
 against this: rules are imported as disabled, and after the given delay, the rules that were originally enabled
-(`enabled = true`) are enabled via the bulk action API. Rules that were not originally enabled remain disabled.
+(`enabled = true`) are enabled via the bulk action API. Rules that omit `enabled` retain their current state when
+overwritten, and new rules use Kibana's enabled-by-default behavior. Rules that were not originally enabled remain
+disabled. The delay must be at least one second.
 
 ```
 python -m detection_rules kibana import-rules -d test-export-rules -o --enable-delay 30
