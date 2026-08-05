@@ -353,6 +353,22 @@ def clear_caches() -> None:
     _cache.clear()
 
 
+_cache_tokens: dict[int, Any] = {}
+
+
+def cache_token(obj: Any) -> int:
+    """Get a stable cache key standing in for a large, unhashable object."""
+    # None and empty containers contribute nothing to a derived schema, so they share a token
+    if not obj:
+        return 0
+
+    # Retain a strong reference: CPython recycles ids once an object is collected, so a bare
+    # id() could otherwise be handed out again for a different object.
+    obj_id = id(obj)
+    _ = _cache_tokens.setdefault(obj_id, obj)
+    return obj_id
+
+
 def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = ".toml") -> str:
     """Convert a rule name to a filename."""
     name = re.sub(r"[^_a-z0-9]+", "_", name.strip().lower()).strip("_")
