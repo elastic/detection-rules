@@ -281,12 +281,14 @@ Options:
   -h, --help                      Show this message and exit.
 ```
 
-When importing rules that have exceptions or action connectors attached, a rule can start running before its
-exceptions are fully applied, which can generate false positive alerts. Use the `--enable-delay` option to guard
-against this: rules are imported as disabled, and after the given delay, the rules that were originally enabled
-(`enabled = true`) are enabled via the bulk action API. Rules that omit `enabled` retain their current state when
-overwritten, and new rules use Kibana's enabled-by-default behavior. Rules that were not originally enabled remain
-disabled. The delay must be at least one second.
+A rule with attached exceptions or action connectors can start running before those are fully applied, which can
+generate false positive alerts. `--enable-delay SECONDS` (minimum `1`) guards against this by importing every rule
+as disabled, waiting out the delay, then enabling the rules that were meant to be enabled:
+
+- `enabled = true` in the rule file: enabled after the delay.
+- `enabled = false`: left disabled.
+- `enabled` omitted (the common case for DaC rules): the state Kibana would have applied on import — the currently
+  deployed state when overwriting an existing rule, or enabled for a new rule.
 
 ```
 python -m detection_rules kibana import-rules -d test-export-rules -o --enable-delay 30

@@ -35,6 +35,55 @@ from .utils import CUSTOM_RULES_KQL, format_command_options, rulename_to_filenam
 RULES_CONFIG = parse_rules_config()
 
 
+def _force_disabled_import(rule_dicts: list[dict[str, Any]]) -> set[str]:
+    """Rewrite rules to import as disabled and return the rule_ids that should be enabled afterwards."""
+    # Most DaC rules omit `enabled`, in which case the intended state is whatever Kibana would have applied on
+    # import: the currently deployed state when overwriting an existing rule, or enabled for a brand new rule.
+    deployed_state: dict[str, bool] = {}
+    if any("enabled" not in rule_dict for rule_dict in rule_dicts):
+        exported = cast(
+            "list[dict[str, Any]]",
+            RuleResource.export_rules([r["rule_id"] for r in rule_dicts]),  # type: ignore[reportUnknownMemberType]
+        )
+        # Rule ids that do not exist yet come back as per-object errors rather than rules, so they are simply
+        # absent here and fall through to the enabled-by-default behavior for new rules.
+        deployed_state = {r["rule_id"]: r["enabled"] for r in exported if "rule_id" in r and "enabled" in r}
+
+    rule_ids_to_enable: set[str] = set()
+    for rule_dict in rule_dicts:
+        rule_id = rule_dict["rule_id"]
+        if rule_dict.get("enabled", deployed_state.get(rule_id, True)):
+            rule_ids_to_enable.add(rule_id)
+        rule_dict["enabled"] = False
+
+    return rule_ids_to_enable
+
+
+def _enable_after_delay(ctx: click.Context, kibana: Any, ids_to_enable: list[str], delay: int) -> None:
+    """Wait out the delay, then bulk enable the given Kibana rule object ids."""
+    click.echo(f"Waiting {delay} second(s) before enabling {len(ids_to_enable)} imported rule(s)")
+    time.sleep(delay)
+
+    with kibana:
+        # error=False: a partial failure returns a 500 with per-rule details, which is reported below
+        response = cast(
+            "dict[str, Any]",
+            RuleResource.bulk_action("enable", rule_ids=ids_to_enable, error=False),  # type: ignore[reportUnknownMemberType]
+        )
+
+    attributes: dict[str, Any] = response.get("attributes", {})
+    summary: dict[str, Any] = attributes.get("summary", {})
+    failed = summary.get("failed", 0)
+    click.echo(f"{summary.get('succeeded', 0)} rule(s) enabled, {failed} failed to enable")
+
+    for error in attributes.get("errors", []):
+        failed_rules = ", ".join(str(r.get("id")) for r in error.get("rules", []))
+        click.echo(f" - ({error.get('status_code')}) {error.get('message')}: {failed_rules}")
+
+    if failed:
+        raise_client_error(f"{failed} imported rule(s) failed to enable after waiting {delay} second(s)", ctx=ctx)
+
+
 @root.group("kibana")
 @add_params(*kibana_options)
 @click.pass_context
@@ -190,27 +239,10 @@ def kibana_import_rules(  # noqa: PLR0913, PLR0915
     rule_dicts = [r.contents.to_api_format() for r in rules]
     rule_ids = {rule["rule_id"] for rule in rule_dicts}
 
-    enabled_rule_ids: set[str] = set()
+    rule_ids_to_enable: set[str] = set()
     with kibana:
-        existing_rule_enabled_by_id: dict[str, bool] = {}
-        if enable_delay is not None and any("enabled" not in rule_dict for rule_dict in rule_dicts):
-            # Most DaC rules omit `enabled`. For overwrites, retain the currently deployed state;
-            # new Kibana rules default to enabled when the field is omitted.
-            existing_rules = cast(
-                list[dict[str, Any]],
-                RuleResource.export_rules(list(rule_ids)),  # type: ignore[reportUnknownMemberType]
-            )
-            for existing_rule in existing_rules:
-                rule_id = existing_rule.get("rule_id")
-                enabled = existing_rule.get("enabled")
-                if isinstance(rule_id, str) and isinstance(enabled, bool):
-                    existing_rule_enabled_by_id[rule_id] = enabled
-
         if enable_delay is not None:
-            for rule_dict in rule_dicts:
-                if rule_dict.get("enabled", existing_rule_enabled_by_id.get(rule_dict["rule_id"], True)):
-                    enabled_rule_ids.add(rule_dict["rule_id"])
-                rule_dict["enabled"] = False
+            rule_ids_to_enable = _force_disabled_import(rule_dicts)
 
         cl = GenericCollection.default()
         exception_dicts: list[list[dict[str, Any]]] = [
@@ -240,28 +272,11 @@ def kibana_import_rules(  # noqa: PLR0913, PLR0915
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
         _process_imported_items(action_connectors_dicts, "action connector(s)", "id")  # type: ignore[reportUnknownArgumentType]
 
-    if enable_delay is not None and enabled_rule_ids:
-        # Rules were imported as disabled; re-enable the originally enabled ones after the delay using the
-        # Kibana object ids of the successfully imported rules
-        ids_to_enable: list[str] = [r["id"] for r in results if r.get("rule_id") in enabled_rule_ids]  # type: ignore[reportUnknownMemberType]
+    if enable_delay is not None and rule_ids_to_enable:
+        # Rules were imported as disabled; re-enable the intended ones by their Kibana object ids
+        ids_to_enable: list[str] = [r["id"] for r in results if r.get("rule_id") in rule_ids_to_enable]  # type: ignore[reportUnknownMemberType]
         if ids_to_enable:
-            click.echo(f"Waiting {enable_delay} second(s) before enabling {len(ids_to_enable)} imported rule(s)")
-            time.sleep(enable_delay)
-            with kibana:
-                # error=False: a partial failure returns a 500 with per-rule details, which is reported below
-                enable_response: dict[str, Any] = RuleResource.bulk_action(  # type: ignore[reportAssignmentType]
-                    "enable", rule_ids=ids_to_enable, error=False
-                )
-            summary: dict[str, Any] = enable_response.get("attributes", {}).get("summary", {})
-            click.echo(f"{summary.get('succeeded', 0)} rule(s) enabled, {summary.get('failed', 0)} failed to enable")
-            for enable_error in enable_response.get("attributes", {}).get("errors", []):
-                failed_rules = ", ".join(str(r.get("id")) for r in enable_error.get("rules", []))
-                click.echo(f" - ({enable_error.get('status_code')}) {enable_error.get('message')}: {failed_rules}")
-            if summary.get("failed", 0):
-                raise_client_error(
-                    f"{summary['failed']} imported rule(s) failed to enable after waiting {enable_delay} second(s)",
-                    ctx=ctx,
-                )
+            _enable_after_delay(ctx, kibana, ids_to_enable, enable_delay)
 
     return response, results  # type: ignore[reportUnknownVariableType]
 
