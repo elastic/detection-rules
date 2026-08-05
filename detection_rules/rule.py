@@ -1769,6 +1769,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_integrations: str | list[str] = meta.get("integration") or []
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
+        if not rule_integrations and data.get("related_integrations"):
+            rule_integrations = [ri.package for ri in data.get("related_integrations")]  # type: ignore[reportAttributeAccessIssue]
         for integration in rule_integrations:
             ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             if isinstance(data, MachineLearningRuleData):
