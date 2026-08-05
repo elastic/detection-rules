@@ -156,8 +156,6 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Elastic Defend",
     "Data Source: Elastic Defend for Containers",
     "Data Source: Elastic Endgame",
-    "Data Source: Entra ID Audit Logs",
-    "Data Source: Entra ID Sign-in Logs",
     "Data Source: GCP",
     "Data Source: GCP Audit Logs",
     "Data Source: Google Cloud Platform",
