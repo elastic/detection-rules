@@ -86,6 +86,7 @@ any where data_stream.dataset == "aws.cloudtrail"
     and not (aws.cloudtrail.user_identity.arn : "*terraform*" or aws.cloudtrail.user_identity.arn : "*pulumi*" or aws.cloudtrail.user_identity.arn : "*ansible*")
     and (event.action : "CreateFunctionUrlConfig*" or event.action : "UpdateFunctionUrlConfig*")
     and stringContains(aws.cloudtrail.request_parameters, "authType=NONE")
+    and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 
