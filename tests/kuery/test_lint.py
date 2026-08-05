@@ -81,6 +81,9 @@ class LintTests(unittest.TestCase):
 
     def test_free_text(self):
         self.validate('"Accepted password for root"', '"Accepted password for root"')
+        self.validate("agent12", "agent12")
+        self.validate("*password*", "*password*")
+        self.validate("*", "*")
         self.validate(
             'process.name : agent12 and "Accepted password for root"',
             'process.name:agent12 and "Accepted password for root"',

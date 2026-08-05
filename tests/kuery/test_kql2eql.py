@@ -53,8 +53,13 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("a:(0 or 1 and 2 or (3 and 4))", "a == 0 or a == 1 and a == 2 or (a == 3 and a == 4)")
 
     def test_lone_value(self):
-        for value in ["1", "-1.4", "true", '"string test"']:
-            with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
+        """Free text searches parse as KQL but have no EQL equivalent."""
+        for value in ["1", "-1.4", "true", '"string test"', "*wildcard*", "field:1 and lone"]:
+            # the KQL parses fine (see tests/kuery/test_parser.py) ...
+            self.assertIsNotNone(kql.parse(value))
+
+            # ... but EQL has no way to compare against every field
+            with self.assertRaisesRegex(kql.KqlParseError, "Unable to convert free text search to EQL"):
                 kql.to_eql(value)
 
     def test_schema(self):

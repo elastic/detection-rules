@@ -143,15 +143,21 @@ class TestKQLtoDSL(unittest.TestCase):
 
     def test_free_text_value(self):
         """Bare values (no field) convert the way Kibana's `is` function does with a null field."""
-        # multi_match over the default fields, lenient so non-text fields are skipped
+        # A quoted value matches as a phrase; neither form names `fields`, so Elasticsearch
+        # falls back to `index.query.default_field`. `lenient` skips non-text fields.
         self.validate(
             'process.name : agent12 and "Accepted password for root"',
             {
                 "filter": [
                     {"match": {"process.name": "agent12"}},
-                    {"multi_match": {"type": "best_fields", "query": "Accepted password for root", "lenient": True}},
+                    {"multi_match": {"type": "phrase", "query": "Accepted password for root", "lenient": True}},
                 ]
             },
+        )
+
+        # an unquoted value is best_fields instead, matching Kibana's `valueArg.isQuoted` check
+        self.validate(
+            "agent12", {"filter": [{"multi_match": {"type": "best_fields", "query": "agent12", "lenient": True}}]}
         )
 
         # bare numeric/boolean/null terms are sent as their token text, since
@@ -164,6 +170,15 @@ class TestKQLtoDSL(unittest.TestCase):
         # with Lucene specials escaped like any other wildcard value
         self.validate("*password*", {"filter": [{"query_string": {"query": "*password*"}}]})
         self.validate("/var/log/auth*", {"filter": [{"query_string": {"query": r"\/var\/log\/auth*"}}]})
+
+        # a lone `*` is a match-all query_string, since there is no field to restrict to.
+        # Quoting it makes it a literal `*` to match instead.
+        self.validate("*", {"filter": [{"query_string": {"query": "*"}}]})
+        self.validate(
+            "process.name : agent12 and *",
+            {"filter": [{"match": {"process.name": "agent12"}}, {"query_string": {"query": "*"}}]},
+        )
+        self.validate('"*"', {"filter": [{"multi_match": {"type": "phrase", "query": "*", "lenient": True}}]})
 
     def test_wildcard_query_string_escaping(self):
         """Wildcard values converted to query_string.query must escape Lucene reserved chars while preserving `*`."""

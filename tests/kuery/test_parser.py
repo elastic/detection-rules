@@ -205,26 +205,32 @@ class ParserTests(unittest.TestCase):
             AndExpr(
                 [
                     FieldComparison(Field("process.name"), String("agent12")),
-                    FreeText(String("Accepted password for root")),
+                    FreeText(String("Accepted password for root"), is_quoted=True),
                 ]
             ),
         )
 
-        # Bare quoted, unquoted, numeric, and wildcard values
-        self.validate('"Accepted password for root"', FreeText(String("Accepted password for root")))
-        self.validate("agent12", FreeText(String("agent12")))
-        self.validate("1", FreeText(Number(1)))
+        # Bare quoted, unquoted, numeric, and wildcard values. Quoting is tracked because
+        # Kibana searches a quoted value as a phrase and an unquoted one as best_fields.
+        self.validate('"Accepted password for root"', FreeText(String("Accepted password for root"), is_quoted=True))
+        self.validate("agent12", FreeText(String("agent12"), is_quoted=False))
+        self.validate("1", FreeText(Number(1), is_quoted=False))
         self.validate("*password*", FreeText(Wildcard("*password*")))
 
+        # A bare `*` is a match-all, not an `Exists` — there is no field to check for
+        self.validate("*", FreeText(Wildcard("*")))
+
         # Wildcards in quotes, and escaped wildcards, stay literal — same as field values
-        self.validate('"*password*"', FreeText(String("*password*")))
-        self.validate(r"\*", FreeText(String("*")))
+        self.validate('"*password*"', FreeText(String("*password*"), is_quoted=True))
+        self.validate(r"\*", FreeText(String("*"), is_quoted=False))
 
         # Negation and composition with field expressions
-        self.validate('not "foo bar"', NotExpr(FreeText(String("foo bar"))))
+        self.validate('not "foo bar"', NotExpr(FreeText(String("foo bar"), is_quoted=True)))
         self.validate(
             '"a" or process.name : b',
-            OrExpr([FreeText(String("a")), FieldComparison(Field("process.name"), String("b"))]),
+            OrExpr(
+                [FreeText(String("a"), is_quoted=True), FieldComparison(Field("process.name"), String("b"))]
+            ),
         )
 
     def test_triple_not_optimization(self):

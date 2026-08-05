@@ -225,12 +225,15 @@ class FieldComparison(Expression):
 
 class FreeText(Expression):
     """A value not tied to any field, searched against the index's default fields."""
-    __slots__ = "value",
+    # `is_quoted` is tracked because Kibana keys the generated `multi_match.type` off it
+    # (`phrase` for a quoted value, `best_fields` otherwise) — see kbn-es-query's is.ts.
+    __slots__ = "value", "is_quoted",
     precedence = FieldComparison.precedence
     template = Template("$value")
 
-    def __init__(self, value):
+    def __init__(self, value, is_quoted=False):
         self.value = value
+        self.is_quoted = is_quoted
 
 
 class Exists(KqlNode):

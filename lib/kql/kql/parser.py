@@ -391,10 +391,15 @@ class KqlParser(BaseKqlParser):
             # search: Kibana runs it against the index's default fields. There is no field
             # to type-check or convert the value against, so it is used as-is. Quoted
             # strings stay literal; an unescaped `*` elsewhere makes the value a wildcard.
-            if token.type != "QUOTED_STRING" and self.has_unescaped_wildcard(token.value):
+            is_quoted = token.type == "QUOTED_STRING"
+
+            if not is_quoted and self.has_unescaped_wildcard(token.value):
+                # a wildcard compiles to a `query_string`, which has no phrase/best_fields
+                # distinction, so `is_quoted` is irrelevant here (and always False)
                 return FreeText(Wildcard(eql.utils.to_unicode(value)))
             if eql.utils.is_string(value):
-                return FreeText(String(eql.utils.to_unicode(value)))
+                return FreeText(String(eql.utils.to_unicode(value)), is_quoted=is_quoted)
+            # bare numbers/booleans/null are never quoted
             return FreeText(Value.from_python(value))
 
         field_name = self.scoped_field.name
