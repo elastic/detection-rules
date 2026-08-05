@@ -157,7 +157,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethod]
-        return list({str(f) for f in self.ast if isinstance(f, kql.ast.Field)})  # type: ignore[reportUnknownVariableType]
+        return kql.get_field_names(self.ast)  # type: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     def auto_add_field(self, validation_checks_error: kql.errors.KqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""

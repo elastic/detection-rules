@@ -98,6 +98,13 @@ def boolean(**kwargs):
 
 
 class ToDsl(Walker):
+    def __init__(self):
+        super().__init__()
+        # Stack of absolute nested field paths currently in scope. Leaf field names
+        # inside a `nested` query are relative, so they must be prefixed with the
+        # enclosing nested path to build valid Elasticsearch `nested` queries.
+        self._nested_stack = []
+
     def _walk_default(self, node, *args, **kwargs):
         raise KqlCompileError("Unable to convert {}".format(node))
 
@@ -112,7 +119,21 @@ class ToDsl(Walker):
         return lambda field: {"match": {field: tree.value}}
 
     def _walk_field(self, field):
+        if self._nested_stack:
+            return self._nested_stack[-1] + "." + field.name
         return field.name
+
+    def _walk_nested_query(self, tree):
+        prefix = (self._nested_stack[-1] + ".") if self._nested_stack else ""
+        full_path = prefix + tree.field.name
+
+        self._nested_stack.append(full_path)
+        try:
+            inner = self.walk(tree.expr)
+        finally:
+            self._nested_stack.pop()
+
+        return {"nested": {"path": full_path, "query": inner, "score_mode": "none"}}
 
     def _walk_field_range(self, tree):
         operator_map = {"<": "lt", "<=": "lte", ">=": "gte", ">": "gt"}
