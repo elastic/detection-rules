@@ -23,8 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-network_traffic.tls*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 max_signals = 5
 name = "Repeated Stalled TLS Handshakes via ALPN acme-tls/1 Extension"
@@ -136,23 +135,44 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: Network Security Monitoring",
     "Use Case: Vulnerability",
+    "Data Source: Network Traffic",
     "Tactic: Impact",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "threshold"
+type = "esql"
 
 query = '''
-(
-  tls.detailed.client_hello.extensions.application_layer_protocol_negotiation : "acme-tls/1"
-    and tls.established : false
-) or (
-  tls.detailed.client_hello.extensions._unparsed_ : *alpn*
-    and (
-      tls.detailed.alert_types : (decode_error or illegal_parameter)
-      or event.reason : (*ALPN* and (*zero* or *malformed* or *decode*))
+from logs-network_traffic.tls*
+| where source.ip is not null and destination.ip is not null and (
+    (
+      tls.detailed.client_hello.extensions.application_layer_protocol_negotiation == "acme-tls/1" and
+      tls.established == false
+    ) or (
+      CONTAINS(TO_LOWER(tls.detailed.client_hello.extensions._unparsed_), "alpn") and
+      tls.detailed.alert_types in ("decode_error", "illegal_parameter")
     )
-)
+  )
+| stats
+    Esql.event_count = COUNT(*),
+    Esql.destination_port_values = MV_SLICE(MV_DEDUPE(TOP(destination.port, 10, "asc")), 0, 10),
+    Esql.network_community_id_values = MV_SLICE(MV_DEDUPE(TOP(network.community_id, 10, "asc")), 0, 10),
+    Esql.alpn_values = MV_SLICE(
+      MV_DEDUPE(TOP(tls.detailed.client_hello.extensions.application_layer_protocol_negotiation, 10, "asc")),
+      0,
+      10
+    ),
+    Esql.alert_type_values = MV_SLICE(MV_DEDUPE(TOP(tls.detailed.alert_types, 10, "asc")), 0, 10)
+  by source.ip, destination.ip
+| where Esql.event_count >= 5
+| keep
+    source.ip,
+    destination.ip,
+    Esql.event_count,
+    Esql.destination_port_values,
+    Esql.network_community_id_values,
+    Esql.alpn_values,
+    Esql.alert_type_values
 '''
 
 
@@ -173,8 +193,4 @@ reference = "https://attack.mitre.org/techniques/T1499/002/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
-[rule.threshold]
-field = ["source.ip", "destination.ip"]
-value = 5
 
