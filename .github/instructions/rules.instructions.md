@@ -61,8 +61,9 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
     - `esql` → `Rule Type: ESQL`
     - `query` / KQL → `Rule Type: Custom Query (KQL)`
+    - `saved_query` → `Rule Type: Custom Query (KQL)`
     - `eql` → `Rule Type: Event Correlation (EQL)`
-    - `threat_match` → `Rule Type: Indicator Match`
+    - `threat_match` → prefer `Rule Type: Indicator Match` (taxonomy); legacy `Rule Type: Threat Match` is still valid — suggest Indicator Match but do not treat Threat Match as an error
     - `threshold` → `Rule Type: Threshold`
     - `new_terms` → `Rule Type: New Terms`
     - `machine_learning` → both `Rule Type: Machine Learning` and `Rule Type: ML`

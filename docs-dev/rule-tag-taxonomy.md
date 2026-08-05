@@ -114,8 +114,9 @@ Secrets Manager, CloudFormation, GuardDuty, WAF, Route 53, Bedrock
 | --- | --- |
 | `esql` | `Rule Type: ESQL` |
 | `query` (KQL) | `Rule Type: Custom Query (KQL)` |
+| `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
 | `eql` | `Rule Type: Event Correlation (EQL)` |
-| `threat_match` | `Rule Type: Indicator Match` |
+| `threat_match` | Prefer `Rule Type: Indicator Match` (taxonomy). Legacy `Rule Type: Threat Match` remains valid on existing rules; Copilot may flag for rename but does not fail unit tests. |
 | `threshold` | `Rule Type: Threshold` |
 | `new_terms` | `Rule Type: New Terms` |
 | `machine_learning` | `Rule Type: Machine Learning` **and** `Rule Type: ML` |
