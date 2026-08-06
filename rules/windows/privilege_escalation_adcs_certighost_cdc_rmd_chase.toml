@@ -68,16 +68,12 @@ query = '''
 any where host.os.type == "windows" and event.code in ("4886", "4887", "4888") and
   /* Chase attrs: cdc (Client DC) or rmd (Remote Machine/Domain). */
   winlog.event_data.Attributes : ("*cdc:*", "*rmd:*") and
-  /* Drop routine DC / Kerberos authentication template chase observed in lab baselines */
+  /* Exclude routine DC / KerberosAuthentication templates via structured field only.
+     Do not filter CertificateTemplate inside Attributes that blob is requester-controlled. */
   not winlog.event_data.CertificateTemplate : (
     "DomainController",
     "DomainControllerAuthentication",
     "KerberosAuthentication"
-  ) and
-  not winlog.event_data.Attributes : (
-    "*CertificateTemplate:DomainController*",
-    "*CertificateTemplate:DomainControllerAuthentication*",
-    "*CertificateTemplate:KerberosAuthentication*"
   )
 '''
 
@@ -128,7 +124,9 @@ alert — other chase abuse may omit it.
 
 ### False positive analysis
 
-- DomainController / DomainControllerAuthentication / KerberosAuthentication template chase is excluded in-query.
+- DomainController / DomainControllerAuthentication / KerberosAuthentication chase is excluded only when
+  `winlog.event_data.CertificateTemplate` matches those names. Do not except on `Attributes` template text —
+  attackers control that blob (including a spoofed `CertificateTemplate:DomainController*` substring).
 - Remaining multi-domain or custom-template chase may still alert — exception by CA + template + requester after baseline.
 - Do not globally suppress `cdc`/`rmd` — that recreates the false-negative gap this rule is meant to close.
 - Authorized AD CS / Certighost lab testing will match; exception only with known lab CA host + requester scope.

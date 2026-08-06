@@ -133,6 +133,7 @@ Here are the queries currently available:
 
 
 ## windows
+- [AD CS Chase Attributes and Suspicious Certificate Enrollment](./windows/docs/credential_access_adcs_chase_and_enrollment_abuse.md) (ES|QL)
 - [DLL Hijack via Masquerading as Microsoft Native Libraries](./windows/docs/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.md) (ES|QL)
 - [DNS Queries via LOLBins with Low Occurrence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
