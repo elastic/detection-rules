@@ -299,9 +299,7 @@ class ParserTests(unittest.TestCase):
         self.validate('not "foo bar"', NotExpr(FreeText(String("foo bar"), is_quoted=True)))
         self.validate(
             '"a" or process.name : b',
-            OrExpr(
-                [FreeText(String("a"), is_quoted=True), FieldComparison(Field("process.name"), String("b"))]
-            ),
+            OrExpr([FreeText(String("a"), is_quoted=True), FieldComparison(Field("process.name"), String("b"))]),
         )
 
     def test_nested_query(self):
