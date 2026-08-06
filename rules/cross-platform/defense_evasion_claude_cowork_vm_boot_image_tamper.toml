@@ -1,0 +1,173 @@
+[metadata]
+creation_date = "2026/08/05"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects unexpected modification of Claude Desktop Cowork VM boot images (kernel, initrd, root filesystem). Adversaries
+with user-context access can rewrite these stored images to hijack the sandbox boot path so later Cowork sessions run
+attacker-controlled code inside a virtual instance that host EDR cannot inspect by default.
+"""
+false_positives = [
+    """
+    Claude Desktop or Claude Helper updating Cowork VM images during install or product updates. Confirm the process is
+    a signed Claude application under the expected install path before treating the activity as malicious.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Claude Cowork VM Boot Image Tamper"
+note = """## Triage and analysis
+
+### Investigating Claude Cowork VM Boot Image Tamper
+
+Claude Desktop Cowork boots a local Linux VM from user-writable image files (kernel, initrd, root
+filesystem). Those images are the trust anchor for the sandbox. An unexpected process rewriting them
+can cause later Cowork sessions to run attacker-controlled code inside a Hyper-V or Virtualization
+framework guest that host EDR does not inspect by default. This is post-compromise defense evasion
+(reduced visibility), not privilege escalation.
+
+### Possible investigation steps
+
+- Identify `process.name`, `process.executable`, and parent process tree for the writer. Expected
+  writers are Claude Desktop (`claude.exe` under `WindowsApps\\Claude_*\\app\\` or
+  `/Applications/Claude.app/*`).
+- Review `file.path` and `event.action` to determine which boot artifact changed (initrd, vmlinuz,
+  rootfs, or related images) and whether the change was creation, overwrite, rename, or deletion.
+- Check for other alerts on the same host and user around the same time, especially malware,
+  suspicious script execution, or credential access.
+- If Claude Desktop is present, determine whether a Cowork session started after the modification
+  and whether the guest daemon failed and recovered (re-download) or continued normally.
+- Inspect the modified image hashes or sizes against known good Claude updates when available.
+
+### False positive analysis
+
+- Claude Desktop install, first-time Cowork enablement, and product updates commonly write these
+  images from `claude.exe` or Claude.app helpers and should be excluded by the rule logic.
+- Endpoint or backup agents that rewrite AppData or Application Support trees are uncommon for
+  these specific filenames; verify and add narrow exceptions only with clear ownership evidence.
+
+### Response and remediation
+
+- Quarantine or restore the Cowork VM bundle from a known good Claude download or backup.
+- Terminate untrusted writers and investigate how they obtained user-context execution.
+- Review Claude Desktop / Cowork usage policy on the host and rotate credentials accessible to the
+  user if compromise is confirmed.
+- Hunt for other unexpected writers under Claude AppData or Application Support paths on peer hosts.
+"""
+references = ["https://y637f9qq2x.com/posts/cowork-boot-trust"]
+risk_score = 47
+rule_id = "a0939500-a817-4ce9-85a9-191133352a9e"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows
+the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect.
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent; you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type in ("windows", "macos") and
+  event.action in ("creation", "modification", "overwrite", "rename", "deletion") and
+  event.outcome == "success" and
+  file.path : (
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/initrd",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/initrd.zst",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/vmlinuz",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/vmlinuz.zst",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/rootfs.img",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/sessiondata.img",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/efivars.fd",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\initrd",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\initrd.zst",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\vmlinuz",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\rootfs.vhdx",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\smol-bin.vhdx"
+  ) and
+  not (
+    (process.name == "claude.exe" and
+     process.executable : "?:\\Program Files\\WindowsApps\\Claude_*\\app\\claude.exe") or
+    (process.name in ("Claude", "Claude Helper") and
+     process.executable like "/Applications/Claude.app/*")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.006"
+name = "Run Virtual Instance"
+reference = "https://attack.mitre.org/techniques/T1564/006/"
+
+
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1565"
+name = "Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/"
+[[rule.threat.technique.subtechnique]]
+id = "T1565.001"
+name = "Stored Data Manipulation"
+reference = "https://attack.mitre.org/techniques/T1565/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
