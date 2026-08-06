@@ -35,6 +35,10 @@ class TestKql2Eql(unittest.TestCase):
         self.validate("field:value and field2:value2", "field == 'value' and field2 == 'value2'")
 
     def test_nested_query(self):
+        # KQL supports nested queries, but EQL has no nested-field equivalent, so the
+        # parser accepts the query while the EQL conversion is expected to fail.
+        self.assertIsInstance(kql.parse("field:{outer:1 and middle:{inner:2}}"), kql.ast.NestedQuery)
+
         with self.assertRaisesRegex(kql.KqlParseError, "Unable to convert nested query to EQL"):
             kql.to_eql("field:{outer:1 and middle:{inner:2}}")
 
