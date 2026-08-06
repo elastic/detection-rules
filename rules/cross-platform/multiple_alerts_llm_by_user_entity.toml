@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/02/12"
 maturity = "production"
-updated_date = "2026/07/31"
+updated_date = "2026/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -17,6 +17,7 @@ license = "Elastic License v2"
 name = "Correlated Alerts on Similar User Identities"
 references = [
     "https://www.elastic.co/docs/reference/query-languages/esql/esql-commands#esql-completion",
+    "https://www.elastic.co/docs/explore-analyze/elastic-inference/eis-supported-models",
     "https://www.elastic.co/security-labs/elastic-advances-llm-security",
 ]
 risk_score = 73
@@ -25,8 +26,9 @@ setup = """## Setup
 
 ### LLM Configuration
 
-This rule uses the ES|QL COMPLETION command with Elastic's managed General Purpose LLM v2 (`.gp-llm-v2-completion`),
-which is available out-of-the-box in Elastic Cloud deployments with an appropriate subscription.
+This rule uses the ES|QL COMPLETION command with Elastic Inference Service Claude Sonnet 4.6
+(`.anthropic-claude-4.6-sonnet-completion`), which is available out-of-the-box in Elastic Cloud deployments
+with an appropriate subscription. See [EIS supported models](https://www.elastic.co/docs/explore-analyze/elastic-inference/eis-supported-models).
 
 To use a different LLM provider (Azure OpenAI, Amazon Bedrock, OpenAI, or Google Vertex), configure a connector
 following the [LLM connector documentation](https://www.elastic.co/docs/explore-analyze/ai-features/llm-guides/llm-connectors)
@@ -83,7 +85,7 @@ from .alerts-security.*
 // LLM analysis
 | eval instructions = "Analyze the provided user names and return a boolean value true if at least 2 of them are similar and they may belong to the same human identify or false if not, do not compare user names that may look like service accounts. If the list of users has more than 2 users and only 2 of them are similar consider this as true. Structure the output as follows: verdict=<verdict> confidence=<score between 0.0 and 1.0> summary=<short reason max 500 words> without any other response statements on a single line."
 | eval prompt = CONCAT("User identities extracted from different alerts: ", users_list, instructions)
-| COMPLETION triage_result = prompt WITH { "inference_id": ".gp-llm-v2-completion"}
+| COMPLETION triage_result = prompt WITH { "inference_id": ".anthropic-claude-4.6-sonnet-completion"}
 
 // parse LLM response
 | DISSECT triage_result """verdict=%{Esql.verdict} confidence=%{Esql.confidence} summary=%{Esql.summary}"""
