@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+    Detects AKS (Azure Kubernetes Service) kube-audit ResponseComplete events from a previously unseen combination of
+    identity, user agent, and HTTP response code, excluding default client-go user agents. Unusual client fingerprints
+    making API calls can indicate unauthorized access or misconfiguration. Parity with the Kubernetes New Terms rule
+    for unusual decisions by user agent (10-day history). Platform control-plane identities are excluded.
+"""
+false_positives = [
+    """
+    New admin workstations, CI runners, or tooling versions create first-seen fingerprints until learned. Exclude
+    validated clients after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Unusual Decision by User Agent"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Unusual Decision by User Agent
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree. This New Terms
+rule monitors ResponseComplete events whose (`user.username`, `userAgent`, `responseStatus.code`) fingerprint is new
+over 10 days, excluding default `kubernetes/$Format` agents — the AKS counterpart to Kubernetes "Unusual Decision by
+User Agent".
+
+### Possible investigation steps
+
+- Review the new fingerprint and whether `responseStatus.code` is allow (2xx) or deny (403/401).
+- Inspect `objectRef` / `verb` / `requestURI` for sensitive resources.
+- Correlate with secret reads, exec, or RBAC changes from the same identity or source IP.
+
+### False positive analysis
+
+- First use of a new kubectl build or automation UA will alert once; allowlist after validation.
+- High-churn CI pools may need longer history or IP-based exclusions.
+
+### Response and remediation
+
+- If unauthorized, revoke credentials and investigate cluster activity by the same fingerprint.
+- Collect kube-audit artifacts per incident response procedures.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/",
+]
+risk_score = 21
+rule_id = "4de5a1a7-f2c2-41e8-aaf3-a0b39bfee991"
+setup = """
+The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+into the `azure.platformlogs` data stream is required for this rule. New Terms requires historical events in the
+lookback window to learn baseline fingerprints.
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.stage:"ResponseComplete" and
+  azure.platformlogs.properties.log.userAgent:(* and not (*kubernetes/$Format)) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  )
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.platformlogs.properties.log.responseStatus.code",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
