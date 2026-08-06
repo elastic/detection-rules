@@ -2,7 +2,7 @@
 creation_date = "2026/08/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/05"
+updated_date = "2026/08/06"
 
 [rule]
 author = ["Elastic"]
@@ -44,11 +44,9 @@ Virtualization.framework guest that host EDR does not see by default. This does 
 ### False positive analysis
 
 - Claude Desktop updates should not alert; if they do, the install path likely changed (new WindowsApps package layout
-  or non-AppX install) and the allowlist needs updating—not an exception for the writer name alone.
-- Rare `System` deletions of these files were observed in telemetry; single deletion events without a preceding
-  non-Claude create/overwrite are low priority.
+  or non-AppX install) and the allowlist needs updating, not an exception for the writer name alone.
 - Backup or sync tools rewriting these exact filenames are uncommon; require a stable `process.executable` before
-  adding an exception.
+  adding an exception. This rule watches create/overwrite/rename/modification only; deletions are out of scope.
 
 ### Response and remediation
 
@@ -94,9 +92,9 @@ file where host.os.type in ("windows", "macos") and
     "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\smol-bin.vhdx"
   ) and
   not (
-    (process.name == "claude.exe" and
+    (process.name : "claude.exe" and
      process.executable : "?:\\Program Files\\WindowsApps\\Claude_*\\app\\claude.exe") or
-    (process.name in ("Claude", "Claude Helper") and
+    (process.name : ("Claude", "Claude Helper") and
      process.executable like "/Applications/Claude.app/*")
   )
 '''
