@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/08/06"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/08/07"
+
+[rule]
+author = ["clivoa"]
+description = """
+This rule detects an unexpected child process spawned by Homebrew's own bundled Ruby interpreter
+(`vendor/portable-ruby`) during a `brew install --cask` operation. Homebrew Cask `preflight`/`postflight`/`uninstall`
+stanzas run arbitrary Ruby code (including shelling out via `system_command`) at install time — a malicious or
+compromised cask (from a third-party tap, or a compromised/typosquatted first-party one) can use this to execute
+code with the installing user's privileges. This is the macOS analogue of the same install-time-hook abuse pattern
+already covered for npm/Composer/pip elsewhere in this ruleset; Homebrew is macOS's dominant developer package
+manager and had zero coverage in `elastic/detection-rules` prior to this rule, including no representation in the
+existing cross-platform package-manager ancestor meta-rule (`344e6c7d-ceb0-4f20-ba04-7c75569a7e38`), which only
+recognizes npm/pip/cargo.
+"""
+false_positives = [
+    """
+    Real testing during this rule's development found that Homebrew's *own* internal package-management operations
+    (extracting the download archive, setting quarantine/extended attributes, symlinking binaries, checking CPU
+    type) are themselves children of the same bundled Ruby interpreter, indistinguishable at the process-tree level
+    from a cask's own hook code -- there is no OS-level signal that separates "Homebrew's own hardcoded logic" from
+    "a cask author's custom hook". This rule's exclusion list was built empirically from a real, clean
+    `binary`-artifact cask install with no hooks defined (`env`, `xattr`, `chmod`, `tar`, `bsdtar`, `ln`, `hdiutil`,
+    `xargs`, `defaults`, `clang`, `sysctl`) rather than assumed.
+    """,
+    """
+    Real testing (2026-08-07, a fresh clean-cask install with `HOMEBREW_NO_AUTO_UPDATE=1`/`HOMEBREW_NO_ANALYTICS=1`
+    set) found that a wider legitimate set is spawned as a direct child of the bundled Ruby interpreter regardless
+    of those two variables: `bash`/`sh` (wrapping several `stty`/`tput`/`python3.7` terminal-size and
+    interpreter-presence probes), `getconf`, `mdfind`, `pkgutil`, and `xcode-select` -- Homebrew's own
+    environment/requirement checks (CPU type, terminal dimensions, Xcode Command Line Tools presence), which run on
+    every invocation and are not gated by the auto-update/analytics settings as an earlier test pass had assumed.
+    This superseded and corrected that earlier (2026-08-06) finding, which had reproduced a narrower 11-name
+    baseline that turned out not to generalize. All of these names are now included in this rule's exclusion list
+    unconditionally; the real cask postflight hook event (`echo`) in the same test run was confirmed to still match
+    after adding them.
+    """,
+    """
+    This rule is scoped and tested against `binary`-artifact casks only. A real `app`-artifact cask (most casks in
+    practice) additionally invokes Gatekeeper/registration tooling as part of Homebrew's own normal install flow
+    (e.g. `codesign`, `spctl`, `mdimport`, `lsregister`) which is NOT in this rule's tested exclusion list and will
+    likely false-positive until measured and added -- documented here as an explicit, honest scope limitation rather
+    than silently assumed to be covered. Do not extend this false-positive claim to formula (non-cask) source builds:
+    a real clean-formula install was also tested during this rule's development and produces a much wider legitimate
+    child-process set (`git`, `curl`, `clang`, `sandbox-exec`, `nice`, `xcode-select`, `mdfind`, `pkgutil`,
+    `getconf`, `tput`, and a *nested* sandboxed `ruby` for the actual build) -- this rule is not scoped or validated
+    for formula builds and would need a much larger, separately-measured exclusion list before covering that case.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Unusual Child Process of Homebrew's Bundled Ruby Interpreter"
+note = """## Triage and analysis
+
+### Investigating Unusual Child Process of Homebrew's Bundled Ruby Interpreter
+
+This rule flags a process spawned by Homebrew's own bundled Ruby interpreter
+(`.../Homebrew/vendor/portable-ruby/.../bin/ruby`) whose name is not one of the small set of utilities Homebrew's
+own internal package-management logic is known to invoke for a routine, hook-free `binary`-artifact cask install.
+A match here most often means a cask's `preflight`/`postflight`/`uninstall` Ruby block executed a command.
+
+### Possible investigation steps
+
+- Identify which cask was being installed (`brew list --cask` history, or the `HOMEBREW_*` environment variables
+  visible on the parent `bash`/`env` process's command line) and whether it is a known first-party cask or from a
+  third-party/community tap.
+- Review the spawned child's full command line for network activity (`curl`, `wget`, `nc`), a scripting interpreter
+  invocation (`bash -c`, `python3 -c`, `osascript`), or anything writing outside the cask's own Caskroom directory.
+- If the cask is from a third-party tap, check the tap's Git history/commit author for the cask file for recent,
+  suspicious changes.
+- Correlate with any subsequent network connections, persistence (LaunchAgent/LaunchDaemon creation), or credential
+  file access from the same process tree.
+
+### False positive analysis
+
+- See this rule's `false_positives` field: `app`-artifact casks are expected to trigger this on their own normal
+  Gatekeeper/registration steps until the exclusion list is extended with real measured data; formula (non-cask)
+  builds are out of scope entirely and not covered by this rule's exclusion list.
+"""
+references = [
+    "https://docs.brew.sh/Cask-Cookbook#stanza-preflight",
+    "https://docs.brew.sh/Cask-Cookbook#stanza-postflight",
+]
+risk_score = 47
+rule_id = "5e07cb07-acdb-49e5-958c-53841e79a1ae"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+process where event.action == "exec" and host.os.type == "macos" and
+ process.parent.executable like~ "*/Homebrew/vendor/portable-ruby/*" and
+ not process.name in (
+   "env", "xattr", "chmod", "chown", "tar", "bsdtar", "ln", "hdiutil", "xargs", "defaults", "clang", "sysctl",
+   "bash", "sh", "getconf", "mdfind", "pkgutil", "xcode-select"
+ )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
