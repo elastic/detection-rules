@@ -161,13 +161,19 @@ class ParserTests(unittest.TestCase):
         """Test the exact query reported in #6282 end to end."""
         # Previously this failed to lex at the escaped colon ("Invalid syntax"). It now
         # lexes, and ` or ` splits the query the same way Kibana does: the wildcard value
-        # ends at "file", followed by OR and the bare term `directory`. Kibana searches
-        # bare terms against default fields, which this library cannot represent, so full
-        # parsing reports "Value not tied to field" at `directory` — not a syntax error.
+        # ends at "file", followed by OR and the bare term `directory`, which Kibana
+        # searches against the index's default fields (a FreeText term -- see #6419).
         query = r"app_message : *\: No such file or directory"
         kql.lark_parse(query)  # lexes and builds a parse tree without error
-        with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
-            kql.parse(query)
+        self.validate(
+            query,
+            OrExpr(
+                [
+                    FieldComparison(Field("app_message"), Wildcard("*: No such file")),
+                    FreeText(String("directory"), is_quoted=False),
+                ]
+            ),
+        )
 
         # With the trailing bare term tied to a field, the query round-trips fully.
         self.validate(
