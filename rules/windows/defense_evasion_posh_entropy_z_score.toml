@@ -1,0 +1,244 @@
+[metadata]
+creation_date = "2026/02/10"
+integration = ["windows"]
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/02/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell scripts with unusually high entropy relative to host and global baselines via MAD-based z-scores
+with host/global shrinkage. This detection requires enough data to build stable baselines, so it may not alert in
+low-volume environments.
+"""
+false_positives = [
+  """
+  Legitimate large or encoded PowerShell scripts (automation frameworks, installers, or admin tooling) can exhibit high
+  entropy or uneven character distributions.
+  """,
+  """
+  Low-volume environments can yield more unstable baselines, which can increase alert noise.
+  """
+]
+from = "now-4h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "PowerShell Script Block Entropy Outlier via MAD Z-Score"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PowerShell Script Block Entropy Outlier via MAD Z-Score
+
+This rule identifies PowerShell script block logging events where the script block text is an entropy outlier compared to recent host and global baselines using MAD-based z-scores. High-entropy script blocks are commonly produced by obfuscation (encoding, compression, encryption) or embedded binary/serialized content, but can also appear in legitimate administration and deployment workflows.
+
+Prioritize analysis by combining the anomaly score with the script content and execution context. Focus on reconstructing the full script, identifying any decode-and-execute chain, and scoping related activity on the same host and user around the alert time.
+
+#### Key alert fields to review
+
+- `user.name`, `user.domain`, `user.id`: Account execution context for correlation, prioritization, and scoping.
+- `host.name`, `host.id`: Host execution context for correlation, prioritization, and scoping.
+- `file.path`, `file.directory`, `file.name`: File-origin context when the script block is sourced from an on-disk file.
+- `powershell.file.script_block_text`: Script block content that matched the detection logic.
+- `powershell.file.script_block_id`, `powershell.sequence`, `powershell.total`: Script block metadata to pivot to other fragments or reconstruct full script content when split across multiple events.
+- `powershell.file.script_block_entropy_bits`: Shannon entropy of the script block. Higher values may indicate obfuscation.
+- `powershell.file.script_block_surprisal_stdev`: Standard deviation of surprisal across the script block. Low values indicate uniform randomness. High values indicate mixed patterns and variability.
+- `powershell.file.script_block_unique_symbols`: Count of distinct characters present in the script block.
+- `powershell.file.script_block_length`: Script block length (size) context.
+- `Esql.entropy_score`: Final blended robust z-score used for thresholding.
+- `Esql.host_z`, `Esql.global_z`: Per-host and global robust z-scores (helpful to understand whether this is a host-local anomaly, a population-wide anomaly, or both).
+- `Esql.w_host`: Host weighting factor (higher means the score is more driven by the host baseline; lower means the global baseline dominates).
+- `Esql.host_block_n`, `Esql.global_block_n`: Baseline sample sizes (low counts can reduce confidence in the stability of the baseline).
+
+#### Possible investigation steps
+
+- Assess alert confidence and prioritization:
+  - Review `Esql.entropy_score` to understand the strength of the anomaly (higher values generally indicate a more extreme outlier).
+  - Compare `Esql.host_z` and `Esql.global_z` to determine whether the activity is host-specific, broadly common across the environment, or both.
+  - Use `Esql.w_host`, `Esql.host_block_n`, and `Esql.global_block_n` to judge baseline stability. Low sample sizes reduce confidence and should increase emphasis on corroborating evidence.
+
+- Reconstruct the full script content before making a determination:
+  - Pivot on `powershell.file.script_block_id` and collect all events for the same host around the alert time.
+  - Use `powershell.sequence` and `powershell.total` to order fragments and confirm completeness. Missing fragments can hide the initial staging logic or final payload execution.
+  - Review the reconstructed `powershell.file.script_block_text` for the full execution flow, not just the highest-entropy fragment.
+
+- Analyze the script block for obfuscation and staging patterns:
+  - Identify large encoded or compressed blobs and their surrounding wrapper code that performs decoding/decompression.
+  - Look for dynamic execution primitives (for example, indirect invocation and reflection-based loading) that may indicate staged payload execution.
+  - Note indicators of runtime code generation such as heavy string concatenation, character array assembly, arithmetic/XOR loops, or randomized identifiers.
+  - Use `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, `powershell.file.script_block_unique_symbols`, and `powershell.file.script_block_length` to characterize whether the content is mostly uniform random-looking data, mixed code-and-data, or unusually large scripted logic.
+
+- Determine likely script origin and execution context:
+  - Review `user.name` and `user.id` to determine whether the execution aligns with expected administrative activity for the account.
+  - Use `host.name` and `host.id` to understand the role of the host (workstation, server, jump host) and whether similar alerts are common on that asset.
+  - If `file.path` or `file.name` is present, treat it as potential on-disk origin and validate whether the path and filename are expected for that host and user activity. If absent, the script may be interactive, remotely delivered, or generated in memory.
+
+- Correlate with adjacent telemetry to confirm execution and impact (if available in your environment):
+  - Identify the PowerShell host process instance and its parent process responsible for executing the script. Unexpected parent processes or unusual launch context can increase suspicion.
+  - Review activity immediately before and after the alert time for evidence of staging or follow-on actions such as network retrieval, file writes, persistence, or credential access.
+  - Look for additional PowerShell script blocks on the same host/user that reference the same decoded content, downloaded resources, or follow-on execution.
+
+- Scope and hunt for related activity using alert fields:
+  - Search for other alerts or events on the same `host.id` with similar `powershell.file.script_block_entropy_bits` and elevated `Esql.entropy_score`.
+  - Search for the same `user.id` producing outliers across multiple `host.id` values, which may indicate automated distribution or credential misuse.
+  - If `file.path` is present, identify other hosts or users executing script blocks that reference the same path/name to determine whether the behavior is part of a legitimate rollout or targeted activity.
+
+### False positive analysis
+
+- Benign high-entropy script blocks can occur when tooling embeds compressed or serialized data inside PowerShell, including:
+  - Software deployment, configuration management, and installer frameworks that package payloads as encoded strings.
+  - Enterprise administration tooling that generates large scripts dynamically or transmits content in encoded form.
+  - Security and IT operations tooling that bundles resources inside scripts for portability.
+
+- Use these signals to separate common tooling from suspicious activity:
+  - Environment-wide commonality: similar anomalies across many hosts with comparable content often indicate a shared tool or rollout, especially when `Esql.global_z` is elevated.
+  - Host-local rarity: anomalies isolated to a single host or user, particularly when `Esql.host_z` is elevated and baselines are stable, warrant deeper review.
+  - Content structure: benign scripts often have recognizable wrapper logic and consistent formatting, while malicious staging commonly combines decoding with immediate execution and minimal operator-readable context.
+
+### Response and remediation
+
+- If the script content or surrounding context is suspicious:
+  - Contain the affected host using established incident response procedures.
+  - Preserve evidence needed for follow-up: the full reconstructed `powershell.file.script_block_text`, associated `powershell.file.script_block_id` fragments, and the anomaly fields that explain why it was flagged.
+  - Perform decoding/decompression analysis in a controlled environment and capture any resulting payloads or secondary scripts for detection engineering and threat hunting.
+  - Expand scoping using `host.id`, `user.id`, and `file.path` (when present) to identify additional impacted systems or accounts.
+  - Review account activity for the involved `user.id` and apply credential hygiene actions as appropriate (for example, reset credentials and review privilege assignments for compromised or misused accounts).
+
+- If the activity is confirmed benign:
+  - Document the legitimate source (tool, owner, normal schedule, and expected hosts/accounts) and retain a sample of the script content for future comparisons.
+  - Monitor for drift: new versions of legitimate tooling may change script structure and entropy characteristics and can present similarly to obfuscation.
+  - Ensure PowerShell governance and visibility controls are aligned with policy (logging coverage, least privilege for scripting accounts, and controlled use of administrative scripting).
+"""
+risk_score = 21
+rule_id = "23826d38-92a0-4d14-91ca-d43c265ec153"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+
+This rule uses the following fields that require the Windows Integration v3.3.0 and up: `powershell.file.script_block_entropy_bits`, `powershell.file.script_block_surprisal_stdev`, and `powershell.file.script_block_length`.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-windows.powershell* metadata _id, _version, _index
+| where event.code == "4104"
+| where powershell.file.script_block_text is not null and
+    powershell.file.script_block_entropy_bits is not null and
+    powershell.file.script_block_length > 1000
+
+// Keep only what we need downstream (and for triage)
+| keep @timestamp, host.name, user.id, user.name, agent.id, host.id, file.path, file.name, powershell.*, _id, _index, _version
+
+// Host baseline (median/MAD on entropy_bits per host)
+| inline stats
+    Esql.host_block_n = count_distinct(powershell.file.script_block_id),
+    Esql.host_med     = median(powershell.file.script_block_entropy_bits),
+    Esql.host_mad     = median_absolute_deviation(powershell.file.script_block_entropy_bits)
+  by host.id
+
+// Require minimum distinct script blocks and non-zero dispersion
+| eval Esql.host_ok = Esql.host_block_n >= 8 and Esql.host_mad > 0
+// Robust z-score using MAD (0.6745 scales MAD to std-dev units)
+| eval Esql.host_z  = case(
+    Esql.host_ok,
+    // 0.6745 scales MAD units to std-dev units
+    0.6745 * (powershell.file.script_block_entropy_bits - Esql.host_med) / Esql.host_mad,
+    null
+  )
+
+// Global baseline (median/MAD on entropy_bits over all hosts)
+| inline stats
+    Esql.global_block_n = count_distinct(powershell.file.script_block_id),
+    Esql.global_med     = median(powershell.file.script_block_entropy_bits),
+    Esql.global_mad     = median_absolute_deviation(powershell.file.script_block_entropy_bits)
+
+// Require minimum distinct script blocks and non-zero dispersion
+| eval Esql.global_ok = Esql.global_block_n >= 20 and Esql.global_mad > 0
+// Robust z-score using MAD (0.6745 scales MAD to std-dev units)
+| eval Esql.global_z  = case(
+    Esql.global_ok,
+    0.6745 * (powershell.file.script_block_entropy_bits - Esql.global_med) / Esql.global_mad,
+    null
+  )
+
+// --------------------
+// Blend host + global scores; more distinct scripts => more trust in host.
+// k is the "crossover" point where host/global are about 50/50 (k=50).
+// Example weights: host_block_n=8 (minimum) => ~14% host, host_block_n=20 => ~29% host, host_block_n=50 => ~50% host.
+// Global baseline contributes only after 20+ distinct script blocks.
+// If a baseline is missing, use the one we have.
+// --------------------
+| eval Esql.k = 50.0
+// Higher host_block_n means more trust in host_z
+| eval Esql.w_host = case(
+    Esql.host_ok and Esql.global_ok, (1.0 * Esql.host_block_n) / (Esql.host_block_n + Esql.k),
+    Esql.host_ok, 1.0,
+    0.0
+  )
+
+// If both baselines are valid, blend host+global; otherwise use the available one.
+// If neither baseline is valid, entropy_score is null.
+| eval Esql.entropy_score = case(
+    Esql.host_ok and Esql.global_ok, Esql.w_host * Esql.host_z + (1.0 - Esql.w_host) * Esql.global_z,
+    Esql.host_ok, Esql.host_z,
+    Esql.global_ok, Esql.global_z,
+    null
+  )
+
+// Alert threshold: high anomaly score plus elevated surprisal stdev
+// (surprisal_stdev is the spread of per-character surprisal values; higher means more uneven distributions)
+| where Esql.entropy_score > 2.5 and powershell.file.script_block_surprisal_stdev > 0.7
+| keep *, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1140"
+name = "Deobfuscate/Decode Files or Information"
+reference = "https://attack.mitre.org/techniques/T1140/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
