@@ -1,0 +1,174 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Active Directory Certificate Services (AD CS) certificate request, issuance, or denial events whose request
+attributes include legacy enrollment chase fields (`cdc` or `rmd`). Those attributes steer how the CA resolves directory
+identity during enrollment and are used by Certighost (CVE-2026-54121) as well as other requester-influenced chase /
+referral paths. The rule does not require PoC-specific extras such as `SAN:dns` — those raise investigative confidence
+when present but omitting them as hard requirements avoids false negatives against alternate chase abuse shapes.
+Routine Domain Controller template enrollments (common legitimate chase users) are excluded. Matches 4886 (received),
+4887 (issued), and 4888 (denied) so patched denials and successful issuance both surface.
+"""
+false_positives = [
+  """
+  Some multi-domain or non-DC enrollment workflows still set `cdc`/`rmd`. Prefer exceptions scoped to `host.name` (CA),
+  remaining templates, and known requesters after baselining. Escalate when `SAN:dns` is also present, when `cdc` is an
+  IP or non-DC hostname, or when `event.code` is 4887 (issued) for an unexpected template/requester.
+  """,
+]
+from = "now-9m"
+index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AD CS Certificate Request with Chase Attributes cdc or rmd"
+references = [
+  "https://gist.github.com/H0j3n/a5ef2609b5f2944ac2390a191a534c26",
+  "https://github.com/aniqfakhrul/CVE-2026-54121",
+  "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-54121",
+  "https://gist.github.com/f-bader/8c447a8f3b58cb8a85bcf013436e312b",
+  "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/",
+]
+risk_score = 73
+rule_id = "2daeb466-b3ea-46e3-b874-649cc8c7957b"
+setup = """## Setup
+
+AD CS auditing must be enabled so Security events 4886/4887/4888 include request attributes:
+
+```
+certutil -setreg CA\\AuditFilter 127
+Restart-Service CertSvc -Force
+```
+
+Also enable the Certification Services audit subcategory via advanced audit policy. Collect these events with the
+Elastic System/Windows integrations (or Winlogbeat) from Enterprise CA hosts.
+"""
+severity = "high"
+tags = [
+  "Domain: Endpoint",
+  "Domain: Identity",
+  "OS: Windows",
+  "Use Case: Threat Detection",
+  "Tactic: Privilege Escalation",
+  "Tactic: Credential Access",
+  "Use Case: Active Directory Monitoring",
+  "Data Source: Active Directory",
+  "Use Case: Vulnerability",
+  "Data Source: Windows Security Event Logs",
+  "Resources: Investigation Guide",
+  "Vuln: CVE-2026-54121",
+  "Service: Active Directory"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where host.os.type == "windows" and event.code in ("4886", "4887", "4888") and
+  /* Chase attrs: cdc (Client DC) or rmd (Remote Machine/Domain). */
+  winlog.event_data.Attributes : ("*cdc:*", "*rmd:*") and
+  /* Exclude routine DC / KerberosAuthentication templates via structured field only.
+     Do not filter CertificateTemplate inside Attributes that blob is requester-controlled. */
+  not winlog.event_data.CertificateTemplate : (
+    "DomainController",
+    "DomainControllerAuthentication",
+    "KerberosAuthentication"
+  )
+'''
+
+note = """## Triage and analysis
+
+### Investigating AD CS Certificate Request with Chase Attributes cdc or rmd
+
+Certighost (CVE-2026-54121) abuses AD CS enrollment chase attributes so a low-privileged principal can influence which
+directory host the CA contacts while building certificate identity material. Patched CAs reject non-DC / non-FQDN chase
+targets, but the request attributes are still logged on 4886 (received), 4887 (issued), and 4888 (denied). Presence of
+`SAN:dns` in Attributes is a strong triage escalator (seen on Certighost PoC Machine requests) but is not required to
+alert — other chase abuse may omit it.
+
+#### Possible investigation steps
+
+- What chase target and remote principal did the request supply?
+  - Focus: `winlog.event_data.Attributes` (`cdc:`, `rmd:`, optional `SAN:dns=` / `ccm:`),
+    `winlog.event_data.Requester`, `winlog.event_data.CertificateTemplate`, `winlog.event_data.SubjectAlternativeName`,
+    and `event.code`.
+  - Implication: escalate when `cdc` is an IP, a non-DC hostname, or any host not expected for CA chase; treat denials
+    (4888) as exploitation attempts, not as benign failures; treat issuance (4887) as domain-compromise urgency.
+
+- Is this baselined DomainController-template chase, or something sharper?
+  - Focus: `CertificateTemplate`, requester ending in `$`, `ccm:` without suspicious `cdc`, and absence of `SAN:dns`.
+  - Implication: lower urgency for known DC lifecycle on that CA; keep open for Machine/user templates or odd requesters.
+
+- Does any SAN/DNS identity disagree with the requester machine account?
+  - Focus: `winlog.event_data.Subject`, `winlog.event_data.SubjectAlternativeName`, Attributes `SAN:dns=`, and
+    `winlog.event_data.Requester`.
+  - Implication: high concern when a newly created machine account requests a Machine template while the SAN names a
+    domain controller (`DNS Name=<DC FQDN>`).
+
+- Was a computer account created by a low-privileged user immediately before enrollment?
+  - Focus: nearby Security `event.code` 4741 for the same domain, matching `winlog.event_data.TargetUserName` to the
+    requester SAM account and `winlog.event_data.SubjectUserName` for the creating user.
+  - Implication: escalate when Domain Users / non-admin principals create the computer via
+    `ms-DS-MachineAccountQuota` and then enroll with chase attributes.
+
+- Did the CA process connect to a non-DC host on LDAP/SMB around the request?
+  - Focus: endpoint/network telemetry for `process.name: certsrv.exe` with `destination.port` 389/445/636 to IPs that
+    are not domain controllers (f-bader hunt pattern).
+  - Implication: on unpatched CAs this is near-certain chase abuse; on patched CAs validation may stop the chase before
+    outbound connect — absence of network does not clear a 4886/4888 with `cdc`/`rmd`.
+
+- If the request was issued (4887) rather than denied, treat as domain compromise urgency
+  - Focus: 4887 issuance, subsequent Kerberos certificate logons (4768) for the impersonated DC, and DCSync / replication
+    rights events (4662) from non-DC sources.
+
+### False positive analysis
+
+- DomainController / DomainControllerAuthentication / KerberosAuthentication chase is excluded only when
+  `winlog.event_data.CertificateTemplate` matches those names. Do not except on `Attributes` template text —
+  attackers control that blob (including a spoofed `CertificateTemplate:DomainController*` substring).
+- Remaining multi-domain or custom-template chase may still alert — exception by CA + template + requester after baseline.
+- Do not globally suppress `cdc`/`rmd` — that recreates the false-negative gap this rule is meant to close.
+- Authorized AD CS / Certighost lab testing will match; exception only with known lab CA host + requester scope.
+
+### Response and remediation
+
+- If confirmed malicious or unresolved: isolate the requester host/account, disable recently created machine accounts
+  from the same subject, and review CA issuance logs for any 4887 success with the same attributes.
+- Ensure July 2026 updates for CVE-2026-54121 are installed on all Enterprise CAs.
+- Temporary mitigation when patching is delayed (validate in staging first):
+
+```
+certutil -setreg policy\\EditFlags -EDITF_ENABLECHASECLIENTDC
+Restart-Service CertSvc -Force
+```
+
+- Reduce `ms-DS-MachineAccountQuota` where operationally feasible and restrict Machine template enrollment.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1649"
+name = "Steal or Forge Authentication Certificates"
+reference = "https://attack.mitre.org/techniques/T1649/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
