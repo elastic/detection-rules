@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/02/06"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -26,7 +26,7 @@ note = """## Triage and analysis
 
 ### Investigating Shell Command-Line History Deletion Detected via Defend for Containers
 
-This rule detects attempts during interactive sessions to delete, truncate, or disable shell command history files inside containers, a common tactic to erase evidence and impede investigations. An attacker uses kubectl exec to open an interactive bash shell in a running pod, then symlinks /root/.bash_history to /dev/null to prevent future commands from being recorded while performing reconnaissance or credential access.
+This rule detects attempts to delete, truncate, or disable shell command history files inside containers, a common tactic to erase evidence and impede investigations. An attacker uses kubectl exec to open an interactive bash shell in a running pod, then symlinks /root/.bash_history to /dev/null to prevent future commands from being recorded while performing reconnaissance or credential access.
 
 ### Possible investigation steps
 
@@ -62,7 +62,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-any where host.os.type == "linux" and event.category in ("file", "process") and process.interactive == true and container.id like "?*" and (
+any where host.os.type == "linux" and event.category in ("file", "process") and container.id like "?*" and (
   (event.category == "file" and event.type == "deletion" and file.name in (".bash_history", ".sh_history",  ".zsh_history")) or
   (event.category == "process" and event.type == "start" and event.action == "exec" and (
     (

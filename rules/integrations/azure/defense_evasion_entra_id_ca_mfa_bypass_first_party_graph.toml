@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2026/06/22"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first observed instance of a Microsoft first-party public client application acquiring a Microsoft Graph
+token using single-factor (password-only) authentication while an MFA Conditional Access grant control went unenforced,
+for a given user, application, and source autonomous system (ASN). This pattern is associated with the Conditional
+Access "resource exclusion" bypass: when a tenant's "all resources" Conditional Access policy contains at least one
+application exclusion, Entra ID issues tokens for low-privilege baseline scopes (User.Read, openid, profile, email) to
+any resource, including Microsoft Graph, without enforcing the policy's grant controls (such as MFA). An adversary
+holding only a stolen password can therefore obtain a Graph token through a trusted first-party public client (for
+example, Microsoft Bing Search) and enumerate directory objects, even though the tenant requires MFA. Critically, the
+overall conditional_access_status is never "failure" for this technique (the sign-in is not blocked); it is reported as
+"success" or "notApplied" depending on what other policies exist in the tenant, so detections that key on Conditional
+Access failures will not observe it. The reliable fingerprint is in the per-policy results: a policy whose enforced
+grant control is MFA reports a result of "notApplied" for this sign-in, meaning the MFA requirement was silently not
+enforced while the single-factor, password-only sign-in still succeeded.
+"""
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Conditional Access MFA Bypass with Unusual User, Client and Source ASN"
+note = """## Triage and analysis
+
+### Investigating Entra ID Conditional Access MFA Bypass with Unusual User, Client and Source ASN
+
+This rule fires the first time a user signs in to Microsoft Graph through a Microsoft first-party app using single-factor, password-only authentication, keyed on the user, app, and source ASN within the history window. First-party apps are matched by their owner tenant (`app_owner_tenant_id` `f8cdef31-a31e-4b4a-93e4-5f571e91255a`) instead of a fixed client ID list, so switching to a different first-party client does not get around the detection. The password-only form of this bypass depends on first-party apps: they are pre-consented in every tenant and cannot be blocked, so a stolen password is enough to use one. A third-party or confidential client would mean the attacker already controls an app in the tenant, which is a different scenario.
+
+The behavior comes from the Conditional Access resource-exclusion bypass. If an "all resources" CA policy excludes even one application, Entra ID issues tokens for baseline scopes (User.Read, openid, profile, email) to Microsoft Graph without applying the policy's grant controls, so MFA is skipped. Default directory permissions then let that `User.Read` token read groups, service principals, directory roles, and devices.
+
+Do not read too much into the top-level `azure.signinlogs.properties.conditional_access_status` here. It shows `success` or `notApplied` (never `failure`, since the sign-in is not blocked), and which one you see depends on the other policies in the tenant. The useful evidence is in `azure.signinlogs.properties.applied_conditional_access_policies`: an MFA grant control (`enforced_grant_controls` of `Mfa`) that came back `notApplied` on a sign-in that was still single-factor and password-based. That is what the query keys on.
+
+### Possible investigation steps
+
+- Review `azure.signinlogs.properties.user_principal_name` to identify the user and whether they hold privileged roles or are otherwise a high-value target.
+- Confirm the client via `azure.signinlogs.properties.app_display_name` and `azure.signinlogs.properties.app_id`. End-user authentication of clients such as Microsoft Bing Search to Microsoft Graph is uncommon and warrants scrutiny; everyday clients (Microsoft Teams, OneDrive, Outlook Mobile) are far more likely to be benign.
+- Examine `source.ip`, `source.as.number`, `source.as.organization.name`, and `source.geo.*` for hosting-provider or geographic anomalies inconsistent with the user's normal sign-in locations.
+- Inspect `azure.signinlogs.properties.applied_conditional_access_policies` for the sign-in. A policy with `enforced_grant_controls` of `Mfa` and a `result` of `notApplied`, on a `singleFactorAuthentication` / `Password` sign-in, means the MFA grant control was present but not enforced. Note the aggregate `conditional_access_status` may read `success` or `notApplied` and is not by itself indicative.
+- Review whether the tenant has an "all resources" Conditional Access policy with one or more application exclusions, which is the configuration that enables this bypass.
+- Pivot to `logs-azure.graphactivitylogs-*` for the same `user_principal_object_id` and `app_id` to identify directory enumeration (requests to `/groups`, `/servicePrincipals`, `/directoryRoles`, `/devices`, `/users`) shortly after the sign-in.
+- Correlate using `azure.signinlogs.properties.session_id` to reconstruct the full token-acquisition sequence, including any non-interactive token redemption.
+
+### False positive analysis
+
+- Everyday first-party public clients (Microsoft Teams, OneDrive, Outlook Mobile, Microsoft 365 Copilot, Microsoft To-Do, Edge, Windows Search) legitimately acquire Microsoft Graph tokens with single-factor authentication, particularly when MFA was already satisfied earlier in the session or no MFA policy applies to that application. Expect benign first-time `(user, app, ASN)` combinations, especially during onboarding or first use of a tool.
+- Users signing in from a new network (travel, VPN, new ISP) will present a new ASN and may trigger the New Terms condition once.
+- In tenants with broad MFA Conditional Access policies, those policies can legitimately report `notApplied` for single-factor sign-ins that are genuinely out of policy scope (for example, sign-ins from a trusted named location or an app excluded from the policy). The `applied_conditional_access_policies` condition therefore sharpens, but does not perfectly isolate, the bypass; corroborate with the application identity and source.
+- The rule scopes to all Microsoft first-party applications via `app_owner_tenant_id` rather than a fixed client ID list, so it covers every first-party public client but is correspondingly broad. New Terms on `(user, app_id, ASN)` limits this to first-occurrence events; consider allowlisting expected `(user, app)` pairs, or specific high-volume everyday first-party apps, to further reduce volume.
+- Tune by excluding known developer or automation identities that routinely use these clients against Microsoft Graph.
+
+### Response and remediation
+
+- Contact the user to confirm whether they initiated the sign-in and used the detected application.
+- If unauthorized, revoke the user's refresh tokens and require password reset and MFA re-registration.
+- Review `logs-azure.graphactivitylogs-*` for directory enumeration or data access performed with the issued token.
+- Remediate the enabling configuration: review "all resources" Conditional Access policies for application exclusions, and enable strict baseline-scope enforcement so baseline scopes do not bypass grant controls.
+- Block the source IP or ASN if confirmed malicious.
+"""
+references = [
+    "https://dirkjanm.io/bypassing-conditional-access-with-resource-exclusion/",
+    "https://docs.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-azure-monitor-sign-ins-log-schema",
+]
+risk_score = 47
+rule_id = "921544bd-e2aa-44a6-9fb9-98629c342adf"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "azure.signinlogs" and
+event.outcome: "success" and
+azure.signinlogs.properties.user_type: "Member" and
+azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication" and
+azure.signinlogs.properties.conditional_access_status: ("success" or "notApplied") and
+azure.signinlogs.properties.authentication_details.authentication_method: "Password" and
+azure.signinlogs.properties.applied_conditional_access_policies.enforced_grant_controls: "Mfa" and
+azure.signinlogs.properties.applied_conditional_access_policies.result: "notApplied" and
+(
+    azure.signinlogs.properties.resource_id: "00000003-0000-0000-c000-000000000000" or
+    azure.signinlogs.properties.resource_display_name: "Microsoft Graph"
+) and
+azure.signinlogs.properties.app_owner_tenant_id: "f8cdef31-a31e-4b4a-93e4-5f571e91255a" and
+azure.signinlogs.properties.user_principal_name: * and
+azure.signinlogs.properties.app_id: * and
+source.as.number: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.009"
+name = "Conditional Access Policies"
+reference = "https://attack.mitre.org/techniques/T1556/009/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.resource_id",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.conditional_access_status",
+    "azure.signinlogs.properties.applied_conditional_access_policies.display_name",
+    "azure.signinlogs.properties.applied_conditional_access_policies.enforced_grant_controls",
+    "azure.signinlogs.properties.applied_conditional_access_policies.result",
+    "azure.signinlogs.properties.is_interactive",
+    "azure.signinlogs.properties.session_id",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "user_agent.original",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.app_id",
+    "source.as.number",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

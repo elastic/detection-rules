@@ -31,6 +31,7 @@ Here are the queries currently available:
 
 
 ## azure
+- [AKS Kubelet nodes/proxy Command Execution from an External Source IP](./azure/docs/aks_kubelet_proxy_command_execution_from_external_source.md) (ES|QL)
 - [Azure Entra Authentication Attempts from Abused Hosting Service Providers](./azure/docs/entra_authentication_attempts_from_abused_hosting_service_providers.md) (ES|QL)
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
@@ -112,6 +113,10 @@ Here are the queries currently available:
 - [Unsigned or Untrusted Binary Execution via Python](./macos/docs/execution_unsigned_or_untrusted_binary_execution_via_python.md) (ES|QL)
 - [Unsigned or Untrusted Binary Forked by Python](./macos/docs/execution_unsigned_or_untrusted_binary_fork_via_python.md) (ES|QL)
 - [Unusual Library Load via Python](./macos/docs/execution_unusual_library_load_via_python.md) (ES|QL)
+
+
+## network
+- [Mythic C2 TLS Certificate Observed in Cisco SD-WAN Exploitation](./network/docs/command_and_control_cisco_sdwan_mythic_c2_tls_cert.md) (ES|QL)
 
 
 ## okta

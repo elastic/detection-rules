@@ -2,7 +2,7 @@
 creation_date = "2026/05/05"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/05/05"
+updated_date = "2026/05/26"
 
 [rule]
 author = ["Elastic"]
@@ -98,7 +98,8 @@ user.name:(* and not
   system\:serviceaccount\:kyverno\:* or
   system\:serviceaccount\:*\:*-operator)
 ) and
-kubernetes.audit.objectRef.name:(* and not (pod-identity-webhook or vpc-resource-mutating-webhook or eks-* or gke-*))
+kubernetes.audit.objectRef.name:(* and not (pod-identity-webhook or vpc-resource-mutating-webhook or eks-* or gke-*)) and 
+not (kubernetes.audit.user.groups:"system:serviceaccounts:flux-system" and kubernetes.audit.objectRef.name:"k8tz")
 '''
 
 [[rule.threat]]

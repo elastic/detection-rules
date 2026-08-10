@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/06/29"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra ID device registration where the recorded cloud device operating system build is
+"10.0.19045.2006" and the device display name follows the default "DESKTOP-" pattern. This is the frozen default device
+profile observed when adversary-in-the-middle (AiTM) phishing kits such as Tycoon2FA and Kali365 register Azure
+AD-joined devices after capturing a victim session, in order to acquire a Primary Refresh Token (PRT) and establish
+persistence. The build is hardcoded by the tooling and it is uncommon for the OS build to match this exact value across
+an environment of otherwise patched hosts, where a current Windows 10 22H2 device reports a far higher
+"10.0.19045.<revision>" value.
+"""
+false_positives = [
+    """
+    Legitimate device registrations may coincidentally use the `10.0.19045.2006` build (Windows 10 22H2) with a default
+    `DESKTOP-` hostname, particularly on imaged or unmanaged Windows hosts that have not been updated. Validate against
+    your device inventory, expected provisioning workflows, and the registering user before escalating.
+    """,
+    """
+    Authorized red team or penetration testing engagements that register devices with this OS profile will match this
+    rule. If this is expected, add exceptions for the specific user principal names, source IPs, or device names
+    involved.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Device Registration with Phishing Kit Default OS Build"
+note = """## Triage and analysis
+
+### Investigating Entra ID Device Registration with Phishing Kit Default OS Build
+
+AiTM phishing kits including Tycoon2FA and Kali365 register a device in Entra ID with a frozen default cloud device OS build of `10.0.19045.2006` and a default display name of `DESKTOP-<random characters>`. This build is hardcoded by the tooling and differs from the OS version of legitimate, patched hosts (a current Windows 10 22H2 device reports a much higher `10.0.19045.<revision>` value), making the build a useful indicator of kit-driven device registration. Rogue device registration is typically a precursor to Primary Refresh Token (PRT) acquisition, MFA/Conditional Access bypass, and persistent token-based access.
+
+The matching Entra ID audit event is an `Add device` operation initiated by the `Device Registration Service`, where the modified properties record the registered device characteristics:
+
+- `azure.auditlogs.properties.target_resources.0.modified_properties.3` (`CloudDeviceOSVersion`) = `10.0.19045.2006`
+- `azure.auditlogs.properties.target_resources.0.modified_properties.4` (`CloudDisplayName`) = `DESKTOP-*`
+
+### Possible investigation steps
+
+- Confirm the registering identity via `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and determine whether that user is expected to register a new device.
+- Review `azure.auditlogs.identity` to confirm the `Device Registration Service` initiated the request, and use `azure.correlation_id` to pivot across the full registration flow (`Add device`, `Add registered users to device`, `Add registered owner to device`).
+- Inspect the device name in `azure.auditlogs.properties.target_resources.0.display_name`; kit-registered names are commonly `DESKTOP-` followed by 6 alphanumeric (Tycoon2FA) or 6 hexadecimal (Kali365) characters.
+- Inspect the registration user agent on the paired `Register device` event (`azure.auditlogs.properties.userAgent`), which is frequently a spoofed `Dsreg/10.0 (Windows 10.0.19045.2006)` string or a raw HTTP client such as `axios/*` or `python-requests/*`.
+- Check whether the same user registered multiple devices in a short window (a single piece of kit infrastructure registering several devices is common for PRT persistence at scale).
+- Review `azure.auditlogs.properties.initiated_by.user.ipAddress` and geolocation for the registration source. Flag unexpected IPs, hosting/VPS ASNs (for example Tencent or Alibaba), or impossible-travel relative to the user's normal activity.
+- Pivot to `azure.signinlogs` for the same user and timeframe and look for follow-on sign-ins where the incoming token type is a `primaryRefreshToken`, for AiTM sign-ins immediately preceding the registration, or for the broker subsequently minting tokens for other resources such as Microsoft Graph.
+
+### False positive analysis
+
+- Unmanaged or never-patched Windows 10 22H2 hosts may legitimately present the `10.0.19045.2006` build with a default `DESKTOP-` hostname. Validate against device inventory and known provisioning programs.
+- Authorized security assessments that register devices with this OS profile will match. Document the engagement and add scoped exceptions.
+
+### Response and remediation
+
+- If confirmed malicious, remove the registered device from Entra ID and revoke the user's refresh tokens and primary refresh tokens. Remove the device BEFORE revoking sessions, because device-bound PRTs survive `revokeSignInSessions`.
+- Disable the account or reset credentials per policy and review for additional persistence (attacker-registered MFA methods, added owners, app registrations, or service principal credentials).
+- Conduct historical analysis using `azure.correlation_id` and the registering user to determine scope of access.
+- Tighten device registration and join controls via Conditional Access (restrict who can register/join devices and require MFA for registration).
+"""
+references = [
+    "https://any.run/malware-trends/tycoon/",
+    "https://www.huntress.com/blog/kali365-device-code-phishing-kit",
+    "https://any.run/malware-trends/kali365/",
+    "https://arcticwolf.com/resources/blog/token-bingo-dont-let-your-code-be-the-winner/",
+    "https://www.ic3.gov/PSA/2026/PSA260521",
+]
+risk_score = 47
+rule_id = "82629eed-5516-446e-ad73-03b8c4f4d571"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Threat: Tycoon2FA",
+    "Threat: Kali365",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"azure.auditlogs" and event.action:"Add device" and
+    azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value:*10.0.19045.2006* and
+    azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value:*DESKTOP-*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.identity",
+    "azure.auditlogs.operation_name",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.correlation_id",
+]
+

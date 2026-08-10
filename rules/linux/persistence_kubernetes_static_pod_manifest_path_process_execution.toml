@@ -2,7 +2,7 @@
 creation_date = "2026/05/06"
 integration = ["endpoint", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/05/06"
+updated_date = "2026/05/26"
 
 [rule]
 author = ["Elastic"]
@@ -91,7 +91,9 @@ process.name:(
   python* or perl* or ruby* or node or lua* or
   openssl or base64 or xxd or
   .*) and 
-  process.args:(*/etc/kubernetes/manifests/* and not (/etc/kubernetes/manifests/etcd* or /etc/kubernetes/manifests/kube-apiserver* or /etc/kubernetes/manifests/kube-scheduler* or /etc/kubernetes/manifests/kube-controller-manager*))
+  process.args:(*/etc/kubernetes/manifests/* and not (/etc/kubernetes/manifests/etcd* or /etc/kubernetes/manifests/kube-apiserver* or /etc/kubernetes/manifests/kube-scheduler* or /etc/kubernetes/manifests/kube-controller-manager*)) and 
+  not (process.args :printf* and process.working_directory :/home/*-svc-nessus) and 
+  not process.parent.executable :("/opt/nessus/sbin/nessusd" or "/opt/nessus_agent/sbin/nessus-agent-module")
 '''
 
 [[rule.threat]]

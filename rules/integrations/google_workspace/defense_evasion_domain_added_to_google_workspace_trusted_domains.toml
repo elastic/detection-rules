@@ -2,13 +2,14 @@
 creation_date = "2020/11/17"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/06/02"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a domain is added to the list of trusted Google Workspace domains. An adversary may add a trusted domain in
-order to collect and exfiltrate data from their target’s organization with less restrictive security controls.
+Detects when an administrator adds a domain to the Google Workspace allowlisted (trusted) domains list. Adversaries with
+administrative access may onboard a domain they control to relax cross-organization sharing restrictions, enabling
+data collection and exfiltration through Drive, Chat, and other services that honor the tenant trust boundary.
 """
 false_positives = [
     """
@@ -17,7 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-130m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 interval = "10m"
 language = "kuery"
 license = "Elastic License v2"
@@ -26,30 +27,47 @@ note = """## Triage and analysis
 
 ### Investigating Domain Added to Google Workspace Trusted Domains
 
-Organizations use trusted domains in Google Workspace to give external users access to resources.
+Google Workspace allowlisted domains define which external organizations users may collaborate with across services such
+as Drive, Chat, and Classroom. Adding a domain to this list expands who can receive shared content under the tenant's
+trust policies. Threat actors with administrative access may add a domain they operate to bypass out-of-domain sharing
+controls and establish a durable path for collection or exfiltration.
 
-A threat actor with administrative privileges may be able to add a malicious domain to the trusted domain list. Based on the configuration, potentially sensitive resources may be exposed or accessible by an unintended third-party.
+This rule identifies when an administrator adds a domain via the `ADD_TRUSTED_DOMAINS` event in the
+`google_workspace.admin` data stream.
 
-This rule detects when a third-party domain is added to the list of trusted domains in Google Workspace.
+### Possible investigation steps
 
-#### Possible investigation steps
-
-- Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
-- After identifying the user, verify if the user should have administrative privileges to add external domains.
-- Check the `google_workspace.admin.domain.name` field to find the newly added domain.
-- Use reputational services, such as VirusTotal, for the trusted domain's third-party intelligence reputation.
-- Filter your data. Create a filter where `event.dataset` is `google_workspace.drive` and `google_workspace.drive.file.owner.email` is being compared to `user.email`.
-    - If mismatches are identified, this could indicate access from an external Google Workspace domain.
+- Identify the initiating (actor) administrator by reviewing `user.email` or `user.name`, and note `source.ip` and `event.ingested` if present in the alert.
+- Identify the domain added by reviewing `google_workspace.admin.domain.name`.
+- Determine whether the change is expected and authorized:
+  - Validate there is an approved change request or partner onboarding record for the new domain.
+  - If the actor account or `source.ip` is unusual, treat the alert as higher priority until proven benign.
+- Review allowlisted domains in the Google Admin console:
+  - Navigate to Account > Domains > Allowlisted domains.
+  - Confirm the domain from `google_workspace.admin.domain.name` appears on the list and whether it is appropriate for your organization's sharing model.
+- Assess domain reputation and ownership using external intelligence (for example, VirusTotal or WHOIS) to determine whether the domain is associated with your organization or a known partner.
+- Search Kibana for related admin and sharing activity:
+  - Find other trust or sharing policy changes by the same actor:
+    ```
+    data_stream.dataset: "google_workspace.admin" and user.email: "<ACTOR_EMAIL>" and event.action: ("ADD_TRUSTED_DOMAINS" or "REMOVE_TRUSTED_DOMAINS")
+    ```
+  - After the add, review Drive events for files shared to users outside your domain:
+    ```
+    data_stream.dataset: "google_workspace.drive" and event.action: ("change_user_access" or "change_document_visibility")
+    ```
+  - Scope for other security-weakening admin actions from the same `user.email` within the last 48 hours.
 
 ### False positive analysis
 
-- Verify that the user account should have administrative privileges that allow them to edit trusted domains in Google Workspace.
-- Talk to the user to evaluate why they added the third-party domain and if the domain has confidentiality risks.
+- Verify the domain belongs to an approved partner or subsidiary with a documented business need for cross-organization collaboration.
+- Adding test or lab domains during migrations is possible — validate timing against change windows.
 
 ### Response and remediation
 
-- Initiate the incident response process based on the outcome of the triage.
-- Disable or limit the account during the investigation and response.
+- Initiate the incident response process based on triage findings.
+- If the add is not clearly authorized, remove the domain from Allowlisted domains while the investigation proceeds.
+- If the initiating admin account is suspected compromised, reset credentials, revoke active sessions, and review delegated admin roles assigned to that account.
+- Review recent Drive and Chat sharing to external users for sensitive data exposure tied to the newly trusted domain.
 - Identify the possible impact of the incident and prioritize accordingly; the following actions can help you gain context:
     - Identify the account role in the cloud environment.
     - Assess the criticality of affected services and servers.
@@ -57,7 +75,7 @@ This rule detects when a third-party domain is added to the list of trusted doma
     - Identify if the attacker is moving laterally and compromising other accounts, servers, or services.
     - Identify any regulatory or legal ramifications related to this activity.
 - Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords or delete API keys as needed to revoke the attacker's access to the environment. Work with your IT teams to minimize the impact on business operations during these actions.
-- Review the permissions assigned to the implicated user to ensure that the least privilege principle is being followed.
+- Review the permissions assigned to the implicated administrator to ensure that the least privilege principle is being followed.
 - Implement security best practices [outlined](https://support.google.com/a/answer/7587183) by Google.
 - Determine the initial vector abused by the attacker and take action to prevent reinfection via the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
@@ -93,9 +111,18 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:google_workspace.admin and event.provider:admin and event.category:iam and event.action:ADD_TRUSTED_DOMAINS
+data_stream.dataset:google_workspace.admin and event.action:ADD_TRUSTED_DOMAINS
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "user.email",
+    "source.ip",
+    "user.domain",
+    "event.action",
+    "google_workspace.admin.domain.name",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

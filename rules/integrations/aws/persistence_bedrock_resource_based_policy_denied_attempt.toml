@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects failed, access-denied attempts to modify or delete resource-based access policies on AWS Bedrock resources via
+the PutResourcePolicy and DeleteResourcePolicy API calls. Resource-based policies govern which principals (including
+external accounts) may access Bedrock resources such as agents, knowledge bases, and custom models. A principal that is
+repeatedly denied when attempting to attach or remove these policies may be a compromised or under-privileged identity
+probing for the ability to grant external or cross-account access, or to weaken existing access controls. Unlike the
+companion rule that detects successful changes, this rule surfaces the attempt itself, which is a high-signal indicator
+of credential boundary-testing even though no change occurred.
+"""
+false_positives = [
+    """
+    Access-denied errors can result from benign permission gaps: a newly created role or user whose IAM policy has not
+    yet been provisioned, infrastructure-as-code pipelines running ahead of permission grants, or developers
+    experimenting in non-production accounts. Verify whether the user identity, user agent, and source IP are expected
+    to manage Bedrock resource policies in your environment. Recurring denials from known automation or onboarding
+    workflows can be exempted from the rule.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Unauthorized Resource-Based Policy Modification Attempt"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Unauthorized Resource-Based Policy Modification Attempt
+
+AWS Bedrock resource-based policies control which principals can access Bedrock resources such as agents,
+knowledge bases, and custom models. An adversary who has compromised a credential may attempt to attach a policy
+that grants an external principal access for persistence or cross-account access, or delete a policy to break
+existing access controls. This rule detects `PutResourcePolicy` and `DeleteResourcePolicy` calls that were denied
+(`AccessDenied` / unauthorized), which indicates an identity attempting an action it is not permitted to perform —
+a strong signal of boundary-testing by a compromised or under-privileged principal even though the change did not
+take effect.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`,
+    `aws.cloudtrail.user_identity.access_key_id`, `user_agent.original`, and `source.ip`.
+  - Determine whether this identity has any legitimate reason to manage Bedrock resource policies. A denial for an
+    identity that should never touch these APIs is more suspicious than one from an admin with a transient gap.
+- **Assess the attempt**
+  - Inspect `aws.cloudtrail.error_code` and `aws.cloudtrail.error_message` to confirm the denial reason.
+  - For `PutResourcePolicy`, review `aws.cloudtrail.request_parameters` and
+    `aws.cloudtrail.flattened.request_parameters` for the target resource ARN and the attempted policy document.
+    Look for `Principal` values referencing external AWS account IDs, `"*"`, or unfamiliar roles.
+- **Correlate activity**
+  - Look for repeated denials across Bedrock or IAM APIs from the same identity, which can indicate permission
+    enumeration or escalation attempts.
+  - Check whether the identity later succeeded (e.g., after acquiring new permissions) on the same or related
+    resources, and review any IAM changes in the surrounding window.
+
+### False positive analysis
+
+- **Permission gaps**: Newly provisioned roles/users or IaC pipelines running before policy grants are applied may
+  generate transient denials. Validate against change tickets and known automation.
+- **Exploration in non-production**: Developers testing in sandbox accounts may hit denials. Confirm the account and
+  identity context.
+
+### Response and remediation
+
+- If the attempt is unexpected, treat the identity as potentially compromised: disable or rotate the credentials in
+  `aws.cloudtrail.user_identity.access_key_id` and review the actor's recent activity.
+- Review all Bedrock and IAM activity from the same identity in the surrounding time window for successful access
+  grants, permission changes, or other persistence attempts.
+- Confirm least-privilege on `bedrock:PutResourcePolicy` and `bedrock:DeleteResourcePolicy`, and alert on both denied
+  and successful calls.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutResourcePolicy.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteResourcePolicy.html"
+]
+risk_score = 21
+rule_id = "2e99477f-6099-48a9-ae0e-68801d97079c"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: ("PutResourcePolicy" or "DeleteResourcePolicy") and
+    event.outcome: "failure" and
+    aws.cloudtrail.error_code: (
+        "AccessDenied" or
+        "AccessDeniedException"
+    )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "aws.cloudtrail.error_code",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+

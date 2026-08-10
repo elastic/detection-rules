@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/06/22"
+integration = ["o365"]
+maturity = "production"
+updated_date = "2026/06/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a one-on-one Microsoft Teams chat created by a user from a foreign tenant whose display name, member
+profile, or email local-part resembles IT help desk or Microsoft security staff. Adversaries abuse cross-tenant Teams
+external access to impersonate support personnel and socially engineer victims into granting remote access or
+disclosing credentials.
+"""
+false_positives = [
+    """
+    Legitimate external partners or managed service providers with help desk-style display names may trigger this rule.
+    Validate the sender tenant, domain, and business relationship before closing as benign.
+    """,
+]
+from = "now-9m"
+index = ["logs-o365.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "M365 Teams Rogue Help Desk Chat Created"
+note = """## Triage and analysis
+
+### Investigating M365 Teams Rogue Help Desk Chat Created
+
+Threat actors create external Microsoft 365 tenants and initiate unsolicited one-on-one Teams chats while impersonating
+IT help desk or Microsoft security personnel. These chats often precede vishing, Quick Assist abuse, or malicious link
+delivery.
+
+Review `user.email`, `user.domain`, `o365.audit.Members.DisplayName`, `o365.audit.ChatThreadId`, and
+`o365.audit.ParticipantInfo`. Correlate follow-on `MessageSent` events for `source.ip` and `source.geo`, and
+`CallParticipantDetail` events sharing the same `o365.audit.CallId` or chat thread for vishing activity.
+
+#### Possible investigation steps
+
+- Identify the external sender from `user.email`, `user.domain`, and `o365.audit.Members` and determine whether the
+  tenant or domain is known and trusted.
+- Compare `user.name` to `o365.audit.Members.DisplayName` — actors often use a lowercase mailbox alias such as
+  `helpdesk` while presenting as `Help Desk` in Teams.
+- Confirm `o365.audit.ParticipantInfo.HasForeignTenantUsers` is true and that no guest users are involved.
+- Pivot on `o365.audit.ChatThreadId` for `MessageSent` and `CallParticipantDetail` events in the same session.
+- Review `MessageSent` `source.ip` and `source.geo` for unexpected origin countries relative to the sender profile.
+- Correlate with mail-flood, MFA fatigue, or URL click alerts for the targeted user in the same time window.
+- Review whether the victim accepted the chat or responded, and hunt for follow-on remote support tool execution on
+  their endpoint.
+- Check whether the sender tenant appears newly created, trial-based, or otherwise anomalous for your environment.
+
+### False positive analysis
+
+- Approved external support vendors may use help desk-style display names. Maintain an allowlist of trusted external
+  tenants or sender domains when recurring benign matches occur.
+- The `user.email` and `user.name` impersonation clauses target external mailbox aliases such as `helpdesk@`. Prefer
+  exceptions anchored on verified tenant IDs or sender domains rather than broad name-based exclusions.
+
+### Response and remediation
+
+- Warn the targeted user not to engage and confirm whether they accepted the chat or shared credentials.
+- Block or restrict the external tenant via Teams federation policy if malicious.
+- Hunt for additional `ChatCreated` events from the same external tenant across the organization.
+- Review Teams external access settings and consider blocking trial tenants or restricting federation to an allowlist."""
+
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2026/04/18/crosstenant-helpdesk-impersonation-data-exfiltration-human-operated-intrusion-playbook/",
+    "https://www.microsoft.com/en-us/security/blog/2024/05/15/threat-actors-misusing-quick-assist-in-social-engineering-attacks-leading-to-ransomware/",
+]
+risk_score = 73
+rule_id = "e8e7b6b6-78b0-4015-97fe-c2f28468e0d4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Data Source: Microsoft 365",
+    "Data Source: Microsoft 365 Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:o365.audit and event.action:"ChatCreated" and event.provider:"MicrosoftTeams" and event.outcome:"success" and
+  o365.audit.ParticipantInfo.HasOtherGuestUsers:false and o365.audit.ParticipantInfo.HasGuestUsers:false and
+  o365.audit.ParticipantInfo.HasForeignTenantUsers:true and o365.audit.CommunicationType:"OneOnOne" and
+  (
+    o365.audit.Members:(
+      "Help Desk" or "Help Desk Team" or "Help Desk IT" or "IT Help Desk" or
+      "Microsoft Security" or "Microsoft  Security" or "Microsoft Support"
+    ) or
+    user.email:(
+      *helpdesk* or *help.desk* or *help-desk* or *help_desk* or
+      *ithelp* or *it.help* or *itsupport* or *it.support* or *it-support*
+    ) or
+    user.name:(*helpdesk* or *help-desk* or *ithelp* or *itsupport*)
+  )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user.email",
+    "user.domain",
+    "user.id",
+    "o365.audit.Members",
+    "o365.audit.Members.DisplayName",
+    "o365.audit.ChatThreadId",
+    "o365.audit.ResourceTenantId",
+    "o365.audit.CommunicationType",
+    "o365.audit.ParticipantInfo.HasForeignTenantUsers",
+    "o365.audit.ParticipantInfo.HasGuestUsers",
+    "o365.audit.ParticipantInfo.HasOtherGuestUsers",
+    "o365.audit.ParticipantInfo.ParticipatingDomains",
+    "event.action",
+    "event.provider",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.003"
+name = "Spearphishing via Service"
+reference = "https://attack.mitre.org/techniques/T1566/003/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"

@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the deletion of an AWS Lambda function. Deleting a function removes its code, configuration, versions, and
+aliases. Adversaries may delete functions to disrupt business operations and automated workflows, to destroy
+attacker-deployed backdoors and remove evidence after achieving their objective, or to inhibit incident response.
+Because function deletion is destructive and often irreversible without redeployment, deletions performed by unexpected
+principals or outside change windows should be reviewed.
+"""
+false_positives = [
+    """
+    Lambda functions are routinely deleted during application decommissioning, environment teardown, and
+    infrastructure-as-code apply/destroy cycles. Verify whether the principal in `aws.cloudtrail.user_identity.arn` and
+    the deleted function are expected for the workload, and whether the change aligns with an approved maintenance or
+    deployment window. Known deployment roles and automation can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Function Deletion"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Function Deletion
+
+Deleting an AWS Lambda function removes its code, configuration, published versions, and aliases. This can be a destructive action that disrupts serverless workloads and automation, or a cleanup step an adversary uses to remove a backdoor function and erase evidence after their objective is met.
+
+This rule detects successful `DeleteFunction` calls. Investigate whether the principal and the deleted function are expected, and whether the deletion correlates with other suspicious activity.
+
+#### Possible investigation steps
+
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to determine how the deletion was performed (console, CLI, SDK, automation).
+- Inspect `aws.cloudtrail.request_parameters` for the `functionName` and map it to its application, owner, and environment (prod, staging, dev).
+- Determine whether the deletion aligns with an approved change, decommissioning, or infrastructure-as-code destroy operation by comparing `@timestamp` against deployment and change-management records.
+- Correlate with recent activity by the same principal or access key, such as `CreateFunction`, `UpdateFunctionCode`, `AddPermission`, `CreateEventSourceMapping`, log-group deletions, or other destructive or evasive actions.
+- Verify whether multiple functions were deleted in a short window, which may indicate broad disruption rather than a single planned change.
+
+### False positive analysis
+
+- Function deletions are common during decommissioning and infrastructure-as-code apply/destroy cycles. Deletions by approved deployment roles, CI/CD pipelines, or platform automation are expected. Tune on `aws.cloudtrail.user_identity.arn`, `user_agent.original`, or known automation roles after validation.
+
+### Response and remediation
+
+- If the deletion is unauthorized, restore the function from source control or an infrastructure-as-code definition and confirm its code, configuration, and execution role match a known-good state.
+- Review CloudTrail for related destructive or evasive actions by the same actor and assess operational impact.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:DeleteFunction` to a small set of trusted roles.
+
+### Additional information
+
+- [DeleteFunction API](https://docs.aws.amazon.com/lambda/latest/api/API_DeleteFunction.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/api/API_DeleteFunction.html",
+    "https://docs.aws.amazon.com/lambda/latest/dg/logging-using-cloudtrail.html",
+]
+risk_score = 21
+rule_id = "bb3ac0e3-2c9c-4069-a26d-75ca6a6e547b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: (DeleteFunction or DeleteFunction20*)
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+

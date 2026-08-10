@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Azure AD Graph (graph.windows.net) requests originating from network sources outside the major
+public-cloud and Microsoft ASNs that legitimate first-party callers normally come from. Adversary tooling
+typically rides on commodity hosting (residential ISPs, VPS providers, anonymisers) which produces an ASN
+distribution very different from the Microsoft / AWS / GCP / Akamai / Cloudflare ranges that dominate
+legitimate AAD Graph traffic.
+"""
+false_positives = [
+    """
+    Users calling AAD Graph from corporate office networks or home ISPs with custom tooling. Tune the
+    excluded ASN organisation list to your environment.
+    """,
+    """
+    Cloud-hosted internal automation running outside the major providers (smaller cloud or colo). Add
+    exceptions on the calling user or app ID after validation.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.aadgraphactivitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AD Graph Access with Unusual User and ASN"
+note = """## Triage and analysis
+
+### Investigating Azure AD Graph Access with Unusual User and ASN
+
+Legitimate AAD Graph callers in most tenants come from a small set of ASNs: Microsoft itself, the major
+hyperscalers (AWS, GCP), and a handful of CDN / edge -networks that proxy first-party traffic. AAD Graph
+traffic originating from outside that set, especially from residential ISPs, generic VPS providers, or
+anonymising networks, is a signal worth a closer look. This rule excludes the common Microsoft / AWS /
+GCP / Akamai / Cloudflare ASN organisations and surfaces everything else.
+
+### Possible investigation steps
+
+- Identify the ASN and the geographic context.
+    - `source.as.organization.name`, `source.as.number`, `source.geo.country_name`, `source.geo.city_name`.
+- Identify the user and whether the source matches normal behavior.
+    - `user.id` and recent legitimate sign-in geo / network for the same user.
+- Cross-check user-agent and calling client for known offensive tooling fingerprints.
+    - `user_agent.original` (`aiohttp`, `AADInternals`, `curl`, etc.) and `azure.aadgraphactivitylogs.properties.app_id` (FOCI / first-party client IDs).
+- Pivot to sign-in logs (`logs-azure.signinlogs-*`) for the same user / source IP to understand how the calling token was obtained.
+- Check tenant-wide blast radius.
+    - Are other users in the tenant calling from the same ASN within the window? If so, treat as a systematic intrusion rather than a single account compromise.
+- Confirm the activity is not attributable to authorized testing (red team engagement, penetration test, internal tooling validation) before treating as malicious.
+
+### Response and remediation
+
+- Revoke refresh tokens and active sessions for the calling user.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the user if the alert is high-confidence or you need to halt further activity while investigation continues.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- Check for device registrations created by the user during or around the burst window and remove rogue devices.
+    - `GET /v1.0/users/{id}/registeredDevices` and `GET /v1.0/users/{id}/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}`.
+    - Do this BEFORE session revocation: device-bound PRTs survive `revokeSignInSessions`.
+- Apply Conditional Access requiring compliant device or trusted network for AAD Graph access for the affected user population.
+- If the ASN belongs to known abusive infrastructure, add it to a tenant block list (Named Locations / CA policy).
+"""
+references = [
+    "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
+    "https://github.com/dirkjanm/ROADtools",
+]
+risk_score = 47
+rule_id = "fb935960-d132-4bb5-853d-62f86cccc250"
+setup = """#### Azure AD Graph Activity Logs
+Requires Azure AD Graph Activity Logs ingested into `logs-azure.aadgraphactivitylogs-*` via the Elastic Azure
+integration. Enable the `AzureADGraphActivityLogs` diagnostic-settings category on Entra ID. ASN enrichment
+depends on the geoip / ASN ingest pipelines applied during integration ingestion.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure AD Graph",
+    "Data Source: Azure AD Graph Activity Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.aadgraphactivitylogs and
+    user.id:* and source.as.number:(* and
+        not (
+            3598 or 7224 or 8068 or 8069 or 8070 or
+            8071 or 8072 or 8073 or 8074 or 8075 or
+            8987 or 12076 or 14618 or 15169 or 16509 or
+            19527 or 36040 or 36384 or 36385 or 36492 or
+            39111 or 394089 or 396982
+        )
+    )
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "source.geo.city_name",
+    "user_agent.original",
+    "azure.aadgraphactivitylogs.properties.app_id",
+    "azure.aadgraphactivitylogs.properties.api_version",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.id", "source.as.number"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

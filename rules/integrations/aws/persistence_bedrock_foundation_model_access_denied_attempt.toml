@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies failed, access-denied attempts to enable account-level access to an Amazon Bedrock foundation model, either
+by granting a foundation-model entitlement, submitting a use case for model access, or creating a foundation-model
+agreement (accepting the EULA). These account-level "model access" actions unlock a foundation model so that it can
+subsequently be invoked. A principal that is repeatedly denied when attempting these actions may be a compromised or
+under-privileged identity probing for the ability to unlock expensive models (LLMjacking) or to establish a durable
+ability to invoke models. Unlike the companion rule that detects successful model-access grants, this rule surfaces the
+attempt itself, which is a high-signal indicator of credential boundary-testing even though access was not granted.
+"""
+false_positives = [
+    """
+    Access-denied errors can result from benign permission gaps: a newly created role or user whose IAM policy has not
+    yet been provisioned, automation pipelines running ahead of permission grants, or ML teams experimenting in
+    non-production accounts during onboarding. Verify that the principal, source IP, and user agent are expected before
+    escalating. Recurring denials from known onboarding or provisioning workflows can be exempted for specific users or
+    roles.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Unauthorized Foundation Model Access Attempt"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS Bedrock Unauthorized Foundation Model Access Attempt
+
+Amazon Bedrock exposes account-level "model access" controls that determine which foundation models a principal is allowed to invoke. Granting an entitlement (`PutFoundationModelEntitlement`), submitting a use case for model access (`PutUseCaseForModelAccess`), or creating a foundation-model agreement (`CreateFoundationModelAgreement`, which accepts the model EULA) all unlock a model for subsequent `InvokeModel`/`InvokeModelWithResponseStream` calls.
+
+This rule detects Bedrock control-plane calls that enable model access at the account level but were denied (`AccessDenied` / unauthorized). A denial indicates an identity attempting an action it is not permitted to perform, which is a strong signal of boundary-testing by a compromised or under-privileged principal even though no model access was granted.
+
+### Possible investigation steps
+
+- Identify the principal by reviewing `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.access_key_id`, and determine whether the identity has any legitimate reason to manage Bedrock model access. A denial for an identity that should never touch these APIs is more suspicious than one from an admin with a transient permission gap.
+- Inspect `aws.cloudtrail.error_code` and `aws.cloudtrail.error_message` to confirm the denial reason, and review `event.action` to determine which model-access action was attempted.
+- Verify the `source.ip` and `user_agent.original` of the request. An unexpected IP, geolocation, or automation user agent is suspicious.
+- Confirm the `cloud.account.id` and `cloud.region` are expected for Bedrock usage in your environment.
+- Correlate with recent activity from the same principal, such as new access key creation, IAM permission changes, or repeated denials across Bedrock/IAM APIs, which can indicate permission enumeration or escalation attempts.
+- Determine whether the identity later succeeded on the same or related actions (e.g., after acquiring new permissions), and check for subsequent `InvokeModel`/`InvokeModelWithResponseStream` activity.
+
+### False positive analysis
+
+- Newly provisioned roles/users or infrastructure-as-code pipelines running before model-access permissions are applied may generate transient denials. Validate against change-management records and known provisioning workflows.
+- ML teams exploring model adoption in sandbox accounts may hit denials; confirm the account and identity context.
+
+### Response and remediation
+
+- If the attempt is unexpected, treat the identity as potentially compromised: disable or rotate the credentials (`aws.cloudtrail.user_identity.access_key_id`) and review the actor's recent activity.
+- Review all Bedrock and IAM activity from the same identity in the surrounding window for successful access grants, permission changes, or other persistence attempts.
+- Review and constrain IAM permissions so that only approved principals can call Bedrock model-access APIs, and alert on both denied and successful calls.
+- Implement preventative guardrails (SCPs, IAM conditions) to limit which principals and models can be enabled.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutFoundationModelEntitlement.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_PutUseCaseForModelAccess.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_CreateFoundationModelAgreement.html"
+]
+risk_score = 21
+rule_id = "3d2e8c90-5be7-4a57-9de4-58be75af933f"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "bedrock.amazonaws.com"
+    and event.action: (
+        "PutFoundationModelEntitlement" or
+        "PutUseCaseForModelAccess" or
+        "CreateFoundationModelAgreement"
+    )
+    and event.outcome: "failure"
+    and aws.cloudtrail.error_code: (
+        "AccessDenied" or
+        "AccessDeniedException"
+    )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.error_code",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+]

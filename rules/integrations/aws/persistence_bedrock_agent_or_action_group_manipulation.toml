@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects modification of deployed Amazon Bedrock agents and their action groups, collaborators, or aliases via the
+Bedrock Agent control plane. Adversaries with access to an AWS account can tamper with an existing, trusted agent by
+altering its instructions (UpdateAgent), adding or changing action groups that wire the agent to Lambda functions or
+APIs (CreateAgentActionGroup, UpdateAgentActionGroup), attaching or modifying collaborators (AssociateAgentCollaborator,
+UpdateAgentCollaborator), or repointing an alias to a tampered version (CreateAgentAlias, UpdateAgentAlias). A
+PrepareAgent call is required to make a tampered configuration live. By implanting malicious behavior into an agent that
+legitimate users continue to invoke, an attacker can maintain durable access through a trusted component. Creation of
+brand-new agents (CreateAgent) is intentionally excluded as lower-signal activity.
+"""
+false_positives = [
+    """
+    Bedrock agent and action group changes are common during legitimate development, prompt tuning, and CI/CD
+    deployments. Verify whether the user identity, user agent, and/or source IP should be modifying agents in your
+    environment, and confirm a corresponding change request exists. Automation roles (IaC pipelines, deployment tooling)
+    may routinely call these APIs and can be exempted from the rule if they generate false positives.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Agent or Action Group Manipulation"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Agent or Action Group Manipulation
+
+Amazon Bedrock agents orchestrate foundation models with developer-defined instructions and action groups that connect
+the agent to Lambda functions or APIs. Because end users and applications repeatedly invoke deployed agents, an attacker
+who modifies an existing agent's instructions, action groups, collaborators, or alias can implant durable malicious
+behavior into a trusted component without deploying any new infrastructure. The `PrepareAgent` call makes a tampered
+configuration live, and updating an alias repoints traffic to the tampered version.
+
+This rule identifies changes to existing Bedrock agents while intentionally excluding `CreateAgent`, which represents
+net-new resource creation rather than tampering with established, trusted agents.
+
+#### Possible investigation steps
+
+- **Identify the actor and context**
+  - Review `aws.cloudtrail.user_identity.arn`, `aws.cloudtrail.user_identity.type`, and
+    `aws.cloudtrail.user_identity.access_key_id` to determine who made the change.
+  - Inspect `source.ip`, `user_agent.original`, and `aws.cloudtrail.user_identity.invoked_by` to establish whether the
+    change came from an interactive session, automation, or an unfamiliar location.
+  - Confirm whether a corresponding change request or deployment exists for the affected agent.
+- **Examine the change**
+  - Review `aws.cloudtrail.request_parameters` and `aws.cloudtrail.flattened.request_parameters` for the targeted agent
+    ID, action group definition, Lambda ARN, collaborator, or alias routing configuration.
+  - For `UpdateAgent`, inspect the modified instruction text for prompt-injection or data-exfiltration intent.
+  - For action group changes, validate the referenced Lambda function or API schema ownership and intent.
+  - For alias changes, confirm which agent version the alias now points to.
+- **Correlate activity**
+  - Look for a `PrepareAgent` call following configuration changes, which indicates the tampered config was made live.
+  - Search for surrounding IAM, Lambda, or STS activity from the same identity that could indicate broader compromise.
+
+### False positive analysis
+
+- **Planned development and tuning**: Legitimate developers regularly update agent instructions and action groups.
+  Validate against change tickets and known engineering activity.
+- **Automation**: IaC pipelines and deployment tooling may call these APIs on every release. Exempt known automation
+  roles if they cause recurring false positives.
+
+### Response and remediation
+
+- If the change is unauthorized, revert the agent, action group, collaborator, and alias to a known-good version and
+  re-run `PrepareAgent` to restore trusted behavior.
+- Disable or rotate the credentials identified in `aws.cloudtrail.user_identity.access_key_id` if compromise is
+  suspected.
+- Review the affected agent's action group Lambda functions and APIs for malicious code or data flows.
+- Restrict `bedrock:UpdateAgent`, `bedrock:*AgentActionGroup`, `bedrock:*AgentCollaborator`, `bedrock:*AgentAlias`, and
+  `bedrock:PrepareAgent` permissions to a small set of administrative roles.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_UpdateAgent.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_CreateAgentActionGroup.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PrepareAgent.html",
+]
+risk_score = 47
+rule_id = "a953f6d5-01cd-4f4c-94dc-207e34965cac"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail" and
+    event.provider: "bedrock.amazonaws.com" and
+    event.action: (
+        "UpdateAgent" or
+        "CreateAgentActionGroup" or
+        "UpdateAgentActionGroup" or
+        "AssociateAgentCollaborator" or
+        "UpdateAgentCollaborator" or
+        "CreateAgentAlias" or
+        "UpdateAgentAlias" or
+        "PrepareAgent"
+    ) and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.invoked_by",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

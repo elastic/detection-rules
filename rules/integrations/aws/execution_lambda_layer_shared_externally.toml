@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/06/18"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the modification of an AWS Lambda layer permission policy to grant another AWS account, an AWS Organization, or
+the public the ability to use a layer version. Lambda layers package code and dependencies that are loaded into the
+execution environment of any function that references them. Sharing a layer with an external account or with everyone can
+leak proprietary code or secrets bundled in the layer, and can serve as a supply-chain mechanism whereby downstream
+functions load attacker-influenced code. Layer sharing should be infrequent and deliberate, so newly granted external or
+public access warrants review.
+"""
+false_positives = [
+    """
+    Organizations sometimes publish shared utility layers across their own accounts or to partners intentionally. Verify
+    the layer, the granted principal in `aws.cloudtrail.request_parameters`, and the principal in
+    `aws.cloudtrail.user_identity.arn` against approved sharing practices. Known shared layers and distribution accounts
+    can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Lambda Layer Shared Externally"
+note = """## Triage and analysis
+
+### Investigating AWS Lambda Layer Shared Externally
+
+AWS Lambda layers bundle code and dependencies that are loaded into the runtime of any function referencing them. `AddLayerVersionPermission` modifies a layer version's permission policy to allow another AWS account, an organization, or the public (`principal=*`) to use it. This can expose code or secrets contained in the layer and can act as a supply-chain vector for any function that consumes the layer.
+
+This rule detects successful `AddLayerVersionPermission` calls. Public grants (`principal=*`) are the highest concern; specific cross-account grants should be validated against approved sharing.
+
+### Possible investigation steps
+
+- Inspect `aws.cloudtrail.request_parameters` for the `layerName`, version number, `action`, and the granted `principal` (a specific account id, an organization id, or `*` for public).
+- Identify the actor in `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`, and review `source.ip` and `user_agent.original` to understand how the grant was made.
+- Determine whether the layer contains sensitive code or secrets and whether external sharing was intended and approved.
+- Identify which functions reference the layer and whether the grant could influence their runtime.
+- Correlate with other activity by the same principal, such as layer publication (`PublishLayerVersion`) or function changes.
+
+### False positive analysis
+
+- Shared utility layers distributed across an organization's accounts or to partners are a legitimate pattern. Confirm the grant is approved and exclude known distribution accounts or layers on `aws.cloudtrail.user_identity.arn` or the layer name after validation.
+
+### Response and remediation
+
+- If the sharing is unauthorized, remove the layer permission (`RemoveLayerVersionPermission`) and rotate any secrets that may have been exposed in the layer.
+- Review which accounts accessed or copied the layer while the grant was in place and assess potential exposure.
+- Rotate or restrict credentials for the principal if compromise is suspected, and constrain `lambda:AddLayerVersionPermission` to a small set of trusted roles.
+
+### Additional information
+
+- [AWS Lambda layers](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html)
+- [AddLayerVersionPermission API](https://docs.aws.amazon.com/lambda/latest/api/API_AddLayerVersionPermission.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html",
+    "https://docs.aws.amazon.com/lambda/latest/api/API_AddLayerVersionPermission.html",
+]
+risk_score = 47
+rule_id = "e00c7862-43f1-48fd-aa30-950db838eded"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "lambda.amazonaws.com"
+    and event.action: AddLayerVersionPermission*
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1648"
+name = "Serverless Execution"
+reference = "https://attack.mitre.org/techniques/T1648/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+[[rule.threat.technique.subtechnique]]
+id = "T1578.005"
+name = "Modify Cloud Compute Configurations"
+reference = "https://attack.mitre.org/techniques/T1578/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+]
+

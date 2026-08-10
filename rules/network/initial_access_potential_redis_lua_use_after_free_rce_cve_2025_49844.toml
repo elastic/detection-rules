@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/06/11"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/11"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects exploitation attempts targeting CVE-2025-49844 (RediShell), a CVSS 10.0 use-after-free
+vulnerability in the Redis Lua interpreter. An authenticated attacker sends an EVAL command containing a Lua
+script that calls string.rep() to create memory pressure and collectgarbage('collect') to force garbage
+collection, exploiting a use-after-free in the Lua parser to achieve remote code execution.
+"""
+from = "now-9m"
+index = ["logs-network_traffic.redis*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Redis Lua Use-After-Free RCE Attempt (CVE-2025-49844 / RediShell)"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Redis Lua Use-After-Free RCE Attempt (CVE-2025-49844 / RediShell)
+
+CVE-2025-49844 is a use-after-free in the Redis Lua interpreter. An authenticated attacker sends an EVAL command whose Lua script calls `string.rep()` to create memory pressure, then `collectgarbage('collect')` to force GC, triggering the use-after-free to achieve RCE. This rule matches on the `network_traffic.redis.query` field populated by the network_traffic (Packetbeat) Redis protocol module.
+
+### Possible investigation steps
+
+- Identify the source IP and determine whether it is a known trusted host or an internet address. Internet-exposed Redis (port 6379) with this pattern is almost certainly malicious.
+- Confirm the destination Redis version. If unpatched (6.2.x branch: < 6.2.20; 7.2.x branch: < 7.2.11; 7.4.x branch: < 7.4.6; 8.0.x branch: < 8.0.4; 8.2.x branch: < 8.2.2), treat the alert as a high-confidence exploitation attempt.
+- Review surrounding Redis commands (AUTH, CONFIG, SLAVEOF, DEBUG) from the same source IP for evidence of post-exploitation configuration tampering.
+- Examine the destination host for evidence of reverse-shell establishment: outbound connections from the Redis process, new listening ports, or child process spawning (bash -i, nc, /dev/tcp patterns).
+- Pivot to endpoint telemetry on the Redis host for process execution anomalies at or after the alert time.
+
+### False positive analysis
+
+- `string.rep()` and `collectgarbage('collect')` are valid Lua functions individually. Their deliberate combination inside a Redis EVAL is almost exclusively associated with CVE-2025-49844 or explicit security testing.
+- Authorized penetration testing and vulnerability scanning against the CVE will trigger this rule. Validate against known scanner IPs and scheduled assessment windows before escalating.
+
+### Response and remediation
+
+- Immediately patch affected Redis instances: 6.2.x >= 6.2.20, 7.2.x >= 7.2.11, 7.4.x >= 7.4.6, 8.0.x >= 8.0.4, 8.2.x >= 8.2.2.
+- Restrict Redis network access to trusted hosts only. Redis should never be directly reachable from the internet.
+- Require authentication (`requirepass` or ACL) and rotate credentials if exploitation is suspected.
+- If Lua scripting is not required, restrict EVAL via ACLs (`ACL SETUSER <user> -eval`).
+- If successful exploitation is suspected, isolate the host, collect artifacts, and rotate all credentials stored in or accessible via Redis.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2025-49844",
+    "https://redis.io/blog/redis-security-advisory-cve-2025-49844",
+    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    "https://www.wiz.io/blog/pwn2own-berlin-2025-redis-cve-2025-49844",
+]
+risk_score = 99
+rule_id = "9a1ba0ac-aa6f-4c0d-8c80-b7f6ea2efa36"
+setup = """## Setup
+
+This rule requires the Elastic **network_traffic** integration (Packetbeat via Elastic Agent) with the Redis
+protocol module enabled. The rule matches on the `network_traffic.redis.query` field (keyword — human-readable command text) populated
+for every Redis transaction; the raw wire bytes are available in `network_traffic.redis.request` (text) if
+deeper inspection is needed.
+
+### Enabling the Redis module
+
+In the Elastic Agent `network_traffic` integration policy:
+1. Add or confirm **Redis** in the protocols list with `enabled: true`.
+2. Set **ports** to include `6379` (or the custom port your Redis instances listen on).
+3. Deploy the sensor on the Redis host, on a SPAN/mirror port, or on a gateway that receives Redis traffic.
+
+### TLS limitation — this rule only covers unencrypted Redis
+
+Redis uses a plaintext protocol by default (port 6379, no TLS). Packetbeat can inspect the full request payload
+on unencrypted connections, which is the configuration used by the vast majority of internet-exposed instances
+(8,500+ vulnerable instances identified as of October 2025 were all unencrypted).
+
+If TLS is configured for Redis (`tls-port`, `tls-cert-file`, and `tls-key-file` in redis.conf), Packetbeat cannot
+inspect the payload without TLS decryption. For TLS-protected Redis deployments, supplement this rule with
+endpoint detection (process command-line arguments, system call monitoring) on the Redis host itself.
+
+"""
+severity = "critical"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+network where data_stream.dataset == "network_traffic.redis" and
+  network_traffic.redis.query like~ "*EVAL*" and
+  network_traffic.redis.query like~ "*string.rep*" and
+  network_traffic.redis.query like~ "*collectgarbage*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.011"
+name = "Lua"
+reference = "https://attack.mitre.org/techniques/T1059/011/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

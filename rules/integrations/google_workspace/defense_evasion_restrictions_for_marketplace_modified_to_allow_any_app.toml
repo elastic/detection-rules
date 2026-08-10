@@ -2,7 +2,7 @@
 creation_date = "2022/08/25"
 integration = ["google_workspace"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/28"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["filebeat-*", "logs-google_workspace*"]
+index = ["filebeat-*", "logs-google_workspace.admin-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Google Workspace Restrictions for Marketplace Modified to Allow Any App"
@@ -37,9 +37,11 @@ Google clearly states that they are not responsible for any product on the Marke
 
 This rule identifies when the global allow-all setting is enabled for Google Workspace Marketplace applications.
 
-#### Possible investigation steps
+### Possible investigation steps
 
 - Identify the associated user accounts by reviewing `user.name` or `user.email` fields in the alert.
+- Confirm `google_workspace.admin.new_value` is `ALLOW_ALL` and review `google_workspace.admin.old_value` for the prior restriction.
+- In the admin console, verify the change under `Apps > Google Workspace Marketplace apps` (global allowlist access setting).
 - This rule relies on data from `google_workspace.admin`, thus indicating the associated user has administrative privileges to the Marketplace.
 - Search for `event.action` is `ADD_APPLICATION` to identify applications installed after these changes were made.
     - The `google_workspace.admin.application.name` field will help identify what applications were added.
@@ -50,9 +52,8 @@ This rule identifies when the global allow-all setting is enabled for Google Wor
 ### False positive analysis
 
 - Identify the user account associated with this action and assess their administrative privileges with Google Workspace Marketplace.
-- Google Workspace administrators may intentionally add an application from the marketplace based on organizational needs.
-    - Follow up with the user who added the application to ensure this was intended.
-- Verify the application identified has been assessed thoroughly by an administrator.
+- Google Workspace administrators may intentionally enable allow-all marketplace access based on organizational needs.
+    - Follow up with the administrator who made the change to ensure this was intended.
 
 ### Response and remediation
 
@@ -100,11 +101,22 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING" and event.category:(iam or configuration)
+data_stream.dataset:"google_workspace.admin" and event.action:"CHANGE_APPLICATION_SETTING"
     and google_workspace.event.type:"APPLICATION_SETTINGS" and google_workspace.admin.application.name:"Google Workspace Marketplace"
         and google_workspace.admin.setting.name:"Apps Access Setting Allowlist access"  and google_workspace.admin.new_value:"ALLOW_ALL"
 '''
 
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "user.name",
+    "user.email",
+    "event.action",
+    "google_workspace.admin.org_unit.name",
+    "google_workspace.admin.setting.name",
+    "google_workspace.admin.old_value",
+    "google_workspace.admin.new_value",
+]
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
