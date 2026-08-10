@@ -112,7 +112,7 @@ FROM logs-system.security-*, logs-windows.forwarded-*, winlogbeat-*
     preauth = VALUES(winlog.event_data.PreAuthType),
     client_ips = VALUES(winlog.event_data.IpAddress)
   BY identity
-| WHERE adcs > 0 AND chase > 0
+| WHERE adcs > 0 AND chase > 0 AND kerb_pkinit > 0
 | SORT chase DESC
 | LIMIT 50
 ```
