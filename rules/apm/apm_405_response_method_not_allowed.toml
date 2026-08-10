@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["apm"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/07/18"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-http.response.status_code:405
+http.response.status_code:405 and http.request.method:(* and not (GET or HEAD or OPTIONS or POST))
 '''
 note = """## Triage and analysis
 
@@ -66,4 +66,3 @@ Web applications often restrict HTTP methods to protect resources, allowing only
 - Review and update the application's security policies and access controls to ensure they align with best practices and prevent unauthorized method usage.
 - Conduct a vulnerability assessment of the web application to identify and remediate any potential security weaknesses that could be exploited by unauthorized HTTP methods.
 - Document the incident, including the response actions taken, and update the incident response plan to improve future detection and response capabilities for similar threats."""
-

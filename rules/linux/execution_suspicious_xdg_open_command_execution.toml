@@ -2,7 +2,7 @@
 creation_date = "2026/07/02"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/07/20"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,38 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "XDG-Open Command Execution"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating XDG-Open Command Execution
+
+This rule detects when the Linux `xdg-open` utility launches, which can indicate an attempt to hand a file or URL to the user’s default desktop application. That matters because attackers abuse this trusted helper to make malicious content appear as a normal user action and gain execution through user interaction. A common pattern is a script or archive invoking `xdg-open` on a local lure document or phishing URL so the desktop immediately opens it in the browser or document viewer.
+
+### Possible investigation steps
+
+- Trace the parent and ancestor chain to determine whether `xdg-open` was launched by a browser, email client, chat app, archive extractor, script interpreter, or remote shell, and assess whether that lineage matches normal user behavior.
+- Determine what was handed to `xdg-open` and classify it as a local file or URL; for files, examine the path, hash, download origin, and recent creation time, and for URLs, review reputation, redirects, and whether the destination is a known phishing or malware host.
+- Correlate the event with nearby activity on the same host such as browser downloads, email attachment access, extraction of compressed archives, removable media access, or files written to temporary directories to identify the original delivery mechanism.
+- Review the application that opened next and any follow-on child activity to see whether a browser, document viewer, or office suite subsequently spawned scripts, shell interpreters, network connections, or additional payloads.
+- Validate the execution context by confirming an active graphical user session and the expected user account, since `xdg-open` launched from headless, privileged, or automation contexts is more suspicious and may indicate script-driven abuse.
+
+### False positive analysis
+
+- A legitimate interactive desktop action such as a user clicking a help link, local document, or downloaded file can invoke `xdg-open`, so verify the process has an expected GUI parent, runs in the user’s normal session, and opens a path or URL consistent with recent user activity.
+- Login, onboarding, or administrative scripts may use `xdg-open` to launch an internal page or local documentation for users, so confirm the parent script or autostart entry is an approved file in a standard location and that the same command appears repeatedly for other users or hosts.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network except for approved management channels, stop the user from interacting further with the opened browser tab or document, and block the malicious URL, domain, and any downloaded file hashes across web, email, and endpoint controls.
+- Terminate the malicious process chain launched after `xdg-open`, quarantine the lure file or browser download, and remove persistence artifacts such as `~/.config/autostart` entries, user or system `systemd` units, cron jobs, shell profile modifications, and unauthorized desktop launchers.
+- Reset the affected user’s passwords and revoke active sessions, tokens, and browser-stored credentials if `xdg-open` led to a phishing page, credential prompt, or any site that could have captured authentication data.
+- Restore the host to a known-good state by reimaging or rolling back from a trusted baseline when the opened file or URL led to payload execution, unauthorized package installation, startup changes, or execution with elevated privileges.
+- Escalate to incident response immediately if the same lure URL or document appears on multiple hosts, any root-level persistence or remote access tooling is found, or there are signs of lateral movement, data staging, or exfiltration.
+- Harden the environment by patching browsers and document handlers, restricting script-driven `xdg-open` use from temporary or download directories where feasible, tightening email and web filtering for similar lures, and adding detections for `xdg-open` spawned by shell interpreters, archive extractors, chat clients, or remote shells.
+
+"""
 risk_score = 47
 rule_id = "904023d7-8307-48bc-ad49-c454dfc2fae3"
 setup = """## Setup
@@ -60,6 +92,7 @@ tags = [
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Data Source: Auditd Manager",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"

@@ -57,7 +57,10 @@ In `_config.yaml`, `bypass_optional_elastic_validation: true` enables all of the
 
 #### Package build environment variables
 
-By default, generated `related_integrations.version` values use caret ranges such as `^1.0.0`, including in local clones. Repository package-build and unit-test workflows set `DR_RELATED_INTEGRATIONS_USE_GTE=True` so stack versions `9.5.0` and newer generate `>=` ranges instead.
+On package stacks `9.5.0` and newer, generated `related_integrations.version` values use
+`>=` ranges (for example `>=1.0.0`). Older stacks continue to use caret ranges such as
+`^1.0.0`. The `related_integrations_gte` emit transform rewrites any remaining caret values
+to `>=` when emitting for ≥ 9.5 so export, view-rule, and package builds stay consistent.
 
 
 ## Using the `RuleResource` methods built on detections `_bulk_action` APIs

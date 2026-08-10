@@ -1,17 +1,19 @@
 [metadata]
 creation_date = "2025/09/30"
+deprecation_date = "2026/08/03"
+deprecated_reason = "The rule logic is flawed and did not detect the exploitation of the CVE-2025-41244 vulnerability. It is not a general purpose rule and is not recommended for use."
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
-maturity = "production"
-updated_date = "2026/03/24"
+maturity = "deprecated"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule looks for processes that behave like an attacker trying to exploit a known vulnerability in VMware tools (CVE-2025-41244).
-The vulnerable behavior involves the VMware tools service or its discovery scripts executing other programs to probe their version
-strings. An attacker can place a malicious program in a writable location (for example /tmp) and have the tools execute it with
-elevated privileges, resulting in local privilege escalation. The rule flags launches where vmtoolsd or the service discovery
-scripts start other child processes.
+This rule looks for processes that behave like an attacker trying to exploit a known vulnerability in VMware tools
+(CVE-2025-41244). The vulnerable behavior involves the VMware tools service or its discovery scripts executing other
+programs to probe their version strings. An attacker can place a malicious program in a writable location (for example
+/tmp) and have the tools execute it with elevated privileges, resulting in local privilege escalation. The rule flags
+launches where vmtoolsd or the service discovery scripts start other child processes.
 """
 from = "now-9m"
 index = [
@@ -25,8 +27,7 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential CVE-2025-41244 vmtoolsd LPE Exploitation Attempt"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -101,6 +102,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "executed", "process_started", "ProcessRollup2") and
@@ -134,9 +136,9 @@ event.action in ("exec", "exec_event", "start", "executed", "process_started", "
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1068"
 name = "Exploitation for Privilege Escalation"
@@ -146,13 +148,15 @@ reference = "https://attack.mitre.org/techniques/T1068/"
 id = "T1574"
 name = "Hijack Execution Flow"
 reference = "https://attack.mitre.org/techniques/T1574/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1574.007"
 name = "Path Interception by PATH Environment Variable"
 reference = "https://attack.mitre.org/techniques/T1574/007/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
