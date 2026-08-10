@@ -8,7 +8,7 @@ updated_date = "2026/08/07"
 author = ["Elastic"]
 description = """
 This rule identifies outbound IPSEC NAT Traversal (NAT-T) traffic to an external destination IP that was not observed
-during the previous 14 days. IPSEC is a VPN technology that allows one system to talk to another using encrypted
+during the previous 5 days. IPSEC is a VPN technology that allows one system to talk to another using encrypted
 tunnels. NAT Traversal encapsulates IPSEC ESP traffic in UDP and, once a NAT device is detected, both peers float to UDP
 port 4500 for the tunnel data channel. Newly observed external NAT-T peers may indicate unauthorized VPN use or an
 adversary tunneling command and control or exfiltration traffic over the Internet.
@@ -16,11 +16,11 @@ adversary tunneling command and control or exfiltration traffic over the Interne
 false_positives = [
     """
     Newly deployed legitimate site-to-site or client VPN gateways, or established gateways that were inactive for more
-    than 14 days, will generate an alert when first observed. Where these peers are expected, their external destination
+    than 5 days, will generate an alert when first observed. Where these peers are expected, their external destination
     IP addresses can be excluded.
     """,
 ]
-from = "now-20165m"
+from = "now-7205m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
@@ -87,7 +87,7 @@ note = """## Triage and analysis
 
 ### Investigating Newly Observed IPSEC NAT Traversal Peer
 
-IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities and bypass network defenses. This rule surfaces an external destination the first time NAT-T traffic to it is observed within a 14-day history window.
+IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities and bypass network defenses. This rule surfaces an external destination the first time NAT-T traffic to it is observed within a 5-day history window.
 
 ### Possible investigation steps
 
@@ -100,7 +100,7 @@ IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by e
 
 ### False positive analysis
 
-- A legitimate VPN gateway will alert when it is first deployed or first observed after more than 14 days of inactivity.
+- A legitimate VPN gateway will alert when it is first deployed or first observed after more than 5 days of inactivity.
 - Legitimate VPN traffic using IPSEC NAT Traversal can trigger alerts. Regularly review and whitelist known IP addresses or subnets associated with authorized VPN connections to reduce false positives.
 - Network devices or services that rely on IPSEC for secure communication may generate expected traffic on port 4500. Identify and document these devices, then create exceptions in the detection rule to prevent unnecessary alerts.
 - Automated backup or synchronization services that use IPSEC for secure data transfer might be flagged. Monitor these services and exclude their traffic patterns if they are verified as non-threatening.
