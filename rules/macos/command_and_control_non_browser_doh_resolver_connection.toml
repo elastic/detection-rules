@@ -7,101 +7,41 @@ updated_date = "2026/08/08"
 [rule]
 author = ["clivoa"]
 description = """
-Detects a non-browser process on macOS opening a direct TLS connection to a well known DNS-over-HTTPS (DoH)
-resolver IP (Cloudflare, Google, Quad9). Tools that speak DoH for C2 or tunneling, such as Sliver or dnscat2, can
-use this to avoid classic DNS monitoring, since the query never appears as DNS traffic on the wire. Checked before
-building: Elastic's `defense_evasion_dns_over_https_enabled` rule only fires when a browser gets configured to turn
-DoH on (a Windows registry change), and the `command_and_control_ml_dns_tunneling` ML job only looks at port 53 DNS
-volume, so neither one covers this.
-
-Scoped to macOS only. Validated with Elastic Defend running for real on a macOS 26 (arm64) host: a plain `curl` to
-`1.1.1.1:443` produced the exact event this rule matches, and normal Safari, Chrome, and Firefox traffic to the
-same IP did not match once the exclusion list below was rewritten around what those browsers actually look like
-on the wire.
+Identifies a non-browser process on macOS opening a direct TLS connection to the IP address of a well known
+public DNS-over-HTTPS (DoH) resolver (Cloudflare, Google, Quad9). DoH carries DNS queries inside ordinary HTTPS,
+so a process using one of these resolvers as a command and control or tunneling channel does not appear in
+port 53 DNS monitoring. The endpoint network event records the connection, not its contents, so a match
+indicates a connection to a DoH endpoint rather than confirmed DoH traffic.
 """
 false_positives = [
     """
-    Some CLI tools and daemons speak DoH directly to a public resolver IP (curl with an explicit DoH flag, some
-    VPN clients, some package managers). This rule only matches a direct connection to one of six public resolver
-    IPs, not "DoH happened somewhere", but a tool that is allowed to query one of these IPs directly will still
-    match. The browser exclusion only covers what was actually tested on this host: Safari, whose real connecting
-    process is `com.apple.WebKit.Networking` and not `Safari`; Chrome, whose real connecting process is
-    `Google Chrome Helper` (code signature `com.google.Chrome.helper`) and not `Chrome`; and Firefox, whose real
-    connecting process is named `firefox` (code signature `org.mozilla.firefox`), which does match a plain name
-    check but was moved to the same signature-based exclusion for consistency. Other Chromium-family browsers
-    (Brave, Edge, Arc) were not tested and are not excluded.
+    Non-browser system components and CLI tools (`curl`, package managers, some VPN clients) may support DoH
+    natively or resolve via a system-wide DoH-enabled resolver. Investigate whether the process and its
+    configuration are common or approved before escalation.
+    """,
+    """
+    Chromium-family browsers other than Google Chrome (Brave, Edge, Arc, Vivaldi) are not covered by the
+    exclusion and will match when they use DoH. Add their signing identifier and installation path if they are
+    deployed in your environment.
     """,
 ]
 from = "now-9m"
 index = ["logs-endpoint.events.network*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Non-Browser Process Connecting to a DNS-over-HTTPS Resolver"
-note = """## Triage and analysis
-
-### Investigating Non-Browser Process Connecting to a DNS-over-HTTPS Resolver
-
-This rule fires when a non-browser process on macOS opens a direct TLS connection (port 443) to one of six public
-DoH resolver IPs (Cloudflare `1.1.1.1`/`1.0.0.1`, Google `8.8.8.8`/`8.8.4.4`, Quad9 `9.9.9.9`/`149.112.112.112`).
-DoH hides DNS queries inside normal HTTPS, so a tool using it for C2 or tunneling will not show up in port-53 DNS
-monitoring or DNS-tunneling volume analysis.
-
-### Possible investigation steps
-
-- Check `process.name`, `process.executable`, and `process.code_signature.signing_id`. Confirm this is not a
-  known DoH-capable tool already accepted in this environment.
-- Look at `process.parent.name` and the rest of the process tree for anything unexpected, like a script
-  interpreter or an office app, rather than a normal user-run binary.
-- Look for other connections from the same process or host around the same time. A single request to a resolver
-  IP is weak signal by itself; a regular repeating pattern is stronger.
-- If JA3/JA4 fingerprinting is available, compare the client fingerprint against known C2/tunneling toolkits.
-
-### False positive analysis
-
-- The exclusion list only covers what was tested directly on a real host: Safari's connecting process
-  (`com.apple.WebKit.Networking`, which also covers any other app that embeds a WebKit view), Chrome's
-  (`Google Chrome Helper`), and Firefox's (`org.mozilla.firefox`). Other Chromium-family browsers were not
-  tested and will still alert.
-- A CLI tool or daemon deliberately configured to use one of these resolver IPs directly will match and needs a
-  case-by-case exclusion added for this environment.
-
-### Response and remediation
-
-- If the connection is confirmed unauthorized, isolate the host and check the initiating process for signs of a
-  C2 implant or tunneling tool.
-- Consider blocking direct egress to these resolver IPs at the network layer if DoH is not a business requirement
-  outside an approved, monitored path.
-- Review what else the process did around the same time, including files written and other connections.
-"""
+name = "Potential Non-Browser Process Connection to a DNS-over-HTTPS Resolver"
 references = [
     "https://attack.mitre.org/techniques/T1071/004/",
+    "https://blog.netlab.360.com/an-analysis-of-godlua-backdoor-en/",
+    "https://github.com/SpiderLabs/DoHC2",
 ]
 risk_score = 21
 rule_id = "238232f5-d181-4380-8239-bf76dcbf64d1"
 setup = """## Setup
 
-This rule requires data coming in from Elastic Defend.
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
 
-### Elastic Defend Integration Setup
-Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
-
-#### Prerequisite Requirements:
-- Fleet is required for Elastic Defend.
-- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
-
-#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
-- Go to the Kibana home page and click "Add integrations".
-- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
-- Click "Add Elastic Defend".
-- Configure the integration name and optionally add a description.
-- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
-- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
-- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
-- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
-For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
-- Click "Save and Continue".
-- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
-For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+Setup instructions: https://ela.st/install-elastic-defend
 """
 severity = "low"
 tags = [
@@ -110,7 +50,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
-    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -119,7 +58,17 @@ query = '''
 network where host.os.type == "macos" and event.action == "connection_attempted" and event.type == "start" and
   destination.port == 443 and
   cidrMatch(destination.ip, "1.1.1.1/32", "1.0.0.1/32", "8.8.8.8/32", "8.8.4.4/32", "9.9.9.9/32", "149.112.112.112/32") and
-  not process.code_signature.signing_id in ("com.apple.WebKit.Networking", "com.google.Chrome.helper", "org.mozilla.firefox")
+  not (
+    process.code_signature.trusted == true and
+    (
+      (process.code_signature.signing_id == "com.apple.WebKit.Networking" and
+       process.executable like "/System/Library/Frameworks/WebKit.framework/*/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking") or
+      (process.code_signature.signing_id == "com.google.Chrome.helper" and
+       process.executable like "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/*/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper") or
+      (process.code_signature.signing_id == "org.mozilla.firefox" and
+       process.executable == "/Applications/Firefox.app/Contents/MacOS/firefox")
+    )
+  )
 '''
 
 [[rule.threat]]
