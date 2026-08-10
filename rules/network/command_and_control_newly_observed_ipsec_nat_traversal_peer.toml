@@ -2,32 +2,29 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "pfsense", "zeek"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/08/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects outbound IPSEC NAT Traversal (NAT-T) tunnels established from an internal host to an external
-destination. IPSEC is a VPN technology that allows one system to talk to another using encrypted tunnels. NAT Traversal
-encapsulates IPSEC ESP traffic in UDP and, once a NAT device is detected, both peers float to UDP port 4500 for the
-tunnel data channel. The rule keys on this NAT-T signature, UDP traffic where both the source and destination port are
-4500, from an internal source to an external destination, rather than on any UDP traffic to port 4500. This may be
-common on your network, but this technique is also used by threat actors to tunnel command and control or exfiltration
-traffic over the Internet to avoid detection.
+This rule identifies outbound IPSEC NAT Traversal (NAT-T) traffic to an external destination IP that was not observed
+during the previous 14 days. IPSEC is a VPN technology that allows one system to talk to another using encrypted
+tunnels. NAT Traversal encapsulates IPSEC ESP traffic in UDP and, once a NAT device is detected, both peers float to UDP
+port 4500 for the tunnel data channel. Newly observed external NAT-T peers may indicate unauthorized VPN use or an
+adversary tunneling command and control or exfiltration traffic over the Internet.
 """
 false_positives = [
     """
-    Legitimate site-to-site or client VPNs that use IPSEC NAT Traversal will establish outbound tunnels on UDP port
-    4500. Where these tunnels are expected, the internal source hosts or external VPN gateway IP addresses can be
-    excluded. Requiring both the source and destination port to be 4500 already removes alerts caused by an external
-    server coincidentally replying to an ephemeral UDP source port of 4500.
+    Newly deployed legitimate site-to-site or client VPN gateways, or established gateways that were inactive for more
+    than 14 days, will generate an alert when first observed. Where these peers are expected, their external destination
+    IP addresses can be excluded.
     """,
 ]
-from = "now-9m"
-index = ["packetbeat-*", "auditbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.*", "logs-pfsense.log-*", "logs-zeek.*"]
-language = "kuery"
+from = "now-20165m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
-name = "IPSEC NAT Traversal Port Activity"
+name = "Newly Observed IPSEC NAT Traversal Peer"
 risk_score = 21
 rule_id = "a9cb3641-ff4b-4cdc-a063-b4b8d02a67c7"
 severity = "low"
@@ -42,53 +39,55 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-(data_stream.dataset: (network_traffic.flow or zeek.connection) or (event.category: (network or network_traffic))) and
-  network.transport:udp and source.port:4500 and destination.port:4500 and
-  source.ip:(
-    10.0.0.0/8 or
-    172.16.0.0/12 or
-    192.168.0.0/16
-  ) and
-  not destination.ip:(
-    10.0.0.0/8 or
-    127.0.0.0/8 or
-    169.254.0.0/16 or
-    172.16.0.0/12 or
-    192.0.0.0/24 or
-    192.0.0.0/29 or
-    192.0.0.8/32 or
-    192.0.0.9/32 or
-    192.0.0.10/32 or
-    192.0.0.170/32 or
-    192.0.0.171/32 or
-    192.0.2.0/24 or
-    192.31.196.0/24 or
-    192.52.193.0/24 or
-    192.168.0.0/16 or
-    192.88.99.0/24 or
-    224.0.0.0/4 or
-    100.64.0.0/10 or
-    192.175.48.0/24 or
-    198.18.0.0/15 or
-    198.51.100.0/24 or
-    203.0.113.0/24 or
-    240.0.0.0/4 or
-    "::1" or
-    "FE80::/10" or
-    "FF00::/8"
+FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-panw.panos*, logs-pfsense.log-*, logs-zeek.connection-* METADATA _id
+| WHERE (
+    data_stream.dataset IN ("network_traffic.flow", "zeek.connection")
+    OR MV_CONTAINS(event.category, "network")
+    OR MV_CONTAINS(event.category, "network_traffic")
   )
+  AND network.transport == "udp"
+  AND source.port == 4500
+  AND destination.port == 4500
+  AND CIDR_MATCH(source.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+  AND NOT CIDR_MATCH(
+    destination.ip,
+    "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+    "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
+    "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+    "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+    "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15",
+    "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+  )
+  AND (
+    data_stream.dataset IS NULL
+    OR data_stream.dataset != "panw.panos"
+    OR event.action IS NULL
+    OR event.action NOT IN ("flow_dropped", "flow_denied")
+  )
+| STATS
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.event_count = COUNT(*),
+    Esql.source_ip_count = COUNT_DISTINCT(source.ip),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.network_application_values = VALUES(network.application)
+  BY destination.ip
+| EVAL Esql.recent = DATE_DIFF("minute", Esql.first_seen, NOW())
+| WHERE Esql.recent <= 10
+| KEEP destination.ip, Esql.*
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating IPSEC NAT Traversal Port Activity
+### Investigating Newly Observed IPSEC NAT Traversal Peer
 
-IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities, bypassing network defenses. The detection rule identifies outbound NAT-T tunnels, UDP traffic where both the source and destination port are 4500, originating from an internal host to an external destination, flagging potential misuse for further investigation.
+IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities and bypass network defenses. This rule surfaces an external destination the first time NAT-T traffic to it is observed within a 14-day history window.
 
 ### Possible investigation steps
 
@@ -101,6 +100,7 @@ IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by e
 
 ### False positive analysis
 
+- A legitimate VPN gateway will alert when it is first deployed or first observed after more than 14 days of inactivity.
 - Legitimate VPN traffic using IPSEC NAT Traversal can trigger alerts. Regularly review and whitelist known IP addresses or subnets associated with authorized VPN connections to reduce false positives.
 - Network devices or services that rely on IPSEC for secure communication may generate expected traffic on port 4500. Identify and document these devices, then create exceptions in the detection rule to prevent unnecessary alerts.
 - Automated backup or synchronization services that use IPSEC for secure data transfer might be flagged. Monitor these services and exclude their traffic patterns if they are verified as non-threatening.
@@ -117,6 +117,14 @@ IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by e
 - Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
 - Implement enhanced monitoring and logging for UDP traffic on port 4500 to detect and respond to any future suspicious activity promptly."""
 
+
+[rule.alert_suppression]
+group_by = ["destination.ip"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
