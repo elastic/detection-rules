@@ -67,13 +67,16 @@ FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-pa
     OR event.action IS NULL
     OR event.action NOT IN ("flow_dropped", "flow_denied")
   )
+| EVAL Esql.dataset = COALESCE(data_stream.dataset, event.dataset)
 | STATS
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp),
     Esql.event_count = COUNT(*),
     Esql.source_ip_count = COUNT_DISTINCT(source.ip),
-    Esql.source_ip_values = VALUES(source.ip),
+    Esql.source_ip_values = MV_SLICE(VALUES(source.ip), 0, 100),
     Esql.event_action_values = VALUES(event.action),
+    Esql.dataset_values = VALUES(Esql.dataset),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 20)
   BY destination.ip
 | EVAL Esql.recent = DATE_DIFF("minute", Esql.first_seen, NOW())
 | WHERE Esql.recent <= 10
