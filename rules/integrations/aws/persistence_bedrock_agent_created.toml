@@ -1,0 +1,125 @@
+[metadata]
+creation_date = "2026/06/04"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies AWS Bedrock Agent creation performed directly by an IAM user or the root account. Bedrock Agents are
+autonomous AI systems that execute multi-step tasks, invoke Lambda action groups to call external APIs, and query
+knowledge bases. Adversaries with access to an AWS account can create rogue agents configured to exfiltrate data via
+action group Lambda functions, pivot to other services, or act as a persistent AI-driven command-and-control channel.
+This rule is scoped to IAMUser and Root identity types — AssumedRole sessions (which represent automated CI/CD pipelines
+and SSO-federated engineers) are excluded to avoid global false positives from legitimate deployment automation that
+varies widely across customer environments.
+"""
+false_positives = [
+    """
+    Developers or administrators creating Bedrock agents interactively using personal IAM user credentials. This is the
+    intended detection surface — validate the identity against known developer accounts and confirm the agent
+    configuration (instruction, action groups, model) matches a known project.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock Agent Created by IAM User or Root"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Agent Created by IAM User or Root
+
+AWS Bedrock Agents can autonomously perform complex tasks by combining foundation models with action groups
+(Lambda functions) and knowledge bases. A rogue agent could serve as a persistent AI-driven foothold, executing
+attacker-controlled instructions via inference requests.
+
+#### Possible investigation steps
+
+- **Identity**: `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type`. This rule fires only
+  for IAMUser or Root — both are direct human credentials, not automated pipeline roles. Confirm the user is
+  known and authorized to create agents.
+
+- **Agent configuration** in `aws.cloudtrail.request_parameters`:
+  - `agentName` — does the name match known internal projects?
+  - `foundationModel` — which model was selected? Expensive models (Claude Opus-class) indicate higher cost risk.
+  - `instruction` — the system prompt. Adversarial, minimal, or exfiltration-oriented instructions are a red flag.
+  - `actionGroupExecutor.lambda` — Lambda ARN presence means the agent can invoke external code.
+
+- **Cross-account indicators**: Lambda ARNs in action groups belonging to a different account than
+  `cloud.account.id` indicate external code execution capability.
+
+- **Follow-on activity**: Look for `PrepareAgent`, `CreateAgentAlias`, `CreateAgentActionGroup`, or
+  `AssociateAgentKnowledgeBase` from the same identity within the next hour.
+
+### False positive analysis
+- Developers creating agents interactively with personal IAM user credentials. Confirm the agent is for a known
+  project and the IAM user is authorized. Production agent deployment should use IAM roles — personal key use
+  is itself a misconfiguration worth noting.
+
+### Response and remediation
+- Delete the unauthorized agent using `DeleteAgent`.
+- Review and remove associated action groups and aliases.
+- Audit Lambda functions referenced in action group executors for malicious code.
+- Restrict `bedrock:CreateAgent` to specific deployment roles via IAM policy or SCP.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_CreateAgent.html",
+]
+risk_score = 21
+rule_id = "4e2dcdf4-f012-4b67-980b-1551b7149305"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",
+    "Data Source: Amazon Web Services",
+    "Data Source: Amazon Bedrock",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "bedrock.amazonaws.com"
+    and event.action: "CreateAgent"
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.type: ("IAMUser" or "Root")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1505"
+name = "Server Software Component"
+reference = "https://attack.mitre.org/techniques/T1505/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]

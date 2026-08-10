@@ -59,6 +59,8 @@ Using the environment variable `DR_REMOTE_ESQL_VALIDATION` will enable remote ES
 
 Using the environment variable `DR_SKIP_EMPTY_INDEX_CLEANUP` will disable the cleanup of remote testing indexes that are created as part of the remote ESQL validation. By default, these indexes are deleted after the validation is complete, or upon validation error.
 
+By default, requests made to Kibana by the CLI (and the `detection-rules-kibana` library) include a `User-Agent` header identifying the request as originating from detection-rules, along with the detection-rules and kibana-library versions (e.g. `detection-rules/<version> (DaC; kibana-lib <version>)`). This is used only to attribute requests server-side and contains no user data. Setting the environment variable `DR_USER_AGENT_DISABLED` disables this behavior, in which case no custom `User-Agent` header is sent.
+
 ## Importing rules into the repo
 
 You can import rules into the repo using the `create-rule` or `import-rules-to-repo` commands. Both of these commands will
@@ -67,6 +69,11 @@ commands is that they will strip[*](#note) additional fields[**](#note-2) and pr
 fields.
 
 Alternatively, you can manually place rule files in the directory and run tests to validate as well.
+
+> **Note:** KQL rules with an empty `query` (filter-only rules) require `CUSTOM_RULES_DIR` to be set when
+> loading or exporting; without it, validation will reject an empty query. Threat match rules with an empty
+> `threat_query` (filter-only indicator queries) are always valid and serialized correctly regardless of
+> `CUSTOM_RULES_DIR`. See the [custom rules docs](docs-dev/custom-rules-management.md) for details.
 
 <a id="note">\* Note</a>: This is currently limited to flat fields and may not apply to nested values.<br>
 <a id="note-2">\** Note</a>: Additional fields are based on the current schema at the time the command is used.
@@ -116,7 +123,9 @@ Options:
   -snv, --strip-none-values       Strip None values from the rule
   -lc, --local-creation-date      Preserve the local creation date of the rule
   -lu, --local-updated-date       Preserve the local updated date of the rule
-  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -di, --dates-import              Parse created_at and updated_at from the rule content
+  -lr, --use-existing-rule-dirs, --load-rule-loading
+                                  Enable arbitrary rule loading from the rules directories (Can be very slow!). `--load-rule-loading` is a deprecated alias kept for backwards compatibility.
   -h, --help                      Show this message and exit.
 ```
 
@@ -523,7 +532,8 @@ Options:
   -lu, --local-updated-date       Preserve the local updated date of the rule
   -cro, --custom-rules-only       Only export custom rules
   -eq, --export-query TEXT        Apply a query filter to exporting rules e.g. "alert.attributes.tags: \"test\"" to filter for rules that have the tag "test"
-  -lr, --load-rule-loading        Enable arbitrary rule loading from the rules directories (Can be very slow!)
+  -ud, -lr, --use-existing-rule-dirs, --load-rule-loading
+                                  Enable arbitrary local rule path usage from config rules directories (Can be very slow!). `--load-rule-loading` and `-lr` are deprecated aliases kept for backwards compatibility.
   -h, --help                      Show this message and exit.
 
 ```
@@ -636,6 +646,28 @@ rules. This is based on the hash of the rule in the following format:
 * sha256 hash
 
 As a result, all cases where rules are shown or converted to JSON are not just simple conversions from TOML.
+
+
+## Multi-version threat mappings (MITRE ATT&CK v18 / v19)
+
+Rules can carry more than one ATT&CK mapping at once. The `threat` field holds the baseline mapping
+(MITRE ATT&CK v18) that ships to Kibana, while an optional `threat_mappings` field holds additional
+version-tagged mappings (e.g. v19). At build time exactly one mapping is emitted as the API `threat`,
+selected automatically by stack version (≤ 9.4 → v18, ≥ 9.5 → v19) or overridden explicitly via
+the `threat_mapping_framework` / `threat_mapping_version` config keys or the
+`DR_THREAT_MAPPING_FRAMEWORK` / `DR_THREAT_MAPPING_VERSION` environment variables;
+`threat_mappings` is always stripped from the shipped artifact.
+
+Generate a target-version mapping from a rule's existing mapping with
+`dev attack convert-threat-mappings` (accuracy-first: anything not present in the mapping config is
+dropped, never guessed), and scaffold a mapping config with `dev attack scaffold-version-map`. The
+feature is DaC-aware. See [docs-dev/multi-version-threat-mappings.md](docs-dev/multi-version-threat-mappings.md)
+for the full guide.
+
+```bash
+# preview v18 -> v19 conversion without writing
+python -m detection_rules dev attack convert-threat-mappings -t 19 --dry-run
+```
 
 ## Debugging
 

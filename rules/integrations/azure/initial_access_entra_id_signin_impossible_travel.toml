@@ -1,0 +1,254 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["azure"]
+maturity = "production"
+min_stack_version = "9.4.0"
+min_stack_comments = "ES|QL FIRST and LAST aggregation functions are GA in 9.4."
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Microsoft Entra ID interactive sign-ins for the same user from two geographically separated locations
+within a 90-minute window, where the implied travel speed between the two points exceeds what is physically possible
+(>=800 km/h, faster than modern commercial airliners) and the geographic separation is at least 500 km. This pattern
+indicates either VPN/proxy use or an adversary signing in to a compromised account from a different location than the
+legitimate user. Non-interactive sign-in categories are excluded because backend token refresh activity routinely
+egresses through cloud regions unrelated to the user. This activity is often observed from AiTM phishing kits or
+successful phishing campaigns.
+"""
+false_positives = [
+    """
+    Users on VPN or proxy egress that geo-resolves through a region distant from the user's physical location. Mobile
+    clients on cellular carrier networks that peer through regional hubs may geo-resolve to a different region than the
+    user's physical location. Corporate AWS Workspaces / VDI deployments where employees interactively sign in from a
+    cloud-provider ASN.
+    """,
+]
+from = "now-90m"
+interval = "30m"
+language = "esql"
+license = "Elastic License v2"
+name = "Microsoft Entra ID Impossible Travel Sign-in"
+note = """## Triage and analysis
+
+### Investigating Microsoft Entra ID Impossible Travel Sign-in
+
+Microsoft Entra ID is accessible globally; legitimate users authenticate from one location at a time. Two successful interactive sign-ins for the same user separated by a distance and time delta implying travel faster than a commercial airliner cannot be the same human physically moving, and indicate either a VPN/proxy egress mismatch or a compromised account being accessed from a separate location by an adversary.
+
+This rule scopes to `SignInLogs` (interactive sign-ins) only; non-interactive token refresh activity is excluded because backend service calls routinely egress through cloud regions unrelated to the user.
+
+### Possible investigation steps
+
+- Identify the user (`azure.signinlogs.properties.user_principal_name`) and the geographic separation observed: `Esql.distance_km`, `Esql.travel_kmh`, `Esql.window_minutes` (bbox path over region centroids), and the set of distinct countries, regions, and cities (`Esql.source_geo_country_name_values`, `Esql.source_geo_region_name_values`, `Esql.source_geo_city_name_values`).
+- Cross-check `Esql.honest_distance_km`, `Esql.honest_travel_kmh`, `Esql.honest_window_minutes` -- these measure the real great-circle distance between the user's actual first and last sign-in events with timestamps locked to those same events. When the honest distance is small but the bbox distance is large, the user appeared in an outlier region in the middle of the window (A->B->A pattern -- typical AiTM kit replay). When both agree, it's a clean two-region case.
+- Pull all `azure.signinlogs` events with `azure.signinlogs.category: SignInLogs` for the user across the alert window. Sort by `@timestamp` and inspect each `source.ip`, `source.as.organization.name`, `source.geo.country_name`, `user_agent.original`, `azure.signinlogs.properties.device_detail.browser`, and `azure.signinlogs.properties.device_detail.operating_system`.
+- Determine which sign-ins are consistent with the user's baseline (corporate VPN egress, home ISP, mobile carrier) and which are not. Pay close attention to UA / browser / OS divergence between the two geographic clusters — adversary sessions almost always show a distinct fingerprint from the legitimate user's.
+- For each non-baseline sign-in: check the ASN. Hosting-provider ASNs (Clouvider, Host Telecom, Alibaba, cheap-VPS providers, and AWS/Azure/GCP rented compute) for interactive sign-ins are high-fidelity suspicious because legitimate end users do not typically egress through those networks.
+- Inspect `Esql.app_id_values`, `Esql.app_display_name_values`, `Esql.resource_id_values`, and `Esql.resource_display_name_values` for the apps and resources touched from each geo. Microsoft Graph, Azure PowerShell, or Azure Resource Manager access from a non-baseline geo immediately after a baseline sign-in is the post-auth recon signature.
+- Cross-reference Entra audit logs (`logs-azure.auditlogs-*`) for `add service principal`, `consent to application`, OAuth consent grants, MFA method registration, or recovery email/phone changes for the same user near the same window. Adversaries routinely add persistence immediately after authentication.
+- Confirm with the user whether the sign-ins are theirs (VPN, travel) or unexpected.
+
+### False positive analysis
+
+- Users on VPN or proxy infrastructure egressing through a distant region: validate against the user's known VPN ranges and consider excluding by ASN at the rule-exception layer (not in the base query).
+- Mobile carriers that geo-resolve outside the user's home country (cellular providers often peer through regional hubs): validate by user-agent (mobile UA fingerprint) and source ASN (carrier networks).
+- AWS Workspaces / VDI / corporate-cloud deployments where employees interactively sign in from a cloud ASN: validate the AS organization name and the tenant's cloud footprint, then except the specific ASN per-tenant rather than blanket-excluding cloud ASNs (which would also suppress adversary sign-ins from rented compute).
+
+### Response and remediation
+
+- If the pattern is unexpected, immediately revoke all refresh tokens for the user (`Revoke-AzureADUserAllRefreshToken` or `Revoke-MgUserSignInSession`) and force re-authentication, then reset the password and clear any recovery methods.
+- Investigate any OAuth consent grants minted to the user around the same window — these survive password resets if not explicitly revoked.
+- Review Entra audit logs for any newly registered authentication methods (FIDO key, authenticator app, phone number) added near the same window: these are adversary persistence vectors.
+- Review device registration events (`Add registered owner to device`, `Add registered users to device`) — adversary device joins establish persistence that survives password rotation if the underlying refresh tokens were not revoked.
+- Cross-check Azure activity logs (`logs-azure.activitylogs-*`) for any resource changes by the user from a non-baseline `source.ip` in the same window.
+"""
+references = ["https://any.run/malware-trends/tycoon/"]
+risk_score = 73
+rule_id = "bc9f5144-0ead-476e-ba6e-cef295601195"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+// successful interactive sign-ins with country + region populated.
+from logs-azure.signinlogs-*
+| where data_stream.dataset == "azure.signinlogs"
+    and event.outcome == "success"
+    and azure.signinlogs.category == "SignInLogs"
+    and azure.signinlogs.properties.user_principal_name is not null
+    and source.geo.location is not null
+    and source.geo.region_name is not null
+
+| eval Esql.source_geo_lat = st_y(source.geo.location),
+       Esql.source_geo_lon = st_x(source.geo.location)
+
+// collapse each (user, country, region) into one centroid + the actual lat/lon
+// of the first and last event in that region. FIRST/LAST lock coords to the
+// timestamp ordering so we can later build the honest event pair.
+| stats
+    Esql.region_centroid_lat = avg(Esql.source_geo_lat),
+    Esql.region_centroid_lon = avg(Esql.source_geo_lon),
+    Esql.region_first_lat    = first(Esql.source_geo_lat, @timestamp),
+    Esql.region_first_lon    = first(Esql.source_geo_lon, @timestamp),
+    Esql.region_last_lat     = last(Esql.source_geo_lat,  @timestamp),
+    Esql.region_last_lon     = last(Esql.source_geo_lon,  @timestamp),
+    Esql.region_first_seen   = min(@timestamp),
+    Esql.region_last_seen    = max(@timestamp),
+    Esql.region_event_count  = count(*),
+    Esql.region_city_values   = values(source.geo.city_name),
+    Esql.region_asn_values    = values(source.`as`.organization.name),
+    Esql.region_ip_values     = values(source.ip),
+    Esql.region_ua_values     = values(user_agent.original),
+    Esql.region_app_id_values = values(azure.signinlogs.properties.app_id),
+    Esql.region_app_display_name_values = values(azure.signinlogs.properties.app_display_name),
+    Esql.region_client_app_used_values  = values(azure.signinlogs.properties.client_app_used),
+    Esql.region_resource_id_values      = values(azure.signinlogs.properties.resource_id),
+    Esql.region_resource_display_name_values = values(azure.signinlogs.properties.resource_display_name),
+    Esql.region_browser_values = values(azure.signinlogs.properties.device_detail.browser),
+    Esql.region_os_values      = values(azure.signinlogs.properties.device_detail.operating_system)
+  by azure.signinlogs.properties.user_principal_name,
+     source.geo.country_name,
+     source.geo.region_name
+
+// roll up to the user. two parallel measurements:
+// bbox: corners over region centroids. catches A->B->A because B is still
+// a centroid in the set even when first/last events are in A.
+| stats
+    Esql.min_lat = min(Esql.region_centroid_lat),
+    Esql.max_lat = max(Esql.region_centroid_lat),
+    Esql.min_lon = min(Esql.region_centroid_lon),
+    Esql.max_lon = max(Esql.region_centroid_lon),
+    Esql.honest_first_lat = first(Esql.region_first_lat, Esql.region_first_seen),
+    Esql.honest_first_lon = first(Esql.region_first_lon, Esql.region_first_seen),
+    Esql.honest_last_lat  = last(Esql.region_last_lat,   Esql.region_last_seen),
+    Esql.honest_last_lon  = last(Esql.region_last_lon,   Esql.region_last_seen),
+    Esql.timestamp_first_seen = min(Esql.region_first_seen),
+    Esql.timestamp_last_seen  = max(Esql.region_first_seen), // first arrival in last region > tighter bbox window
+    Esql.honest_last_time     = max(Esql.region_last_seen),  // user's actual last event > honest window
+    Esql.region_count  = count_distinct(source.geo.region_name),
+    Esql.country_count = count_distinct(source.geo.country_name),
+    Esql.event_count   = sum(Esql.region_event_count),
+    Esql.source_geo_country_name_values     = values(source.geo.country_name),
+    Esql.source_geo_region_name_values      = values(source.geo.region_name),
+    Esql.source_geo_city_name_values        = values(Esql.region_city_values),
+    Esql.source_as_organization_name_values = values(Esql.region_asn_values),
+    Esql.source_ip_values                   = values(Esql.region_ip_values),
+    Esql.user_agent_original_values         = values(Esql.region_ua_values),
+    Esql.app_id_values                      = values(Esql.region_app_id_values),
+    Esql.app_display_name_values            = values(Esql.region_app_display_name_values),
+    Esql.client_app_used_values             = values(Esql.region_client_app_used_values),
+    Esql.resource_id_values                 = values(Esql.region_resource_id_values),
+    Esql.resource_display_name_values       = values(Esql.region_resource_display_name_values),
+    Esql.device_detail_browser_values       = values(Esql.region_browser_values),
+    Esql.device_detail_operating_system_values = values(Esql.region_os_values)
+  by azure.signinlogs.properties.user_principal_name
+
+// need at least 2 regions to have anything to compare. cap at 5 because regions
+// are finer-grained than countries (a traveling employee can hit 3-4 in 90m via
+// carrier hub bouncing) > bbox drift stays bounded below this.
+| where Esql.region_count >= 2 and Esql.region_count <= 5
+
+// bbox path (primary trigger): corners over region centroids.
+| eval Esql.p1 = to_geopoint(concat("POINT(", to_string(Esql.min_lon), " ", to_string(Esql.min_lat), ")")),
+       Esql.p2 = to_geopoint(concat("POINT(", to_string(Esql.max_lon), " ", to_string(Esql.max_lat), ")"))
+| eval Esql.distance_km    = round(st_distance(Esql.p1, Esql.p2) / 1000.0, 0),
+       Esql.window_minutes = date_diff("minute", Esql.timestamp_first_seen, Esql.timestamp_last_seen),
+       Esql.travel_kmh     = case(Esql.window_minutes > 0,
+                                  round(Esql.distance_km * 60.0 / Esql.window_minutes, 0), null)
+
+// honest pair (triage signal): real coords at the user's actual first and last
+// events, time locked to those same two events
+| eval Esql.honest_p1 = to_geopoint(concat("POINT(", to_string(Esql.honest_first_lon), " ", to_string(Esql.honest_first_lat), ")")),
+       Esql.honest_p2 = to_geopoint(concat("POINT(", to_string(Esql.honest_last_lon),  " ", to_string(Esql.honest_last_lat),  ")"))
+| eval Esql.honest_distance_km     = round(st_distance(Esql.honest_p1, Esql.honest_p2) / 1000.0, 0),
+       Esql.honest_window_minutes  = date_diff("minute", Esql.timestamp_first_seen, Esql.honest_last_time),
+       Esql.honest_travel_kmh      = case(Esql.honest_window_minutes > 0,
+                                          round(Esql.honest_distance_km * 60.0 / Esql.honest_window_minutes, 0), null)
+
+// 500 km separation + faster than a commercial airliner. bbox is the trigger
+// purely as triage signal.
+| where Esql.distance_km >= 500 and Esql.travel_kmh >= 800
+
+| keep azure.signinlogs.properties.user_principal_name,
+    Esql.source_geo_country_name_values,
+    Esql.source_geo_region_name_values,
+    Esql.source_geo_city_name_values,
+    Esql.source_as_organization_name_values,
+    Esql.source_ip_values,
+    Esql.user_agent_original_values,
+    Esql.app_id_values,
+    Esql.app_display_name_values,
+    Esql.client_app_used_values,
+    Esql.resource_id_values,
+    Esql.resource_display_name_values,
+    Esql.device_detail_browser_values,
+    Esql.device_detail_operating_system_values,
+    Esql.country_count,
+    Esql.region_count,
+    Esql.event_count,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen,
+    Esql.window_minutes,
+    Esql.distance_km,
+    Esql.travel_kmh,
+    Esql.honest_distance_km,
+    Esql.honest_travel_kmh,
+    Esql.honest_window_minutes
+'''
+
+[rule.alert_suppression]
+group_by = ["azure.signinlogs.properties.user_principal_name"]
+duration = {value = 30, unit = "m"}
+missing_fields_strategy = "suppress"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = ["azure.signinlogs.properties.user_principal_name"]
+

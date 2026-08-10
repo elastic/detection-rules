@@ -113,6 +113,10 @@ class BaseKqlParser(Interpreter):
         self.mapping_schema = schema
         self.star_fields = []
         self.normalize_kql_keywords = normalize_kql_keywords
+        # Stack of nested field paths currently in scope. Field references inside a
+        # `nested:{ ... }` block are relative to the enclosing nested path, so schema
+        # lookups must resolve them against the (flat) dotted mapping schema.
+        self.nested_path = []
 
         if schema:
             for field, field_type in schema.items():
@@ -172,7 +176,14 @@ class BaseKqlParser(Interpreter):
         yield field
         self.scoped_field = None
 
+    def resolve_nested_path(self, dotted_path):
+        """Resolve a nesting-relative field path to its absolute dotted path."""
+        if self.nested_path:
+            return ".".join(self.nested_path) + "." + dotted_path
+        return dotted_path
+
     def get_field_type(self, dotted_path, lark_tree=None):
+        dotted_path = self.resolve_nested_path(dotted_path)
         matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
 
         if self.mapping_schema is not None:
@@ -187,7 +198,7 @@ class BaseKqlParser(Interpreter):
             return {field_type} if field_type is not None else None
 
         if self.mapping_schema is not None:
-            regex = wildcard2regex(wildcard_dotted_path)
+            regex = wildcard2regex(self.resolve_nested_path(wildcard_dotted_path))
             field_types = set()
 
             for field, field_type in self.mapping_schema.items():
@@ -198,6 +209,21 @@ class BaseKqlParser(Interpreter):
                 raise self.error(lark_tree, "Unknown field")
 
             return field_types
+
+    @staticmethod
+    def has_unescaped_wildcard(text):
+        """Return True if the raw literal contains an unescaped `*` wildcard."""
+        # A `*` preceded by an odd number of backslashes is escaped (a literal
+        # asterisk), so it must not be treated as a wildcard.
+        escaped = False
+        for char in text:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == "*":
+                return True
+        return False
 
     @staticmethod
     def get_literal_type(literal_value):
@@ -292,25 +318,28 @@ class KqlParser(BaseKqlParser):
 
     @contextlib.contextmanager
     def nest(self, lark_tree):
-        schema = self.mapping_schema
-        dotted_path = self.visit(lark_tree)
+        # The path is relative to any enclosing nested block; `field` keeps that
+        # relative form (which is the absolute path at the top level) while the schema
+        # is validated against the resolved absolute path.
+        field = self.visit(lark_tree)
+        dotted_path = field.name
 
-        if self.get_field_type(dotted_path, lark_tree) != "nested":
+        if self.mapping_schema is not None and self.get_field_type(dotted_path, lark_tree) != "nested":
             raise self.error(lark_tree, "Expected a nested field")
 
+        # Store the relative segment; `resolve_nested_path` joins the whole stack so
+        # deeply nested field references resolve to their absolute dotted path.
+        self.nested_path.append(dotted_path)
         try:
-            self.mapping_schema = self.mapping_schema[dotted_path]
-            yield
+            yield field
         finally:
-            self.mapping_schema = schema
+            self.nested_path.pop()
 
     def nested_query(self, tree):
-        # field_tree, query_tree = tree.child_trees
-        #
-        # with self.nest(field_tree) as field:
-        #     return NestedQuery(field, self.visit(query_tree))
+        field_tree, query_tree = tree.child_trees
 
-        raise self.error(tree, "Nested queries are not yet supported")
+        with self.nest(field_tree) as field:
+            return NestedQuery(field, self.visit(query_tree))
 
     def field_value_expression(self, tree):
         field_tree, expr = tree.child_trees
@@ -375,8 +404,12 @@ class KqlParser(BaseKqlParser):
         token = tree.children[0]
         value = self.unescape_literal(token)
 
-        # Handle wildcard literals (may contain spaces) and unquoted literals with wildcards
-        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL" and "*" in token.value):
+        # Handle wildcard literals (may contain spaces) and unquoted literals with an
+        # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so
+        # it must not enter this branch (see issue #441 discussion) — otherwise the DSL
+        # would turn the literal `*` into a match-all wildcard.
+        if token.type == "WILDCARD_LITERAL" or (token.type == "UNQUOTED_LITERAL"
+                                                and self.has_unescaped_wildcard(token.value)):
             field_type = self.get_field_type(field_name)
 
             if len(token.value.replace("*", "").strip()) == 0:
@@ -386,11 +419,16 @@ class KqlParser(BaseKqlParser):
                 raise self.error(tree, "Unable to perform wildcard on field {field} of {type}",
                                  field=field_name, type=field_type)
 
-            return Wildcard(token.value)
+            # Store the unescaped Python literal (consistent with eql2kql/Value.from_python)
+            # so downstream consumers (DSL, evaluator, renderer) see a canonical value.
+            return Wildcard(value)
 
-        # For quoted strings, treat as literal values (wildcards in quotes are literal in Kibana)
-        # This bypasses Value.from_python's wildcard conversion for quoted strings
-        if token.type == "QUOTED_STRING":
+        # Quoted strings, and unquoted literals whose only `*` are escaped, are literal
+        # values (wildcards in quotes / escaped wildcards are literal in Kibana). Returning
+        # a String bypasses Value.from_python's wildcard conversion so a literal `*` does
+        # not get treated as a wildcard downstream.
+        if token.type == "QUOTED_STRING" or (token.type == "UNQUOTED_LITERAL"
+                                             and eql.utils.is_string(value) and "*" in value):
             value = self.convert_value(field_name, value, tree)
             return String(eql.utils.to_unicode(value)) if eql.utils.is_string(value) else Value.from_python(value)
 

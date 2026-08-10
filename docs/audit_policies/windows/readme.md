@@ -12,6 +12,7 @@ Audit Policies:
 * [Audit Filtering Platform Connection](audit_filtering_platform_connection.md)
 * [Audit Filtering Platform Packet Drop](audit_filtering_platform_packet_drop.md)
 * [Audit Handle Manipulation](audit_handle_manipulation.md)
+* [Audit Kerberos Service Ticket Operations](audit_kerberos_service_ticket_operations.md)
 * [Audit Logon](audit_logon.md)
 * [Audit Other Object Access Events](audit_other_object_access_events.md)
 * [Audit Policy Change](audit_policy_change.md)

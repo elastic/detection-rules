@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2025/11/14"
+updated_date = "2026/05/04"
 
 [rule]
 author = ["Elastic"]
@@ -71,6 +71,12 @@ sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
    [iam where host.os.type == "windows" and event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
 
+setup = """## Setup
+
+Audit Other Object Access Events must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-other-object-access-events
+"""
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -106,4 +112,3 @@ reference = "https://attack.mitre.org/techniques/T1053/005/"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-

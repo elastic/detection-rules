@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/20"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -24,41 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Windows Command Shell Arguments"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Windows Command Shell Arguments
-
-The Windows Command Shell (cmd.exe) is a critical component for executing commands and scripts. Adversaries exploit it to execute malicious scripts, download payloads, or manipulate system settings. The detection rule identifies unusual command-line arguments and patterns indicative of such abuse, filtering out known benign processes to minimize false positives. This helps in early detection of potential threats by monitoring for suspicious command executions.
-
-### Possible investigation steps
-
-- Review the command line arguments associated with the cmd.exe process to identify any suspicious patterns or keywords such as "curl", "regsvr32", "wscript", or "Invoke-WebRequest" that may indicate malicious activity.
-- Check the parent process of the cmd.exe execution to determine if it is a known benign process or if it is associated with potentially malicious activity, especially if the parent process is explorer.exe or other unusual executables.
-- Investigate the user account associated with the cmd.exe process to determine if the activity aligns with the user's typical behavior or if it appears anomalous.
-- Examine the network activity of the host to identify any unusual outbound connections or data transfers that may correlate with the suspicious command execution.
-- Cross-reference the alert with other security logs or alerts from tools like Sysmon, SentinelOne, or Microsoft Defender XDR to gather additional context and corroborate findings.
-- Assess the risk score and severity of the alert to prioritize the investigation and determine if immediate response actions are necessary.
-
-### False positive analysis
-
-- Processes related to Spiceworks and wmiprvse.exe can trigger false positives. Exclude these by adding exceptions for process arguments containing "%TEMP%\\\\Spiceworks\\\\*" when the parent process is wmiprvse.exe.
-- Development tools like Perl, Node.js, and NetBeans may cause false alerts. Exclude these by specifying their executable paths in the exception list.
-- Citrix Secure Access Client initiated by userinit.exe can be a false positive. Exclude this by adding an exception for process arguments containing "?:\\\\Program Files\\\\Citrix\\\\Secure Access Client\\\\nsauto.exe" with the parent process name as userinit.exe.
-- Scheduled tasks or services like PCPitstopScheduleService.exe may trigger alerts. Exclude these by adding their paths to the exception list.
-- Command-line operations involving npm or Maven commands can be benign. Exclude these by specifying command-line patterns like "\\"cmd\\" /c %NETBEANS_MAVEN_COMMAND_LINE%" in the exception list.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further spread of potential malware or unauthorized access.
-- Terminate any suspicious cmd.exe processes identified by the detection rule to halt malicious activity.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any malicious files or scripts.
-- Review and restore any altered system settings or configurations to their original state to ensure system integrity.
-- Analyze the command-line arguments and parent processes involved in the alert to understand the scope and origin of the threat, and identify any additional compromised systems.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional containment measures are necessary.
-- Implement additional monitoring and detection rules to identify similar suspicious command-line activities in the future, enhancing the organization's ability to detect and respond to such threats promptly."""
 risk_score = 73
 rule_id = "d9ffc3d6-9de9-4b29-9395-5757d0695ecf"
 severity = "high"
@@ -158,6 +123,162 @@ process where host.os.type == "windows" and event.type == "start" and
   not (process.args == "echo" and process.args == "GEQ" and process.args == "1073741824")
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Windows Command Shell Arguments
+
+#### Possible investigation steps
+
+- What abuse path and launch context does the alerting "cmd.exe" show?
+  - Focus: `process.command_line`, `process.args`, `process.executable`, `process.parent.executable`, and `process.parent.command_line`; classify reconstruction, remote retrieval, WebDAV or UNC execution, obfuscated environment setup, or handoff to "regsvr32.exe", "wscript.exe", "mshta.exe", PowerShell, or AutoIt.
+  - Implication: escalate when the command reconstructs scripts, pulls remote content, starts from a remote share, chains to proxy execution, runs from a non-native path, or has a parent conflicting with command purpose; lower suspicion only when parent-command, user-host, child, artifact, and destination evidence form one consistent current activity. Identity or recurrence alone does not clear suspicious arguments.
+
+- Did the same "cmd.exe" instance launch a second stage?
+  - Focus: child starts where `host.id` and `process.parent.entity_id` map to `process.entity_id`; review child `process.executable` and `process.command_line`. $investigate_2
+  - Hint: if `process.entity_id` is absent, use `host.id` plus `process.pid` in a tight alert-time window.
+  - Implication: escalate when the shell launches PowerShell, "regsvr32.exe", "wscript.exe", "mshta.exe", archive tools, script files, or newly staged payloads; lower suspicion when no child follows or stays inside the parent directory or command-named output path.
+
+- If endpoint file telemetry is available, did the shell reconstruct or stage executable content?
+  - Focus: file activity tied to `process.entity_id` or, if needed, `host.id` plus `process.pid`, checking `file.path`, `file.Ext.original.path`, `file.Ext.header_bytes`, and `file.Ext.windows.zone_identifier`. $investigate_4
+  - Implication: escalate when the shell writes scriptable files, rebuilds archive or PE content, renames staged payloads, or leaves internet-marked content in temp, public, or user-writable paths; lower suspicion when paths stay under the parent directory or command-named output path and no written content later executes. Missing file telemetry is unresolved, not benign.
+
+- If endpoint network telemetry is available, did the shell retrieve content or execute from WebDAV or UNC infrastructure?
+  - Focus: process-scoped DNS and connections for `host.id` and `process.entity_id`; compare DNS `dns.question.name` or `dns.resolved_ip` and connection `destination.ip` or `destination.port` with UNC, "DavWWWRoot", or URL fragments in `process.command_line`. $investigate_3
+  - Hint: if `dns.resolved_ip` is present, correlate it to `destination.ip` on the same host and process before judging the destination.
+  - Implication: escalate when the shell reaches rare public hosts, unexpected WebDAV endpoints, or shares unrelated to the parent; lower suspicion when DNS and connections match the share, URL, or host pattern visible in the command and parent. Missing network telemetry is unresolved, not benign.
+
+- If local findings remain suspicious or unresolved, does the pattern recur on the same host or user?
+  - Focus: recent alerts for the same `host.id`, emphasizing execution, delivery, persistence, or proxy-execution detections that reuse the same command-shell pattern. $investigate_0
+  - Hint: if the host is shared or quiet, compare recent alerts for the same `user.id` to test whether the user carries the pattern to other systems. $investigate_1
+  - Implication: broaden scope when the same host or user also shows delivery, shell, or persistence alerts; keep local when related alerts are clean and telemetry binds one parent-command, child, artifact, destination, and user-host tuple.
+
+- What disposition does the parent-command, child, artifact, destination, and user-host tuple support?
+  - Escalate for staged execution, remote retrieval, script reconstruction, proxy execution, or broader compromise; close only when alert-local command, parent, child, artifact, destination, user-host, and related-alert evidence bind one exact benign tuple with no contradictions. Preserve evidence and escalate on conflicts or incomplete visibility.
+
+### False positive analysis
+
+- Packaging, build, installer, or developer activity can use "cmd.exe" to reconstruct files, call package managers, or hand off to helper utilities. Confirm `process.parent.executable`, `process.parent.command_line`, `process.command_line`, `user.id`, and `host.id` align with the same current parent path, helper command, package cache, build output, or database-export output, and that recovered child, file, or destination evidence does not conflict. Build records or change tickets are corroboration only.
+- Remote-support or software-distribution activity can reference UNC paths or "DavWWWRoot". When network or file telemetry exists, confirm `process.command_line`, `process.parent.executable`, `host.id`, and any recovered `dns.question.name`, `destination.ip`, or `file.path` stay inside one current distribution share, vendor endpoint, support-client cache, or deployment path and no unexpected child appears. Missing file or network telemetry is unresolved, not benign. Support records or inventories are corroboration only.
+- Before creating an exception, validate that the same `process.parent.executable`, `process.command_line`, `user.id`, `host.id`, and recovered artifact or destination anchors recur across prior alerts from this rule. Avoid exceptions on "cmd.exe" alone, one argument token, one destination, or parent name.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the parent command, alerting command, user-host scope, and recovered artifact or destination evidence. Create an exception only after the same tuple is stable across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert, Timeline records, full command lines, process tree, recovered child details, staged files, and DNS or connection evidence before destructive action. Apply reversible containment first, such as temporary destination restrictions or heightened monitoring on `host.id` and `user.id`; isolate only when follow-on execution, staged payloads, or remote retrieval justifies disruption.
+- If confirmed malicious, isolate the host when identity, lineage, artifact, or destination evidence establishes unauthorized execution, then block confirmed malicious domains, destinations, or hashes. Record malicious shell and child identifiers before termination, scope related hosts and users before artifact removal, then remove only the scripts, archives, rebuilt payloads, persistence artifacts, or launcher components identified during the investigation.
+- Post-incident hardening: retain process, file, and network telemetry. If browser, explorer, script-host, or AutoIt launch paths were involved, review controls for user-driven shell launches; if WebDAV, UNC, or URL retrieval was involved, review remote-share and WebDAV execution controls. Note adjacent "mshta.exe", "wscript.exe", "regsvr32.exe", PowerShell, AutoIt, and explorer-driven clickfix-style variants for future triage.
+"""
+
+setup = """## Setup
+
+This rule requires telemetry from one of the configured source integrations to be enabled and ingested.
+
+### Supported data sources
+
+This rule can use the following data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.parent.args",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the same cmd.exe instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network activity for the alerting cmd.exe instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File activity for the alerting cmd.exe instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

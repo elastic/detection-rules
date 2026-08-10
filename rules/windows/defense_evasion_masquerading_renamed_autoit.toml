@@ -2,39 +2,13 @@
 creation_date = "2020/09/01"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies renamed Automation Script Interpreter process. Malware written as an AutoIt/AutoHotKey script tends to rename
-the main executable to avoid detection.
+Identifies renamed automation script interpreter processes, including AutoIt, AutoHotkey, and KIX32. Malware operators
+may rename these executables to avoid detection.
 """
 from = "now-9m"
 index = [
@@ -48,56 +22,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Renamed Automation Script Interpreter"
-note = """## Triage and analysis
-
-### Investigating Renamed Automation Script Interpreter
-
-The OriginalFileName attribute of a PE (Portable Executable) file is a metadata field that contains the original name of the executable file when compiled or linked. By using this attribute, analysts can identify renamed instances that attackers can use with the intent of evading detections, application allowlists, and other security protections.
-
-AutoIt is a scripting language and tool for automating tasks on Microsoft Windows operating systems. Due to its capabilities, malicious threat actors can abuse it to create malicious scripts and distribute malware.
-
-This rule checks for renamed instances of AutoIt, which can indicate an attempt of evading detections, application allowlists, and other security protections.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 risk_score = 73
 rule_id = "2e1e835d-01e5-48ca-b9fc-7a61f7f11902"
 severity = "high"
@@ -125,6 +49,161 @@ process where host.os.type == "windows" and event.type == "start" and
    )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Renamed Automation Script Interpreter
+#### Possible investigation steps
+
+- Which interpreter family and masquerade path did the alert capture?
+  - Why: the PE original-name/runtime-name mismatch is decisive, and AutoIt, AutoHotkey, and KIX32 have different normal baselines.
+  - Focus: `process.pe.original_file_name`, `process.name`, `process.executable`, and `process.command_line`.
+  - Implication: escalate when AutoIt, AutoHotkey, or KIX32 identity is hidden by a misleading name, recent rename, or user-writable path, especially KIX32 under Users or ProgramData; lower suspicion when family, path, and command line fit one stable packaged automation or logon-script bundle.
+  - Hint: variants may strip PE original-name metadata or run under the expected interpreter name; if path or command line still points to AutoIt, AutoHotkey, or KIX content, keep reviewing lineage and artifacts.
+
+- Is the binary identity consistent with a recognized interpreter package or a repackaged copy?
+  - Focus: `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.executable`.
+  - Implication: escalate when signer, hash, or path is unknown, untrusted, or inconsistent with AutoIt, AutoHotkey, or KIX32 packaging; lower suspicion only when identity, path, parent, and command line fit one recognized package. Trusted identity does not clear suspicious use.
+
+- Does the launch context explain why the interpreter ran under this name?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.command_line`, `user.id`, and `host.id`.
+  - Implication: escalate when Office, browsers, archive tools, LOLBins, or unusual admin or service contexts launch it, or when arguments point to hidden A3X, AHK, KIX, or payload execution; lower suspicion when parent, user, host, and arguments match recurring deployment, logon-script, or packaging workflow.
+
+- Did the same process stage or touch script or payload artifacts?
+  - Focus: file events from `host.id` plus `process.entity_id`, and script or payload paths in `process.command_line`. $investigate_0
+  - Implication: escalate when the process writes, extracts, renames, or runs scriptable or executable content from temp, downloads, user-profile, or share-backed paths, or with internet provenance; lower suspicion when artifacts stay inside one recognized package tree. Missing file telemetry is unresolved, not benign.
+  - Hint: if `process.entity_id` is absent, recover with `host.id`, `process.pid`, and the tight alert window.
+
+- Did the renamed interpreter produce follow-on execution, persistence, or egress?
+  - Focus: child process events from `process.entity_id`; same-process registry or network activity. $investigate_1 $investigate_2
+  - Implication: escalate when it spawns shells or script engines, writes autorun or service state, or contacts rare external destinations; lower suspicion when follow-on activity stays inside the same bounded automation task. Missing registry or network telemetry is unresolved, not benign.
+  - Hint: if `process.entity_id` is absent, recover with `host.id`, `process.pid`, and the tight alert window.
+
+- If local findings remain suspicious or unresolved, do related alerts show broader compromise?
+  - Focus: related alerts for `user.id`, especially masquerading, script-interpreter, persistence, or credential-access activity. $investigate_3
+  - Hint: compare `host.id` alerts for the same interpreter path, renamed binaries, or adjacent defense-evasion activity. $investigate_4
+  - Implication: broaden scope when either view shows related masquerading, staging, persistence, or post-compromise behavior; keep local when related alerts are absent and all local evidence fits one stable automation workflow.
+
+- Escalate on PE/name mismatch plus suspicious lineage, staging, persistence, egress, or related alerts; close only when path, parent, user, host, artifacts, and activity bind to one stable benign workflow with no contradictions; preserve artifacts and escalate when evidence is mixed or visibility is incomplete.
+
+### False positive analysis
+
+- Software packaging, endpoint automation, KIX logon-script deployment, or authorized testing can rename AutoIt, AutoHotkey, or KIX32 interpreters inside a stable bundle. Confirm `process.pe.original_file_name`, `process.hash.sha256` or `process.code_signature.subject_name`, `process.executable`, `process.parent.executable`, `process.command_line`, `user.id`, and `host.id` align with one workflow; recovered artifacts or destinations should stay bounded to it, and missing telemetry is not benign evidence.
+- Before creating an exception, validate the workflow locally and check recurrence for stable anchors: `process.executable`, `process.hash.sha256` or `process.code_signature.subject_name`, `process.parent.executable`, `user.id`, and `host.id`. Build the minimum pattern and avoid exceptions on `process.pe.original_file_name`, `process.name`, or `host.id` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the exact workflow evidence: interpreter family, executable path, hash or signer, parent executable, user, host, and artifact scope. Create an exception only after that same pattern recurs across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the process event, executable copy or hash, parent and child lineage, referenced scripts or payloads, and any recovered registry or destination indicators before containment or cleanup. Apply reversible containment tied to the finding, such as temporary destination restrictions, heightened monitoring, or host isolation only when payload delivery, persistence, or egress risk is meaningful.
+- If confirmed malicious, preserve the renamed interpreter `process.entity_id`, command line, executable hash or signer, child processes, and recovered artifacts first. Then isolate the affected host when identity, lineage, artifact, persistence, or egress evidence shows active compromise, weighing host criticality before isolation.
+- Before eradication, scope related users and hosts for the same executable path, parent, script or payload paths, persistence keys, and destinations so cleanup does not destroy evidence needed to understand spread.
+- Quarantine the renamed interpreter, associated scripts, and extracted support files identified during triage; remove only persistence or launcher artifacts confirmed in this case; block confirmed malicious hashes or destinations tied to the same activity.
+- After containment, retain the confirmed workflow or malicious artifact set for future triage and avoid suppressing the broader AutoIt, AutoHotkey, or KIX32 interpreter families.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.hash.sha256",
+    "process.code_signature.trusted",
+    "process.code_signature.subject_name",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File activity by the renamed interpreter"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process activity from the renamed interpreter"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Registry or network activity by the renamed interpreter"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

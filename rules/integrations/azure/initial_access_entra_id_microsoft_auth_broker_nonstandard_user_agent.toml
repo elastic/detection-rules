@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2026/05/27"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Microsoft Entra ID sign-in activity where the Microsoft Authentication Broker authenticates is using a user agent 
+that is not consistent with common browser, mobile, or Windows platform authentication clients. Adversary-in-the-middle and OAuth phishing
+tooling often presents scripted or relayed user agents (for example Node.js, Python, or generic HTTP libraries) while
+still targeting first-party resources through the broker.
+"""
+false_positives = [
+    """
+    Legitimate automation, SDKs, or custom applications that obtain tokens through the Microsoft Authentication Broker
+    against Graph, Azure AD, or Device Registration Service may use non-browser user agents. Baseline approved
+    service principals, managed identities, and developer tooling before tuning exclusions for known automation
+    patterns.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Microsoft Authentication Broker Sign-In with Non-Standard User Agent"
+note = """## Triage and analysis
+
+### Investigating Entra ID Microsoft Authentication Broker Sign-In with Non-Standard User Agent
+
+Review `azure.signinlogs.properties.user_principal_name`, `user_agent.original`,
+`azure.signinlogs.properties.resource_display_name`, `azure.signinlogs.properties.session_id`, `source.ip`, and
+`source.as.organization.name`.
+
+Confirm whether the user or application intentionally used a non-browser client against the requested resource.
+
+### Possible investigation steps
+
+- Inspect `user_agent.original` for automation libraries (for example `node`, `axios`, `python-requests`, `curl`).
+- Correlate `azure.signinlogs.properties.session_id` with other sign-ins, device registration audit events, or Graph
+  activity in the same time window.
+- Review conditional access outcomes and identity protection signals for the user.
+- Compare `source.ip` and ASN against expected VPN, MDM, and developer egress.
+
+### False positive analysis
+
+- Microsoft platform and mobile clients using Mozilla-, Dalvik-, CFNetwork-, or Windows-AzureAD-Authentication-Provider-
+  style user agents are excluded by design.
+- First-party CLI tools and test harnesses that legitimately broker tokens may still match if they use uncommon user
+  agent strings.
+
+### Response and remediation
+
+- If malicious, revoke refresh tokens for the user, review newly registered devices, and reset credentials per policy.
+- Escalate when paired with suspicious ASN sign-ins, multi-IP OAuth flows, or follow-on Graph data access.
+"""
+references = [
+    "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+    "https://any.run/malware-trends/tycoon/",
+]
+risk_score = 73
+rule_id = "c22f89d9-b674-4650-8454-02242c8b35eb"
+severity = "high"
+setup = """
+Microsoft Entra ID sign-in logs (`logs-azure.signinlogs-*`) must populate `user_agent.original`,
+`azure.signinlogs.properties.app_display_name`, and `azure.signinlogs.properties.resource_display_name`.
+"""
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"azure.signinlogs" and event.action:"Sign-in activity" and event.outcome:(success or Success) and 
+(azure.signinlogs.properties.app_display_name:"Microsoft Authentication Broker" or azure.signinlogs.properties.app_id:"29d9ed98-a469-4536-ade2-f981bc1d605e") and
+user_agent.original:(* and not (Mozilla* or Dalvik* or *CFNetwork* or Windows-AzureAD-Authentication-Provider* or Java*ThinkPad*)) and
+azure.signinlogs.properties.resource_display_name:*
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "event.outcome",
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.session_id",
+    "azure.signinlogs.properties.app_display_name",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.resource_display_name",
+    "azure.signinlogs.properties.resource_id",
+    "azure.signinlogs.properties.authentication_protocol",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1566"
+name = "Phishing"
+reference = "https://attack.mitre.org/techniques/T1566/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1566.002"
+name = "Spearphishing Link"
+reference = "https://attack.mitre.org/techniques/T1566/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1539"
+name = "Steal Web Session Cookie"
+reference = "https://attack.mitre.org/techniques/T1539/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"

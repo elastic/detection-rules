@@ -2,39 +2,13 @@
 creation_date = "2020/11/23"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies a privilege escalation attempt via named pipe impersonation. An adversary may abuse this technique by
-utilizing a framework such Metasploit's meterpreter getsystem command.
+utilizing a framework such as Metasploit's meterpreter getsystem command.
 """
 from = "now-9m"
 index = [
@@ -51,56 +25,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Privilege Escalation via Named Pipe Impersonation"
-note = """## Triage and analysis
-
-### Investigating Privilege Escalation via Named Pipe Impersonation
-
-A named pipe is a type of inter-process communication (IPC) mechanism used in operating systems like Windows, which allows two or more processes to communicate with each other by sending and receiving data through a well-known point.
-
-Attackers can abuse named pipes to elevate their privileges by impersonating the security context in which they execute code. Metasploit, for example, creates a service and a random pipe, and then uses the service to connect to the pipe and impersonate the service security context, which is SYSTEM.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Inspect the host for suspicious or abnormal behavior in the alert timeframe.
-- Investigate any abnormal behavior by the subject process such as network connections, registry or file modifications, and any spawned child processes.
-- Examine the host for derived artifacts that indicate suspicious activities:
-  - If any suspicious processes were found, examine the process executable using a private sandboxed analysis system.
-  - Observe and collect information about the following activities in both the sandbox and the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-  - Retrieve the files' SHA-256 hash values using the PowerShell `Get-FileHash` cmdlet and search for the existence and reputation of the hashes in resources like VirusTotal, Hybrid-Analysis, CISCO Talos, Any.run, etc.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved host to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "https://www.ired.team/offensive-security/privilege-escalation/windows-namedpipes-privilege-escalation",
     "https://www.cobaltstrike.com/blog/what-happens-when-i-type-getsystem/",
@@ -132,6 +56,154 @@ process where host.os.type == "windows" and event.type == "start" and
  process.args : "echo" and process.args : ">" and process.args : "\\\\.\\pipe\\*"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Privilege Escalation via Named Pipe Impersonation
+
+#### Possible investigation steps
+
+- Did the alert process act as a named-pipe client for a SYSTEM-token handoff?
+  - Why: GetSystem-style abuse pairs a service-context client with a named-pipe server so the server can impersonate the client token; the shell pipe-write is the client-side marker.
+  - Focus: `process.name`, `process.pe.original_file_name`, `process.command_line`, `host.id`, and `user.id`.
+  - Implication: escalate when cmd or PowerShell sends a short marker into a named pipe before token impersonation; lower suspicion only when the same pipe name, marker, host, and user match a stable validation pattern.
+- Does the parent and token context fit a service-driven impersonation attempt?
+  - Focus: `process.parent.name`, `process.parent.command_line`, broader process lineage when needed, `process.Ext.token.integrity_level_name`, and `process.Ext.token.elevation_level`. $investigate_0
+  - Implication: escalate when services.exe, service-creation command lines, or an unexplained launcher starts the pipe write under high or SYSTEM context; absent or ambiguous token context cannot close the alert without matching identity and follow-on evidence.
+- Is the launching binary the expected Windows shell or a masqueraded copy?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when the shell runs from a user-writable or deceptive path, has an untrusted signer, or mismatches its original file name; signed System32 cmd or PowerShell confirms identity only and does not clear the pipe-write behavior.
+- Did the pipe writer launch or enable follow-on SYSTEM activity?
+  - Focus: child process events from `process.entity_id`; review `process.name`, `process.command_line`, and `process.Ext.token.integrity_level_name`. $investigate_1
+  - Implication: escalate when a shell, tool, service helper, or credential-access process follows under high or SYSTEM integrity; absence of child process evidence lowers only follow-on confidence when pipe syntax or service parentage remains suspicious.
+  - Hint: if `process.entity_id` is unavailable, use `host.id` plus `process.pid` in a tight alert-time window and treat matches as weaker.
+- Is this isolated, or part of repeated named-pipe impersonation behavior?
+  - Focus: process starts sharing `host.id` or `user.id`, marker behavior in `process.command_line`, and either `process.parent.name` or `process.hash.sha256`.
+    - $investigate_2
+    - $investigate_3
+  - Implication: escalate scope when repeats cross hosts, users, hashes, or parent chains; keep response local only when all repeats stay inside the same process-evidenced validation pattern.
+  - Range: start with the alert window; expand only if local evidence is suspicious or unresolved.
+- Escalate on suspicious pipe-write syntax, parent/token context, binary identity, follow-on process activity, or host/user scope; close only when all evidence matches a stable validation pattern with no contradictions; preserve artifacts and escalate when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Routine administration should not require shell echo redirection into a named pipe for privilege escalation. Controlled security validation is the narrow benign path; process evidence must prove the exact pattern:
+  - **Identity**: `process.executable`, `process.hash.sha256`, signer, and `process.parent.command_line` match the validation toolchain.
+  - **Pipe syntax**: `process.command_line` shows the expected pipe name, echo value, and wrapper syntax for that test.
+  - **Scope**: `host.id` and `user.id` stay inside the known test target and operator scope.
+  - **Follow-on**: child process starts do not show unexpected high or SYSTEM activity outside the test plan.
+  - If telemetry cannot prove the test scope or toolchain, outside confirmation can corroborate the case but cannot override contradictory process evidence; otherwise preserve and escalate.
+- Build exceptions only from the minimum confirmed validation pattern: stable `process.hash.sha256`, `process.executable`, `process.parent.command_line`, constrained `host.id` or `user.id`, and the specific pipe-write shape in `process.command_line`. Avoid exceptions on `process.name`, cmd or PowerShell alone, or a pipe name alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse any temporary containment and document the evidence that confirmed the validation workflow: pipe syntax, parent/token context, binary identity, `host.id`, `user.id`, and lack of unexpected follow-on SYSTEM activity.
+- If suspicious but unconfirmed:
+  - Preserve the alert, process tree, command lines, parent and child process records, `process.entity_id`, `process.pid`, hashes, and the named-pipe string before termination, cleanup, or credential actions.
+  - Apply reversible containment tied to the findings, such as isolating the endpoint after weighing host criticality or restricting the affected account/session while investigation continues.
+  - Do not terminate cmd, PowerShell, or child processes until the process identifiers, command lines, and any volatile state needed by responders are captured.
+- If confirmed malicious:
+  - Isolate the endpoint after preservation when parent/token, identity, or follow-on process evidence confirms unauthorized SYSTEM activity.
+  - Suspend or terminate the pipe writer and follow-on processes only after recording their entity IDs, PIDs, command lines, hashes, and parent relationships.
+  - Reset credentials or revoke sessions for affected users only when process/session evidence indicates account misuse or credential exposure.
+  - Eradicate only malicious tools, service definitions, binaries, scripts, and configuration changes confirmed during the investigation, then remediate the entry vector that allowed the named-pipe impersonation attempt.
+- Post-incident hardening:
+  - Restrict local admin and service-creation rights that allow untrusted tooling to create SYSTEM service clients.
+  - Retain command-line, parent/child process, and token-integrity telemetry because those fields distinguish testing from GetSystem abuse.
+  - Document the confirmed benign validation pattern or malicious artifact set so future analysts can separate repeat testing from repeat abuse.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.hash.sha256",
+    "process.Ext.token.integrity_level_name",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Process starts on the host near the pipe write"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process starts from the pipe writer"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

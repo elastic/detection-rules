@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/04/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful IAM API calls that create a new customer managed policy version or set the default version for an
+existing customer managed policy. Attackers with `iam:CreatePolicyVersion` or `iam:SetDefaultPolicyVersion` on a
+privileged policy can introduce a permissive policy document and activate it, escalating effective permissions without
+attaching a new policy. These APIs are high impact when the target policy is attached to powerful roles or users.
+"""
+false_positives = [
+    """
+    Infrastructure-as-code, CI/CD, and IAM administrators routinely publish new policy versions or roll back defaults.
+    Validate the policy ARN, change tickets, and whether the policy document broadens permissions. Exclude automation
+    roles or pipelines after review.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Customer Managed Policy Version Created or Default Version Set"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Customer Managed Policy Version Created or Default Version Set
+
+`CreatePolicyVersion` uploads a new immutable version of a customer managed policy. `SetDefaultPolicyVersion` switches
+which version principals evaluate—immediately changing effective access if the policy is already attached.
+
+#### Possible investigation steps
+
+- From `aws.cloudtrail.request_parameters`, extract `policyArn`, `policyDocument` (if present), and `setAsDefault`.
+- Map the policy ARN to attached users, groups, and roles; prioritize policies attached to admin or break-glass roles.
+- Compare the new or selected version to prior versions in IAM or version history for added `Action`/`Resource` wildcards.
+- Review `aws.cloudtrail.user_identity.arn`, `source.ip`, and `user_agent.original` for interactive vs automation context.
+- Correlate with `AttachUserPolicy`, `AttachRolePolicy`, or `CreatePolicyVersion` spikes from the same principal.
+
+### False positive analysis
+
+- Planned policy releases and rollbacks are expected in mature shops; baseline known publishers.
+
+### Response and remediation
+
+- If malicious: set default to a known-good version, delete bad versions where supported, detach policy if necessary, and
+  revoke excess `iam:*` on the actor.
+
+### Additional information
+
+- [CreatePolicyVersion](https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreatePolicyVersion.html)
+- [SetDefaultPolicyVersion](https://docs.aws.amazon.com/IAM/latest/APIReference/API_SetDefaultPolicyVersion.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreatePolicyVersion.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_SetDefaultPolicyVersion.html",
+    "https://rhinosecuritylabs.com/aws/aws-privilege-escalation-methods-mitigation/",
+]
+risk_score = 47
+rule_id = "d4e8f0a1-2b3c-4d5e-a6f7-8b9c0d1e2f3a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: ("CreatePolicyVersion" or "SetDefaultPolicyVersion")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService" 
+    and not aws.cloudtrail.user_identity.arn:arn*/terraform 
+    and not source.as.organization.name:(Amazon* or AMAZON* or "Google LLC" or "MongoDB, Inc.")
+    and not source.address: ( "cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

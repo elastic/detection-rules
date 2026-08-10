@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/05/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the successful deployment of a high-risk Azure Virtual Machine extension by an interactive user principal.
+Attackers with privileged Azure RBAC roles can abuse VM extensions such as VMAccess, CustomScriptExtension, and
+RunCommand to execute arbitrary code, create backdoor accounts, harvest credentials, and establish persistence on
+Azure-hosted virtual machines without requiring direct network access to the VM.
+"""
+false_positives = [
+    """
+    Legitimate administrators and automation may deploy Custom Script, Run Command, DSC, or monitoring extensions during
+    provisioning, patching, or guest configuration. Baseline expected principals, VMs, and extension types before
+    tuning exclusions.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure VM Extension Deployment by User"
+note = """## Triage and analysis
+
+### Investigating Azure VM Extension Deployment by User
+
+This rule flags successful `MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE` operations performed by a user principal
+where the extension resource ID matches high-risk extension families (VMAccess, Custom Script, Run Command, DSC,
+Microsoft Monitoring Agent).
+
+### Triage checklist
+
+- Is the caller UPN a known admin or automation account?
+- Is the source IP or ASN consistent with corporate infrastructure or a known VPN?
+- Was this extension deployment preceded by a Run Command invocation on the same VM?
+- Did the extension deployment coincide with new local account creation on the endpoint?
+- Check `azure.activitylogs.identity.claims.authnmethodsreferences` — was MFA present?
+- Correlate with endpoint telemetry: process events parented by `WaAppAgent.exe` or `walinuxagent` within 120 seconds of
+  the extension write timestamp on the same host.
+
+### Possible investigation steps
+
+- Review `azure.activitylogs.identity.authorization.evidence.principal_id` and Entra sign-in logs for the caller.
+- Examine `azure.resource.id` and `azure.resource.name` to identify the VM and extension type deployed.
+- Pivot on the VM for `MICROSOFT.COMPUTE/VIRTUALMACHINES/RUNCOMMAND/ACTION` and endpoint Run Command or `waagent` activity.
+- Review role assignments for the principal on the subscription or resource group.
+
+### Response and remediation
+
+- If unauthorized, remove the extension, rotate credentials, and review RBAC on the affected VM and scope.
+- Isolate the VM and collect endpoint and activity log artifacts per incident procedures.
+"""
+references = ["https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/overview"]
+risk_score = 47
+rule_id = "e842d39d-ead1-48c6-97f1-6b055476c2f3"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:azure.activitylogs and
+azure.activitylogs.operation_name:"MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" and
+azure.activitylogs.identity.authorization.evidence.principal_type:User and
+event.outcome:(success or Success) and
+azure.resource.id:(
+    *VMACCESSAGENT* or
+    *CUSTOMSCRIPTEXTENSION* or
+    *RUNCOMMANDWINDOWS* or
+    *RUNCOMMANDLINUX* or
+    */DSC/* or
+    *MICROSOFTMONITORINGAGENT*
+)
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.outcome",
+    "azure.activitylogs.operation_name",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.activitylogs.identity.authorization.evidence.principal_type",
+    "azure.activitylogs.identity.claims_initiated_by_user.name",
+    "azure.resource.id",
+    "azure.resource.name",
+    "source.ip",
+    "source.geo.country_name",
+    "source.as.organization.name",
+    "azure.subscription_id",
+    "azure.activitylogs.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1578.002"
+name = "Create Cloud Instance"
+reference = "https://attack.mitre.org/techniques/T1578/002/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

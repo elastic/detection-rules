@@ -2,7 +2,7 @@
 creation_date = "2025/01/16"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/17"
 
 [rule]
 author = ["Elastic"]
@@ -103,7 +103,12 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "process_start
 ) and
 not (
   ?process.working_directory in ("/opt/msp-agent", "/opt/CyberCNSAgent") or
-  ?process.parent.executable like ("/usr/local/cpanel/3rdparty/perl/*/bin/perl", "/usr/share/vicarius/topiad")
+  ?process.parent.executable like ("/usr/local/cpanel/3rdparty/perl/*/bin/perl", "/usr/share/vicarius/topiad") or
+  ?process.entry_leader.executable in ("/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent", "/sf/edr/agent/bin/edr_monitor") or
+  (
+    ?process.parent.args == "/usr/lib/venv-salt-minion/bin/python.original" and
+    ?process.parent.args == "/usr/lib/venv-salt-minion/bin/salt-minion"
+  )
 )
 '''
 

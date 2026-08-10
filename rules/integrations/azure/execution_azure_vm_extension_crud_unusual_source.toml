@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2026/06/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/06/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies create, read, update, or delete (CRUD) operations against Azure VM or VM scale set extensions
+("MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/*" or the scale set equivalent) where the combination of the targeted
+extension resource name and the source autonomous system (AS) number has not been observed recently. VM extensions such
+as CustomScript and DSC run with high privilege on the guest (SYSTEM on Windows, root on Linux), so writing, modifying,
+or removing them is a common code-execution and persistence primitive. By keying a new terms approach on the extension
+resource name and the source AS number, this rule surfaces extension operations originating from networks that have not
+historically managed that extension, while routine first-party Microsoft automation (which originates from well-known
+Microsoft AS numbers) is excluded.
+"""
+false_positives = [
+    """
+    Infrastructure-as-code, configuration management, and patching automation routinely create, update, and delete VM
+    extensions. The first time a given extension resource name is operated on from a new source AS number will alert.
+    Baseline expected management networks (corporate egress, CI/CD runners, third-party automation SaaS) and exclude
+    their AS numbers if the activity is verified as authorized. Read operations are typically not emitted to the Azure
+    activity log; the rule predominantly fires on WRITE and DELETE.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure VM Extension CRUD Operation with Unusual Source ASN"
+note = """## Triage and analysis
+
+### Investigating Azure VM Extension CRUD Operation with Unusual Source ASN
+
+Azure VM and VM scale set extensions (for example CustomScript, DSC, and AADSSHLoginForLinux) execute on the guest with
+high privilege. Creating or updating an extension (`EXTENSIONS/WRITE`) can run attacker-supplied code as SYSTEM or root,
+while deleting one (`EXTENSIONS/DELETE`) can remove security tooling or clean up after execution. This rule uses a new
+terms approach keyed on the pair (`azure.resource.name`, `source.as.number`), so it fires when a given extension resource
+is operated on from a source network that has not been seen managing it within the history window. Well-known Microsoft
+AS numbers used by first-party automation are excluded in the query.
+
+### Triage checklist
+
+- Identify the source via `source.ip`, `source.as.number`, and `source.as.organization.name`. Operations from cloud
+  hosting, VPS, or anonymizing networks are more suspicious than known corporate egress.
+- Identify the acting principal via `azure.activitylogs.identity.authorization.evidence.principal_id` and
+  `...principal_type` (User vs ServicePrincipal) and `azure.activitylogs.identity.claims.appid`.
+- Inspect `azure.resource.id` for the target VM/VMSS and `azure.resource.name` for the extension. CustomScript/DSC
+  extensions and randomly named extensions warrant closer review.
+- Determine the operation: WRITE (create/update — code execution) vs DELETE (removal — possible defense evasion or
+  cleanup).
+- Correlate with endpoint telemetry on the target host: process activity parented by the Azure guest agent
+  (`WaAppAgent.exe` / `walinuxagent`) within ~120 seconds of the operation timestamp.
+
+### Possible investigation steps
+
+- Review the principal's Entra ID sign-in logs and RBAC role assignments on the subscription, resource group, and VM.
+- Retrieve the extension settings/protected settings from the VM (the activity log does not contain the script body) to
+  assess intent.
+- Pivot on the VM for credential access, new local accounts, or outbound C2 connections following the operation.
+
+### Response and remediation
+
+- If unauthorized, remove the malicious extension, isolate the VM, rotate credentials reachable from it, and review RBAC
+  on the affected scope.
+- Block or investigate the source AS/network if it is not an expected management path.
+- Collect endpoint and activity log artifacts per incident procedures.
+"""
+references = [
+    "https://www.netspi.com/blog/technical-blog/adversary-simulation/7-ways-to-execute-command-on-azure-virtual-machine-virtual-machine-scale-sets/",
+    "https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-windows",
+    "https://hackingthe.cloud/azure/run-command-abuse/",
+    "https://blog.pwnedlabs.io/diving-deep-into-azure-vm-attack-vectors",
+    "https://www.sysdig.com/blog/the-expendable-extension-name-azure-vmaccess-naming-chaos-password-resets-and-a-detection-gap",
+]
+risk_score = 47
+rule_id = "d69d05f8-d48a-4dcb-b226-fb2efbedd6ba"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Endpoint",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:azure.activitylogs and
+    event.action:(
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/DELETE" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/READ" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINES/EXTENSIONS/WRITE" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/EXTENSIONS/DELETE" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/EXTENSIONS/READ" or
+        "MICROSOFT.COMPUTE/VIRTUALMACHINESCALESETS/EXTENSIONS/WRITE"
+    ) and event.outcome:(Success or success) and
+    azure.resource.name:* and
+    source.as.number:(* and not (3598 or 8068 or 8069 or 8070 or 8071 or 8072 or 8073 or 8074 or 8075 or 12076))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1651"
+name = "Cloud Administration Command"
+reference = "https://attack.mitre.org/techniques/T1651/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.outcome",
+    "azure.activitylogs.operation_name",
+    "azure.resource.name",
+    "azure.resource.id",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.activitylogs.identity.authorization.evidence.principal_type",
+    "azure.activitylogs.identity.claims.appid",
+    "azure.subscription_id",
+    "azure.activitylogs.tenant_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.resource.name", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

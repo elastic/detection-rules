@@ -2,7 +2,7 @@
 creation_date = "2021/07/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2025/01/15"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,7 @@ language = "eql"
 license = "Elastic License v2"
 name = "Parent Process PID Spoofing"
 references = [
-    "https://blog.didierstevens.com/2017/03/20/",
+    "https://blog.didierstevens.com/2017/03/20/that-is-not-my-child-process/",
     "https://www.elastic.co/security-labs/elastic-security-labs-steps-through-the-r77-rootkit",
 ]
 risk_score = 73
@@ -27,7 +27,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
 ]
@@ -74,43 +73,130 @@ sequence by host.id, user.id with maxspan=3m
               "?:\\Windows\\SysWOW64\\WerFault.exe")
  ] by process.parent.Ext.real.pid
 '''
-note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+note = """## Triage and analysis
 
 ### Investigating Parent Process PID Spoofing
 
-Parent Process PID Spoofing involves manipulating the parent process identifier to disguise the origin of a process, often to bypass security measures or gain elevated privileges. Adversaries exploit this by launching processes with falsified parent PIDs, making them appear benign. The detection rule identifies such anomalies by monitoring process creation events, focusing on unexpected parent-child relationships and unsigned executables, thus flagging potential spoofing attempts.
+#### Possible investigation steps
 
-### Possible investigation steps
+- Which source events prove the real creator, spoofed child, and visible-parent mismatch?
+  - Focus: Timeline source events for shared `host.id` and `user.id`; record creator and child `process.entity_id`, `process.pid`, `process.executable`, and child `process.parent.pid` versus `process.parent.Ext.real.pid`.
+  - Hint: the sequence alert may not expose `process.parent.Ext.real.pid`; use the recovered child event. If absent, empty, or mapped to multiple creator candidates, treat recovery as unresolved, not benign.
+  - Implication: escalate when `process.parent.Ext.real.pid` maps to the recovered creator while the child reports a different visible parent with no brokered-launch explanation; lower suspicion when both events resolve to one recognized broker, installer, support, or sensor-corrected path for the same product/user.
+- Does the recovered creator look like a plausible spoofing initiator?
+  - Focus: creator `process.pe.original_file_name`, `process.executable`, `process.command_line`, `process.code_signature.exists`, and `process.code_signature.status`.
+  - Implication: higher concern when the creator is an Office process, script host, LOLBin, user-writable or .NET executable, or unsigned/bad-signature binary whose command line does not fit software deployment; lower suspicion when creator identity and command line fit the recognized updater, installer, EDR, or support component from step 1.
+- Is the spoofed child a credible target for cover or a likely payload?
+  - Focus: child `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.Ext.relative_file_creation_time`, and file events for the child path. $investigate_0
+  - Implication: escalate when the child is newly created, unsigned or untrusted, renamed, or launched from user-writable, temp, task, or unusual .NET paths; lower suspicion when path, signer, original file name, and file age match the same recognized product layout. Identity alone does not clear lineage manipulation.
+- Is the visible parent credible for this child?
+  - Focus: child `process.parent.name`, `process.parent.executable`, `process.parent.command_line`, and `process.parent.pid`, compared with recovered creator `process.entity_id`.
+  - Implication: stronger evidence of deliberate cover when the visible parent is a trusted system, shell, productivity, or management process with no command context or product relationship to the child; lower suspicion when a recognized service, compatibility layer, or broker mediates that exact child on this host.
+- Does user, session, or token context raise severity?
+  - Focus: `user.id`, `user.domain`, child `process.Ext.session_info.logon_type`, and `process.Ext.token.integrity_level_name`.
+  - Implication: escalate faster when the chain runs under an unexpected account, remote or network session, service context, or higher integrity than the creator-child role explains; lower suspicion when user, session, integrity, and host pairing fit the recovered support or management workflow.
+- Did the spoofed child immediately continue execution in a way that matches payload launch or hollowing?
+  - Focus: recovered child `process.entity_id` and descendants where `process.parent.entity_id` matches it, checking `process.Ext.created_suspended`, `process.command_line`, and descendant `process.executable`. $investigate_1
+  - Implication: escalate when the child is created suspended, spawns shells, script hosts, credential tools, unusual binaries, or synthetic process-id/GUID-like command-line values; lower suspicion when descendants stay inside the recovered product workflow.
+- If local lineage remains suspicious or unresolved, do related alerts change scope?
+  - Focus: related alerts for the same `user.id`: PPID spoofing, unusual parent-child, injection, suspicious launcher, or payload execution. $investigate_2
+  - Hint: if user scope is sparse or ambiguous, check the same `host.id`. $investigate_3
+  - Implication: broaden scope when the same user or host shows related process manipulation or payload activity; keep local when related alerts are quiet and source-event evidence resolves to one recognized workflow.
 
-- Review the process creation event details to identify the specific executable and its path that triggered the alert. Pay attention to the process.executable field to determine if it matches any suspicious patterns like "?:\\\\Users\\\\*.exe" or "?:\\\\Windows\\\\Temp\\\\*.exe".
-- Check the process.parent.Ext.real.pid field to confirm if the parent process PID has been spoofed. Investigate the legitimacy of the parent process by examining its name and executable path.
-- Analyze the process.code_signature.status field to determine if the executable is unsigned or has a bad digest, which could indicate tampering or a lack of authenticity.
-- Investigate the user context by reviewing the user.id field to understand which user account was associated with the process creation. This can help determine if the activity aligns with expected user behavior.
-- Correlate the process creation event with other related events on the same host.id within the maxspan of 3 minutes to identify any additional suspicious activities or patterns.
-- Examine the integrity level of the process using the process.Ext.token.integrity_level_name field to assess if the process is running with elevated privileges unexpectedly.
-- Cross-reference the process with known legitimate applications by checking if the process.pe.original_file_name matches common applications like "winword.exe" or "powershell.exe" to rule out false positives.
+- Escalate when source recovery, creator role, visible-parent mismatch, child identity, session/token context, or follow-on behavior indicates deliberate lineage manipulation or payload launch; close only when all recovered process evidence binds to one exact recognized brokered-launch workflow with no contradiction; preserve source events and escalate when evidence is mixed or incomplete.
 
 ### False positive analysis
 
-- Processes like msedge.exe with sihost.exe as the parent may trigger false positives. Consider adding exceptions for these specific parent-child relationships if they are common in your environment.
-- Executables located in user directories or temporary folders may be flagged if they lack valid code signatures. Regularly review and whitelist known benign applications that operate from these paths.
-- Processes with a parent PID mismatch due to legitimate software updates or installations can be mistaken for spoofing. Monitor and document such activities to refine detection rules and reduce false alerts.
-- WerFault.exe and its variants are excluded by default, but if other legitimate system processes are frequently flagged, consider expanding the exclusion list to include them.
-- Regularly update the list of known safe executables and their expected parent processes to ensure the rule remains effective without generating unnecessary alerts.
+- Treat installers, updaters, application brokers, remote-support tools, and endpoint-security components as candidate explanations, not benign categories. Close only when one recovered creator-child-visible-parent tuple is internally consistent across creator and child `process.executable`, visible parent `process.parent.executable`, signer `process.code_signature.subject_name`, command intent `process.command_line`, session type `process.Ext.session_info.logon_type`, and the same `user.id` plus `host.id`. If telemetry cannot prove legitimacy, require outside confirmation for that exact activity before closing.
+- Before creating an exception, validate recurrence of the same recovered creator-child-visible-parent pattern for the same host or user cohort across prior alerts from this rule. Anchor on stable creator, child, and visible-parent executables, `process.code_signature.subject_name`, session/integrity context, and relevant `host.id` or `user.id`; avoid exceptions on `process.name`, process IDs, or real-parent PID values alone.
 
 ### Response and remediation
 
-- Isolate the affected host immediately to prevent further spread of the threat. Disconnect the host from the network to contain any potential malicious activity.
-- Terminate any suspicious processes identified by the alert, especially those with spoofed parent PIDs or unsigned executables, to halt any ongoing malicious actions.
-- Conduct a thorough review of the affected system's process tree and logs to identify any additional malicious processes or indicators of compromise that may have been missed.
-- Restore the affected system from a known good backup if any critical system files or configurations have been altered by the threat.
-- Update and patch the affected system to the latest security standards to close any vulnerabilities that may have been exploited by the adversary.
-- Implement enhanced monitoring on the affected host and similar systems to detect any recurrence of the threat, focusing on process creation events and parent-child process relationships.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected."""
+- Before containment reversal, isolation, process termination, or cleanup, preserve Timeline source events, recovered creator and child `process.entity_id` values, the real-vs-visible parent PID mapping, command lines, signer/hash context, session/token context, and descendant process events.
+- If confirmed benign after preservation, reverse temporary containment and document the exact creator-child-visible-parent workflow, including stable creator and child identity, visible parent identity, signer, command context, session type, and `host.id` or `user.id` scope. Create an exception only after recurrence or outside confirmation proves the same workflow.
+- Apply reversible containment first: heightened monitoring, temporary user-session containment, or policy controls on affected `host.id` and `user.id`; use host isolation only when recovered lineage, abnormal token/session context, created-suspended evidence, or suspicious descendants indicate likely payload execution or spread.
+- If confirmed malicious after preservation, isolate the endpoint or affected account scope according to evidence; take credential action only when session or token evidence indicates account misuse. Terminate the malicious process tree only after recording creator and child entity IDs, command lines, visible parent, and descendant process evidence.
+- Remove the malicious launcher, spoofed child binary, and any payload artifacts identified during investigation; restore only confirmed configuration changes tied to the launch path, and remediate the entry vector. Delay destructive cleanup until scoping has captured the same creator, child, signer, or parent-selection pattern across related host and user alerts.
+- Post-incident hardening: restrict only the confirmed parent-selection path and retain endpoint process telemetry needed to compare the recovered real creator with the visible parent in future repeat alerts."""
 
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "user.id",
+    "user.name",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.Ext.token.integrity_level_name",
+    "process.parent.pid",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the spoofed child path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.path", queryType = "phrase", value = "{{process.executable}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Descendant process events for the spoofed child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -122,13 +208,12 @@ reference = "https://attack.mitre.org/techniques/T1134/"
 id = "T1134.004"
 name = "Parent PID Spoofing"
 reference = "https://attack.mitre.org/techniques/T1134/004/"
-
-
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -140,10 +225,7 @@ id = "T1134.004"
 name = "Parent PID Spoofing"
 reference = "https://attack.mitre.org/techniques/T1134/004/"
 
-
-
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-

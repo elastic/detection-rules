@@ -1,0 +1,164 @@
+[metadata]
+creation_date = "2026/04/03"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a short sequence of EC2 management APIs against the same instance that is consistent with modifying instance
+user data and forcing it to run on the next boot: `ModifyInstanceAttribute` with user data, followed by stop and start.
+Adversaries may update `userData` and cycle instance state so malicious scripts execute as root on Linux or as the
+system context on Windows. This rule correlates successful `StopInstances`, `StartInstances`, and
+`ModifyInstanceAttribute` events that reference `userData` within a five-minute window, grouped by instance,
+`user.name`, account, source IP, and user agent. A hit requires exactly three distinct API names in that bucket.
+"""
+false_positives = [
+    """
+    Legitimate automation or administrators may change user data and restart instances during maintenance, image
+    baking, or configuration fixes. Review the caller identity, change tickets, and whether `user_agent.original` and
+    `source.ip` match known tooling and networks (the rule groups on both together with `user.name`).
+    """,
+]
+from = "now-20m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EC2 Stop, Start, and User Data Modification Correlation"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Stop, Start, and User Data Modification Correlation
+
+This detection aggregates successful EC2 `StopInstances`, `StartInstances`, and `ModifyInstanceAttribute` (with
+`userData` in request parameters) over **five-minute** windows. Rows are keyed by **instance ID** (`Esql.instance_id`
+from the grok on `aws.cloudtrail.request_parameters`), **`user.name`**, **`cloud.account.id`**, **`user_agent.original`**,
+and **`source.ip`**. The rule fires only when **`Esql.event_action_unique_count` is 3**, meaning all three API names
+appear in the same bucket—consistent with changing user data and cycling the instance to run it.
+
+The aggregated result does **not** include raw `request_parameters`; use the alert’s instance, account, user, IP, user
+agent, and time bucket to query CloudTrail for the underlying events and payloads.
+
+#### Possible investigation steps
+
+- **Interpret the alert columns**: Review `Esql.event_action_values` to confirm the three actions are present (typically
+  `ModifyInstanceAttribute`, `StopInstances`, `StartInstances`). Use `Esql.event_action_unique_count` to verify the
+  rule logic (expect `3`).
+- **Confirm the instance**: Use `Esql.instance_id` plus `cloud.account.id` in CMDB or AWS Resource Groups. Ensure the
+  grok-derived ID matches the instance you expect (multi-instance API calls can affect extraction).
+- **Identify the caller**: Tie `user.name` to an IAM user or role session name as shown in CloudTrail; for assumed roles,
+  pivot in raw logs on `aws.cloudtrail.user_identity.arn` and session context in the same time window.
+- **Validate client and origin**: Compare `user_agent.original` and `source.ip` to known admin workstations, bastions,
+  or CI/CD egress. The rule intentionally groups by these fields so unrelated sessions do not merge into one bucket.
+- **Recover user data context**: In CloudTrail (or the integration’s `aws.cloudtrail.request_parameters` on raw events),
+  inspect the `ModifyInstanceAttribute` record for `userData` and whether values are base64 or placeholders.
+- **Hunt for follow-on activity**: After the window, look for IAM changes, role assumption, or data access from the
+  instance or the same principal.
+
+### False positive analysis
+
+- **Infrastructure as code**: Terraform, Ansible, and Pulumi user agents are excluded, but other automation may still
+  match. Validate pipeline identity, change tickets, and whether stop/start is part of approved maintenance.
+- **Break-glass or support workflows**: Some teams modify user data and restart instances during recovery; confirm with
+  the workload owner.
+- **Shared `user.name` or NAT**: If many callers share one identity or IP, bucketing may still separate sessions when IP
+  or user agent differs; conversely, identical UA/IP across benign bulk operations can resemble this pattern—confirm
+  intent.
+
+### Response and remediation
+
+- If unauthorized, isolate the instance, revoke or restrict the principal’s EC2 permissions, and rotate any credentials
+  that may have been exposed in user data.
+- Prefer Secrets Manager or Parameter Store over long-lived secrets in user data.
+
+### Additional information
+
+- [AWS EC2 User Data](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+- [ModifyInstanceAttribute](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceAttribute.html)
+- [Local EC2 privilege escalation through user data](https://hackingthe.cloud/aws/exploitation/local_ec2_priv_esc_through_user_data)
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceAttribute.html",
+    "https://hackingthe.cloud/aws/exploitation/local_ec2_priv_esc_through_user_data",
+]
+risk_score = 73
+rule_id = "7e5c0e5a-95a5-404e-a5b0-278d35dc3325"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Data Source: AWS CloudTrail",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-* 
+| WHERE event.provider == "ec2.amazonaws.com" 
+    and event.outcome == "success"
+    and aws.cloudtrail.user_identity.type != "AWSService"
+    and not (
+      user_agent.original like "*Terraform*"
+      or user_agent.original like "*Ansible*"
+      or user_agent.original like "*Pulumi*"
+    ) and not source.address in ("cloudformation.amazonaws.com", "servicecatalog.amazonaws.com")
+    and
+  (
+   event.action in ("StopInstances", "StartInstances") or 
+   (event.action == "ModifyInstanceAttribute" and aws.cloudtrail.request_parameters like "*userData=*")
+   )
+| grok aws.cloudtrail.request_parameters """instanceId=(?<Esql.instance_id>[^,}\]]+)"""
+| STATS Esql.event_action_unique_count = COUNT_DISTINCT(event.action), 
+        Esql.event_action_values = VALUES(event.action) by Esql.instance_id, user.name, cloud.account.id, Esql.time_bucket = DATE_TRUNC(5 minute, @timestamp) , user_agent.original, source.ip, source.as.organization.name, source.geo.country_name
+| where Esql.event_action_unique_count == 3
+| Keep Esql.*, user.name, cloud.account.id, user_agent.original, source.ip, source.as.organization.name, source.geo.country_name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.009"
+name = "Cloud API"
+reference = "https://attack.mitre.org/techniques/T1059/009/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1578"
+name = "Modify Cloud Compute Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1578/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+  "Esql.event_action_unique_count",
+  "Esql.event_action_values",
+  "Esql.instance_id",
+  "user.name",
+  "cloud.account.id",
+  "user_agent.original",
+  "source.ip",
+  "Esql.time_bucket",
+]

@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/07/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/07/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an AKS (Azure Kubernetes Service) identity establishing an exec session into a pod. Interactive command
+execution inside a workload via kubectl exec is a common post-compromise technique used to access secrets, run tooling,
+and expand access from a foothold container. Node, control-plane, and kube-system service account identities are
+excluded, so workload service accounts and users, the identities an adversary is most likely to abuse, remain in scope.
+"""
+false_positives = [
+    """
+    Administrators routinely exec into pods for troubleshooting. Baseline expected users and target pods, then exclude
+    known break-glass or operator identities after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Attempted User Exec into Pod"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Attempted User Exec into Pod
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`. This rule alerts on a
+`pods/exec` request by an identity that is not node, control-plane, or kube-system infrastructure. Exec into a pod grants
+an interactive shell inside the workload, which adversaries use to read mounted secrets, pivot, and stage tooling.
+
+### Possible investigation steps
+
+- Review the acting identity in `azure.platformlogs.properties.log.user.username` and its groups in
+  `azure.platformlogs.properties.log.user.groups`, and the target pod in
+  `azure.platformlogs.properties.log.objectRef.name` / `azure.platformlogs.properties.log.objectRef.namespace`.
+- Determine whether the target pod holds sensitive data, cluster credentials, or a mounted service account token.
+- Inspect the exec request path and command context in `azure.platformlogs.properties.log.requestURI` and the client in
+  `azure.platformlogs.properties.log.userAgent` (interactive `kubectl` vs a scripted client).
+- Evaluate the source in `azure.platformlogs.properties.log.sourceIPs`. Pivot on it for related API activity, secret
+  reads, or RBAC changes from the same identity.
+
+### False positive analysis
+
+- Approved admin debugging; exclude stable operator or break-glass identities after review.
+- CI/CD or platform tooling that execs into workloads may match; exclude verified service accounts and namespaces.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's tokens and kubeconfig and terminate the exec session.
+- Inspect the target pod for tampering, dropped tooling, or accessed secrets, and rotate any credentials it exposed.
+- Collect kube-audit and identity artifacts per incident response procedures.
+"""
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://unit42.paloaltonetworks.com/hildegard-malware-teamtnt/",
+]
+risk_score = 47
+rule_id = "8f131efa-0284-465f-a360-da23e5562dd1"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"pods" and azure.platformlogs.properties.log.objectRef.subresource:"exec" and
+  azure.platformlogs.properties.log.verb:("create" or "get") and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:*
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name"
+]
+
+

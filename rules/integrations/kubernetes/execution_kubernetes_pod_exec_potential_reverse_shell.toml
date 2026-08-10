@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/04/23"
+integration = ["kubernetes"]
+maturity = "production"
+updated_date = "2026/04/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Flags exec into a pod when the URL-decoded command payload resembles reverse-shell or bind-shell
+one-liners invocation patterns. Legitimate debug sessions sometimes use similar building blocks, but together 
+these patterns align with post-exploitation interactive access and command-and-control.
+"""
+from = "now-6m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Kubernetes Pod Exec Potential Reverse Shell"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Pod Exec Potential Reverse Shell
+
+The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and 
+matches high-signal shell and socket idioms often used to obtain a allback shell from inside a container.
+
+### Possible investigation steps
+
+- Identify the actor (kubernetes.audit.user.username, groups, impersonation), source IP, and user agent
+  (human kubectl vs automation).
+- Resolve the target namespace, pod, and container from kubernetes.audit.objectRef.* and correlate with
+  workload ownership and change tickets.
+- Pull the raw and decoded URI from the alert document and replay the inferred command in a sandbox only if policy
+  allows—otherwise rely on audit and platform logs.
+- Hunt nearby events from the same identity: secret reads, pods/exec to other workloads, RoleBinding
+  changes, or anonymous API use.
+
+### False positive analysis
+
+- Security training, CTF-style images, or vendor diagnostics may include bash redirection or /dev/tcp examples;
+  baseline approved images and break-glass accounts.
+- Some observability or mesh sidecars use socat or sockets in ways that could overlap; validate container image and
+  command lineage.
+
+### Response and remediation
+
+- If malicious, terminate the exec session, isolate the workload or node, rotate credentials reachable from the
+  pod, and revoke pods/exec for the abused principal unless strictly required.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1609/",
+    "https://attack.mitre.org/techniques/T1059/",
+]
+risk_score = 73
+rule_id = "f1a2b3c4-d5e6-4789-a012-3456789abc01"
+severity = "high"
+tags = [
+    "Data Source: Kubernetes",
+    "Domain: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
+| WHERE kubernetes.audit.objectRef.subresource == "exec"
+  AND kubernetes.audit.requestURI LIKE "*command=*"
+| EVAL decoded_uri = URL_DECODE(kubernetes.audit.requestURI)
+| GROK decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL command = REPLACE(raw_commands, "command=", "")
+| EVAL command = REPLACE(command, "&", " ")
+| EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
+| WHERE Esql.executed_command IS NOT NULL 
+| WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND 
+ // local service health check patterns
+  NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
+| KEEP *
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"

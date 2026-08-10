@@ -2,7 +2,7 @@
 creation_date = "2020/10/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -20,41 +20,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Persistence via Microsoft Office AddIns"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Persistence via Microsoft Office AddIns
-
-Microsoft Office AddIns enhance productivity by allowing custom functionalities in Office applications. However, adversaries exploit this by placing malicious add-ins in specific startup directories, ensuring execution each time the application launches. The detection rule identifies suspicious files with extensions like .xll or .xlam in these directories, flagging potential persistence mechanisms on Windows systems.
-
-### Possible investigation steps
-
-- Review the file path and extension from the alert to confirm it matches the suspicious directories and extensions specified in the detection rule, such as .xll or .xlam in the Microsoft Office startup directories.
-- Check the file creation and modification timestamps to determine when the suspicious file was added or altered, which can help establish a timeline of potential malicious activity.
-- Investigate the file's origin by examining recent file downloads, email attachments, or network activity that might have introduced the file to the system.
-- Analyze the file's contents or hash against known malware databases to identify if it is a known threat or potentially malicious.
-- Review user activity and system logs around the time the file was created or modified to identify any unusual behavior or processes that could be related to the persistence mechanism.
-- Assess the impacted user's role and access level to determine the potential risk and impact of the persistence mechanism on the organization.
-
-### False positive analysis
-
-- Legitimate add-ins installed by trusted software vendors may trigger alerts. Verify the source and publisher of the add-in to determine its legitimacy.
-- Custom add-ins developed internally for business purposes can be flagged. Maintain a whitelist of known internal add-ins to prevent unnecessary alerts.
-- Frequent updates to legitimate add-ins might cause repeated alerts. Implement version control and update the whitelist accordingly to accommodate these changes.
-- User-specific add-ins for accessibility or productivity tools may be detected. Educate users on safe add-in practices and monitor for any unusual behavior.
-- Temporary add-ins used for specific projects or tasks can be mistaken for threats. Document and review these cases to ensure they are recognized as non-threatening.
-
-### Response and remediation
-
-- Isolate the affected endpoint from the network to prevent further spread of the potential threat.
-- Terminate any suspicious Microsoft Office processes that may be running add-ins from the identified directories.
-- Remove the malicious add-in files from the specified startup directories: "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\", "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\", and "C:\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\".
-- Conduct a full antivirus and antimalware scan on the affected system using tools like Microsoft Defender XDR to ensure no other malicious files are present.
-- Review and restore any altered system configurations or settings to their default state to ensure system integrity.
-- Monitor the affected system and network for any signs of re-infection or related suspicious activity, using enhanced logging and alerting mechanisms.
-- Escalate the incident to the security operations center (SOC) or relevant IT security team for further analysis and to determine if additional systems are affected."""
 references = ["https://labs.withsecure.com/publications/add-in-opportunities-for-office-persistence"]
 risk_score = 73
 rule_id = "f44fa4b6-524c-4e87-8d9e-a32599e4fb7c"
@@ -87,25 +52,178 @@ file where host.os.type == "windows" and event.type != "deletion" and
     "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Roaming\\Microsoft\\Word\\Startup\\*",
     "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Roaming\\Microsoft\\AddIns\\*",
     "\\Device\\HarddiskVolume*\\Users\\*\\AppData\\Roaming\\Microsoft\\Excel\\XLSTART\\*"
- )
+ ) and
+ not (file.name : "~$*" and process.name : "excel.exe" and ?file.size in (0, 165))
 '''
 
+note = """## Triage and analysis
+
+### Investigating Persistence via Microsoft Office AddIns
+
+#### Possible investigation steps
+
+- Which Office add-in autoload mechanism does the alert show?
+  - Focus: alert `file.path`, `file.name`, `file.extension`, and `user.id` on `host.id`: "wll" maps to Word Startup, "xla"/"xlam" to Excel XLSTART, and "xll"/"ppa"/"ppam" to add-in locations that may need loader settings.
+  - Implication: escalate when a user-profile Office startup or add-in path receives a one-off or user-initiated add-in; lower suspicion only when path, name, extension, writer, and provenance all fit the same recognized deployment or repair.
+
+- Does the artifact identity or provenance look like a staged payload?
+  - Why: DLL-style "wll"/"xll" and Office container add-ins have different expected headers, so rename and origin fields can expose payload staging.
+  - Focus: `file.Ext.header_bytes`, `file.Ext.original.path`, `file.origin_url`, and `file.Ext.windows.zone_identifier`.
+  - Implication: escalate when headers, rename history, internet-zone provenance, or archive/mail-cache origin conflict with the claimed add-in; lower suspicion when format and provenance align with the same recognized vendor package.
+
+- Does the writer process fit an add-in installer or a dropper chain?
+  - Focus: writer `process.executable`, `process.command_line`, `process.parent.executable`, and `process.code_signature.subject_name`.
+  - Implication: escalate when browsers, mail clients, scripting engines, archive tools, or unsigned user-writable binaries write the add-in; lower suspicion when signer, path, command line, and parent all match the same recognized installer or managed integration. Signer trust alone never clears the placement.
+
+- If registry telemetry is available, did the writer create loader settings required for this add-in type?
+  - Why: the alert is a file write; loader settings, when visible, show whether Office was configured to consume the add-in rather than merely store it.
+  - Focus: same `host.id` and writer `process.entity_id`; check `registry.path`, `registry.value`, `registry.data.type`, and `registry.data.strings` for Office loader values pointing to the alerted file. $investigate_0
+  - Implication: escalate when loader values reference the alerted file or directory; do not require registry corroboration when path, provenance, or writer evidence is already suspicious. Missing registry telemetry is unresolved, not benign.
+
+- Did Office later load the add-in or spawn follow-on activity from it?
+  - Focus: later Office `process.name` values "WINWORD.EXE", "EXCEL.EXE", or "POWERPNT.EXE" on the same `host.id`, Office `process.entity_id`, child `process.parent.entity_id`, child `process.executable`, and, if library telemetry exists, `dll.path` matching the add-in.
+    - $investigate_1
+    - $investigate_2
+  - Hint: missing library telemetry is unresolved, not benign; use those pivots and child process expansion from recovered Office instances as fallback execution evidence.
+  - Implication: escalate when Office loads the add-in path, starts a child from the same session, or touches a payload dropped with the add-in; do not wait for library telemetry when file, writer, or loader evidence already warrants escalation.
+
+- If local evidence is suspicious or unresolved, what related host activity changes scope?
+  - Focus: related alerts on the same `host.id`, especially document delivery, script execution, suspicious file writes, Office child processes, or additional persistence activity. $investigate_3
+  - Implication: expand scope when related host alerts connect the add-in write to delivery, execution, credential access, or another persistence mechanism; do not close solely because related alerts are absent.
+
+- What disposition do the add-in mechanism, artifact identity, writer lineage, loader state, Office execution, and scope support?
+  - Escalate on suspicious provenance, unexpected writer lineage, matching loader values, Office follow-on execution, or related host activity; close only when file, writer, provenance, loader state, and Office behavior align with one verified deployment or integration and no contradictions remain; preserve artifacts and escalate mixed or incomplete evidence.
+
+### False positive analysis
+
+- Managed Office add-in deployment, repair, and productivity, accessibility, or CRM first-use installs can place files in these paths. Close only when writer `process.executable`, `process.command_line`, signer `process.code_signature.subject_name`, parent `process.parent.executable`, final `file.path`, required loader state, provenance fields, later Office `process.name`, and child `process.executable` all align with one deployment or vendor workflow and no contradictory evidence remains. Use change or inventory records as corroboration, not as a telemetry substitute.
+- Before creating an exception, build it from the minimum current-case pattern: `file.path`, writer `process.code_signature.subject_name`, writer `process.parent.executable`, required loader-state pattern, and `host.id` or `user.id` scope. Avoid exceptions on Office startup directories, file extensions, or Office process names alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the verified workflow with `file.path`, `file.hash.sha256`, writer `process.executable`, signer `process.code_signature.subject_name`, and any recovered loader-state evidence. Create any exception from that exact workflow pattern and scope it narrowly to the confirmed host or user cohort.
+- If suspicious but unconfirmed, preserve the alert export, the add-in file and hash from `file.path` and `file.hash.sha256`, writer `process.entity_id` and `process.command_line`, and any recovered loader-state, library-load, or child-process evidence before deleting anything. Apply reversible containment first, such as quarantining the add-in file, disabling the affected Office add-in path, or temporarily restricting Office execution on the host.
+- If confirmed malicious, isolate the host if its role can tolerate interruption, then terminate responsible Office or loader processes only after preserving their entity IDs, command lines, and the add-in file evidence. Remove the malicious add-in, clear associated Office loader configuration, restore affected Office add-in settings, and remediate the delivery path that introduced the file. Reset credentials only if the investigation also shows account misuse.
+- Review related hosts and users for the same `file.path`, `file.hash.sha256`, writer lineage, and loader-state pattern before eradication. For Word WLL cases, do not rely on the Office UI alone to prove the add-in is disabled; verify the file and supporting configuration are gone.
+- Post-incident hardening: restrict write access to Office startup directories and add-in loader locations, prefer signed managed add-in deployment, retain process/file plus registry or library telemetry needed to confirm later Office execution, and document adjacent variants such as Word WLL autoload abuse or registry-backed Office add-in loading in the case record.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+    "process.code_signature.subject_name",
+    "file.path",
+    "file.extension",
+    "file.hash.sha256",
+    "file.origin_url",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Registry events for the same writing process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Office process starts on the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "WINWORD.EXE", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "EXCEL.EXE", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.name", queryType = "phrase", value = "POWERPNT.EXE", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Library loads for the add-in path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "library", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "dll.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+
 [[rule.threat.technique]]
 id = "T1137"
 name = "Office Application Startup"
 reference = "https://attack.mitre.org/techniques/T1137/"
+
 [[rule.threat.technique.subtechnique]]
 id = "T1137.006"
 name = "Add-ins"
 reference = "https://attack.mitre.org/techniques/T1137/006/"
 
-
-
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-

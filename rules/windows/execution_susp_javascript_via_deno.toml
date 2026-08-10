@@ -2,7 +2,7 @@
 creation_date = "2026/03/19"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -24,27 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious JavaScript Execution via Deno"
-note = """## Triage and analysis
-
-### Investigating Suspicious JavaScript Execution via Deno
-
-Deno is a legitimate JavaScript/TypeScript runtime. This rule fires when a Deno process (identified by name, PE original filename, or code signer "Deno Land Inc.") is started with a command line matching suspicious patterns: javascript with base64, eval(, http, or javascript import. Such patterns are commonly used to run inline or remote scripts and can indicate abuse.
-
-### Possible investigation steps
-
-- Review process.command_line and process.args to see the exact script or URL being executed.
-- Identify the parent process and how Deno was launched (user, script, terminal, or other tool).
-- Check whether Deno is approved on the host; if not, treat as potential unauthorized software execution.
-- Correlate with file creation or network events around the same time (downloads, script drops).
-
-### False positive analysis
-
-- Legitimate development or automation that runs Deno with eval, http imports, or base64-encoded snippets may trigger; allowlist by host or command-line pattern where appropriate.
-
-### Response and remediation
-
-- If abuse is confirmed: contain the host, terminate the Deno process, and remove or block Deno if not authorized; investigate how the script was delivered and scope for similar activity.
-"""
 references = [
     "https://reliaquest.com/blog/threat-spotlight-casting-a-wider-net-clickfix-deno-and-leaknets-scaling-threat",
     "https://deno.com/"
@@ -74,6 +53,158 @@ process where host.os.type == "windows" and event.type == "start" and
  (process.name : "deno.exe" or ?process.pe.original_file_name == "deno.exe" or ?process.code_signature.subject_name == "Deno Land Inc.") and
  process.command_line : ("*javascript*base64*", "*eval(*", "*http*", "*javascript*import*")
 '''
+
+note = """## Triage and analysis
+
+### Investigating Suspicious JavaScript Execution via Deno
+
+#### Possible investigation steps
+
+- What execution mode and permission scope did Deno use?
+  - Focus: `process.command_line`: inline `eval(`, `data:application/javascript;base64`, remote `http` / `https`, inline JavaScript `import`, local `.js` / `.ts` targets, and broad `-A` or `--allow-*` flags.
+  - Implication: escalate faster when inline/base64 code or remote-code strings pair with broad permissions; lower concern only for a stable local task with narrow permissions. Treat `http` alone as unresolved until later evidence shows import, callback, or benign package retrieval.
+
+- Is the runtime the expected Deno binary and path?
+  - Focus: `process.executable`, `process.hash.sha256`, `process.pe.original_file_name`, `process.code_signature.subject_name`, and `process.code_signature.trusted` for `Deno Land Inc.`, portable copies, renamed binaries, or user-writable paths.
+  - Implication: escalate when identity, signer, path, or hash history suggests a renamed or opportunistic runtime; lower concern when signed path and hash history match a managed install. Runtime identity never clears suspicious arguments.
+
+- Does launch lineage fit development/build or social-engineered execution?
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `user.id`, `host.name`, and child recovery; separate terminals, IDEs, and CI runners from VBS, PowerShell, MSI, browser, chat, or document launchers.
+  - Implication: escalate when Deno follows a script host, installer, browser, chat client, or document process on a non-developer endpoint; lower concern when user, host, parent, and command pattern match a recognized developer, build, or lab host.
+
+- Did Deno start follow-on processes?
+  - Focus: child events from `process.entity_id`; if absent, use `host.id`, `process.parent.pid`, and a tight alert window. Review child `process.executable`, `process.command_line`, and `process.hash.sha256`. $investigate_2
+  - Implication: escalate when Deno spawns shells, downloaders, installers, schedulers, PsExec-like tools, `klist`, or other utilities; keep scope narrower when the tree ends at Deno and no suspicious child process appears.
+
+- Do DNS/network destinations fit the Deno command mode?
+  - Focus: DNS/network events for `process.entity_id`; if absent, use `host.id`, `process.pid`, and a tight alert window. Review `dns.question.name`, `dns.resolved_ip`, `destination.ip`, and `destination.port`. $investigate_3
+  - Hint: separate DNS lookups from connections, then map `dns.resolved_ip` to `destination.ip` before judging module source/callback fit.
+  - Implication: escalate when Deno reaches rare user/host domains, public hosting, new module sources, S3-like staging, or polling/C2 endpoints unrelated to the task; lower concern when traffic stays with recognized internal registries, package mirrors, or vendor services. Missing network telemetry is unresolved, not benign.
+
+- Did Deno stage scripts, modules, or persistence artifacts?
+  - Focus: file events for `process.entity_id`; if absent, use `host.id`, `process.pid`, and a tight alert window. Review `file.path`, `file.origin_url`, `file.Ext.windows.zone_identifier`, and later `process.executable` reuse of written paths. $investigate_4
+  - Range: start with the alert window; after the first suspicious write, check later execution of that artifact.
+  - Implication: escalate when Deno writes scripts, binaries, cache content, or startup material into user-writable or persistence paths, or provenance shows internet delivery; lower concern when artifacts stay inside a recognized source tree, build workspace, or Deno cache expected for the command. Missing file telemetry is unresolved, not benign.
+
+- Do related alerts change scope?
+  - Focus: related alerts for the same `user.id` in 48 hours; compare Deno path, parent launcher, command mode, permission flags, and module or destination pattern. $investigate_0
+  - Hint: if user scope is quiet or ambiguous, compare related alerts for the same `host.id` in 48 hours to see whether the pattern stays local or recurs in execution alerts. $investigate_1
+  - Implication: broaden response when the same Deno path, flags, launcher, or remote-code pattern appears in other suspicious alerts; keep the case local only when local evidence fits one recognized workflow and alert history does not contradict it.
+
+- Escalate for broad permissions, abnormal lineage, follow-on execution, remote code retrieval, staging, repeated delivery, or related-alert expansion; close only when all evidence binds to one recognized developer, build, or lab workflow; preserve evidence and escalate on conflict or incomplete visibility.
+
+### False positive analysis
+
+- Developer workstations and CI/build runners can legitimately use Deno. Confirm only when runtime identity, parent launcher, command/permission scope, and available DNS/network evidence align with the same repository, package registry, internal module host, or build workflow, with no suspicious child process or off-workspace artifact. Require available repository metadata, build definitions, or developer-host inventory; without them, do not close on recurrence alone. Use prior alerts only after alert-local and recovered evidence bind activity to one exact workflow, and require outside confirmation where telemetry cannot prove it.
+- Authorized lab or automation testing can use inline eval, remote imports, or data URLs, but should stay on lab/automation hosts with bounded permissions. Confirm only when broad `-A` or `--allow-all` is absent or test-harness-justified, the parent launcher fits that lab, file/network evidence shows no callback or staging, and `user.id` or `host.id` scope explains the activity.
+- Build exceptions from the minimum confirmed workflow: stable `process.executable` or `process.code_signature.subject_name`, `process.parent.executable`, exact `process.command_line` permission/import pattern, and proven `user.id` or `host.id` scope. Avoid exceptions on `process.name`, `user.name`, `deno.exe`, signer, or broad permission flags alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record evidence proving the workflow: runtime identity, command mode and permissions, parent launcher, `user.id` / `host.id` scope, and available destination or artifact evidence. Create an exception only after that same narrow workflow recurs across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the alert document, process tree, exact command line, parent and child process events, Deno cache/workspace artifacts, and available file/DNS/network records before containment. Apply reversible containment first: temporary blocking of the confirmed module or callback destination, heightened monitoring on affected `host.id` and `user.id`, or host isolation only when follow-on execution, payload staging, or repeated suspicious destinations indicate active compromise and asset tolerates isolation.
+- If confirmed malicious, isolate the host when operationally tolerable or terminate Deno only after preserving volatile process evidence. Block confirmed malicious domains, IPs, hashes, executable paths, and staged artifact paths; then review hosts/users for the same parent launcher, Deno command mode, permission pattern, and destination set before removing staged scripts, unauthorized Deno runtimes, startup material, scheduled tasks, or persistence tied to the chain.
+- Post-incident hardening: restrict Deno to recognized developer, build, and lab hosts; review whether `-A` or broad `--allow-*` permissions are necessary; retain process plus file/network telemetry needed for triage; and record adjacent variants such as `data:` URLs, remote `https:` imports, `npm:` / `jsr:` modules, and Deno launched from script hosts with the case outcome.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events from Deno"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events from Deno"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events from Deno"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

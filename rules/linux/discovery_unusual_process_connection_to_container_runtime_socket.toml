@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/04/29"
+integration = ["auditd_manager"]
+maturity = "production"
+updated_date = "2026/04/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a process connecting to a container runtime Unix socket (containerd or Docker) that is not a known legitimate
+runtime component. Direct access to the container runtime socket allows an attacker to create, exec into, or manipulate
+containers without going through the Kubernetes API server, bypassing RBAC, admission webhooks, pod security standards,
+and Kubernetes audit logging entirely.
+"""
+false_positives = [
+    """
+    Custom container tooling, CI agents, or monitoring may connect to docker.sock or containerd.sock from non-standard
+    paths after relocation or bind mounts. Tune by process.executable or user.name when noise is high.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Process Connection to Docker or Containerd Socket"
+note = """## Triage and analysis
+
+### Investigating Unusual Process Connection to Docker or Containerd Socket
+
+Review the initiating process executable, user, and parent chain. Confirm whether the socket path is the host default
+or a bind-mounted path inside a container. Pivot on the same host for subsequent container creation, image pulls, or
+credential access.
+
+### Possible investigation steps
+
+- Map `process.executable`, `process.args`, `process.title` and `user.id` to an identity and session (SSH, cron, web shell).
+- Check file permissions on the socket path and whether the workload should have access at all.
+- Correlate with process and authentication telemetry before and after the connection.
+
+### False positive analysis
+
+- Vendor agents that wrap docker or containerd CLIs from non-standard install locations may match; add explicit
+  exclusions for known binaries.
+
+### Response and remediation
+
+- If malicious, isolate the host, revoke credentials, inspect for rogue containers and persistence, and restrict socket
+  permissions to trusted groups only.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1611/",
+    "https://book.hacktricks.xyz/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation",
+]
+risk_score = 47
+rule_id = "d70c966f-c5ef-4228-9548-346593cd422d"
+setup = """## Setup
+
+This rule requires **Auditd Manager** (or Auditbeat) process and **network** events where Unix socket paths populate
+`destination.address` (or equivalent ECS mapping from your pipeline).
+
+### Auditd Manager: network and socket visibility
+
+Enable auditing of socket-related activity so `event.category:network` and `event.action:connected-to` (or your
+pipeline’s equivalent) are emitted for `connect` to Unix sockets. Example audit rules to extend as needed:
+
+```
+# 64-bit connect (required for socket connection telemetry)
+-a always,exit -F arch=b64 -S connect -k netconn
+
+# 32-bit (if applicable)
+-a always,exit -F arch=b32 -S connect -k netconn
+```
+
+After deployment, confirm in Discover that events for connections to
+`/var/run/docker.sock`, `/run/docker.sock`, or containerd socket paths include `process.executable` and
+`destination.address` fields used by this rule.
+
+For more details on the integration refer to the [Auditd Manager documentation](https://docs.elastic.co/integrations/auditd_manager).
+"""
+severity = "medium"
+tags = [
+    "Data Source: Auditd Manager",
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:"linux" and 
+event.category:"network" and
+event.action:"connected-to" and network.direction:"egress" and 
+destination.address:("/run/containerd/containerd.sock" or "/var/run/containerd/containerd.sock" or "/var/run/docker.sock" or "/run/docker.sock") and
+process.executable:(* and not 
+  ("/usr/bin/kubelet" or
+  "/usr/local/bin/kubelet" or
+  "/usr/bin/containerd" or
+  "/usr/sbin/containerd" or
+  "/usr/bin/containerd-shim" or
+  "/usr/bin/containerd-shim-runc-v2" or
+  "/usr/local/bin/containerd-shim-runc-v2" or
+  "/usr/bin/dockerd" or
+  "/usr/sbin/dockerd" or  
+   /var/lib/*/usr/bin/dockerd or 
+  "/usr/bin/docker-proxy")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+ 
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+ 
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"

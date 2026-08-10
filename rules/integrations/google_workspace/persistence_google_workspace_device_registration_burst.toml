@@ -1,0 +1,190 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects bursts of Google Workspace device registration events for the same user, where three or more distinct
+"google_workspace.device.id" values are emitted in a one-minute window. Although "DEVICE_REGISTER_UNREGISTER_EVENT"
+fires routinely on session/sync registration and is not a true physical device enrollment, legitimate user activity
+typically produces fewer than three distinct device IDs in a single minute. A high-cardinality burst is the fingerprint
+behavior of AiTM phishing-kit relays (Tycoon2FA Google variant, EvilGinx phishlets) and stolen-OAuth-token replay
+tooling, both of which mint a new session attestation per relay or replay attempt.
+"""
+false_positives = [
+    """
+    A user simultaneously enrolling multiple Workspace-aware apps on a new device (e.g., first-time setup of Gmail,
+    Drive, Calendar, and Meet on a new laptop in a short window) may produce three or more distinct device IDs in a
+    minute. Validate by checking whether the burst is tied to a fresh device or onboarding event.
+    """,
+    """
+    Major OS upgrades or Workspace client refreshes that re-attest several apps concurrently may also produce a burst.
+    Cross-reference against the user's known device OS transitions.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Google Workspace Device Registration Burst for Single User"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Device Registration Burst for Single User
+
+`DEVICE_REGISTER_UNREGISTER_EVENT` from the Google Workspace `mobile` provider does not represent a one-time physical device enrollment. The Reports API emits a fresh `google_workspace.device.id` on every session/sync registration, and a single physical device can produce multiple events per day as Workspace-aware apps independently attest. Legitimate activity, however, very rarely concentrates three or more distinct device IDs into a one-minute window for a single user. A burst of that shape is the fingerprint of either:
+
+- An AiTM phishing-kit relay session: the kit completes the victim's sign-in against Google, then attests one or more device contexts of its own, all from the same kit infrastructure within seconds.
+- Token-replay tooling driving multiple sessions in quick succession against a stolen OAuth refresh token.
+
+In both cases the device fingerprint (OS, model) typically converges on a single value distinct from the victim's baseline (e.g., all "Windows" attestations for a known macOS user), and the burst events fire within a few seconds of each other rather than spread across minutes.
+
+### Possible investigation steps
+
+- Identify the user (`user.email`, `user.id`) and inspect `Esql.host_os_version_values`, `Esql.device_type_values`, `Esql.device_model_values`. A homogeneous fingerprint (single OS, single model) across multiple device IDs in the burst window is highly suspicious.
+- Cross-reference `logs-google_workspace.login` for `event.action: "login_success"` events from the same `user.email` in the 30 minutes preceding the burst. The kit-relay sign-ins should appear there. Inspect each sign-in's `source.geo.country_name`, `source.as.organization.name`, and `user_agent.original` for divergence from the user's baseline. Hosting-provider ASNs (Clouvider, Host Telecom, OVH, Alibaba, Vultr, DigitalOcean, M247) for interactive sign-ins are high-fidelity suspicious.
+- Cross-reference `logs-google_workspace.token` for `event.action: "authorize"` events for the same user near the burst window. Each kit relay normally fires a corresponding OAuth grant within seconds, often to Google Chrome (`77185425430.apps.googleusercontent.com`) or another long-lived first-party client.
+- Pull all `logs-google_workspace.device` events for the user across the 24 hours preceding the burst to characterize the user's normal device-event rate. A user who typically produces less than 1 event per hour suddenly emitting 3+ in a minute is a strong anomaly even before considering device fingerprints.
+- Confirm with the user whether they were performing a new device setup, OS upgrade, or onboarding activity during the burst window.
+
+### False positive analysis
+
+- New device setup where a user simultaneously enrolls multiple Workspace-aware apps (Gmail, Drive, Calendar, Meet) on first boot can produce a burst. Validate by checking whether the burst coincides with a known device refresh or onboarding event.
+- Major OS upgrades that re-attest several apps concurrently can also produce a burst. The host OS version values will reflect the upgrade transition.
+- Bulk MDM rollouts or fleet refreshes may produce bursts across many users at the same time. Consider rule suppression during planned rollouts.
+
+### Response and remediation
+
+- Treat as likely AiTM compromise or token-replay activity until proven otherwise. Suspend the user, revoke all OAuth tokens (`DELETE /admin/directory/v1/users/<email>/tokens/<clientId>`), reset the password, clear recovery email/phone, sign out all sessions.
+- Audit `logs-google_workspace.token: authorize` events for kit-issued or replay-issued OAuth grants. Each grant maps to an independently replayable refresh token; revoking via the consent removes them all at once.
+- Audit the device IDs surfaced in the burst via the Admin SDK Directory API and remove any that are confirmed adversary-controlled.
+- If the tenant exposes GCP resources to the user, cross-check `logs-gcp.audit-*` for `authenticationInfo.principalEmail` matching the user from a non-baseline `callerIp` in the same window; token theft frequently extends to cross-cloud access.
+"""
+references = [
+    "https://developers.google.com/workspace/admin/reports/v1/appendix/activity/mobile",
+    "https://any.run/malware-trends/tycoon/",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 47
+rule_id = "bea0589d-c7a4-4dc6-a931-9fecaa8689fb"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Google Workspace",
+    "Data Source: Google Workspace Device Logs",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-google_workspace.device-*
+| where event.dataset == "google_workspace.device"
+    and event.action == "DEVICE_REGISTER_UNREGISTER_EVENT"
+    and google_workspace.device.account_state == "REGISTERED"
+    and user.email is not null
+    and google_workspace.device.id is not null
+
+| eval Esql.bucket_minute = date_trunc(1 minute, @timestamp)
+
+| stats
+        Esql.count_distinct_device_id = count_distinct(google_workspace.device.id),
+        Esql.device_id_values = values(google_workspace.device.id),
+        Esql.device_resource_id_values = values(google_workspace.device.resource.id),
+        Esql.device_type_values = values(google_workspace.device.type),
+        Esql.device_model_values = values(google_workspace.device.model),
+        Esql.device_account_state_values = values(google_workspace.device.account_state),
+        Esql.host_os_version_values = values(host.os.version),
+        Esql.event_provider_values = values(event.provider),
+        Esql.event_id_values = values(event.id),
+        Esql.google_workspace_actor_type_values = values(google_workspace.actor.type),
+        Esql.google_workspace_event_type_values = values(google_workspace.event.type),
+        Esql.organization_id_values = values(organization.id),
+        Esql.user_domain_values = values(user.domain),
+        Esql.timestamp_first_seen = min(@timestamp),
+        Esql.timestamp_last_seen = max(@timestamp),
+        Esql.event_count = count(*)
+    by user.id, user.email, user.name, Esql.bucket_minute
+
+| where Esql.count_distinct_device_id >= 3
+
+| keep user.id,
+        user.email,
+        user.name,
+        Esql.bucket_minute,
+        Esql.timestamp_first_seen,
+        Esql.timestamp_last_seen,
+        Esql.count_distinct_device_id,
+        Esql.event_count,
+        Esql.device_id_values,
+        Esql.device_resource_id_values,
+        Esql.device_type_values,
+        Esql.device_model_values,
+        Esql.device_account_state_values,
+        Esql.host_os_version_values,
+        Esql.event_provider_values,
+        Esql.event_id_values,
+        Esql.google_workspace_actor_type_values,
+        Esql.google_workspace_event_type_values,
+        Esql.organization_id_values,
+        Esql.user_domain_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = ["@timestamp", "user.email", "user.id", "user.name"]
+

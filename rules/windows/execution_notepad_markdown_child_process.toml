@@ -2,7 +2,7 @@
 creation_date = "2026/02/16"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/01"
 
 [rule]
 author = ["Elastic"]
@@ -21,38 +21,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Notepad Markdown RCE Exploitation"
-note = """## Triage and analysis
-
-### Investigating Potential Notepad Markdown RCE Exploitation
-
-This rule detects a new child process launched by `notepad.exe` when Notepad was opened with a Markdown (`.md`) file.
-This behavior can indicate exploitation of a Notepad remote code execution vulnerability where crafted Markdown content
-triggers unintended process execution.
-
-### Possible investigation steps
-
-- Validate the parent-child relationship and confirm `notepad.exe` is the direct parent of the suspicious process.
-- Review the full command line of both parent and child processes, including the Markdown file path in `process.parent.args`.
-- Identify the Markdown file source (email attachment, browser download, chat client, removable media, or network share).
-- Inspect process ancestry and descendants for additional payload execution, script interpreters, or LOLBIN activity.
-- Correlate with file, registry, and network events around the same timestamp to identify follow-on behavior.
-- Determine whether the child process and its execution path are expected in your environment.
-
-### False positive analysis
-
-- Legitimate automation or editor extensions may occasionally spawn helper processes from Notepad workflows.
-- User-driven workflows that invoke external tools from Markdown previews can trigger this behavior.
-- If benign, tune by excluding known-safe child process names, hashes, signed binaries, and approved file paths.
-
-### Response and remediation
-
-- Isolate affected endpoints until scope is understood.
-- Terminate suspicious child and descendant processes initiated from `notepad.exe`.
-- Quarantine and preserve the triggering Markdown file for forensic analysis.
-- Run endpoint malware scans and collect volatile artifacts (running processes, network connections, autoruns).
-- Patch Windows/Notepad to the latest security update level addressing the vulnerability.
-- Hunt for the same parent-child pattern across other hosts to identify additional impacted systems.
-"""
 references = ["https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20841"]
 risk_score = 73
 rule_id = "7f3521dd-fb80-4548-a7eb-8db37b898dc2"
@@ -78,6 +46,175 @@ process where host.os.type == "windows" and event.type == "start" and
   not process.executable : "C:\\Program Files\\WindowsApps\\Microsoft.WindowsNotepad_*\\Notepad\\Notepad.exe"
 '''
 
+note = """## Triage and analysis
+
+### Investigating Potential Notepad Markdown RCE Exploitation
+
+#### Possible investigation steps
+
+- What exact Notepad-to-child path did the alert preserve?
+  - Why: CVE-2026-20841 abuse centers on Markdown link handling that invokes unsafe protocol handlers, so the launched child and target are decisive.
+  - Focus: `process.parent.executable`, `process.parent.command_line`, `process.parent.args`, child `process.executable`, and child `process.command_line`.
+  - Implication: escalate when Notepad opened Markdown and launched a shell, script host, downloader, browser, archive handler, installer, or custom protocol handler with a URL, UNC path, file URI, app installer URI, or staged payload; lower suspicion only when child and target match a confirmed validation workflow.
+
+- What does child binary identity add to command intent?
+  - Focus: child `process.executable`, `process.hash.sha256`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.pe.original_file_name`.
+  - Implication: escalate when the child is unsigned, user-writable, signer/name-mismatched, or unusual for Markdown link handling; reduce suspicion only when signer, path, hash history, and command target all fit the same confirmed validation workflow.
+
+- Does parent launch context point to lure delivery or controlled use?
+  - Focus: Markdown path from `process.parent.args`, `process.parent.command_line`, `user.id`, `host.id`, and `host.name`.
+  - Implication: escalate when the path is in downloads, mail or chat caches, temp, removable media, network shares, or lure-like filenames; lower suspicion only when source path and child target match a confirmed validation case for the same user or host.
+
+- Did the child start more exploit-chain processes?
+  - Focus: process events on `host.id` where `process.parent.entity_id` links to `process.entity_id`, recording descendant `process.executable` and `process.command_line`. $investigate_4
+  - Hint: prefer entity ID-linked descendants; treat PID-only matches as candidates tightly anchored to `@timestamp`. Inspect `process.Ext.ancestry` only when direct lineage is incomplete.
+  - Implication: escalate for descendant shells, script interpreters, LOLBins, installers, payload runners, or browser-to-download chains; no descendants limits process scope but does not clear the Notepad launch.
+
+- Did the child stage artifacts for later execution?
+  - Focus: if file telemetry exists, review process-scoped `file.path`, `file.Ext.original.path`, and later `process.executable` reuse of a written path. $investigate_0
+  - Hint: recover with `host.id` + `process.entity_id`; if unavailable, use `host.id` + `process.pid` + a tight alert window. Missing file telemetry is unresolved, not benign.
+  - Implication: escalate when the child writes executables, scripts, shortcuts, archives, or renamed payloads to user-writable paths, or a written artifact later runs; clean available file telemetry means staging is not corroborated, not that the alert is benign.
+
+- Did the child contact payload-delivery destinations?
+  - Focus: if DNS or connection telemetry exists, review `dns.question.name`, `destination.ip`, and `destination.port`. $investigate_1
+  - Hint: recover with `host.id` + `process.entity_id`; if unavailable, use `host.id` + `process.pid` + a tight alert window. Missing DNS or connection telemetry is unresolved, not benign.
+  - Implication: escalate when the child resolves or connects to rare, external, newly introduced, or delivery-oriented destinations outside its role; clean available network telemetry removes one corroborator but cannot override suspicious alert-local execution.
+
+- If local evidence is suspicious or unresolved, does the pattern change scope?
+  - Focus: related alerts for the same `user.id` over 48 hours, comparing child `process.executable`, child `process.command_line`, and source-path patterns from `process.parent.args` when present. $investigate_2
+  - Hint: if the user view is empty or ambiguous, compare related alerts for the same `host.id` over 48 hours before broadening. $investigate_3
+  - Implication: broaden when related alerts show the same Notepad-child pattern, source-path family, or delivery indicator across unrelated users or hosts; use recurrence for scope only, not benign closure.
+
+- Escalate when child intent, descendant lineage, artifact staging, or destinations point to payload delivery, even if one conditional telemetry family is absent; close only when source path, child identity, command target, and `user.id`/`host.id` context prove one benign workflow; preserve evidence and escalate when telemetry is missing or contradictory.
+
+### False positive analysis
+
+- Authorized CVE validation, QA, or security lab activity can trigger this rule when controlled Markdown samples intentionally launch a stable helper. Confirm `process.parent.args`, child `process.executable`, child hash or signer, child `process.command_line`, and `user.id`/`host.id` cohort all match the same validation workflow; prior alerts support stability only after those anchors align.
+- Before creating an exception, validate stability for the same child identity, child command-target pattern, Markdown path family from `process.parent.args`, and `user.id` or `host.id` scope. Avoid exceptions on `process.parent.name`, `process.name`, or Notepad alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse temporary containment and record the Markdown path, child process identity, command target, and cohort evidence that confirmed the benign workflow. Build an exception only for the same stable `user.id` or `host.id` scope and child identity.
+- If suspicious but unconfirmed:
+  - Preserve the triggering Markdown file, parent `process.parent.command_line`, child `process.entity_id`, child `process.command_line`, descendant process identifiers, written artifact paths, and DNS or IP indicators before cleanup.
+  - Apply reversible containment tied to observed indicators, such as temporary restriction of the observed destination or heightened monitoring on the affected `host.id` and `user.id`.
+  - Escalate to host isolation if the child continues spawning payloads, downloading content, or contacting suspicious destinations after preservation.
+- If confirmed malicious:
+  - Isolate the host first, then stop the malicious child and descendant `process.entity_id` values after recording `process.entity_id`, `process.command_line`, the Markdown path from `process.parent.args`, and related artifact or destination indicators. If direct response is unavailable, hand off the preserved evidence set to the containment team.
+  - Block confirmed malicious domains, IPs, URLs, hashes, and child process paths identified during the investigation.
+  - Eradicate only the dropped files, startup artifacts, scheduled tasks, registry changes, and payload runners tied to the exploit chain, then quarantine the triggering Markdown file and remediate its delivery path.
+- Post-incident hardening:
+  - Update the Windows Notepad App to a version that remediates CVE-2026-20841, and restrict unsafe protocol-handler launch exposure for Markdown viewers where enterprise controls support it.
+  - Preserve or expand file and network telemetry if missing visibility prevented confirmation of Markdown source, payload staging, or destination activity.
+  - Record the Markdown delivery path, child-process pattern, and adjacent protocol-handler or payload variants in the case notes.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.hash.sha256",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.code_signature.status",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.parent.args",
+    "process.working_directory",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the same child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network events for the same child process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the Notepad-spawned child"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "event.type", queryType = "phrase", value = "start", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.pid", queryType = "phrase", value = "{{process.pid}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

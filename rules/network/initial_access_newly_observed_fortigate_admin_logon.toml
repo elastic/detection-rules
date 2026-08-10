@@ -2,7 +2,7 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/05/06"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,7 @@ Because administrator access provides full control over network security devices
 - **Review login context**
   - Examine associated FortiGate log messages for details such as login method, interface, or authentication source.
   - Check for additional administrative actions following the login (policy changes, user creation, configuration exports).
+  - Review  `fortinet.firewall.profile` to identify the FortiGate Admin Profile the identity logged in under.
 
 - **Correlate with recent changes**
   - Verify whether there were recent change requests, onboarding activities, or maintenance windows that explain the login.
@@ -86,9 +87,9 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
         event.category == "authentication" and event.action == "login" and
         event.outcome == "success" and source.user.roles == "Administrator" and source.user.name is not null
 | stats Esql.logon_count = count(*),
-        Esql.first_time_seen = MIN(@timestamp),
-        Esql.source_ip_values = VALUES(source.ip),
-        Esql.message_values = VALUES(message) by source.user.name
+       Esql.first_time_seen = MIN(@timestamp),
+       Esql.source_ip_values = VALUES(source.ip),
+       Esql.message_values = VALUES(message) by source.user.name, fortinet.firewall.profile
 
 // first time seen is within 6m of the rule execution time and for the last 5d of events history
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
@@ -97,7 +98,14 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 // move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(Esql.source_ip_values)
 
-| keep source.ip, source.user.name, Esql.*
+| keep source.ip,
+       source.user.name,
+       fortinet.firewall.profile,
+       Esql.logon_count,
+       Esql.first_time_seen,
+       Esql.source_ip_values,
+       Esql.message_values,
+       Esql.recent
 '''
 
 

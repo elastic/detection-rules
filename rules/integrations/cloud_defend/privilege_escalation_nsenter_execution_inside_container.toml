@@ -1,0 +1,89 @@
+[metadata]
+creation_date = "2026/03/31"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/03/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects nsenter executions from inside a monitored Linux container that include a namespace target flag (-t or
+--target). Adversaries abuse nsenter to attach to host or sibling namespaces and escape container isolation when
+combined with privileged mounts, exposed PIDs, or shared namespaces.
+"""
+from = "now-6m"
+index = ["logs-cloud_defend.process*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Nsenter Execution with Target Flag Inside Container"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Nsenter Execution with Target Flag Inside Container
+
+This alert flags `nsenter` (by process name or as a process argument) launched from a workload with a non-empty
+`container.id`, with `-t` or `--target` present on the command line. That pattern is consistent with entering another
+process or namespace context and is a common building block for container escape and host pivoting when prerequisites
+such as host PID mounts or excessive capabilities exist.
+
+### Possible investigation steps
+
+- Review the full command line and parent process to see which PID or path was passed to `-t` / `--target`, and whether
+  additional flags such as `-m`, `-n`, `-p`, `-U`, or `-i` indicate mount, network, PID, user, or IPC namespace joins.
+- Map the container image, pod, namespace, and node; confirm whether the workload should ever invoke nsenter or share
+  namespaces with the host.
+- Correlate with file, network, and authentication telemetry from the same container for follow-on access to the
+  container runtime socket, kubelet paths, SSH material, or cloud instance metadata.
+
+### False positive analysis
+
+- Some troubleshooting images or platform agents may wrap nsenter for diagnostics; verify image provenance, scheduled
+  maintenance, and approved break-glass procedures before treating as malicious.
+
+### Response and remediation
+
+- If the activity is unauthorized, isolate the pod or node, preserve runtime artifacts, rotate any credentials exposed to
+  the container, and re-image or replace the node when host integrity is in doubt.
+- Reduce recurrence by enforcing least privilege, avoiding host namespace sharing, restricting hostPath and sensitive
+  mounts, and blocking unnecessary capabilities.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1611/",
+    "https://man7.org/linux/man-pages/man1/nsenter.1.html",
+]
+risk_score = 73
+rule_id = "39029450-8e2d-4034-81b0-15af8e4e3a4e"
+severity = "high"
+tags = [
+    "Data Source: Elastic Defend for Containers",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+  (process.name == "nsenter" or process.args == "nsenter") and
+  container.id like "?*" and process.args like ("-t", "--target*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

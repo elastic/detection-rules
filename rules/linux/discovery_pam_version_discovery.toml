@@ -2,7 +2,7 @@
 creation_date = "2024/12/16"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/06/17"
 
 [rule]
 author = ["Elastic"]
@@ -111,10 +111,17 @@ process where host.os.type == "linux" and event.type == "start" and
 not (
   ?process.parent.name in ("dcservice", "inspectorssmplugin") or
   ?process.working_directory in ("/var/ossec", "/opt/msp-agent") or
+  ?process.entry_leader.executable in("/usr/local/qualys/cloud-agent/bin/qualys-cloud-agent", "/usr/sbin/ScanAssistant") or
   ?process.parent.executable in (
     "/opt/CyberCNSAgent/cybercnsagent_linux", "/usr/local/manageengine/uems_agent/bin/dcpatchscan",
     "/usr/local/manageengine/uems_agent/bin/dcconfig", "/usr/share/vicarius/topiad",
-    "/etc/rc.d/init.d/sshd-chroot"
+    "/etc/rc.d/init.d/sshd-chroot", "/var/ossec/bin/wazuh-modulesd",
+    "/usr/lib/venv-salt-minion/bin/python.original"
+  ) or
+  (
+    process.executable == "/usr/bin/rpm" and
+    ?process.parent.name == "systemd" and
+    ?process.env_vars == "LD_LIBRARY_PATH=/usr/lib/venv-salt-minion/lib"
   )
 )
 '''

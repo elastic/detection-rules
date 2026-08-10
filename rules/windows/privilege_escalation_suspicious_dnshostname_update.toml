@@ -2,7 +2,7 @@
 creation_date = "2022/05/11"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -17,41 +17,6 @@ index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Remote Computer Account DnsHostName Update"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Remote Computer Account DnsHostName Update
-
-In Active Directory environments, the DnsHostName attribute links computer accounts to their DNS names, crucial for network communication. Adversaries may exploit this by altering a non-domain controller's DnsHostName to mimic a domain controller, potentially exploiting vulnerabilities like CVE-2022-26923 for privilege escalation. The detection rule identifies suspicious changes by monitoring for remote updates to this attribute, especially when the new hostname resembles a domain controller's, flagging potential exploitation attempts.
-
-### Possible investigation steps
-
-- Review the event logs to confirm the occurrence of the "changed-computer-account" action, focusing on the user.id fields ("S-1-5-21-*", "S-1-12-1-*") to identify the user who initiated the change.
-- Verify the new DnsHostName value against the list of legitimate domain controller DNS hostnames to assess if it matches any known domain controllers.
-- Check the winlog.event_data.TargetUserName to ensure that the DnsHostName does not start with the computer name that was changed, which could indicate a false positive.
-- Investigate the account associated with the user.id to determine if it has a history of suspicious activity or if it has been compromised.
-- Examine recent changes or activities on the affected computer account to identify any unauthorized access or configuration changes.
-- Correlate this event with other security alerts or logs to identify potential patterns or coordinated activities that might indicate a broader attack.
-
-### False positive analysis
-
-- Routine maintenance or updates to computer accounts may trigger the rule if the DnsHostName is temporarily set to a domain controller-like name. To manage this, create exceptions for known maintenance periods or specific administrative accounts performing these updates.
-- Automated scripts or tools that update computer account attributes might inadvertently match the rule's conditions. Identify and exclude these scripts or tools by their user IDs or specific patterns in their operations.
-- Legitimate changes in network architecture, such as the promotion of a server to a domain controller, could be flagged. Ensure that such changes are documented and create exceptions for the involved accounts or systems during the transition period.
-- Temporary testing environments where non-domain controllers are configured with domain controller-like hostnames for testing purposes can cause false positives. Exclude these environments by their specific hostnames or network segments.
-- Regularly review and update the list of known domain controller hostnames to ensure that legitimate changes in the network are not mistakenly flagged as suspicious.
-
-### Response and remediation
-
-- Immediately isolate the affected computer from the network to prevent further unauthorized changes or potential exploitation.
-- Verify the legitimacy of the DnsHostName change by cross-referencing with known domain controller hostnames and authorized change requests.
-- Revert any unauthorized changes to the DnsHostName attribute to its original state to restore proper network communication and prevent misuse.
-- Conduct a thorough review of recent account activities and permissions for the user account involved in the change to identify any unauthorized access or privilege escalation attempts.
-- Escalate the incident to the security operations team for further investigation and to assess potential exploitation of CVE-2022-26923 or other vulnerabilities.
-- Implement additional monitoring on the affected system and similar systems to detect any further suspicious activities or attempts to exploit vulnerabilities.
-- Review and update access controls and permissions for computer accounts in Active Directory to ensure only authorized personnel can make changes to critical attributes like DnsHostName."""
 references = [
     "https://research.ifcr.dk/certifried-active-directory-domain-privilege-escalation-cve-2022-26923-9e098fe298f4",
     "https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2022-26923",
@@ -84,6 +49,98 @@ iam where host.os.type == "windows" and event.action == "changed-computer-accoun
     not startswith~(winlog.event_data.DnsHostName, substring(winlog.event_data.TargetUserName, 0, length(winlog.event_data.TargetUserName) - 1))
 '''
 
+note = """## Triage and analysis
+
+### Investigating Remote Computer Account DnsHostName Update
+
+#### Possible investigation steps
+
+- What object, initiator, and DNS-name mismatch does the alert prove?
+  - Focus: `winlog.event_data.TargetUserName`, `winlog.event_data.TargetSid`, `winlog.event_data.DnsHostName`, `winlog.event_data.SubjectUserSid`, and `winlog.event_data.SubjectLogonId`.
+  - Implication: escalate or continue when the new DNS host name no longer matches the target computer account and points to another server namespace; lower suspicion only when target SID, subject SID, and logon session fit a recognized rename, promotion, re-binding, or authorized test.
+
+- Does the new DNS host name collide with a domain controller or other sensitive host?
+  - Why: Certifried abuse makes a controlled computer account look like a trusted host before requesting or using a machine certificate.
+  - Focus: `winlog.event_data.DnsHostName`, `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, and `winlog.computer_name`.
+  - Implication: high risk when the value matches a real domain controller, CA, or privileged server different from `winlog.event_data.TargetUserName`; lower risk only when it belongs to the same object transition and does not collide with a privileged asset.
+
+- Who made the update, and does the source/session context fit that account's role?
+  - Focus: `winlog.event_data.SubjectUserSid`, `winlog.event_data.SubjectUserName`, `winlog.event_data.SubjectDomainName`, `winlog.event_data.SubjectLogonId`, and `source.ip`.
+  - Implication: escalate when the subject is a standard user, non-tier-0 admin, unusual service account, machine account, or unexpected source for computer-account management; lower suspicion when subject, source when present, and logon session match a recognized AD management path.
+
+- Did the same object show SPN deletion, empty-SPN creation, or other preparation?
+  - Why: successful DNS-name spoofing often requires removing FQDN service principal names or creating a computer account without them so SPN uniqueness checks do not block the DNS update.
+  - Focus: Windows Security account-management and directory-change events for `winlog.event_data.TargetSid`, especially `event.code`, `winlog.event_data.AttributeLDAPDisplayName`, `winlog.event_data.AttributeValue`, and `winlog.event_data.ObjectDN`.
+  - Implication: escalate when the sequence removes servicePrincipalName values, creates or controls the computer object, or changes related attributes just before the DNS update; lower suspicion when the same change set follows a recognized promotion or re-binding path.
+
+- Did certificate-service or Kerberos activity use the spoofed identity after the update?
+  - Focus: post-alert Windows Security certificate enrollment and authentication events for `winlog.event_data.TargetUserName` or the spoofed host name, reading `event.code`, `winlog.event_data.AuthenticationPackageName`, `winlog.logon.type`, and `source.ip`.
+  - Hint: missing certificate-service or Kerberos telemetry leaves post-update use unresolved, not benign.
+  - Implication: escalate when the modified object requests or receives a machine certificate, uses Kerberos with the spoofed identity, authenticates from unexpected `source.ip` when present, or appears in privileged follow-on activity; absence of follow-on use lowers urgency only when object, initiator, and preparation evidence also align benignly.
+
+- If local evidence stays suspicious or unresolved, do related alerts show the same modifying user elsewhere?
+  - Focus: related alerts for modifying `user.id`, especially AD manipulation, certificate abuse, credential-access, or privilege-escalation alerts. $investigate_0
+  - Implication: broaden scope when the same user appears in more directory changes, certificate abuse, unusual authentication, or privilege escalation; keep response local only when related alerts are absent and local evidence supports one recognized workflow.
+
+- What disposition do the DNS-name mismatch, hostname collision, initiator, preparation, follow-on use, and scope support?
+  - Escalate on sensitive-host collision, suspicious initiator, SPN/object preparation, certificate/Kerberos use, or related AD abuse; close only when all evidence binds one recognized test or object-transition workflow with no contradictions; preserve evidence and escalate when answers conflict or visibility is incomplete.
+
+### False positive analysis
+
+- Benign matches are uncommon because changing a computer account DNS host name to another host namespace is an AD identity anti-pattern. Authorized CVE-2022-26923 testing or patch validation explains the alert only when subject SID/logon, target SID/name, spoofed host name, event-origin controller, SPN/object-change sequence, and follow-on certificate or authentication events all match the same test scope. Without a test plan, close only when telemetry proves a bounded lab pattern; drift in initiator, hostname, or follow-on use keeps the alert suspicious.
+- Rare promotion, rename, migration, or re-binding explains the alert only when the same computer object intentionally assumes the new DNS identity, no privileged-host collision exists, and subject, target SID, new host name, controller, and bounded follow-on authentication path all align. Do not close if telemetry leaves object identity, collision, or follow-on use unresolved.
+- Build exceptions from the minimum confirmed workflow: stable `winlog.event_data.SubjectUserSid`, `winlog.event_data.TargetSid`, `winlog.event_data.TargetUserName`, `winlog.event_data.DnsHostName`, `winlog.computer_name`, and bounded follow-on `source.ip` or `event.code`. Avoid exceptions on `event.action`, `winlog.event_data.DnsHostName`, or `winlog.event_data.TargetSid` alone.
+
+### Response and remediation
+
+- If confirmed benign, document the exact workflow evidence first: subject SID/logon, target SID/name, DNS host name, event-origin controller, SPN/object-change context, and bounded follow-on authentication or certificate pattern. Then reverse temporary containment. Create an exception only after the same pattern is stable enough to avoid suppressing lookalike spoofing.
+- If suspicious but unconfirmed, export the alert and surrounding Windows Security records first, preserving the target object, spoofed host name, subject identity/logon, event-origin controller, SPN/object changes, certificate/authentication events, source IPs, and related alerts. Then use reversible containment, such as restoring the prior DNS host name or temporarily disabling the modified computer account with AD owner coordination. Escalate to account or host containment only when certificate issuance, Kerberos use, or related privilege abuse shows active use.
+- If confirmed malicious, preserve the same AD object-change and follow-on authentication/certificate evidence before restoration. Disable or restore the modified computer object, reset the machine-account secret or trust path, revoke or map affected certificates when issued, and contain the modifying account and suspected source host. Use broader domain recovery only when certificate or Kerberos abuse extends beyond the single object.
+- Before final object restoration, search the same subject SID and target SID across Windows Security logs for additional DNS host name, SPN, certificate, or privilege-abuse events so scope is complete before evidence changes.
+- Post-incident hardening: apply CVE-2022-26923 domain controller and AD CS fixes, reduce ms-DS-MachineAccountQuota where feasible, restrict computer-account creation and validated writes, retain computer-account and 5136 directory-service auditing, and record the confirmed subject/target/hostname/follow-on-authentication pattern for future triage.
+"""
+
+setup = """## Setup
+
+Audit Computer Account Management must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-computer-account-management
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "event.action",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectDomainName",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.logon.id",
+    "winlog.event_data.TargetUserName",
+    "winlog.event_data.TargetSid",
+    "winlog.event_data.TargetDomainName",
+    "winlog.event_data.DnsHostName",
+    "host.name",
+    "host.id",
+    "winlog.computer_name",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Alerts associated with the modifying user in the surrounding window"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-2h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -102,11 +159,6 @@ reference = "https://attack.mitre.org/techniques/T1078/"
 id = "T1078.002"
 name = "Domain Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/002/"
-
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
 
 [rule.threat.tactic]
 id = "TA0004"

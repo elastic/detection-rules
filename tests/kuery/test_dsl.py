@@ -140,3 +140,142 @@ class TestKQLtoDSL(unittest.TestCase):
                 "minimum_should_match": 1,
             },
         )
+
+    def test_nested_query(self):
+        """Nested KQL compiles to an Elasticsearch `nested` query with absolute leaf paths."""
+        schema = {
+            "top": "nested",
+            "top.a": "keyword",
+            "top.b": "keyword",
+            "top.middle": "nested",
+            "top.middle.bool": "boolean",
+        }
+
+        # a single inner condition optimizes to a bare leaf query inside the nested block
+        self.validate(
+            "top:{ a:hello }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {"match": {"top.a": "hello"}},
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
+        # role-style OR list stays scoped to the same nested object
+        self.validate(
+            "top:{ a:ADD and b:(x or y) }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {
+                                "bool": {
+                                    "filter": [{"match": {"top.a": "ADD"}}],
+                                    "should": [{"match": {"top.b": "x"}}, {"match": {"top.b": "y"}}],
+                                    "minimum_should_match": 1,
+                                }
+                            },
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
+        # nested-within-nested prefixes each level's leaves correctly
+        self.validate(
+            "top:{ middle:{ bool: true } }",
+            {
+                "filter": [
+                    {
+                        "nested": {
+                            "path": "top",
+                            "query": {
+                                "nested": {
+                                    "path": "top.middle",
+                                    "query": {"match": {"top.middle.bool": True}},
+                                    "score_mode": "none",
+                                }
+                            },
+                            "score_mode": "none",
+                        }
+                    }
+                ]
+            },
+            schema=schema,
+        )
+
+    def test_wildcard_query_string_escaping(self):
+        """Wildcard values converted to query_string.query must escape Lucene reserved chars while preserving `*`."""
+
+        def qs(field, query):
+            return {"filter": [{"query_string": {"fields": [field], "query": query}}]}
+
+        # Regression for https://github.com/elastic/detection-rules/issues/441
+        # Leading `/` must be escaped so Lucene doesn't interpret it as a regex.
+        self.validate(
+            r"process.args:/lockscreenurl\:http*",
+            qs("process.args", r"\/lockscreenurl\:http*"),
+        )
+
+        # Every `/` is escaped (matches Kibana's escapeQueryString).
+        self.validate(
+            "process.args:/tmp/foo*",
+            qs("process.args", r"\/tmp\/foo*"),
+        )
+        self.validate(
+            "process.args:foo/bar*",
+            qs("process.args", r"foo\/bar*"),
+        )
+
+        # Brackets, `+`, `-`, and `?` are Lucene query_string specials and must
+        # be escaped in the wildcard value.
+        self.validate(
+            "process.args:foo[bar]*",
+            qs("process.args", r"foo\[bar\]*"),
+        )
+        self.validate(
+            "process.args:foo+bar*",
+            qs("process.args", r"foo\+bar*"),
+        )
+        self.validate(
+            "process.args:foo-bar*",
+            qs("process.args", r"foo\-bar*"),
+        )
+        # `?` is a literal in KQL but a single-char wildcard in Lucene; escape it.
+        self.validate(
+            "process.args:foo?bar*",
+            qs("process.args", r"foo\?bar*"),
+        )
+
+        # `*` is the wildcard marker and is preserved as-is.
+        self.validate(
+            "process.args:*.exe",
+            qs("process.args", "*.exe"),
+        )
+
+        # Spaces are not Lucene reserved chars and should not be escaped.
+        self.validate(
+            "field: *S3 Browser*",
+            qs("field", "*S3 Browser*"),
+        )
+
+        # KQL escape sequences are unescaped (value stored as Python literal),
+        # then re-escaped for Lucene.
+        self.validate(
+            r"process.args:foo\(bar*",
+            qs("process.args", r"foo\(bar*"),
+        )
+        self.validate(
+            r"process.args:foo\:bar*",
+            qs("process.args", r"foo\:bar*"),
+        )

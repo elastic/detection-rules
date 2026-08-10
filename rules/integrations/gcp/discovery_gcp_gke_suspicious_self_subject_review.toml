@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GKE service account or node identities invoking self-subject access or rules review APIs. Non-human identities
+rarely enumerate their own permissions outside known controllers; this can indicate stolen tokens probing effective RBAC.
+"""
+false_positives = [
+    """
+    Some controllers and admin impersonation workflows legitimately submit self-subject reviews. Excluded identities
+    include common Argo and Datadog service accounts.
+    """,
+]
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Suspicious Self-Subject Review via Service Account"
+note = """## Triage and analysis
+
+### Investigating GKE Suspicious Self-Subject Review via Service Account
+
+Review the calling service account or node identity and subsequent API activity.
+
+### Investigation steps
+
+- Confirm `user.email` and `event.action` (selfsubjectaccessreviews or selfsubjectrulesreviews).
+- Correlate with denied requests, secret access, or RBAC changes from the same identity.
+
+### False positives
+
+- Known observability or workflow controllers; extend exclusions if needed.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
+]
+risk_score = 21
+rule_id = "2302fb59-5201-46ec-b433-6044adb37b0b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:k8s.io and event.action:(io.k8s.authorization.v1.selfsubjectaccessreviews.create or io.k8s.authorization.v1.selfsubjectrulesreviews.create) and user.email:((system\:node\:* or system\:serviceaccount\:*) and not ("system:serviceaccount:default:argo-argo-workflows-server" or "system:serviceaccount:default:argo-argo-workflows-workflow-controller" or system\:serviceaccount\:*\:datadog-kube-state-metrics))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"

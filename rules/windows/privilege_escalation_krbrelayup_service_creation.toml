@@ -2,53 +2,20 @@
 creation_date = "2022/04/27"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies a suspicious local successful logon event where the Logon Package is Kerberos, the remote address is set to
-localhost, followed by a sevice creation from the same LogonId. This may indicate an attempt to leverage a Kerberos
-relay attack variant that can be used to elevate privilege locally from a domain joined user to local System privileges.
+localhost, followed by service creation from the same LogonId. This may indicate an attempt to leverage a Kerberos relay
+attack variant that can elevate privileges locally from a domain-joined user to LocalSystem privileges.
 """
 from = "now-9m"
 index = ["logs-system.security*", "logs-windows.forwarded*", "winlogbeat-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Service Creation via Local Kerberos Authentication"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Service Creation via Local Kerberos Authentication
-
-Kerberos is a network authentication protocol designed to provide strong authentication for client/server applications. In Windows environments, it is often used for secure identity verification. Adversaries may exploit Kerberos by relaying authentication tickets locally to escalate privileges, potentially creating services with elevated rights. The detection rule identifies suspicious local logons using Kerberos, followed by service creation, indicating possible misuse. By monitoring specific logon events and service installations, it helps detect unauthorized privilege escalation attempts.
-
-### Possible investigation steps
-
-- Review the event logs for the specific LogonId identified in the alert to gather details about the logon session, including the user account involved and the time of the logon event.
-- Examine the source IP address and port from the logon event to confirm it matches the localhost (127.0.0.1 or ::1) and determine if this aligns with expected behavior for the user or system.
-- Investigate the service creation event (event ID 4697) associated with the same LogonId to identify the service name, executable path, and any related command-line arguments to assess if it is legitimate or potentially malicious.
-- Check for any recent changes or anomalies in the system or user account, such as modifications to user privileges, group memberships, or recent software installations, that could indicate unauthorized activity.
-- Correlate the findings with other security alerts or logs from the same timeframe to identify any patterns or additional indicators of compromise that may suggest a broader attack or compromise.
-
-### False positive analysis
-
-- Routine administrative tasks may trigger the rule if administrators frequently log in locally using Kerberos and create services as part of their duties. To manage this, create exceptions for known administrative accounts or specific service creation activities that are part of regular maintenance.
-- Automated scripts or software updates that use Kerberos authentication and subsequently install or update services can also generate false positives. Identify these scripts or update processes and exclude their associated logon IDs from the rule.
-- Security software or monitoring tools that perform regular checks and use Kerberos for authentication might inadvertently trigger the rule. Review the behavior of these tools and whitelist their activities if they are verified as non-threatening.
-- In environments where localhost is used for testing or development purposes, developers might log in using Kerberos and create services. Consider excluding specific development machines or user accounts from the rule to prevent unnecessary alerts.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further unauthorized access or privilege escalation.
-- Terminate any suspicious services created during the incident to halt potential malicious activities.
-- Conduct a thorough review of the affected system's event logs, focusing on the specific LogonId and service creation events to identify the scope of the compromise.
-- Reset the credentials of the compromised user account and any other accounts that may have been accessed using the relayed Kerberos tickets.
-- Apply patches and updates to the affected system and any other systems in the network to address known vulnerabilities that could be exploited in similar attacks.
-- Implement network segmentation to limit the ability of attackers to move laterally within the network, reducing the risk of privilege escalation.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to ensure comprehensive remediation efforts are undertaken."""
 references = [
     "https://github.com/Dec0ne/KrbRelayUp",
     "https://googleprojectzero.blogspot.com/2021/10/using-kerberos-for-authentication-relay.html",
@@ -63,7 +30,6 @@ tags = [
     "OS: Windows",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
-    "Tactic: Credential Access",
     "Use Case: Active Directory Monitoring",
     "Data Source: Active Directory",
     "Data Source: Windows Security Event Logs",
@@ -86,6 +52,135 @@ sequence by winlog.computer_name with maxspan=5m
    event.action : "service-installed"] by winlog.event_data.SubjectLogonId
 '''
 
+note = """## Triage and analysis
+
+### Investigating Service Creation via Local Kerberos Authentication
+#### Possible investigation steps
+
+- Do the source events show a loopback Kerberos logon followed by service creation in the same session?
+  - Why: sequence alerts merge fields; recover the 4624 and 4697 Timeline source events before interpreting grouped meaning.
+  - Focus: `winlog.computer_name`: 4624 `source.ip`, `winlog.logon.type`, `winlog.event_data.AuthenticationPackageName`, `winlog.event_data.TargetLogonId`; 4697 `winlog.event_data.SubjectLogonId`.
+  - Implication: escalate when loopback Kerberos network logon and 4697 service install share the same logon ID; lower suspicion when recovery shows no matching 4697, non-loopback source, or a different session.
+- Which identity received the elevated loopback Kerberos session?
+  - Focus: 4624 `winlog.event_data.TargetUserName`, `winlog.event_data.TargetDomainName`, `winlog.event_data.TargetUserSid`, `user.id`, and `winlog.event_data.ElevatedToken`; Subject fields are the local initiator, not the authenticated identity.
+  - Implication: escalate when the authenticated identity is an unexpected admin, service, or machine-account path for this host; lower suspicion only when the same identity and lab or deployment host cohort are recognized for this validation pattern.
+- What service did the recovered 4697 install?
+  - Focus: 4697 `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `winlog.event_data.ServiceStartType`, and `winlog.event_data.ServiceType`.
+  - Implication: escalate when the service uses a throwaway name, shell or script command, user-writable payload, or LocalSystem execution. Public tools may use "KrbSCM" or "UACBypassedService"; lower suspicion only when stable service metadata, account, and host cohort match the same authorized validation or owner-confirmed deployment workflow.
+- Do same-session Windows Security events show credential use, privilege activation, or additional service activity?
+  - Focus: same-host Windows Security events surrounding the sequence, keyed on `winlog.event_data.SubjectLogonId`; read 4624, 4648, and additional 4697 records. $investigate_0
+  - Hint: query `winlog.computer_name` plus either recovered logon ID across the alert window first; expand only if source-event ordering is unclear.
+  - Hint: Missing authentication telemetry is unresolved, not benign.
+  - Implication: escalate when the same session shows explicit credentials or multiple service installs; keep scope local when evidence remains one recovered 4624-to-4697 chain with no contradictory activity.
+- If local evidence remains suspicious or unresolved, do related alerts show the same relay-to-service chain elsewhere?
+  - Focus: related alerts for `winlog.computer_name` in the last 48 hours that reuse the same service name or command, or show Kerberos or service-install abuse on this host. $investigate_1
+  - Hint: compare `user.id` only if the host view does not show whether one operator or account cohort is involved. $investigate_2
+  - Implication: broaden scope when related alerts show the same host or user preparing, reusing, or expanding the service-creation chain; keep response local when related-alert review is quiet and source events already resolve the case.
+- Escalate when source recovery confirms loopback Kerberos followed by suspicious LocalSystem service creation; close only when the session, identity, service metadata, and surrounding Windows Security evidence fit one exact benign activity with corroborating owner or test records when telemetry cannot prove legitimacy; preserve and escalate when evidence is mixed.
+
+### False positive analysis
+
+- Authorized exploit validation, red-team work, or security research can reproduce this rule on lab systems. Confirm the 4624-to-4697 chain, `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `user.id`, and `winlog.computer_name` match test scope and timing. Without change or test records, close only when telemetry independently proves that validation scope; mark a one-off test as non-exceptionable instead of requiring recurrence.
+- Treat loopback Kerberos plus service creation as an operational anti-pattern outside authorized validation. A deployment or support claim is benign only when owner or runbook confirmation and source events prove this exact local SCM path, stable `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, `winlog.computer_name`, and no relay-prerequisite or follow-on alerts.
+- Before creating an exception, pin `winlog.event_data.ServiceName`, `winlog.event_data.ServiceFileName`, `winlog.event_data.ServiceAccount`, `user.id`, and `winlog.computer_name`, and add an expiry or test-scope constraint for one-off validation. Avoid exceptions on loopback `source.ip`, event 4624, event 4697, or Kerberos alone because those conditions are broader than the confirmed workflow.
+
+### Response and remediation
+
+- If confirmed benign, preserve the source-event chain and service evidence that proved the authorized workflow, then reverse temporary containment. Create an exception only from the pinned workflow fields, with an expiry or test-scope constraint for one-off validation.
+- If suspicious but unconfirmed, preserve the Timeline source events, recovered logon IDs, loopback source, service metadata, and surrounding `event.code` "4648" evidence before containment. Apply reversible containment first: stop and disable the new service after evidence capture, temporarily restrict the implicated account if follow-on activity indicates active misuse, or isolate the host only when active compromise and host criticality justify interruption.
+- If confirmed malicious, preserve the service record and recovered source events, then isolate the host when feasible, disable and remove the malicious service, and reset or restrict the implicated account plus any machine-account, delegation, or certificate artifacts found during scoping. If direct response is unavailable, escalate with session IDs, service metadata, `source.ip`, `user.id`, and related-alert evidence to the team that can contain the system. Scope related hosts and identities for the same service name, service command, or loopback Kerberos pattern before cleanup.
+- Post-incident hardening: enforce LDAP signing and channel binding where possible, reduce ms-DS-MachineAccountQuota, protect privileged accounts from delegation, harden ADCS web enrollment with TLS and EPA if that path exists, and retain Windows Security logs long enough to reconstruct future 4624-to-4697 chains.
+"""
+
+setup = """## Setup
+
+The following Windows audit policies must be enabled to generate the events used by this rule:
+- [Audit Logon](https://ela.st/audit-logon)
+- [Audit Security System Extension](https://ela.st/audit-security-system-extension)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "winlog.computer_name",
+    "host.id",
+    "user.id",
+    "event.code",
+    "event.action",
+    "source.ip",
+    "winlog.logon.type",
+    "winlog.event_data.AuthenticationPackageName",
+    "winlog.event_data.ElevatedToken",
+    "winlog.event_data.TargetLogonId",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.ServiceName",
+    "winlog.event_data.ServiceFileName",
+    "winlog.event_data.ServiceAccount",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Windows Security events for the same logon session"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.SubjectLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4624", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4648", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" },
+    { excluded = false, field = "winlog.event_data.TargetLogonId", queryType = "phrase", value = "{{winlog.event_data.SubjectLogonId}}", valueType = "string" },
+    { excluded = false, field = "event.code", queryType = "phrase", value = "4697", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host in the last 48h"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "winlog.computer_name", queryType = "phrase", value = "{{winlog.computer_name}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user in the last 48h"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2026/05/22"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Azure AD Graph (graph.windows.net) requests where the combination of calling OAuth client
+("azure.aadgraphactivitylogs.properties.app_id") and signed-in user ("user.id") has not been observed in the tenant in
+a historical window. A user appearing against AAD Graph under an OAuth client that has not previously authenticated
+that user is a sign of a FOCI swap, a phished refresh token being redeemed for a new client, or an adversary running
+tooling under a client identity the user does not normally use.
+"""
+false_positives = [
+    """
+    First-time use of a legitimate first-party or sanctioned client by the user (newly installed app, first sign-in to a
+    workload, fresh PowerShell module install). Validate by `azure.aadgraphactivitylogs.properties.app_id` and the
+    user's history.
+    """,
+    """
+    Authorized red team or audit activity. Add exceptions on the calling user after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.aadgraphactivitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AD Graph Access with Unusual Client and User"
+note = """## Triage and analysis
+
+### Investigating Azure AD Graph Access with Unusual Client and User
+
+A (client, user) pair appearing on AAD Graph for the first time in 14 days is a high-signal indicator. Legacy
+AAD Graph traffic is dominated by a small set of recognised first-party callers per user; new combinations
+suggest one of:
+
+- A FOCI refresh-token swap landed under a new client identity.
+- The user newly consented to (or was phished into consenting to) an OAuth application.
+- An adversary is using stolen tokens / credentials under a client identity the user does not normally use.
+
+### Possible investigation steps
+
+- Identify the calling client and confirm whether the app is sanctioned.
+    - `azure.aadgraphactivitylogs.properties.app_id`. Pivot to Azure portal → Enterprise Applications to check whether it is first-party, sanctioned third-party, or unfamiliar.
+- Identify the user and check the surrounding auth context.
+    - `user.id`, then pivot to sign-in logs (`logs-azure.signinlogs-*`) for the same user around the same time. Look for unusual sign-in geography, MFA bypass, or risky session signals.
+- Review source posture.
+    - `user_agent.original`, `source.ip`, `source.as.organization.name`. Residential / VPS / anonymising-network egress raises priority.
+- Review what was queried.
+    - `url.path`. Bulk recon or User-collection access via internal API versions raises triage priority.
+- Check tenant-wide blast radius for the client.
+    - Is the same client ID hitting AAD Graph for many other users? That pattern points to large-scale consent abuse rather than a single account compromise.
+- Confirm the activity is not attributable to authorized testing (red team engagement, penetration test, internal tooling validation) before treating as malicious.
+
+### Response and remediation
+
+- Revoke refresh tokens and active sessions for the calling user.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Temporarily disable the user if the alert is high-confidence or you need to halt further activity while investigation continues.
+    - `PATCH /v1.0/users/{id}` with body `{"accountEnabled": false}`.
+- If the client is not a sanctioned application, revoke its OAuth consent.
+    - `GET /v1.0/oauth2PermissionGrants?$filter=clientId eq '{servicePrincipalId}'`, then `DELETE /v1.0/oauth2PermissionGrants/{grantId}`.
+- Check for device registrations created by the user during or around the burst window and remove rogue devices.
+    - `GET /v1.0/users/{id}/registeredDevices` and `GET /v1.0/users/{id}/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}`.
+    - Do this BEFORE session revocation: device-bound PRTs survive `revokeSignInSessions`.
+- If the calling application has no legitimate AAD Graph dependency, block further use by that app.
+    - `PATCH /beta/applications/{id}` with body `{"authenticationBehaviors": {"blockAzureADGraphAccess": true}}`.
+    - This property lives on the Graph beta endpoint, not v1.0.
+"""
+references = [
+    "https://github.com/secureworks/family-of-client-ids-research",
+    "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 47
+rule_id = "fd9d2933-f0f9-4aac-810c-a31f6a4a7890"
+setup = """#### Azure AD Graph Activity Logs
+Requires Azure AD Graph Activity Logs ingested into `logs-azure.aadgraphactivitylogs-*` via the Elastic Azure
+integration. Enable the `AzureADGraphActivityLogs` diagnostic-settings category on Entra ID.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure AD Graph",
+    "Data Source: Azure AD Graph Activity Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:"azure.aadgraphactivitylogs" and
+    azure.aadgraphactivitylogs.properties.actor_type : "User" and
+    azure.aadgraphactivitylogs.properties.app_id: (* and not (
+        "74658136-14ec-4630-ad9b-26e160ff0fc6" or
+        "bb8f18b0-9c38-48c9-a847-e1ef3af0602d" or
+        "00000006-0000-0ff1-ce00-000000000000" or
+        "18ed3507-a475-4ccb-b669-d66bc9f2a36e")
+    ) and user.id:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "source.ip",
+    "source.as.organization.name",
+    "user_agent.original",
+    "azure.aadgraphactivitylogs.properties.app_id",
+    "azure.aadgraphactivitylogs.properties.api_version",
+    "url.path",
+    "azure.tenant_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.aadgraphactivitylogs.properties.app_id", "user.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

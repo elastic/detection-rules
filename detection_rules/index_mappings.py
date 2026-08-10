@@ -190,7 +190,7 @@ def prune_mappings_of_unsupported_types(
     return stream_mappings
 
 
-def prepare_integration_mappings(  # noqa: PLR0913
+def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
     package_manifests: Any,
@@ -254,7 +254,7 @@ def get_index_to_package_lookup(indices: list[str], index_lookup: dict[str, Any]
     return index_lookup_indices
 
 
-def get_filtered_index_schema(  # noqa: PLR0913
+def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     indices: list[str],
     index_lookup: dict[str, Any],
     ecs_schema: dict[str, Any],
@@ -458,7 +458,7 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
     return ecs_schema
 
 
-def prepare_mappings(  # noqa: PLR0913
+def prepare_mappings(  # noqa: PLR0913, PLR0917
     elastic_client: Elasticsearch,
     indices: list[str],
     event_dataset_integrations: list[EventDataset],

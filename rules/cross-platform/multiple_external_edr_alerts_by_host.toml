@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/09"
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -23,39 +23,39 @@ type = "esql"
 
 query = '''
 from .alerts-security.*
-| WHERE data_stream.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "sentinel_one.threat", "m365_defender.alert") and
+| WHERE event.dataset in ("crowdstrike.alert", "crowdstrike.falcon", "sentinel_one.alert", "sentinel_one.threat", "m365_defender.alert") and
         host.id is not null and kibana.alert.risk_score > 21 and
         not (event.module == "crowdstrike" and (kibana.alert.rule.name like "* at *" or kibana.alert.rule.name like "* on *" or kibana.alert.rule.name == "EICARTestFileWrittenWin")) and
         not KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """)
 | stats Esql.alerts_count = COUNT(*),
-        Esql.rule_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
-        Esql.unique_rules_count = COUNT_DISTINCT(kibana.alert.rule.name),
-        Esql.processes_count = COUNT_DISTINCT(process.executable),
-        Esql.files_count = COUNT_DISTINCT(file.path),
-        Esql.process_cmdline_count = COUNT_DISTINCT(process.command_line),
-        Esql.rule_risk_score_values = VALUES(kibana.alert.risk_score),
-        Esql.process_path_values = VALUES(process.executable),
-        Esql.file_path_values = VALUES(file.path),
-        Esql.user_name_values = VALUES(user.name),
-        Esql.process_command_line_values = VALUES(process.command_line),
-        Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
-        Esql.rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, event.module
+       Esql.kibana_alert_risk_score_distinct_count = COUNT_DISTINCT(kibana.alert.risk_score),
+       Esql.kibana_alert_rule_name_distinct_count = COUNT_DISTINCT(kibana.alert.rule.name),
+       Esql.process_executable_distinct_count = COUNT_DISTINCT(process.executable),
+       Esql.file_path_distinct_count = COUNT_DISTINCT(file.path),
+       Esql.process_command_line_distinct_count = COUNT_DISTINCT(process.command_line),
+       Esql.kibana_alert_risk_score_values = VALUES(kibana.alert.risk_score),
+       Esql.process_executable_values = VALUES(process.executable),
+       Esql.file_path_values = VALUES(file.path),
+       Esql.user_name_values = VALUES(user.name),
+       Esql.process_command_line_values = VALUES(process.command_line),
+       Esql.process_parent_command_line_values = VALUES(process.parent.command_line),
+       Esql.kibana_alert_rule_name_values = VALUES(kibana.alert.rule.name) by host.id, host.name, event.module
 | where (
 	// 3+ unique rules or processes
-  (
-    Esql.unique_rules_count >= 3 or
-    (Esql.processes_count >= 3 and Esql.rule_name_values == "External Alerts")
-  ) and
-  	// and 2+ rules of different severity, or 1 high/critical severity rule
-  (
-    Esql.rule_risk_score_distinct_count >= 2 or
-    Esql.rule_risk_score_values == 73 or
-    Esql.rule_risk_score_values == 99
-  )
+ (
+   Esql.kibana_alert_rule_name_distinct_count >= 3 or
+   (Esql.process_executable_distinct_count >= 3 and Esql.kibana_alert_rule_name_values == "External Alerts")
+ ) and
+ 	// and 2+ rules of different severity, or 1 high/critical severity rule
+ (
+   Esql.kibana_alert_risk_score_distinct_count >= 2 or
+   Esql.kibana_alert_risk_score_values == 73 or
+   Esql.kibana_alert_risk_score_values == 99
+ )
 ) or
-  // or 5+ unique rules from the same host for 1+ path/command_line/process
-  (Esql.unique_rules_count >= 5 and Esql.alerts_count <= 50 and
-  (Esql.files_count >= 1 or Esql.process_cmdline_count >= 1 or Esql.processes_count >= 1)
+ // or 5+ unique rules from the same host for 1+ path/command_line/process
+ (Esql.kibana_alert_rule_name_distinct_count >= 5 and Esql.alerts_count <= 50 and
+ (Esql.file_path_distinct_count >= 1 or  Esql.process_command_line_distinct_count >= 1 or Esql.process_executable_distinct_count >= 1)
 )
 | KEEP event.module, host.id, host.name, Esql.*
 '''

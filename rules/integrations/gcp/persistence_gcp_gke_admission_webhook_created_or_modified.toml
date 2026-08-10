@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/06/30"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/06/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or modification of GKE mutating or validating admission webhook configurations by non-system identities.
+Malicious webhooks can inject workloads, block security tooling, or intercept API traffic for persistence and defense
+evasion.
+"""
+false_positives = [
+    """
+    GitOps and platform controllers (cert-manager, Gatekeeper, Kyverno, service mesh) legitimately manage webhooks.
+    Validate change tickets and controller identities before tuning.
+    """,
+]
+from = "now-9m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Admission Webhook Created or Modified"
+note = """## Triage and analysis
+
+### Investigating GKE Admission Webhook Created or Modified
+
+Review webhook name, actor, and clientConfig destination in `gcp.audit.request`.
+
+### Investigation steps
+
+- Confirm `user.email`, `event.action`, and webhook resource name.
+- Inspect webhook URL or in-cluster service target for external endpoints.
+- Hunt for pod mutations or blocked security deployments after the change.
+
+### False positives
+
+- Approved controller upgrades during change windows.
+
+## Setup
+
+The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/",
+]
+risk_score = 47
+rule_id = "4886ce11-fca5-433f-bbb9-e33e410ef9ae"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:gcp.audit and event.outcome:success and event.action:(
+  "io.k8s.admissionregistration.v1.mutatingwebhookconfigurations.create" or
+  "io.k8s.admissionregistration.v1.mutatingwebhookconfigurations.update" or
+  "io.k8s.admissionregistration.v1.mutatingwebhookconfigurations.patch" or
+  "io.k8s.admissionregistration.v1.validatingwebhookconfigurations.create" or
+  "io.k8s.admissionregistration.v1.validatingwebhookconfigurations.update" or
+  "io.k8s.admissionregistration.v1.validatingwebhookconfigurations.patch"
+) and not user.email:(
+  "system:kube-controller-manager" or "system:kube-scheduler" or system\:serviceaccount\:kube-system\:* or
+  system\:serviceaccount\:gke-managed-system\:* or system\:serviceaccount\:cert-manager\:* or
+  system\:serviceaccount\:gatekeeper-system\:* or system\:serviceaccount\:kyverno\:* or "system:addon-manager" or
+  *-operator or *-cainjector or *-webhook or *argocd* or "system:gke-common-webhooks"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

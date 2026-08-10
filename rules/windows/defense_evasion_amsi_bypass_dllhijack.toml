@@ -2,33 +2,7 @@
 creation_date = "2023/01/17"
 integration = ["windows", "endpoint", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
-
-[transform]
-[[transform.osquery]]
-label = "Osquery - Retrieve DNS Cache"
-query = "SELECT * FROM dns_cache"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve All Services"
-query = "SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services"
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Services Running on User Accounts"
-query = """
-SELECT description, display_name, name, path, pid, service_type, start_type, status, user_account FROM services WHERE
-NOT (user_account LIKE '%LocalSystem' OR user_account LIKE '%LocalService' OR user_account LIKE '%NetworkService' OR
-user_account == null)
-"""
-
-[[transform.osquery]]
-label = "Osquery - Retrieve Service Unsigned Executables with Virustotal Link"
-query = """
-SELECT concat('https://www.virustotal.com/gui/file/', sha1) AS VtLink, name, description, start_type, status, pid,
-services.path FROM services JOIN authenticode ON services.path = authenticode.path OR services.module_path =
-authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.result != 'trusted'
-"""
-
+updated_date = "2026/04/27"
 
 [rule]
 author = ["Elastic"]
@@ -49,54 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Antimalware Scan Interface DLL"
-note = """## Triage and analysis
-
-### Investigating Suspicious Antimalware Scan Interface DLL
-
-The Windows Antimalware Scan Interface (AMSI) is a versatile interface standard that allows your applications and services to integrate with any antimalware product on a machine. AMSI integrates with multiple Windows components, ranging from User Account Control (UAC) to VBA macros and PowerShell.
-
-Attackers might copy a rogue AMSI DLL to an unusual location to prevent the process from loading the legitimate module, achieving a bypass to execute malicious code.
-
-> **Note**:
-> This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
-
-#### Possible investigation steps
-
-- Identify the process that created the DLL and which account was used.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-- Investigate the execution of scripts and macros after the registry modification.
-- Investigate other processes launched from the directory that the DLL was created.
-- Inspect the host for suspicious or abnormal behavior in the alert timeframe:
-  - Observe and collect information about the following activities in the alert subject host:
-    - Attempts to contact external domains and addresses.
-      - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
-      - Examine the DNS cache for suspicious or anomalous entries.
-        - $osquery_0
-    - Use the Elastic Defend registry events to examine registry keys accessed, modified, or created by the related processes in the process tree.
-    - Examine the host services for suspicious or anomalous entries.
-      - $osquery_1
-      - $osquery_2
-      - $osquery_3
-
-### False positive analysis
-
-- This modification should not happen legitimately. Any potential benign true positive (B-TP) should be mapped and monitored by the security team as these modifications expose the host to malware infections.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- If the triage identified malware, search the environment for additional compromised hosts.
-  - Implement temporary network rules, procedures, and segmentation to contain the malware.
-  - Stop suspicious processes.
-  - Immediately block the identified indicators of compromise (IoCs).
-  - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
-- Remove and block malicious artifacts identified during triage.
-- Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = ["https://github.com/S3cur3Th1sSh1t/Amsi-Bypass-Powershell"]
 risk_score = 73
 rule_id = "fa488440-04cc-41d7-9279-539387bf2a17"
@@ -127,6 +53,7 @@ file where host.os.type == "windows" and event.type != "deletion" and file.path 
     "?:\\Windows\\Syswow64\\amsi.dll",
     "?:\\$WINDOWS.~BT\\*\\amsi.dll",
     "?:\\Windows\\CbsTemp\\*\\amsi.dll",
+    "?:\\Windows\\SystemTemp\\*\\amsi.dll",
     "?:\\Windows\\SoftwareDistribution\\Download\\*",
     "?:\\Windows\\WinSxS\\*\\amsi.dll", 
     "?:\\Windows\\servicing\\*\\amsi.dll",
@@ -141,11 +68,163 @@ file where host.os.type == "windows" and event.type != "deletion" and file.path 
     "\\Device\\HarddiskVolume*\\$SysReset\\CloudImage\\Package_for_RollupFix*\\amsi.dll",
     "\\Device\\HarddiskVolume*\\$WINDOWS.~BT\\*\\amsi.dll", 
     "\\Device\\HarddiskVolume*\\Windows\\SoftwareDistribution\\Download\\*\\amsi.dll", 
-    "\\Device\\HarddiskVolume*\\Windows\\CbsTemp\\*\\amsi.dll", 
+    "\\Device\\HarddiskVolume*\\Windows\\CbsTemp\\*\\amsi.dll",
+    "\\Device\\HarddiskVolume*\\Windows\\SystemTemp\\*\\amsi.dll", 
     "\\Device\\HarddiskVolume*\\Windows\\servicing\\*\\amsi.dll"
   ) 
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Antimalware Scan Interface DLL
+#### Possible investigation steps
+
+- Does the alert show a rogue AMSI DLL in a path a consumer process could reach?
+  - Why: AMSI DLL hijack works when amsi.dll is placed where a copied or launched AMSI-aware process searches first; copied PowerShell beside the DLL is a distinctive public-tooling pattern.
+  - Focus: `file.path`, `event.action`, and `file.size`, checking writable application, archive extraction, temp, user profile, or working directories outside Windows system and servicing paths.
+  - Implication: escalate when the DLL lands beside or inside a reachable search-order path for PowerShell, pwsh, wscript, cscript, mshta, Office, or another AMSI-aware consumer; lower concern only when the path is a lab or package-test directory unreachable by a copied consumer and content evidence fits that test.
+
+- Did the writer and parent context fit that DLL placement?
+  - Focus: `process.executable`, `process.command_line`, `process.hash.sha256`, `process.parent.command_line`, `user.id`, and `host.id`.
+  - Implication: escalate when the writer is user-writable, script- or shell-launched, newly seen by hash, or started through ad hoc remote administration; lower concern only when writer identity, parent command line, account, and host match one recognized validation workflow. Writer identity alone never clears the placement.
+
+- Did the same writer stage the full DLL-hijack pattern?
+  - Focus: file events on the same `host.id` and `process.entity_id`, especially `file.path`, `event.action`, and `file.size`. $investigate_0
+  - Implication: escalate when the writer also drops copied powershell.exe, pwsh.exe, a script host, loader script, or renamed DLL beside the new amsi.dll; lower concern only when all artifacts stay inside one controlled validation directory and no consumer starts from it.
+
+- Did a process load or reuse the created DLL path?
+  - Focus: with library-load telemetry, pivot from `host.id` plus `file.path` to events where `dll.path` equals the created path, then read loader `process.executable`, `process.command_line`, and `@timestamp`; missing library-load telemetry leaves execution unresolved, not benign. $investigate_1
+  - Hint: with only file telemetry, treat later writes or touches of the same `file.path` as reuse clues, not module-load proof.
+  - Implication: escalate when PowerShell, pwsh, wscript, cscript, mshta, Office, or another AMSI-aware process loads or reuses the path after creation; unresolved load evidence keeps the case at staging unless other local evidence corroborates abuse.
+
+- Did process execution show use of the hijack directory or another AMSI-bypass path?
+  - Focus: process starts on the same `host.id` and `user.id`, especially `process.executable`, `process.command_line`, and `process.parent.command_line`. $investigate_2
+  - Implication: escalate when copied PowerShell or a script host starts from the DLL directory, a consumer process uses that directory as its working directory, or command lines show PowerShell v2 launch; lower concern only when execution stays limited to the same controlled validation workflow.
+
+- If local evidence is suspicious or unresolved, is the scope still limited to this host?
+  - Focus: related alerts for `host.id`; use `user.id` only when the writer maps to one stable identity, then compare `file.path`, `process.hash.sha256`, and `process.command_line` patterns. $investigate_4
+  - Hint: use the user-scoped alert view only after the writer identity is stable enough to test account-level spread. $investigate_3
+  - Implication: broaden response when the same host or user shows additional AMSI, suspicious library-load, script-control, persistence, or payload-staging alerts; keep scope local when this is a single bounded placement with no corroborating chain.
+
+- Escalate when suspicious placement has any meaningful corroborator: copied consumer staging, load or reuse, suspicious lineage, execution from the DLL directory, or related evasion alerts. Close only when placement, writer, staging/load result, execution context, and outside validation all bind to authorized testing; preserve artifacts and escalate when evidence is mixed, missing, or contradictory.
+
+### False positive analysis
+
+- Authorized malware-research, red-team, defensive-validation, or package testing that intentionally exercises AMSI search-order behavior is the credible benign path. Confirm `file.path` stays in a lab-only or test-package location; `process.executable`, `process.command_line`, `process.hash.sha256`, `user.id`, and `host.id` map to that workflow; no copied script host launches outside the test; and available load evidence comes from the expected harness. If schedules or inventories are unavailable, require current telemetry to prove the same lab or test harness; use recurrence only for exception design, not closure. If path, writer, load target, or execution context diverges, do not close as benign.
+- Before creating an exception, validate the same `process.executable`, `process.hash.sha256`, parent workflow, `file.path`, `user.id`, and `host.id` recur across prior alerts from this rule. Build the exception from that workflow pattern. Avoid exceptions on amsi.dll alone, a directory fragment alone, or the host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record which evidence proved the workflow: `file.path`, writer identity, `process.parent.command_line`, account and host scope, staging pattern, and any available load or harness evidence. Create an exception only after that workflow recurs across prior alerts from this rule.
+- If suspicious but unconfirmed, preserve the created `file.path`, writer `process.entity_id`, `process.command_line`, parent lineage, sibling staged files, load or reuse evidence when available, and related-alert context before containment. Apply reversible containment tied to the findings, and avoid deleting the DLL until load or reuse is understood.
+- If confirmed malicious, isolate the endpoint or contain the responsible account according to the confirmed writer, copied consumer, and execution evidence. Before termination or cleanup, record the writer process details, DLL path, copied consumer executable, load evidence when available, and sibling scripts or payloads; weigh host criticality before isolation.
+- Remove the rogue DLL, copied PowerShell or script-host binaries, loader scripts, and sibling payloads found during the investigation, then restore the affected application or working directory from known-good content and verify the legitimate system AMSI locations remain intact.
+- If a target process loaded the rogue DLL, capture module and process evidence before restart or termination, then reverse any companion AMSI weakening found through process command lines or staged scripts.
+- After containment, scope the same writer identity, DLL path pattern, copied consumer pattern, parent workflow, and companion AMSI-bypass behavior across other hosts, and retain the supporting file, process, and library-load evidence when available.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "file.path",
+    "file.name",
+    "file.extension",
+    "file.size",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File events for the writer process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Events for the created DLL path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "file.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "dll.path", queryType = "phrase", value = "{{file.path}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the same host and user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -158,7 +237,6 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
-
 [[rule.threat.technique]]
 id = "T1574"
 name = "Hijack Execution Flow"
@@ -168,10 +246,7 @@ id = "T1574.001"
 name = "DLL"
 reference = "https://attack.mitre.org/techniques/T1574/001/"
 
-
-
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-

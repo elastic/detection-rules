@@ -2,7 +2,7 @@
 creation_date = "2022/05/31"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/30"
 
 [rule]
 author = ["Elastic"]
@@ -23,41 +23,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Microsoft Diagnostics Wizard Execution"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Microsoft Diagnostics Wizard Execution
-
-The Microsoft Diagnostics Troubleshooting Wizard (MSDT) is a legitimate tool used for diagnosing and resolving issues within Windows environments. However, adversaries can exploit MSDT to execute malicious commands by manipulating its process arguments, effectively using it as a proxy for harmful activities. The detection rule identifies such abuse by monitoring for unusual execution patterns, such as atypical file paths, unexpected parent processes, and non-standard executable locations, which are indicative of potential misuse. This proactive detection helps in mitigating risks associated with defense evasion tactics.
-
-### Possible investigation steps
-
-- Review the process arguments to identify any suspicious patterns, such as "IT_RebrowseForFile=*", "ms-msdt:/id", "ms-msdt:-id", or "*FromBase64*", which may indicate malicious intent.
-- Examine the parent process of msdt.exe to determine if it was launched by an unexpected or potentially malicious process like cmd.exe, powershell.exe, or mshta.exe.
-- Check the file path of the msdt.exe executable to ensure it matches the standard locations (?:\\Windows\\system32\\msdt.exe or ?:\\Windows\\SysWOW64\\msdt.exe) and investigate any deviations.
-- Investigate the user account associated with the process execution to determine if the activity aligns with their typical behavior or if it appears suspicious.
-- Correlate the event with other security alerts or logs from data sources like Microsoft Defender XDR or Sysmon to identify any related malicious activities or patterns.
-- Assess the risk score and severity of the alert to prioritize the investigation and determine if immediate action is required to mitigate potential threats.
-
-### False positive analysis
-
-- Legitimate troubleshooting activities by IT staff using MSDT may trigger alerts. To manage this, create exceptions for known IT user accounts or specific machines frequently used for diagnostics.
-- Automated scripts or software updates that utilize MSDT for legitimate purposes can cause false positives. Identify these scripts and whitelist their execution paths or parent processes.
-- Custom diagnostic tools that leverage MSDT might be flagged. Review these tools and exclude their specific process arguments or executable paths if they are verified as safe.
-- Non-standard installations of MSDT in custom environments could be misidentified. Ensure that any legitimate non-standard paths are documented and excluded from monitoring.
-- Frequent use of MSDT in virtualized environments for testing purposes may lead to alerts. Consider excluding these environments or specific virtual machines from the rule.
-
-### Response and remediation
-
-- Isolate the affected system from the network to prevent further malicious activity and lateral movement.
-- Terminate the suspicious msdt.exe process to stop any ongoing malicious execution.
-- Conduct a thorough scan of the affected system using updated antivirus or endpoint detection and response (EDR) tools to identify and remove any additional malicious files or processes.
-- Review and analyze the process arguments and parent processes associated with the msdt.exe execution to identify potential entry points or related malicious activities.
-- Restore any affected files or system components from a known good backup to ensure system integrity.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are compromised.
-- Implement enhanced monitoring and logging for msdt.exe and related processes to detect and respond to similar threats in the future."""
 references = [
     "https://twitter.com/nao_sec/status/1530196847679401984",
     "https://lolbas-project.github.io/lolbas/Binaries/Msdt/",
@@ -85,9 +50,9 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (?process.pe.original_file_name == "msdt.exe" or process.name : "msdt.exe") and
   (
-    process.args : ("IT_RebrowseForFile=*", "*FromBase64*", "*/../../../*", "*PCWDiagnostic*") or
+    process.args : ("IT_RebrowseForFile=*", "*FromBase64*", "*/../../../*", "IT_BrowseForFile=*") or
     (
-      process.args : "-af" and process.args : "/skip" and
+      process.args : ("-af", "/af") and process.args : "/skip" and
       process.parent.name : ("explorer.exe", "cmd.exe", "powershell.exe", "cscript.exe", "wscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe") and
       process.args : ("?:\\WINDOWS\\diagnostics\\index\\PCWDiagnostic.xml", "PCWDiagnostic.xml", "?:\\Users\\Public\\*", "?:\\Windows\\Temp\\*")
     ) or
@@ -107,6 +72,185 @@ process where host.os.type == "windows" and event.type == "start" and
   )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Microsoft Diagnostics Wizard Execution
+
+#### Possible investigation steps
+
+- Does the alert show MSDT proxy-execution behavior or a bounded diagnostic launch?
+  - Why: MSDT abuse depends on PCWDiagnostic answer files, rebrowse or browse-file parameters, traversal, or encoded input, not on "msdt.exe" alone.
+  - Focus: `process.command_line` and `process.args`, classifying answer-file use, rebrowse or browse-file parameters, encoded input, traversal, and package location.
+  - Implication: escalate when arguments point to attacker-controlled content, encoded or traversal input, or user-writable answer files; lower concern only when they resolve to a recognized local diagnostic pack with no external, encoded, traversal, or user-writable references.
+
+- Do binary identity and launcher lineage fit a legitimate diagnostic launch?
+  - Focus: `process.executable`, `process.pe.original_file_name`, `process.code_signature.trusted`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when MSDT is renamed, relocated, unsigned or untrusted, or launched by Office, a browser, script host, "mshta.exe", "rundll32.exe", "regsvr32.exe", or a shell using profile or temp content; lower concern when a trusted Windows MSDT path and signed helpdesk, OEM, or management parent launch the same diagnostic pack.
+
+- Did MSDT or a diagnostic-host child launch another binary or script?
+  - Focus: child process events where `process.parent.entity_id` matches alert `process.entity_id`; record child `process.entity_id`, `process.executable`, `process.command_line`, and `process.code_signature.trusted`. $investigate_0
+  - Hint: if the first child is a signed diagnostic host, inspect that child's descendants before treating the chain as contained.
+  - Implication: escalate when MSDT or its diagnostic-host child launches shells, script interpreters, "mshta.exe", "regsvr32.exe", "rundll32.exe", unsigned payloads, or content from user-writable paths; lower concern when the child chain stays inside expected Microsoft or OEM diagnostic components.
+
+- Do file events show package staging or later execution?
+  - Focus: if file telemetry exists, pivot with `host.id` plus alert `process.entity_id`, parent `process.parent.entity_id`, direct-child parent linkage, and exact referenced paths when present; otherwise use `host.id`, `process.pid`, and alert-time window for referenced path, provenance, write timing, and later execution. Missing file telemetry is unresolved, not benign. $investigate_1
+  - Implication: escalate when the package appears in Public, Temp, profile, share, or newly written staging paths, carries web or archive provenance, or later executes; lower concern only when artifact evidence stays bound to the same recognized diagnostic package.
+
+- If remote delivery is suggested, do optional network events show retrieval or external control?
+  - Focus: when network telemetry exists, query with `host.id` plus alert `process.entity_id` or alert-backed `process.parent.entity_id`, separating DNS from connections. Review child-process network activity from recovered child results. Missing network telemetry is unresolved, not benign. $investigate_2
+  - Implication: escalate when the parent, MSDT, or child chain retrieves remote HTML/package content or contacts unrelated infrastructure; lower concern only when available network evidence stays local or vendor-aligned with the same diagnostic package.
+
+- If local evidence is suspicious or unresolved, does related alert history broaden scope?
+  - Focus: compare related alerts for `user.id` and `host.id` over 48 hours for recurring MSDT command patterns, parent launchers, package paths, child payloads, or remote indicators. $investigate_3 $investigate_4
+  - Implication: broaden scope when the same proxy-execution pattern appears across unrelated hosts or users; keep response local only when current process, file, child, and network evidence bind one recognized diagnostic workflow.
+
+- What disposition is supported?
+  - Weigh command-line intent, image identity, parent lineage, package evidence, child or descendant processes, and file or network corroboration; escalate proxy execution or payload delivery, close only when evidence binds one recognized diagnostic workflow, and preserve artifacts when evidence is mixed or incomplete.
+
+### False positive analysis
+
+- Helpdesk, OEM troubleshooting, software deployment, or validation can trigger this rule when a signed support or management parent starts Microsoft-signed MSDT from a standard Windows path, uses the same controlled local diagnostic pack, and produces the same child-process set. Close only when parent path and command line, MSDT path and signature, command line, package path, child behavior, `user.id`, and `host.id` align in the current case; records can corroborate but not replace telemetry.
+- Do not create exceptions on `process.name`, `process.pe.original_file_name`, or Microsoft signature alone.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Reverse temporary containment and document the process, parent, package, and child-process evidence. Build exceptions only from the confirmed parent path plus command-line/package pattern plus `host.id` or `user.id`, not from "msdt.exe" alone.
+- If suspicious but unconfirmed:
+  - Preserve the alert, MSDT `process.entity_id`, `process.pid`, `process.command_line`, `process.args`, parent evidence, package path, child identifiers, suspicious package copies, and remote indicators.
+  - Apply reversible containment for the affected `host.id` and `user.id`, such as temporary network restrictions, heightened monitoring, or child-process blocking. Isolate only for spawned payload behavior or high host criticality.
+- If confirmed malicious:
+  - Isolate the host or escalate after preserving the MSDT and child identifiers, package paths, payload paths, command lines, and remote indicators.
+  - Terminate MSDT, diagnostic-host, and payload processes only after recording identifiers; block malicious child binaries, package paths, domains, and IP indicators.
+  - Remove malicious ".xml", ".msi", ".diagcab", remote package, or payload artifacts, then remediate the parent document, browser, script, or management path.
+- Post-incident hardening:
+  - Restrict MSDT where business use no longer requires it, verify Follina-era mitigations, and retain process, file, and network telemetry for MSDT, parents, and children.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.args",
+    "process.pe.original_file_name",
+    "process.code_signature.trusted",
+    "process.parent.entity_id",
+    "process.parent.executable",
+    "process.parent.command_line",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Child process events for the same MSDT instance"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "File events for parent and child processes"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Network and DNS events for MSDT or its parent"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "network", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "dns", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.parent.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -130,16 +274,3 @@ reference = "https://attack.mitre.org/techniques/T1218/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-
-[[rule.threat.technique]]
-id = "T1203"
-name = "Exploitation for Client Execution"
-reference = "https://attack.mitre.org/techniques/T1203/"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"

@@ -2,7 +2,7 @@
 creation_date = "2021/01/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/05/07"
 
 [rule]
 author = ["Elastic"]
@@ -123,7 +123,16 @@ process where event.action == "exec" and host.os.type == "macos" and
         "/Library/Elastic/Agent/*",
         "/opt/jc/bin/jumpcloud-agent",
         "/usr/sbin/networksetup"
+      ) and
+    not (
+      process.name in ("sh", "bash") and
+      process.command_line like "*com.microsoft.Outlook/Data/tmp/Outlook*Temp*" and
+      process.parent.executable in (
+        "/Applications/Microsoft Outlook.app/Contents/MacOS/Microsoft Outlook",
+        "/Applications/Microsoft Outlook 2.app/Contents/MacOS/Microsoft Outlook",
+        "/Applications/Microsoft/Microsoft Outlook.app/Contents/MacOS/Microsoft Outlook"
       )
+    )
 '''
 note = """## Triage and analysis
 

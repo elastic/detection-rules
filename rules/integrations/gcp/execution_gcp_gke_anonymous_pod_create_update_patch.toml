@@ -1,0 +1,93 @@
+[metadata]
+creation_date = "2026/07/16"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/07/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects create, update, or patch of pods by an unauthenticated anonymous GKE identity. Anonymous pod mutation is a
+critical misconfiguration signal and a common path for unauthenticated attackers to deploy workloads or maintain access.
+Includes "system:anonymous" / "system:unauthenticated" and GKE audit rows with a missing principal (seen on
+unauthenticated Unauthorized/forbidden pod writes).
+"""
+false_positives = [
+    """
+    Anonymous pod writes should be rare. If observed from expected automation, anonymous authentication or RBAC for
+    system:anonymous is likely misconfigured and should be remediated rather than broadly excluded.
+    """,
+]
+from = "now-6m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GKE Anonymous Pod Create/Update/Patch"
+note = """## Triage and analysis
+
+### Investigating GKE Anonymous Pod Create/Update/Patch
+
+Anonymous identities creating or mutating pods indicates the API server accepts unauthenticated workload changes.
+Failed unauthenticated creates may appear with an empty `client.user.email` and `Unauthorized` / forbidden status.
+
+### Investigation steps
+
+- Review `client.user.email`, `event.action`, `event.outcome`, `orchestrator.resource.name`, `orchestrator.namespace`,
+  and `source.ip`.
+- Inspect the pod image, command, and volume mounts for credential theft or reverse shells.
+- Check whether anonymous authentication is enabled and remove RBAC grants to `system:anonymous`.
+
+### False positives
+
+- Essentially none in production; treat as high-priority misconfiguration until proven otherwise.
+
+"""
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests",
+    "https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging",
+]
+risk_score = 73
+rule_id = "92980750-3373-4f0c-aebd-c2a8563d8e8a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+setup = "The GCP Fleet integration with GKE audit logs enabled is required to be compatible with this rule."
+
+query = '''
+data_stream.dataset:gcp.audit and service.name:k8s.io and client.user.email:("system:anonymous" or "system:unauthenticated" or not *) and event.action:(io.k8s.core.v1.pods.create or io.k8s.core.v1.pods.patch or io.k8s.core.v1.pods.update)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "source.ip",
+    "user_agent.original",
+    "event.action",
+    "event.outcome",
+    "gcp.audit.resource_name",
+    "orchestrator.resource.name",
+    "orchestrator.namespace",
+]

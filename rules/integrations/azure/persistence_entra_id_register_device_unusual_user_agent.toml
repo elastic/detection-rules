@@ -1,0 +1,105 @@
+[metadata]
+creation_date = "2026/05/15"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/05/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Microsoft Entra ID audit events for Register device where additional details indicate an Azure AD join
+and the recorded user agent is not one of the common native registration clients (Dsreg, DeviceRegistrationClient, or
+Dalvik-based Android enrollment). Legitimate Windows and standard mobile enrollment flows often present predictable
+user-agent strings; unexpected clients may reflect scripted registration, third-party tooling, or adversary-driven device
+registration used for persistence or token abuse. Baseline approved provisioning tools and MDM integrations before tuning.
+"""
+false_positives = [
+    """
+    Custom device management agents, OEM enrollment clients, or updated Microsoft clients that use new user-agent strings
+    may match. Add exclusions for known `azure.auditlogs.properties.userAgent` values or enrollment programs after review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Register Device with Unusual User Agent (Azure AD Join)"
+note = """## Triage and analysis
+
+### Investigating Entra ID Register Device with Unusual User Agent (Azure AD Join)
+
+Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName`, source IP fields on the audit event,
+`azure.auditlogs.properties.target_resources.0.display_name` for the device name, and
+`azure.correlation_id` for related audit entries.
+
+Compare `azure.auditlogs.properties.userAgent` to your organization's standard Autopilot, Intune, and Windows enrollment
+clients.
+
+### Possible investigation steps
+
+- Confirm whether the user intentionally joined a device and whether the user agent matches a known provisioning package.
+- Pivot to `azure.signinlogs` for the same principal and timeframe for risky sign-ins or token broker activity.
+- Search for other `Register device` events from the same IP or user agent across the tenant.
+
+### Response and remediation
+
+- If malicious, remove the device in Entra ID, revoke refresh and primary refresh tokens for the user, and reset credentials per policy.
+- Tighten device registration and join controls via Conditional Access and device compliance policies.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join",
+    "https://github.com/dirkjanm/ROADtools",
+]
+risk_score = 47
+rule_id = "d4695889-0410-4e7b-a4aa-59be525a11a6"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"azure.auditlogs" and event.action:"Register device" and
+event.outcome:(success or Success) and
+azure.auditlogs.properties.userAgent:(* and not (Dsreg* or DeviceRegistrationClient or Dalvik*)) and
+azure.auditlogs.properties.additional_details.value:"Azure AD join"
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.outcome",
+    "azure.auditlogs.properties.userAgent",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.user.ipAddress",
+    "azure.auditlogs.properties.target_resources.0.display_name",
+    "azure.auditlogs.properties.target_resources.0.id",
+    "azure.correlation_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.005"
+name = "Device Registration"
+reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"

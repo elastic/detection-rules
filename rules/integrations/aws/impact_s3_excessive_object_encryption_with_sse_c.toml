@@ -2,7 +2,7 @@
 creation_date = "2025/01/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/07/14"
 
 [rule]
 author = ["Elastic"]
@@ -42,7 +42,8 @@ This rule identifies a high volume of objects being encrypted using Server-Side 
 **Correlate with recent events**:
    - Look for any suspicious activity in proximity to the encryption event, such as new access key creation, policy changes, or unusual access patterns from the same user or IP.
    - Identify `ListBucket` or `GetObject` operations on the same bucket to determine all affected objects.
-   - For `PutObject` events, identify any other unusual objecs uploaded such as a ransom note.
+   - For `PutObject` events, identify any other unusual objects uploaded such as a ransom note.
+   - For `CopyObject` events, the adversary may be performing in-place re-encryption by copying objects to themselves using SSE-C keys they control, rendering the originals unrecoverable without the key.
 
 **Validate access permissions**:
    - Check the IAM policies and roles associated with the user to verify if they had legitimate access to encrypt objects.
@@ -96,7 +97,7 @@ type = "threshold"
 query = '''
 data_stream.dataset: "aws.cloudtrail"
     and event.provider: "s3.amazonaws.com"
-    and event.action: "PutObject"
+    and event.action: ("PutObject" or "CopyObject")
     and event.outcome: "success"
     and aws.cloudtrail.flattened.request_parameters.x-amz-server-side-encryption-customer-algorithm: "AES256"
 '''

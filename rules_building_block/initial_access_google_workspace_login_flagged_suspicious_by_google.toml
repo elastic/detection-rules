@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2026/05/14"
+integration = ["google_workspace"]
+maturity = "production"
+updated_date = "2026/05/14"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Surfaces Google Workspace sign-in events that Google's identity risk engine has flagged as suspicious via the
+`is_suspicious` field on the `login` activity record. This is Google's own ML-driven sign-in risk signal. The field is
+set by Google server-side based on signals like sign-ins from anonymizer infrastructure, known-malicious IP ranges,
+atypical user characteristics, or anomalous device fingerprints. Use this signal as enrichment alongside the other
+Workspace sign-in rules rather than as a standalone alert. This rule is a building block. It does not generate
+user-facing alerts by default but populates `signal.rule.building_block_type` for correlation rules or analyst pivots.
+"""
+false_positives = [
+    """
+    Google's risk engine occasionally flags legitimate sign-ins as suspicious when the user is on a new device, on a VPN
+    egress that geo-resolves to a different region, or after extended time away. Validate by checking the user's recent
+    sign-in history and confirming with the user.
+    """,
+]
+from = "now-180m"
+index = ["filebeat-*", "logs-google_workspace.login*"]
+interval = "60m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Google Workspace Login Flagged Suspicious"
+note = """## Triage and analysis
+
+### Investigating Google Workspace Login Flagged Suspicious
+
+Google sets `google_workspace.login.is_suspicious: true` when its server-side risk engine identifies a sign-in event as anomalous for the user. Triggers commonly include:
+
+- Sign-in from an anonymizer (Tor exit, public VPN, etc.)
+- Sign-in from a known-malicious IP range
+- Atypical device fingerprint for the user
+- Sign-in from a geography or ASN inconsistent with the user's history
+
+As a building block, this signal is intended for use alongside other detection rules. On its own it is medium-confidence.
+
+### Possible investigation steps
+
+- Inspect `source.ip`, `source.as.organization.name`, `source.geo.country_name`. Classify the network: residential ISP, corporate VPN, hosting provider (high concern), anonymizer (high concern).
+- Inspect `google_workspace.login.type`. `google_password` is an interactive sign-in (highest concern). `reauth` is a silent token refresh (lower concern unless paired with other signals).
+- Inspect `google_workspace.login.challenge_method`. Whether 2FA was relayed or skipped factors into the kit-vs-traveler determination.
+- Pull the user's recent sign-in history. Is this a one-off flag or a sustained pattern from a new network?
+- Cross-reference `logs-google_workspace.token` for `event.action: "authorize"` events from the same `user.email` immediately following the suspicious sign-in. An OAuth grant minted seconds after a Google-flagged sign-in is the AiTM kit signature.
+- Cross-reference `logs-google_workspace.device` for `DEVICE_REGISTER_UNREGISTER_EVENT` with `account_state: "REGISTERED"` near the same time. New device registration paired with `is_suspicious` is high-fidelity compromise.
+- Confirm with the user whether the sign-in was theirs.
+
+### False positive analysis
+
+- Travelers, VPN users, new-device sign-ins, and users returning from leave will all trip Google's risk engine occasionally.
+- Building-block signals are not tuned for false-positive minimization at the source; they trade noise for coverage. Combine with other signals before treating as actionable.
+
+### Response and remediation
+
+- This rule does not generate user-facing alerts by default. Use it as enrichment for higher-level correlation rules.
+- If a correlation surfaces this signal alongside other indicators (atypical ASN, atypical country, OAuth grant, device registration), follow the response steps in those rules.
+"""
+references = [
+    "https://knowledge.workspace.google.com/admin/security/user-login-attempts-report",
+    "https://www.elastic.co/security-labs/google-workspace-attack-surface-part-one",
+]
+risk_score = 21
+rule_id = "93d2c5bf-dac1-4e0f-ab52-16f440782bb8"
+setup = """## Setup
+
+### Important Information Regarding Google Workspace Event Lag Times
+- Google Workspace Reports API ingestion lag commonly runs in the 30-minute to 3-hour range. This rule's 130-minute lookback gives partial coverage but will miss events delayed beyond that envelope.
+- See https://support.google.com/a/answer/7061566 for Google's published guidance on event availability.
+- Check your integration's Login lag time to ensure it is configured to meet the needs of this rule.
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Google Workspace",
+    "Data Source: Google Workspace Audit Logs",
+    "Data Source: Google Workspace User Log Events",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
+    "Rule Type: BBR",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "google_workspace.login" and
+    event.provider: "login" and
+    google_workspace.login.is_suspicious: true
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[[rule.threat.technique]]
+id = "T1557"
+name = "Adversary-in-the-Middle"
+reference = "https://attack.mitre.org/techniques/T1557/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.name",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.geo.country_name",
+    "google_workspace.login.type",
+    "google_workspace.login.challenge_method",
+    "google_workspace.login.is_suspicious",
+]
+

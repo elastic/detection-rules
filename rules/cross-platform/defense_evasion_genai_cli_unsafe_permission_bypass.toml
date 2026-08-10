@@ -1,0 +1,170 @@
+[metadata]
+creation_date = "2026/06/24"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies GenAI agent CLIs started with permission-bypass or auto-approval flags that disable human-in-the-loop
+guardrails. These modes are intended for isolated sandboxes but are frequently misused on internet-connected developer
+workstations, allowing prompt injection, compromised dependencies, or malicious skills to execute commands, modify
+files, or reach sensitive paths without confirmation.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GenAI CLI Started with Unsafe Permission Bypass"
+note = """## Triage and analysis
+
+### Investigating GenAI CLI Started with Unsafe Permission Bypass
+
+GenAI coding agents normally prompt before running shell commands or editing files. Vendor-supplied bypass flags remove
+those controls entirely or auto-approve all tool calls. On a networked host this materially increases blast radius from
+prompt injection, poisoned MCP servers, malicious project configs, and autonomous agent workflows.
+
+### Possible investigation steps
+
+- Identify which GenAI tool and bypass flag were used from `process.command_line` and `process.executable`.
+- Determine whether the session was intentional (CI/CD, isolated lab VM) or an interactive developer workstation.
+- Review child processes spawned after startup for credential access, network exfiltration, or persistence.
+- Check for recent GenAI config changes (MCP servers, skills, `.claude/settings.json`, `~/.codex/config.toml`).
+- Correlate with other GenAI-related alerts on the same host and user.
+
+### False positive analysis
+
+- Deliberate use in approved sandbox/CI images with no outbound network access.
+- Internal automation scripts that wrap GenAI CLIs with bypass flags; scope exceptions by host or user group.
+- Each matching process start produces one alert; habitual bypass use in CI or developer workflows may need host or user exceptions.
+
+### Response and remediation
+
+- Remove bypass flags from scripts, shell profiles, and CI job definitions; use default or plan-only permission modes.
+- Rotate API keys and cloud credentials accessible to the user account that ran the agent.
+- Audit GenAI tool configs and MCP servers loaded during the session.
+- Restrict GenAI agent usage policies to disallow permission bypass on production endpoints.
+"""
+references = [
+    "https://code.claude.com/docs/en/permission-modes",
+    "https://developers.openai.com/codex/cli/reference",
+    "https://developers.openai.com/codex/agent-approvals-security",
+    "https://google-gemini.github.io/gemini-cli/docs/get-started/configuration.html",
+    "https://specterops.io/blog/2025/11/21/an-evening-with-claude-code/",
+]
+risk_score = 47
+rule_id = "c1326e45-6d3c-4a2d-9882-606a0c310299"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action in ("exec", "start") and
+(
+  (
+    process.args in (
+      "--dangerously-skip-permissions",
+      "--allow-dangerously-skip-permissions",
+      "--permission-mode=bypassPermissions"
+    ) or
+    (process.args == "--permission-mode" and process.args == "bypassPermissions")
+  ) and
+  (
+    process.name in ("claude", "claude.exe") or
+    process.executable : (
+      "*/.local/share/claude/versions/*",
+      "*/.claude/downloads/*",
+      "*Caskroom/claude-code/*",
+      "*\\Claude\\versions\\*"
+    ) or
+    (process.name in ("node", "node.exe") and process.args : "*@anthropic-ai/claude-code*")
+  )
+) or
+(
+  (
+    process.args in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto", "--yolo") or
+    process.command_line : (
+      "* -s danger-full-access*",
+      "*--sandbox danger-full-access*",
+      "*--sandbox=danger-full-access*",
+      "*--ask-for-approval never*",
+      "*--ask-for-approval=never*"
+    )
+  ) and
+  (
+    process.name in (
+      "codex", "codex.exe", "codex-exec",
+      "codex-aarch64-apple-darwin", "codex-x86_64-apple-darwin",
+      "codex-linux-arm64", "codex-linux-x64"
+    ) or
+    (process.name in ("node", "node.exe") and process.args : ("*@openai/codex*", "*/codex", "*\\codex*"))
+  )
+) or
+(
+  (
+    process.args in ("--yolo", "-y") or
+    (process.args == "--approval-mode" and process.args == "yolo") or
+    process.args == "--approval-mode=yolo"
+  ) and
+  (
+    process.name in ("gemini", "gemini-cli", "gemini.exe", "gemini-cli.exe") or
+    (process.name in ("node", "node.exe") and process.args : ("*@google/gemini-cli*", "*/gemini", "*\\gemini*"))
+  )
+) or
+(
+  (
+    process.args in (
+      "--yolo",
+      "--autopilot",
+      "--allow-all",
+      "--allow-all-tools",
+      "--allow-all-paths",
+      "--allow-all-urls"
+    )
+  ) and
+  (
+    process.name in ("copilot", "copilot.exe") or
+    (process.name in ("node", "node.exe") and process.args : ("*@github/copilot*", "*/copilot", "*\\copilot*"))
+  )
+) or
+(
+  process.args == "--dangerously-skip-permissions" and
+  (
+    process.name in ("opencode", "opencode.exe", ".opencode") or
+    process.executable : ("*opencode-ai*", "*\\.opencode*") or
+    (process.name in ("node", "node.exe") and process.args : ("*opencode-ai*", "*/opencode", "*\\opencode*"))
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

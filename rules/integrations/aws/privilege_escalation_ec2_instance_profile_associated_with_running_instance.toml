@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/04/08"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/04/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when an IAM instance profile is associated with a running EC2 instance or replaces the existing association.
+These APIs change which role credentials the instance obtains via the instance metadata service without terminating the
+instance. Attackers who can call `AssociateIamInstanceProfile` or `ReplaceIamInstanceProfile` may attach a more
+privileged role to a workload they control, enabling privilege escalation or lateral movement from the instance.
+"""
+false_positives = [
+    """
+    Blue/green deployments, instance remediation, and automation may rebind instance profiles intentionally. Confirm the
+    instance id, new `iamInstanceProfile` or `IamInstanceProfile` ARN, and change records. Exclude known automation
+    roles after validation.
+    """,
+]
+from = "now-6m"
+index = ["filebeat-*", "logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Instance Profile Associated with Running Instance"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Instance Profile Associated with Running Instance
+
+`AssociateIamInstanceProfile` adds an instance profile to a running instance (where none was set at launch).
+`ReplaceIamInstanceProfile` swaps the association. Both require `ec2:AssociateIamInstanceProfile` /
+`ec2:ReplaceIamInstanceProfile` and typically `iam:PassRole` on the target instance profile’s role.
+
+#### Possible investigation steps
+
+- Parse `aws.cloudtrail.request_parameters` for `instanceId` and instance profile name or ARN.
+- Identify the IAM role behind the profile and compare its policies to the prior role (if any).
+- Map the instance to owner, application, and sensitivity; check for recent compromise indicators (SSRF to IMDS,
+  unusual `AssumeRole` from the instance role).
+- Review `aws.cloudtrail.user_identity.arn`, `source.ip`, and `user_agent.original`.
+
+### False positive analysis
+
+- Legitimate fixes for missing or wrong profiles at launch; verify with service owners.
+
+### Response and remediation
+
+- If unauthorized: disassociate or replace with the correct profile, revoke `PassRole`/`ec2` permissions from the
+  actor, and rotate credentials that may have been issued from the over-privileged role.
+
+### Additional information
+
+- [AssociateIamInstanceProfile](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateIamInstanceProfile.html)
+- [ReplaceIamInstanceProfile](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReplaceIamInstanceProfile.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateIamInstanceProfile.html",
+    "https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReplaceIamInstanceProfile.html",
+]
+risk_score = 73
+rule_id = "e5f9a1b2-3c4d-4e6f-a7b8-9c0d1e2f3a4b"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: ("AssociateIamInstanceProfile" or "ReplaceIamInstanceProfile")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService" 
+    and not aws.cloudtrail.user_identity.invoked_by: "ssm.amazonaws.com" 
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "aws.cloudtrail.resources.arn",
+    "aws.cloudtrail.resources.type",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1548"
+name = "Abuse Elevation Control Mechanism"
+reference = "https://attack.mitre.org/techniques/T1548/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1548.005"
+name = "Temporary Elevated Cloud Access"
+reference = "https://attack.mitre.org/techniques/T1548/005/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+

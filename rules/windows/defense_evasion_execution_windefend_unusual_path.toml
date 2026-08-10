@@ -2,7 +2,7 @@
 creation_date = "2021/07/07"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/04/29"
 
 [rule]
 author = ["Elastic", "Dennis Perto"]
@@ -24,39 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Microsoft Antimalware Service Execution"
-note = """## Triage and analysis
-
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
-
-### Investigating Suspicious Microsoft Antimalware Service Execution
-
-The Microsoft Antimalware Service Executable, a core component of Windows Defender, is crucial for real-time protection against malware. Adversaries exploit its trust by renaming it or executing it from non-standard paths to load malicious DLLs, bypassing security measures. The detection rule identifies such anomalies by monitoring process names and paths, flagging deviations from expected behavior to uncover potential threats.
-
-### Possible investigation steps
-
-- Review the process details to confirm if the process name is MsMpEng.exe but is executing from a non-standard path. Check the process.executable field to identify the exact path and verify if it deviates from the expected directories.
-- Investigate the parent process of the suspicious MsMpEng.exe instance to determine how it was initiated. This can provide insights into whether the process was started by a legitimate application or a potentially malicious one.
-- Examine the system for any recent file modifications or creations in the directory where the suspicious MsMpEng.exe is located. This can help identify if a malicious DLL was recently placed in the same directory.
-- Check for any network connections or communications initiated by the suspicious MsMpEng.exe process. This can help determine if the process is attempting to communicate with external servers, which may indicate malicious activity.
-- Look for any other processes or activities on the host that may indicate compromise, such as unusual user account activity or other processes running from unexpected locations. This can help assess the broader impact of the potential threat.
-
-### False positive analysis
-
-- Legitimate software updates or installations may temporarily rename or relocate the Microsoft Antimalware Service Executable. Users should verify if any software updates or installations occurred around the time of the alert and consider excluding these paths if they are known and trusted.
-- Custom security or IT management tools might execute the executable from non-standard paths for monitoring or testing purposes. Confirm with IT or security teams if such tools are in use and add these paths to the exclusion list if they are verified as safe.
-- Virtualization or sandbox environments may replicate the executable in different locations for testing or analysis. Check if the environment is part of a controlled setup and exclude these paths if they are part of legitimate operations.
-- Backup or recovery processes might involve copying the executable to alternate locations. Ensure these processes are legitimate and consider excluding these paths if they are part of routine operations.
-
-### Response and remediation
-
-- Immediately isolate the affected system from the network to prevent further spread of the potential threat.
-- Terminate any suspicious processes identified by the detection rule, specifically those involving MsMpEng.exe running from non-standard paths.
-- Conduct a thorough scan of the affected system using an updated antivirus or endpoint detection and response (EDR) tool to identify and remove any malicious DLLs or other malware.
-- Review and restore any altered or deleted system files from a known good backup to ensure system integrity.
-- Investigate the source of the DLL side-loading attempt to determine if it was part of a broader attack campaign, and gather forensic evidence for further analysis.
-- Escalate the incident to the security operations center (SOC) or incident response team for a deeper investigation and to assess the need for further containment measures.
-- Implement additional monitoring and alerting for similar anomalies in process execution paths to enhance detection capabilities and prevent recurrence."""
 references = [
     "https://news.sophos.com/en-us/2021/07/04/independence-day-revil-uses-supply-chain-exploit-to-attack-hundreds-of-businesses/",
 ]
@@ -69,7 +36,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Endgame",
-    "Tactic: Execution",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
     "Data Source: Microsoft Defender XDR",
@@ -103,6 +69,170 @@ process where host.os.type == "windows" and event.type == "start" and
 )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Suspicious Microsoft Antimalware Service Execution
+
+#### Possible investigation steps
+
+- Which Defender identity anomaly did the alert capture?
+  - Focus: `process.name`, `process.pe.original_file_name`, `process.executable`, `process.code_signature.subject_name`, and `process.code_signature.trusted`.
+  - Implication: escalate when `process.pe.original_file_name` is "MsMpEng.exe" under renamed `process.name`, or `process.name` is "MsMpEng.exe" outside Defender/Microsoft Security Client paths, even with trusted Microsoft signing; lower suspicion only when exact path, signer, and name pattern fit controlled packaging, recovery, or malware-analysis copy.
+- Does the path, file timing, and parent context look like staged Defender abuse?
+  - Why: unusual-path Defender binaries can load same-folder DLLs through search-order behavior, so path and parent context separate masquerading or side-loading from controlled copies.
+  - Focus: `process.executable`, `process.Ext.relative_file_creation_time`, `process.Ext.relative_file_name_modify_time`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate when the binary is fresh, recently renamed, or launched from user-writable, temp, share, archive, agent working, or Windows staging paths by a script, archive tool, RMM agent, or dropper parent; path age and parent context support benign closure only if later side-loading and launcher checks do not contradict them.
+- Does the user, token, and session context fit Defender service execution?
+  - Focus: `user.id`, `user.name`, `process.Ext.session_info.logon_type`, and `process.Ext.token.integrity_level_name`.
+  - Implication: escalate when the process runs under an interactive/domain user, a non-service logon, or a user-level token that does not fit antimalware service startup; SYSTEM or service context lowers only the session concern and does not clear the unusual path by itself.
+- If file or library telemetry is available, is there same-directory staging or DLL side-loading evidence?
+  - Focus: recover file and library events with `host.id` plus `process.entity_id` when present, or `host.id` plus `process.pid` and a tight alert window; inspect `file.path`, `dll.path`, `dll.name`, `dll.code_signature.trusted`, and `dll.Ext.relative_file_creation_time`. $investigate_0
+  - Hint: missing file or library telemetry is unresolved, not benign; prioritize same-folder DLLs whose path, signer, or creation time does not fit the product layout, plus artifacts created before `process.executable` started.
+  - Implication: escalate when the unusual Defender copy loads a recent, unsigned/untrusted same-folder DLL or the directory contains newly staged executables, DLLs, scripts, archives, or renamed files; complete recovery with only expected Microsoft components lowers side-loading concern.
+- Does the process act as a launcher rather than a passive service component?
+  - Focus: child process events where `process.parent.entity_id` matches suspicious `process.entity_id`, repeated starts from `process.executable` on `host.id`, and child `process.name`, `process.executable`, and `process.command_line`.
+    - $investigate_1
+    - $investigate_2
+  - Implication: escalate when it starts shells, PowerShell, certutil, netsh, installers, encryption tooling, or other hands-on-keyboard utilities, or when repeated launches suggest staged execution; no child or repeat behavior lowers launcher concern but does not clear the path anomaly.
+- If local findings stay suspicious or unresolved, do related alerts show path reuse or host compromise?
+  - Focus: related alerts for `process.executable`, especially unusual-path Defender, masquerading, or side-loading detections.
+    - $investigate_3
+  - Hint: also review related alerts for `host.id` or `user.id`, especially staging, persistence, credential-access, ransomware, or other masquerading detections.
+    - $investigate_4
+    - $investigate_5
+  - Implication: broaden scope when the same path appears on unrelated hosts or the host has precursor or follow-on alerts; keep the case local only when related alerts show no reuse or follow-on activity and all local evidence is clean.
+
+- Escalate when Defender identity/path evidence plus one meaningful corroborator supports masquerading or DLL side-loading; close only when exact path, signer, parent, session, host/user scope, and optional outside confirmation tie to one controlled workflow with no contradictory telemetry; preserve artifacts and escalate when findings stay mixed or visibility is incomplete.
+
+### False positive analysis
+
+- A non-default Defender installation, controlled security packaging, recovery, or malware-analysis validation can stage Microsoft antimalware binaries outside default paths. Confirm the same workflow by matching exact `process.executable`, `process.hash.sha256` or `process.code_signature.thumbprint_sha256`, Microsoft `process.code_signature.subject_name`, `process.code_signature.trusted`, `process.parent.executable`, `process.parent.command_line`, `user.id`, `host.id`, and session pattern; without outside records, require recurrence across prior rule alerts without side-loading, launcher, or related-alert contradictions.
+- Treat production execution from temp, user-writable, share, archive, agent working, or Windows staging paths as an operational anti-pattern unless a controlled workflow proves why the copy exists. Do not close as benign when same-folder DLLs, child tooling, recent rename timing, or unrelated related alerts contradict it.
+- Build exceptions only from the minimum confirmed workflow pattern; avoid exceptions on `process.name`, `process.pe.original_file_name`, signer subject alone, or host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse any temporary containment and document the exact workflow: executable path, Microsoft signer or hash, parent process, session context, user/host scope, and any controlled packaging, recovery, or lab record that corroborated the telemetry. Create an exception only after the same narrow workflow pattern is stable across prior alerts.
+- If suspicious but unconfirmed, preserve the alert details, process tree, command line, binary copy and hash, parent context, directory listing, same-folder DLLs, and related-alert timeline before containment. Apply reversible containment first, such as execution prevention on the suspicious path or temporary host isolation when active launcher behavior or side-loading creates continuing risk and the host role can tolerate interruption.
+- If confirmed malicious, preserve process and artifact evidence first, including the suspicious Defender copy, same-folder DLLs, support files, launcher context, and related-alert timeline. Then isolate the host or apply an equivalent endpoint containment control, terminate only the suspicious non-default-path or renamed Defender instance, quarantine the suspicious executable and supporting files, remove launcher or persistence artifacts found during scoping, and restore the legitimate security product from known-good media if the masquerading copy replaced or shadowed a trusted component.
+- After containment, restrict execution from user-writable, temporary, share, archive, and agent working directories where feasible, retain process/file/library telemetry that affected this case, and document the confirmed benign workflow or malicious artifact set for future triage.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.pe.original_file_name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "File and library events for the suspicious process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "file", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "library", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Child process events for the suspicious process"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-1h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Process events for the suspicious executable path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{process.executable}}", valueType = "string" },
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the suspicious executable path"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "process.executable", queryType = "phrase", value = "{{process.executable}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the user"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/05/06"
+integration = ["endpoint", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/05/26"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Linux process executions where shells, editors, interpreters, or file/stream utilities reference
+/etc/kubernetes/manifests in process arguments. That directory holds static pod manifests read by the kubelet;
+interaction via editors, downloaders, kubectl, redirection helpers (tee, dd), or scripting runtimes may indicate
+staging or tampering with manifests for persistence or privileged workload placement. Pairs with file-telemetry rules
+that flag direct manifest creation on container workloads.
+"""
+false_positives = [
+    """
+    Cluster provisioning (kubeadm), configuration management, or administrators editing manifests during maintenance may
+    match. Baseline approved automation and interactive admin sessions on control plane nodes.
+    """,
+]
+from = "now-9m"
+index = ["auditbeat-*", "logs-auditd_manager.auditd-*", "logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Kubernetes Static Pod Manifest File Access"
+note = """## Triage and analysis
+
+### Investigating Kubernetes Static Pod Manifest File Access
+
+Review the full command line (process.args, process.command_line), user.id, user.name, process.parent, and whether the
+session was interactive. Confirm if the host is a Kubernetes node or admin jump host where manifest edits are expected.
+
+### Possible investigation steps
+
+- Compare activity to change windows and identity baselines; prioritize events without matching change tickets.
+- Inspect subsequent process and file events on the same host for writes under /etc/kubernetes/manifests or kubelet
+  restarts.
+- Correlate with Kubernetes audit logs and node/agent telemetry for related compromise indicators.
+
+### Response and remediation
+
+- If unauthorized, restore manifests from known-good sources, isolate the host, and review cluster integrity per incident
+  policy.
+"""
+references = [
+    "https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/",
+    "https://attack.mitre.org/techniques/T1053/007/",
+]
+risk_score = 47
+rule_id = "a698a653-e144-4e40-bade-35135935be45"
+setup = """## Setup
+
+Requires **Elastic Defend** and/or **Auditd Manager** process telemetry (`logs-endpoint.events.process*`,
+`logs-auditd_manager.auditd-*`, `auditbeat-*`) with command-line argument capture for exec events.
+
+### Elastic Defend
+Install the Elastic Defend integration via Fleet on Linux hosts and use a policy that collects process events with
+arguments.
+
+### Auditd Manager
+Deploy Auditd Manager and ensure execve (or equivalent process) auditing is enabled so `process.args` and
+`process.executable` populate for monitored binaries.
+
+See https://docs.elastic.co/integrations/auditd_manager
+"""
+severity = "medium"
+tags = [
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "Domain: Kubernetes",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+host.os.type:linux and event.category:process and event.action:(exec or executed) and 
+process.name:(
+  bash or sh or dash or zsh or 
+  cat or cp or mv or touch or tee or dd or
+  sed or awk or 
+  curl or wget or scp or
+  vi or vim or nano or echo or
+  busybox or
+  python* or perl* or ruby* or node or lua* or
+  openssl or base64 or xxd or
+  .*) and 
+  process.args:(*/etc/kubernetes/manifests/* and not (/etc/kubernetes/manifests/etcd* or /etc/kubernetes/manifests/kube-apiserver* or /etc/kubernetes/manifests/kube-scheduler* or /etc/kubernetes/manifests/kube-controller-manager*)) and 
+  not (process.args :printf* and process.working_directory :/home/*-svc-nessus) and 
+  not process.parent.executable :("/opt/nessus/sbin/nessusd" or "/opt/nessus_agent/sbin/nessus-agent-module")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1053"
+name = "Scheduled Task/Job"
+reference = "https://attack.mitre.org/techniques/T1053/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1053.007"
+name = "Container Orchestration Job"
+reference = "https://attack.mitre.org/techniques/T1053/007/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.005"
+name = "Container Service"
+reference = "https://attack.mitre.org/techniques/T1543/005/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

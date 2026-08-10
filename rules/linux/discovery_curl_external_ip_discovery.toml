@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/07/02"
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/07/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects applications making a curl request to a known public IP address lookup web service. Malware tends to perform this 
+action to assess potential targets.
+"""
+from = "now-9m"
+index = [
+        "logs-endpoint.events.process*",
+        "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux External IP Address Discovery via Curl"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux External IP Address Discovery via Curl
+
+This rule flags a Linux process that uses curl to contact public IP lookup sites, a common way malware learns the host’s internet-facing address before choosing follow-on actions. An attacker who gains shell access on a server or container may run curl against services like ifconfig.me or ipify, then use the returned address to verify outbound reachability, tailor command-and-control, or decide whether the system sits behind cloud or NAT infrastructure.
+
+### Possible investigation steps
+
+- Trace the full process ancestry and nearby commands to determine whether the curl execution came from an interactive shell, scheduled task, deployment script, container entrypoint, or an unexpected program launched from a writable path.
+- Review the invoked URL, arguments, working directory, and any captured output to determine whether the request was a one-off connectivity check or part of a broader script performing follow-on discovery, download, or beaconing.
+- Correlate the activity with the initiating account, TTY/session details, recent SSH and sudo events, and change records to quickly separate approved administrator troubleshooting from suspicious post-compromise behavior.
+- Pivot to surrounding network activity from the same host to identify repeated lookups, subsequent outbound connections to unfamiliar infrastructure, or signs of staging and command-and-control immediately after the public IP query.
+- Inspect the parent script or binary on disk for recent creation or modification, unusual persistence mechanisms, and prevalence on peer systems to assess whether the behavior is tied to malware, a rogue change, or benign automation.
+
+### False positive analysis
+
+- Legitimate startup, login-banner, or scheduled maintenance scripts may use curl to learn the host’s public IP for configuration or status display, so verify the parent script or service path is expected, recently approved, and consistently seen at boot or on a routine schedule.
+- An administrator or engineer may manually run curl to a public IP lookup site during troubleshooting or deployment validation, so confirm the initiating user, TTY or session context, and shell history align with authorized activity and that no suspicious follow-on commands occurred.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container from the network immediately, allow only a secured management path, and preserve volatile evidence such as the running parent process, shell history, and the script or binary that launched curl.
+- Terminate the malicious process chain and remove persistence by inspecting and cleaning cron jobs, systemd unit files, rc.local, user shell profiles, container entrypoints, SSH authorized_keys, and any attacker files staged in writable locations such as /tmp, /var/tmp, or /dev/shm.
+- Rotate credentials and secrets exposed to the compromised system, including SSH keys, API tokens, cloud instance credentials, and application secrets found in scripts, environment files, or shell history.
+- Restore the asset to a known-good state by rebuilding from a trusted image or clean backup and validating startup scripts, packages, and container images before returning the system to production.
+- Escalate to incident response and broaden scoping across peer systems if the IP lookup was followed by downloads, reverse shells, new outbound connections to unfamiliar infrastructure, or if the same parent script, binary, or persistence artifact appears on multiple hosts.
+- Harden the environment by restricting outbound curl access to approved destinations, blocking public IP lookup services where not needed, limiting execution from writable directories, and adding detections for unexpected systemd, cron, and shell-profile modifications.
+"""
+risk_score = 21
+rule_id = "996e2e09-087e-4e99-a3cc-a9225d24ba3d"
+setup = """## Setup
+
+This rule requires data coming in from one of the following integrations:
+- Elastic Defend
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+  "Domain: Endpoint",
+  "OS: Linux",
+  "Use Case: Threat Detection",
+  "Tactic: Discovery",
+  "Data Source: Elastic Defend",
+  "Data Source: SentinelOne",
+  "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
+process.name == "curl" and (
+  process.parent.name like ".*" or process.parent.executable like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/opt/*",  "/etc/*", "./*", "/run/user/*", "/var/run/user/*",
+    "/usr/bin/*", "/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*",
+    "/usr/lib/*", "/usr/local/lib/*", "/lib/*", "/lib64/*", "/usr/lib64/*", "/usr/local/lib64/*"
+  )
+) and
+process.command_line like~ (
+  "*ip-api.com*", "*checkip.dyndns.org*", "*api.ipify.org*", "*whatismyip.akamai.com*", "*bot.whatismyipaddress.com*",
+  "*ifcfg.me*", "*ifconfig.me*", "*ident.me*", "*ipof.in*", "*ip.tyk.nu*", "*icanhazip.com*", "*curlmyip.com*",
+  "*wgetip.com*", "*eth0.me*", "*ipecho.net*", "*ip.appspot.com*", "*api.myip.com*", "*geoiptool.com*", "*api.2ip.ua*",
+  "*api.ip.sb*", "*ipinfo.io*", "*checkip.amazonaws.com*", "*wtfismyip.com*", "*iplogger.*", "*freegeoip.net*",
+  "*freegeoip.app*", "*geoplugin.net*", "*myip.dnsomatic.com*", "*www.geoplugin.net*",
+  "*api64.ipify.org*", "*ip4.seeip.org*", "*.geojs.io*", "*portmap.io*", "*api.db-ip.com*",
+  "*geolocation-db.com*", "*httpbin.org*", "*myip.opendns.com*", "*ipv4.icanhazip.com*", "*ipv6.icanhazip.com*"
+) and
+not (
+  process.parent.name in ("jamf", "make") or
+  process.parent.name in (".", "./alert_api_call.sh", "nvim", "teleport") or
+  process.parent.executable like (
+    "/usr/local/bin/teleport", "/usr/local/bin/current_ip", "/tmp/go-build*", "/usr/bin/neofetch",
+    "/usr/bin/show-location-info", "/opt/tpot/bin/myip.sh", "/usr/sbin/sshd", "/tmp/newroot/var/quest/kace/scripts/*",
+    "./Linux_Inventory_Sheets.sh", "/opt/qvm/bin/update_info_qsuite", "/usr/lib/check_mk_agent/local/public_ip_check",
+    "/opt/teleport/system/bin/teleport", "/opt/Elastic/Endpoint/elastic-endpoint", "/etc/update-motd.d/motd.sh",
+    "/opt/coe/cadence/IC231/tools.lnx86/cda/bin/64bit/cda.exe", "/etc/update-motd.d/10-armbian-header",
+    "/opt/saltstack/salt/bin/python*", "/usr/bin/python*", "/usr/local/bin/detect-external-ip"
+  ) or
+  process.parent.args in ("/var/www/html/admin/modules/leucoalarm/scripts/system.php", "/etc/cont-init.d/50-ddns") or
+  (
+    process.parent.executable == "/usr/bin/java" and
+    process.args like "/opt/streamsets-datacollector/libexec/bootstrap-libs/*"
+  ) or
+  process.parent.command_line == "runc init" or
+  (
+    process.parent.executable == "/usr/bin/busybox" and
+    (process.parent.command_line == "sh /etc/cont-init.d/50-ddns" or process.working_directory == "/opt/outline-server")
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "System Network Configuration Discovery"
+  id = "T1016"
+  reference = "https://attack.mitre.org/techniques/T1016/"

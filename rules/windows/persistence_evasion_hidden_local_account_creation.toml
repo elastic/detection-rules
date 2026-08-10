@@ -2,7 +2,7 @@
 creation_date = "2020/12/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/07"
+updated_date = "2026/05/03"
 
 [rule]
 author = ["Elastic"]
@@ -24,33 +24,6 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Creation of a Hidden Local User Account"
-note = """## Triage and analysis
-
-### Investigating Creation of a Hidden Local User Account
-
-Attackers can create accounts ending with a `$` symbol to make the account hidden to user enumeration utilities and bypass detections that identify computer accounts by this pattern to apply filters.
-
-This rule uses registry events to identify the creation of local hidden accounts.
-
-#### Possible investigation steps
-
-- Identify the user account that performed the action and whether it should perform this kind of action.
-- Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
-- Investigate other alerts associated with the user/host during the past 48 hours.
-
-### False positive analysis
-
-- This activity is unlikely to happen legitimately. Benign true positive (B-TPs) can be added as exceptions if necessary.
-
-### Response and remediation
-
-- Initiate the incident response process based on the outcome of the triage.
-- Isolate the involved hosts to prevent further post-compromise behavior.
-- Delete the hidden account.
-- Review the privileges assigned to the involved users to ensure that the least privilege principle is being followed.
-- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
-- Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
-"""
 references = [
     "http://web.archive.org/web/20230329153858/https://blog.menasec.net/2019/02/threat-hunting-6-hiding-in-plain-sights_8.html",
     "https://github.com/CyberMonitor/APT_CyberCriminal_Campagin_Collections/tree/master/2020/2020.12.15.Lazarus_Campaign",
@@ -75,7 +48,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-registry where host.os.type == "windows" and event.type == "change" and
+registry where host.os.type == "windows" and event.type in ("change", "creation") and
   registry.path : (
     "HKLM\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\",
     "\\REGISTRY\\MACHINE\\SAM\\SAM\\Domains\\Account\\Users\\Names\\*$\\",
@@ -83,6 +56,144 @@ registry where host.os.type == "windows" and event.type == "change" and
 )
 '''
 
+note = """## Triage and analysis
+
+### Investigating Creation of a Hidden Local User Account
+
+#### Possible investigation steps
+
+- What hidden local account did the SAM write create?
+  - Why: a `$` suffix is ambiguous in many logs, but `registry.path` under `SAM\\SAM\\Domains\\Account\\Users\\Names` is a local account-name entry and can be omitted from casual `net user` review.
+  - Focus: `registry.hive`, `registry.path`, `registry.key`, and `@timestamp` for the exact account name and creation time.
+  - Implication: high concern unless the exact `$`-suffixed account, `host.id`, and time fit one narrowly recognized provisioning or recovery workflow; lower concern only when creator, use, and scope checks do not contradict it.
+
+- Which process and parent caused the SAM entry?
+  - Focus: `process.entity_id`, `process.executable`, `process.command_line`, `process.parent.executable`, and `process.parent.command_line`.
+  - Implication: escalate for shells, script interpreters, remote-service launchers such as sc.exe, service-created cmd/net user chains, PsExec-like tools, user-writable binaries, or mismatched parents; lower concern only when creator path, parent, and arguments match one recognized account-management workflow.
+
+- Did the creator or its children perform other account, privilege, or persistence actions?
+  - Why: remote account creation can surface as a service-launched command, and the decisive `net user`, local-group, or cleanup action may be in the creator's process tree rather than the registry event alone.
+  - Focus: same-host registry and process activity for creator `process.entity_id` and child `process.parent.entity_id`: `process.command_line`, `registry.path`, `registry.value`, and `registry.data.strings`. $investigate_0
+  - Hint: if the parent is service-control or PsExec-like, keep service-created cmd/net user children in scope even when signed.
+  - Implication: escalate when the tree adds local-group membership, touches extra SAM or LSA paths, deletes staging commands, or creates other persistence; lower concern when activity stays limited to the recovered account inside the same recognized workflow.
+
+- Was the hidden account used by later process activity after creation?
+  - Why: remote or service use of `$`-suffixed accounts may leave little profile evidence, so process and session context carries more weight than profile artifacts.
+  - Focus: extract the account leaf from `registry.path`, then search same-host process starts after `@timestamp` where `user.name` matches it, reading `process.Ext.session_info.logon_type`, `process.executable`, and `process.command_line`.
+  - Hint: this pivot is manual unless the account name is normalized into a standalone alert field; avoid using the full SAM registry path as an account value.
+  - Implication: account use after creation strongly escalates when the account runs processes, appears in remote-interactive, network, service, or batch sessions, or launches administrative tooling; lower concern only when no process use appears and creator evidence fits a recognized provisioning path.
+
+- If local evidence is suspicious or unresolved, do recent same-actor or same-host alerts change scope?
+  - Focus: related alerts for creating `user.id` and `host.id`: account abuse, privilege escalation, remote execution, credential access, or additional persistence.
+  - Hint: use the creating-identity alert pivot. $investigate_1
+  - Hint: use the host alert pivot. $investigate_2
+  - Implication: broaden response when the same actor or host has related account, persistence, or privilege alerts; keep local when history is clean and local evidence already fits one recognized workflow.
+
+- What disposition is supported?
+  - Escalate for unexpected account or creator lineage, privilege or cleanup activity, later account use, or wider scope; close only when same-host telemetry proves one exact recognized workflow, using records only as corroboration; preserve evidence and escalate when answers stay mixed or incomplete.
+
+### False positive analysis
+
+- A pre-established local support-account provisioning or recovery workflow can create a `$`-suffixed local account, but close only on a complete telemetry match: exact `registry.path`, creator `process.executable`, `process.command_line`, parent process, `user.id`, and `host.id`, with no extra SAM, LSA, privilege-grant, or cleanup activity outside it. Use build, vendor, or maintenance records only to corroborate that match; never close or exception on records alone.
+- Treat one-off interactive creation, remote service-created cmd.exe or net.exe, script-driven creation, and creation on ordinary workstations or servers as suspicious by default. Hidden support accounts elsewhere or a signed creator binary are not enough to close.
+- Build exceptions only from the minimum confirmed workflow: exact hidden-account `registry.path`, stable creator executable and command pattern, parent workflow, `user.id`, and bounded `host.id` cohort. Avoid exceptions on all `$`-suffixed names, the SAM hive, `process.name` alone, or the rule name.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the exact account path, creator lineage, user, and host cohort that proved the recurring workflow. Keep any exception as narrow as that confirmed pattern.
+- If suspicious but unconfirmed, export the alert, the triggering registry event, creator process details, current hidden-account state, privilege evidence found in process or registry review, and any process or session use by the hidden account before containment. Apply reversible actions first: disable the account, restrict its logon rights, or increase monitoring on the affected `host.id` and creating `user.id`; avoid deleting the account until evidence is preserved.
+- If confirmed malicious, preserve account state, creator process lineage, and related registry or process artifacts first. Then isolate the host when its role allows, disable the hidden account, and contain the creating identity or remote source when the evidence identifies one. After preservation and containment, remove unauthorized privilege, SAM, LSA, service, or scheduled-task changes introduced around the same time.
+- Post-incident hardening: restrict hidden support-account creation to controlled management tooling, audit the host for other local accounts ending in `$`, retain registry and process telemetry needed to reconstruct future account creation, and document blind spots around preexisting hidden accounts or later privilege grants.
+"""
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.executable",
+    "process.command_line",
+    "process.parent.name",
+    "process.parent.executable",
+    "process.parent.command_line",
+    "registry.hive",
+    "registry.path",
+    "registry.key",
+    "registry.value",
+]
+
+[transform]
+
+[[transform.investigate]]
+label = "Creator process and child activity on this host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "process", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ],
+  [
+    { excluded = false, field = "event.category", queryType = "phrase", value = "registry", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" },
+    { excluded = false, field = "process.parent.entity_id", queryType = "phrase", value = "{{process.entity_id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-24h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the creating identity"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "user.id", queryType = "phrase", value = "{{user.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
+
+[[transform.investigate]]
+label = "Alerts associated with the host"
+description = ""
+providers = [
+  [
+    { excluded = false, field = "event.kind", queryType = "phrase", value = "signal", valueType = "string" },
+    { excluded = false, field = "host.id", queryType = "phrase", value = "{{host.id}}", valueType = "string" }
+  ]
+]
+relativeFrom = "now-48h/h"
+relativeTo = "now"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"

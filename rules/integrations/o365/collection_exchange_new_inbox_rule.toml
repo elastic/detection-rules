@@ -2,7 +2,7 @@
 creation_date = "2021/03/29"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/03/17"
+updated_date = "2026/05/27"
 
 [rule]
 author = ["Elastic", "Gary Blackwell", "Austin Songer", "Marco Pedrinazzi"]
@@ -67,6 +67,7 @@ references = [
     "https://docs.microsoft.com/en-us/powershell/module/exchange/new-inboxrule?view=exchange-ps",
     "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/detect-and-remediate-outlook-rules-forms-attack?view=o365-worldwide",
     "https://raw.githubusercontent.com/PwC-IR/Business-Email-Compromise-Guide/main/Extractor%20Cheat%20Sheet.pdf",
+    "https://www.microsoft.com/en-us/security/blog/2026/04/06/ai-enabled-device-code-phishing-campaign-april-2026/"
 ]
 risk_score = 47
 rule_id = "ec8efb0c-604d-42fa-ac46-ed1cfbc38f78"
@@ -87,15 +88,22 @@ type = "eql"
 query = '''
 web where
     event.provider == "Exchange" and
-    event.action in ("New-InboxRule", "Set-InboxRule") and
-    event.outcome == "success" and
+    event.action in (
+        "New-InboxRule",
+        "Set-InboxRule",
+        "Set-Mailbox",
+        "Set-TransportRule",
+        "New-TransportRule"
+    ) and event.outcome == "success" and
     (
         (?o365.audit.Parameters.ForwardTo != null and not endsWith~(?o365.audit.Parameters.ForwardTo, user.domain)) or
         (?o365.audit.Parameters.ForwardAsAttachmentTo != null and not endsWith~(?o365.audit.Parameters.ForwardAsAttachmentTo, user.domain)) or
         (?o365.audit.Parameters.ForwardingAddress != null and not endsWith~(?o365.audit.Parameters.ForwardingAddress, user.domain)) or
         (?o365.audit.Parameters.ForwardingSmtpAddress != null and not endsWith~(?o365.audit.Parameters.ForwardingSmtpAddress, user.domain)) or
         (?o365.audit.Parameters.RedirectTo != null and not endsWith~(?o365.audit.Parameters.RedirectTo, user.domain)) or
-        (?o365.audit.Parameters.RedirectToRecipients != null and not endsWith~(?o365.audit.Parameters.RedirectToRecipients, user.domain))
+        (?o365.audit.Parameters.RedirectToRecipients != null and not endsWith~(?o365.audit.Parameters.RedirectToRecipients, user.domain)) or
+        (?o365.audit.Parameters.RedirectMessageTo != null and not endsWith~(?o365.audit.Parameters.RedirectMessageTo, user.domain)) or
+        (?o365.audit.Parameters.BlindCopyTo != null and not endsWith~(?o365.audit.Parameters.BlindCopyTo, user.domain))
     )
 '''
 

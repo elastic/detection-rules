@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/05/01"
+integration = ["cloud_defend"]
+maturity = "production"
+min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/05/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious usage of unshare to manipulate system namespaces. Unshare can be utilized to escalate privileges
+or escape container security boundaries. Threat actors have utilized this binary to allow themselves to escape to the
+host and access other resources or escalate privileges.
+"""
+from = "now-9m"
+index = ["logs-cloud_defend.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Namespace Manipulation Using Unshare in a Container"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Namespace Manipulation Using Unshare in a Container
+
+The `unshare` command in Linux is used to create new namespaces, isolating processes from the rest of the system. This isolation is crucial for containerization and security. However, attackers can exploit `unshare` to break out of containers or elevate privileges by creating namespaces that bypass security controls. The detection rule identifies suspicious `unshare` executions by monitoring process starts, filtering out benign parent processes, and focusing on unusual usage patterns, thus highlighting potential misuse.
+
+### Possible investigation steps
+
+- Review the process tree to understand the context of the unshare execution, focusing on the parent process and any child processes spawned by unshare.
+- Investigate the user account associated with the unshare execution to determine if it is a legitimate user or potentially compromised.
+- Examine the command-line arguments used with unshare to identify any unusual or suspicious options that may indicate an attempt to bypass security controls.
+- Check for any recent changes or anomalies in the system logs around the time of the unshare execution to identify potential indicators of compromise or privilege escalation attempts.
+- Correlate the unshare event with other security alerts or logs to determine if it is part of a larger attack pattern or campaign.
+
+### False positive analysis
+
+- System management tools like udevadm and systemd-udevd may invoke unshare as part of their normal operations. These should be excluded by ensuring the rule filters out processes with these as parent executables.
+- Snap package management can trigger unshare during its operations. Exclude processes where the arguments include /usr/bin/snap to prevent unnecessary alerts.
+- Java applications might occasionally use unshare for legitimate purposes. Exclude processes with java as the parent name to reduce false positives.
+- Custom scripts or administrative tasks that use unshare for legitimate namespace management should be reviewed and, if deemed safe, added to the exclusion list to prevent repeated alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system to prevent further unauthorized access or lateral movement within the network.
+- Terminate any suspicious processes associated with the `unshare` command that do not have legitimate parent processes or arguments, as identified in the detection query.
+- Conduct a thorough review of system logs and process trees to identify any additional unauthorized or suspicious activities that may have occurred in conjunction with the `unshare` execution.
+- Revoke any unauthorized access or privileges that may have been granted as a result of the namespace manipulation, ensuring that all user and process permissions are appropriately restricted.
+- Restore the affected system from a known good backup if any unauthorized changes or damage to the system integrity are detected.
+- Implement additional monitoring and alerting for unusual `unshare` usage patterns to enhance detection capabilities and prevent future occurrences.
+- Escalate the incident to the security operations team for further investigation and to determine if additional systems or data have been compromised."""
+references = ["https://man7.org/linux/man-pages/man1/unshare.1.html"]
+risk_score = 47
+rule_id = "9e5dbd3b-5e19-4648-a1cf-c2649c91b015"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Container",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend for Containers",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and event.action == "exec" and
+process.name == "unshare" and container.id like "?*" and not (
+  process.parent.executable: ("/usr/bin/udevadm", "*/lib/systemd/systemd-udevd", "/usr/bin/unshare") or
+  (process.args == "/usr/bin/snap" and not process.parent.name in ("zz-proxmox-boot", "java")) or
+  process.parent.args like (
+    "/etc/kernel/postinst.d/zz-proxmox-boot", "/opt/openssh/sbin/sshd", "/usr/sbin/sshd",
+    "/snap/*", "/home/*/.local/share/JetBrains/Toolbox/*"
+  ) or
+ (process.args == "--propagation" and process.args == "private" and process.args like "/etc/kernel/post*.d/zz-proxmox-boot") or 
+ (process.args == "--fork" and process.args == "--kill-child") or 
+  process.args like ("/usr/bin/os-prober", "/usr/bin/linux-boot-prober", "/opt/SIGOS/sitedata/exec/*")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"

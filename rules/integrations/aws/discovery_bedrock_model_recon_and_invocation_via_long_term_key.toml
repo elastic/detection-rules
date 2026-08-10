@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2026/06/05"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an AWS principal using long-term IAM user credentials (AKIA* access key) enumerates available Bedrock
+foundation models and then invokes a model within the same 15-minute window. Most legitimate Bedrock workloads run under
+IAM roles with short-lived credentials; the combination of model enumeration followed by direct model invocation from a
+long-term IAM user key is unusual in production environments and consistent with an adversary using stolen credentials
+to discover and exploit available AI model capabilities. This pattern is associated with LLMjacking attacks where threat
+actors abuse compromised cloud credentials to run high-volume or high-cost model inference at the account owner's
+expense.
+"""
+false_positives = [
+    """
+    First-time Bedrock onboarding by a developer using long-term IAM user credentials. Verify the requesting identity is
+    a known engineer, the use case description is legitimate, and the model invocation follows expected application
+    behavior. Consider migrating Bedrock workloads to IAM roles to eliminate this pattern.
+    """,
+]
+from = "now-30m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "10m"
+language = "eql"
+license = "Elastic License v2"
+name = "AWS Bedrock Foundation Model Enumeration Followed by Invocation via Long-Term Key"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock Foundation Model Enumeration Followed by Invocation via Long-Term Key
+
+This rule fires when the same long-term IAM user access key (AKIA*) calls `ListFoundationModels` and then
+invokes a model within 15 minutes. This sequence — enumerate available models, then immediately use one — is
+consistent with LLMjacking: an adversary using stolen IAM user credentials to discover and abuse available
+AI model capabilities at the account owner's expense.
+
+Long-term access keys (`AKIA*` prefix) belong to IAM users, not roles. Legitimate Bedrock workloads in
+production almost always run under IAM roles with short-lived credentials. A long-term key performing both
+model discovery and invocation is unusual and warrants investigation.
+
+### Possible investigation steps
+
+- **Identify the key and owner**: Review `aws.cloudtrail.user_identity.arn` and
+  `aws.cloudtrail.user_identity.access_key_id`. Determine who owns the key and whether it is authorized for
+  Bedrock usage.
+- **Check for credential exposure**: Search for the access key in source code, CI/CD logs, and secret scanning
+  alerts. A key used from an unexpected source IP is a strong indicator of compromise.
+- **Examine the invocation**: Review `aws.cloudtrail.request_parameters` on the `InvokeModel` event to identify
+  which model was invoked. Cross-reference with Bedrock invocation logs for prompt and response content.
+- **Correlate source IP and user agent**: Confirm `source.ip` and `user_agent.original` match the key owner's
+  expected environment. Residential IPs, VPNs, or unexpected tools are suspicious.
+- **Look for volume**: Check whether this is the first invocation or part of a burst of `InvokeModel` calls.
+  High-volume invocations following enumeration are a strong LLMjacking signal.
+
+### False positive analysis
+
+- **Developer testing**: Engineers using long-term IAM user keys for local Bedrock development may trigger this
+  rule when they first explore available models. Validate against a known developer identity and source IP.
+  Encourage migration to IAM roles for all Bedrock workloads.
+
+### Response and remediation
+
+- Immediately disable or rotate the access key if compromise is suspected.
+- Review all Bedrock invocations made by the key before and after this event.
+- Check whether the same key accessed other AWS services (S3, EC2, Secrets Manager).
+- Enforce IAM roles for all Bedrock workloads and restrict long-term key usage via SCP.
+"""
+references = [
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html",
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_InvokeModel.html",
+]
+risk_score = 73
+rule_id = "a17f2e5f-de52-49e8-9d86-ccfe91cd54d4"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS",
+    "Data Source: AWS CloudTrail",    
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by aws.cloudtrail.user_identity.access_key_id with maxspan=15m
+  [any where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "bedrock.amazonaws.com"
+    and event.action == "ListFoundationModels"
+    and event.outcome == "success"
+    and aws.cloudtrail.user_identity.access_key_id like "AKIA*"]
+  [any where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "bedrock.amazonaws.com"
+    and event.action : ("InvokeModel", "InvokeModelWithResponseStream", "Converse", "ConverseStream")
+    and event.outcome == "success"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "aws.cloudtrail.additionalEventData.inputTokens",
+    "aws.cloudtrail.additionalEventData.outputTokens"
+]
+
