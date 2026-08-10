@@ -74,7 +74,6 @@ FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-pa
     Esql.source_ip_count = COUNT_DISTINCT(source.ip),
     Esql.source_ip_values = VALUES(source.ip),
     Esql.event_action_values = VALUES(event.action),
-    Esql.network_application_values = VALUES(network.application)
   BY destination.ip
 | EVAL Esql.recent = DATE_DIFF("minute", Esql.first_seen, NOW())
 | WHERE Esql.recent <= 10
