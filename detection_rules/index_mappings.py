@@ -276,24 +276,41 @@ def esql_indices_covered_by_packages(
     return True
 
 
-def get_rule_ecs_additions_mappings(
+def get_rule_populated_ecs_mappings(  # noqa: PLR0913, PLR0917
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
+    package_manifests: Any,
+    integration_schemas: Any,
+    stack_version: str,
     current_version: Version,
 ) -> dict[str, Any]:
-    """Get index mappings for the override ECS additions of the rule's integrations."""
+    """Get index mappings for the ECS fields the rule's integrations populate but do not declare."""
     # Used instead of the full ECS schema mappings when every integration the rule references
-    # declares its ECS fields (strict ECS scoping): only the pipeline/agent-injected fields
-    # from integration-ecs-additions.json are mapped on top of the integration schemas.
-    addition_fields: set[str] = set()
+    # declares its ECS fields (strict ECS scoping): only the ECS fields the packages populate
+    # through their ingest pipelines and sample events are mapped on top of the integration
+    # schemas, mirroring the KQL/EQL scoping behavior.
+    populated_fields: set[str] = set()
     for package, datasets in rule_datasets_by_package(rule_integrations, event_dataset_integrations).items():
+        try:
+            package_version, _ = integrations.find_latest_compatible_version(
+                package,
+                "",
+                Version.parse(stack_version),
+                package_manifests,
+            )
+        except ValueError:
+            continue
         for dataset in datasets:
-            addition_fields.update(integrations.get_integration_ecs_additions(package, dataset))
+            populated_fields.update(
+                integrations.get_integration_populated_ecs_fields(
+                    integration_schemas, package, package_version, dataset
+                )
+            )
 
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_flat = ecs.get_schema(ecs_version, name="ecs_flat")
-    flat_additions = {field: ecs_flat[field]["type"] for field in sorted(addition_fields) if field in ecs_flat}
-    return flat_schema_to_index_mapping(flat_additions)
+    flat_populated = {field: ecs_flat[field]["type"] for field in sorted(populated_fields) if field in ecs_flat}
+    return flat_schema_to_index_mapping(flat_populated)
 
 
 def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
@@ -318,8 +335,9 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
             Version.parse(stack_version),
             package_manifests,
         )
-        # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`) and ML job
-        # lists from the cached schema; only data stream field dicts become index mappings.
+        # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`,
+        # `_ecs_populated`) and ML job lists from the cached schema; only data stream field
+        # dicts become index mappings.
         package_schema = {
             stream: {field: value for field, value in stream_schema.items() if not field.startswith("_")}
             for stream, stream_schema in integration_schemas[package][package_version].items()
@@ -615,16 +633,24 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
         custom_mapping.update({index: index_mapping})
 
     # Load ECS in an index mapping format (nested schema). When every integration the rule
-    # references declares its ECS fields (strict ECS scoping), only the override additions
-    # are mapped instead of the full ECS schema, mirroring the KQL/EQL validation behavior.
+    # references declares its ECS fields (strict ECS scoping), only the ECS fields those
+    # packages populate are mapped instead of the full ECS schema, mirroring the KQL/EQL
+    # validation behavior.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
     if esql_indices_covered_by_packages(
         indices, rule_integrations, event_dataset_integrations
     ) and rule_integrations_declare_ecs_fields(
         rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, stack_version
     ):
-        log("All rule integrations declare their ECS fields; scoping ECS mappings to override additions")
-        ecs_schema = get_rule_ecs_additions_mappings(rule_integrations, event_dataset_integrations, current_version)
+        log("All rule integrations declare their ECS fields; scoping ECS mappings to the fields they populate")
+        ecs_schema = get_rule_populated_ecs_mappings(
+            rule_integrations,
+            event_dataset_integrations,
+            package_manifests,
+            integration_schemas,
+            stack_version,
+            current_version,
+        )
     else:
         ecs_schema = get_ecs_schema_mappings(current_version)
 

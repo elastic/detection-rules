@@ -1617,15 +1617,20 @@ def build_integration_manifests(overwrite: bool, integration: str, prerelease: b
 @click.option(
     "--integration", "-i", type=str, help="Adds a single integration schema to the integrations-schema.json.gz file"
 )
-def build_integration_schemas(overwrite: bool, integration: str) -> None:
+@click.option(
+    "--refresh-ecs-scope",
+    is_flag=True,
+    help="Re-download cached package versions that are missing the derived ECS field metadata (_ecs_populated)",
+)
+def build_integration_schemas(overwrite: bool, integration: str, refresh_ecs_scope: bool) -> None:
     """Builds consolidated integrations schemas file."""
     click.echo("Building integration schemas...")
 
     start_time = time.perf_counter()
     if integration:
-        build_integrations_schemas(overwrite=False, integration=integration)
+        build_integrations_schemas(overwrite=False, integration=integration, refresh_ecs_scope=refresh_ecs_scope)
     else:
-        build_integrations_schemas(overwrite=overwrite)
+        build_integrations_schemas(overwrite=overwrite, refresh_ecs_scope=refresh_ecs_scope)
         end_time = time.perf_counter()
         click.echo(f"Time taken to generate schemas: {(end_time - start_time) / 60:.2f} minutes")
 

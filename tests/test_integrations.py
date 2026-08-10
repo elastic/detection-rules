@@ -5,14 +5,19 @@
 
 """Test integration version resolution against EPR manifest ranges."""
 
+import io
+import json
 import unittest
 import unittest.mock
+import zipfile
 from types import SimpleNamespace
 from typing import ClassVar
 
+import yaml
 from semver import Version
 
 from detection_rules.config import load_current_package_version
+from detection_rules.integration_ecs_sources import extract_pipeline_fields, extract_sample_event_fields
 from detection_rules.integrations import (
     RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK,
     IntegrationVersionNotFoundError,
@@ -24,10 +29,13 @@ from detection_rules.integrations import (
     collect_schema_fields,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
+    get_integration_populated_ecs_fields,
     get_integration_schema_data,
     get_integration_schema_fields,
     integration_declares_ecs_fields,
     load_integrations_schemas,
+    needs_ecs_scope_refresh,
+    parse_version_schema,
     resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
@@ -604,7 +612,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
     }
 
     @staticmethod
-    def _strict_schemas(package: str, integration: str) -> dict:
+    def _strict_schemas(package: str, integration: str, populated: list[str] | None = None) -> dict:
         """Package version that explicitly declares its ECS fields."""
         return {
             package: {
@@ -615,6 +623,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
                         "destination.ip": "ip",
                         f"{package}.custom_field": "keyword",
                         "_ecs_declared": ["destination.ip"],
+                        "_ecs_populated": populated or [],
                     },
                 }
             }
@@ -678,14 +687,43 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
 
         self.assertIn("process.title", schema)
 
-    def test_ecs_additions_override_extends_strict_schema(self):
-        """Pipeline-injected fields listed in integration-ecs-additions.json pass validation."""
-        additions = {"network_traffic": {"icmp": ["process.title"], "_all": ["process.name"]}}
-        with unittest.mock.patch("detection_rules.integrations.load_integration_ecs_additions", return_value=additions):
-            schema = self._get_schema(self._strict_schemas("network_traffic", "icmp"), "network_traffic", "icmp")
+    def test_cache_without_populated_metadata_keeps_full_ecs(self):
+        """A cache entry predating the derived ECS fields must not be scoped strictly."""
+        # `_ecs_populated` carries the ECS fields the package populates without declaring them;
+        # scoping an entry that lacks it would reject fields the integration does produce.
+        schemas = self._strict_schemas("pkg", "ds")
+        del schemas["pkg"]["1.0.0"]["ds"]["_ecs_populated"]
+
+        self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", "ds"))
+        self.assertIn("process.title", self._get_schema(schemas, "pkg", "ds"))
+
+    def test_populated_ecs_fields_extend_strict_schema(self):
+        """ECS fields the package populates via pipelines/sample events pass validation."""
+        schemas = self._strict_schemas("network_traffic", "icmp", populated=["process.title"])
+        schema = self._get_schema(schemas, "network_traffic", "icmp")
 
         self.assertIn("process.title", schema)
-        self.assertIn("process.name", schema)
+        self.assertNotIn("process.name", schema)
+
+    def test_get_integration_populated_ecs_fields(self):
+        """The derived ECS fields are read per data stream and unioned package-wide."""
+        schemas = {
+            "pkg": {
+                "1.0.0": {
+                    "_uses_ecs_mappings": False,
+                    "one": {"_ecs_declared": ["destination.ip"], "_ecs_populated": ["event.ingested"]},
+                    "two": {"_ecs_declared": ["source.ip"], "_ecs_populated": ["source.geo.location"]},
+                }
+            }
+        }
+        self.assertEqual(
+            get_integration_populated_ecs_fields(schemas, "pkg", "1.0.0", "one"),
+            {"event.ingested"},
+        )
+        self.assertEqual(
+            get_integration_populated_ecs_fields(schemas, "pkg", "1.0.0"),
+            {"event.ingested", "source.geo.location"},
+        )
 
     def test_integration_declares_ecs_fields_package_wide(self):
         """Package-wide resolution is strict only when every data stream declares ECS fields."""
@@ -693,7 +731,11 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
             "pkg": {
                 "1.0.0": {
                     "_uses_ecs_mappings": False,
-                    "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                    "declared": {
+                        "destination.ip": "ip",
+                        "_ecs_declared": ["destination.ip"],
+                        "_ecs_populated": [],
+                    },
                     "undeclared": {"pkg.custom": "keyword"},
                 }
             }
@@ -703,6 +745,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
         self.assertFalse(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", None))
 
         schemas["pkg"]["1.0.0"]["undeclared"]["_ecs_declared"] = ["process.name"]
+        schemas["pkg"]["1.0.0"]["undeclared"]["_ecs_populated"] = []
         self.assertTrue(integration_declares_ecs_fields(schemas, "pkg", "1.0.0", None))
 
     def test_collect_schema_fields_filters_metadata(self):
@@ -742,6 +785,133 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
         self.assertEqual(by_name["process.title"]["type"], "unknown")
 
 
+class TestIntegrationEcsSources(unittest.TestCase):
+    """ECS fields a package populates outside its field definitions must be derived from the zip."""
+
+    @staticmethod
+    def _package_zip(files: dict[str, str]) -> zipfile.ZipFile:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zip_ref:
+            for name, contents in files.items():
+                zip_ref.writestr(name, contents)
+        return zipfile.ZipFile(buffer)
+
+    def _pipeline_fields(self, processors: list[dict]) -> set[str]:
+        pipeline = yaml.safe_dump({"processors": processors})
+        zip_ref = self._package_zip({"pkg-1.0.0/data_stream/ds/elasticsearch/ingest_pipeline/default.yml": pipeline})
+        return extract_pipeline_fields(zip_ref)["ds"]
+
+    def test_set_and_rename_targets(self):
+        """Fields written by set/rename/append processors are collected."""
+        fields = self._pipeline_fields(
+            [
+                {"set": {"field": "event.kind", "value": "event"}},
+                {"rename": {"field": "src.raw", "target_field": "source.ip"}},
+                {"append": {"field": "related.user", "value": "{{user.name}}"}},
+                {"remove": {"field": "message"}},
+            ]
+        )
+        self.assertEqual(fields, {"event.kind", "source.ip", "related.user"})
+
+    def test_source_only_fields_are_not_collected(self):
+        """A processor's input field is only populated when it is also the output field."""
+        fields = self._pipeline_fields(
+            [
+                # rename moves source.address away, so it is not populated
+                {"rename": {"field": "source.address", "target_field": "source.ip"}},
+                # date reads event.created and writes @timestamp
+                {"date": {"field": "event.created", "formats": ["ISO8601"]}},
+                # in-place transforms do mean the data stream carries the field
+                {"lowercase": {"field": "user.name"}},
+                {"convert": {"field": "http.response.status_code", "type": "long"}},
+            ]
+        )
+        self.assertEqual(fields, {"source.ip", "@timestamp", "user.name", "http.response.status_code"})
+
+    def test_enrichment_processors_expand_subfields(self):
+        """geoip/user_agent/uri_parts write a set of subfields under their target."""
+        fields = self._pipeline_fields(
+            [
+                {"geoip": {"field": "source.ip", "target_field": "source.geo"}},
+                {"user_agent": {"field": "ua.raw"}},
+                {"uri_parts": {"field": "url.raw"}},
+                {"network_direction": {}},
+            ]
+        )
+        self.assertIn("source.geo.location", fields)
+        self.assertIn("source.geo.country_iso_code", fields)
+        self.assertIn("user_agent.os.version", fields)
+        self.assertIn("url.domain", fields)
+        self.assertIn("network.direction", fields)
+
+    def test_nested_and_parsed_targets(self):
+        """foreach, on_failure, grok and script targets are collected recursively."""
+        fields = self._pipeline_fields(
+            [
+                {"foreach": {"field": "list", "processor": {"set": {"field": "event.outcome"}}}},
+                {
+                    "grok": {
+                        "field": "message",
+                        "patterns": ["%{IP:destination.ip} %{NUMBER:destination.port:int}"],
+                        "on_failure": [{"set": {"field": "error.message"}}],
+                    }
+                },
+                {"script": {"source": "ctx.process?.name = 'x'; ctx['file']['path'] = 'y';"}},
+            ]
+        )
+        self.assertIn("event.outcome", fields)
+        self.assertIn("destination.ip", fields)
+        self.assertIn("destination.port", fields)
+        self.assertIn("error.message", fields)
+        self.assertIn("process.name", fields)
+        self.assertIn("file.path", fields)
+
+    def test_sample_event_fields_are_flattened(self):
+        """Every leaf in a data stream's sample event counts as populated."""
+        sample = {
+            "agent": {"id": "abc", "type": "filebeat"},
+            "related": {"user": ["root"]},
+            "dns": {"answers": [{"name": "example.com"}]},
+        }
+        zip_ref = self._package_zip({"pkg-1.0.0/data_stream/ds/sample_event.json": json.dumps(sample)})
+
+        self.assertEqual(
+            extract_sample_event_fields(zip_ref)["ds"],
+            {"agent.id", "agent.type", "related.user", "dns.answers.name"},
+        )
+
+    def test_parse_version_schema_stores_derived_ecs_fields(self):
+        """Only the ECS subset of the derived fields is cached, and only for ECS-scoped streams."""
+        ecs_fields = yaml.safe_dump([{"name": "destination.ip", "type": "ip"}])
+        pipeline = yaml.safe_dump({"processors": [{"set": {"field": "event.ingested"}}, {"set": {"field": "pkg.x"}}]})
+        zip_ref = self._package_zip(
+            {
+                "pkg-1.0.0/data_stream/ds/fields/ecs.yml": ecs_fields,
+                "pkg-1.0.0/data_stream/ds/elasticsearch/ingest_pipeline/default.yml": pipeline,
+                "pkg-1.0.0/data_stream/plain/fields/fields.yml": yaml.safe_dump([{"name": "pkg.y", "type": "keyword"}]),
+            }
+        )
+
+        version_schema = parse_version_schema(zip_ref, "pkg")
+
+        self.assertFalse(version_schema["_uses_ecs_mappings"])
+        self.assertEqual(version_schema["ds"]["_ecs_declared"], ["destination.ip"])
+        # `pkg.x` is not ECS, and `destination.ip` is already declared
+        self.assertEqual(version_schema["ds"]["_ecs_populated"], ["event.ingested"])
+        # a data stream that declares no ECS fields is never scoped, so it stores no metadata
+        self.assertNotIn("_ecs_populated", version_schema["plain"])
+
+    def test_needs_ecs_scope_refresh(self):
+        """Only ECS-scoped entries missing the derived fields are flagged for a refresh."""
+        refreshed = {"_uses_ecs_mappings": False, "ds": {"_ecs_declared": ["source.ip"], "_ecs_populated": []}}
+        stale = {"_uses_ecs_mappings": False, "ds": {"_ecs_declared": ["source.ip"]}}
+
+        self.assertFalse(needs_ecs_scope_refresh(refreshed))
+        self.assertTrue(needs_ecs_scope_refresh(stale))
+        # packages inheriting ECS via ecs@mappings have nothing to derive
+        self.assertFalse(needs_ecs_scope_refresh({"_uses_ecs_mappings": True, "ds": {"pkg.x": "keyword"}}))
+
+
 class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
     """The committed schema cache must carry ECS scoping metadata for known archetypes."""
 
@@ -756,6 +926,12 @@ class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
         fields = collect_schema_fields(self.schemas, "network_traffic", version, "icmp")
         self.assertIn("destination.ip", fields)
         self.assertNotIn("process.title", fields)
+
+    def test_network_traffic_icmp_carries_derived_ecs_fields(self):
+        """The cached entry must include ECS fields the package populates but does not declare."""
+        populated = get_integration_populated_ecs_fields(self.schemas, "network_traffic", "1.33.0", "icmp")
+        self.assertIn("agent.id", populated)
+        self.assertNotIn("process.title", populated)
 
     def test_cloud_defend_uses_ecs_mappings(self):
         """cloud_defend declares no ECS fields and must keep the full ECS fallback."""
@@ -773,7 +949,11 @@ class TestEsqlEcsScoping(unittest.TestCase):
         "pkg": {
             "1.0.0": {
                 "_uses_ecs_mappings": False,
-                "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                "declared": {
+                    "destination.ip": "ip",
+                    "_ecs_declared": ["destination.ip"],
+                    "_ecs_populated": ["user_agent.original"],
+                },
                 "undeclared": {"pkg.custom": "keyword"},
             }
         }
@@ -823,7 +1003,11 @@ class TestEsqlEcsScoping(unittest.TestCase):
             "pkg": {
                 "1.0.0": {
                     "_uses_ecs_mappings": False,
-                    "declared": {"destination.ip": "ip", "_ecs_declared": ["destination.ip"]},
+                    "declared": {
+                        "destination.ip": "ip",
+                        "_ecs_declared": ["destination.ip"],
+                        "_ecs_populated": [],
+                    },
                 }
             }
         }
@@ -833,15 +1017,15 @@ class TestEsqlEcsScoping(unittest.TestCase):
             )
         )
 
-    def test_additions_mappings_contain_override_fields(self):
-        """Strict-mode ES|QL mappings include the override additions instead of full ECS."""
+    def test_populated_mappings_replace_full_ecs(self):
+        """Strict-mode ES|QL mappings include the derived ECS fields instead of full ECS."""
         from detection_rules.esql import EventDataset
-        from detection_rules.index_mappings import get_rule_ecs_additions_mappings
+        from detection_rules.index_mappings import get_rule_populated_ecs_mappings
 
-        additions = {"pkg": {"declared": ["user_agent.original"]}}
         version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        with unittest.mock.patch("detection_rules.integrations.load_integration_ecs_additions", return_value=additions):
-            mappings = get_rule_ecs_additions_mappings([], [EventDataset("pkg", "declared")], version)
+        mappings = get_rule_populated_ecs_mappings(
+            [], [EventDataset("pkg", "declared")], self.MANIFESTS, self.SCHEMAS, "9.0.0", version
+        )
 
         self.assertIn("original", mappings["user_agent"]["properties"])
         self.assertNotIn("process", mappings)

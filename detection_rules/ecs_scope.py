@@ -7,8 +7,9 @@
 
 Rules are validated against the union of their related integrations' schemas. Integrations
 that declare their ECS fields (per data stream ecs.yml, cached as `_ecs_declared` in
-integration-schemas.json.gz) only populate that subset, so any other ECS field in the query
-can never match an event from that integration. This module reports those fields.
+integration-schemas.json.gz) only populate that subset — plus the ECS fields their ingest
+pipelines and sample events reveal, cached as `_ecs_populated` — so any other ECS field in
+the query can never match an event from that integration. This module reports those fields.
 
 Rules resolving to at least one integration that inherits the full ECS schema via the
 ecs@mappings component template (e.g. cloud_defend, endpoint) are not flagged, since every
@@ -35,7 +36,7 @@ from .integrations import (
     collect_schema_fields,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
-    get_integration_ecs_additions,
+    get_integration_populated_ecs_fields,
     integration_declares_ecs_fields,
     load_integrations_manifests,
     load_integrations_schemas,
@@ -128,10 +129,18 @@ def scan_rules(package_filter: str | None = None) -> list[dict[str, Any]]:
                 continue
 
             declared_fields.update(collect_schema_fields(integrations_schemas, package, package_version, integration))
-            declared_fields.update(get_integration_ecs_additions(package, integration))
+            declared_fields.update(
+                get_integration_populated_ecs_fields(integrations_schemas, package, package_version, integration)
+            )
 
         if any_full_ecs:
             continue
+
+        # Query validation also augments the integration schemas with the rule's non-ECS index
+        # schemas, which is where fields an integration populates but no package file reveals
+        # are declared (see non-ecs-schema.json), so they are not violations either.
+        for index_name in data.index_or_dataview:
+            declared_fields.update(ecs.flatten(ecs.get_index_schema(index_name)))
 
         unique_fields: list[str] = validator.unique_fields or []
         missing = sorted(f for f in unique_fields if f in flat_ecs_schema and f not in declared_fields)

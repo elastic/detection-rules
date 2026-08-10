@@ -167,8 +167,9 @@ def get_all_flattened_schema() -> dict[str, Any]:
 
     for integration_schema in load_integrations_schemas().values():
         for index_schema in integration_schema.values():
-            # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`) from the
-            # cached schema; only data stream field dicts contribute to the flattened schema.
+            # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`,
+            # `_ecs_populated`) from the cached schema; only data stream field dicts
+            # contribute to the flattened schema.
             datasets: dict[str, dict[str, Any]] = {
                 dataset: {field: value for field, value in dataset_schema.items() if not field.startswith("_")}  # type: ignore[reportUnknownVariableType]
                 for dataset, dataset_schema in index_schema.items()
