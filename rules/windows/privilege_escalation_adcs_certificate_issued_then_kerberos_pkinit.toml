@@ -71,7 +71,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence with maxspan=3m
+sequence by host.id with maxspan=3m
   /* Chase-influenced issuance only — avoids pairing every smart-card enroll with later PKINIT */
   [any where host.os.type == "windows" and event.code == "4887" and
     winlog.event_data.Attributes : ("*cdc:*", "*rmd:*") and
