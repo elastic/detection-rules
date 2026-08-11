@@ -50,6 +50,8 @@ severity = "medium"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
+    "Platform: Windows",
+    "Rule Type: ESQL",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Tactic: Command and Control",
@@ -67,7 +69,7 @@ MSI download event as the alert.
 FROM
 (
   FROM logs-endpoint.events.file-* METADATA _id, _version, _index
-    | WHERE event.action == "creation" AND file.extension == "msi" AND file.origin_url IS NOT NULL
+    | WHERE event.action == "creation" AND TO_LOWER(file.extension) == "msi" AND file.origin_url IS NOT NULL
     | EVAL sequence_stage = "origin"
     | URI_PARTS origin = file.origin_url
     | EVAL origin.domain = TO_LOWER(origin.domain)
@@ -194,13 +196,13 @@ FROM
 ),
 (
   FROM logs-endpoint.events.process-* METADATA _id, _version, _index
-  | WHERE host.os.type == "windows" AND event.type == "start" AND process.name == "msiexec.exe"
+  | WHERE host.os.type == "windows" AND event.type == "start" AND process.name.caseless == "msiexec.exe"
   | EVAL sequence_stage = "execute"
   | KEEP @timestamp, host.id, process.args, user.id, _id, _version, _index, sequence_stage
 ),
 (
   FROM logs-endpoint.events.file-* METADATA _id, _version, _index
-  | WHERE event.action == "creation" AND process.name == "msiexec.exe"
+  | WHERE event.action == "creation" AND process.name.caseless == "msiexec.exe"
   | EVAL file.name.caseless = TO_LOWER(file.name)
   | WHERE
     file.name.caseless IN (
