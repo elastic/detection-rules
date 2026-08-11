@@ -2,7 +2,7 @@
 creation_date = "2023/04/03"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2026/06/23"
+updated_date = "2026/08/11"
 
 [rule]
 author = ["Elastic"]
@@ -280,7 +280,45 @@ host.os.type: "windows" and
             "ZohoURSService.exe"
         )
   ) and
-  not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.")
+  not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.") and
+
+  /* Exclude RMM vendor helper/utility processes that match via code signature but are not primary RMM tools */
+  not process.name.caseless : (
+      "conhost.exe" or "cmd.exe" or "msiexec.exe" or "regsvr32.exe" or "powershell.exe" or
+      "tv_x64.exe" or "tv_w32.exe" or "crashpad_handler.exe" or "TeamViewer_Desktop.exe" or
+      "update.exe" or "TvUpdateInfo.exe" or "TeamViewer_.exe" or
+      "ncstreamer.exe" or "cabarc.exe" or "njdialog.exe" or "njbinarymetering.exe" or "NinjaWPM.exe" or
+      "NASafeExec.exe" or "AgentMaint.exe" or "NableReactiveManagement.exe" or
+      "NableSixtyFourBitManager.exe" or "NAUpdater.exe" or "assetscan.exe" or
+      "fmplugin.exe" or "ShadowProtectDataReader.exe" or
+      "BASupSrvcCnfg.exe" or "BASupSysInf.exe" or
+      "TCLauncherHelper.exe" or "RebootMessage.exe" or "Popup.exe" or
+      "AgentUpgrader.exe" or "RemoteService.exe" or "agent.exe" or
+      "ECEATelemetry.exe" or "secaddoncrashanalyser.exe" or "meaap.exe" or
+      "CRU_Reporter.exe" or "metroapps.exe" or "osqueryi.exe" or
+      "AutoInstaller.exe" or "BdEpSDK.exe" or
+      "SRVirtualDisplay.exe" or "SRAppPB.exe" or "SRSelfSignCertUtil.exe" or
+      "SRAuto.exe" or "SRUpdate.exe" or "SRUtility.exe" or "SRFeature.exe" or
+      "Devolutions.Updater.exe" or
+      dc*.exe or
+      DCF*.exe or
+      UEMS*.exe or
+      UemsComponent*.exe or
+      uesDevCtrl*.exe or
+      AutomationManager.*.exe or
+      msp-ufa-*.exe or
+      Nable.Ecosystem.*.exe or
+      Msp.Ecosystem.*.exe or
+      Ecosystem.*.exe or
+      ScriptRunner*.exe or
+      *-PreReqHandler.exe or
+      mdmregistrationhandler_*.exe or
+      PackageInstaller*.exe or
+      driversetup*.exe or
+      JavaPreReqHandler*.exe or
+      AnyDesk-*.exe or
+      ChromeSetup_*.exe
+  )
 '''
 
 
