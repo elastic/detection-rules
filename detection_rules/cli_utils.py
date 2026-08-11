@@ -277,6 +277,12 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
     required_fields = sorted(required_fields + additional_required)
+
+    # `query` carries a default on the dataclass so filter-only KQL rules can omit it
+    # (see QueryRuleData.validates_query_or_filters), so it never shows up in the
+    # dataclass required fields. Ask for it anyway unless filters were supplied.
+    if "query" in props and "query" not in required_fields and not kwargs.get("filters"):
+        required_fields = sorted([*required_fields, "query"])
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 
