@@ -47,6 +47,7 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 - Exclude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
 - Microsoft Feedback Portal UX generates benign first-seen client activity through PRT-based, non-interactive sign-ins and is excluded by application ID.
 - Microsoft Teams routinely requests tokens for its internal Teams Services, IC3 Gateway, Chat Aggregator, and CMD Services resources; these client-resource combinations are excluded.
+- Managed Windows devices routinely request OfficeHome PRTs with Microsoft 365 Copilot scopes through the standard Microsoft 365 desktop client; this combination is excluded.
 - Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
 - Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
 
@@ -182,6 +183,16 @@ data_stream.dataset: "azure.signinlogs" and event.category: "authentication"
             "b1379a75-ce5e-4fa3-80c6-89bb39bf646c" or
             "6bc3b958-689b-49f5-9006-36d165f30e00"
         )
+    )
+    and not (
+        azure.signinlogs.properties.app_id: "4765445b-32c6-49b0-83e6-1d93765276ca" and
+        azure.signinlogs.properties.resource_id: "4765445b-32c6-49b0-83e6-1d93765276ca" and
+        azure.signinlogs.properties.authentication_processing_details: *M365Copilot.Read.All* and
+        azure.signinlogs.properties.incoming_token_type: "primaryRefreshToken" and
+        azure.signinlogs.properties.client_app_used: "Mobile Apps and Desktop clients" and
+        azure.signinlogs.properties.device_detail.is_managed: true and
+        azure.signinlogs.properties.device_detail.operating_system: "Windows10" and
+        user_agent.original: Mozilla*Edge/18.*
     )
 '''
 
