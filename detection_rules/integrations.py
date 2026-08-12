@@ -157,9 +157,7 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
                         parts = Path(file).parts
                         # data_stream/<name>/fields → name; package-root fields (e.g. unifiedlogs) → package.
                         # Avoid Path.parent.parent (yields "unifiedlogs-0.5.1" for input packages).
-                        integration_name = (
-                            parts[parts.index("data_stream") + 1] if "data_stream" in parts else package
-                        )
+                        integration_name = parts[parts.index("data_stream") + 1] if "data_stream" in parts else package
                         final_integration_schemas[package][version].setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
                         schema_fields = yaml.safe_load(file_data_bytes)
 
