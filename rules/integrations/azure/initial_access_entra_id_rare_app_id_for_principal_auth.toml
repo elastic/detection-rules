@@ -2,7 +2,7 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/07/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -45,6 +45,7 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 - User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
 - Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
 - Exclude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
+- Microsoft Feedback Portal UX generates benign first-seen client activity through PRT-based, non-interactive sign-ins and is excluded by application ID.
 - Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
 - Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
 
@@ -72,6 +73,7 @@ tags = [
     "Data Source: Azure",
     "Data Source: Entra ID",
     "Data Source: Entra ID Sign-in",
+    "Platform: Entra ID",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
@@ -167,7 +169,9 @@ data_stream.dataset: "azure.signinlogs" and event.category: "authentication"
         "86f4c005-6582-4559-b6cf-8b3111236736" or
         "a0a3c1d3-7b82-4010-bdb0-e7048fb8f1fe" or
         "a187e399-0c36-4b98-8f04-1edc167a0996" or
-        "2d4d3d8e-2be3-4bef-9f87-7875a61c29de"
+        "2d4d3d8e-2be3-4bef-9f87-7875a61c29de" or
+        "c475db56-f463-48d8-931a-cfa7cd642289" or
+        "71a7c376-13e6-4100-968e-92ce98c5d3d2"
     )
 '''
 
