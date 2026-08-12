@@ -79,7 +79,7 @@ FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-pa
     Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 20)
   BY destination.ip
 | EVAL Esql.recent = DATE_DIFF("minute", Esql.first_seen, NOW())
-| WHERE Esql.recent <= 10
+| WHERE Esql.recent >= 0 AND Esql.recent <= 10
 | KEEP destination.ip, Esql.*
 '''
 note = """## Triage and analysis
