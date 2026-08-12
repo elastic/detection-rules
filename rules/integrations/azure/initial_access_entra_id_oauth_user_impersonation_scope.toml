@@ -44,6 +44,7 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Users may occasionally authenticate using single-factor authentication for specific applications or scenarios, especially in environments where MFA is not enforced or required. If this is expected behavior, consider adjusting the rule or adding exceptions for specific user principals or applications.
 - Some applications may use the `user_impersonation` scope for legitimate purposes, such as accessing user resources in a controlled manner. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
 - The `restricted_user_impersonation` scope is distinct from `user_impersonation` and is excluded.
+- Expected OCaaS bootstrap requests from Exchange Online or Microsoft Forms Web are excluded when they originate from compliant, managed, joined Windows devices and do not use an incoming refresh token or primary refresh token.
 
 ### Response and remediation
 
@@ -57,6 +58,9 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Educate users about the risks associated with OAuth user impersonation and encourage them to use more secure authentication methods, such as OAuth 2.0 or OpenID Connect, whenever possible.
 """
 references = [
+    "https://aadinternals.com/post/phishing/",
+    "https://dirkjanm.io/assets/raw/Finding%20Entra%20ID%20CA%20Bypasses%20-%20the%20structured%20way.pdf",
+    "https://entrascopes.com/",
     "https://github.com/Flangvik/TeamFiltration",
     "https://www.proofpoint.com/us/blog/threat-insight/attackers-unleash-teamfiltration-account-takeover-campaign",
     "https://dirkjanm.io/assets/raw/Finding%20Entra%20ID%20CA%20Bypasses%20-%20the%20structured%20way.pdf"
@@ -106,6 +110,29 @@ data_stream.dataset: azure.signinlogs and
         "d52792f4-ba38-424d-8140-ada5b883f293" or
         "65d91a3d-ab74-42e6-8a2f-0add61688c74" or
         "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
+    )
+    and not (
+        azure.signinlogs.properties.resource_id: "c2ada927-a9e2-4564-aae2-70775a2fa0af" and
+        (
+            (
+                azure.signinlogs.properties.app_id: "00000002-0000-0ff1-ce00-000000000000" and
+                azure.signinlogs.properties.device_detail.operating_system: "Windows"
+            ) or
+            (
+                azure.signinlogs.properties.app_id: "5f00fd34-f302-417f-81ef-1adda179d8fd" and
+                azure.signinlogs.properties.device_detail.operating_system: "Windows10"
+            )
+        ) and
+        azure.signinlogs.properties.device_detail.is_managed: true and
+        azure.signinlogs.properties.device_detail.is_compliant: true and
+        azure.signinlogs.properties.device_detail.trust_type: (
+            "Hybrid Azure AD joined" or "Azure AD joined"
+        ) and
+        azure.signinlogs.properties.device_detail.device_id: * and
+        not azure.signinlogs.properties.device_detail.device_id: "" and
+        azure.signinlogs.properties.incoming_token_type: "none" and
+        azure.signinlogs.properties.client_app_used: "Browser" and
+        azure.signinlogs.category: "NonInteractiveUserSignInLogs"
     )
 '''
 
