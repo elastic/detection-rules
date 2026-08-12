@@ -75,8 +75,11 @@ sequence with maxspan=15m
     azure.signinlogs.properties.authentication_details.authentication_method in (
         "Windows Hello for Business", "FIDO2*", "Passkey*", "*passkey*"
     ) and
-    azure.signinlogs.properties.device_detail.device_id == null and
-    azure.signinlogs.properties.device_detail.is_managed != true
+    (
+        azure.signinlogs.properties.device_detail.device_id == null or
+        azure.signinlogs.properties.device_detail.device_id == "" or
+        azure.signinlogs.properties.device_detail.is_managed != true
+    )
   ] by azure.signinlogs.properties.user_id
   [any where
     data_stream.dataset == "azure.auditlogs" and
