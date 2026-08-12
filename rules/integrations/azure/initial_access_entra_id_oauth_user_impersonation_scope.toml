@@ -44,7 +44,6 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Users may occasionally authenticate using single-factor authentication for specific applications or scenarios, especially in environments where MFA is not enforced or required. If this is expected behavior, consider adjusting the rule or adding exceptions for specific user principals or applications.
 - Some applications may use the `user_impersonation` scope for legitimate purposes, such as accessing user resources in a controlled manner. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
 - The `restricted_user_impersonation` scope is distinct from `user_impersonation` and is excluded.
-- Managed Azure AD or hybrid Azure AD joined devices may generate expected non-interactive browser requests from Exchange Online or Microsoft Forms Web to the OCaaS Client Interaction Service during Office bootstrap operations; this combination is excluded.
 
 ### Response and remediation
 
@@ -105,20 +104,6 @@ data_stream.dataset: azure.signinlogs and
         "d52792f4-ba38-424d-8140-ada5b883f293" or
         "65d91a3d-ab74-42e6-8a2f-0add61688c74" or
         "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
-    )
-    and not (
-        azure.signinlogs.properties.app_id: (
-            "00000002-0000-0ff1-ce00-000000000000" or
-            "5f00fd34-f302-417f-81ef-1adda179d8fd"
-        ) and
-        azure.signinlogs.properties.resource_id: "c2ada927-a9e2-4564-aae2-70775a2fa0af" and
-        azure.signinlogs.properties.device_detail.is_managed: true and
-        azure.signinlogs.properties.device_detail.trust_type: (
-            "Hybrid Azure AD joined" or "Azure AD joined"
-        ) and
-        azure.signinlogs.properties.incoming_token_type: "none" and
-        azure.signinlogs.category: "NonInteractiveUserSignInLogs" and
-        azure.signinlogs.properties.client_app_used: "Browser"
     )
 '''
 
