@@ -1,0 +1,165 @@
+[metadata]
+creation_date = "2026/08/12"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious process execution associated with the Zoom desktop client on macOS and Linux. The rule detects
+shells, script interpreters, downloaders, and network utilities spawned by Zoom on either platform. On Linux, it also
+detects Zoom replacing its own process image with an executable outside the Zoom installation directory. These behaviors
+may indicate successful exploitation of a Zoom client vulnerability, including CVE-2026-53413.
+"""
+false_positives = [
+    """
+    Legitimate support, diagnostic, accessibility, update, or enterprise management workflows may cause Zoom to launch
+    command-line utilities. Verify the executable path, command line, code signature, and surrounding user activity
+    before adding exceptions.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Process Execution by Zoom on macOS or Linux"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Process Execution by Zoom on macOS or Linux
+
+CVE-2026-53413 is a buffer overwrite in Zoom's annotation parser that can allow a meeting participant to execute code
+on another participant's device. The published macOS exploit replaced the running `zoom.us` process image with Safari
+using `execvp`. Other payloads may instead spawn a shell, interpreter, downloader, or network utility. This rule detects
+suspicious Zoom child processes on macOS and Linux and in-place Zoom process-image replacement on Linux, where Elastic
+Defend records the prior image in `process.previous.executable`.
+
+### Possible investigation steps
+
+- Determine which branch matched. For a child process, verify that `process.parent.executable` is the genuine Zoom
+  client. For Linux image replacement, compare `process.previous.executable` with `process.executable` and review the
+  new image's path, hash, arguments, and provenance.
+- Review the process command line and arguments for payload download, shell commands, persistence, credential access,
+  discovery, or outbound connection activity.
+- Use `process.entity_id` and `process.parent.entity_id` to examine related process, file, and network events before and
+  after the alert. Look for additional payloads, persistence changes, credential access, and communication with
+  untrusted destinations.
+- Confirm the installed Zoom version and whether it was vulnerable at the alert time. Zoom Workplace releases before
+  `7.1.5` and `7.0.6` in their respective branches are affected by CVE-2026-53413.
+- Establish whether the user was in a Zoom meeting near the alert time. Preserve the meeting UUID and occurrence,
+  participant report, client version, join and leave times, screen-sharing state, and available Zoom client logs.
+- Review crash diagnostics for annotation-library faults or memory-corruption indicators near the alert. A crash alone
+  is not sufficient evidence of exploitation.
+- Check for other alerts on the host and for similar activity involving the same meeting participants or source
+  infrastructure.
+
+### False positive analysis
+
+- Zoom may invoke legitimate support, diagnostic, accessibility, update, or enterprise-management tooling. Validate the
+  binary's signature, path, command line, prevalence, and relationship to an approved workflow.
+- Opening authentication or meeting links normally uses an operating-system broker and should not require Zoom to spawn
+  a shell or replace its own image. Treat direct shell, interpreter, or downloader execution as suspicious unless a
+  specific benign workflow is confirmed.
+
+### Response and remediation
+
+- If exploitation is suspected, isolate the host and preserve process, file, network, crash, Zoom client, and meeting
+  audit evidence before terminating processes or reimaging.
+- Update Zoom to a fixed release and enforce minimum client versions. Until vulnerable clients are removed, disable
+  end-to-end encryption so Zoom's server-side annotation filtering can inspect meeting content.
+- Restrict meeting access with waiting rooms, passcodes, and authenticated-user requirements, and disable unnecessary
+  annotation, whiteboarding, remote-control, file-transfer, and participant screen-sharing features.
+- Remove malicious artifacts and persistence, rotate credentials accessible to the compromised user or process, and
+  investigate other participants and endpoints associated with the meeting.
+"""
+references = [
+    "https://a.security/blog/asecurity-zoomsday",
+    "https://www.zoom.com/en/trust/security-bulletin/zsb-26015/",
+    "https://www.securityweek.com/zoom-patches-zero-click-code-execution-vulnerability/",
+]
+risk_score = 73
+rule_id = "84b81b96-58dd-4c0d-9b2e-35023ab5ee88"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend on macOS or Linux.
+
+Elastic Defend is integrated into the Elastic Agent using Fleet. Configure the integration to collect process events
+from protected endpoints. The Linux image-replacement branch requires `process.previous.executable`, which Elastic
+Defend provides on Linux `exec` process events.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where event.type == "start" and event.action == "exec" and
+  (
+    (
+      host.os.type == "linux" and
+      process.previous.executable == "/opt/zoom/zoom" and
+      not process.executable : "/opt/zoom/*"
+    ) or
+    (
+      host.os.type in ("macos", "linux") and
+      (
+        (host.os.type == "macos" and
+         process.parent.executable : "*/zoom.us.app/Contents/MacOS/zoom.us") or
+        (host.os.type == "linux" and process.parent.executable == "/opt/zoom/zoom")
+      ) and
+      process.name : (
+        "sh", "bash", "zsh", "dash", "ksh", "fish",
+        "python*", "perl*", "ruby*", "php*", "osascript",
+        "curl", "nscurl", "wget", "nc", "ncat", "netcat", "socat", "openssl",
+        "chmod", "xattr"
+      )
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
