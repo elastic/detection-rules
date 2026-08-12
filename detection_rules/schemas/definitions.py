@@ -287,7 +287,6 @@ EXPECTED_RULE_TAGS = [
     "Service: GCP Cloud Functions",
     "Service: GCP Cloud Storage",
     "Service: GCP Compute Engine",
-    "Service: GCP Secret Manager",
     "Service: GitHub Actions",
     "Service: GitHub Code Scanning",
     "Service: IIS",
