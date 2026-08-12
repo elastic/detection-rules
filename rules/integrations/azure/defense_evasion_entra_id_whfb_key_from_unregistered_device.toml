@@ -69,7 +69,6 @@ tags = [
     "Domain: Cloud",
     "Domain: Identity",
     "Use Case: Threat Detection",
-    "Tactic: Credential Access",
     "Tactic: Defense Evasion",
     "Tactic: Initial Access",
     "Data Source: Azure",
@@ -86,11 +85,10 @@ data_stream.dataset: "azure.signinlogs" and
     azure.signinlogs.result_signature: "SUCCESS" and
     azure.signinlogs.properties.user_type: "Member" and
     azure.signinlogs.properties.authentication_details.authentication_method: (
-        "Windows Hello for Business" or FIDO2* or Passkey* or *passkey*
+        "Windows Hello for Business" or *passkey* or FIDO2* or Passkey*
     ) and
     (
-        azure.signinlogs.properties.device_detail.device_id: "" or
-        not azure.signinlogs.properties.device_detail.device_id: * or
+        azure.signinlogs.properties.device_detail.device_id: ("" or not *) or
         not azure.signinlogs.properties.device_detail.is_managed: true
     ) and
     azure.signinlogs.properties.user_principal_name: *
