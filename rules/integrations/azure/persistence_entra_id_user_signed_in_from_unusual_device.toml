@@ -2,7 +2,7 @@
 creation_date = "2025/06/16"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -37,6 +37,8 @@ This rule detects when a Microsoft Entra ID user signs in from a device that is 
 - Legitimate users may sign in from new devices, such as when using a new laptop or mobile device. If this is expected behavior, consider adjusting the rule or adding exceptions for specific users or device IDs.
 - Environments where users frequently change devices, such as in a corporate setting with rotating hardware, may generate false positives.
 - Users may use both an endpoint and mobile device for sign-ins, which could trigger this rule.
+- Hybrid Azure AD joined devices often report `is_managed: false` when Intune MDM is not enrolled; that corporate hybrid-join state is excluded. Azure AD joined devices are kept in scope because OAuth phishing / ROADtx device registration commonly creates cloud-joined (not hybrid) unmanaged devices.
+- Non-interactive sign-ins with `incoming_token_type` of `none` (common Microsoft first-party background token acquisition on registered devices) are excluded; Primary Refresh Token and refresh-token activity remain in scope.
 
 ### Response and remediation
 - If the sign-in is confirmed to be suspicious or unauthorized, take immediate action to revoke the access token and prevent further access.
@@ -79,6 +81,8 @@ data_stream.dataset: "azure.signinlogs" and
     azure.signinlogs.properties.token_protection_status_details.sign_in_session_status: "unbound" and
     not azure.signinlogs.properties.device_detail.is_managed: true and
     not azure.signinlogs.properties.device_detail.device_id: "" and
+    not azure.signinlogs.properties.device_detail.trust_type: "Hybrid Azure AD joined" and
+    not (azure.signinlogs.category: "NonInteractiveUserSignInLogs" and azure.signinlogs.properties.incoming_token_type: "none") and
     azure.signinlogs.properties.user_principal_name: *
 '''
 
