@@ -2,7 +2,7 @@
 creation_date = "2025/07/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ index = ["filebeat-*", "logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Entra ID OAuth user_impersonation Scope for Unusual User and Client"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating Entra ID OAuth user_impersonation Scope for Unusual User and Client
 
@@ -43,6 +43,8 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Some legitimate applications may use the `user_impersonation` scope for valid purposes, such as accessing user resources on behalf of the user. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
 - Users may occasionally authenticate using single-factor authentication for specific applications or scenarios, especially in environments where MFA is not enforced or required. If this is expected behavior, consider adjusting the rule or adding exceptions for specific user principals or applications.
 - Some applications may use the `user_impersonation` scope for legitimate purposes, such as accessing user resources in a controlled manner. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
+- The `restricted_user_impersonation` scope is distinct from `user_impersonation` and is excluded.
+- Managed Azure AD or hybrid Azure AD joined devices may generate expected non-interactive browser requests from Exchange Online or Microsoft Forms Web to the OCaaS Client Interaction Service during Office bootstrap operations; this combination is excluded.
 
 ### Response and remediation
 
@@ -78,6 +80,7 @@ type = "new_terms"
 query = '''
 data_stream.dataset: azure.signinlogs and
     azure.signinlogs.properties.authentication_processing_details: *user_impersonation* and
+    not azure.signinlogs.properties.authentication_processing_details: *restricted_user_impersonation* and
     azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication" and
     azure.signinlogs.properties.token_issuer_type: "AzureAD" and
     azure.signinlogs.properties.token_protection_status_details.sign_in_session_status: "unbound" and
@@ -102,6 +105,20 @@ data_stream.dataset: azure.signinlogs and
         "d52792f4-ba38-424d-8140-ada5b883f293" or
         "65d91a3d-ab74-42e6-8a2f-0add61688c74" or
         "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
+    )
+    and not (
+        azure.signinlogs.properties.app_id: (
+            "00000002-0000-0ff1-ce00-000000000000" or
+            "5f00fd34-f302-417f-81ef-1adda179d8fd"
+        ) and
+        azure.signinlogs.properties.resource_id: "c2ada927-a9e2-4564-aae2-70775a2fa0af" and
+        azure.signinlogs.properties.device_detail.is_managed: true and
+        azure.signinlogs.properties.device_detail.trust_type: (
+            "Hybrid Azure AD joined" or "Azure AD joined"
+        ) and
+        azure.signinlogs.properties.incoming_token_type: "none" and
+        azure.signinlogs.category: "NonInteractiveUserSignInLogs" and
+        azure.signinlogs.properties.client_app_used: "Browser"
     )
 '''
 
