@@ -35,13 +35,15 @@ CVE-2026-53413 is a buffer overwrite in Zoom's annotation parser that can allow 
 on another participant's device. The published macOS exploit replaced the running `zoom.us` process image with Safari
 using `execvp`. Other payloads may instead spawn a shell, interpreter, downloader, or network utility. This rule detects
 suspicious Zoom child processes on macOS and Linux and in-place Zoom process-image replacement on Linux, where Elastic
-Defend records the prior image in `process.previous.executable`.
+Defend records the prior image in `process.previous.executable`. The Linux logic supports native package, Snap, and
+Flatpak installation paths.
 
 ### Possible investigation steps
 
 - Determine which branch matched. For a child process, verify that `process.parent.executable` is the genuine Zoom
   client. For Linux image replacement, compare `process.previous.executable` with `process.executable` and review the
-  new image's path, hash, arguments, and provenance.
+  new image's path, hash, arguments, and provenance. The image-replacement branch excludes direct Zoom children because
+  `process.previous.executable` includes the image inherited at fork as well as subsequent executions.
 - Review the process command line and arguments for payload download, shell commands, persistence, credential access,
   discovery, or outbound connection activity.
 - Use `process.entity_id` and `process.parent.entity_id` to examine related process, file, and network events before and
@@ -60,6 +62,8 @@ Defend records the prior image in `process.previous.executable`.
 
 - Zoom may invoke legitimate support, diagnostic, accessibility, update, or enterprise-management tooling. Validate the
   binary's signature, path, command line, prevalence, and relationship to an approved workflow.
+- Zoom performs Linux startup checks through a shell, including audio, graphics, desktop portal, and process-limit
+  discovery. The known commands are excluded by this rule; investigate variations or additional chained commands.
 - Opening authentication or meeting links normally uses an operating-system broker and should not require Zoom to spawn
   a shell or replace its own image. Treat direct shell, interpreter, or downloader execution as suspicious unless a
   specific benign workflow is confirmed.
@@ -109,21 +113,51 @@ process where event.type == "start" and event.action == "exec" and
   (
     (
       host.os.type == "linux" and
-      process.previous.executable == "/opt/zoom/zoom" and
-      not process.executable : "/opt/zoom/*"
+      process.previous.executable : (
+        "/opt/zoom/zoom",
+        "/snap/zoom-client/*/zoom/zoom",
+        "/app/extra/zoom/zoom"
+      ) and
+      not process.executable : (
+        "/opt/zoom/*",
+        "/snap/zoom-client/*",
+        "/app/extra/zoom/*"
+      ) and
+      not process.parent.executable : (
+        "/opt/zoom/zoom",
+        "/snap/zoom-client/*/zoom/zoom",
+        "/app/extra/zoom/zoom"
+      )
     ) or
     (
       host.os.type in ("macos", "linux") and
       (
         (host.os.type == "macos" and
          process.parent.executable : "*/zoom.us.app/Contents/MacOS/zoom.us") or
-        (host.os.type == "linux" and process.parent.executable == "/opt/zoom/zoom")
+        (host.os.type == "linux" and
+         process.parent.executable : (
+           "/opt/zoom/zoom",
+           "/snap/zoom-client/*/zoom/zoom",
+           "/app/extra/zoom/zoom"
+         ))
       ) and
       process.name : (
         "sh", "bash", "zsh", "dash", "ksh", "fish",
         "python*", "perl*", "ruby*", "php*", "osascript",
         "curl", "nscurl", "wget", "nc", "ncat", "netcat", "socat", "openssl",
         "chmod", "xattr"
+      ) and
+      not (
+        host.os.type == "linux" and process.name in ("sh", "bash") and
+        process.args : (
+          "lspci",
+          "pacmd --version",
+          "pacmd list-sinks |grep 'name:\\|module:'",
+          "pipewire --version",
+          "ls /usr/share/xdg-desktop-portal/portals/",
+          "/usr/libexec/xdg-desktop-portal --version",
+          "cat /proc/sys/kernel/pid_max"
+        )
       )
     )
   )
