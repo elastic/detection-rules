@@ -2,15 +2,15 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen
-credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate
-an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The
-authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
+Identifies rare instances of authentication methods for Microsoft Entra ID principal users. An adversary with stolen
+credentials may attempt to authenticate with an unusual method, which may indicate an attempt to bypass conditional
+access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication method may not be commonly
+used by the user based on their historical sign-in activity.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.signinlogs-*"]
@@ -21,9 +21,9 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID User Sign-in with Unusual Authentication Type
 
-Identifies rare instances of authentication requirements for Azure Entra ID principal users. An adversary with stolen credentials may attempt to authenticate with unusual authentication requirements, which is a rare event and may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication requirements specified may not be commonly used by the user based on their historical sign-in activity.
+Identifies rare instances of authentication methods for Microsoft Entra ID principal users. An adversary with stolen credentials may attempt to authenticate with an unusual method, which may indicate an attempt to bypass conditional access policies (CAP) and multi-factor authentication (MFA) requirements. The authentication method may not be commonly used by the user based on their historical sign-in activity.
 
-**This is a New Terms rule that focuses on first occurrence of an Entra ID principal user `azure.signinlogs.properties.user_principal_name` and their authentication requirement `azure.signinlogs.properties.authentication_requirement` in the last 14-days.**
+**This is a New Terms rule that focuses on the first occurrence of an Entra ID principal user `azure.signinlogs.properties.user_principal_name` and their authentication method `azure.signinlogs.properties.authentication_details.authentication_method` in the last 14 days.**
 
 ### Possible investigation steps
 
@@ -38,6 +38,7 @@ Identifies rare instances of authentication requirements for Azure Entra ID prin
 ## False positive analysis
 
 ### Common benign scenarios
+- Users enrolling in or switching to a different authentication method may trigger this detection the first time the method is observed.
 - Automated scripts or applications using non-interactive authentication may trigger this detection, particularly if they rely on legacy authentication protocols recorded in `azure.signinlogs.properties.authentication_protocol`.
 - Corporate proxies or VPNs may cause multiple users to authenticate from the same IP, appearing as repeated failed attempts under `source.ip`.
 - User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
@@ -85,7 +86,6 @@ type = "new_terms"
 query = '''
 data_stream.dataset: "azure.signinlogs" and event.category: "authentication"
     and azure.signinlogs.properties.user_type: "Member"
-    and azure.signinlogs.properties.authentication_details.authentication_method: "Password"
     and not azure.signinlogs.properties.device_detail.browser: *
     and not source.as.organization.name: "MICROSOFT-CORP-MSN-AS-BLOCK"
     and not azure.signinlogs.properties.authentication_requirement: "multiFactorAuthentication"
@@ -154,7 +154,7 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 field = "new_terms_fields"
 value = [
     "azure.signinlogs.properties.user_principal_name",
-    "azure.signinlogs.properties.authentication_requirement",
+    "azure.signinlogs.properties.authentication_details.authentication_method",
 ]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
