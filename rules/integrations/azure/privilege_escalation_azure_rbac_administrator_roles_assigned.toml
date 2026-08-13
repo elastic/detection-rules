@@ -2,7 +2,7 @@
 creation_date = "2025/09/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/13"
 
 [rule]
 author = ["Elastic"]
@@ -14,7 +14,7 @@ index = ["filebeat-*", "logs-azure.activitylogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure RBAC Built-In Administrator Roles Assigned"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating Azure RBAC Built-In Administrator Roles Assigned
 
@@ -41,6 +41,8 @@ This rule identifies when a user is assigned a built-in administrator role in Az
 ### False positive analysis
 
 - Legitimate administrators may assign built-in administrator roles during routine operations, maintenance or as required for onboarding new staff.
+- Azure Kubernetes Service control-plane operations may assign the Contributor role to service principals. Assignments initiated by the Microsoft-owned AzureContainerService application are excluded.
+- Repeated writes for the same role assignment entity by the same initiating principal are suppressed for one hour.
 - Review internal tickets, change logs, or admin activity dashboards for approved operations.
 
 ### Response and remediation
@@ -87,8 +89,21 @@ data_stream.dataset: azure.activitylogs and
       *8e3af657-a8ff-443c-a75c-2fe8c4bcb635* or
       *92b92042-07d9-4307-87f7-36a593fc5850* or
       *a8889054-8d42-49c9-bc1c-52486c10e7cd*
-  )
+    ) and not (
+        azure.activitylogs.identity.claims.appid: "7319c514-987d-4e9b-ac3d-d38c4f427f4c" and
+        azure.activitylogs.identity.authorization.evidence.role: "Service Owner role" and
+        azure.activitylogs.identity.authorization.evidence.principal_type: "ServicePrincipal" and
+        azure.activitylogs.properties.requestbody.properties.roleDefinitionId: *b24988ac-6180-42a0-ab88-20f7382dd24c*
+    )
 '''
+
+[rule.alert_suppression]
+group_by = [
+    "azure.activitylogs.properties.entity",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+]
+duration = { value = 1, unit = "h" }
+missing_fields_strategy = "doNotSuppress"
 
 
 [[rule.threat]]
