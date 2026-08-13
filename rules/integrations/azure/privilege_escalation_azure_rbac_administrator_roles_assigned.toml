@@ -7,7 +7,10 @@ updated_date = "2026/08/13"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator.
+Identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles
+provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege
+escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure
+File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.activitylogs-*"]
@@ -62,7 +65,7 @@ This rule identifies when a user is assigned a built-in administrator role in Az
 references = [
     "https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles",
     "https://orca.security/resources/research-pod/azure-identity-access-management-iam-active-directory-ad/",
-    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/"
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/",
 ]
 risk_score = 73
 rule_id = "1a1046f4-9257-11f0-9a42-f661ea17fbce"
@@ -99,47 +102,49 @@ data_stream.dataset: azure.activitylogs and
     )
 '''
 
-[rule.alert_suppression]
-group_by = [
-    "azure.activitylogs.properties.entity",
-    "azure.activitylogs.identity.authorization.evidence.principal_id",
-]
-duration = { value = 1, unit = "h" }
-missing_fields_strategy = "doNotSuppress"
-
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = [
+    "azure.activitylogs.properties.entity",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
