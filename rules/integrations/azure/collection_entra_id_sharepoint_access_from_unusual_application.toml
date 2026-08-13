@@ -2,7 +2,7 @@
 creation_date = "2025/05/01"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -53,7 +53,7 @@ This rule identifies when an application accesses SharePoint Online or OneDrive 
 ### False Positive Analysis
 
 - New Legitimate Integrations: Newly deployed third-party SaaS applications (e.g., document management, collaboration tools) that integrate with SharePoint will trigger this detection during initial setup. Validate with IT/procurement teams.
-- Microsoft First-Party Applications: This rule excludes common Microsoft first-party apps (Office 365 SharePoint Online, OneDrive SyncEngine, OneDrive iOS App, Microsoft Office, SharePoint Web Client Extensibility, Microsoft Teams, Office 365 Exchange Online, and other Microsoft-owned app IDs). However, new Microsoft applications or features may still appear. Cross-reference unfamiliar app IDs against Microsoft's first-party app list.
+- Microsoft First-Party Applications: This rule excludes known SharePoint, OneDrive, Outlook Web, and Teams web or service clients that commonly access SharePoint. It also excludes service-principal sign-ins when the application is owned by Microsoft's tenant. User sign-ins from reusable first-party clients such as Outlook Mobile, Teams desktop, OneDrive, and Office remain detectable because adversaries can abuse these clients in OAuth phishing.
 - Development/Testing: Developers testing OAuth flows or building internal applications may generate alerts in development or staging environments.
 - Organizational Changes: Mergers, acquisitions, or tenant migrations may introduce legitimate applications from partner organizations accessing SharePoint for the first time.
 
@@ -101,20 +101,26 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset:azure.signinlogs
-    and azure.signinlogs.properties.resource_id: (
-        00000003-0000-0ff1-ce00-000000000000 or
-        6a9b9266-8161-4a7b-913a-a9eda19da220
-    ) and azure.signinlogs.properties.app_id: ( *
-        and not (
-            00000003-0000-0ff1-ce00-000000000000 or
-            08e18876-6177-487e-b8b5-cf950c1e598c or
-            ab9b8c07-8f02-4f72-87fa-80105867a763 or
-            af124e86-4e96-495a-b70a-90f90ab96707
-        )
-    )
-    and azure.signinlogs.properties.tenant_id:*
-    and event.outcome:success
+data_stream.dataset:azure.signinlogs and
+azure.signinlogs.properties.resource_id:(
+    00000003-0000-0ff1-ce00-000000000000 or
+    6a9b9266-8161-4a7b-913a-a9eda19da220
+) and
+azure.signinlogs.properties.app_id:(* and not (
+    00000003-0000-0ff1-ce00-000000000000 or
+    08e18876-6177-487e-b8b5-cf950c1e598c or
+    5e3ce6c0-2b1f-4285-8d4b-75ee78787346 or
+    9199bf20-a13f-4107-85dc-02114787ef48 or
+    ab9b8c07-8f02-4f72-87fa-80105867a763 or
+    af124e86-4e96-495a-b70a-90f90ab96707 or
+    cc15fd57-2c6c-4117-a88c-83b1d56b4bbe
+)) and
+not (
+    azure.signinlogs.properties.app_owner_tenant_id:f8cdef31-a31e-4b4a-93e4-5f571e91255a and
+    azure.signinlogs.category:MicrosoftServicePrincipalSignInLogs
+) and
+azure.signinlogs.properties.tenant_id:* and
+event.outcome:success
 '''
 
 [[rule.threat]]
