@@ -5,6 +5,7 @@ Windows related audit policies that need to be implemented in order to generate 
 Audit Policies:
 
 * [Audit Authorization Policy Change](audit_authorization_policy_change.md)
+* [Audit Certification Services](audit_certification_services.md)
 * [Audit Computer Account Management](audit_computer_account_management.md)
 * [Audit Detailed File Share](audit_detailed_file_share.md)
 * [Audit Directory Service Access](audit_directory_service_access.md)
