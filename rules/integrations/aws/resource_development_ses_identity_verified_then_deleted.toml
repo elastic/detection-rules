@@ -21,7 +21,7 @@ false_positives = [
     rather than a production or attacker-controlled domain.
     """,
 ]
-from = "now-65m"
+from = "now-35m"
 index = ["logs-aws.cloudtrail-*"]
 interval = "5m"
 language = "eql"
@@ -73,7 +73,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by aws.cloudtrail.user_identity.arn with maxspan=1h
+sequence by aws.cloudtrail.user_identity.arn with maxspan=30m
   [any where data_stream.dataset == "aws.cloudtrail"
    and event.provider == "ses.amazonaws.com"
    and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim")
