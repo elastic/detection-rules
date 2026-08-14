@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/08/12"
+integration = ["aws"]
+maturity = "development"
+updated_date = "2026/08/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of an EC2 security group with the name `Java_Ghost`. The `Java_Ghost`
+security group name is a documented infrastructure marker used by the Java_Ghost threat actor
+group — a financially motivated ransomware and cryptomining gang active across AWS environments.
+Creating a security group with this exact name is a known IoC for Java_Ghost intrusion activity.
+This rule has near-zero false positive potential: the name `Java_Ghost` has no legitimate business
+meaning and its appearance in any environment should be treated as a high-confidence indicator of
+compromise.
+"""
+false_positives = [
+    """
+    No known legitimate use case exists for a security group named Java_Ghost. Any match should be
+    treated as a true positive pending investigation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EC2 Security Group Named Java_Ghost Created"
+note = """## Triage and analysis
+
+### Investigating AWS EC2 Security Group Named Java_Ghost Created
+
+Java_Ghost is a financially motivated threat actor group that targets AWS environments for
+cryptomining, ransomware, and data exfiltration. A documented intrusion marker is the creation
+of EC2 security groups with the name `Java_Ghost` — used by the group to tag infrastructure
+under their control or to prepare ingress/egress rules for their malware. The name has no
+legitimate business purpose.
+
+### Possible investigation steps
+
+- Identify the caller in `aws.cloudtrail.user_identity.arn` and `user.name`. Determine whether
+  the account is compromised or whether legitimate automation created this group by mistake.
+- Examine the security group rules (`ec2:DescribeSecurityGroups`) — Java_Ghost groups may have
+  inbound rules on non-standard ports used for C2 communication.
+- Query CloudTrail for all API calls from the same identity in the same time window. Look for
+  co-occurring compute provisioning (`RunInstances`, `CreateLaunchTemplate`), IAM privilege
+  escalation, or data exfiltration actions.
+- Check whether any EC2 instances, ECS tasks, or Lambda functions are associated with this
+  security group (`ec2:DescribeNetworkInterfaces`).
+- Search for other Java_Ghost IoCs in the environment: known malicious image IDs, high-CPU
+  instance types spun up without justification, or modifications to Auto Scaling launch templates.
+
+### Response and remediation
+
+- Immediately revoke active sessions for the calling identity.
+- Delete the security group if no resources are associated with it.
+- If resources are associated with the security group, isolate them by removing all inbound rules
+  and investigate the instances for cryptomining processes or malware.
+- Rotate all IAM access keys for the calling identity and review all actions taken under that
+  credential.
+- Search CloudTrail for any `RunInstances` calls after this event to identify any compute
+  provisioned under the attacker's infrastructure.
+"""
+references = [
+    "https://www.cadosecurity.com/blog/java_ghost-group-targets-aws-ec2-instances-for-cryptomining",
+    "https://attack.mitre.org/techniques/T1583/",
+    "https://attack.mitre.org/groups/G1010/",
+]
+risk_score = 99
+rule_id = "f4a5b6c7-d8e9-0123-def0-456789abcdef"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `ec2:CreateSecurityGroup` is a management-plane API logged by default."
+severity = "critical"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Threat: Java_Ghost",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ec2.amazonaws.com"
+    and event.action: "CreateSecurityGroup"
+    and event.outcome: "success"
+    and group.name: "Java_Ghost"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1583"
+name = "Acquire Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1583/"
+[[rule.threat.technique.subtechnique]]
+id = "T1583.006"
+name = "Web Services"
+reference = "https://attack.mitre.org/techniques/T1583/006/"
+
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "group.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
