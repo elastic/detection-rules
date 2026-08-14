@@ -55,15 +55,12 @@ legitimate business purpose.
 
 - Immediately revoke active sessions for the calling identity.
 - Delete the security group if no resources are associated with it.
-- If resources are associated with the security group, isolate them by removing all inbound rules
-  and investigate the instances for cryptomining processes or malware.
-- Rotate all IAM access keys for the calling identity and review all actions taken under that
-  credential.
-- Search CloudTrail for any `RunInstances` calls after this event to identify any compute
-  provisioned under the attacker's infrastructure.
+- If resources are associated with the security group, isolate them by removing all inbound rules and investigate the instances for cryptomining processes or malware.
+- Rotate all IAM access keys for the calling identity and review all actions taken under that credential.
+- Search CloudTrail for any `RunInstances` calls after this event to identify any compute provisioned under the attacker's infrastructure.
 """
 references = [
-    "https://www.cadosecurity.com/blog/java_ghost-group-targets-aws-ec2-instances-for-cryptomining",
+    "https://unit42.paloaltonetworks.com/javaghost-cloud-phishing/",
 ]
 risk_score = 99
 rule_id = "f4a5b6c7-d8e9-0123-def0-456789abcdef"
@@ -73,10 +70,9 @@ tags = [
     "Domain: Cloud",
     "Platform: AWS",
     "Data Source: AWS CloudTrail",
-    "Data Source: AWS EC2",
+    "Service: AWS EC2",
     "Rule Type: Custom Query (KQL)",
     "Tactic: Impact",
-    "Threat: Java_Ghost",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -94,19 +90,14 @@ data_stream.dataset: "aws.cloudtrail"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1583"
-name = "Acquire Infrastructure"
-reference = "https://attack.mitre.org/techniques/T1583/"
-[[rule.threat.technique.subtechnique]]
-id = "T1583.006"
-name = "Web Services"
-reference = "https://attack.mitre.org/techniques/T1583/006/"
-
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
 
 [rule.threat.tactic]
-id = "TA0042"
-name = "Resource Development"
-reference = "https://attack.mitre.org/tactics/TA0042/"
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.investigation_fields]
 field_names = [
