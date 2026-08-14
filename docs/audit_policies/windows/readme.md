@@ -5,6 +5,7 @@ Windows related audit policies that need to be implemented in order to generate 
 Audit Policies:
 
 * [Audit Authorization Policy Change](audit_authorization_policy_change.md)
+* [Audit Certification Services](audit_certification_services.md)
 * [Audit Computer Account Management](audit_computer_account_management.md)
 * [Audit Detailed File Share](audit_detailed_file_share.md)
 * [Audit Directory Service Access](audit_directory_service_access.md)
@@ -12,6 +13,7 @@ Audit Policies:
 * [Audit Filtering Platform Connection](audit_filtering_platform_connection.md)
 * [Audit Filtering Platform Packet Drop](audit_filtering_platform_packet_drop.md)
 * [Audit Handle Manipulation](audit_handle_manipulation.md)
+* [Audit Kerberos Service Ticket Operations](audit_kerberos_service_ticket_operations.md)
 * [Audit Logon](audit_logon.md)
 * [Audit Other Object Access Events](audit_other_object_access_events.md)
 * [Audit Policy Change](audit_policy_change.md)
