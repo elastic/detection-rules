@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/08/14"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the deletion of an Amazon GuardDuty threat intelligence set. Threat intelligence sets
+are custom lists of known-malicious IP addresses or domains that GuardDuty uses to generate
+findings when monitored resources communicate with those indicators. Deleting a threat intel set
+degrades GuardDuty's detection capability for known adversary infrastructure, allowing
+communication with threat-actor-controlled IP ranges to go undetected.
+"""
+false_positives = [
+    """
+    Removal of an outdated or inaccurate threat intelligence set during a scheduled feed
+    rotation may trigger this rule. Confirm the deletion corresponds to a planned feed update
+    and that a replacement set was activated.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS GuardDuty Threat Intelligence Set Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS GuardDuty Threat Intelligence Set Deleted
+
+GuardDuty threat intelligence sets allow security teams to upload custom lists of known-malicious IP addresses and domains. GuardDuty generates high-priority findings when monitored resources contact addresses in these sets. Deleting a threat intel set reduces GuardDuty's ability to detect communication with known adversary infrastructure.
+
+Legitimate deletions occur during feed rotation (replacing an old set with an updated version) or when decommissioning a threat intel feed. Both operations should be planned and documented.
+
+### Possible investigation steps
+
+- Identify the caller from `aws.cloudtrail.user_identity.arn` and `user.name`.
+- Check `aws.cloudtrail.request_parameters` for the threat intel set ID and detector ID. Determine whether any threat intel sets remain active in the detector.
+- Review CloudTrail for adjacent GuardDuty control-plane modifications: `CreateIPSet`, `UpdateIPSet`, `DeleteDetector`, `CreateFilter`.
+- Determine whether a replacement threat intel set was created before or after the deletion.
+- Correlate with other defense-evasion indicators such as GuardDuty detector updates or suppression rule creation.
+
+### Response and remediation
+
+- Re-create or restore the threat intelligence set if the deletion was unauthorized.
+- Rotate credentials for the calling identity and review all actions taken by those credentials.
+- Apply an SCP or IAM policy restricting `guardduty:DeleteThreatIntelSet` to a dedicated security operations role.
+"""
+references = [
+    "https://docs.aws.amazon.com/guardduty/latest/APIReference/API_DeleteThreatIntelSet.html",
+    "https://hackingthe.cloud/aws/avoiding-detection/modify-guardduty-config/",
+]
+risk_score = 73
+rule_id = "7ba46fa6-496c-4d62-a811-7c221b3d2dd9"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. GuardDuty management events are logged by default."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS GuardDuty",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "guardduty.amazonaws.com"
+    and event.action: "DeleteThreatIntelSet"
+    and event.outcome: "success"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
