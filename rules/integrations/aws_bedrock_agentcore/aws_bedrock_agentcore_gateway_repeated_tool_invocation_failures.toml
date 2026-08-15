@@ -1,110 +1,115 @@
 [metadata]
-creation_date = "2026/07/02"
+creation_date = "2026/08/10"
 integration = ["aws_bedrock_agentcore"]
-maturity = "development"
-updated_date = "2026/07/02"
+maturity = "production"
+updated_date = "2026/08/10"
 
 [rule]
-author = ["Adam Lin"]
+author = ["Elastic"]
 description = """
-Identifies a burst of failed tool invocations against the same AgentCore Gateway
-target within a short window. A benign tool call fails occasionally (bad input,
-transient upstream error), but a concentrated run of failures against one
-target from one gateway is also the observable signature of an attacker (or a
-compromised/poisoned tool wrapper) probing a tool's parameter surface for an
-injection point, an authorization bypass, or a schema weakness before either
-giving up or succeeding. This is a behavioral threshold over gateway telemetry
-rather than a match on tool-call content, so it is not bypassable by
-rephrasing or encoding the probe payload differently.
+Identifies a burst of failed tool invocations against a single AWS Bedrock AgentCore Gateway within a short window.
+A benign tool call fails occasionally (bad input, transient upstream error), but a concentrated run of failures on
+one gateway is also the observable signature of an attacker, or a compromised tool wrapper, probing a tool's
+parameter surface for an injection point, an authorization bypass, or a schema weakness. Important telemetry limits
+confirmed by emulation: the gateway error event exposes isError only inside a flattened payload_object (so this
+must be a KQL threshold, not ES|QL), the gateway_name, target, and tool.name fields are not present on the
+error events (so failures can be attributed only to the gateway via resource_arn, not to a specific tool, target,
+or caller), and a target that is broken for every caller produces the same burst as one caller probing it. Triage
+gateway and target health before assuming malicious probing.
 """
 false_positives = [
-    "A genuinely broken or misconfigured downstream target (e.g. a Lambda deployment error) producing errors for all callers, not just one caller probing it.",
-    "A client-side bug that retries a tool call with the same invalid arguments instead of failing fast.",
-    "A permission or IAM policy change that has not yet propagated, causing a legitimate integration to fail until the change takes effect.",
-    "Sanctioned fuzz-testing or contract-testing of a newly deployed gateway target; tune the threshold or add an allowlist for known test targets.",
+    """
+    A tool or target that is broken or misconfigured for all callers (upstream outage, bad deployment, expired
+    credential) produces the same failure burst as a single caller probing it, and the gateway error telemetry
+    carries no caller, target, or tool identity to distinguish them. Confirm the gateway's target health and change
+    history before treating a burst as adversarial, and add exceptions by gateway (resource_arn) for gateways with
+    known-flaky upstreams.
+    """,
 ]
 from = "now-60m"
+index = ["logs-aws_bedrock_agentcore.gateway_application_logs-*"]
 interval = "10m"
-language = "esql"
+language = "kuery"
 license = "Elastic License v2"
-name = "AWS Bedrock AgentCore Gateway Repeated Tool Invocation Failures Against a Single Target"
+name = "AWS Bedrock AgentCore Gateway Tool Invocation Failure Burst"
 note = """## Triage and analysis
 
-### Investigating AWS Bedrock AgentCore Gateway Repeated Tool Invocation Failures Against a Single Target
+### Investigating AWS Bedrock AgentCore Gateway Tool Invocation Failure Burst
 
-A concentrated run of failed tool invocations against the same gateway target in a short window can indicate an
-attacker or compromised agent probing the target's argument schema for an injection point, an authorization
-bypass, or a way to trigger unintended behavior, rather than ordinary transient failures spread across many
-targets and callers.
+This rule detects many failed tool invocations against one AgentCore Gateway in a short window.
 
-#### Possible investigation steps
+### Possible investigation steps
 
-- Review the flagged `tool.name` / `target` pair and the surrounding `payload_object.log` lines for the affected
-  `gateway_name` and `request_id` values to see what arguments were being sent.
-- Determine whether the failures come from a single session/actor or are spread across many legitimate callers,
-  which would point to a broken target instead of probing.
-- Check whether the target was recently added, renamed, or had its underlying Lambda/service redeployed.
-- Compare the failure burst against the target's normal baseline error rate.
+- Determine whether the gateway's target is simply unhealthy: review the target's upstream service, recent
+  deployments, and credential/permission changes. A target failing for everyone is the most common cause.
+- Review `aws.bedrock_agentcore.gateway.payload_object` on the failing events; the nested `log` field contains the
+  underlying error (message, type, stack) to distinguish a genuine fault from probing.
+- Identify the gateway from `aws.bedrock_agentcore.gateway.resource_arn` and confirm which tools/targets it fronts.
+- Each failed invocation emits multiple gateway log lines, so the rule counts distinct
+  `aws.bedrock_agentcore.gateway.request_id` values — the threshold reflects distinct failed invocations, not raw
+  log events.
+- Correlate with the AgentCore runtime logs for the same window to identify the agent/session driving the calls,
+  since the gateway error events do not carry a caller identity.
 
 ### False positive analysis
 
-- Confirm the target is not independently known to be broken or mid-deployment for all callers.
-- Rule out a client-side retry bug that resends the same bad request instead of failing after one attempt.
-- Check for a recent permissions change that has not finished propagating.
+- A broken or misconfigured target fails identically for all callers and will trigger this rule. Gateway error
+  telemetry carries no caller, target, or tool identity, so distinguishing probing from an outage requires
+  reviewing target health.
 
 ### Response and remediation
 
-- If the pattern looks adversarial, disable or quarantine the gateway target and review its access policy and
-  input validation.
-- Review the calling agent session's tool-call history for a subsequent successful call following the failure
-  burst, which would indicate the probing found a working payload.
+- If the underlying errors indicate varied/malformed inputs rather than a plain outage, treat the calling agent
+  context as potentially compromised, review its tool configuration and input validation, and restrict the
+  gateway target's permissions.
 """
 references = [
-    "https://github.com/Agent-Threat-Rule/agent-threat-rules",
+    "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html",
     "https://atlas.mitre.org/techniques/AML.T0053",
-    "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-observability.html",
 ]
 risk_score = 47
-rule_id = "f0ad6902-ba40-4c20-8502-55a5c5c7e9f3"
+rule_id = "bfbf698f-b8f2-4589-9e25-405bc8c34fcb"
+setup = """The AWS Bedrock AgentCore integration must be enabled with the gateway_application_logs data stream
+collecting into logs-aws_bedrock_agentcore.gateway_application_logs-*."""
 severity = "medium"
 tags = [
-    "Domain: LLM",
-    "Data Source: AWS Bedrock AgentCore",
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Platform: AWS",
+    "Data Source: AWS Bedrock AgentCore Gateway Logs",
+    "Service: AWS Bedrock AgentCore",
     "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Rule Type: Threshold",
+    "Mitre Atlas: T0053",
     "Resources: Investigation Guide",
+    "Profile: Beta",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "threshold"
 
 query = '''
-from logs-aws_bedrock_agentcore.gateway_application_logs-*
-
-// aws.bedrock_agentcore.gateway.payload_object is an Elasticsearch `flattened` field, so every
-// leaf value -- including the JSON boolean isError -- is indexed as a keyword string. Compare
-// against the string "true", not the boolean true, or the query silently matches nothing.
-| where aws.bedrock_agentcore.gateway.payload_object.isError == "true"
-    and aws.bedrock_agentcore.gateway.target is not null
-
-// Bucket into 5-minute windows inside the 60-minute lookback
-| eval Esql.time_window = date_trunc(5 minutes, @timestamp)
-
-| keep
-    @timestamp,
-    Esql.time_window,
-    aws.bedrock_agentcore.gateway.gateway_name,
-    aws.bedrock_agentcore.gateway.tool.name,
-    aws.bedrock_agentcore.gateway.target
-
-// count failed invocations per (gateway, tool, target) per window
-| stats Esql.failed_invocations = count()
-    by aws.bedrock_agentcore.gateway.gateway_name,
-       aws.bedrock_agentcore.gateway.tool.name,
-       aws.bedrock_agentcore.gateway.target,
-       Esql.time_window
-
-// placeholder threshold -- tune per environment; the FP case is a target that
-// is broken for every caller rather than one caller probing it
-| where Esql.failed_invocations > 5
-
-| sort Esql.failed_invocations desc
+data_stream.dataset: "aws_bedrock_agentcore.gateway_application_logs" and
+aws.bedrock_agentcore.gateway.payload_object.isError: "true"
 '''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.threshold]
+field = ["aws.bedrock_agentcore.gateway.resource_arn"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "aws.bedrock_agentcore.gateway.request_id"
+value = 10
