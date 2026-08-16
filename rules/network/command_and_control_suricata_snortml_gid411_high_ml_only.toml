@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2026/08/16"
+integration = ["suricata"]
+maturity = "production"
+updated_date = "2026/08/16"
+
+[rule]
+author = ["Ahmed Hassan"]
+description = """
+Detects Suricata / Snort-family intrusion alerts generated under Generator ID (GID) 411
+at elevated severity. GID 411 is used by SnortML-style machine-learning inspectors; those
+scores are probability signals and must not be treated as equivalent to a classic signature
+true positive (typically GID 1).
+
+High ML-only confidence should escalate for corroboration (classic signature, endpoint,
+threat intel, or a second network signal) — not automatic containment. Pair with
+"Suricata IDS Signature High Priority Classification" and
+"Suricata Signature And High Severity Corroboration".
+"""
+false_positives = [
+    """
+    Benign applications or uncommon encrypted protocols that resemble malware training
+    samples used by ML inspectors.
+    """,
+    """
+    Lab, scanner, or red-team traffic exercising SnortML / ML inspectors.
+    """,
+    """
+    Treat as escalate/corroborate — do not equate to classic signature true positive or
+    auto-contain without a second signal.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-suricata.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suricata SnortML GID 411 High ML-Only Alert"
+note = """## Triage and analysis
+
+### Investigating Suricata SnortML GID 411 High ML-Only Alert
+
+This rule fires when Suricata (or Snort-family events mapped into Suricata fields)
+reports Generator ID **411** at high severity. GID 411 encodes an ML probability path.
+**Never equate ML confidence to a classic signature true positive.**
+
+### Possible investigation steps
+
+- Confirm `suricata.eve.alert.gid` is 411 and review `rule.name` / `suricata.eve.alert.signature`.
+- Identify source and destination IPs, ports, and community ID; check reputation and asset criticality.
+- Search for classic signature alerts (GID ≠ 411) or endpoint detections on the same hosts within ±1h.
+- Prefer escalate / corroborate dispositions; reserve containment for dual-signal or confirmed TP.
+
+### False positive analysis
+
+- ML inspectors may score unusual-but-benign protocols highly.
+- Authorized scanning and training traffic can exercise GID 411 continuously.
+
+### Response and remediation
+
+- Do **not** auto-isolate solely on this alert.
+- Escalate for dual-signal review (classic IDS classification, endpoint, or intel).
+- If corroborated, follow standard C2 containment and credential hygiene playbooks.
+- Document ML-only vs signature dispositions in the case notes for auditability.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/suricata",
+    "https://github.com/elastic/detection-rules/issues/6661",
+    "https://github.com/SigmaHQ/sigma/pull/6237",
+    "https://github.com/Cisco-Talos/EvidenceForge/pull/389",
+    "https://github.com/splunk/security_content/issues/4220",
+    "https://github.com/AAH20/aegis-decision-fabric",
+    "https://a2zsoc.com/consultation",
+]
+risk_score = 47
+rule_id = "3662828d-64b9-461d-aa0b-80b6501c9b40"
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Suricata",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:suricata.eve and event.kind:alert and
+suricata.eve.alert.gid:411 and event.severity:1
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
