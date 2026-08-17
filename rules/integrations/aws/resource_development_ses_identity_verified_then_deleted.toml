@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/08/14"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the sequence of verifying an SES email identity and subsequently deleting it within
+one hour, performed by the same AWS identity. Amazon SES requires email addresses and domains
+to be verified before they can be used as senders. An adversary who obtains SES credentials
+may verify a domain or address they control, use it to send phishing or spam email, then delete
+the identity to remove evidence of the sending domain from the account's verified identity list.
+This verify-use-delete pattern is a recognized attacker technique for SES abuse.
+"""
+false_positives = [
+    """
+    Testing workflows that verify a sandbox email address and then clean it up may trigger this
+    rule. Confirm that the email identity verified and deleted corresponds to a planned test
+    rather than a production or attacker-controlled domain.
+    """,
+]
+from = "now-35m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "AWS SES Email Identity Verified Then Deleted"
+note = """## Triage and analysis
+
+### Investigating AWS SES Email Identity Verified Then Deleted
+
+Amazon SES requires that email addresses and domains be verified (via DNS record or a verification email) before they can be used as `From:` addresses. An adversary who obtains SES write credentials can verify a domain they control, send bulk email from that domain using the victim account's sending quota and reputation, then delete the identity to hide the sending domain from security reviews.
+
+The verify-then-delete sequence is the evidence-destruction component of the SES phishing technique: it removes the compromised identity from `ListIdentities` output, making post-incident attribution harder.
+
+### Possible investigation steps
+
+- Identify the caller from `aws.cloudtrail.user_identity.arn` and `user.name`.
+- Determine the verified identity from the `VerifyEmailIdentity` or `VerifyDomainIdentity` request parameters and the deleted identity from the `DeleteIdentity` request parameters.
+- Query SES `SendEmail` / `SendRawEmail` CloudTrail events (if CloudTrail management events are being collected) or SES sending statistics between the verification and deletion timestamps to determine whether email was sent from the verified identity.
+- Check your email service provider's delivery logs for any email sourced from the SES identity.
+- Review all SES actions taken by this identity in the surrounding time window.
+
+### Response and remediation
+
+- If unauthorized email was sent, notify affected recipients and file an SES abuse report.
+- Rotate all IAM credentials that had SES write access during the incident window.
+- Enable SES sending quotas and alerts to detect unusual send volume in real time.
+- Restrict `ses:VerifyEmailIdentity`, `ses:VerifyDomainIdentity`, and `ses:DeleteIdentity` to a dedicated SES-management role via IAM policy.
+"""
+references = [
+    "https://docs.aws.amazon.com/ses/latest/APIReference/API_VerifyEmailIdentity.html",
+    "https://docs.aws.amazon.com/ses/latest/APIReference/API_DeleteIdentity.html",
+    "https://permiso.io/blog/s/aws-ses-pionage-detecting-ses-abuse/",
+]
+risk_score = 73
+rule_id = "8e4bde35-125d-4eb3-9a2e-d7e77a053a08"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. SES management APIs are logged by default."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS SES",
+    "Rule Type: Event Correlation (EQL)",
+    "Tactic: Resource Development",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by aws.cloudtrail.user_identity.arn with maxspan=30m
+  [any where data_stream.dataset == "aws.cloudtrail"
+   and event.provider == "ses.amazonaws.com"
+   and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim")
+   and event.outcome == "success"]
+  [any where data_stream.dataset == "aws.cloudtrail"
+   and event.provider == "ses.amazonaws.com"
+   and event.action == "DeleteIdentity"
+   and event.outcome == "success"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1583"
+name = "Acquire Infrastructure"
+reference = "https://attack.mitre.org/techniques/T1583/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1583.001"
+name = "Domains"
+reference = "https://attack.mitre.org/techniques/T1583/001/"
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.account.id",
+]
