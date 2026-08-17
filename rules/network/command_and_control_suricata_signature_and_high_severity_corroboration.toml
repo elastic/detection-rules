@@ -33,8 +33,8 @@ note = """## Triage and analysis
 
 ### Investigating Suricata Signature And High Severity Corroboration
 
-This correlation requires (1) a classic high-priority classification with GID ≠ 411, then
-(2) another high-severity Suricata alert for the same 5-tuple endpoints within 5 minutes.
+This correlation requires (1) a classic high-priority classification with GID != 411, then
+(2) another high-severity Suricata alert for the same source/destination IPs and ports within 5 minutes.
 That dual-signal pattern is a stronger remediation candidate than ML-only (GID 411) alerts.
 
 ### Possible investigation steps
@@ -68,15 +68,18 @@ rule_id = "71835572-24e9-49c1-91a8-a801268f0a56"
 severity = "high"
 tags = [
     "Domain: Network",
+    "Platform: Elastic",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
+    "Rule Type: Event Correlation (EQL)",
     "Data Source: Suricata",
+    "Data Source: Suricata Logs",
     "Resources: Investigation Guide",
 ]
 type = "eql"
 
 query = '''
-sequence by source.ip, destination.ip with maxspan=5m
+sequence by source.ip, destination.ip, source.port, destination.port with maxspan=5m
   [network where data_stream.dataset == "suricata.eve" and event.kind == "alert" and
    suricata.eve.alert.gid != 411 and
    suricata.eve.alert.category in (
