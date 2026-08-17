@@ -32,7 +32,11 @@ from . import ecs, endgame, misc, utils
 from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
-from .esql import get_esql_query_event_dataset_integrations
+from .esql import (
+    get_esql_query_event_dataset_integrations,
+    get_esql_query_source_groups,
+    replace_esql_query_sources,
+)
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
     create_remote_indices,
@@ -48,7 +52,7 @@ from .integrations import (
 )
 from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
 from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
-from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES, FROM_SOURCES_REGEX
+from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -763,19 +767,6 @@ class ESQLValidator(QueryValidator):
             return [field["name"] for field in self.esql_unique_fields]
         return []
 
-    def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
-        """Extract indices from an ES|QL query."""
-        match = FROM_SOURCES_REGEX.search(query)
-        if not match:
-            return "", []
-
-        sources_str = match.group("sources")
-        # Truncate cross cluster search indices to local indices
-        sources_list: list[str] = [
-            source.split(":", 1)[-1].strip() if ":" in source else source.strip() for source in sources_str.split(",")
-        ]
-        return sources_str, sources_list
-
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
         esql_unique_fields = getattr(self, "esql_unique_fields", [])
@@ -900,8 +891,9 @@ class ESQLValidator(QueryValidator):
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
-        self.log(f"Extracted indices from query: {', '.join(indices)}")
+        source_groups = get_esql_query_source_groups(query)
+        if not source_groups:
+            raise ValueError("Failed to extract any index pattern from the query's FROM clause(s).")
 
         event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
         self.log(
@@ -909,20 +901,35 @@ class ESQLValidator(QueryValidator):
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
         )
 
-        # Get mappings for all matching existing index templates
-        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
-            elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
-        )
-        self.log(f"Collected mappings: {len(existing_mappings)}")
-        self.log(f"Combined mappings prepared: {len(combined_mappings)}")
+        # Each FROM clause is prepared against only the indices it reads, so a subquery cannot
+        # validate a field that exists solely in the index of one of its siblings
+        combined_mappings: dict[str, Any] = {}
+        source_replacements: dict[tuple[int, int], str] = {}
+        test_indices: list[str] = []
+        for position, group in enumerate(source_groups):
+            self.log(f"Extracted indices from query: {', '.join(group.indices)}")
 
-        # Create remote indices
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
+            # Get mappings for all matching existing index templates
+            existing_mappings, index_lookup, group_mappings = prepare_mappings(
+                elastic_client, group.indices, event_dataset_integrations, metadata, stack_version, self.log
+            )
+            self.log(f"Collected mappings: {len(existing_mappings)}")
+            self.log(f"Combined mappings prepared: {len(group_mappings)}")
+            utils.combine_dicts(combined_mappings, group_mappings)
 
-        # Replace all sources with the test indices
-        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
+            # Create remote indices
+            full_index_str = create_remote_indices(
+                elastic_client, existing_mappings, index_lookup, self.log, name_suffix=f"-{position}"
+            )
+            source_replacements.update(dict.fromkeys(group.spans, full_index_str))
+            test_indices.extend(index.strip() for index in full_index_str.split(","))
 
-        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
+        # Replace the sources of every FROM clause with the test indices prepared for it
+        query = replace_esql_query_sources(query, source_replacements)
+
+        # Deduplicated because the test indices are also the set the execution cleans up afterwards
+        all_index_str = ", ".join(dict.fromkeys(test_indices))
+        query_columns, response = execute_query_against_indices(elastic_client, query, all_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
         # Build a mapping lookup for all stack versions to validate against.
@@ -944,10 +951,13 @@ class ESQLValidator(QueryValidator):
             version = str(parsed.replace(patch=max(parsed.patch, inferred_patch)))  # noqa: PLW2901
             if version in mappings_lookup:
                 continue
-            _, _, combined_mappings = prepare_mappings(
-                elastic_client, indices, event_dataset_integrations, metadata, version, self.log
-            )
-            mappings_lookup[version] = combined_mappings
+            version_mappings: dict[str, Any] = {}
+            for group in source_groups:
+                _, _, group_mappings = prepare_mappings(
+                    elastic_client, group.indices, event_dataset_integrations, metadata, version, self.log
+                )
+                utils.combine_dicts(version_mappings, group_mappings)
+            mappings_lookup[version] = version_mappings
 
         for version, mapping in mappings_lookup.items():
             self.log(f"Validating {rule_id} against {version} stack")

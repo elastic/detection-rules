@@ -76,9 +76,15 @@ _version = r"\d+\.\d+(\.\d+[\w-]*)*"
 CONDITION_VERSION_PATTERN = re.compile(rf"^\^{_version}$")
 VERSION_PATTERN = f"^{_version}$"
 MINOR_SEMVER = re.compile(r"^\d+\.\d+$")
-FROM_SOURCES_REGEX = re.compile(
-    r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
-)
+# ES|QL comments and string literals are blanked before a query is scanned, so that the FROM
+# keyword, or something shaped like an index pattern, is never read out of prose or a query value
+ESQL_COMMENTS_AND_LITERALS_REGEX = re.compile(r'"""(?:.|\n)*?"""|"(?:[^"\\\n]|\\.)*"|//[^\n]*|/\*(?:.|\n)*?\*/')
+# An ES|QL query has one FROM clause per source, and subqueries nest them,
+# e.g. `FROM (FROM logs-a-* | ...), (FROM logs-b-* | ...)`
+ESQL_FROM_KEYWORD_REGEX = re.compile(r"\bFROM\b\s+", re.IGNORECASE)
+# An ES|QL source list runs until the first pipe, the METADATA directive, or the end of the subquery
+ESQL_FROM_SOURCES_TERMINATOR_REGEX = re.compile(r"\||\)|\bMETADATA\b", re.IGNORECASE)
+ESQL_INDEX_PATTERN_REGEX = re.compile(r"^[\w.*\-]+$")
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
