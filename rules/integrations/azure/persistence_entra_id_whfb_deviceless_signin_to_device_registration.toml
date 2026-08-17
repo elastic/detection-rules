@@ -2,45 +2,74 @@
 creation_date = "2026/08/07"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/08/07"
+min_stack_comments = "FROM subquery support became generally available in 9.5.0; FIELD_EXTRACT for flattened fields requires 9.5.0"
+min_stack_version = "9.5.0"
+updated_date = "2026/08/17"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a Microsoft Entra ID device registration that follows shortly after a phishing-resistant, device-bound
-credential (Windows Hello for Business, FIDO2 security key, or passkey) was used to sign in with no device identifier.
-In the "borrowing Windows Hello keys" technique, an adversary reuses a WHfB/NGC key or passkey away from its bound
-device to mint device-agnostic tokens, then uses those tokens to register an attacker-controlled device and obtain a
-Primary Refresh Token (PRT) for long-lived persistence. Correlating a deviceless WHfB/passkey sign-in with a subsequent
-device registration by the same user is a high-fidelity signal of this escalation and is distinct from device-code-flow
-phishing kits.
+Identifies a Microsoft Entra ID device registration by the same user within 15 minutes of a phishing-resistant,
+device-bound credential (Windows Hello for Business, FIDO2 security key, or passkey) signing in with no device
+identifier. In the "borrowing Windows Hello keys" technique, an adversary reuses a WHfB/NGC key or passkey away from its
+bound device to mint device-agnostic tokens, then uses those tokens to register an attacker-controlled device and obtain
+a Primary Refresh Token (PRT) for long-lived persistence. Timing is taken from the authentication step on the sign-in,
+not the sign-in document timestamp, because Entra can emit the sign-in record after the Register device audit event.
+This chain is distinct from device-code-flow phishing kits.
 """
+false_positives = [
+    """
+    A user completing initial passwordless enrollment and registering their first device in the same session can match.
+    Validate against expected onboarding and the device's provenance (managed/compliant, expected name, expected
+    source).
+    """,
+    """
+    Authorized red team or research engagements that borrow a WHfB/passkey and register a device will match. Document
+    the engagement and add scoped exceptions for the involved principals or source addresses.
+    """,
+]
 from = "now-30m"
 interval = "10m"
-index = ["filebeat-*", "logs-azure.signinlogs-*", "logs-azure.auditlogs-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "Entra ID Deviceless Windows Hello Sign-in Followed by Device Registration"
 note = """## Triage and analysis
 
 ### Investigating Entra ID Deviceless Windows Hello Sign-in Followed by Device Registration
 
-This rule correlates two events by the same user within a short window: (1) a sign-in satisfied by a device-bound credential (Windows Hello for Business, FIDO2, or passkey) with an empty `device_detail.device_id`, followed by (2) a device registration. Device-bound credentials should only sign in from the device that holds them; a deviceless WHfB/passkey sign-in that is immediately used to register a new device is the escalation step of the "borrowing Windows Hello keys" technique, establishing attacker device persistence and a Primary Refresh Token.
+This rule correlates two events for the same user within 15 minutes:
+
+1. A successful member sign-in satisfied by a device-bound credential (Windows Hello for Business, FIDO2, or passkey) with an empty `device_detail.device_id`.
+2. A successful device registration (`Register device`, `Add registered owner to device`, or `Add device`) initiated by that user.
+
+The alert is the sign-in document, enriched with the matching registration. `Esql.signin_time` is the authentication step time extracted from flattened `authentication_details` (falling back to `@timestamp`). Entra often writes the sign-in record after the `Register device` audit event, so `@timestamp` on the alert can be later than `Esql.register_time` even when the assertion happened first. Use `Esql.signin_time` and `Esql.signin_to_register_s` for the sequence, not `@timestamp` alone.
+
+Device-bound credentials should only sign in from the TPM-backed device that holds them. A deviceless WHfB/passkey assertion immediately followed by a new device registration is the escalation step of the "borrowing Windows Hello keys" technique: the adversary mints a device-agnostic token, registers an attacker-controlled device, and obtains a Primary Refresh Token that survives `revokeSignInSessions` and password resets.
 
 ### Possible investigation steps
-- Identify the user via `azure.signinlogs.properties.user_principal_name` / `azure.auditlogs.properties.initiated_by.user.userPrincipalName`.
-- Confirm the first-stage sign-in used a device-bound method (`authentication_details.authentication_method`) with no `device_detail.device_id`.
-- Review the registered device name and id in the `Register device` / `Add registered owner to device` audit event. Tooling-registered devices are often generic (for example DESKTOP-*) or default OS builds.
-- Examine `source.ip`, `source.geo.*`, and `user_agent.original` on the sign-in for automation or hosting/VPS origins (ROADtools/roadtx).
-- Check for a Primary Refresh Token issuance and any subsequent "Add Windows Hello for Business credential" event for the same user (backdoor enrollment).
+
+- Identify the user (`azure.signinlogs.properties.user_principal_name` / `Esql.actor_user_id`) and confirm they were not expected to enroll a new device.
+- Confirm `Esql.auth_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey, and that `azure.signinlogs.properties.device_detail.device_id` is empty. A device-bound method presenting without its device is the first-stage signal.
+- Compare `Esql.signin_time` to `Esql.register_time`. A registration a few seconds to a few minutes after the assertion (`Esql.signin_to_register_s`) is the expected attacker cadence. Do not dismiss the alert because `@timestamp` is after `Esql.register_time`.
+- Review `Esql.registered_device_name` and `Esql.register_operation`. Tooling-registered devices are often generic (`DESKTOP-*`) or a hardcoded OS build. Confirm the device is absent from inventory and unmanaged.
+- Inspect `azure.signinlogs.properties.app_display_name` and `azure.signinlogs.properties.resource_display_name`. Azure CLI or similar non-interactive clients targeting Microsoft Graph or the Device Registration Service are common in this chain (for example ROADtools/roadtx).
+- Examine `source.address`, `source.geo.country_name`, and `user_agent.original`. Hosting/VPS ASNs, unexpected geographies, `python-requests/*`, or `None` user agents are high-signal for stolen-key replay.
+- Pivot on `Esql.actor_user_id` in `logs-azure.signinlogs-*` for a follow-on `incoming_token_type` of `primaryRefreshToken` from the new device, and in `logs-azure.auditlogs-*` for `Add Windows Hello for Business credential` (backdoor enrollment).
 
 ### False positive analysis
-- A user completing initial passwordless enrollment and registering their first device in the same session could match. Correlate with expected onboarding activity and the device's provenance.
+
+- Initial passwordless onboarding can produce a WHfB/passkey sign-in and a first device registration in the same session. Validate the device against inventory and confirm it is managed/compliant and named as expected.
+- Authorized security assessments that replay a WHfB/passkey and register a device will match. Document the engagement and add scoped exceptions.
 
 ### Response and remediation
-- Delete the attacker-registered device and revoke the user's sessions and refresh tokens (delete devices first to break device-bound PRT persistence).
-- Treat the WHfB/passkey key as compromised: remove the affected authentication methods and re-enroll from a trusted device.
-- Review Conditional Access to require compliant devices for sensitive resources.
+
+- Treat as likely key theft plus device persistence. Remove the rogue device BEFORE revoking sessions; a device-bound PRT survives `revokeSignInSessions` and a device left in place re-establishes access.
+    - `GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for unrecognized devices.
+- Treat the WHfB/NGC key or passkey as compromised: delete the affected authentication methods and re-enroll from a trusted device.
+- Revoke refresh tokens and sessions, then reset credentials.
+    - `POST /v1.0/users/{id}/revokeSignInSessions`.
+- Hunt for additional persistence in the same window: attacker-registered MFA methods, extra device registrations, and PRT use from the new device.
+- Restrict who can register or join devices via Conditional Access, and require a compliant/managed device for sensitive resources.
 """
 references = [
     "https://dirkjanm.io/borrowing-windows-hello-keys/",
@@ -49,7 +78,7 @@ references = [
 risk_score = 73
 rule_id = "62848597-595c-4cc3-8d24-6c47a5fee9a9"
 setup = """#### Required Microsoft Entra ID Sign-In and Audit Logs
-This rule requires the Azure integration with Microsoft Entra ID Sign-In and Audit logs enabled and collected via Azure Event Hub.
+This rule requires the Azure integration with Microsoft Entra ID Sign-In logs and Audit logs enabled and collected via Azure Event Hub. Both data streams are required: the sign-in supplies the deviceless WHfB/passkey assertion, and the audit log supplies the follow-on device registration.
 """
 severity = "high"
 tags = [
@@ -59,7 +88,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ESQL",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
     "Data Source: Microsoft Entra ID Sign-in Logs",
@@ -67,28 +96,97 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-sequence with maxspan=15m
-  [authentication where
-    data_stream.dataset == "azure.signinlogs" and
-    azure.signinlogs.result_signature == "SUCCESS" and
-    azure.signinlogs.properties.user_type == "Member" and
-    azure.signinlogs.properties.authentication_details.authentication_method in (
-        "Windows Hello for Business", "FIDO2*", "Passkey*", "*passkey*"
-    ) and
-    (
-        azure.signinlogs.properties.device_detail.device_id == null or
-        azure.signinlogs.properties.device_detail.device_id == "" or
-        azure.signinlogs.properties.device_detail.is_managed != true
-    )
-  ] by azure.signinlogs.properties.user_id
-  [any where
-    data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name in ("Register device", "Add registered owner to device", "Add device") and
-    event.outcome == "success"
-  ] by azure.auditlogs.properties.initiated_by.user.id
+/*
+Correlate a successful WHfB/FIDO2/passkey sign-in that carries no device identifier with a subsequent
+device registration by the same user within 15 minutes. Keep the sign-in event as the alert.
+authentication_details is a flattened field, so FIELD_EXTRACT is required to read authentication_method
+and authentication_step_date_time. Sequence on the auth step time when present: sign-in @timestamp can
+lag the actual assertion, which would invert the order against the Register device audit event.
+*/
+FROM
+(
+  FROM logs-azure.signinlogs-* METADATA _id, _version, _index
+  | WHERE
+      azure.signinlogs.result_signature == "SUCCESS" AND
+      azure.signinlogs.properties.user_type == "Member" AND
+      azure.signinlogs.properties.user_id IS NOT NULL AND
+      (
+        azure.signinlogs.properties.device_detail.device_id IS NULL OR
+        azure.signinlogs.properties.device_detail.device_id == ""
+      )
+  | EVAL
+      Esql.sequence_stage = "signin",
+      Esql.actor_user_id = azure.signinlogs.properties.user_id,
+      Esql.auth_method = FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_method"),
+      Esql.auth_step_time = MV_MIN(TO_DATETIME(FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_step_date_time")))
+  | EVAL Esql.signin_time = COALESCE(Esql.auth_step_time, @timestamp)
+  | WHERE
+      Esql.auth_method == "Windows Hello for Business" OR
+      TO_LOWER(Esql.auth_method) LIKE "fido2*" OR
+      TO_LOWER(Esql.auth_method) LIKE "*passkey*"
+  | KEEP
+      @timestamp,
+      Esql.signin_time,
+      Esql.actor_user_id,
+      Esql.sequence_stage,
+      Esql.auth_method,
+      azure.signinlogs.properties.user_id,
+      azure.signinlogs.properties.user_principal_name,
+      azure.signinlogs.properties.device_detail.device_id,
+      azure.signinlogs.properties.device_detail.is_managed,
+      azure.signinlogs.properties.app_id,
+      azure.signinlogs.properties.app_display_name,
+      azure.signinlogs.properties.resource_display_name,
+      azure.signinlogs.properties.incoming_token_type,
+      source.address,
+      source.geo.country_name,
+      user_agent.original,
+      _id,
+      _version,
+      _index
+  | WHERE Esql.actor_user_id IS NOT NULL
+),
+(
+  FROM logs-azure.auditlogs-* METADATA _id, _version, _index
+  | WHERE
+      azure.auditlogs.operation_name IN ("Register device", "Add registered owner to device", "Add device") AND
+      event.outcome == "success" AND
+      azure.auditlogs.properties.initiated_by.user.id IS NOT NULL
+  | EVAL
+      Esql.sequence_stage = "register",
+      Esql.actor_user_id = azure.auditlogs.properties.initiated_by.user.id,
+      Esql.register_candidate = CONCAT(
+        TO_STRING(@timestamp),
+        "|",
+        COALESCE(`azure.auditlogs.properties.target_resources.0.display_name`, ""),
+        "|",
+        azure.auditlogs.operation_name
+      )
+  | KEEP @timestamp, Esql.actor_user_id, Esql.sequence_stage, Esql.register_candidate, _id, _version, _index
+  | WHERE Esql.register_candidate IS NOT NULL
+)
+| WHERE Esql.actor_user_id IS NOT NULL
+| INLINE STATS
+    Esql.register_count = COUNT(*) WHERE Esql.sequence_stage == "register",
+    Esql.register_candidates = VALUES(Esql.register_candidate) WHERE Esql.sequence_stage == "register"
+  BY Esql.actor_user_id
+| DROP Esql.register_candidate
+| WHERE Esql.sequence_stage == "signin" AND Esql.register_count > 0
+| MV_EXPAND Esql.register_candidates
+| EVAL
+    Esql.register_time = TO_DATETIME(MV_FIRST(SPLIT(Esql.register_candidates, "|"))),
+    Esql.registered_device_name = MV_SLICE(SPLIT(Esql.register_candidates, "|"), 1, 1),
+    Esql.register_operation = MV_LAST(SPLIT(Esql.register_candidates, "|")),
+    Esql.signin_to_register_s = DATE_DIFF("second", Esql.signin_time, Esql.register_time)
+| DROP Esql.register_candidates, Esql.sequence_stage, Esql.register_count
+| WHERE
+    Esql.signin_to_register_s >= 0 AND
+    Esql.signin_to_register_s <= 900
+| SORT Esql.register_time ASC, Esql.signin_to_register_s ASC, _id ASC
+| LIMIT 1 BY Esql.actor_user_id
 '''
 
 
