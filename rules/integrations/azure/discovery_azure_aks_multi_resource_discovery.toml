@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+    Detects an AKS (Azure Kubernetes Service) identity that lists or watches multiple distinct Kubernetes API resource
+    types associated with cluster orientation (namespaces, nodes, pods, roles, clusterroles, configmaps, serviceaccounts,
+    rolebindings, clusterrolebindings) within a short window. Breadth of distinct resources (cardinality), not raw event
+    count, is the signal — AKS-safe parity with the Kubernetes ES|QL multi-resource discovery rule. Platform identities
+    are excluded.
+"""
+false_positives = [
+    """
+    GitOps, backup, and platform operators may span these resource types during sync. Exclude validated service accounts
+    or raise the cardinality threshold after baselining.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Multi-Resource Setup Discovery"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Multi-Resource Setup Discovery
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree. This threshold
+rule groups `list`/`watch` on orientation-related resources by `user.username` and alerts when distinct
+`objectRef.resource` cardinality is ≥ 3 — mirroring Kubernetes ES|QL `count_distinct(resource)` multi-resource recon.
+
+### Possible investigation steps
+
+- Identify the acting identity and enumerate which resource types were touched.
+- Review `userAgent` / `sourceIPs` and correlate with secret reads, SSAR, exec, or RBAC changes.
+- Validate whether the identity is expected automation (GitOps/CI) vs a human or stolen token.
+
+### False positive analysis
+
+- Controllers reconciling cluster state may span these resources; exclude known SAs after review.
+
+### Response and remediation
+
+- If unauthorized, revoke credentials and hunt for follow-on credential access or privilege escalation.
+- Collect kube-audit artifacts per incident response procedures.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1613/",
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+]
+risk_score = 47
+rule_id = "86bdaa43-9268-436f-b944-d9c64a68def3"
+setup = """
+The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+into the `azure.platformlogs` data stream is required for this rule.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "threshold"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.verb:("list" or "watch" or "get") and
+  azure.platformlogs.properties.log.objectRef.resource:(
+    "namespaces" or "nodes" or "pods" or "roles" or "clusterroles" or "configmaps" or
+    "serviceaccounts" or "rolebindings" or "clusterrolebindings"
+  ) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  )
+'''
+
+[rule.threshold]
+field = ["azure.platformlogs.properties.log.user.username"]
+value = 1
+
+[[rule.threshold.cardinality]]
+field = "azure.platformlogs.properties.log.objectRef.resource"
+value = 3
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
