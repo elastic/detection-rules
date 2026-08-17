@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects pod exec on AKS with command patterns associated with reverse shells (bash -i, nc, ncat, python sockets, /dev/tcp).
+"""
+false_positives = [
+    """
+    Interactive debugging shells may look similar; validate command intent and destination.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure AKS Pod Exec Potential Reverse Shell"
+note = """
+## Triage and analysis
+
+### Investigating Azure AKS Pod Exec Potential Reverse Shell
+
+AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
+`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
+`azure.platformlogs.category: kube-audit`. Detects pod exec on AKS with command patterns associated with reverse shells (bash -i, nc, ncat, python sockets, /dev/tcp).
+
+### Possible investigation steps
+
+- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
+- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
+- If present, examine `requestObject` for privileged fields or binding subjects.
+- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+
+### False positive analysis
+
+- Interactive debugging shells may look similar; validate command intent and destination.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
+- Rotate any secrets or tokens that may have been accessed.
+- Harden RBAC to least privilege and review admission controls.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+]
+risk_score = 73
+rule_id = "eb56a087-c726-4683-8d49-8c0253ea63cf"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:azure.platformlogs and
+  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
+  azure.platformlogs.category:"kube-audit" and
+  azure.platformlogs.properties.log.objectRef.resource:"pods" and
+  azure.platformlogs.properties.log.objectRef.subresource:"exec" and
+  azure.platformlogs.properties.log.verb:("create" or "get") and
+  azure.platformlogs.properties.log.requestURI:(*bash*-i* or *bin%2Fbash* or *nc%20* or *ncat* or *dev%2Ftcp* or *socket.socket* or *pty.spawn*) and
+  not azure.platformlogs.properties.log.user.username:(
+    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
+    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
+    "system:kube-controller-manager" or "system:kube-scheduler"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.platformlogs.category",
+    "azure.platformlogs.properties.log.verb",
+    "azure.platformlogs.properties.log.user.username",
+    "azure.platformlogs.properties.log.userAgent",
+    "azure.platformlogs.properties.log.sourceIPs",
+    "azure.platformlogs.properties.log.objectRef.resource",
+    "azure.platformlogs.properties.log.objectRef.subresource",
+    "azure.platformlogs.properties.log.objectRef.namespace",
+    "azure.platformlogs.properties.log.objectRef.name",
+    "azure.platformlogs.properties.log.responseStatus.code",
+]
