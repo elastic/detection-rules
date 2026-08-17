@@ -141,7 +141,7 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
 class VersionLock:
     """Version handling for rule files and collections."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         version_lock_file: Path | None = None,
         deprecated_lock_file: Path | None = None,

@@ -103,6 +103,8 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             return None
 
         if field_type in ("array", ["array"]):
+            if isinstance(result, list):
+                return result  # type: ignore[reportUnknownVariableType]
             result_list = result.split(",")
 
             if not (min_item < len(result_list) < max_items):
@@ -238,7 +240,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     return get_collection
 
 
-def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
+def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     path: Path | None = None,
     rule_type: str | None = None,
     required_only: bool = True,
