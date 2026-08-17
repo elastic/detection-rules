@@ -126,16 +126,26 @@ def kibana_import_rules(  # noqa: PLR0915
         flattened_exceptions: list[dict[str, Any]] = [e for sublist in exception_dicts for e in sublist]
         all_exception_list_ids: set[str] = {exception["list_id"] for exception in flattened_exceptions}
 
-        click.echo(f"{len(response['errors'])} rule(s) failed to import!")
+        if response["errors"]:
+            click.echo(f"{len(response['errors'])} rule(s) failed to import!")
+        if response.get("exceptions_errors"):
+            click.echo(f"{len(response['exceptions_errors'])} exception list(s) failed to import!")
+        if response.get("action_connectors_errors"):
+            click.echo(f"{len(response['action_connectors_errors'])} action connector(s) failed to import!")
 
+        all_errors: list[dict[str, Any]] = (
+            response["errors"]
+            + response.get("exceptions_errors", [])
+            + response.get("action_connectors_errors", [])
+        )
         action_connector_validation_error = "Error validating create data"
         action_connector_type_error = "expected value of type [string] but got [undefined]"
-        for error in response["errors"]:
+        for error in all_errors:
             error_details = error.get("error", {})
             error_message = error_details.get("message", "<missing error message>")
             status_code = error_details.get("status_code", "unknown status")
             rule_id = error.get("rule_id")
-            display_rule_id = rule_id or "<unknown rule_id>"
+            display_rule_id = rule_id or error.get("id") or "<unknown rule_id>"
             click.echo(f" - {display_rule_id}: ({status_code}) {error_message}")
 
             if "references a non existent exception list" in error_message:
@@ -202,7 +212,7 @@ def kibana_import_rules(  # noqa: PLR0915
         click.echo(f"{len(successful_rule_ids)} rule(s) successfully imported")  # type: ignore[reportUnknownArgumentType]
         rule_str = "\n - ".join(successful_rule_ids)  # type: ignore[reportUnknownArgumentType]
         click.echo(f" - {rule_str}")
-    if response["errors"]:
+    if response["errors"] or response.get("exceptions_errors") or response.get("action_connectors_errors"):
         _handle_response_errors(response)  # type: ignore[reportUnknownArgumentType]
     else:
         _process_imported_items(exception_dicts, "exception list(s)", "list_id")  # type: ignore[reportUnknownArgumentType]
