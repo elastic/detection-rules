@@ -1,0 +1,150 @@
+name: Release Line Caught Up
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+  statuses: read
+
+jobs:
+  get-branches:
+    uses: ./.github/workflows/get-target-branches.yml
+
+  release-line-caught-up:
+    needs: get-branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Wait until origin/main is backported and tip Unit Tests passed
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          BRANCHES: ${{ toJSON(fromJSON(needs.get-branches.outputs.branches)) }}
+          STATUS_CONTEXT: release-line-caught-up
+          WORKFLOW_FILE: pythonpackage.yml
+          WAIT_SECONDS: "1680"
+          POLL_SECONDS: "15"
+        with:
+          script: |
+            const contextName = process.env.STATUS_CONTEXT;
+            const workflowFile = process.env.WORKFLOW_FILE;
+            const branches = JSON.parse(process.env.BRANCHES);
+            const waitMs = Number(process.env.WAIT_SECONDS) * 1000;
+            const pollMs = Number(process.env.POLL_SECONDS) * 1000;
+            const deadline = Date.now() + waitMs;
+            const { owner, repo } = context.repo;
+
+            async function sleep() {
+              await new Promise((resolve) => setTimeout(resolve, pollMs));
+            }
+
+            async function mainSha() {
+              const { data } = await github.rest.repos.getBranch({
+                owner,
+                repo,
+                branch: 'main',
+              });
+              return data.commit.sha;
+            }
+
+            async function latestStatus(sha) {
+              const { data } = await github.rest.repos.listCommitStatusesForRef({
+                owner,
+                repo,
+                ref: sha,
+                per_page: 100,
+              });
+              const match = data.find((status) => status.context === contextName);
+              return match ? match.state : null;
+            }
+
+            async function unitTestRuns(sha) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflowFile,
+                head_sha: sha,
+                per_page: 10,
+              });
+              return data.workflow_runs || [];
+            }
+
+            function classifyRuns(runs) {
+              if (runs.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
+                return 'success';
+              }
+              if (runs.some((run) => run.status === 'in_progress' || run.status === 'queued' || run.status === 'waiting' || run.status === 'pending')) {
+                return 'pending';
+              }
+              if (runs.some((run) => run.status === 'completed')) {
+                const failed = runs.find((run) => run.status === 'completed');
+                return `failed:${failed.conclusion}`;
+              }
+              return 'missing';
+            }
+
+            async function classifyTips() {
+              const results = [];
+              for (const branch of branches) {
+                const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                const sha = data.commit.sha;
+                const runs = await unitTestRuns(sha);
+                const result = classifyRuns(runs);
+                results.push({ branch, sha, result });
+              }
+              if (results.every((item) => item.result === 'success')) {
+                return { state: 'success', results };
+              }
+              const failed = results.find((item) => item.result.startsWith('failed:'));
+              if (failed) {
+                return { state: 'failure', results };
+              }
+              return { state: 'pending', results };
+            }
+
+            function formatTips(results) {
+              return results
+                .map((item) => `${item.branch} @ ${item.sha.slice(0, 7)}: ${item.result}`)
+                .join('\n');
+            }
+
+            while (true) {
+              const sha = await mainSha();
+              const status = await latestStatus(sha);
+
+              if (status === 'success') {
+                core.info(`${contextName} succeeded on main @ ${sha.slice(0, 7)}`);
+                return;
+              }
+              if (status === 'failure' || status === 'error') {
+                core.setFailed(`${contextName} is ${status} on main @ ${sha.slice(0, 7)}. Fix the backport or release-branch Unit Tests before merging.`);
+                return;
+              }
+
+              if (!status) {
+                // Cutover: the merge that landed this workflow still ran the old
+                // backport.yml, so it will not post a status. Fall back to tip CI.
+                const tips = await classifyTips();
+                if (tips.state === 'success') {
+                  core.info(`No ${contextName} status on main @ ${sha.slice(0, 7)}; all release tips have green Unit Tests.\n${formatTips(tips.results)}`);
+                  return;
+                }
+                if (tips.state === 'failure') {
+                  core.setFailed(`No ${contextName} status on main @ ${sha.slice(0, 7)}, and a release tip failed Unit Tests:\n${formatTips(tips.results)}`);
+                  return;
+                }
+                core.info(`Waiting on release tip Unit Tests (no ${contextName} status yet):\n${formatTips(tips.results)}`);
+              } else {
+                core.info(`${contextName} is ${status} on main @ ${sha.slice(0, 7)}`);
+              }
+
+              if (Date.now() >= deadline) {
+                core.setFailed(`Timed out after ${process.env.WAIT_SECONDS}s waiting for ${contextName} on main @ ${sha.slice(0, 7)} (status=${status || 'missing'}).`);
+                return;
+              }
+              await sleep();
+            }
