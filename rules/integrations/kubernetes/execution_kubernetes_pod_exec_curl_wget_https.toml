@@ -81,7 +81,7 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE Esql.executed_command IS NOT NULL 
   AND Esql.executed_command RLIKE """.*(curl.*https|wget.*https).*"""
   AND NOT Esql.executed_command RLIKE """.*(/api/v1/health|/healthz|/readyz|/livez|127\.0\.0\.1|localhost|/openid/v1/jwks|/openid-connect/certs|/.well-known/openid-configuration|/.well-known/jwks\.json|kubernetes\.default\.svc).*"""
-| KEEP Esql.*, user.name, user_agent.original, event.action, event.outcome, source.ip, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.objectRef.namespace, kubernetes.audit.objectRef.subresource, kubernetes.audit.requestURI, kubernetes.audit.user.groups, kubernetes.audit.responseStatus.reason, data_stream.namespace
+| KEEP Esql.*, user.name, user_agent.original, event.action, event.outcome, source.ip, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.objectRef.namespace, kubernetes.audit.objectRef.subresource, kubernetes.audit.requestURI, kubernetes.audit.user.groups, kubernetes.audit.responseStatus.reason, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]
