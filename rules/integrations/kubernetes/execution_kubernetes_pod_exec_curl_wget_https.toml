@@ -2,16 +2,16 @@
 creation_date = "2026/04/23"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/23"
+updated_date = "2026/08/18"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects pod or attach exec API calls where the decoded request query implies **curl** or wget fetching an
-**https** URL. Attackers with permission to exec into workloads often run one-liners to stage tooling, pull
+Detects pod or attach exec API calls where the decoded request query implies curl or wget fetching an
+https URL. Attackers with permission to exec into workloads often run one-liners to stage tooling, pull
 scripts or binaries, or exfiltrate data over HTTPS—activity that should be rare compared to shells, debuggers, or
 expected health checks. The rule decodes the audit requestURI, reconstructs a readable command string from
-repeated command parameters, and applies **noise filters** for common cluster health and OIDC/JWKS endpoints so
+repeated command parameters, and applies noise filters for common cluster health and OIDC/JWKS endpoints so
 benign automation is less likely to alert.
 """
 from = "now-6m"
@@ -59,7 +59,9 @@ rule_id = "c9d4e8f1-2a3b-4c5d-8e9f-0a1b2c3d4e5f"
 severity = "high"
 tags = [
     "Data Source: Kubernetes",
+    "Data Source: Kubernetes API Server Audit Logs",
     "Domain: Kubernetes",
+    "Platform: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Command and Control",
@@ -79,7 +81,7 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE Esql.executed_command IS NOT NULL 
   AND Esql.executed_command RLIKE """.*(curl.*https|wget.*https).*"""
   AND NOT Esql.executed_command RLIKE """.*(/api/v1/health|/healthz|/readyz|/livez|127\.0\.0\.1|localhost|/openid/v1/jwks|/openid-connect/certs|/.well-known/openid-configuration|/.well-known/jwks\.json|kubernetes\.default\.svc).*"""
-| KEEP *
+| KEEP Esql.*, user.name, user_agent.original, event.action, event.outcome, source.ip, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.objectRef.namespace, kubernetes.audit.objectRef.subresource, kubernetes.audit.requestURI, kubernetes.audit.user.groups, kubernetes.audit.responseStatus.reason, data_stream.namespace
 '''
 
 [[rule.threat]]

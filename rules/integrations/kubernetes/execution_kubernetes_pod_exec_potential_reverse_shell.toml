@@ -2,7 +2,7 @@
 creation_date = "2026/04/23"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/23"
+updated_date = "2026/08/18"
 
 [rule]
 author = ["Elastic"]
@@ -55,7 +55,9 @@ rule_id = "f1a2b3c4-d5e6-4789-a012-3456789abc01"
 severity = "high"
 tags = [
     "Data Source: Kubernetes",
+    "Data Source: Kubernetes API Server Audit Logs",
     "Domain: Kubernetes",
+    "Platform: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Command and Control",
@@ -76,7 +78,7 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND 
  // local service health check patterns
   NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
-| KEEP *
+| KEEP Esql.*, user.name, user_agent.original, event.action, event.outcome, source.ip, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.objectRef.namespace, kubernetes.audit.objectRef.subresource, kubernetes.audit.requestURI, kubernetes.audit.user.groups, kubernetes.audit.responseStatus.reason, data_stream.namespace
 '''
 
 [[rule.threat]]
