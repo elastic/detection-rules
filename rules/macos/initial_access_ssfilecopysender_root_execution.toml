@@ -1,0 +1,97 @@
+[metadata]
+creation_date = "2026/08/19"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of the macOS Screen Sharing file-copy helper SSFileCopySender with root UID/GID attributes
+(0 80). Under the native Apple authentication path this helper runs in the connecting user's context; execution as
+root is anomalous and consistent with pre-authentication exploitation of the Screen Sharing service (CVE-2026-65400),
+where a flawed SRP validation path lets an unauthenticated attacker reach privileged file operations. Note that the
+0/80 UID/GID pair reflects only initial exploitation attempts and can be evaded once an attacker enumerates another
+local account. It is advisable to treat this as a tripwire and pair it with 
+the SSFileCopyReceiver Writing to Common Persistence Locations rule coverage.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "SSFileCopySender Executed as Root"
+references = [
+    "https://www.huntress.com/blog/macos-screen-sharing-rce-patched",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-65400",
+    "https://support.apple.com/en-us/HT201222",
+]
+risk_score = 47
+rule_id = "e54c3f36-e243-402d-9d44-8f7349eb8c88"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:"macos" and event.category:"process" and event.type:"start" and
+process.name:"SSFileCopySender" and process.args:("0" and "80")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
