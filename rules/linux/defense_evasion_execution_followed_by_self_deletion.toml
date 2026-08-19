@@ -54,7 +54,10 @@ type = "eql"
 query = '''
 sequence by process.entity_id, host.id with maxspan=30s
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and 
-  process.executable like ("/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/var/www/*")] by process.executable
+  process.executable like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/var/www/*",
+    "/proc/*/fd/*", "?memfd:*", "memfd:*"
+  )] by process.executable
   [file where host.os.type == "linux" and event.action == "deletion"] by file.path
 '''
 
