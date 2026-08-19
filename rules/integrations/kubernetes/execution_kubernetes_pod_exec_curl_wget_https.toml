@@ -31,8 +31,8 @@ flags curl or wget combined with https, excluding several common health, localho
 
 - Confirm who may exec into the target namespace: review kubernetes.audit.user.username, groups, impersonation, and
   source.ip / user_agent.original (kubectl, CI, webhooks).
-- Map the pod (kubernetes.audit.objectRef.name) and workload owner; retrieve the exact decoded URI from
-  Esql.decoded_uri and the reconstructed Esql.command in the alert.
+- Map the pod (kubernetes.audit.objectRef.name) and workload owner; retrieve the decoded URI from
+  Esql.decoded_uri and the reconstructed Esql.executed_command in the alert.
 - Search for adjacent audit events from the same identity: secret reads, additional execs, RBAC changes, or anonymous
   access.
 - If malicious, revoke credentials used for exec, review RoleBindings for **`pods/exec`**, and inspect the pod
@@ -73,15 +73,15 @@ query = '''
 FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE kubernetes.audit.objectRef.subresource == "exec"
   AND kubernetes.audit.requestURI LIKE "*command=*"
-| EVAL decoded_uri = URL_DECODE(kubernetes.audit.requestURI)
-| GROK decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL Esql.decoded_uri = URL_DECODE(kubernetes.audit.requestURI)
+| GROK Esql.decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
 | EVAL command = REPLACE(raw_commands, "command=", "")
 | EVAL command = REPLACE(command, "&", " ")
 | EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
 | WHERE Esql.executed_command IS NOT NULL 
   AND Esql.executed_command RLIKE """.*(curl.*https|wget.*https).*"""
   AND NOT Esql.executed_command RLIKE """.*(/api/v1/health|/healthz|/readyz|/livez|127\.0\.0\.1|localhost|/openid/v1/jwks|/openid-connect/certs|/.well-known/openid-configuration|/.well-known/jwks\.json|kubernetes\.default\.svc).*"""
-| KEEP Esql.*, user.name, user_agent.original, event.action, event.outcome, source.ip, kubernetes.audit.objectRef.resource, kubernetes.audit.objectRef.name, kubernetes.audit.objectRef.namespace, kubernetes.audit.objectRef.subresource, kubernetes.audit.requestURI, kubernetes.audit.user.groups, kubernetes.audit.responseStatus.reason, _id, _version, _index, data_stream.namespace
+| KEEP Esql.*, user.name, user_agent.original, event.*, source.ip, kubernetes.audit.*, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]
