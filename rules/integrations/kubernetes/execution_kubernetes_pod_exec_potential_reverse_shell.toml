@@ -21,7 +21,7 @@ note = """## Triage and analysis
 ### Investigating Kubernetes Pod Exec Potential Reverse Shell
 
 The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and 
-matches high-signal shell and socket idioms often used to obtain a allback shell from inside a container.
+matches high-signal shell and socket idioms often used to obtain a fallback shell from inside a container.
 
 ### Possible investigation steps
 
@@ -74,7 +74,6 @@ FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | EVAL command = REPLACE(raw_commands, "command=", "")
 | EVAL command = REPLACE(command, "&", " ")
 | EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
-| WHERE Esql.executed_command IS NOT NULL 
 | WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND 
  // local service health check patterns
   NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
