@@ -68,7 +68,7 @@ sequence by host.id, process.parent.entity_id, process.working_directory with ma
     process.parent.name like (".*", "python*", "perl*", "ruby*", "lua*", "php*") or
     process.parent.executable like (
       "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "/lost+found/*",
-      "/proc/*", "/var/mail/*", "/var/www/*"
+      "/proc/*", "/var/mail/*", "/var/www/*", "/dev/fd/*", "?memfd:*", "memfd:*"
     )
   ) and
   not (
@@ -82,19 +82,24 @@ sequence by host.id, process.parent.entity_id, process.working_directory with ma
      "python*", "perl*", "ruby*", "lua*", "php*", "node"
    ) and process.args_count == 1 and
    process.args like (
-    "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish",
-    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish",
-    "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh", "/bin/csh",
+    "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish", "-ash", "-mksh", "-pwsh",
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "ash", "mksh", "pwsh",
+    "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh",
     "/bin/zsh", "/bin/ksh", "/bin/fish",
+    "/bin/csh", "/bin/ash", "/bin/mksh", "/bin/pwsh",
     "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh",
     "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish",
+    "/usr/bin/csh", "/usr/bin/ash", "/usr/bin/mksh", "/usr/bin/pwsh",
+    "/usr/local/bin/bash", "/usr/local/bin/dash", "/usr/local/bin/sh", "/usr/local/bin/tcsh",
+    "/usr/local/bin/csh", "/usr/local/bin/zsh", "/usr/local/bin/ksh", "/usr/local/bin/fish",
+    "/usr/local/bin/csh", "/usr/local/bin/ash", "/usr/local/bin/mksh", "/usr/local/bin/pwsh"
     "python*", "/bin/python*", "/usr/bin/python*", "/usr/local/bin/python*",
     "perl*", "/bin/perl*", "/usr/bin/perl*", "/usr/local/bin/perl*",
     "ruby*", "/bin/ruby*", "/usr/bin/ruby*", "/usr/local/bin/ruby*",
     "lua*", "/bin/lua*", "/usr/bin/lua*", "/usr/local/bin/lua*",
     "php*", "/bin/php*", "/usr/bin/php*", "/usr/local/bin/php*",
     "node", "/bin/node", "/usr/bin/node", "/usr/local/bin/node",
-    "/dev/fd/*"
+    "/dev/fd/*", "?memfd:*", "memfd:*"
   )
   ]
 '''
