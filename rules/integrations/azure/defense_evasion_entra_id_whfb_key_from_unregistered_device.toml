@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/08/07"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Microsoft Entra ID sign-in that is satisfied by a phishing-resistant, device-bound credential (Windows
+Hello for Business, FIDO2 security key, or passkey) while carrying no device identifier and from a device that is not
+managed. Windows Hello for Business (WHfB) and passkey credentials are bound to a device's TPM, so a genuine sign-in
+with one of these methods is normally accompanied by the registered/managed device it lives on. A WHfB or passkey
+assertion that authenticates with an empty `device_detail.device_id` indicates the underlying key material is being used
+away from its bound device, for example by an adversary who extracted the key (or signed an assertion with it) and
+replayed it from attacker infrastructure to mint device-agnostic tokens. This is the core primitive of the "borrowing
+Windows Hello keys" technique and is a strong precursor to attacker device registration and Primary Refresh Token (PRT)
+issuance.
+"""
+false_positives = [
+    """
+    Rare edge cases during initial passwordless onboarding may briefly produce a Windows Hello for Business or passkey
+    sign-in before the device is fully registered. Validate against the user's device registration timeline. Genuine
+    WHfB and passkey sign-ins are otherwise accompanied by a populated, managed device identifier.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-azure.signinlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Windows Hello or Passkey Sign-in from Unregistered Device"
+note = """## Triage and analysis
+
+### Investigating Entra ID Windows Hello or Passkey Sign-in from Unregistered Device
+
+Windows Hello for Business (WHfB) and passkey credentials are cryptographically bound to a device's TPM. A legitimate sign-in with one of these phishing-resistant methods is normally accompanied by the registered, managed device that holds the key. A sign-in satisfied by these methods with an empty `device_detail.device_id` and an unmanaged device indicates the key material is being used away from its bound device - the defining signal of the "borrowing Windows Hello keys" technique, where an adversary reuses a WHfB/NGC key or passkey to mint device-agnostic tokens from their own infrastructure.
+
+### Possible investigation steps
+- Review `azure.signinlogs.properties.user_principal_name` to identify the user whose credential was used.
+- Confirm `azure.signinlogs.properties.authentication_details.authentication_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey.
+- Confirm `azure.signinlogs.properties.device_detail.device_id` is empty and `azure.signinlogs.properties.device_detail.is_managed` is not true - a device-bound credential should not be presenting without its device.
+- Review `azure.signinlogs.properties.app_id` and `azure.signinlogs.properties.resource_display_name`. Access to Microsoft Graph or the Device Registration Service immediately after is common (staging device registration / PRT issuance).
+- Examine `source.ip`, `source.geo.*`, and `user_agent.original`. Automation user agents (for example python-requests) or hosting/VPS ASNs are strong indicators of tooling such as ROADtools/roadtx.
+- Pivot on `azure.signinlogs.properties.user_id` in `azure.auditlogs` for a subsequent "Register device" or "Add Windows Hello for Business credential" event within a short window.
+- Determine whether the user actually enrolled a new WHfB key or passkey around this time; if not, treat the key as compromised.
+
+### False positive analysis
+- Initial passwordless onboarding may briefly generate a WHfB/passkey sign-in before device registration completes. Correlate with the user's device registration timeline.
+- Legitimate WHfB and passkey sign-ins are otherwise accompanied by a populated, managed device identifier, so recurring alerts for the same user warrant investigation rather than suppression.
+
+### Response and remediation
+- Treat the WHfB/NGC key or passkey as compromised: delete the affected authentication method and any attacker-registered device for the user via Microsoft Graph or the Entra portal.
+- Revoke the user's sessions (`revokeSignInSessions`) and refresh tokens; deleting registered devices first breaks device-bound PRT persistence.
+- Reset credentials and re-enroll phishing-resistant methods from a trusted device.
+- Hunt for device registrations and PRT issuance for the same user following the sign-in, and remove attacker-controlled devices.
+- Consider Conditional Access requiring device compliance for sensitive resources so device-agnostic tokens cannot access them.
+"""
+references = [
+    "https://dirkjanm.io/borrowing-windows-hello-keys/",
+    "https://dirkjanm.io/phishing-for-microsoft-entra-primary-refresh-tokens/",
+]
+risk_score = 47
+rule_id = "763b0a74-2961-4396-bb4b-8cd850e1ebe4"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Azure integration with Microsoft Entra ID Sign-In logs to be enabled and configured to collect sign-in logs via Azure Event Hub.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Platform: Entra ID",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+    "Rule Type: New Terms",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "azure.signinlogs" and
+    event.category: "authentication" and
+    azure.signinlogs.result_signature: "SUCCESS" and
+    azure.signinlogs.properties.user_type: "Member" and
+    azure.signinlogs.properties.authentication_details.authentication_method: (
+        "Windows Hello for Business" or *passkey* or FIDO2* or Passkey*
+    ) and
+    (
+        azure.signinlogs.properties.device_detail.device_id: ("" or not *) or
+        not azure.signinlogs.properties.device_detail.is_managed: true
+    ) and
+    azure.signinlogs.properties.user_principal_name: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.signinlogs.properties.user_principal_name",
+    "azure.signinlogs.properties.authentication_details.authentication_method",
+    "azure.signinlogs.properties.device_detail.device_id",
+    "azure.signinlogs.properties.device_detail.is_managed",
+    "azure.signinlogs.properties.incoming_token_type",
+    "azure.signinlogs.properties.app_id",
+    "azure.signinlogs.properties.resource_display_name",
+    "source.geo.country_name",
+    "source.address",
+    "user_agent.original",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.signinlogs.properties.user_principal_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
