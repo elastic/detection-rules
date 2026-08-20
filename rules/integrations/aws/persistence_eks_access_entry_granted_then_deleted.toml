@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/08/14"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of an Amazon EKS access entry followed by its deletion by the same
+identity within a short time window. EKS access entries define Kubernetes RBAC-level
+permissions for IAM principals in an EKS cluster. An adversary with EKS administrative
+access may temporarily grant themselves cluster access, use those permissions to create
+Kubernetes RBAC resources (ClusterRoleBindings, ServiceAccounts with privileged roles),
+and then delete the access entry to hide the evidence of the initial grant while retaining
+access through the Kubernetes-level backdoor.
+"""
+false_positives = [
+    """
+    Automated infrastructure tests that create and immediately tear down EKS access entries
+    as part of CI/CD validation may trigger this rule. Validate that the sequence corresponds
+    to a documented test pipeline.
+    """,
+]
+from = "now-15m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "AWS EKS Access Entry Created Then Deleted by Same Identity"
+note = """## Triage and analysis
+
+### Investigating AWS EKS Access Entry Created Then Deleted by Same Identity
+
+EKS access entries (introduced in EKS API mode) map IAM principals to Kubernetes access policies or allow associating Kubernetes groups to IAM principals. An adversary who obtains `eks:CreateAccessEntry` and `eks:DeleteAccessEntry` permissions can:
+
+1. Create an access entry for their own IAM principal with cluster-admin level access.
+2. Use that access to create persistent Kubernetes RBAC resources (ClusterRoleBindings, privileged ServiceAccounts, rogue DaemonSets).
+3. Delete the access entry, removing the CloudTrail evidence of the initial grant while retaining Kubernetes-level access.
+
+This sequence is analogous to adding a backdoor user, using it, then deleting it to cover tracks. The deletion within a short window of creation is the key behavioral indicator.
+
+### Possible investigation steps
+
+- Identify the calling identity from `aws.cloudtrail.user_identity.arn` and the targeted cluster from `aws.cloudtrail.request_parameters`.
+- Review Kubernetes audit logs for the affected cluster in the time window between the `CreateAccessEntry` and `DeleteAccessEntry` events. Look for `create` verbs on ClusterRoleBindings, RoleBindings, ServiceAccounts, or DaemonSets.
+- Check the cluster's current RBAC configuration for persistent backdoor resources.
+- Determine whether the identity had a legitimate reason to create an access entry for the targeted cluster.
+
+### Response and remediation
+
+- Audit all Kubernetes RBAC resources for unauthorized ClusterRoleBindings or privileged ServiceAccounts created in the suspect window.
+- Rotate credentials for the calling identity.
+- Apply IAM policies restricting `eks:CreateAccessEntry` and `eks:DeleteAccessEntry` to designated EKS administrative roles.
+"""
+references = [
+    "https://docs.aws.amazon.com/eks/latest/APIReference/API_CreateAccessEntry.html",
+    "https://docs.aws.amazon.com/eks/latest/APIReference/API_DeleteAccessEntry.html",
+    "https://www.wiz.io/blog/new-attack-vectors-emerge-via-recent-eks-access-entries-and-pod-identity-features",
+    "https://securitylabs.datadoghq.com/articles/eks-cluster-access-management-deep-dive/",
+]
+risk_score = 73
+rule_id = "2b60fb61-d0c7-405e-9f33-a66d8729628d"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. EKS management events are logged by default."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EKS",
+    "Rule Type: Event Correlation (EQL)",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by user.name with maxspan=10m
+  [any where event.provider == "eks.amazonaws.com" and event.action == "CreateAccessEntry" and event.outcome == "success"]
+  [any where event.provider == "eks.amazonaws.com" and event.action == "DeleteAccessEntry" and event.outcome == "success"]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
