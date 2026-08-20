@@ -5,7 +5,7 @@ maturity = "production"
 updated_date = "2026/08/20"
 
 [rule]
-author = []
+author = ["Elastic"]
 description = """
 Detects suspicious macOS Apple Events activity from scripting binaries such as osascript, python3, python, ruby, perl, bash, zsh, sh, node 
 covering confirmed attack scenarios like clipboard theft (Jons,gClp), password prompt spoof (syso,dlog+htxt), volume mute (aevt,stvl), 
@@ -23,7 +23,7 @@ false_positives = [
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "Suspicious MacOS Apple Events Activity via Scripting Binary"
+name = "Suspicious macOS Apple Events Activity via Scripting Binary"
 references = [
     "https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/introduction/ASLR_intro.html",
     "https://pberba.github.io/security/2026/02/21/aemonitor/",
@@ -41,6 +41,7 @@ Specific Setup instructions can be found in the following documentation:
 severity = "medium"
 tags = [
     "OS: macOS",
+    "Platform: macOS",
     "Tactic: Collection",
     "Tactic: Execution",
     "Tactic: Discovery",
@@ -49,6 +50,7 @@ tags = [
     "Domain: Endpoint",
     "Use Case: Threat Detection",
     "Data Source: Unified Logs",
+    "Rule Type: ESQL",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -71,7 +73,7 @@ FROM logs-unifiedlogs* METADATA _id, _index, _version
         OR CONTAINS(message, "doSH")
         OR CONTAINS(message, "do shell script")
     )
-| KEEP _id, @timestamp, host.hostname, process.name, process.pid, unified_log.subsystem, apple_event.type_code, apple_event.direction, apple_event.target_process, apple_event.parameters, message
+| KEEP _id, _version, _index, @timestamp, host.hostname, process.name, process.pid, unified_log.subsystem, apple_event.type_code, apple_event.direction, apple_event.target_process, apple_event.parameters, message
 | SORT @timestamp DESC
 | LIMIT 100
 '''
