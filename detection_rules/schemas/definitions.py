@@ -203,6 +203,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Splunk Forwarded Events",
     "Data Source: Suricata Logs",
     "Data Source: Sysmon Only",
+    "Data Source: Unified Logs",
     "Data Source: Windows Security Event Logs",
     "Data Source: Windows Sysmon Logs",
     "Data Source: Windows System Event Logs",
