@@ -1,8 +1,8 @@
-# Apple Events (`com.apple.appleevents`)
+# Apple Events
 
 ## Setup
 
-Some detection rules require Apple Event debug telemetry from the `com.apple.appleevents` Unified Logs subsystem. Complete the [Unified Logs Integration](unified_logs_integration.md) setup first, then enable OS-level debug emission on each monitored macOS host.
+Some detection rules require Apple Event debug telemetry from the `com.apple.appleevents` Unified Logs subsystem. Complete the [macOS Unified Logs](readme.md) setup first, then enable OS-level debug emission on each monitored macOS host.
 
 > **Note:** This step is specific to rules that depend on `com.apple.appleevents`. It is not required for general Unified Logs collection.
 
