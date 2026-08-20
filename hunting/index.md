@@ -31,6 +31,7 @@ Here are the queries currently available:
 
 
 ## azure
+- [AKS Kubelet nodes/proxy Command Execution from an External Source IP](./azure/docs/aks_kubelet_proxy_command_execution_from_external_source.md) (ES|QL)
 - [Azure Entra Authentication Attempts from Abused Hosting Service Providers](./azure/docs/entra_authentication_attempts_from_abused_hosting_service_providers.md) (ES|QL)
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)
@@ -99,7 +100,6 @@ Here are the queries currently available:
 
 
 ## macos
-- [Do Shell Script Execution via Apple Events](./macos/docs/execution_do_shell_script_via_apple_events.md) (ES|QL)
 - [Low Occurrence of Suspicious Launch Agent or Launch Daemon](./macos/docs/persistence_via_suspicious_launch_agent_or_launch_daemon_with_low_occurrence.md) (ES|QL)
 - [Potential Python Stealer Activity](./macos/docs/credential_access_potential_python_stealer.md) (ES|QL)
 - [Python Library Load and Delete](./macos/docs/defense_evasion_python_library_load_and_delete.md) (ES|QL)
@@ -135,7 +135,7 @@ Here are the queries currently available:
 
 ## windows
 - [DLL Hijack via Masquerading as Microsoft Native Libraries](./windows/docs/detect_dll_hijack_via_masquerading_as_microsoft_native_libraries.md) (ES|QL)
-- [DNS Queries via LOLBins with Low Occurence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.md) (ES|QL)
+- [DNS Queries via LOLBins with Low Occurrence Frequency](./windows/docs/domain_names_queried_via_lolbins_and_with_low_occurrence_frequency.md) (ES|QL)
 - [Egress Network Connections with Total Bytes Greater than Threshold](./windows/docs/potential_exfiltration_by_process_total_egress_bytes.md) (ES|QL)
 - [Excessive RDP Network Activity by Host and User](./windows/docs/excessive_rdp_network_activity_by_source_host_and_user.md) (ES|QL)
 - [Excessive SMB Network Activity by Process ID](./windows/docs/excessive_smb_network_activity_by_process_id.md) (ES|QL)
