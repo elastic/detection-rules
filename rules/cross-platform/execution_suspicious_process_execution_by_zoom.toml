@@ -2,7 +2,7 @@
 creation_date = "2026/08/12"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/12"
+updated_date = "2026/08/20"
 
 [rule]
 author = ["Elastic"]
@@ -23,20 +23,20 @@ from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Suspicious Process Execution by Zoom on macOS or Linux"
+name = "Suspicious Process Execution by Zoom"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Suspicious Process Execution by Zoom on macOS or Linux
+### Investigating Suspicious Process Execution by Zoom
 
 CVE-2026-53413 is a buffer overwrite in Zoom's annotation parser that can allow a meeting participant to execute code
 on another participant's device. The published macOS exploit replaced the running `zoom.us` process image with Safari
 using `execvp`. Other payloads may instead spawn a shell, interpreter, downloader, or network utility. This rule detects
 suspicious Zoom child processes on macOS and Linux and in-place Zoom process-image replacement on Linux, where Elastic
-Defend records the prior image in `process.previous.executable`. The Linux logic supports native package, Snap, and
-Flatpak installation paths.
+Defend records the prior image in `process.previous.executable`. The Linux logic identifies the Zoom executable
+regardless of its installation path.
 
 ### Possible investigation steps
 
@@ -97,8 +97,6 @@ Defend provides on Linux `exec` process events.
 severity = "high"
 tags = [
     "Domain: Endpoint",
-    "Platform: Linux",
-    "Platform: macOS",
     "OS: Linux",
     "OS: macOS",
     "Use Case: Threat Detection",
@@ -112,25 +110,13 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where event.type in ("start", "process_started") and event.action == "exec" and
+process where event.type == "start" and event.action == "exec" and
   (
     (
       host.os.type == "linux" and
-      process.previous.executable : (
-        "/opt/zoom/zoom",
-        "/snap/zoom-client/*/zoom/zoom",
-        "/app/extra/zoom/zoom"
-      ) and
-      not process.executable : (
-        "/opt/zoom/*",
-        "/snap/zoom-client/*",
-        "/app/extra/zoom/*"
-      ) and
-      not process.parent.executable : (
-        "/opt/zoom/zoom",
-        "/snap/zoom-client/*/zoom/zoom",
-        "/app/extra/zoom/zoom"
-      )
+      process.previous.executable : "*/zoom" and
+      not process.executable : "*/zoom" and
+      not process.parent.name : "zoom"
     ) or
     (
       host.os.type in ("macos", "linux") and
@@ -138,16 +124,13 @@ process where event.type in ("start", "process_started") and event.action == "ex
         (host.os.type == "macos" and
          process.parent.executable : "*/zoom.us.app/Contents/MacOS/zoom.us") or
         (host.os.type == "linux" and
-         process.parent.executable : (
-           "/opt/zoom/zoom",
-           "/snap/zoom-client/*/zoom/zoom",
-           "/app/extra/zoom/zoom"
-         ))
+         process.parent.name : "zoom")
       ) and
       process.name : (
-        "sh", "bash", "zsh", "dash", "ksh", "fish",
-        "python*", "perl*", "ruby*", "php*", "osascript",
-        "curl", "nscurl", "wget", "nc", "ncat", "netcat", "socat", "openssl",
+        "sh", "bash", "zsh", "dash", "ksh", "fish", "ash", "mksh", "tsh", "tcsh", "pwsh",
+        "python*", "perl*", "ruby*", "php*", "lua*", "node", "nodejs", "osascript",
+        "curl", "nscurl", "wget", "nc", "ncat", "netcat", "netcat.openbsd", "netcat.traditional",
+        "nc.openbsd", "nc.traditional", "socat", "openssl",
         "chmod", "xattr"
       ) and
       not (
