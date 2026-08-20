@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik", "zeek"]
 maturity = "production"
-updated_date = "2026/07/01"
+updated_date = "2026/08/09"
 
 [rule]
 author = ["Elastic"]
@@ -106,6 +106,15 @@ url.original like~ (
     "*select @@version*", "*select user()*", "*select current_user()*", "*select database()*",
     "*sp_executesql*exec*", "*xp_dirtree*"
   )
+) and
+not user_agent.original like~ (
+    "*sqlmap*", "*Nessus*", "*Nikto*", "*Qualys*", "*Acunetix*", "*Burp Suite*",
+    "*OWASP ZAP*", "*ZAP*", "*Tenable*", "*CensysInspect*", "*Detectify*",
+    "*Assetnote*", "*ExposureScan*", "*RecordedFuture*", "*UT-Dorkbot*",
+    "*hadrian*", "*Intruder*", "*Wapiti*", "*w3af*", "*Arachni*",
+    "*AppSpider*", "*WebInspect*", "*Rapid7*", "*InsightVM*", "*Probely*",
+    "*PentestTools*", "*DirBuster*", "*Gobuster*", "*Skipfish*",
+    "*Commix*", "*Havij*", "*jSQL*"
 )
 '''
 note = """## Triage and analysis
