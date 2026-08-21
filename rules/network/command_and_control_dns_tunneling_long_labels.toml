@@ -1,21 +1,22 @@
 [metadata]
-creation_date = "2026/06/25"
-integration = ["network_traffic", "zeek", "corelight"]
+creation_date = "2026/08/20"
+integration = ["network_traffic", "zeek"]
 maturity = "production"
 updated_date = "2026/08/20"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a client generating many unique, unusually long DNS query names to the same registered domain within a short
-window. Malware DNS tunnels and DNS command-and-control commonly encode data in lengthy subdomain labels under one apex
-domain.
+Identifies a client generating many unique, unusually long DNS query names to the same registered domain within a
+five-minute window. Malware DNS tunnels and DNS command-and-control commonly encode data in lengthy subdomain portions
+under one apex domain.
 """
 false_positives = [
     """
-    CDN, cloud load-balancer, software-update, and telemetry hostnames can be long and change often. Recursive resolvers,
-    forwarders, NAT gateways, and localhost DNS listeners can also combine queries from many endpoints under one client
-    address. Validate the apex domain and whether the source is an endpoint before treating the activity as tunneling.
+    CDN, cloud load-balancer, software-update, and telemetry hostnames can be long and change often. Recursive
+    resolvers, forwarders, NAT gateways, and localhost DNS listeners can also combine queries from many endpoints under
+    one client address. Validate the apex domain and whether the source is an endpoint before treating the activity as
+    tunneling.
     """,
 ]
 from = "now-9m"
@@ -39,6 +40,8 @@ Compare overlapping apex domains against the machine learning **DNS Tunneling** 
   `Esql.max_subdomain_length`, and sample values in `Esql.sample_names`.
 - Inspect `Esql.dns_question_type_values`. TXT, NULL, CNAME, or MX bursts increase confidence; A/AAAA-only activity can
   still be tunneling and should not be dismissed on type alone.
+- Use `Esql.first_seen`, `Esql.last_seen`, `Esql.dataset_values`, and `Esql.observer_name_values` to establish the event
+  span and identify the integrations and sensors that contributed to the alert.
 - Confirm whether `Esql.client_ip` is a workstation, server, recursive resolver, forwarder, NAT address, or localhost
   DNS service. Resolver and localhost sources merge many clients and are a common false-positive pattern.
 - Review `Esql.destination_ip_values` to identify the resolver or authoritative destination observed by the sensor.
@@ -74,8 +77,6 @@ This rule requires DNS transaction events from one of the following sources:
 
 - Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
 - Elastic Zeek (`zeek.dns`) in `logs-zeek.dns-*`
-- Corelight ECS-mapped DNS logs in `logs-corelight.dns-*` (Corelight's Elastic export with the Corelight ECS templates,
-  not the dashboards-only Fleet package)
 - Legacy Packetbeat DNS events in `packetbeat-*` with `event.dataset` set to `dns`
 
 Place the sensor where it observes endpoint-to-resolver DNS traffic. If the sensor is upstream of a recursive resolver,
@@ -84,10 +85,6 @@ infrastructure instead of the originating endpoint.
 
 DNS-over-HTTPS (DoH), DNS-over-TLS (DoT), and other encrypted DNS traffic are not visible to packet capture unless the
 sensor receives decrypted DNS telemetry or equivalent resolver logs mapped to ECS.
-
-Corelight's ECS pipeline maps Zeek `query` to `dns.question.name` and derives `dns.question.registered_domain` by
-stripping the first label. It does not populate `dns.question.subdomain`. This rule therefore measures subdomain length
-from the query name and registered domain so Corelight, Zeek, and Network Packet Capture can share the same logic.
 """
 severity = "medium"
 tags = [
@@ -96,26 +93,26 @@ tags = [
     "Use Case: Network Security Monitoring",
     "Tactic: Command and Control",
     "Tactic: Exfiltration",
+    "Data Source: Network Packet Capture",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
-    "Data Source: Corelight",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.dns-*, logs-zeek.dns-*, logs-corelight.dns-*, packetbeat-*
+from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
 | where
     (
-      data_stream.dataset in ("network_traffic.dns", "zeek.dns", "corelight.dns")
+      data_stream.dataset in ("network_traffic.dns", "zeek.dns")
       or event.dataset == "dns"
     )
     and dns.question.name is not null
     and dns.question.registered_domain is not null
-    and source.ip is not null
 | eval
     Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.dataset = COALESCE(data_stream.dataset, event.dataset),
     Esql.dns_question_name = TO_LOWER(dns.question.name),
     Esql.dns_registered_domain = TO_LOWER(dns.question.registered_domain),
     Esql.dns_question_type = TO_LOWER(dns.question.type),
@@ -131,9 +128,13 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, logs-corelight.dns-*, packetbe
     Esql.count_distinct_names = COUNT_DISTINCT(Esql.dns_question_name),
     Esql.max_subdomain_length = MAX(Esql.subdomain_length),
     Esql.avg_subdomain_length = AVG(Esql.subdomain_length),
-    Esql.dns_question_type_values = VALUES(Esql.dns_question_type),
-    Esql.destination_ip_values = MV_SLICE(VALUES(destination.ip), 0, 5),
-    Esql.sample_names = MV_SLICE(VALUES(Esql.dns_question_name), 0, 5)
+    Esql.dns_question_type_values = MV_SLICE(VALUES(Esql.dns_question_type), 0, 9),
+    Esql.destination_ip_values = MV_SLICE(VALUES(destination.ip), 0, 4),
+    Esql.sample_names = MV_SLICE(VALUES(Esql.dns_question_name), 0, 4),
+    Esql.dataset_values = MV_SLICE(VALUES(Esql.dataset), 0, 9),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 19),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
   by Esql.time_window, Esql.client_ip, Esql.dns_registered_domain
 | where Esql.count_queries >= 25 and Esql.count_distinct_names >= 15
 | eval Esql.unique_name_ratio = TO_DOUBLE(Esql.count_distinct_names) / Esql.count_queries
@@ -150,23 +151,12 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, logs-corelight.dns-*, packetbe
     Esql.avg_subdomain_length,
     Esql.dns_question_type_values,
     Esql.destination_ip_values,
-    Esql.sample_names
+    Esql.sample_names,
+    Esql.dataset_values,
+    Esql.observer_name_values,
+    Esql.first_seen,
+    Esql.last_seen
 '''
-
-[rule.investigation_fields]
-field_names = [
-    "Esql.client_ip",
-    "Esql.dns_registered_domain",
-    "Esql.time_window",
-    "Esql.count_queries",
-    "Esql.count_distinct_names",
-    "Esql.unique_name_ratio",
-    "Esql.max_subdomain_length",
-    "Esql.avg_subdomain_length",
-    "Esql.dns_question_type_values",
-    "Esql.destination_ip_values",
-    "Esql.sample_names",
-]
 
 
 [[rule.threat]]
@@ -191,7 +181,6 @@ reference = "https://attack.mitre.org/techniques/T1572/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -204,7 +193,27 @@ name = "Exfiltration Over Unencrypted Non-C2 Protocol"
 reference = "https://attack.mitre.org/techniques/T1048/003/"
 
 
+
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.client_ip",
+    "Esql.dns_registered_domain",
+    "Esql.time_window",
+    "Esql.count_queries",
+    "Esql.count_distinct_names",
+    "Esql.unique_name_ratio",
+    "Esql.max_subdomain_length",
+    "Esql.avg_subdomain_length",
+    "Esql.dns_question_type_values",
+    "Esql.destination_ip_values",
+    "Esql.sample_names",
+    "Esql.dataset_values",
+    "Esql.observer_name_values",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
