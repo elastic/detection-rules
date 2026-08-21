@@ -85,7 +85,7 @@ event.category:file and host.os.type:linux and event.action:(creation or rename)
   (process.name: lua* and file.extension: ("lua" or "luac"))
 ) and
 file.path:(
-  /home/*/* or /var/www/* or /srv/www/* or /srv/http/* or /usr/share/nginx/* or
+  /home/*/* or /var/www/* or /srv/www/* or /srv/http/* or /usr/share/nginx/* or /opt/zimbra/jetty* or
   /usr/share/caddy/* or /usr/local/lsws/* or /opt/bitnami/* or */sites/*/files/* or /opt/easyengine/* or
   */wp-content/* or */httpdocs/* or */httpsdocs/* or */htdocs/* or */wwwroot/* or */webroot/* or */cgi-bin/* or
   */upload/* or */uploads/* or */images/* or */media/* or */userfiles/* or */attachments/* or
@@ -99,8 +99,12 @@ file.path:(
   */vhost* or /opt/apache-tomcat* or /opt/jetty* or /usr/local/jetty* or */wildfly*/* or */jboss*/* or */glassfish/* or
   */user_projects/domains/* or */resin*/webapps/* or */installedApps/*
 ) and
-not (process.name:("nginx" or "apache2") and not file.extension:*) and
-not file.path:*/storage/framework/sessions/*
+not (
+  (process.name:("nginx" or "apache2") and not file.extension:*) or
+  file.path:(*/storage/framework/sessions/* or /var/lib/nginx/*) or
+  (process.name:php-fpm* and file.path:(/mnt/WEB/*/public_html/tmp/templates/frontend/*.php or /mnt/WEB/*/public_html/wp-content/languages/*.json)) or
+  (process.name:node and (user.id>=1000 or user.id:0))
+  )
 '''
 
 [[rule.threat]]
