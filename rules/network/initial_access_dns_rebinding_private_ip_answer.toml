@@ -52,8 +52,9 @@ loopback identities can merge many hosts into one bucket.
   but does not establish that they came from one DNS transaction. Compare `Esql.first_public_answer`,
   `Esql.first_private_answer`, `Esql.transition_seconds`, and `Esql.min_private_event_ttl` for sequential transitions.
   Short transitions and TTL values near zero increase confidence.
-- Use `Esql.resolved_ip_count`, `Esql.dataset_values`, and `Esql.observer_name_values` to assess the observation volume
-  and identify the integrations and sensors that contributed to the alert.
+- Use `Esql.resolved_ip_observation_count`, `Esql.resolved_ip_count`, `Esql.dataset_values`, and
+  `Esql.observer_name_values` to assess observation volume, distinct IP cardinality, and the integrations and sensors
+  that contributed to the alert.
 - Identify the requesting client using `Esql.client_ip`. Confirm whether that address is an endpoint rather than a
   recursive resolver, forwarder, or localhost DNS service before attributing the activity to one host.
 - Determine whether the registered domain is attacker-controlled or a legitimate split-horizon or failover domain.
@@ -105,6 +106,7 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: Network Security Monitoring",
     "Tactic: Initial Access",
+    "Rule Type: ESQL",
     "Data Source: Network Packet Capture",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
@@ -150,7 +152,8 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
     Esql.private_ip = CASE(Esql.is_private, dns.resolved_ip, null),
     Esql.public_ip = CASE(not Esql.is_private, dns.resolved_ip, null)
 | stats
-    Esql.resolved_ip_count = COUNT(*),
+    Esql.resolved_ip_observation_count = COUNT(*),
+    Esql.resolved_ip_count = COUNT_DISTINCT(dns.resolved_ip),
     Esql.first_public_answer = MIN(Esql.public_time),
     Esql.first_private_answer = MIN(Esql.private_time),
     Esql.min_private_event_ttl = MIN(Esql.private_event_ttl),
@@ -178,6 +181,7 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
     Esql.client_ip,
     dns.question.name,
     dns.question.registered_domain,
+    Esql.resolved_ip_observation_count,
     Esql.resolved_ip_count,
     Esql.first_public_answer,
     Esql.first_private_answer,
@@ -209,6 +213,7 @@ field_names = [
     "Esql.client_ip",
     "dns.question.name",
     "dns.question.registered_domain",
+    "Esql.resolved_ip_observation_count",
     "Esql.resolved_ip_count",
     "Esql.first_public_answer",
     "Esql.first_private_answer",
