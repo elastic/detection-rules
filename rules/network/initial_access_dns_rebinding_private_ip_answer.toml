@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2026/06/25"
+creation_date = "2026/08/20"
 integration = ["network_traffic", "zeek"]
 maturity = "production"
 updated_date = "2026/08/20"
@@ -8,9 +8,10 @@ updated_date = "2026/08/20"
 author = ["Elastic"]
 description = """
 Identifies a client resolving the same public registered domain to both a public IP address and a private, loopback,
-link-local, or shared address. This includes a single DNS response that contains both address classes, and a public
-answer followed within five minutes by a private answer whose minimum observed TTL is 60 seconds or less. Either pattern
-is consistent with DNS rebinding that pivots browser or application trust to internal resources.
+link-local, unique-local IPv6, or shared address. This includes both address classes being observed at the same
+timestamp, and a public answer followed within five minutes by a private answer where the minimum TTL across all answer
+records in the private-answer events is 60 seconds or less. Either pattern is consistent with DNS rebinding that pivots
+browser or application trust to internal resources.
 """
 false_positives = [
     """
@@ -33,10 +34,11 @@ note = """## Triage and analysis
 
 DNS rebinding uses attacker-controlled public names that resolve to internal addresses so a victim browser or client
 reaches RFC1918, loopback, link-local, unique-local IPv6, or shared-address targets. This rule alerts on two patterns
-for the same client and fully qualified domain name: a single response that contains both a public and an internal
-address, or a public answer followed by an internal answer within five minutes. Sequential transitions also require a
-minimum observed private-answer TTL of 60 seconds or less. Same-response mixed answers do not require the TTL or
-five-minute gates because both address classes are already present in one transaction.
+for the same client and fully qualified domain name: public and internal addresses whose first observations have the
+same timestamp, or a public answer followed by an internal answer within five minutes. Sequential transitions also
+require the minimum TTL across all DNS answer records in the private-answer events to be 60 seconds or less. Equal
+timestamps often represent a mixed-answer response, but do not prove that the addresses came from one DNS transaction;
+parallel A and AAAA events can share a timestamp. Equal-timestamp matches do not require the TTL or five-minute gates.
 
 `Esql.client_ip` is `client.ip` when present and otherwise `source.ip`. Depending on sensor placement this value may
 identify an endpoint, a recursive resolver, a forwarder, or a localhost DNS listener such as `127.0.0.1`. Resolver or
@@ -46,9 +48,12 @@ loopback identities can merge many hosts into one bucket.
 
 - Review `dns.question.name`, `dns.question.registered_domain`, `Esql.public_ips`, and `Esql.private_ips` to confirm the
   same name resolved to both a public and an internal address.
-- Check `Esql.same_response`. A value of `true` means both address classes appeared at the same timestamp in one
-  response. Compare `Esql.first_public_answer`, `Esql.first_private_answer`, `Esql.transition_seconds`, and
-  `Esql.min_private_ttl` for sequential transitions. Short transitions and TTL values near zero increase confidence.
+- Check `Esql.same_timestamp`. A value of `true` means both address classes were first observed at the same timestamp,
+  but does not establish that they came from one DNS transaction. Compare `Esql.first_public_answer`,
+  `Esql.first_private_answer`, `Esql.transition_seconds`, and `Esql.min_private_event_ttl` for sequential transitions.
+  Short transitions and TTL values near zero increase confidence.
+- Use `Esql.resolved_ip_count`, `Esql.dataset_values`, and `Esql.observer_name_values` to assess the observation volume
+  and identify the integrations and sensors that contributed to the alert.
 - Identify the requesting client using `Esql.client_ip`. Confirm whether that address is an endpoint rather than a
   recursive resolver, forwarder, or localhost DNS service before attributing the activity to one host.
 - Determine whether the registered domain is attacker-controlled or a legitimate split-horizon or failover domain.
@@ -84,7 +89,8 @@ This rule requires DNS transaction events from one of the following passive netw
 - Zeek (`zeek.dns`) in `logs-zeek.dns-*`
 - Legacy Packetbeat DNS events in `packetbeat-*`
 
-Enable DNS logging so that `dns.question.registered_domain`, `dns.resolved_ip`, and `dns.answers.ttl` are populated.
+Enable DNS logging so that `dns.question.registered_domain` and `dns.resolved_ip` are populated. Populate
+`dns.answers.ttl` to detect sequential public-to-private transitions; equal-timestamp matches do not require TTL data.
 
 Place the sensor where it observes endpoint-to-resolver DNS traffic. If the sensor is upstream of a recursive resolver,
 or if the captured client is a localhost listener such as `127.0.0.1`, `Esql.client_ip` may identify shared DNS
@@ -99,6 +105,7 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: Network Security Monitoring",
     "Tactic: Initial Access",
+    "Data Source: Network Packet Capture",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
     "Resources: Investigation Guide",
@@ -116,10 +123,11 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
     dns.question.name is not null and
     dns.question.registered_domain is not null and
     dns.resolved_ip is not null and
-    dns.answers.ttl is not null and
-    dns.response_code == "NOERROR" and
-    dns.question.type in ("A", "AAAA")
-| eval Esql.client_ip = coalesce(client.ip, source.ip)
+    TO_UPPER(dns.response_code) == "NOERROR" and
+    TO_UPPER(dns.question.type) in ("A", "AAAA")
+| eval
+    Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.dataset = COALESCE(data_stream.dataset, event.dataset)
 | where Esql.client_ip is not null
 | mv_expand dns.resolved_ip
 | eval Esql.is_private = CIDR_MATCH(
@@ -138,27 +146,31 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
 | eval
     Esql.private_time = CASE(Esql.is_private, @timestamp, null),
     Esql.public_time = CASE(not Esql.is_private, @timestamp, null),
-    Esql.private_ttl = CASE(Esql.is_private, MV_MIN(dns.answers.ttl), null),
+    Esql.private_event_ttl = CASE(Esql.is_private, MV_MIN(dns.answers.ttl), null),
     Esql.private_ip = CASE(Esql.is_private, dns.resolved_ip, null),
     Esql.public_ip = CASE(not Esql.is_private, dns.resolved_ip, null)
 | stats
+    Esql.resolved_ip_count = COUNT(*),
     Esql.first_public_answer = MIN(Esql.public_time),
     Esql.first_private_answer = MIN(Esql.private_time),
-    Esql.min_private_ttl = MIN(Esql.private_ttl),
-    Esql.public_ips = VALUES(Esql.public_ip),
-    Esql.private_ips = VALUES(Esql.private_ip)
+    Esql.min_private_event_ttl = MIN(Esql.private_event_ttl),
+    Esql.public_ips = MV_SLICE(VALUES(Esql.public_ip), 0, 100),
+    Esql.private_ips = MV_SLICE(VALUES(Esql.private_ip), 0, 100),
+    Esql.dataset_values = MV_SLICE(VALUES(Esql.dataset), 0, 10),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 20)
   by Esql.client_ip, dns.question.name, dns.question.registered_domain
 | eval
-    Esql.same_response = Esql.first_public_answer == Esql.first_private_answer,
+    Esql.same_timestamp = Esql.first_public_answer == Esql.first_private_answer,
     Esql.transition_seconds = DATE_DIFF("seconds", Esql.first_public_answer, Esql.first_private_answer)
 | where
     Esql.first_public_answer is not null and
     Esql.first_private_answer is not null and
     (
-        Esql.same_response or
+        Esql.same_timestamp or
         (
             Esql.first_public_answer < Esql.first_private_answer and
-            Esql.min_private_ttl <= 60 and
+            Esql.min_private_event_ttl is not null and
+            Esql.min_private_event_ttl <= 60 and
             Esql.transition_seconds <= 300
         )
     )
@@ -166,13 +178,16 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
     Esql.client_ip,
     dns.question.name,
     dns.question.registered_domain,
+    Esql.resolved_ip_count,
     Esql.first_public_answer,
     Esql.first_private_answer,
     Esql.transition_seconds,
-    Esql.same_response,
-    Esql.min_private_ttl,
+    Esql.same_timestamp,
+    Esql.min_private_event_ttl,
     Esql.public_ips,
-    Esql.private_ips
+    Esql.private_ips,
+    Esql.dataset_values,
+    Esql.observer_name_values
 '''
 
 
@@ -188,4 +203,21 @@ reference = "https://attack.mitre.org/techniques/T1189/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.client_ip",
+    "dns.question.name",
+    "dns.question.registered_domain",
+    "Esql.resolved_ip_count",
+    "Esql.first_public_answer",
+    "Esql.first_private_answer",
+    "Esql.transition_seconds",
+    "Esql.same_timestamp",
+    "Esql.min_private_event_ttl",
+    "Esql.public_ips",
+    "Esql.private_ips",
+    "Esql.dataset_values",
+    "Esql.observer_name_values",
+]
 
