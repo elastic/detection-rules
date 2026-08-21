@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/08/17"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first time an Azure Storage resource receives an anonymous data-plane read (GetBlob and related Get or
+List operations). Anonymous requests are used to probe public containers and to test stolen blob URLs before a SAS is
+appended. First-seen resource ID keeps volume down while still covering WireServer-related probes of status or extension
+blobs.
+"""
+false_positives = [
+    """
+    Intentionally public containers (static websites, public datasets) generate anonymous GetBlob and ListBlobs.
+    Baseline those storage accounts and exclude `azure.resource.id` after review.
+    """,
+    """
+    Internet-wide scanners will produce first-seen anonymous access on newly created or newly logged accounts. Confirm
+    whether the account is meant to be public.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.platformlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Azure Storage Anonymous Blob Access to Unusual Resource"
+note = """## Triage and analysis
+
+### Investigating Azure Storage Anonymous Blob Access to Unusual Resource
+
+StorageRead platform logs record `AuthenticationType` as Anonymous when no SAS, OAuth, or account key is presented.
+A first-seen `azure.resource.id` (typically the blob service
+`/subscriptions/.../storageAccounts/<account>/blobServices/default`) means this resource has not had anonymous Get or
+List traffic in the history window.
+
+WireServer SAS-replay chains often start with an anonymous GetBlob (HTTP 409/403) against the same object, then a
+SAS 200. This rule does not require guest-agent path strings; those lab container names are not production
+observables.
+
+`source.ip` is often empty. Use `source.address` (`ip:port`).
+
+### Possible investigation steps
+
+- Review `event.action`, `azure.platformlogs.statusCode`, and `azure.platformlogs.uri`.
+- HTTP 200 with Anonymous means the container or blob is publicly readable. HTTP 409/403 is a probe.
+- Identify the account from `azure.resource.id` / `azure.resource.name` and check whether public access is intended.
+- Search for SAS-authenticated GetBlob to the same account from the same source shortly after.
+- If the URI contains `/$system/` or `md-hdd-`, correlate with WireServer access on VMs in the subscription.
+
+### False positive analysis
+
+- Public blob websites and CDN origins. Exclude the `azure.resource.id` for approved public accounts.
+- New accounts that enable StorageRead for the first time will alert on the first scanner hit.
+
+### Response and remediation
+
+- Disable anonymous public access on accounts that should be private.
+- If a follow-on SAS read exists, revoke that SAS and review how the URL was obtained.
+- Keep StorageRead diagnostic logs enabled on storage accounts of interest.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/storagebloblogs",
+    "https://learn.microsoft.com/en-us/azure/storage/blobs/anonymous-read-access-prevent",
+    "https://cybercx.com.au/blog/azure-ssrf-metadata/",
+]
+risk_score = 47
+rule_id = "eabaf807-e710-4f0f-8943-8d1b436d834a"
+setup = """#### Required Azure Storage Diagnostic Logs
+
+Enable StorageRead diagnostic logs on Azure Storage Accounts and stream them to the Event Hub used by the Azure
+integration. Anonymous vs SAS is `azure.platformlogs.identity.type`.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Platform: Azure",
+    "Service: Azure Storage",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Collection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: azure.platformlogs and
+    azure.platformlogs.identity.type: Anonymous and
+    event.action: (
+        GetBlob or GetBlobMetadata or GetBlobProperties or GetBlockList or
+        GetPageRanges or QueryBlobContents or ListBlobs or
+        GetContainerProperties or GetContainerMetadata or GetContainerAcl
+    )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["azure.resource.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+
