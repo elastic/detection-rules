@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/08/20"
+integration = ["netflow", "goflow2"]
+maturity = "production"
+updated_date = "2026/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a NetFlow, IPFIX, or sFlow exporter IP that has not previously sent decoded flow records in the same data
+stream namespace during the prior 30 days. An unexpected exporter can indicate an unauthorized network device,
+misconfiguration, or attempted injection of misleading network telemetry.
+"""
+false_positives = [
+    """
+    Newly deployed routers, switches, firewalls, packet brokers, collector migrations, disaster-recovery activation,
+    exporter address changes, and integration re-onboarding can trigger this rule.
+    """,
+]
+from = "now-9m"
+index = ["logs-netflow.log-*", "logs-goflow2.sflow-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "First Seen Network Flow Exporter"
+note = """## Triage and analysis
+
+### Investigating First Seen Network Flow Exporter
+
+This rule detects a newly observed exporter identity from decoded NetFlow, IPFIX, or sFlow records. In these datasets,
+`observer.ip` identifies the exporter or sampler. The `source.ip` and `destination.ip` fields identify endpoints in the
+exported flow and must not be treated as the exporter transport connection.
+
+### Possible investigation steps
+
+- Identify the device assigned to `observer.ip` and verify its owner, model, location, and change record.
+- Confirm the expected collector, data stream namespace, export protocol, observation domain, and template behavior.
+- Compare `netflow.exporter.source_id`, `netflow.exporter.version`, sequence values, interfaces, sampling rate, and flow
+  volume with established exporters.
+- Check for template churn, malformed records, implausible addresses or byte counts, and conflicting telemetry from
+  independent sensors.
+
+### False positive analysis
+
+- Validate recent network-device onboarding, collector migrations, disaster-recovery activation, NAT changes, and
+  integration re-onboarding.
+
+### Response and remediation
+
+- If unauthorized, block the exporter at the collector boundary and preserve the received records for investigation.
+- Review collector authentication, network ACLs, and exporter configuration to prevent further telemetry injection.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/netflow",
+    "https://www.elastic.co/docs/reference/integrations/goflow2",
+    "https://datatracker.ietf.org/doc/html/rfc7011",
+    "https://sflow.org/sflow_version_5.txt",
+]
+risk_score = 47
+rule_id = "dfe3f626-4224-417e-aff1-8ef9a72c3191"
+setup = """## Setup
+
+This rule requires at least one decoded flow-export data source:
+
+- Elastic NetFlow integration (`netflow.log`) for NetFlow or IPFIX records.
+- Elastic GoFlow2 integration (`goflow2.sflow`) for sFlow records processed by GoFlow2.
+
+Verify that `observer.ip` contains the exporter or sampler address. Do not broaden this rule to generic firewall or
+`network_traffic.flow` events: in those records, `source.ip` and `destination.ip` describe the observed traffic and do
+not reliably identify the device exporting telemetry.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:(netflow.log or goflow2.sflow) and
+  data_stream.namespace:* and observer.ip:*
+'''
+
+
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "data_stream.dataset",
+    "data_stream.namespace",
+    "observer.ip",
+    "observer.name",
+    "event.action",
+    "netflow.exporter.address",
+    "netflow.exporter.source_id",
+    "netflow.exporter.version",
+    "sflow.sequence_num",
+    "sflow.sample_rate",
+    "source.ip",
+    "destination.ip",
+    "network.transport",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["data_stream.dataset", "data_stream.namespace", "observer.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-30d"
+
+
