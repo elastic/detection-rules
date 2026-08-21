@@ -154,7 +154,10 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
                     file_data_bytes = zip_ref.read(file)
                     # Check if the file is a match
                     if fnmatch.fnmatch(file, "*/fields/*.yml"):
-                        integration_name = Path(file).parent.parent.name
+                        parts = Path(file).parts
+                        # data_stream/<name>/fields → name; package-root fields (e.g. unifiedlogs) → package.
+                        # Avoid Path.parent.parent (yields "unifiedlogs-0.5.1" for input packages).
+                        integration_name = parts[parts.index("data_stream") + 1] if "data_stream" in parts else package
                         final_integration_schemas[package][version].setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
                         schema_fields = yaml.safe_load(file_data_bytes)
 
@@ -292,11 +295,17 @@ def _package_version_has_integration(
     version: str,
     integration: str,
     package_schemas: dict[str, Any],
+    package: str | None = None,
 ) -> bool:
-    """Return True when schema data is absent or includes the integration/data stream."""
+    """Return True when schema data is absent or includes the integration/data stream.
+
+    Input packages like unifiedlogs store fields under the package name only, while rules
+    query event.dataset suffixes such as unifiedlogs.log -> integration "log".
+    """
     if version not in package_schemas:
         return True
-    return integration in package_schemas[version]
+    datasets = package_schemas[version]
+    return integration in datasets or bool(package and package in datasets)
 
 
 def _find_least_compatible_for_stack(
@@ -304,6 +313,7 @@ def _find_least_compatible_for_stack(
     integration_manifests: dict[str, Any],
     integration: str | None = None,
     package_schemas: dict[str, Any] | None = None,
+    package: str | None = None,
 ) -> str | None:
     """Stack-dependent least compatible integration version (pre-#5601 behavior)."""
     major_versions = sorted(
@@ -323,7 +333,7 @@ def _find_least_compatible_for_stack(
             if (
                 integration
                 and package_schemas is not None
-                and not _package_version_has_integration(version, integration, package_schemas)
+                and not _package_version_has_integration(version, integration, package_schemas, package)
             ):
                 continue
             return version
@@ -371,7 +381,7 @@ def resolve_related_integration_version(
     integration_manifests = dict(sorted(package_manifest.items(), key=lambda x: Version.parse(x[0])))
     current_stack = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
     manifest_version = _find_least_compatible_for_stack(
-        current_stack, integration_manifests, integration, package_schemas
+        current_stack, integration_manifests, integration, package_schemas, package
     )
     if manifest_version is None:
         package_label = f"{package}:{integration}" if integration else package
@@ -412,7 +422,7 @@ def find_latest_compatible_version(
             if (
                 integration
                 and package_schemas is not None
-                and not _package_version_has_integration(version, integration, package_schemas)
+                and not _package_version_has_integration(version, integration, package_schemas, package)
             ):
                 continue
             if newest_skipped is not None:
@@ -591,19 +601,26 @@ def collect_schema_fields(
     package_version: str,
     integration: str | None = None,
 ) -> dict[str, Any]:
-    """Collects the schema fields for a given integration."""
+    """Collects the schema fields for a given integration.
+
+    Falls back to the package-named schema for input packages (e.g. unifiedlogs) when
+    event.dataset uses a suffix like "log" that is not a data_stream directory name.
+    """
+    version_schema = integrations_schemas[package][package_version]
     if integration is None:
         return {
             field: value
-            for dataset in integrations_schemas[package][package_version]
+            for dataset in version_schema
             if dataset != "jobs"
-            for field, value in integrations_schemas[package][package_version][dataset].items()
+            for field, value in version_schema[dataset].items()
         }
 
-    if integration not in integrations_schemas[package][package_version]:
-        raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
+    if integration in version_schema:
+        return version_schema[integration]
+    if package in version_schema:
+        return version_schema[package]
 
-    return integrations_schemas[package][package_version][integration]
+    raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
