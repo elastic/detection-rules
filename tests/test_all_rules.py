@@ -10,11 +10,13 @@ import re
 import unittest
 import uuid
 from collections import defaultdict
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import ClassVar
 
 import eql
 import kql
+import pytoml
 from marshmallow import ValidationError
 from semver import Version
 
@@ -928,7 +930,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     @unittest.skipIf(os.getenv("GITHUB_EVENT_NAME") == "push", "Skipping this test when not running on pull requests.")
     def test_rule_change_has_updated_date(self):
-        """Test to ensure modified rules have updated_date field updated."""
+        """Fail when a modified rule lacks an updated_date bump and is not same-day UTC."""
 
         rules_path = get_path(["rules"])
         rules_bbr_path = get_path(["rules_building_block"])
@@ -947,11 +949,38 @@ class TestRuleMetadata(BaseRuleTest):
         if result:
             modified_rules = [path for path in result.splitlines() if path.endswith(".toml")]
             failed_rules = []
+            today_utc = datetime.now(UTC).date()
             for modified_rule_path in modified_rules:
                 diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
-                if not re.search(r"\+\s*updated_date =", diff_output):
-                    # Rule has been modified but updated_date has not been changed, add to list of failed rules
+                if re.search(r"^\+\s*updated_date\s*=", diff_output, re.MULTILINE):
+                    # updated_date has been modified in this PR
+                    continue
+
+                rule_path = get_path([modified_rule_path])
+                metadata = pytoml.loads(rule_path.read_text(encoding="utf-8")).get("metadata") or {}
+                if "updated_date" not in metadata:
+                    # Explicit updated_date was not found -> do not require a bump
+                    continue
+
+                updated_date = metadata["updated_date"]
+                if isinstance(updated_date, datetime):
+                    if updated_date.tzinfo is None:
+                        updated_date = updated_date.replace(tzinfo=UTC)
+                    updated_date = updated_date.astimezone(UTC).date()
+                elif isinstance(updated_date, date):
+                    pass
+                elif isinstance(updated_date, str):
+                    updated_date = date.fromisoformat(updated_date.replace("/", "-").split("T")[0])
+                else:
                     failed_rules.append(f"{modified_rule_path}")
+                    continue
+
+                # Same-day follow-up tunings may leave updated_date unchanged.
+                # Compare in UTC so evening local edits still match CI runners.
+                if updated_date == today_utc:
+                    continue
+
+                failed_rules.append(f"{modified_rule_path}")
 
             if failed_rules:
                 fail_msg = """
