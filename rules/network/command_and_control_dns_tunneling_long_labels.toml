@@ -1,0 +1,220 @@
+[metadata]
+creation_date = "2026/08/20"
+integration = ["network_traffic", "zeek"]
+maturity = "production"
+updated_date = "2026/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a client generating many unique, unusually long DNS query names to the same registered domain within a
+five-minute window. Malware DNS tunnels and DNS command-and-control commonly encode data in lengthy subdomain portions
+under one apex domain.
+"""
+false_positives = [
+    """
+    CDN, cloud load-balancer, software-update, and telemetry hostnames can be long and change often. Recursive
+    resolvers, forwarders, NAT gateways, and localhost DNS listeners can also combine queries from many endpoints under
+    one client address. Validate the apex domain and whether the source is an endpoint before treating the activity as
+    tunneling.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential DNS Tunneling via Long and Unique Subdomains"
+note = """## Triage and analysis
+
+### Investigating Potential DNS Tunneling via Long and Unique Subdomains
+
+DNS tunneling encodes data in query labels and often produces many unique, unusually long subdomains under a single apex
+domain. This rule aggregates network DNS telemetry for that behavioral pattern without relying on threat intelligence
+feeds or machine learning jobs.
+
+Compare overlapping apex domains against the machine learning **DNS Tunneling** rule when that job is enabled.
+
+### Possible investigation steps
+
+- Review `Esql.dns_registered_domain`, `Esql.count_distinct_names`, `Esql.unique_name_ratio`,
+  `Esql.max_subdomain_length`, and sample values in `Esql.sample_names`.
+- Inspect `Esql.dns_question_type_values`. TXT, NULL, CNAME, or MX bursts increase confidence; A/AAAA-only activity can
+  still be tunneling and should not be dismissed on type alone.
+- Use `Esql.first_seen`, `Esql.last_seen`, `Esql.dataset_values`, and `Esql.observer_name_values` to establish the event
+  span and identify the integrations and sensors that contributed to the alert.
+- Confirm whether `Esql.client_ip` is a workstation, server, recursive resolver, forwarder, NAT address, or localhost
+  DNS service. Resolver and localhost sources merge many clients and are a common false-positive pattern.
+- Review `Esql.destination_ip_values` to identify the resolver or authoritative destination observed by the sensor.
+- Pivot on the same client and apex domain in raw DNS events and look for follow-on process, file, or additional C2
+  activity.
+
+### False positive analysis
+
+- CDN, cloud load-balancer, certificate, and software-update services often create long hostnames. Confirm the apex
+  domain reputation and whether the requesting host role normally uses that provider.
+- Security or network appliances performing DNS-based reachability or reputation checks can resemble tunneling. Exclude
+  confirmed appliance addresses after validation.
+- Do not create a global resolver exception until the originating endpoint is known; a shared `Esql.client_ip` can hide
+  a single infected host behind legitimate bulk lookups.
+
+### Response and remediation
+
+- Block the apex domain or forwarding from the affected host at recursive resolvers if malicious activity is confirmed.
+- Isolate the source host and inspect for tunneling tools or malware initiating the queries.
+- Add temporary blocks for the apex domain while scoping additional hosts querying the same name.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1071/004/",
+    "https://attack.mitre.org/techniques/T1572/",
+    "https://attack.mitre.org/techniques/T1048/003/",
+    "https://unit42.paloaltonetworks.com/dns-tunneling-how-dns-can-be-abused-by-malicious-actors/",
+]
+risk_score = 47
+rule_id = "89ed957d-609b-4b00-b8c6-a5cbd187632c"
+setup = """## Setup
+
+This rule requires DNS transaction events from one of the following sources:
+
+- Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
+- Elastic Zeek (`zeek.dns`) in `logs-zeek.dns-*`
+- Legacy Packetbeat DNS events in `packetbeat-*` with `event.dataset` set to `dns`
+
+Place the sensor where it observes endpoint-to-resolver DNS traffic. If the sensor is upstream of a recursive resolver,
+or if the captured client is a localhost listener such as `127.0.0.1`, `Esql.client_ip` may identify shared DNS
+infrastructure instead of the originating endpoint.
+
+DNS-over-HTTPS (DoH), DNS-over-TLS (DoT), and other encrypted DNS traffic are not visible to packet capture unless the
+sensor receives decrypted DNS telemetry or equivalent resolver logs mapped to ECS.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Rule Type: ESQL",
+    "Tactic: Command and Control",
+    "Tactic: Exfiltration",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
+| where
+    (
+      data_stream.dataset in ("network_traffic.dns", "zeek.dns")
+      or event.dataset == "dns"
+    )
+    and dns.question.name is not null
+    and dns.question.registered_domain is not null
+| eval
+    Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.dataset = COALESCE(data_stream.dataset, event.dataset),
+    Esql.dns_question_name = TO_LOWER(dns.question.name),
+    Esql.dns_registered_domain = TO_LOWER(dns.question.registered_domain),
+    Esql.dns_question_type = TO_LOWER(dns.question.type),
+    Esql.subdomain_length = LENGTH(Esql.dns_question_name) - LENGTH(Esql.dns_registered_domain) - 1
+| where
+    Esql.client_ip is not null
+    and Esql.subdomain_length >= 50
+    and (Esql.dns_question_type is null or Esql.dns_question_type != "ptr")
+    and not ENDS_WITH(Esql.dns_question_name, ".arpa")
+| eval Esql.time_window = DATE_TRUNC(5 minutes, @timestamp)
+| stats
+    Esql.count_queries = COUNT(*),
+    Esql.count_distinct_names = COUNT_DISTINCT(Esql.dns_question_name),
+    Esql.max_subdomain_length = MAX(Esql.subdomain_length),
+    Esql.avg_subdomain_length = AVG(Esql.subdomain_length),
+    Esql.dns_question_type_values = MV_SLICE(VALUES(Esql.dns_question_type), 0, 9),
+    Esql.destination_ip_values = MV_SLICE(VALUES(destination.ip), 0, 4),
+    Esql.sample_names = MV_SLICE(VALUES(Esql.dns_question_name), 0, 4),
+    Esql.dataset_values = MV_SLICE(VALUES(Esql.dataset), 0, 9),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 19),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  by Esql.time_window, Esql.client_ip, Esql.dns_registered_domain
+| where Esql.count_queries >= 25 and Esql.count_distinct_names >= 15
+| eval Esql.unique_name_ratio = TO_DOUBLE(Esql.count_distinct_names) / Esql.count_queries
+| sort Esql.count_distinct_names desc
+| limit 100
+| keep
+    Esql.client_ip,
+    Esql.dns_registered_domain,
+    Esql.time_window,
+    Esql.count_queries,
+    Esql.count_distinct_names,
+    Esql.unique_name_ratio,
+    Esql.max_subdomain_length,
+    Esql.avg_subdomain_length,
+    Esql.dns_question_type_values,
+    Esql.destination_ip_values,
+    Esql.sample_names,
+    Esql.dataset_values,
+    Esql.observer_name_values,
+    Esql.first_seen,
+    Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.004"
+name = "DNS"
+reference = "https://attack.mitre.org/techniques/T1071/004/"
+
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1048"
+name = "Exfiltration Over Alternative Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/"
+[[rule.threat.technique.subtechnique]]
+id = "T1048.003"
+name = "Exfiltration Over Unencrypted Non-C2 Protocol"
+reference = "https://attack.mitre.org/techniques/T1048/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.client_ip",
+    "Esql.dns_registered_domain",
+    "Esql.time_window",
+    "Esql.count_queries",
+    "Esql.count_distinct_names",
+    "Esql.unique_name_ratio",
+    "Esql.max_subdomain_length",
+    "Esql.avg_subdomain_length",
+    "Esql.dns_question_type_values",
+    "Esql.destination_ip_values",
+    "Esql.sample_names",
+    "Esql.dataset_values",
+    "Esql.observer_name_values",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
