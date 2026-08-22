@@ -1,0 +1,163 @@
+[metadata]
+creation_date = "2026/08/20"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/20"
+
+[rule]
+author = ["descambiado"]
+description = """
+Identifies an administrator registering or updating a multi-factor authentication method on behalf of
+another Entra ID user. An adversary holding administrative access can attach a phone number they
+control to a victim account, obtaining a second factor that satisfies MFA and Conditional Access
+without changing the password and without the account owner noticing.
+"""
+false_positives = [
+    """
+    Help desk staff registering or resetting MFA methods for locked-out users.
+    Onboarding workflows that register an initial authentication method for new hires.
+    Identity governance tooling managing security info on behalf of users.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Admin Registered MFA Method for User"
+note = """## Triage and analysis
+
+### Investigating Entra ID Admin Registered MFA Method for User
+
+Registering an authentication method on another user's account is a routine help desk operation, but it
+is also a quiet persistence technique. The adversary does not change the password, does not trigger a
+sign-in risk detection, and the victim keeps using the account normally while the attacker holds a valid
+second factor that satisfies MFA and Conditional Access.
+
+Existing coverage for MFA tampering keys on removal (`Disable Strong Authentication`,
+`User deleted security info`). The admin-initiated registration path is the inverse and is not observed
+by those detections.
+
+Temporary Access Pass registration is deliberately excluded here because it is already covered, with a
+different tactic mapping and a higher severity, by "Entra ID Temporary Access Pass Created for User".
+The two rules are complementary: this one covers the remaining methods an administrator can register on
+someone else's account.
+
+#### Data source note
+
+A single admin registration produces two audit records carrying the same timestamp and target, and
+knowing this makes triage considerably faster:
+
+- The `Authentication Methods` service writes the event this rule matches. It carries the human actor
+  in `azure.auditlogs.properties.initiated_by.user` (UPN, object id, source IP, and browser user agent)
+  and a plain-language `result_reason` naming the method, for example "Admin registered phone method
+  for user" or "Admin registered temporary access pass method for user". Its `modifiedProperties` are
+  namespaced per method type: `Phone.Phone.Id`, `Phone.Phone.PhoneType`, `Phone.Phone.PhoneNumber` for
+  a phone registration, and `TemporaryAccessPass.*` for a pass.
+- The `Core Directory` service writes a parallel `Update user` event whose `modifiedProperties` show
+  `StrongAuthenticationMethod` and `StrongAuthenticationUserDetails` transitioning from an empty array
+  to a populated one. That record's initiator is the first-party service principal
+  `Azure Credential Configuration Endpoint Service`, not the administrator, so it should not be used to
+  attribute the action.
+
+Correlate the two by timestamp and target user to get both the actor and the registered values.
+
+#### Possible investigation steps
+
+- Read `result_reason` to identify which method was registered, then read the matching
+  `Phone.Phone.PhoneNumber` property, or pivot to the paired `Update user` event and read
+  `StrongAuthenticationUserDetails`, to recover the registered contact details.
+- Confirm those contact details belong to the account owner and not to a third party.
+- Review the actor's source IP in `azure.auditlogs.properties.initiated_by.user.ip_address` against
+  their normal administrative locations.
+- Verify the change against the help desk ticket queue or change calendar for a matching account
+  recovery request.
+- Review sign-in logs for the target account after the registration timestamp, looking for
+  authentications that satisfied MFA from an unfamiliar device, IP address, or country.
+- Check whether the same actor registered methods on several accounts in a short window, which
+  indicates systematic persistence rather than a single support action.
+- Check whether the same actor also triggered "Entra ID Temporary Access Pass Created for User" around
+  the same time. A pass grants immediate interactive sign-in, so an actor doing both is establishing
+  access now and persistence for later.
+
+### False positive analysis
+
+- Help desk MFA resets are common and expected. Confirm a corresponding ticket exists and that the
+  registered contact details match the account owner's known details.
+- Automated onboarding may register an initial method for new accounts. These correlate with recent
+  account creation events for the same target.
+
+### Response and remediation
+
+- Remove the unauthorized authentication method from the affected account.
+- Revoke the account's refresh tokens so any session established with the attacker-controlled factor
+  is terminated.
+- Reset the account password if there is any indication the account was compromised before the method
+  was registered.
+- Review the initiating administrator's recent activity for other accounts they modified.
+- Restrict who can manage authentication methods on behalf of users, and require a privileged access
+  workflow for help desk MFA resets.
+"""
+references = [
+    "https://learn.microsoft.com/entra/identity/authentication/howto-mfa-userdevicesettings",
+    "https://learn.microsoft.com/entra/architecture/security-operations-privileged-accounts",
+    "https://attack.mitre.org/techniques/T1556/006/",
+]
+risk_score = 47
+rule_id = "f3475a57-4948-4d16-a07f-f148749c43d3"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+azure.auditlogs.operation_name: ("Admin registered security info" or "Admin updated security info") and
+azure.auditlogs.properties.category: "UserManagement" and
+event.outcome: ("Success" or "success") and
+not azure.auditlogs.properties.target_resources.*.modified_properties.*.display_name: *TemporaryAccessPass*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
