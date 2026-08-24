@@ -670,6 +670,24 @@ class TestRuleTags(BaseRuleTest):
             err_msg = "\n".join(invalid)
             self.fail(f"Rules with missing Investigation tag:\n{err_msg}")
 
+    def test_llm_completion_tag(self):
+        """Test that Resources: LLM is present on rules that use ES|QL COMPLETION."""
+        invalid = []
+        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
+
+        for rule in self.all_rules:
+            query = rule.contents.data.get("query") or ""
+            if not completion_re.search(query):
+                continue
+            if "Resources: LLM" not in (rule.contents.data.tags or []):
+                err_msg = self.rule_str(rule)
+                err_msg += "\n    expected: Resources: LLM (ES|QL COMPLETION incurs token cost)"
+                invalid.append(err_msg)
+
+        if invalid:
+            err_msg = "\n".join(invalid)
+            self.fail(f"Rules with ES|QL COMPLETION missing Resources: LLM tag:\n{err_msg}")
+
     def test_tag_prefix(self):
         """Ensure all tags have a prefix from an expected list."""
         invalid = []
@@ -1662,6 +1680,19 @@ class TestAlertSuppression(BaseRuleTest):
                         for data_source in int_schema:
                             schema.update(**int_schema[data_source])
                 for fld in group_by_fields:
+                    # ES|QL rules may suppress on dynamic fields computed by the query (e.g. EVAL/GROK
+                    # columns using the `Esql.` prefix convention), which are not in any schema. The field
+                    # must still be produced by the query: an assignment (EVAL/STATS/ENRICH ... WITH),
+                    # a RENAME ... AS target, or a GROK/DISSECT capture.
+                    if rule.contents.data.type == "esql" and fld.startswith(definitions.ESQL_DYNAMIC_FIELD_PREFIXES):
+                        field = re.escape(fld)
+                        self.assertRegex(
+                            rule.contents.data.query,
+                            rf"\b{field}\s*=(?!=)|\bAS\s+{field}\b|[:{{]{field}}}",
+                            f"{self.rule_str(rule)} alert suppression field {fld} is a dynamic "
+                            "ES|QL field but is not computed anywhere in the query",
+                        )
+                        continue
                     if fld not in schema:
                         self.fail(
                             f"{self.rule_str(rule)} alert suppression field {fld} not \
