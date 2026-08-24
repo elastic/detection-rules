@@ -1,15 +1,17 @@
 [metadata]
+bypass_bbr_timing = true
 creation_date = "2026/08/20"
 integration = ["netflow", "goflow2"]
 maturity = "production"
-updated_date = "2026/08/20"
+updated_date = "2026/08/24"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
 Identifies a NetFlow, IPFIX, or sFlow exporter IP that has not previously sent decoded flow records in the same data
-stream namespace during the prior 30 days. An unexpected exporter can indicate an unauthorized network device,
-misconfiguration, or attempted injection of misleading network telemetry.
+stream namespace during the prior 14 days. This low-risk building-block signal records exporter novelty for correlation
+with later detection alerts in which the same address is the source of suspicious activity.
 """
 false_positives = [
     """
@@ -27,9 +29,13 @@ note = """## Triage and analysis
 
 ### Investigating First Seen Network Flow Exporter
 
-This rule detects a newly observed exporter identity from decoded NetFlow, IPFIX, or sFlow records. In these datasets,
-`observer.ip` identifies the exporter or sampler. The `source.ip` and `destination.ip` fields identify endpoints in the
-exported flow and must not be treated as the exporter transport connection.
+This building-block rule detects a newly observed exporter identity from decoded NetFlow, IPFIX, or sFlow records. In
+these datasets, `observer.ip` identifies the exporter or sampler. The `source.ip` and `destination.ip` fields identify
+endpoints in the exported flow and must not be treated as the exporter transport connection.
+
+This signal establishes novelty only. It does not prove that the exporter is unauthorized or that the exporter itself
+performed the activity represented by the flow records. The signal is intended for correlation with later detection
+alerts whose `source.ip` equals this alert's `observer.ip`.
 
 ### Possible investigation steps
 
@@ -56,7 +62,7 @@ references = [
     "https://datatracker.ietf.org/doc/html/rfc7011",
     "https://sflow.org/sflow_version_5.txt",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "dfe3f626-4224-417e-aff1-8ef9a72c3191"
 setup = """## Setup
 
@@ -69,13 +75,12 @@ Verify that `observer.ip` contains the exporter or sampler address. Do not broad
 `network_traffic.flow` events: in those records, `source.ip` and `destination.ip` describe the observed traffic and do
 not reliably identify the device exporting telemetry.
 """
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Network",
     "Use Case: Network Security Monitoring",
     "Use Case: Threat Detection",
-    "Tactic: Defense Evasion",
-    "Rule Type: New Terms",
+    "Rule Type: BBR",
     "Data Source: NetFlow",
     "Data Source: GoFlow2",
     "Resources: Investigation Guide",
@@ -89,18 +94,6 @@ data_stream.dataset:(netflow.log or goflow2.sflow) and
 '''
 
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
 field_names = [
@@ -125,6 +118,6 @@ field = "new_terms_fields"
 value = ["data_stream.dataset", "data_stream.namespace", "observer.ip"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-30d"
+value = "now-14d"
 
 
