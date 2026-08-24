@@ -16,8 +16,7 @@ local account. It is advisable to treat this as a tripwire and pair it with
 the SSFileCopyReceiver Writing to Common Persistence Locations rule coverage.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.process-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "SSFileCopySender Executed as Root"
 note = """ ## Triage and analysis
@@ -97,11 +96,24 @@ tags = [
     "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-process where host.os.type == "macos" and event.type == "start" and
-process.name == "SSFileCopySender" and process.args == "0" and process.args == "80"
+from logs-endpoint.events.process-* METADATA _id, _index, _version
+| WHERE host.os.type == "macos"
+    AND event.type == "start"
+    AND process.name == "SSFileCopySender"
+    AND process.args : "0" AND process.args : "80"
+| KEEP _id, _version, _index,
+    @timestamp,
+    host.name,
+    user.name,
+    process.name,
+    process.pid,
+    process.parent.name,
+    process.args
+| SORT @timestamp DESC
+| LIMIT 100
 '''
 
 [[rule.threat]]
