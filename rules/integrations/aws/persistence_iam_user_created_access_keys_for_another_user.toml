@@ -131,9 +131,9 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and event.action == "CreateAccessKey"
     and event.outcome == "success"
     and user.name != user.target.name
-    and not user_agent.original like "*Terraform*"
-    and not user_agent.original like "*Pulumi*"
-    and not user_agent.original like "*Ansible*"
+    and not to_lower(user_agent.original) like "*terraform*"
+    and not to_lower(user_agent.original) like "*pulumi*"
+    and not to_lower(user_agent.original) like "*ansible*"
 | keep
     @timestamp,
     cloud.account.id,
