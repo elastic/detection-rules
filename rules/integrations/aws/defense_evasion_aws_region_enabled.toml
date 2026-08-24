@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an additional AWS region is enabled on an account via the EnableRegion API. By
+default, AWS accounts can only access opt-in regions after explicitly enabling them. An attacker
+who has obtained account-level credentials may enable a new region to deploy resources outside
+the organization's monitored footprint — avoiding security controls, CloudTrail log aggregation,
+and cost anomaly alerts that are scoped to known regions.
+"""
+false_positives = [
+    """
+    Legitimate business expansion, disaster recovery configuration, or cloud migration projects
+    may enable new AWS regions. Validate the caller identity against your cloud infrastructure
+    change management process and confirm the region enablement aligns with a planned project.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Region Enabled"
+note = """## Triage and analysis
+
+### Investigating AWS Region Enabled
+
+AWS regions that are disabled by default (opt-in regions) require explicit enablement before any resources can be created in them. An adversary who enables a new region gains the ability to deploy EC2 instances, S3 buckets, Lambda functions, or other compute resources in a region that may not be covered by the organization's CloudTrail aggregation, Security Hub, GuardDuty, or Config rules — effectively creating a blind spot.
+
+### Possible investigation steps
+
+- Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Determine whether this is a known cloud infrastructure operator or an anomalous identity.
+- Review aws.cloudtrail.request_parameters to identify which region was enabled.
+- Check whether existing CloudTrail trails, Security Hub, GuardDuty, and Config are configured to cover the newly enabled region.
+- Query CloudTrail for resource creation events (EC2, S3, Lambda) in the newly enabled region within the hour following the EnableRegion call.
+- Determine whether the newly enabled region is used by any approved business application or IaC configuration.
+
+### False positive analysis
+
+- Cloud platform teams enabling regions for disaster recovery or multi-region architecture will trigger this rule. Validate via change management records.
+
+### Response and remediation
+
+- If unauthorized, disable the region and review all resources created in it.
+- Ensure CloudTrail, GuardDuty, Security Hub, and Config are enabled for all regions, including the newly enabled one, to eliminate future blind spots.
+- Apply an SCP to restrict account:EnableRegion to approved administrator roles.
+"""
+references = [
+    "https://docs.aws.amazon.com/accounts/latest/reference/API_EnableRegion.html",
+    "https://permiso.io/blog/how-threat-actors-leverage-unsupported-cloud-regions",
+]
+risk_score = 47
+rule_id = "27b588ca-70c4-43c5-b173-a09249ea3bc0"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. The `EnableRegion` API is a management-plane event logged by default in any CloudTrail trail with management event logging enabled."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Account Management",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "account.amazonaws.com"
+    and event.action: "EnableRegion"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1535"
+name = "Unused/Unsupported Cloud Regions"
+reference = "https://attack.mitre.org/techniques/T1535/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
