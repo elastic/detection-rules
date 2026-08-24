@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -34,7 +34,7 @@ note = """ ## Triage and analysis
 
 ### Investigating Environment Variable Enumeration Detected via Defend for Containers
 
-This rule flags interactive execution of env or printenv inside a Linux container, a common discovery step to expose environment variables that frequently store credentials, tokens, and service configuration. A typical pattern: after gaining shell access to a pod, the attacker lists variables to harvest cloud keys, Kubernetes service account tokens, database URLs, and internal endpoints, enabling authenticated API calls, lateral movement within the cluster, or exfiltration via trusted services.
+This rule flags execution of env or printenv inside a Linux container, a common discovery step to expose environment variables that frequently store credentials, tokens, and service configuration. A typical pattern: after gaining shell access to a pod, the attacker lists variables to harvest cloud keys, Kubernetes service account tokens, database URLs, and internal endpoints, enabling authenticated API calls, lateral movement within the cluster, or exfiltration via trusted services.
 
 ### Possible investigation steps
 
@@ -90,7 +90,7 @@ process where host.os.type == "linux" and event.type == "start" and event.action
     )
   )
 ) and
-process.interactive == true and container.id like "*"
+container.id like "*"
 '''
 
 [[rule.threat]]
