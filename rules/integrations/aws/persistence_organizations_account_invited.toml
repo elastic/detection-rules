@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an invitation is sent to an AWS account to join an AWS Organization via the
+InviteAccountToOrganization API. An adversary who obtains management account credentials
+may invite an attacker-controlled account into the organization to gain access to shared
+resources, service control policies, or AWS RAM-shared infrastructure. A rogue member account
+inside the organization can also be used as a persistent foothold that survives credential
+rotation in the management account.
+"""
+false_positives = [
+    """
+    Legitimate organizational expansion — onboarding a new subsidiary, partner, or project
+    account — will trigger this rule. Validate the invited account ID against your organization's
+    account inventory and confirm a corresponding request exists before closing.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Organization Account Invitation Sent"
+note = """## Triage and analysis
+
+### Investigating AWS Organization Account Invitation Sent
+
+InviteAccountToOrganization is called from the organization management account to bring an existing AWS account into the organization as a member. Once accepted, the invited account shares the organization's consolidated billing, is subject to its service control policies (SCPs), and may gain access to AWS RAM-shared resources. An attacker who compromises management account credentials can invite a rogue account they control to establish a persistent presence inside the organization — one that is not removed by rotating management account credentials.
+
+### Possible investigation steps
+
+- Identify the caller in aws.cloudtrail.user_identity.arn and user.name.
+- Review aws.cloudtrail.request_parameters for the invited account ID (targetId). Verify the account belongs to the organization's known account inventory.
+- Check whether the invitation was subsequently accepted (AcceptHandshake event in the invited account's CloudTrail).
+- Review all other Organizations API calls (CreateAccount, CreatePolicy, AttachPolicy) made by this identity in the same session.
+
+### False positive analysis
+
+- Planned account onboarding triggered by cloud platform teams. Validate via change management.
+
+### Response and remediation
+
+- If unauthorized, cancel the invitation using CancelHandshake before the invited account accepts it.
+- If already accepted, remove the account with RemoveAccountFromOrganization.
+- Revoke active sessions for the inviting identity and audit all management account activity.
+- Apply an SCP restricting organizations:InviteAccountToOrganization to a dedicated account-management role with MFA required.
+"""
+references = [
+    "https://docs.aws.amazon.com/organizations/latest/APIReference/API_InviteAccountToOrganization.html",
+    "https://aws-samples.github.io/threat-technique-catalog-for-aws/Techniques/T1666.A003.html",
+]
+risk_score = 73
+rule_id = "4f2a4ea4-5440-436f-9a8c-34457f1112eb"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. This event is logged in the organization management account."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Organizations",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "organizations.amazonaws.com"
+    and event.action: "InviteAccountToOrganization"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.account.id",
+]
