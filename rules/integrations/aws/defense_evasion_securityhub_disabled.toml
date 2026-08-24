@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when AWS Security Hub is disabled in a region. Security Hub aggregates security findings from
+AWS services (GuardDuty, Inspector, Macie, IAM Access Analyzer) and third-party tools into a single
+pane of glass. Disabling it suppresses centralized finding aggregation and compliance checks, removing
+visibility into threats across the account. This action is a documented pre-ransomware and
+pre-exfiltration defense evasion technique.
+"""
+false_positives = [
+    """
+    Legitimate account decommissioning or cost-reduction exercises may disable Security Hub in
+    unused regions. Validate with the responsible team via change management records before
+    escalating. Disabling in the primary account region or the Security Hub delegated administrator
+    account is always high-risk.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Security Hub Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS Security Hub Disabled
+
+AWS Security Hub aggregates security findings from GuardDuty, Inspector, IAM Access Analyzer, Macie, and partner products. Disabling it is a one-API-call action (DisableSecurityHub) that immediately stops new findings from appearing in the hub and breaks compliance posture checks (CIS, PCI DSS, AWS Foundational Security Best Practices). Threat actors performing pre-ransomware activity commonly disable security services to reduce detection during the exfiltration and encryption phases.
+
+### Possible investigation steps
+
+- Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Determine whether this is a human operator, a CI/CD service role, or an automated account lifecycle script.
+- Check source.ip against known office CIDRs, VPN endpoints, and CI/CD runner IPs. A call from an unexpected geography or cloud provider IP is a strong indicator of credential compromise.
+- Query CloudTrail for all API calls from this identity in the same time window. Look for co-occurring DisableGuardDuty, DeleteDetector, DeleteTrail, StopLogging, PutEventSelectors (reducing event selectors), DeleteFlowLogs, or DisableMacie calls — a multi-service security teardown is high confidence ransomware/wiperware preparation.
+- Determine whether Security Hub was re-enabled shortly after (indicating a momentary operational toggle) or remained disabled.
+- Check whether this corresponds to a known change window or approved infrastructure operation.
+
+### False positive analysis
+
+- Regional decommissioning: teams shutting down an AWS region may disable Security Hub as part of account cleanup. Validate against a change management ticket.
+- Cost optimization: Security Hub has a cost per finding. Some teams disable it in non-production accounts. If this fires in a dev/test account with known cost controls, correlate with account tags.
+
+### Response and remediation
+
+- If unauthorized, re-enable Security Hub immediately and review all findings that were suppressed during the disabled period using the Security Hub finding history API.
+- Revoke active sessions for the calling identity.
+- Review other security services (GuardDuty, Macie, Inspector) to confirm they remain enabled.
+- Enable AWS Config rule securityhub-enabled to detect future disablement automatically.
+- If the caller was a compromised IAM user, rotate all access keys and review all actions in the compromised session.
+"""
+references = [
+    "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-disable.html",
+]
+risk_score = 73
+rule_id = "c8a2d4f6-1b3e-4a7c-9d5f-8e0b2c6a4d1e"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional CloudTrail data event selectors are required — `securityhub:DisableSecurityHub` is a management-plane API logged by default in any CloudTrail trail with management event logging enabled."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Security Hub",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "securityhub.amazonaws.com"
+    and event.action: "DisableSecurityHub"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
