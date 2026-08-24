@@ -7,13 +7,12 @@ updated_date = "2026/08/20"
 [rule]
 author = ["Elastic"]
 description = """
-Detects suspicious macOS Apple Events activity from scripting binaries
-covering confirmed attack scenarios like clipboard theft (Jons,gClp), password prompt spoof (syso,dlog+htxt), volume mute (aevt,stvl), 
-ASCII obfuscation (syso,ntoc), shell execution including hidden file execution (syso,exec/syso,dsct/Jons,doSH), 
-keystroke capture (Jons,kGET), screenshot capture (Jons,sSCR), system information gathering (Jons,gSYS), 
-file exfiltration via Finder (fndr,read/aevt,odoc), and browser property access (core,getd). 
-The rule uses layered detection where the primary signals are type_code due to limitation of init per process in macOS privacy logging we move to 
-secondary AECreateAppleEvent message patterns which fires every invocation, and then finally tertiary coercion burst and ALLOWING SAFE EVENT signals.
+Detects suspicious use of Apple Events macOS's inter-process communication mechanism by scripting binaries. 
+Attackers abuse Apple Events to perform privileged actions without elevated permissions, including clipboard theft, 
+keystroke capture, screenshot capture, shell execution, and browser or credential access. 
+Detection is layered with direct event type matching (type_code) covering first-invocation structured events, 
+AECreateAppleEvent message patterns covering repeat invocations, and 
+coercion burst signals provide a catch-all for every new process initialization.
 """
 false_positives = [
     "Legitimate automation scripts using osascript for system administration may trigger this rule. Validate the process parent, user context, and whether the script is signed or comes from a known path.",
@@ -56,21 +55,40 @@ query = '''
 FROM logs-unifiedlogs* METADATA _id, _index, _version
 | WHERE host.os.type == "macos"
     AND unified_log.subsystem == "com.apple.appleevents"
-    AND process.name IN ("osascript","python3","python","ruby","perl","bash","zsh","sh","node")
     AND (
-        apple_event.type_code IN ("Jons,gClp","syso,dlog","aevt,stvl","syso,ntoc","syso,exec","syso,dsct","Jons,doSH","Jons,kGET","Jons,sSCR","Jons,gSYS","fndr,read","aevt,odoc","core,getd")
-        OR (apple_event.type_code == "syso,dlog" AND apple_event.parameters == "htxt")
-        OR CONTAINS(message, "AECreateAppleEvent")
-        OR CONTAINS(message, "Add coercion from TEXT to url")
-        OR CONTAINS(message, "ALLOWING SAFE EVENT")
-        OR CONTAINS(message, "kGET")
-        OR CONTAINS(message, "sSCR")
-        OR CONTAINS(message, "gSYS")
-        OR CONTAINS(message, "odoc")
-        OR CONTAINS(message, "doSH")
-        OR CONTAINS(message, "do shell script")
+        process.name IN ("osascript", "bash", "zsh", "sh", "tcsh", "fish", "ksh", "dash", "node")
+        OR process.name RLIKE "python.*|ruby.*|perl.*"
     )
-| KEEP _id, _version, _index, @timestamp, host.name, process.name, process.pid, unified_log.subsystem, apple_event.type_code, apple_event.direction, apple_event.target_process, apple_event.parameters, message
+    AND (
+        apple_event.type_code IN (
+        "Jons,gClp", "syso,dlog", "aevt,stvl", "syso,ntoc",
+        "syso,exec", "syso,dsct", "Jons,doSH", "Jons,kGET",
+        "Jons,sSCR", "Jons,gSYS", "fndr,read", "aevt,odoc", "core,getd"
+        )
+    OR (apple_event.type_code == "syso,dlog" AND apple_event.parameters == "htxt")
+    OR CONTAINS(message, "AECreateAppleEvent")
+    OR CONTAINS(message, "Add coercion from TEXT to url")
+    OR CONTAINS(message, "ALLOWING SAFE EVENT")
+    OR CONTAINS(message, "kGET")
+    OR CONTAINS(message, "sSCR")
+    OR CONTAINS(message, "gSYS")
+    OR CONTAINS(message, "odoc")
+    OR CONTAINS(message, "doSH")
+    OR CONTAINS(message, "do shell script")
+    )
+| KEEP _id,
+    @timestamp,
+    host.name,
+    data_stream.namespace,
+    data_stream.type,
+    process.name,
+    process.pid,
+    unified_log.subsystem,
+    apple_event.type_code,
+    apple_event.direction,
+    apple_event.target_process,
+    apple_event.parameters,
+    message
 | SORT @timestamp DESC
 | LIMIT 100
 '''
