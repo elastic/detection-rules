@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when account-level email sending is explicitly enabled in Amazon SES via the
+UpdateAccountSendingEnabled API with Enabled: true. SES account-level sending can be
+suspended automatically (for example, when bounce or complaint rates exceed SES thresholds) or
+disabled administratively. An attacker who compromises an AWS account may re-enable sending to
+restore a suppressed SES capability as part of phishing infrastructure setup — enabling the
+account to send bulk email under the victim organization's trusted sending domain even after SES
+had suspended it.
+"""
+false_positives = [
+    """
+    SES account sending may be legitimately re-enabled by an administrator after a sending pause
+    for bounce/complaint rate investigation or maintenance. Validate against a change management
+    record or scheduled maintenance window. This API is rarely called in normal operations.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SES Account Email Sending Enabled"
+note = """## Triage and analysis
+
+### Investigating AWS SES Account Email Sending Enabled
+
+ses:UpdateAccountSendingEnabled is a privileged SES API that controls whether the entire AWS account can send email from any region. Enabling account-level sending is a one-step action that lifts a sending suspension. In normal operations this API is rarely called — typically only when an account-level suspension has been issued by AWS and the issue has been remediated. An attacker with SES permissions may call this API to restore sending capability that was suspended or to enable sending in a region where it was not previously active.
+
+### Possible investigation steps
+
+- Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Determine whether this is a known SES administrator or an anomalous identity.
+- Verify whether account-level sending was previously disabled (ses:GetAccountSendingEnabled returning false) — cross-reference with prior CloudTrail events for this API.
+- Query CloudTrail for co-occurring events from the same identity: IAM privilege escalation (AttachUserPolicy, AttachRolePolicy), SES identity creation (VerifyEmailIdentity, CreateEmailIdentity), or SES template/suppression-list manipulation.
+- Check the account's SES sending statistics for any unusual spike in sent email volume following this event.
+- Determine whether this corresponds to a legitimate remediation of a bounce/complaint rate issue with a change management ticket.
+
+### False positive analysis
+
+- Legitimate SES operations teams re-enabling sending after a planned suspension will trigger this rule. These events are rare; validate against change records.
+
+### Response and remediation
+
+- If unauthorized, disable account-level sending immediately via ses:UpdateAccountSendingEnabled with Enabled: false.
+- Revoke active sessions for the calling identity.
+- Review SES send statistics for unauthorized email activity during the enabled window.
+- Check all SES email identities and sending authorization policies for unauthorized entries.
+"""
+references = [
+    "https://docs.aws.amazon.com/ses/latest/APIReference/API_UpdateAccountSendingEnabled.html",
+    "https://permiso.io/blog/s/aws-ses-pionage-detecting-ses-abuse/",
+    "https://www.rapid7.com/blog/post/dr-threat-actors-aws-workmail-phishing-campaigns/",
+]
+risk_score = 47
+rule_id = "e3f4a5b6-c7d8-9012-cdef-34567890abcd"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `ses:UpdateAccountSendingEnabled` is a management-plane API logged by default."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS SES",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Resource Development",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ses.amazonaws.com"
+    and event.action: "UpdateAccountSendingEnabled"
+    and event.outcome: "success"
+    and aws.cloudtrail.request_parameters: *enabled=true*
+    and not user_agent.original: (*Terraform* or *Pulumi* or batch.amazonaws.com or cloudformation.amazonaws.com)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1608"
+name = "Stage Capabilities"
+reference = "https://attack.mitre.org/techniques/T1608/"
+
+
+[rule.threat.tactic]
+id = "TA0042"
+name = "Resource Development"
+reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
