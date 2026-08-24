@@ -2,7 +2,7 @@
 creation_date = "2024/04/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -120,11 +120,11 @@ rule_id = "ff320c56-f8fa-11ee-8c44-f661ea17fbce"
 severity = "low"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: Amazon S3",
-    "Use Case: Asset Visibility",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS S3",
     "Tactic: Defense Evasion",
+    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -135,6 +135,7 @@ info where data_stream.dataset == "aws.cloudtrail"
    and event.action == "PutBucketLifecycle"
    and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "Expiration=")
+   and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 
