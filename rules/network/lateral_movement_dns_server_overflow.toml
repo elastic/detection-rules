@@ -2,7 +2,7 @@
 creation_date = "2020/07/16"
 integration = ["network_traffic", "panw", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/08/24"
 
 [rule]
 author = ["Elastic"]
@@ -42,7 +42,7 @@ Detection alerts from this rule indicate possible anomalous activity around larg
 ### Response and remediation
 
 - Initiate the incident response process based on the outcome of the triage.
-- Ensure that you have deployed the latest Microsoft [Security Update](https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2020-1350) (Monthly Rollup or Security Only) and restarted the patched machines. If unable to patch immediately, Microsoft [released](https://support.microsoft.com/en-us/help/4569509/windows-dns-server-remote-code-execution-vulnerability) a registry-based workaround that doesn’t require a restart. This can be used as a temporary solution before the patch is applied.
+- Ensure that you have deployed the latest Microsoft [Security Update](https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2020-1350) (Monthly Rollup or Security Only) and restarted the patched machines. If unable to patch immediately, Microsoft [released](https://support.microsoft.com/en-us/help/4569509/windows-dns-server-remote-code-execution-vulnerability) a registry-based workaround that doesn't require a restart. This can be used as a temporary solution before the patch is applied.
 - Maintain backups of your critical systems to aid in quick recovery.
 - Perform routine vulnerability scans of your systems, monitor [CISA advisories](https://us-cert.cisa.gov/ncas/current-activity) and patch identified vulnerabilities.
 - If you observe a true positive, implement a remediation plan and monitor host-based artifacts for additional post-exploitation behavior.
@@ -78,12 +78,11 @@ query = '''
     and destination.bytes >= 65000
     and event.type:("allowed" or "end" or "protocol" or "start")
 and not (
-  event.duration > 60000000000
-  and (
-    event.action:("flow_terminated" or "network_flow")
-    or data_stream.dataset:zeek.connection
-    or (event.module:corelight and event.dataset:conn)
-  )
+  event.action:("flow_terminated" or "flow_started" or "flow_close" or "flow_dropped" or "flow_denied" or "network_flow" or "netflow_flow" or "connection-finished" or "connection-started" or "connection-end")
+  or event.dataset:("zeek.connection" or "network_traffic.flow" or "flow" or "netflow.log" or "fortinet_fortigate.log" or "fortinet.firewall" or "juniper_srx.log" or "cisco_ftd.log" or "sophos.xg")
+  or event.module:"netflow"
+  or (event.module:"corelight" and event.dataset:"conn")
+  or (event.dataset:"panw.panos" and event.action:("allow" or "deny" or "drop" or "reset-both" or "reset-client" or "reset-server"))
 )
 '''
 
