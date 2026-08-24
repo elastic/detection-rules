@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/08/05"
+updated_date = "2026/07/08"
 
 [rule]
 author = ["Elastic"]
@@ -91,11 +91,11 @@ rule_id = "151d8f72-0747-11ef-a0c2-f661ea17fbcc"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Platform: AWS",
-    "Data Source: AWS CloudTrail",
-    "Service: AWS Lambda",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS Lambda",
+    "Use Case: Threat Detection",
     "Tactic: Persistence",
-    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -108,7 +108,6 @@ info where data_stream.dataset == "aws.cloudtrail"
     and event.action : "AddPermission*" 
     and stringContains(aws.cloudtrail.request_parameters, "lambda:InvokeFunction") 
     and stringContains(aws.cloudtrail.request_parameters, "principal=\\*")
-    and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 

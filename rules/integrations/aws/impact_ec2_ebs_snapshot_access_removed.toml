@@ -2,7 +2,7 @@
 creation_date = "2025/06/02"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/08/05"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -95,11 +95,11 @@ rule_id = "713e0f5f-caf7-4dc2-88a7-3561f61f262a"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Platform: AWS",
-    "Data Source: AWS CloudTrail",
-    "Service: AWS EC2",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
     "Tactic: Impact",
-    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -112,7 +112,6 @@ info where data_stream.dataset == "aws.cloudtrail"
   and stringContains (aws.cloudtrail.request_parameters, "attributeType=CREATE_VOLUME_PERMISSION")
   and stringContains (aws.cloudtrail.request_parameters, "remove=")
   and not source.address == "backup.amazonaws.com"
-  and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 [[rule.threat]]

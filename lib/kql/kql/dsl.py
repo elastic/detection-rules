@@ -5,7 +5,6 @@
 
 from collections import defaultdict
 from eql import Walker
-from .ast import Wildcard
 from .errors import KqlCompileError
 
 
@@ -161,25 +160,6 @@ class ToDsl(Walker):
     def _walk_not_value(self, tree):
         child = self.walk(tree.value)
         return lambda field: boolean(must_not=[child(field)])
-
-    def _walk_free_text(self, tree):
-        # Mirrors Kibana's `is` function with a null field (kbn-es-query is.ts): a wildcard
-        # becomes a query_string; any other value a lenient multi_match so non-text fields
-        # are skipped instead of erroring. Neither names `fields`, so Elasticsearch falls
-        # back to the `index.query.default_field` setting (`*` by default) — same as Kibana.
-        if isinstance(tree.value, Wildcard):
-            return {"query_string": {"query": _escape_query_string_wildcard(tree.value.value)}}
-        value = tree.value.value
-        if not isinstance(value, str):
-            # Bare unquoted terms can parse as numbers/booleans/null, but `multi_match.query`
-            # must be text (a JSON null is rejected outright), so send the KQL token text
-            # back instead (`1`, `true`, `null`).
-            value = tree.value.render()
-        # Kibana: `const type = valueArg.isQuoted ? 'phrase' : 'best_fields'`. A quoted value
-        # must match as a phrase; `best_fields` would instead OR the analyzed terms together
-        # and match far more broadly.
-        match_type = "phrase" if tree.is_quoted else "best_fields"
-        return {"multi_match": {"type": match_type, "query": value, "lenient": True}}
 
     def _walk_field_comparison(self, tree):
         field = self.walk(tree.field)

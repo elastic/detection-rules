@@ -2,7 +2,7 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/08/05"
+updated_date = "2026/04/10"
 
 [rule]
 author = ["Elastic"]
@@ -63,11 +63,11 @@ rule_id = "25e7fee6-fc25-11ee-ba0f-f661ea17fbce"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Platform: AWS",
-    "Data Source: AWS CloudTrail",
-    "Service: AWS EC2",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS EC2",
+    "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -81,7 +81,6 @@ data_stream.dataset: "aws.cloudtrail"
     and aws.cloudtrail.flattened.request_parameters.ipPermissions.items.ipRanges.items.cidrIp: ("0.0.0.0/0" or "::/0")
     and aws.cloudtrail.flattened.request_parameters.ipPermissions.items.fromPort: (
         21 or 22 or 23 or 445 or 3389 or 5985 or 5986)
-    and not user_agent.original: (*packer-plugin-amazon* or *Terraform* or *Pulumi*)
 '''
 [rule.investigation_fields]
 field_names = [
