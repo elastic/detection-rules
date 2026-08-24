@@ -169,6 +169,32 @@ class TestNewTerms(BaseRuleTest):
                 )
 
 
+class TestCAPNetRawBuildingBlock(BaseRuleTest):
+    """Test the CAP_NET_RAW building block's known benign exclusion."""
+
+    def test_kea_dhcp4_is_excluded_but_other_non_root_processes_match(self):
+        """Exclude the reported Kea DHCP binary without suppressing CAP_NET_RAW detections broadly."""
+        rule = self.all_rules.id_map["e28b8093-833b-4eda-b877-0873d134cf3c"]
+        evaluator = kql.get_evaluator(rule.contents.data.query, optimize=False)
+        kea_dhcp4_event = {
+            "event": {"action": ["exec"], "category": ["process"], "type": ["start"]},
+            "host": {"os": {"type": "linux"}},
+            "process": {
+                "executable": "/usr/sbin/kea-dhcp4",
+                "name": "kea-dhcp4",
+                "thread": {"capabilities": {"effective": ["CAP_NET_RAW"]}},
+            },
+            "user": {"id": "973"},
+        }
+
+        self.assertFalse(evaluator(kea_dhcp4_event))
+
+        other_cap_net_raw_event = deepcopy(kea_dhcp4_event)
+        other_cap_net_raw_event["process"]["executable"] = "/opt/packet-sniffer"
+        other_cap_net_raw_event["process"]["name"] = "packet-sniffer"
+        self.assertTrue(evaluator(other_cap_net_raw_event))
+
+
 class TestESQLRules(BaseRuleTest):
     """Test ESQL Rules."""
 
