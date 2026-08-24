@@ -69,6 +69,19 @@ class EvaluatorTests(unittest.TestCase):
 
         self.assertFalse(self.evaluate("number:(0 or 3)"))
 
+    def test_free_text(self):
+        """Values not tied to a field are checked against every field in the document."""
+        self.assertTrue(self.evaluate('"hello world"'))
+        self.assertTrue(self.evaluate("example"))  # inside string_list
+        self.assertTrue(self.evaluate("hello*"))  # wildcard, matches "hello world"
+        self.assertTrue(self.evaluate("1"))  # number leaf, including nested structured docs
+        self.assertTrue(self.evaluate('not "missing"'))
+
+        self.assertFalse(self.evaluate('"missing"'))
+        self.assertFalse(self.evaluate("goodbye*"))
+        self.assertFalse(self.evaluate('"hello world" and "missing"'))
+        self.assertTrue(self.evaluate('"missing" or number:1'))
+
     def test_and_expr(self):
         self.assertTrue(self.evaluate("number:1 and boolean:true"))
 
@@ -111,3 +124,30 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(self.evaluate("structured.a.b:*"))
         self.assertTrue(self.evaluate("structured.a.b:1"))
         self.assertFalse(self.evaluate("structured.a.b:2"))
+
+    def test_nested_query(self):
+        self.assertTrue(self.evaluate("structured:{ a:{ b:1 } }"))
+        self.assertFalse(self.evaluate("structured:{ a:{ b:2 } }"))
+
+
+nested_document = {
+    "deltas": [
+        {"action": "ADD", "role": "roles/target"},
+        {"action": "REMOVE", "role": "roles/other"},
+    ]
+}
+
+
+class NestedEvaluatorTests(unittest.TestCase):
+    def evaluate(self, source_text):
+        evaluator = kql.get_evaluator(source_text, optimize=False)
+        return evaluator(nested_document)
+
+    def test_same_object_match(self):
+        """Nested queries only match when all conditions hold within the same object."""
+        self.assertTrue(self.evaluate('deltas:{ action:ADD and role:"roles/target" }'))
+
+    def test_cross_object_no_match(self):
+        """Conditions satisfied by different objects in the array must not match."""
+        # `ADD` is on the first object, `roles/other` on the second: no single object matches.
+        self.assertFalse(self.evaluate('deltas:{ action:ADD and role:"roles/other" }'))
