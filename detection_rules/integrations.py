@@ -152,6 +152,14 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
             data = flatten_ecs_schema(schema_fields)
             flat_data = {field["name"]: field["type"] for field in data}
 
+            # Built packages resolve `external: ecs` references into explicit multi_fields
+            # (e.g. process.name -> a `text` variant), so expand them: a data stream that
+            # maps a field also maps its multi-field variants (process.name.text).
+            for field in data:
+                multi_fields: list[dict[str, Any]] = field.get("multi_fields") or []
+                for subfield in multi_fields:
+                    flat_data[f"{field['name']}.{subfield['name']}"] = subfield.get("type", "keyword")
+
             version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
             if _is_ecs_field_file(Path(file).name):
@@ -199,12 +207,17 @@ def needs_ecs_scope_refresh(version_schema: Any) -> bool:
     if schema.get("_uses_ecs_mappings") is not False:
         return False
     return any(
-        isinstance(dataset_schema, dict)
-        and bool(dataset_schema.get("_ecs_declared"))
-        and "_ecs_populated" not in dataset_schema
+        _dataset_needs_scope_refresh(dataset_schema)
         for key, dataset_schema in schema.items()
         if key != "jobs" and not key.startswith("_")
     )
+
+
+def _dataset_needs_scope_refresh(dataset_schema: Any) -> bool:
+    """Return True when a cached data stream schema declares ECS fields but lacks the derived ones."""
+    if not isinstance(dataset_schema, dict):
+        return False
+    return bool(dataset_schema.get("_ecs_declared")) and "_ecs_populated" not in dataset_schema  # type: ignore[reportUnknownMemberType]
 
 
 def build_integrations_schemas(

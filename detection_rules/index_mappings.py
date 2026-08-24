@@ -310,7 +310,19 @@ def get_rule_populated_ecs_mappings(  # noqa: PLR0913, PLR0917
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_flat = ecs.get_schema(ecs_version, name="ecs_flat")
     flat_populated = {field: ecs_flat[field]["type"] for field in sorted(populated_fields) if field in ecs_flat}
-    return flat_schema_to_index_mapping(flat_populated)
+    mappings = flat_schema_to_index_mapping(flat_populated)
+
+    # scaled_float mappings are invalid without their scaling factor (see get_ecs_schema_mappings)
+    for field, field_type in flat_populated.items():
+        if field_type != "scaled_float":
+            continue
+        parts = field.split(".")
+        current = mappings
+        for part in parts[:-1]:
+            current = current.setdefault(part, {}).setdefault("properties", {})
+        current[parts[-1]].update({"scaling_factor": ecs_flat[field]["scaling_factor"]})
+
+    return mappings
 
 
 def prepare_integration_mappings(  # noqa: PLR0913, PLR0917

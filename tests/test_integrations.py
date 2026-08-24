@@ -901,6 +901,26 @@ class TestIntegrationEcsSources(unittest.TestCase):
         # a data stream that declares no ECS fields is never scoped, so it stores no metadata
         self.assertNotIn("_ecs_populated", version_schema["plain"])
 
+    def test_parse_version_schema_expands_multi_fields(self):
+        """Multi-field variants resolved into built packages are both mapped and declared."""
+        # built packages resolve `external: ecs` references into explicit multi_fields,
+        # so a data stream that maps process.name also maps process.name.text
+        ecs_fields = yaml.safe_dump(
+            [
+                {
+                    "name": "process.name",
+                    "type": "keyword",
+                    "multi_fields": [{"name": "text", "type": "match_only_text"}],
+                }
+            ]
+        )
+        zip_ref = self._package_zip({"pkg-1.0.0/data_stream/ds/fields/ecs.yml": ecs_fields})
+
+        version_schema = parse_version_schema(zip_ref, "pkg")
+
+        self.assertEqual(version_schema["ds"]["process.name.text"], "match_only_text")
+        self.assertIn("process.name.text", version_schema["ds"]["_ecs_declared"])
+
     def test_needs_ecs_scope_refresh(self):
         """Only ECS-scoped entries missing the derived fields are flagged for a refresh."""
         refreshed = {"_uses_ecs_mappings": False, "ds": {"_ecs_declared": ["source.ip"], "_ecs_populated": []}}
