@@ -60,6 +60,8 @@ rule_id = "2d8f6e1a-4b7c-4f9d-8e3a-1c5d2f8b9a0e"
 severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
     "Platform: AWS",
     "Data Source: AWS CloudTrail",
     "Service: AWS Bedrock",
@@ -83,6 +85,7 @@ event.dataset: "aws.cloudtrail" and
   ) and
   event.outcome: "success" and
   aws.cloudtrail.request_parameters: (*executionRoleArn* or *roleArn*) and
+  not aws.cloudtrail.user_identity.invoked_by: "bedrock-agentcore.amazonaws.com" and
   not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
