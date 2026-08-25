@@ -2,7 +2,7 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -128,12 +128,12 @@ rule_id = "d488f026-7907-4f56-ad51-742feb3db01c"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS S3",
-    "Resources: Investigation Guide",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS S3",
     "Tactic: Exfiltration",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -143,6 +143,7 @@ info where data_stream.dataset == "aws.cloudtrail"
    and event.action == "PutBucketReplication"
    and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "Account=")
+   and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 
