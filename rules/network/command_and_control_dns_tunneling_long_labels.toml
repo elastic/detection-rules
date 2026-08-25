@@ -2,7 +2,7 @@
 creation_date = "2026/08/20"
 integration = ["network_traffic", "zeek"]
 maturity = "production"
-updated_date = "2026/08/20"
+updated_date = "2026/08/25"
 
 [rule]
 author = ["Elastic"]
@@ -20,7 +20,6 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential DNS Tunneling via Long and Unique Subdomains"
@@ -136,24 +135,7 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
   by Esql.time_window, Esql.client_ip, Esql.dns_registered_domain
 | where Esql.count_queries >= 25 and Esql.count_distinct_names >= 15
 | eval Esql.unique_name_ratio = TO_DOUBLE(Esql.count_distinct_names) / Esql.count_queries
-| sort Esql.count_distinct_names desc
-| limit 100
-| keep
-    Esql.client_ip,
-    Esql.dns_registered_domain,
-    Esql.time_window,
-    Esql.count_queries,
-    Esql.count_distinct_names,
-    Esql.unique_name_ratio,
-    Esql.max_subdomain_length,
-    Esql.avg_subdomain_length,
-    Esql.dns_question_type_values,
-    Esql.destination_ip_values,
-    Esql.sample_names,
-    Esql.dataset_values,
-    Esql.observer_name_values,
-    Esql.first_seen,
-    Esql.last_seen
+| keep Esql.*
 '''
 
 
