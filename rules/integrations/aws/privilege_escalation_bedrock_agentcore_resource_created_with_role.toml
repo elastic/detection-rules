@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/08/25"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the creation of an AWS Bedrock AgentCore resource (code interpreter, agent runtime, browser, or harness) with an
+IAM execution role attached. When an attacker with iam:PassRole permission creates an AgentCore resource and attaches a
+privileged role, subsequent invocations inside that resource execute as the attached role — enabling privilege
+escalation to roles that trust bedrock-agentcore.amazonaws.com.
+"""
+false_positives = [
+    """
+    Legitimate provisioning of Bedrock AgentCore resources by CI/CD pipelines or platform engineers. Validate the caller
+    identity against expected provisioning principals and verify the attached role is commensurate with the workload's
+    documented requirements.
+    """,
+]
+from = "now-9m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock AgentCore Resource Created with IAM Execution Role"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock AgentCore Resource Created with IAM Execution Role
+
+AWS Bedrock AgentCore services (code interpreters, agent runtimes, browsers, harnesses) run user workloads inside isolated MicroVMs. When an IAM role is attached at creation time, all code executing inside the resource assumes that role's identity. An attacker with iam:PassRole and bedrock-agentcore:Create* permissions can attach a privileged role and then invoke the resource to operate as that role.
+
+The four Create* events covered here are management-plane events logged to CloudTrail by default. The subsequent Start*/Invoke* data-plane events are NOT captured by the default management events trail and cannot be detected without enabling data-plane logging.
+
+### Possible investigation steps
+
+- Check the caller identity (`aws.cloudtrail.user_identity.arn`) against expected provisioning principals. Unexpected users or roles creating AgentCore resources should be investigated.
+- Examine `aws.cloudtrail.request_parameters` for the attached role ARN (`executionRoleArn` or `roleArn`) and evaluate whether that role has permissions beyond what the AgentCore workload legitimately requires.
+- Check for subsequent `StartCodeInterpreterSession`, `StartBrowserSession`, or `InvokeAgentRuntime` events from the same caller against the newly created resource (requires data-plane logging to be enabled).
+- Review the IAM PassRole permission of the calling identity and whether it is constrained by `iam:PassedToService` conditions.
+
+### False positive analysis
+
+- Automated provisioning by CDK/CloudFormation/Terraform with a known service account.
+- Platform engineering pipelines deploying Bedrock-based AI workloads.
+- Filter on `user_agent.original` for known IaC tools.
+
+### Response and remediation
+
+- Suspend the calling identity's iam:PassRole permission while investigating.
+- Delete the newly created AgentCore resource to stop active sessions.
+- Rotate the attached execution role's credentials if exploitation is confirmed.
+- Enable data-plane logging for bedrock-agentcore to detect subsequent session invocations.
+"""
+references = [
+    "https://www.beyondtrust.com/blog/entry/aws-agentcore-privilege-escalation",
+]
+risk_score = 47
+rule_id = "2d8f6e1a-4b7c-4f9d-8e3a-1c5d2f8b9a0e"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Bedrock",
+    "Service: AWS IAM",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and
+  event.provider: "bedrock-agentcore.amazonaws.com" and
+  event.action: (
+    "CreateCodeInterpreter" or
+    "CreateAgentRuntime" or
+    "CreateBrowser" or
+    "CreateHarness"
+  ) and
+  event.outcome: "success" and
+  aws.cloudtrail.request_parameters: (*executionRoleArn* or *roleArn*) and
+  not user_agent.original: (*Terraform* or *Pulumi*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
