@@ -103,15 +103,17 @@ from logs-endpoint.events.process-* METADATA _id, _index, _version
 | WHERE host.os.type == "macos"
     AND event.type == "start"
     AND process.name == "SSFileCopySender"
-    AND process.args : "0" AND process.args : "80"
+    AND KQL(""" process.args : "0" AND process.args : "80" """)
 | KEEP _id, _version, _index,
     @timestamp,
     host.name,
+    host.id,
+    user.id,
     user.name,
     process.name,
-    process.pid,
+    process.entity_id,
     process.parent.name,
-    process.args
+    process.command_line
 | SORT @timestamp DESC
 | LIMIT 100
 '''
