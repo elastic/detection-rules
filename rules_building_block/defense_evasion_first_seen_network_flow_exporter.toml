@@ -3,14 +3,14 @@ bypass_bbr_timing = true
 creation_date = "2026/08/20"
 integration = ["netflow", "goflow2"]
 maturity = "production"
-updated_date = "2026/08/24"
+updated_date = "2026/08/20"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
 Identifies a NetFlow, IPFIX, or sFlow exporter IP that has not previously sent decoded flow records in the same data
-stream namespace during the prior 14 days. This low-risk building-block signal records exporter novelty for correlation
+stream namespace during the prior 5 days. This low-risk building-block signal records exporter novelty for correlation
 with later detection alerts in which the same address is the source of suspicious activity.
 """
 false_positives = [
@@ -19,10 +19,9 @@ false_positives = [
     exporter address changes, and integration re-onboarding can trigger this rule.
     """,
 ]
-from = "now-9m"
-index = ["logs-netflow.log-*", "logs-goflow2.sflow-*"]
+from = "now-7205m"
 interval = "5m"
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "First Seen Network Flow Exporter"
 note = """## Triage and analysis
@@ -86,38 +85,36 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "esql"
 
 query = '''
-data_stream.dataset:(netflow.log or goflow2.sflow) and
-  data_stream.namespace:* and observer.ip:*
+FROM logs-netflow.log-*, logs-goflow2.sflow-*
+| WHERE observer.ip IS NOT NULL AND data_stream.namespace IS NOT NULL
+| STATS
+    Esql.event_count = COUNT(*),
+    Esql.first_time_seen = MIN(@timestamp),
+    Esql.data_stream_dataset_values = VALUES(data_stream.dataset)
+  BY data_stream.namespace, observer.ip
+| EVAL Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent <= 6
+| KEEP
+    data_stream.namespace,
+    observer.ip,
+    Esql.event_count,
+    Esql.first_time_seen,
+    Esql.data_stream_dataset_values,
+    Esql.recent
 '''
 
 
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
-    "data_stream.dataset",
     "data_stream.namespace",
     "observer.ip",
-    "observer.name",
-    "event.action",
-    "netflow.exporter.address",
-    "netflow.exporter.source_id",
-    "netflow.exporter.version",
-    "sflow.sequence_num",
-    "sflow.sample_rate",
-    "source.ip",
-    "destination.ip",
-    "network.transport",
+    "Esql.data_stream_dataset_values",
+    "Esql.event_count",
+    "Esql.first_time_seen",
+    "Esql.recent",
 ]
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["data_stream.dataset", "data_stream.namespace", "observer.ip"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-14d"
-
 
