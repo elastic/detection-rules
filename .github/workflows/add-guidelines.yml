@@ -11,53 +11,59 @@ permissions:
 jobs:
   add-comment:
     runs-on: ubuntu-latest
+    # Community PRs only; Elastic org contributors already know these checklists.
+    if: contains(github.event.pull_request.labels.*.name, 'community')
     steps:
       - name: Check out the repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Set environment variable for early exit control
-        id: check_label
+      - name: Determine whether to post guidelines
+        id: decide
         run: |
-          echo "CONTINUE_JOB=true" >> $GITHUB_ENV
-          if [[ "${{ github.event.action }}" == "labeled" || "${{ github.event.action }}" == "opened" ]]; then
-            RELEVANT_LABELS=("bug" "enhancement" "schema" "Rule: New" "Rule: Tuning" "Rule: Deprecation" "Hunt: New" "Hunt: Tuning")
-            TRIGGERED_LABEL="${{ github.event.label.name }}"
-            if [[ ! " ${RELEVANT_LABELS[@]} " =~ " ${TRIGGERED_LABEL} " ]]; then
-              echo "CONTINUE_JOB=false" >> $GITHUB_ENV
+          RELEVANT_LABELS=("bug" "enhancement" "schema" "Rule: New" "Rule: Tuning" "Rule: Deprecation" "Hunt: New" "Hunt: Tuning")
+          TRIGGERED_LABEL="${{ github.event.label.name }}"
+          HAS_GUIDELINES_LABEL="${{ contains(github.event.pull_request.labels.*.name, 'bug') || contains(github.event.pull_request.labels.*.name, 'enhancement') || contains(github.event.pull_request.labels.*.name, 'schema') || contains(github.event.pull_request.labels.*.name, 'Rule: New') || contains(github.event.pull_request.labels.*.name, 'Rule: Tuning') || contains(github.event.pull_request.labels.*.name, 'Rule: Deprecation') || contains(github.event.pull_request.labels.*.name, 'Hunt: New') || contains(github.event.pull_request.labels.*.name, 'Hunt: Tuning') }}"
+
+          # On labeled: only continue when community or a guidelines label was just applied
+          # (covers either order: type label then community, or community then type label).
+          if [[ "${{ github.event.action }}" == "labeled" ]]; then
+            if [[ "$TRIGGERED_LABEL" != "community" && ! " ${RELEVANT_LABELS[*]} " =~ " ${TRIGGERED_LABEL} " ]]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
           fi
 
-      - name: Determine Guidelines Label
-        run: |
-          # Initialize GUIDELINES_FILE to empty
-          echo "GUIDELINES_FILE=" >> $GITHUB_ENV
-          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'bug') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/bug_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'enhancement') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/enhancement_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'schema') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/schema_enhancement_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: New') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_new_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: Tuning') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_tuning_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: Deprecation') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_deprecation_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Hunt: New') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/hunt_new_guidelines.md" >> $GITHUB_ENV
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Hunt: Tuning') }}" == "true" ]]; then
-            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/hunt_tuning_guidelines.md" >> $GITHUB_ENV
+          if [[ "$HAS_GUIDELINES_LABEL" != "true" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Fail if no relevant labels are found
-        if: env.GUIDELINES_FILE == ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          script: |
-            core.setFailed('No appropriate GitHub label found in the PR. Failing the job.')
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Select guidelines file
+        if: steps.decide.outputs.skip != 'true'
+        run: |
+          echo "GUIDELINES_FILE=" >> "$GITHUB_ENV"
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'bug') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/bug_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'enhancement') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/enhancement_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'schema') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/schema_enhancement_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: New') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_new_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: Tuning') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_tuning_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Rule: Deprecation') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/rule_deprecation_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Hunt: New') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/hunt_new_guidelines.md" >> "$GITHUB_ENV"
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'Hunt: Tuning') }}" == "true" ]]; then
+            echo "GUIDELINES_FILE=.github/PULL_REQUEST_GUIDELINES/hunt_tuning_guidelines.md" >> "$GITHUB_ENV"
+          fi
 
       - name: Add Guidelines Comment
-        if: env.CONTINUE_JOB == 'true' && (github.event.action == 'opened' || github.event.action == 'labeled')
+        if: steps.decide.outputs.skip != 'true' && env.GUIDELINES_FILE != ''
         uses: mshick/add-pr-comment@8e4927817251f1ff60c001f04568532b38e0b4a0 # v3
         with:
           message-path: ${{ env.GUIDELINES_FILE }}
