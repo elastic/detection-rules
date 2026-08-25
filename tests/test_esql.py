@@ -35,6 +35,11 @@ class TestESQLQuerySources(unittest.TestCase):
         self.assertListEqual(get_esql_query_indices("FROM logs-a-*"), ["logs-a-*"])
         self.assertListEqual(get_esql_query_indices("FROM logs-a-*\n| WHERE x"), ["logs-a-*"])
 
+    def test_sources_with_and_without_trailing_dash(self):
+        """Test that an index pattern is extracted whether or not a dash precedes its wildcard."""
+        query = "FROM logs-azure.signinlogs*, logs-azure.auditlogs-* METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-azure.signinlogs*", "logs-azure.auditlogs-*"])
+
     def test_cross_cluster_sources(self):
         """Test that cross cluster sources are truncated to local indices."""
         query = "FROM cluster_one:logs-a-*, logs-b-* METADATA _id\n| WHERE x"
