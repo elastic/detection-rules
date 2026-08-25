@@ -6,9 +6,10 @@ updated_date = "2026/08/24"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a newly observed NetFlow, IPFIX, or sFlow exporter IP followed by another medium-or-higher detection alert
-where that exporter IP is the source of the detected activity. This correlation adds behavioral evidence that can help
-distinguish routine exporter onboarding from a potentially unauthorized or compromised exporter.
+Identifies a newly observed NetFlow, IPFIX, or sFlow exporter IP followed by another detection alert with
+medium-or-higher severity or an elevated risk score, where that exporter IP is the source of the detected activity in
+the same data stream namespace. This correlation adds behavioral evidence that can help distinguish routine exporter
+onboarding from a potentially unauthorized or compromised exporter introduced as part of defense evasion.
 """
 false_positives = [
     """
@@ -28,8 +29,9 @@ note = """## Triage and analysis
 ### Investigating First Seen Network Flow Exporter Followed by Suspicious Source Activity
 
 This higher-order rule correlates a sequence containing the building-block alert "First Seen Network Flow Exporter"
-followed by another medium-or-higher detection alert within 30 minutes. The new exporter's `observer.ip` must equal the
-later alert's `source.ip`.
+followed by another detection alert with medium-or-higher severity or an elevated risk score within 30 minutes. The new
+exporter's `observer.ip` must equal the later alert's `source.ip`, and both alerts must share the same
+`data_stream.namespace`.
 
 This relationship provides stronger evidence than suspicious flows merely reported by the exporter. It indicates that
 the exporter address itself was subsequently identified as the source of separately detected activity. It does not by
@@ -84,7 +86,9 @@ activity with `source.ip` populated. The building-block rule requires decoded Ne
 Elastic NetFlow (`netflow.log`) or GoFlow2 (`goflow2.sflow`) integration.
 
 The higher-order rule searches Elastic Security alert indices. The correlated source alert must preserve the exporter
-address in `source.ip`; alerts without that field cannot contribute to this correlation.
+address in `source.ip` and preserve `data_stream.namespace`; alerts without either field cannot contribute to this
+correlation. Building-block, higher-order, machine-learning, new-terms, threat-match, and deprecated-rule alerts are
+excluded as the second event.
 """
 severity = "high"
 tags = [
@@ -102,19 +106,22 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence with maxspan=30m
+sequence by data_stream.namespace with maxspan=30m
   [any where
     event.kind == "signal" and
     kibana.alert.rule.rule_id == "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
+    data_stream.namespace != null and
     observer.ip != null
   ] by observer.ip
   [any where
     event.kind == "signal" and
+    data_stream.namespace != null and
     source.ip != null and
     kibana.alert.rule.name != null and
     kibana.alert.rule.rule_id != null and
     kibana.alert.rule.rule_id != "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
-    kibana.alert.risk_score >= 47 and
+    (kibana.alert.risk_score >= 47 or
+     kibana.alert.severity in ("medium", "high", "critical")) and
     ?kibana.alert.building_block_type == null and
     not kibana.alert.rule.type in ("machine_learning", "new_terms", "threat_match") and
     not kibana.alert.rule.name like "Deprecated - *" and
