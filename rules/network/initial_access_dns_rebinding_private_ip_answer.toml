@@ -2,7 +2,7 @@
 creation_date = "2026/08/20"
 integration = ["network_traffic", "zeek"]
 maturity = "production"
-updated_date = "2026/08/20"
+updated_date = "2026/08/25"
 
 [rule]
 author = ["Elastic"]
@@ -24,7 +24,6 @@ false_positives = [
     """,
 ]
 from = "now-15m"
-interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential DNS Rebinding from Public to Private Address"
@@ -177,21 +176,7 @@ from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
             Esql.transition_seconds <= 300
         )
     )
-| keep
-    Esql.client_ip,
-    dns.question.name,
-    dns.question.registered_domain,
-    Esql.resolved_ip_observation_count,
-    Esql.resolved_ip_count,
-    Esql.first_public_answer,
-    Esql.first_private_answer,
-    Esql.transition_seconds,
-    Esql.same_timestamp,
-    Esql.min_private_event_ttl,
-    Esql.public_ips,
-    Esql.private_ips,
-    Esql.dataset_values,
-    Esql.observer_name_values
+| keep Esql.*, dns.*
 '''
 
 
