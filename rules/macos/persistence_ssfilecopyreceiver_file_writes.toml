@@ -106,7 +106,6 @@ from logs-endpoint.events.file-* METADATA _id, _index, _version
         OR file.path LIKE "/Library/LaunchAgents/*.plist"
         OR file.path LIKE "/Users/*/Library/LaunchAgents/*.plist"
         OR file.path LIKE "/private/var/*/Library/LaunchAgents/*.plist"
-        OR file.path LIKE "/private/var/*/Library/LaunchAgents/*.plist"
         OR file.name IN (".zshenv", ".zshrc", ".zprofile", ".zlogin", ".bashrc", ".bash_profile", ".bash_login", ".profile", "config.fish", "environment.plist")
         OR file.path LIKE "/Users/*/.ssh/authorized_keys"
         OR file.path LIKE "/private/var/root/.ssh/authorized_keys"
@@ -118,7 +117,7 @@ from logs-endpoint.events.file-* METADATA _id, _index, _version
     )
 | KEEP _id, _index, _version, 
     @timestamp, host.name, host.id, user.id, user.name, process.name, 
-    event.action, event.type, file.path, file.name
+    event.action, event.type, file.path, file.name, data_stream.namespace
 '''
 
 [[rule.threat]]
