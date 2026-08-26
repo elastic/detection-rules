@@ -20,7 +20,7 @@ import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
-from .config import parse_rules_config
+from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .mixins import get_dataclass_required_fields
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
@@ -28,6 +28,20 @@ from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
+
+
+def _get_rule_prompt_required_fields(
+    props: dict[str, Any], required_fields: list[str], supplied_fields: dict[str, Any]
+) -> list[str]:
+    """Include the required side of the query-or-filters validation."""
+    if "query" not in props or "query" in required_fields:
+        return required_fields
+
+    filter_only_allowed = bool(
+        CUSTOM_RULES_DIR and supplied_fields.get("language") == "kuery" and supplied_fields.get("filters")
+    )
+    required_field = "filters" if filter_only_allowed else "query"
+    return sorted([*required_fields, required_field])
 
 
 def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
@@ -103,6 +117,8 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             return None
 
         if field_type in ("array", ["array"]):
+            if isinstance(result, list):
+                return result  # type: ignore[reportUnknownVariableType]
             result_list = result.split(",")
 
             if not (min_item < len(result_list) < max_items):
@@ -215,17 +231,21 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
 
         # Warn that if the path does not match the expected path, it will be saved to the expected path
         for rule in rules:
-            threat = rule.contents.data.get("threat")
-            first_tactic = threat[0].tactic.name if threat else ""
             # Check if flag or config is set to not include tactic in the filename
             no_tactic_filename = no_tactic_filename or RULES_CONFIG.no_tactic_filename
-            tactic_name = None if no_tactic_filename else first_tactic
-            rule_name = rulename_to_filename(rule.contents.data.name, tactic_name=tactic_name)
+            # Accept a filename built from the baseline tactic or any versioned (e.g. v19) threat_mappings
+            # tactic, since a rule may still use its older tactic name in the filename until it's renamed.
+            tactic_names = [] if no_tactic_filename else rule.contents.data.get_primary_tactic_names()
+            candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=t) for t in tactic_names]
+            if not candidate_names:
+                candidate_names = [rulename_to_filename(rule.contents.data.name, tactic_name=None)]
+            rule_name = candidate_names[0]
             if not rule.path:
                 click.secho(f"WARNING: Rule path for rule not found: {rule_name}", fg="yellow")
-            elif rule.path.name != rule_name:
+            elif rule.path.name not in candidate_names:
+                expected = rule_name if len(candidate_names) == 1 else f"one of {candidate_names}"
                 click.secho(
-                    f"WARNING: Rule path does not match required path: {rule.path.name} != {rule_name}", fg="yellow"
+                    f"WARNING: Rule path does not match required path: {rule.path.name} != {expected}", fg="yellow"
                 )
 
         kwargs["rules"] = rules
@@ -234,7 +254,7 @@ def multi_collection(f: Callable[..., Any]) -> Callable[..., Any]:
     return get_collection
 
 
-def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
+def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     path: Path | None = None,
     rule_type: str | None = None,
     required_only: bool = True,
@@ -271,6 +291,11 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
     required_fields = sorted(required_fields + additional_required)
+
+    # `query` carries a default on the dataclass so filter-only custom KQL rules can
+    # omit it. Mirror QueryRuleData.validates_query_or_filters when deciding which
+    # side of that validation must be retained or prompted for.
+    required_fields = _get_rule_prompt_required_fields(props, required_fields, kwargs)
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 

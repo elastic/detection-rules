@@ -2,7 +2,7 @@
 creation_date = "2026/06/18"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/18"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -67,12 +67,12 @@ rule_id = "53bb8f53-3550-4805-b6bd-728ded8d5564"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Lambda",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Lambda",
     "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -82,8 +82,11 @@ query = '''
 any where data_stream.dataset == "aws.cloudtrail"
     and event.provider == "lambda.amazonaws.com"
     and event.outcome == "success"
+    and not (user_agent.original : "*terraform*" or user_agent.original : "*pulumi*" or user_agent.original : "*ansible*")
+    and not (aws.cloudtrail.user_identity.arn : "*terraform*" or aws.cloudtrail.user_identity.arn : "*pulumi*" or aws.cloudtrail.user_identity.arn : "*ansible*")
     and (event.action : "CreateFunctionUrlConfig*" or event.action : "UpdateFunctionUrlConfig*")
     and stringContains(aws.cloudtrail.request_parameters, "authType=NONE")
+    and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 

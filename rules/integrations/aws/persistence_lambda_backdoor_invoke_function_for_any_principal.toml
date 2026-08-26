@@ -2,7 +2,7 @@
 creation_date = "2024/04/30"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -86,16 +86,16 @@ references = [
     "https://stratus-red-team.cloud/attack-techniques/AWS/aws.persistence.lambda-backdoor-function/",
     "https://docs.aws.amazon.com/lambda/latest/api/API_AddPermission.html",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "151d8f72-0747-11ef-a0c2-f661ea17fbcc"
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Lambda",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Lambda",
     "Tactic: Persistence",
+    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -108,6 +108,7 @@ info where data_stream.dataset == "aws.cloudtrail"
     and event.action : "AddPermission*" 
     and stringContains(aws.cloudtrail.request_parameters, "lambda:InvokeFunction") 
     and stringContains(aws.cloudtrail.request_parameters, "principal=\\*")
+    and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 

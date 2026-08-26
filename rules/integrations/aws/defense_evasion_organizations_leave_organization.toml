@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects any attempt, successful or denied, for a member account to leave an AWS Organization via the LeaveOrganization
+API. Leaving an organization immediately strips the account of every Service Control Policy (SCP) guardrail the
+organization enforces, removes it from centralized CloudTrail aggregation, and eliminates the management account's
+ability to audit or control it going forward. An adversary who has gained root or organization-management-capable access
+in a member account may use this technique to escape organizational security controls and operate unmonitored. Denied
+attempts are included because a blocked call is just as strong a signal of intent as a successful one, and is often the
+only trace left when the account's default permissions correctly prevent the action.
+"""
+false_positives = [
+    """
+    Accounts may legitimately leave an organization during company splits, divestitures, or other structural changes.
+    This action requires the account's root credentials or an explicit policy granting
+    `organizations:LeaveOrganization`. Any unexpected event, successful or denied, should be treated as a critical
+    incident requiring immediate investigation and confirmation with account/organization owners.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Attempt to Leave Organization"
+note = """## Triage and analysis
+
+### Investigating AWS Attempt to Leave Organization
+
+Leaving an AWS Organization removes every SCP-based guardrail from the account, cuts it off from centralized
+monitoring (CloudTrail, GuardDuty, Security Hub aggregation at the organization level), and eliminates the management
+account's ability to audit or control it. This is one of the most consequential defense-evasion actions available to
+an adversary with sufficient access in a member account.
+
+This rule fires on any `LeaveOrganization` call regardless of outcome — a denied attempt (for example, `AccessDenied`
+because the calling principal lacks the permission) is still a critical indicator that someone attempted this action.
+
+### Possible investigation steps
+
+- **Identify the actor**: review `aws.cloudtrail.user_identity.arn` and `aws.cloudtrail.user_identity.type` —
+  only root or a principal with an explicit `organizations:LeaveOrganization` grant can succeed at this.
+- **Check the outcome**: if `event.outcome` is `success`, treat this as an active, ongoing incident — the account has
+  already left the organization. If denied, determine why the attempt was made and whether the same actor has
+  broader access that could be escalated to succeed.
+- **Review source context**: check `source.ip`, `user_agent.original`, and `source.geo` for anomalies.
+- **Correlate with other defense evasion or persistence activity**: look for recent IAM changes (new roles, policy
+  attachments), root login events, or other attempts to shed organizational oversight around the same time.
+- **Contact the account and organization owners immediately** to confirm whether this was an authorized, planned
+  departure.
+
+### False positive analysis
+
+- Legitimate organizational restructuring (account divestiture, company split) can trigger this. Confirm with
+  organization administrators and require documented change management before treating as benign.
+
+### Response and remediation
+
+- If successful and unauthorized, use `InviteAccountToOrganization` from the management account to re-invite the
+  departed account as soon as possible, and treat the account as compromised in the interim.
+- If denied, investigate how the calling principal obtained enough access to attempt this at all, and whether it can
+  reach the required permission through another path (privilege escalation).
+- Revoke or rotate credentials for the identity that made the call.
+- Review the account's activity for the period immediately before and after the attempt for other compromise
+  indicators.
+
+"""
+references = [
+    "https://docs.aws.amazon.com/organizations/latest/APIReference/API_LeaveOrganization.html",
+    "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_remove.html",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.defense-evasion.organizations-leave/",
+]
+risk_score = 47
+rule_id = "4236393d-090e-4dfa-9e32-c9a7ec6189ee"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS Organizations",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "organizations.amazonaws.com"
+    and event.action: "LeaveOrganization"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.provider",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.error_code",
+    "aws.cloudtrail.error_message",
+    "cloud.account.id",
+    "cloud.region",
+]
+

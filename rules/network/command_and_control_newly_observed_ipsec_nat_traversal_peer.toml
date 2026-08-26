@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2020/02/18"
+integration = ["network_traffic", "panw", "pfsense", "zeek"]
+maturity = "production"
+updated_date = "2026/08/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies outbound IPSEC NAT Traversal (NAT-T) traffic to an external destination IP that was not observed
+during the previous 5 days. IPSEC is a VPN technology that allows one system to talk to another using encrypted
+tunnels. NAT Traversal encapsulates IPSEC ESP traffic in UDP and, once a NAT device is detected, both peers float to UDP
+port 4500 for the tunnel data channel. Newly observed external NAT-T peers may indicate unauthorized VPN use or an
+adversary tunneling command and control or exfiltration traffic over the Internet.
+"""
+false_positives = [
+    """
+    Newly deployed legitimate site-to-site or client VPN gateways, or established gateways that were inactive for more
+    than 5 days, will generate an alert when first observed. Where these peers are expected, their external destination
+    IP addresses can be excluded.
+    """,
+]
+from = "now-7205m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Newly Observed IPSEC NAT Traversal Peer"
+risk_score = 21
+rule_id = "a9cb3641-ff4b-4cdc-a063-b4b8d02a67c7"
+severity = "low"
+tags = [
+    "Tactic: Command and Control",
+    "Domain: Endpoint",
+    "Use Case: Threat Detection",
+    "Data Source: PAN-OS",
+    "Data Source: Network Traffic",
+    "Data Source: pfSense",
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-panw.panos*, logs-pfsense.log-*, logs-zeek.connection-* METADATA _id
+| WHERE (
+    data_stream.dataset IN ("network_traffic.flow", "zeek.connection")
+    OR MV_CONTAINS(event.category, "network")
+    OR MV_CONTAINS(event.category, "network_traffic")
+  )
+  AND network.transport == "udp"
+  AND source.port == 4500
+  AND destination.port == 4500
+  AND CIDR_MATCH(source.ip, "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+  AND NOT CIDR_MATCH(
+    destination.ip,
+    "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+    "192.0.0.0/24", "192.0.0.0/29", "192.0.0.8/32", "192.0.0.9/32",
+    "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+    "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24",
+    "224.0.0.0/4", "100.64.0.0/10", "192.175.48.0/24", "198.18.0.0/15",
+    "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10", "FF00::/8"
+  )
+  AND (
+    data_stream.dataset IS NULL
+    OR data_stream.dataset != "panw.panos"
+    OR event.action IS NULL
+    OR event.action NOT IN ("flow_dropped", "flow_denied")
+  )
+| EVAL Esql.dataset = COALESCE(data_stream.dataset, event.dataset)
+| STATS
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.event_count = COUNT(*),
+    Esql.source_ip_count = COUNT_DISTINCT(source.ip),
+    Esql.source_ip_values = MV_SLICE(VALUES(source.ip), 0, 100),
+    Esql.event_action_values = VALUES(event.action),
+    Esql.dataset_values = VALUES(Esql.dataset),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 20)
+  BY destination.ip
+| EVAL Esql.recent = DATE_DIFF("minute", Esql.first_seen, NOW())
+| WHERE Esql.recent >= 0 AND Esql.recent <= 10
+| KEEP destination.ip, Esql.*
+'''
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Newly Observed IPSEC NAT Traversal Peer
+
+IPSEC NAT Traversal facilitates secure VPN communication across NAT devices by encapsulating IPSEC packets in UDP, typically using port 4500. While essential for legitimate encrypted traffic, adversaries exploit this to mask malicious activities and bypass network defenses. This rule surfaces an external destination the first time NAT-T traffic to it is observed within a 5-day history window.
+
+### Possible investigation steps
+
+- Review the source and destination IP addresses associated with the UDP traffic on port 4500 to determine if they are known or expected within your network environment.
+- Analyze the volume and frequency of the detected traffic to assess whether it aligns with typical IPSEC NAT Traversal usage or if it appears anomalous.
+- Check for any associated network traffic events in the same timeframe that might indicate a pattern of suspicious activity, such as unusual data transfer volumes or connections to known malicious IP addresses.
+- Investigate the endpoint or device generating the traffic to verify if it is authorized to use IPSEC NAT Traversal and if it has any history of security incidents or vulnerabilities.
+- Correlate the detected activity with any recent changes in network configurations or security policies that might explain the traffic pattern.
+- Consult threat intelligence sources to determine if the destination IP address or domain has been associated with known threat actors or command and control infrastructure.
+
+### False positive analysis
+
+- A legitimate VPN gateway will alert when it is first deployed or first observed after more than 5 days of inactivity.
+- Legitimate VPN traffic using IPSEC NAT Traversal can trigger alerts. Regularly review and whitelist known IP addresses or subnets associated with authorized VPN connections to reduce false positives.
+- Network devices or services that rely on IPSEC for secure communication may generate expected traffic on port 4500. Identify and document these devices, then create exceptions in the detection rule to prevent unnecessary alerts.
+- Automated backup or synchronization services that use IPSEC for secure data transfer might be flagged. Monitor these services and exclude their traffic patterns if they are verified as non-threatening.
+- Some enterprise applications may use IPSEC NAT Traversal for secure communication. Conduct an inventory of such applications and adjust the rule to exclude their traffic after confirming their legitimacy.
+- Regularly update the list of known safe IP addresses and services to ensure that new legitimate sources of IPSEC NAT Traversal traffic are promptly excluded from triggering alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected system from the network to prevent further potential malicious activity and lateral movement.
+- Conduct a thorough analysis of the isolated system to identify any signs of compromise, such as unauthorized access or data exfiltration, focusing on logs and network traffic related to UDP port 4500.
+- Block all suspicious IP addresses associated with the detected traffic on port 4500 at the network perimeter to prevent further communication with potential threat actors.
+- Review and update firewall and intrusion detection/prevention system (IDS/IPS) rules to ensure they effectively block unauthorized IPSEC NAT Traversal traffic, particularly on UDP port 4500.
+- Restore the affected system from a known good backup if any signs of compromise are confirmed, ensuring that all security patches and updates are applied before reconnecting to the network.
+- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to determine if additional systems are affected.
+- Implement enhanced monitoring and logging for UDP traffic on port 4500 to detect and respond to any future suspicious activity promptly."""
+
+
+[rule.alert_suppression]
+group_by = ["destination.ip"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[[rule.threat.technique]]
+id = "T1573"
+name = "Encrypted Channel"
+reference = "https://attack.mitre.org/techniques/T1573/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+

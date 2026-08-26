@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "Module loading detection for Linux was introduced in 9.3.0"
-updated_date = "2026/07/02"
+updated_date = "2026/07/16"
 
 [transform]
 [[transform.osquery]]
@@ -174,16 +174,23 @@ not (
   process.parent.executable in (
     "/usr/lib/uptrack/ksplice-apply", "/opt/commvault/commvault/Base/linux_drv", "/opt/cisco/amp/bin/cisco-amp-helper",
     "/usr/bin/kcarectl", "/usr/share/ksplice/ksplice-apply", "/opt/commvault/Base/linux_drv", "/usr/sbin/veeamsnap-loader",
-    "/bin/falcoctl"
+    "/bin/falcoctl", "/usr/sbin/veeamworker"
+  ) or
+  process.parent.executable like (
+    "/sbin/iptables-multi*", "/var/ossec/bin/wazuh-modulesd", "/usr/sbin/mkinitramfs",
+    "/usr/share/initramfs-tools/hooks/lvm2", "/usr/lpp/mmfs/bin/*", "/opt/forticlient/*",
+    "/opt/traps/bin/*", "/snap/lxd/*/sbin/lxd", "/usr/sbin/xtables*"
   ) or
   (process.parent.name like ("python*", "platform-python*") and process.parent.args in ("--smart-update", "--auto-update")) or
+  process.args in ("--showconfig", "--dump-modversions") or
   (
-    process.name == "modprobe" and process.args == "-q" and process.args == "--" and process.args in ("net-pf-10", "netdev-", "binfmt-464c")
+    process.name == "modprobe" and process.args == "-q" and process.args == "--" and
+    (process.args in ("net-pf-10", "binfmt-464c") or process.args like ("netdev-*", "block-major-*"))
   ) or
   (
-    process.name == "modprobe" and process.args == "-n" and process.args == "-v" and process.args in ("usb-storage", "dccp", "squashfs", "udf", "sctp", "cramfs", "hfsplus")
+    process.name == "modprobe" and process.args == "-n" and process.args == "-v" and
+    process.args in ("usb-storage", "dccp", "squashfs", "udf", "sctp", "cramfs", "hfsplus", "rds", "hfs", "jffs2", "freevxfs", "vfat", "overlay")
   ) or
-  process.parent.executable like ("/sbin/iptables-multi*", "/var/ossec/bin/wazuh-modulesd", "/usr/sbin/mkinitramfs", "/usr/share/initramfs-tools/hooks/lvm2") or
   process.parent.args like "/usr/share/initramfs-tools/hooks/*"
 )
 '''

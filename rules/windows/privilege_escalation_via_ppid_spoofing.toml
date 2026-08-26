@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/07/03"
 
 [rule]
 author = ["Elastic"]
@@ -41,7 +41,7 @@ query = '''
 process where host.os.type == "windows" and event.action == "start" and
 
  /* process creation via seclogon */
- process.parent.Ext.real.pid > 0 and
+ process.parent.Ext.real.pid > 0 and process.parent.executable != null and
 
  /* PrivEsc to SYSTEM */
  user.id : "S-1-5-18"  and
@@ -75,7 +75,6 @@ process where host.os.type == "windows" and event.action == "start" and
                                    "?:\\Windows\\UUS\\amd64\\wuauclt.exe",
                                    "?:\\Windows\\UUS\\amd64\\wuaucltcore.exe",
                                    "?:\\ProgramData\\Microsoft\\Windows\\UUS\\*\\wuaucltcore.exe")) and
- not (process.executable : ("?:\\Windows\\System32\\MpSigStub.exe", "?:\\Windows\\SysWOW64\\MpSigStub.exe") and process.parent.executable == null) and
 
  /* Other third party SW */
  not process.parent.executable :
@@ -90,7 +89,7 @@ process where host.os.type == "windows" and event.action == "start" and
                     "?:\\Program Files (x86)\\GoToAssist Remote Support Customer\\*\\g2ax_comm_customer.exe") and
  not (
     process.code_signature.trusted == true and process.code_signature.subject_name == "Netwrix Corporation" and
-    process.name : "adcrcpy.exe" and process.parent.name : (
+    process.name : ("adcrcpy.exe", "addumpcaller.exe") and process.parent.name : (
       "Netwrix.ADA.EventCollector.exe",
       "Netwrix.ADA.Analyzer.exe"
     )
