@@ -2,26 +2,27 @@
 creation_date = "2021/12/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies an outbound network connection by JAVA to LDAP, RMI or DNS standard ports followed by a suspicious JAVA child
-processes. This may indicate an attempt to exploit a JAVA/NDI (Java Naming and Directory Interface) injection
-vulnerability.
+Identifies a Java process that accepts an inbound network connection and then spawns a suspicious child process. This
+may indicate exploitation of a Java service that runs attacker-controlled code, such as one that deserializes untrusted
+objects.
 """
 from = "now-9m"
 index = ["auditbeat-*", "logs-endpoint.events.*"]
 language = "eql"
 license = "Elastic License v2"
-name = "Potential JAVA/JNDI Exploitation Attempt"
+name = "Potential Java Service Exploitation via Suspicious Child Process"
 references = [
     "https://www.lunasec.io/docs/blog/log4j-zero-day/",
     "https://github.com/christophetd/log4shell-vulnerable-app",
     "https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf",
     "https://www.elastic.co/security-labs/detecting-log4j2-with-elastic-security",
     "https://www.elastic.co/security-labs/analysis-of-log4shell-cve-2021-45046",
+    "https://archive.ph/Xowgn",
 ]
 risk_score = 73
 rule_id = "c3f5e1d8-910e-43b4-8d44-d748e498ca86"
@@ -39,19 +40,15 @@ tags = [
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=1m
- [network where event.action == "connection_attempted" and
+sequence by host.id with maxspan=5s
+ [network where event.action == "connection_accepted" and network.direction == "ingress" and
+
   process.name : "java" and
-  /*
-     outbound connection attempt to
-     LDAP, RMI or DNS standard ports
-     by JAVA process
-   */
-  destination.port in (1389, 389, 1099, 53, 5353)] by process.pid
+  destination.port < 49152  and source.port >= 49152] by process.pid
  [process where event.type == "start" and
 
   /* Suspicious JAVA child process */
-  process.parent.name : "java" and
+  process.parent.name : "java" and process.working_directory : "/opt/*" and
    process.name : ("sh",
                    "bash",
                    "dash",
