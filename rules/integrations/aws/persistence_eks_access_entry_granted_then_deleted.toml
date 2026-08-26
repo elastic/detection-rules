@@ -24,7 +24,6 @@ false_positives = [
 ]
 from = "now-15m"
 index = ["logs-aws.cloudtrail-*"]
-interval = "5m"
 language = "eql"
 license = "Elastic License v2"
 name = "AWS EKS Access Entry Created Then Deleted by Same Identity"
@@ -59,13 +58,15 @@ references = [
     "https://www.wiz.io/blog/new-attack-vectors-emerge-via-recent-eks-access-entries-and-pod-identity-features",
     "https://securitylabs.datadoghq.com/articles/eks-cluster-access-management-deep-dive/",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "2b60fb61-d0c7-405e-9f33-a66d8729628d"
 setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. EKS management events are logged by default."
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
+    "Domain: Kubernetes",
     "Platform: AWS",
+    "Platform: Kubernetes",
     "Data Source: AWS CloudTrail",
     "Service: AWS EKS",
     "Rule Type: Event Correlation (EQL)",
@@ -76,9 +77,9 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by user.name with maxspan=10m
-  [any where event.provider == "eks.amazonaws.com" and event.action == "CreateAccessEntry" and event.outcome == "success"]
-  [any where event.provider == "eks.amazonaws.com" and event.action == "DeleteAccessEntry" and event.outcome == "success"]
+sequence by aws.cloudtrail.user_identity.arn with maxspan=10m
+  [any where data_stream.dataset == "aws.cloudtrail" and event.provider == "eks.amazonaws.com" and event.action == "CreateAccessEntry" and event.outcome == "success" and aws.cloudtrail.user_identity.arn != null]
+  [any where data_stream.dataset == "aws.cloudtrail" and event.provider == "eks.amazonaws.com" and event.action == "DeleteAccessEntry" and event.outcome == "success" and aws.cloudtrail.user_identity.arn != null]
 '''
 
 [[rule.threat]]
