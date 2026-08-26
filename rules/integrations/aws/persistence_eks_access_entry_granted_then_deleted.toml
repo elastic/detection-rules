@@ -46,6 +46,14 @@ This sequence is analogous to adding a backdoor user, using it, then deleting it
 - Check the cluster's current RBAC configuration for persistent backdoor resources.
 - Determine whether the identity had a legitimate reason to create an access entry for the targeted cluster.
 
+### False positive analysis
+
+- Infrastructure-as-code and CI/CD pipelines that create and tear down EKS access entries as part of cluster validation — Terraform or eksctl apply/destroy cycles, ephemeral test clusters — will produce this exact sequence. Correlate with the pipeline identity and change records before triaging further.
+- Short-lived break-glass or just-in-time administrative access that is granted and revoked by the same operator within minutes is legitimate; confirm against access-request tickets or change approvals.
+- Migration tooling that switches clusters between authentication modes may churn access entries in bulk under a single automation role.
+- The sequence correlates on the calling identity only, so confirm the `CreateAccessEntry` and `DeleteAccessEntry` events reference the same cluster and principal ARN in the request parameters before treating them as one grant-and-revoke cycle.
+- Scope any exceptions by the calling ARN or automation role rather than excluding the behavior globally.
+
 ### Response and remediation
 
 - Audit all Kubernetes RBAC resources for unauthorized ClusterRoleBindings or privileged ServiceAccounts created in the suspect window.
