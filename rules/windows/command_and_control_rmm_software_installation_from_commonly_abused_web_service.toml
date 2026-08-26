@@ -92,20 +92,23 @@ FROM
         "s3-*.amazonaws.com", "*.s3-*.amazonaws.com",
         "*.s3express-*.amazonaws.com"
       ) OR
-      // Azure, Cloudflare R2, Discord, Dropbox, and Firebase Storage.
+      // Azure, Cloudflare R2, Discord, and Dropbox.
       origin.domain LIKE (
-        "*.azurewebsites.net",
+        "*.azurewebsites.net", "*.azurestaticapps.net",
+        "*.azurecontainerapps.io",
         "*.blob.core.windows.net", "*.blob.storage.azure.net",
         "*.web.core.windows.net", "*.web.storage.azure.net",
+        "*.file.core.windows.net",
+        "*.azurefd.net", "*.azureedge.net",
         "*.r2.dev",
         "cdn.discordapp.com",
         "dropbox.com", "*.dropbox.com",
-        "dropboxusercontent.com", "*.dropboxusercontent.com",
-        "firebasestorage.googleapis.com"
+        "dropboxusercontent.com", "*.dropboxusercontent.com"
       ) OR
-      // Google Drive and Cloud Storage.
+      // Firebase Storage, Google Drive, and Cloud Storage.
       origin.domain LIKE (
-        "*-apidata.googleusercontent.com", "content-storage.googleapis.com",
+        "*.googleusercontent.com", "content-storage.googleapis.com",
+        "firebasestorage.googleapis.com",
         "docs.google.com", "drive.google.com", "drive.usercontent.google.com",
         "storage-download.googleapis.com", "storage.googleapis.com", "*.storage.googleapis.com",
         "www.googleapis.com"
@@ -196,7 +199,7 @@ FROM
 ),
 (
   FROM logs-endpoint.events.process-* METADATA _id, _version, _index
-  | WHERE host.os.type == "windows" AND event.type == "start" AND process.name.caseless == "msiexec.exe"
+  | WHERE host.os.type == "windows" AND MV_CONTAINS(event.type, "start") AND process.name.caseless == "msiexec.exe"
   | EVAL sequence_stage = "execute"
   | KEEP @timestamp, host.id, process.args, user.id, _id, _version, _index, sequence_stage
 ),
