@@ -2,7 +2,7 @@
 creation_date = "2026/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/03"
+updated_date = "2026/08/19"
 
 [rule]
 author = ["Elastic"]
@@ -30,7 +30,7 @@ This alert flags a Linux web server process creating or renaming a file in web c
 
 - Determine whether the file aligns with an approved deployment, plugin or theme update, package installation, or administrator change in the same time window by reviewing change records and system update history.
 - Inspect the file contents, hash, ownership, permissions, and timestamps for signs of a web shell, dropped payload, hidden redirect, or script stager, and compare it with known-good application files from the same host or image.
-- Review the web service’s parent and child activity around the event for spawned shells, interpreters, archive extraction, or permission changes that would indicate exploitation followed by payload execution or persistence setup.
+- Review the web service's parent and child activity around the event for spawned shells, interpreters, archive extraction, or permission changes that would indicate exploitation followed by payload execution or persistence setup.
 - Correlate nearby web access, reverse-proxy, and application log events to identify suspicious upload, template-edit, admin-panel, deserialization, or remote-code-execution requests immediately before the file appeared and any follow-up requests to the new file.
 - Scope the compromise by searching the host and peer web servers for similarly named files, unexpected cron or systemd persistence, modified startup scripts, or outbound connections made by the web service account after the creation event.
 
@@ -85,7 +85,7 @@ event.category:file and host.os.type:linux and event.action:(creation or rename)
   (process.name: lua* and file.extension: ("lua" or "luac"))
 ) and
 file.path:(
-  /home/*/* or /var/www/* or /srv/www/* or /srv/http/* or /usr/share/nginx/* or /var/lib/nginx/* or
+  /home/*/* or /var/www/* or /srv/www/* or /srv/http/* or /usr/share/nginx/* or /opt/zimbra/jetty* or
   /usr/share/caddy/* or /usr/local/lsws/* or /opt/bitnami/* or */sites/*/files/* or /opt/easyengine/* or
   */wp-content/* or */httpdocs/* or */httpsdocs/* or */htdocs/* or */wwwroot/* or */webroot/* or */cgi-bin/* or
   */upload/* or */uploads/* or */images/* or */media/* or */userfiles/* or */attachments/* or
@@ -98,7 +98,12 @@ file.path:(
   */dropins/* or */installedApps/* or /srv/caddy/* or /usr/local/openresty/* or */fileadmin/* or */custom_apps/* or
   */vhost* or /opt/apache-tomcat* or /opt/jetty* or /usr/local/jetty* or */wildfly*/* or */jboss*/* or */glassfish/* or
   */user_projects/domains/* or */resin*/webapps/* or */installedApps/*
-)
+) and
+not (
+  file.path:*/storage/framework/sessions/* or
+  (process.name:php-fpm* and file.path:(/mnt/WEB/*/public_html/tmp/templates/frontend/*.php or /mnt/WEB/*/public_html/wp-content/languages/*.json)) or
+  (process.name:node and (user.id>=1000 or user.id:0))
+  )
 '''
 
 [[rule.threat]]
