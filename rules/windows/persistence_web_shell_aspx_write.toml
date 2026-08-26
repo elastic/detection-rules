@@ -100,20 +100,20 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-file where host.os.type == "windows" and event.type != "deletion" and file.extension : "aspx" and
- process.name : ("w3wp.exe", "MSExchangeMailboxReplication.exe", "EdgeTransport.exe", "Microsoft.Exchange.*.exe", "UMWorkerProcess.exe", "umservice.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "certutil.exe", "bitsadmin.exe", "xcopy.exe") and 
+file where host.os.type == "windows" and event.type != "deletion" and file.extension : ("aspx", "ashx", "asmx") and
+ process.name : ("w3wp.exe", "MSExchangeMailboxReplication.exe", "EdgeTransport.exe", "Microsoft.Exchange.*.exe", "UMWorkerProcess.exe", "umservice.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "certutil.exe", "xcopy.exe") and 
   (
-   (file.path : ("?:\\Program Files\\Common Files\\microsoft shared\\Web Server Extensions\\*\\TEMPLATE\\LAYOUTS\\*.aspx",
-                 "?:\\inetpub\\wwwroot\\aspnet_client\\system_web\\*.aspx", 
-                 "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\owa\\auth\\*.aspx", 
-                 "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\ecp\\auth\\*.aspx") and 
+   (file.path : ("?:\\Program Files\\Common Files\\microsoft shared\\Web Server Extensions\\*\\TEMPLATE\\LAYOUTS\\*",
+                 "?:\\inetpub\\wwwroot\\aspnet_client\\system_web\\*", 
+                 "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\owa\\auth\\*", 
+                 "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\ecp\\auth\\*") and 
     /* not sub-dirs */
-    not file.path : ("?:\\inetpub\\wwwroot\\aspnet_client\\system_web\\*\\*.aspx", 
-                     "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\*\\auth\\*\\*.aspx", 
-                     "?:\\Program Files\\Common Files\\microsoft shared\\Web Server Extensions\\*\\TEMPLATE\\LAYOUTS\\*\\*.aspx")) or 
+    not file.path : ("?:\\inetpub\\wwwroot\\aspnet_client\\system_web\\*\\*", 
+                     "?:\\Program Files\\Microsoft\\Exchange Server\\V*\\FrontEnd\\HttpProxy\\*\\auth\\*\\*", 
+                     "?:\\Program Files\\Common Files\\microsoft shared\\Web Server Extensions\\*\\TEMPLATE\\LAYOUTS\\*\\*")) or 
 
     /* not sub-dirs */
-   (file.path : "?:\\inetpub\\wwwroot\\aspnet_client\\*.aspx" and not file.path : "?:\\inetpub\\wwwroot\\aspnet_client\\*\\*.aspx")
+   (file.path : "?:\\inetpub\\wwwroot\\aspnet_client\\*" and not file.path : "?:\\inetpub\\wwwroot\\aspnet_client\\*\\*")
   ) 
 '''
 
