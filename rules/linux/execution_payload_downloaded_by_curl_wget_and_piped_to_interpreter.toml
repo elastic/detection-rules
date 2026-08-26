@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/08/19"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a file is downloaded by curl or wget, and piped to an interpreter. Attackers may use this
+technique to download and execute payloads for various malicious purposes, such as establishing persistence or
+exfiltrating data.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File Downloaded by Curl/Wget and Piped to Interpreter"
+risk_score = 47
+rule_id = "3ebdc01e-7788-4845-8e7a-c8a671ad46ea"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Command and Control",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend"
+]
+type = "eql"
+query = '''
+sequence by host.id, process.parent.entity_id, process.working_directory with maxspan=1s
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.name in ("curl", "wget") and
+  (
+    /* IP address and path */
+    process.command_line regex ".*[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(:[0-9]{1,5})?\\/[^ ]+.*" or
+    /* URL and path */
+    process.command_line regex ".*[A-Za-z0-9][A-Za-z0-9\\-]*(\\.[A-Za-z0-9][A-Za-z0-9\\-]*)+(:[0-9]{1,5})?\\/[^ ]+.*"
+  ) and
+  process.args_count <= 3 and (
+    process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox", "node", "deno", "ash", "mksh", "pwsh") or
+    process.parent.name like (".*", "python*", "perl*", "ruby*", "lua*", "php*") or
+    process.parent.executable like (
+      "/tmp/*", "/var/tmp/*", "/dev/shm/*", "./*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "/lost+found/*",
+      "/proc/*", "/var/mail/*", "/var/www/*", "/dev/fd/*", "?memfd:*", "memfd:*"
+    )
+  ) and
+  not (
+    process.args in ("-h", "--help", "-V", "--version", "--output", "-O") or
+    process.args like ("--output*", "-o*", "--remote-name*") or
+    process.command_line like ("*127.0.0.1*", "*localhost*", "*artifacts.elastic.co*", "*ela.st*", "*elastic.co*")
+  )]
+  [process where host.os.type == "linux" and event.type == "end" and event.action == "end" and
+   process.name like (
+     "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish",
+     "python*", "perl*", "ruby*", "lua*", "php*", "node"
+   ) and process.args_count == 1 and
+   process.args like (
+    "-bash", "-dash", "-sh", "-tcsh", "-csh", "-zsh", "-ksh", "-fish", "-ash", "-mksh", "-pwsh",
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "ash", "mksh", "pwsh",
+    "/bin/bash", "/bin/dash", "/bin/sh", "/bin/tcsh",
+    "/bin/zsh", "/bin/ksh", "/bin/fish",
+    "/bin/csh", "/bin/ash", "/bin/mksh", "/bin/pwsh",
+    "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh", "/usr/bin/tcsh",
+    "/usr/bin/csh", "/usr/bin/zsh", "/usr/bin/ksh", "/usr/bin/fish",
+    "/usr/bin/ash", "/usr/bin/mksh", "/usr/bin/pwsh",
+    "/usr/local/bin/bash", "/usr/local/bin/dash", "/usr/local/bin/sh", "/usr/local/bin/tcsh",
+    "/usr/local/bin/csh", "/usr/local/bin/zsh", "/usr/local/bin/ksh", "/usr/local/bin/fish",
+    "/usr/local/bin/ash", "/usr/local/bin/mksh", "/usr/local/bin/pwsh",
+    "python*", "/bin/python*", "/usr/bin/python*", "/usr/local/bin/python*",
+    "perl*", "/bin/perl*", "/usr/bin/perl*", "/usr/local/bin/perl*",
+    "ruby*", "/bin/ruby*", "/usr/bin/ruby*", "/usr/local/bin/ruby*",
+    "lua*", "/bin/lua*", "/usr/bin/lua*", "/usr/local/bin/lua*",
+    "php*", "/bin/php*", "/usr/bin/php*", "/usr/local/bin/php*",
+    "node", "/bin/node", "/usr/bin/node", "/usr/local/bin/node",
+    "/dev/fd/*", "?memfd:*", "memfd:*"
+  )
+  ]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Execution"
+id = "TA0002"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Command and Control"
+id = "TA0011"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat.technique]]
+name = "Application Layer Protocol"
+id = "T1071"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+name = "Defense Evasion"
+id = "TA0005"
+reference = "https://attack.mitre.org/tactics/TA0005/"
