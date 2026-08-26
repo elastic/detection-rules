@@ -1,0 +1,78 @@
+[metadata]
+creation_date = "2026/08/25"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/08/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects command lines that reference another process or thread's procfs syscall file. The
+"/proc/<pid>/syscall" interface exposes the current syscall arguments, stack pointer, and instruction
+pointer, which can support process discovery and preparation for process injection. Self and thread-self
+aliases are excluded.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Reading of procfs Syscall File"
+references = [
+  "https://man7.org/linux/man-pages/man5/proc_pid_syscall.5.html",
+  "https://www.akamai.com/blog/security-research/the-definitive-guide-to-linux-process-injection"
+]
+risk_score = 47
+rule_id = "6327bdae-4dc4-4e2e-b29d-3fd100af522c"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
+(
+  process.name in (
+    "cat", "less", "more", "head", "tail", "nano", "vi", "vim", "strings", "nvim", "vim.basic",
+    "vim.tiny", "od", "hexdump", "xxd", "hx", "hexedit", "pager", "tr"
+  ) or
+  (
+    process.name in (
+      "find", "awk", "gawk", "mawk", "nawk", "grep", "fgrep", "rgrep", "xargs", "sed", "tee"
+    ) and
+    process.args_count <= 20
+  )
+) and
+process.command_line like "*/proc/*/syscall*" and
+not (
+  process.command_line like ("*/proc/self/syscall*", "*/proc/thread-self/syscall*") or
+  process.args like "/proc/*/syscall/comm"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Discovery"
+  id = "TA0007"
+  reference = "https://attack.mitre.org/tactics/TA0007/"
+
+  [[rule.threat.technique]]
+  name = "Process Discovery"
+  id = "T1057"
+  reference = "https://attack.mitre.org/techniques/T1057/"
