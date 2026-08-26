@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2020/07/06"
-integration = ["network_traffic", "panw", "fortinet_fortigate"]
+integration = ["network_traffic", "panw"]
 maturity = "production"
 updated_date = "2026/08/26"
 
@@ -33,7 +33,6 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Domain: Endpoint",
-    "Data Source: Fortinet",
     "Data Source: PAN-OS",
     "Resources: Investigation Guide",
 ]
@@ -41,15 +40,12 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos*, logs-fortinet_fortigate.log-* metadata _id, _version, _index
+from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos* metadata _id, _version, _index
 | where (
     data_stream.dataset in ("network_traffic.tls", "network_traffic.http") or
     (
       data_stream.dataset == "panw.panos" and
       network.application in ("ssl", "web-browsing") and network.transport == "tcp"
-    ) or (
-      data_stream.dataset == "fortinet_fortigate.log" and
-      fortinet.firewall.type in ("traffic", "utm") and network.transport == "tcp"
     ) or
     (event.category in ("network", "network_traffic") and network.protocol in ("tls", "http") and network.transport == "tcp")
   )

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/07/16"
-integration = ["network_traffic", "panw", "fortinet_fortigate", "zeek", "corelight"]
+integration = ["network_traffic", "panw", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/08/26"
+updated_date = "2026/06/24"
 
 [rule]
 author = ["Elastic"]
@@ -10,7 +10,7 @@ description = """
 Specially crafted DNS requests can manipulate a known overflow vulnerability in some Windows DNS servers, resulting in
 Remote Code Execution (RCE) or a Denial of Service (DoS) from crashing the service.
 """
-index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-fortinet_fortigate.log-*", "logs-zeek.*", "logs-corelight.*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-zeek.*", "logs-corelight.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Abnormally Large DNS Response"
@@ -63,7 +63,6 @@ tags = [
     "Resources: Investigation Guide",
     "Use Case: Vulnerability",
     "Data Source: Corelight",
-    "Data Source: Fortinet",
     "Data Source: PAN-OS",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
@@ -76,15 +75,13 @@ query = '''
       or network.protocol:"dns" 
       or data_stream.dataset:(network_traffic.dns or zeek.dns)
       or (event.module:corelight and event.dataset:dns))
-    and (not data_stream.dataset:fortinet_fortigate.log or fortinet.firewall.type:traffic)
     and destination.bytes >= 65000
-    and (event.type:("allowed" or "end" or "protocol" or "start")
-      or (data_stream.dataset:fortinet_fortigate.log and not event.outcome:failure))
+    and event.type:("allowed" or "end" or "protocol" or "start")
 and not (
   event.duration > 60000000000
   and (
     event.action:("flow_terminated" or "network_flow")
-    or data_stream.dataset:(fortinet_fortigate.log or zeek.connection)
+    or data_stream.dataset:zeek.connection
     or (event.module:corelight and event.dataset:conn)
   )
 )
