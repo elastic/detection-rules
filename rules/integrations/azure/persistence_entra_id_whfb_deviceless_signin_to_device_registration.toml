@@ -2,9 +2,9 @@
 creation_date = "2026/08/07"
 integration = ["azure"]
 maturity = "production"
-min_stack_comments = "FROM subquery support became generally available in 9.5.0; FIELD_EXTRACT for flattened fields requires 9.5.0"
+min_stack_comments = "FIELD_EXTRACT for flattened fields requires 9.5.0"
 min_stack_version = "9.5.0"
-updated_date = "2026/08/17"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -49,7 +49,7 @@ Device-bound credentials should only sign in from the TPM-backed device that hol
 ### Possible investigation steps
 
 - Identify the user (`azure.signinlogs.properties.user_principal_name` / `Esql.actor_user_id`) and confirm they were not expected to enroll a new device.
-- Confirm `Esql.auth_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey, and that `azure.signinlogs.properties.device_detail.device_id` is empty. A device-bound method presenting without its device is the first-stage signal.
+- Confirm `Esql.auth_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey, that `azure.signinlogs.properties.device_detail.device_id` is empty, and that this was a single same-tenant authentication step (`cross_tenant_access_type` is `none`). A device-bound method presenting without its device is the first-stage signal.
 - Compare `Esql.signin_time` to `Esql.register_time`. A registration a few seconds to a few minutes after the assertion (`Esql.signin_to_register_s`) is the expected attacker cadence. Do not dismiss the alert because `@timestamp` is after `Esql.register_time`.
 - Review `Esql.registered_device_name` and `Esql.register_operation`. Tooling-registered devices are often generic (`DESKTOP-*`) or a hardcoded OS build. Confirm the device is absent from inventory and unmanaged.
 - Inspect `azure.signinlogs.properties.app_display_name` and `azure.signinlogs.properties.resource_display_name`. Azure CLI or similar non-interactive clients targeting Microsoft Graph or the Device Registration Service are common in this chain (for example ROADtools/roadtx).
@@ -106,68 +106,72 @@ authentication_details is a flattened field, so FIELD_EXTRACT is required to rea
 and authentication_step_date_time. Sequence on the auth step time when present: sign-in @timestamp can
 lag the actual assertion, which would invert the order against the Register device audit event.
 */
-FROM
-(
-  FROM logs-azure.signinlogs-* METADATA _id, _version, _index
-  | WHERE
+FROM logs-azure.signinlogs-*, logs-azure.auditlogs-* METADATA _id, _version, _index
+| WHERE
+    (
       azure.signinlogs.result_signature == "SUCCESS" AND
       azure.signinlogs.properties.user_type == "Member" AND
       azure.signinlogs.properties.user_id IS NOT NULL AND
+      azure.signinlogs.properties.cross_tenant_access_type == "none" AND
       (
         azure.signinlogs.properties.device_detail.device_id IS NULL OR
         azure.signinlogs.properties.device_detail.device_id == ""
       )
-  | EVAL
-      Esql.sequence_stage = "signin",
-      Esql.actor_user_id = azure.signinlogs.properties.user_id,
-      Esql.auth_method = FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_method"),
-      Esql.auth_step_time = MV_MIN(TO_DATETIME(FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_step_date_time")))
-  | EVAL Esql.signin_time = COALESCE(Esql.auth_step_time, @timestamp)
-  | WHERE
-      Esql.auth_method == "Windows Hello for Business" OR
-      TO_LOWER(Esql.auth_method) LIKE "fido2*" OR
-      TO_LOWER(Esql.auth_method) LIKE "*passkey*"
-  | KEEP
-      @timestamp,
-      Esql.signin_time,
-      Esql.actor_user_id,
-      Esql.sequence_stage,
-      Esql.auth_method,
-      azure.signinlogs.properties.user_id,
-      azure.signinlogs.properties.user_principal_name,
-      azure.signinlogs.properties.device_detail.device_id,
-      azure.signinlogs.properties.device_detail.is_managed,
-      azure.signinlogs.properties.app_id,
-      azure.signinlogs.properties.app_display_name,
-      azure.signinlogs.properties.resource_display_name,
-      azure.signinlogs.properties.incoming_token_type,
-      source.address,
-      source.geo.country_name,
-      user_agent.original,
-      _id,
-      _version,
-      _index
-  | WHERE Esql.actor_user_id IS NOT NULL
-),
-(
-  FROM logs-azure.auditlogs-* METADATA _id, _version, _index
-  | WHERE
+    ) OR
+    (
       azure.auditlogs.operation_name IN ("Register device", "Add registered owner to device", "Add device") AND
       event.outcome == "success" AND
       azure.auditlogs.properties.initiated_by.user.id IS NOT NULL
-  | EVAL
-      Esql.sequence_stage = "register",
-      Esql.actor_user_id = azure.auditlogs.properties.initiated_by.user.id,
-      Esql.register_candidate = CONCAT(
+    )
+| EVAL
+    Esql.sequence_stage = CASE(data_stream.dataset == "azure.signinlogs", "signin", "register"),
+    Esql.actor_user_id = COALESCE(azure.signinlogs.properties.user_id, azure.auditlogs.properties.initiated_by.user.id),
+    Esql.auth_method = FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_method"),
+    Esql.auth_step_time = MV_MIN(TO_DATETIME(FIELD_EXTRACT(azure.signinlogs.properties.authentication_details, "authentication_step_date_time"))),
+    Esql.register_candidate = CASE(
+      data_stream.dataset == "azure.auditlogs",
+      CONCAT(
         TO_STRING(@timestamp),
         "|",
         COALESCE(`azure.auditlogs.properties.target_resources.0.display_name`, ""),
         "|",
         azure.auditlogs.operation_name
+      ),
+      null
+    )
+| EVAL Esql.signin_time = COALESCE(Esql.auth_step_time, @timestamp)
+| WHERE
+    Esql.sequence_stage == "register" OR
+    (
+      MV_COUNT(Esql.auth_method) == 1 AND
+      (
+        Esql.auth_method == "Windows Hello for Business" OR
+        TO_LOWER(Esql.auth_method) LIKE "fido2*" OR
+        TO_LOWER(Esql.auth_method) LIKE "*passkey*"
       )
-  | KEEP @timestamp, Esql.actor_user_id, Esql.sequence_stage, Esql.register_candidate, _id, _version, _index
-  | WHERE Esql.register_candidate IS NOT NULL
-)
+    )
+| KEEP
+    @timestamp,
+    Esql.signin_time,
+    Esql.actor_user_id,
+    Esql.sequence_stage,
+    Esql.auth_method,
+    Esql.register_candidate,
+    azure.signinlogs.properties.user_id,
+    azure.signinlogs.properties.user_principal_name,
+    azure.signinlogs.properties.device_detail.device_id,
+    azure.signinlogs.properties.device_detail.is_managed,
+    azure.signinlogs.properties.cross_tenant_access_type,
+    azure.signinlogs.properties.app_id,
+    azure.signinlogs.properties.app_display_name,
+    azure.signinlogs.properties.resource_display_name,
+    azure.signinlogs.properties.incoming_token_type,
+    source.address,
+    source.geo.country_name,
+    user_agent.original,
+    _id,
+    _version,
+    _index
 | WHERE Esql.actor_user_id IS NOT NULL
 | INLINE STATS
     Esql.register_count = COUNT(*) WHERE Esql.sequence_stage == "register",

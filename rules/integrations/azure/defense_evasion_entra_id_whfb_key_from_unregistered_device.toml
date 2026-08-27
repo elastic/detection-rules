@@ -2,26 +2,26 @@
 creation_date = "2026/08/07"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/08/07"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies a Microsoft Entra ID sign-in that is satisfied by a phishing-resistant, device-bound credential (Windows
-Hello for Business, FIDO2 security key, or passkey) while carrying no device identifier and from a device that is not
-managed. Windows Hello for Business (WHfB) and passkey credentials are bound to a device's TPM, so a genuine sign-in
-with one of these methods is normally accompanied by the registered/managed device it lives on. A WHfB or passkey
-assertion that authenticates with an empty `device_detail.device_id` indicates the underlying key material is being used
-away from its bound device, for example by an adversary who extracted the key (or signed an assertion with it) and
-replayed it from attacker infrastructure to mint device-agnostic tokens. This is the core primitive of the "borrowing
-Windows Hello keys" technique and is a strong precursor to attacker device registration and Primary Refresh Token (PRT)
-issuance.
+Hello for Business, FIDO2 security key, or passkey) while carrying no device identifier. Windows Hello for Business
+(WHfB) and passkey credentials are bound to a device's TPM, so a genuine sign-in with one of these methods is normally
+accompanied by the registered device it lives on. A WHfB or passkey assertion that authenticates with an empty
+`device_detail.device_id` indicates the underlying key material is being used away from its bound device, for example by
+an adversary who extracted the key (or signed an assertion with it) and replayed it from attacker infrastructure to mint
+device-agnostic tokens. This is the core primitive of the "borrowing Windows Hello keys" technique and is a strong
+precursor to attacker device registration and Primary Refresh Token (PRT) issuance. Cross-tenant (B2B) sign-ins are
+excluded because they are a common benign source of empty device identifiers.
 """
 false_positives = [
     """
     Rare edge cases during initial passwordless onboarding may briefly produce a Windows Hello for Business or passkey
     sign-in before the device is fully registered. Validate against the user's device registration timeline. Genuine
-    WHfB and passkey sign-ins are otherwise accompanied by a populated, managed device identifier.
+    WHfB and passkey sign-ins are otherwise accompanied by a populated device identifier.
     """,
 ]
 from = "now-9m"
@@ -33,12 +33,12 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Windows Hello or Passkey Sign-in from Unregistered Device
 
-Windows Hello for Business (WHfB) and passkey credentials are cryptographically bound to a device's TPM. A legitimate sign-in with one of these phishing-resistant methods is normally accompanied by the registered, managed device that holds the key. A sign-in satisfied by these methods with an empty `device_detail.device_id` and an unmanaged device indicates the key material is being used away from its bound device - the defining signal of the "borrowing Windows Hello keys" technique, where an adversary reuses a WHfB/NGC key or passkey to mint device-agnostic tokens from their own infrastructure.
+Windows Hello for Business (WHfB) and passkey credentials are cryptographically bound to a device's TPM. A legitimate sign-in with one of these phishing-resistant methods is normally accompanied by the registered device that holds the key. A same-tenant sign-in satisfied by these methods with an empty `device_detail.device_id` indicates the key material is being used away from its bound device - the defining signal of the "borrowing Windows Hello keys" technique, where an adversary reuses a WHfB/NGC key or passkey to mint device-agnostic tokens from their own infrastructure.
 
 ### Possible investigation steps
 - Review `azure.signinlogs.properties.user_principal_name` to identify the user whose credential was used.
 - Confirm `azure.signinlogs.properties.authentication_details.authentication_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey.
-- Confirm `azure.signinlogs.properties.device_detail.device_id` is empty and `azure.signinlogs.properties.device_detail.is_managed` is not true - a device-bound credential should not be presenting without its device.
+- Confirm `azure.signinlogs.properties.device_detail.device_id` is empty. A device-bound credential should not present without its device. An unmanaged device that still has a `device_id` is a different, noisier condition and is not this rule.
 - Review `azure.signinlogs.properties.app_id` and `azure.signinlogs.properties.resource_display_name`. Access to Microsoft Graph or the Device Registration Service immediately after is common (staging device registration / PRT issuance).
 - Examine `source.ip`, `source.geo.*`, and `user_agent.original`. Automation user agents (for example python-requests) or hosting/VPS ASNs are strong indicators of tooling such as ROADtools/roadtx.
 - Pivot on `azure.signinlogs.properties.user_id` in `azure.auditlogs` for a subsequent "Register device" or "Add Windows Hello for Business credential" event within a short window.
@@ -46,7 +46,7 @@ Windows Hello for Business (WHfB) and passkey credentials are cryptographically 
 
 ### False positive analysis
 - Initial passwordless onboarding may briefly generate a WHfB/passkey sign-in before device registration completes. Correlate with the user's device registration timeline.
-- Legitimate WHfB and passkey sign-ins are otherwise accompanied by a populated, managed device identifier, so recurring alerts for the same user warrant investigation rather than suppression.
+- Legitimate WHfB and passkey sign-ins are otherwise accompanied by a populated device identifier, so recurring alerts for the same user warrant investigation rather than suppression.
 
 ### Response and remediation
 - Treat the WHfB/NGC key or passkey as compromised: delete the affected authentication method and any attacker-registered device for the user via Microsoft Graph or the Entra portal.
@@ -89,10 +89,8 @@ data_stream.dataset: "azure.signinlogs" and
     azure.signinlogs.properties.authentication_details.authentication_method: (
         "Windows Hello for Business" or *passkey* or FIDO2* or *Passkey*
     ) and
-    (
-        azure.signinlogs.properties.device_detail.device_id: ("" or not *) or
-        not azure.signinlogs.properties.device_detail.is_managed: true
-    ) and
+    azure.signinlogs.properties.device_detail.device_id: ("" or not *) and
+    azure.signinlogs.properties.cross_tenant_access_type: "none" and
     azure.signinlogs.properties.user_principal_name: *
 '''
 
@@ -133,6 +131,7 @@ field_names = [
     "azure.signinlogs.properties.authentication_details.authentication_method",
     "azure.signinlogs.properties.device_detail.device_id",
     "azure.signinlogs.properties.device_detail.is_managed",
+    "azure.signinlogs.properties.cross_tenant_access_type",
     "azure.signinlogs.properties.incoming_token_type",
     "azure.signinlogs.properties.app_id",
     "azure.signinlogs.properties.resource_display_name",
