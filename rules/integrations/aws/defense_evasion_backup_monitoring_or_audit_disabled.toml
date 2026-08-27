@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/06/19"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/06/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies disabling of AWS Backup monitoring and audit controls via DeleteBackupVaultNotifications, DeleteReportPlan,
+or DeleteFramework. Vault notifications send backup event alerts (for example, to SNS), report plans deliver scheduled
+compliance reports, and frameworks define Backup Audit Manager controls. Removing these reduces visibility into backup
+activity and compliance posture, and adversaries may disable them to operate against backups (deletion, lifecycle
+changes, policy tampering) without generating alerts. These changes are infrequent and should align with approved
+administration.
+"""
+false_positives = [
+    """
+    Platform or compliance teams may remove notifications, report plans, or frameworks during reconfiguration, often via
+    infrastructure-as-code. Verify the principal in "aws.cloudtrail.user_identity.arn" and confirm the change aligns
+    with an approved request. Known automation roles can be excluded after validation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Backup Monitoring or Audit Controls Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS Backup Monitoring or Audit Controls Disabled
+
+AWS Backup observability relies on vault notifications (event delivery to SNS), Backup Audit Manager report plans (scheduled compliance reports), and frameworks (audit controls). "DeleteBackupVaultNotifications", "DeleteReportPlan", and "DeleteFramework" remove these. An adversary may disable them to blind defenders before tampering with or destroying backups, so this activity is often a precursor to anti-recovery actions.
+
+### Possible investigation steps
+
+- Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip" and "user_agent.original" for an unexpected origin.
+- Determine which control was removed from "aws.cloudtrail.request_parameters" (vault notifications, report plan, or framework) and what visibility is lost.
+- Check whether backup deletion, lifecycle, or policy changes followed shortly after by the same principal.
+- Correlate with other defense-evasion activity (CloudTrail/logging changes, alarm or rule deletions).
+
+### False positive analysis
+
+- Reconfiguration of notifications, report plans, or frameworks may match, often via IaC. Confirm the change is expected and exclude known automation roles on "aws.cloudtrail.user_identity.arn" after validation.
+
+### Response and remediation
+
+- If unauthorized, re-enable the removed notifications, report plans, or frameworks, and review backup activity during the visibility gap for tampering or deletion.
+- Rotate or restrict credentials for the principal if compromise is suspected, and restrict the corresponding "backup:Delete*" permissions to trusted administrators.
+
+### Additional information
+
+- [Backup vault notifications](https://docs.aws.amazon.com/aws-backup/latest/devguide/sns-notifications.html)
+- [AWS Backup Audit Manager](https://docs.aws.amazon.com/aws-backup/latest/devguide/aws-backup-audit-manager.html)
+"""
+references = [
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/sns-notifications.html",
+    "https://docs.aws.amazon.com/aws-backup/latest/devguide/aws-backup-audit-manager.html",
+]
+risk_score = 47
+rule_id = "ff5129b2-1b2d-46b8-a4bb-86f662aa0a16"
+setup = "This rule requires AWS CloudTrail logs to be ingested into the Elastic Stack. Ensure that the AWS integration is configured to collect the aws.cloudtrail dataset and that a CloudTrail trail is enabled. See: https://docs.elastic.co/integrations/aws/cloudtrail"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Data Source: AWS Backup",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "backup.amazonaws.com"
+    and event.action: ("DeleteBackupVaultNotifications" or "DeleteReportPlan" or "DeleteFramework")
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "source.as.number",
+    "source.as.organization.name",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
+
