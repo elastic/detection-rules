@@ -2,7 +2,7 @@
 creation_date = "2025/09/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/08/13"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -45,7 +45,7 @@ This rule identifies when a user is assigned a built-in administrator role in Az
 
 - Legitimate administrators may assign built-in administrator roles during routine operations, maintenance or as required for onboarding new staff.
 - Azure Kubernetes Service control-plane operations may assign the Contributor role to service principals. Assignments initiated by the Microsoft-owned AzureContainerService application are excluded.
-- Repeated writes for the same role assignment entity by the same initiating principal are suppressed for one hour.
+- Repeated writes for the same role assignment ID by the same initiating principal are suppressed for one hour.
 - Review internal tickets, change logs, or admin activity dashboards for approved operations.
 
 ### Response and remediation
@@ -142,7 +142,7 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.alert_suppression]
 group_by = [
-    "azure.activitylogs.properties.entity",
+    "azure.activitylogs.identity.authorization.evidence.role_assignment_id",
     "azure.activitylogs.identity.authorization.evidence.principal_id",
 ]
 missing_fields_strategy = "doNotSuppress"
