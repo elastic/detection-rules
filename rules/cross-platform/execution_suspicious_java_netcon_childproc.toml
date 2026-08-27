@@ -83,7 +83,7 @@ Some Java services accept inbound connections and deserialize untrusted objects,
 
 ### False positive analysis
 
-- Java services installed under `/opt` may spawn shells or interpreters during install, upgrade, health checks, or administrative scripts. Confirm whether the child command line matches a known maintenance pattern before treating the alert as malicious.
+- Java services installed may spawn shells or interpreters during install, upgrade, health checks, or administrative scripts. Confirm whether the child command line matches a known maintenance pattern before treating the alert as malicious.
 - Some already-excluded patterns include Flutter tooling, Jira helper scripts, and trivial `bash -c` probes such as `ulimit` or `echo $$`. Add similar exceptions for other trusted `/opt` applications when the parent Java process and command line are stable.
 - Development or lab collectors that intentionally accept serialized Java objects will match this rule if they also start a shell. Restrict those hosts or exclude the specific service path if that activity is expected.
 - Containerized or non-`/opt` Java applications are outside this rule's working-directory constraint and should not be tuned here; investigate those with a broader hunt if needed.
