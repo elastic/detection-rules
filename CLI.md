@@ -154,6 +154,9 @@ Commands which connect to Elasticsearch or Kibana are embedded under the subcomm
 These command groups will leverage their respective clients and will automatically use parsed config options if
 defined, otherwise arguments should be passed to the sub-command as:
 
+The `--ignore-ssl-errors` option accepts a boolean value. Passing the option without a value is equivalent to `true`;
+explicit false values such as `false`, `0`, `no`, and `off` keep certificate verification enabled.
+
 Providers are the name that Elastic Cloud uses to configure authentication in Kibana. When we create deployment, Elastic Cloud configures two providers by default: basic/cloud-basic and saml/cloud-saml (for SSO).
 
 ```console
@@ -168,7 +171,7 @@ Usage: detection_rules kibana [OPTIONS] COMMAND [ARGS]...
   Commands for integrating with Kibana.
 
 Options:
-  --ignore-ssl-errors TEXT
+  --ignore-ssl-errors BOOLEAN
   --space TEXT              Kibana space
   --api-key TEXT
   --cloud-id TEXT           ID of the cloud instance.
@@ -196,7 +199,7 @@ python -m detection_rules kibana search-alerts -h
 
 Kibana client:
 Options:
-  --ignore-ssl-errors TEXT
+  --ignore-ssl-errors BOOLEAN
   --space TEXT              Kibana space
   --api-key TEXT
   --cloud-id TEXT           ID of the cloud instance.
@@ -256,7 +259,7 @@ python -m detection_rules kibana import-rules -h
 
 Kibana client:
 Options:
-  --ignore-ssl-errors TEXT
+  --ignore-ssl-errors BOOLEAN
   --space TEXT              Kibana space
   --api-key TEXT
   --cloud-id TEXT           ID of the cloud instance.
@@ -468,7 +471,7 @@ python -m detection_rules kibana upload-rule -h
 
 Kibana client:
 Options:
-  --ignore-ssl-errors TEXT
+  --ignore-ssl-errors BOOLEAN
   --space TEXT              Kibana space
   --api-key TEXT
   --cloud-id TEXT           ID of the cloud instance.
@@ -502,7 +505,7 @@ python -m detection_rules kibana export-rules -h
 
 Kibana client:
 Options:
-  --ignore-ssl-errors TEXT
+  --ignore-ssl-errors BOOLEAN
   --space TEXT              Kibana space
   --api-key TEXT
   --cloud-id TEXT           ID of the cloud instance.
