@@ -4,18 +4,24 @@
 # 2.0.
 
 import unittest
+import unittest.mock
 from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
+from elastic_transport import ApiResponseMeta
+from elasticsearch import BadRequestError
+from elasticsearch.exceptions import TransportError
 
 from detection_rules.esql_errors import (
+    EsqlInferenceEndpointMissingError,
     EsqlSchemaError,
     EsqlSemanticError,
     EsqlSyntaxError,
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
+from detection_rules.index_mappings import execute_query_against_indices, rewrite_managed_completion_commands
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -27,6 +33,19 @@ from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
+
+
+def stub_elastic_client(
+    inference_endpoints: list[dict[str, str]] | None = None,
+    probe_error: Exception | None = None,
+) -> unittest.mock.MagicMock:
+    """Build a stand-in Elasticsearch client that answers the inference endpoint probe."""
+    client = unittest.mock.MagicMock()
+    if probe_error is not None:
+        client.perform_request.side_effect = probe_error
+    else:
+        client.perform_request.return_value = SimpleNamespace(body={"endpoints": inference_endpoints or []})
+    return client
 
 
 class TestESQLRemoteValidation(unittest.TestCase):
@@ -87,6 +106,164 @@ class TestESQLRemoteValidation(unittest.TestCase):
         self.assertIn("9.2.0", prepared_stack_versions)
         self.assertIn("9.2.4", prepared_stack_versions)
         self.assertIn("9.3.0", prepared_stack_versions)
+
+    def test_remote_validation_rewrites_managed_completion_commands(self):
+        """On stacks without EIS, managed COMPLETION commands are rewritten to EVAL before execution."""
+        query = (
+            "FROM logs-pkg.new_ds-* metadata _id, _version, _index\n"
+            '| EVAL Esql.prompt = "triage this"\n'
+            '| COMPLETION Esql.triage_result = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }\n'
+            "| KEEP Esql.*, _id, _version, _index\n"
+        )
+        metadata = SimpleNamespace(integration=["pkg"])
+        executed_queries: list[str] = []
+
+        def execute_side_effect(_elastic_client, exec_query, _test_index_str, _log):
+            executed_queries.append(exec_query)
+            return [], {"ok": True}
+
+        validator = ESQLValidator(query)
+        with (
+            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.3.0"),
+            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.3.0"]),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.find_latest_integration_patch_for_minor", return_value=0
+            ),
+            unittest.mock.patch("detection_rules.rule_validators.prepare_mappings", return_value=({}, {}, {})),
+            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
+            unittest.mock.patch(
+                "detection_rules.rule_validators.execute_query_against_indices", side_effect=execute_side_effect
+            ),
+            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
+        ):
+            _ = validator.remote_validate_rule(
+                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.3.0"}}),
+                elastic_client=stub_elastic_client(),
+                query=query,
+                metadata=metadata,
+                rule_id="test-rule",
+            )
+
+        self.assertEqual(len(executed_queries), 1)
+        executed = executed_queries[0]
+        self.assertNotIn("COMPLETION", executed)
+        self.assertIn('EVAL Esql.triage_result = CONCAT(Esql.prompt, "")', executed)
+
+    def test_rewrite_managed_completion_command_variants(self):
+        """The COMPLETION rewrite handles formatting variants and leaves non-managed endpoints untouched."""
+        no_eis = stub_elastic_client()
+
+        # Multi-line command with additional options before the inference_id
+        multi_line = (
+            "FROM idx\n| COMPLETION Esql.result =\n    Esql.prompt\n    WITH\n"
+            '    { "timeout": "30s", "inference_id": ".gp-llm-v2-completion" }\n| KEEP Esql.result'
+        )
+        rewritten = rewrite_managed_completion_commands(no_eis, multi_line, lambda _msg: None)
+        self.assertNotIn("COMPLETION", rewritten)
+        self.assertIn('EVAL Esql.result = CONCAT(Esql.prompt, "")', rewritten)
+
+        # Unnamed target column defaults to `completion`, matching ES|QL semantics
+        unnamed = 'FROM idx | COMPLETION Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+        rewritten = rewrite_managed_completion_commands(no_eis, unnamed, lambda _msg: None)
+        self.assertIn('EVAL completion = CONCAT(Esql.prompt, "")', rewritten)
+
+        # Custom (non-managed) endpoints are not rewritten
+        custom = 'FROM idx | COMPLETION Esql.x = Esql.prompt WITH { "inference_id": "my-endpoint" }'
+        self.assertEqual(rewrite_managed_completion_commands(no_eis, custom, lambda _msg: None), custom)
+
+    def test_rewrite_managed_completion_command_recognizes_any_managed_endpoint(self):
+        """Any preconfigured (dot-prefixed) endpoint is treated as managed, without an allow-list."""
+        no_eis = stub_elastic_client()
+
+        # New EIS models require no code change to be recognized
+        for endpoint in (".gp-llm-v2-completion", ".anthropic-claude-4.6-sonnet-completion", ".rainbow-sprinkles"):
+            query = f'FROM idx | COMPLETION Esql.x = Esql.prompt WITH {{ "inference_id": "{endpoint}" }}'
+            rewritten = rewrite_managed_completion_commands(no_eis, query, lambda _msg: None)
+            self.assertIn('EVAL Esql.x = CONCAT(Esql.prompt, "")', rewritten, endpoint)
+
+    def test_rewrite_managed_completion_command_respects_stack_capability(self):
+        """The rewrite is driven by what the target stack provides, not by a hardcoded endpoint list."""
+        query = 'FROM idx | COMPLETION Esql.x = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+
+        # A stack that provides EIS runs the query as written so the real endpoint is exercised. Any
+        # managed endpoint it lacks then surfaces as EsqlInferenceEndpointMissingError.
+        eis = stub_elastic_client(
+            [
+                {"inference_id": ".anthropic-claude-4.6-sonnet-completion", "task_type": "chat_completion"},
+                {"inference_id": ".elser-2-elasticsearch", "task_type": "sparse_embedding"},
+            ]
+        )
+        self.assertEqual(rewrite_managed_completion_commands(eis, query, lambda _msg: None), query)
+
+        # Preconfigured endpoints that ship with every stack do not imply EIS completion support
+        embeddings_only = stub_elastic_client(
+            [{"inference_id": ".elser-2-elasticsearch", "task_type": "text_embedding"}]
+        )
+        self.assertNotIn("COMPLETION", rewrite_managed_completion_commands(embeddings_only, query, lambda _msg: None))
+
+        # An unanswerable probe (older stack, or an API key without inference privileges) rewrites,
+        # keeping self-hosted validation stacks usable
+        unknown = stub_elastic_client(probe_error=TransportError("no inference API"))
+        self.assertNotIn("COMPLETION", rewrite_managed_completion_commands(unknown, query, lambda _msg: None))
+
+        # Rules without a COMPLETION command never probe the stack
+        plain = stub_elastic_client()
+        self.assertEqual(
+            rewrite_managed_completion_commands(plain, "FROM idx | LIMIT 1", lambda _msg: None), "FROM idx | LIMIT 1"
+        )
+        plain.perform_request.assert_not_called()
+
+    def test_rewrite_managed_completion_command_does_not_corrupt_queries(self):
+        """The COMPLETION rewrite handles quoting edge cases and bails out instead of mangling a query."""
+        no_eis = stub_elastic_client()
+
+        # Braces and pipes inside the prompt expression do not truncate the match
+        braces = (
+            'FROM idx | COMPLETION Esql.x = CONCAT("report WITH { detail", Esql.y, "|") '
+            'WITH { "inference_id": ".gp-llm-v2-completion" }'
+        )
+        rewritten = rewrite_managed_completion_commands(no_eis, braces, lambda _msg: None)
+        self.assertIn('EVAL Esql.x = CONCAT(CONCAT("report WITH { detail", Esql.y, "|"), "")', rewritten)
+
+        # Backtick-quoted target columns keep their name rather than folding into the prompt
+        backticks = 'FROM idx | COMPLETION `my col` = Esql.prompt WITH { "inference_id": ".gp-llm-v2-completion" }'
+        rewritten = rewrite_managed_completion_commands(no_eis, backticks, lambda _msg: None)
+        self.assertIn('EVAL `my col` = CONCAT(Esql.prompt, "")', rewritten)
+
+        # A prompt match that runs into a later command is left alone so the failure stays visible
+        runaway = (
+            "FROM idx | COMPLETION Esql.a = Esql.p1 WITH .gp-llm-v2-completion\n"
+            "| STATS Esql.c = COUNT()\n"
+            '| COMPLETION Esql.b = Esql.p2 WITH { "inference_id": ".gp-llm-v2-completion" }'
+        )
+        self.assertEqual(rewrite_managed_completion_commands(no_eis, runaway, lambda _msg: None), runaway)
+
+    def test_missing_managed_inference_endpoint_raises_typed_error(self):
+        """A managed endpoint that reaches the stack fails validation with a distinct error type."""
+        meta = ApiResponseMeta(status=400, http_version="1.1", headers={}, duration=0.0, node=None)
+
+        def bad_request(endpoint: str) -> BadRequestError:
+            reason = f"Found 1 problem\nline 3:3: Inference endpoint not found [{endpoint}]"
+            return BadRequestError(
+                message="verification_exception",
+                meta=meta,
+                body={
+                    "error": {"type": "verification_exception", "reason": reason, "root_cause": [{"reason": reason}]}
+                },
+            )
+
+        elastic_client = unittest.mock.MagicMock()
+        elastic_client.cat.indices.return_value = []
+
+        for endpoint in (".gp-llm-v2-completion", ".anthropic-claude-4.6-sonnet-completion"):
+            elastic_client.esql.query.side_effect = bad_request(endpoint)
+            with pytest.raises(EsqlInferenceEndpointMissingError):
+                _ = execute_query_against_indices(elastic_client, "FROM idx", "idx", lambda _msg: None)
+
+        # Endpoints that are not Elastic-managed remain generic verification failures
+        elastic_client.esql.query.side_effect = bad_request("my-endpoint")
+        with pytest.raises(EsqlTypeMismatchError):
+            _ = execute_query_against_indices(elastic_client, "FROM idx", "idx", lambda _msg: None)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")

@@ -9,17 +9,19 @@ import re
 import time
 from collections.abc import Callable
 from copy import deepcopy
+from functools import cache
 from typing import Any
 
 from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
-from elasticsearch.exceptions import BadRequestError
+from elasticsearch.exceptions import ApiError, BadRequestError, TransportError
 from semver import Version
 
 from . import ecs, integrations, misc, utils
 from .config import load_current_package_version
 from .esql import EventDataset
 from .esql_errors import (
+    EsqlInferenceEndpointMissingError,
     EsqlKibanaBaseError,
     EsqlSchemaError,
     EsqlSyntaxError,
@@ -34,7 +36,7 @@ from .integrations import (
 )
 from .rule import RuleMeta
 from .schemas import get_stack_schemas
-from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
+from .schemas.definitions import ELASTIC_MANAGED_INFERENCE_ENDPOINT_PATTERN, HTTP_STATUS_BAD_REQUEST
 from .utils import combine_dicts
 
 
@@ -353,6 +355,88 @@ def create_remote_indices(
     return full_index_str
 
 
+COMPLETION_COMMAND_REGEX = re.compile(
+    r"\|\s*COMPLETION\s+(?:(?P<col>[\w.@]+|`[^`]+`)\s*=\s*)?(?P<prompt>.+?)\s+WITH\s*\{(?P<options>[^{}]*)\}",
+    re.IGNORECASE | re.DOTALL,
+)
+INFERENCE_ID_REGEX = re.compile(r'"inference_id"\s*:\s*"([^"]+)"')
+ESQL_STRING_LITERAL_REGEX = re.compile(r'""".*?"""|"(?:\\.|[^"\\])*"', re.DOTALL)
+INFERENCE_ENDPOINTS_API = "/_inference/_all"
+COMPLETION_TASK_TYPES = frozenset({"chat_completion", "completion"})
+
+
+def _prompt_spans_command_boundary(prompt: str) -> bool:
+    """Check whether a matched prompt expression ran past the end of its own COMPLETION command."""
+    return "|" in ESQL_STRING_LITERAL_REGEX.sub("", prompt)
+
+
+def is_elastic_managed_inference_endpoint(inference_id: str) -> bool:
+    """Check whether an inference id names a preconfigured Elastic-managed (EIS) endpoint."""
+    return bool(ELASTIC_MANAGED_INFERENCE_ENDPOINT_PATTERN.match(inference_id))
+
+
+@cache
+def get_stack_inference_endpoints(elastic_client: Elasticsearch) -> dict[str, str]:
+    """Return the inference endpoints a stack exposes, mapped to their task type."""
+    # Cached per client so a validation run queries the stack once rather than once per rule.
+    try:
+        response = elastic_client.perform_request(
+            "GET", INFERENCE_ENDPOINTS_API, headers={"accept": "application/json"}
+        )
+    except (ApiError, TransportError):
+        # Stacks predating the inference API, or an API key without `monitor_inference`, cannot be
+        # asked what they provide. Treated the same as a stack with no endpoints.
+        return {}
+    body: dict[str, Any] = response.body or {}
+    endpoints: list[dict[str, Any]] = body.get("endpoints") or []
+    return {e["inference_id"]: e.get("task_type", "") for e in endpoints if "inference_id" in e}
+
+
+def stack_provides_managed_completion(elastic_client: Elasticsearch, log: Callable[[str], None]) -> bool:
+    """Check whether a stack exposes preconfigured Elastic-managed (EIS) completion endpoints."""
+    managed = sorted(
+        inference_id
+        for inference_id, task_type in get_stack_inference_endpoints(elastic_client).items()
+        if task_type in COMPLETION_TASK_TYPES and is_elastic_managed_inference_endpoint(inference_id)
+    )
+    log(f"Stack managed (EIS) completion endpoints: {', '.join(managed) if managed else 'none'}")
+    return bool(managed)
+
+
+def rewrite_managed_completion_commands(elastic_client: Elasticsearch, query: str, log: Callable[[str], None]) -> str:
+    """Rewrite COMPLETION commands using Elastic-managed (EIS) inference endpoints into equivalent EVAL commands."""
+    # EIS endpoints are not present on self-managed validation stacks, so query verification fails
+    # with `Inference endpoint not found` before anything else is checked.
+    # `EVAL <col> = CONCAT(<prompt>, "")` preserves the output column and its string type and still
+    # validates the prompt expression.
+    if not COMPLETION_COMMAND_REGEX.search(query):
+        # Nothing to rewrite, so the stack is not asked what inference endpoints it provides.
+        return query
+    if stack_provides_managed_completion(elastic_client, log):
+        # The stack provides EIS, so the query runs as written and the real endpoint is exercised. A
+        # rule referencing a managed endpoint this stack does not have (a typo, or a model past EOL)
+        # then fails as EsqlInferenceEndpointMissingError instead of being quietly rewritten.
+        return query
+
+    def _replace(match: re.Match[str]) -> str:
+        id_match = INFERENCE_ID_REGEX.search(match.group("options"))
+        if not id_match or not is_elastic_managed_inference_endpoint(id_match.group(1)):
+            # Endpoints without the preconfigured naming convention are user-provisioned, so a
+            # missing one is a real problem on any stack and is left to fail.
+            return match.group(0)
+        prompt = match.group("prompt").strip()
+        if _prompt_spans_command_boundary(prompt):
+            # The non-greedy prompt matched into a later command (e.g. a COMPLETION written with
+            # unsupported syntax earlier in the query), so rewriting would corrupt the query. Leave
+            # it untouched and let the missing endpoint surface as EsqlInferenceEndpointMissingError.
+            return match.group(0)
+        column = match.group("col") or "completion"
+        log(f"Rewriting COMPLETION command for managed endpoint `{id_match.group(1)}` to EVAL `{column}`")
+        return f'| EVAL {column} = CONCAT({prompt}, "")'
+
+    return COMPLETION_COMMAND_REGEX.sub(_replace, query)
+
+
 def execute_query_against_indices(
     elastic_client: Elasticsearch,
     query: str,
@@ -375,6 +459,12 @@ def execute_query_against_indices(
         if "verification_exception" in error_msg and "unsupported type" in error_msg:
             raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
         if "verification_exception" in error_msg:
+            endpoint_match = re.search(r"Inference endpoint not found \[([^\]]+)\]", error_msg)
+            if endpoint_match and is_elastic_managed_inference_endpoint(endpoint_match.group(1)):
+                # On a stack without EIS, a managed endpoint reaching it unrewritten means the
+                # COMPLETION rewrite did not match the command; on a stack with EIS it means that
+                # endpoint does not exist there. Both are failures, typed distinctly to aid diagnosis.
+                raise EsqlInferenceEndpointMissingError(str(e), elastic_client) from None
             raise EsqlTypeMismatchError(str(e), elastic_client) from None
         raise EsqlKibanaBaseError(str(e), elastic_client) from None
     if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():

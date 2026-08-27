@@ -12,6 +12,7 @@ from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from .misc import ClientError, getdefault
 
 __all__ = (
+    "EsqlInferenceEndpointMissingError",
     "EsqlKibanaBaseError",
     "EsqlSchemaError",
     "EsqlSemanticError",
@@ -51,6 +52,10 @@ class EsqlSchemaError(EsqlKibanaBaseError):
     """Error in ESQL schema. Validated via Kibana until AST is available."""
 
 
+class EsqlInferenceEndpointMissingError(EsqlKibanaBaseError):
+    """An Elastic-managed inference endpoint is not available on the validation stack."""
+
+
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
     """Error in ESQL type validation using unsupported type."""
 
@@ -88,6 +93,7 @@ class EsqlUnknownIndexError(ClientError):
 
 ESQL_EXCEPTION_TYPES = (
     EsqlSchemaError,
+    EsqlInferenceEndpointMissingError,
     EsqlSyntaxError,
     EsqlUnsupportedTypeError,
     EsqlTypeMismatchError,

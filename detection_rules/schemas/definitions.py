@@ -80,6 +80,16 @@ FROM_SOURCES_REGEX = re.compile(
     r"^\s*FROM\s+(?P<sources>(?:.+?(?:,\s*)?\n?)+?)\s*(?:\||\bmetadata\b|//|$)", re.IGNORECASE | re.MULTILINE
 )
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
+# Elasticsearch reserves a leading dot for preconfigured inference endpoints, which is how
+# Elastic-managed (EIS) models such as `.gp-llm-v2-completion` and
+# `.anthropic-claude-4.6-sonnet-completion` are exposed. Matching the naming convention instead of an
+# allow-list keeps new EIS models working without a code change. Preconfigured completion endpoints
+# only exist on stacks with EIS; self-hosted validation stacks (e.g. elastic-container in CI for fork
+# PRs) report them as not found, so COMPLETION commands referencing them are rewritten to an
+# equivalent EVAL before the query is sent (see `rewrite_managed_completion_commands`). On a stack
+# that does provide EIS, an endpoint the stack lacks (e.g. an EOL model) still fails validation with
+# `EsqlInferenceEndpointMissingError` rather than being ignored.
+ELASTIC_MANAGED_INFERENCE_ENDPOINT_PATTERN = re.compile(r"^\.[\w.-]+$")
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
