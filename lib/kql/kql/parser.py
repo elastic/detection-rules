@@ -23,6 +23,7 @@ STRING_FIELDS = ("keyword", "text")
 
 
 class KvTree(Tree):
+    """Lark tree with position helpers compatible with lark>=1.3 meta API."""
 
     @property
     def child_trees(self):
@@ -31,6 +32,46 @@ class KvTree(Tree):
     @property
     def child_tokens(self):
         return [child for child in self.children if isinstance(child, Token)]
+
+    @property
+    def line(self):
+        """Get line number from meta or fallback to first token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "line"):
+            return self.meta.line
+        for child in self.children:
+            if isinstance(child, Token) and hasattr(child, "line"):
+                return child.line
+        return 1
+
+    @property
+    def end_line(self):
+        """Get end line number from meta or fallback to last token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "end_line"):
+            return self.meta.end_line
+        for child in reversed(self.children):
+            if isinstance(child, Token) and hasattr(child, "end_line"):
+                return child.end_line
+        return self.line
+
+    @property
+    def column(self):
+        """Get column number from meta or fallback to first token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "column"):
+            return self.meta.column
+        for child in self.children:
+            if isinstance(child, Token) and hasattr(child, "column"):
+                return child.column
+        return 1
+
+    @property
+    def end_column(self):
+        """Get end column number from meta or fallback to last token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "end_column"):
+            return self.meta.end_column
+        for child in reversed(self.children):
+            if isinstance(child, Token) and hasattr(child, "end_column"):
+                return child.end_column
+        return self.column
 
 
 grammar_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kql.g")
@@ -397,12 +438,26 @@ class KqlParser(BaseKqlParser):
         return Field(eql.utils.to_unicode(literal))
 
     def value(self, tree):
-        if self.scoped_field is None:
-            raise self.error(tree, "Value not tied to field")
-
-        field_name = self.scoped_field.name
         token = tree.children[0]
         value = self.unescape_literal(token)
+
+        if self.scoped_field is None:
+            # A value with no field (e.g. `"Accepted password for root"`) is a free-text
+            # search: Kibana runs it against the index's default fields. There is no field
+            # to type-check or convert the value against, so it is used as-is. Quoted
+            # strings stay literal; an unescaped `*` elsewhere makes the value a wildcard.
+            is_quoted = token.type == "QUOTED_STRING"
+
+            if not is_quoted and self.has_unescaped_wildcard(token.value):
+                # a wildcard compiles to a `query_string`, which has no phrase/best_fields
+                # distinction, so `is_quoted` is irrelevant here (and always False)
+                return FreeText(Wildcard(eql.utils.to_unicode(value)))
+            if eql.utils.is_string(value):
+                return FreeText(String(eql.utils.to_unicode(value)), is_quoted=is_quoted)
+            # bare numbers/booleans/null are never quoted
+            return FreeText(Value.from_python(value))
+
+        field_name = self.scoped_field.name
 
         # Handle wildcard literals (may contain spaces) and unquoted literals with an
         # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so
