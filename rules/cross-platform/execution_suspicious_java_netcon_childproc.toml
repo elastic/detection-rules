@@ -44,7 +44,7 @@ sequence by host.id with maxspan=5s
  [network where event.action == "connection_accepted" and network.direction == "ingress" and
 
   process.name : "java" and
-  destination.port < 49152  and source.port >= 49152] by process.pid
+  destination.port < 49152  and source.port >= 32768] by process.pid
  [process where event.type == "start" and
 
   /* Suspicious JAVA child process */
@@ -74,34 +74,35 @@ note = """## Triage and analysis
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential JAVA/JNDI Exploitation Attempt
+### Investigating Potential Java Service Exploitation via Suspicious Child Process
 
-Java Naming and Directory Interface (JNDI) is a Java API that provides naming and directory functionality, allowing Java applications to discover and look up data and resources via a directory service. Adversaries exploit JNDI by injecting malicious payloads that trigger outbound connections to LDAP, RMI, or DNS services, potentially leading to remote code execution. The detection rule identifies such exploitation attempts by monitoring Java processes making suspicious outbound connections followed by the execution of potentially harmful child processes, such as shell scripts or scripting languages, indicating a possible compromise.
+Some Java services accept inbound connections and deserialize untrusted objects, such as a leftover Log4j socket or collector that rebuilds serialized `LogEvent` objects through `FilteredObjectInputStream`. If that path can be reached, an attacker can send a crafted payload to the listening port and get the JVM to run attacker-controlled code. This rule looks for a Java process that accepts an inbound connection on a service port from an ephemeral source port, then quickly starts a suspicious child process (shell, interpreter, curl, or wget) whose working directory is under `/opt`. That sequence is consistent with remote code execution against a Java listener rather than a normal outbound application callback.
 
 ### Possible investigation steps
 
-- Review the network logs to confirm the outbound connection attempt by the Java process to the specified ports (1389, 389, 1099, 53, 5353) and identify the destination IP addresses to determine if they are known malicious or suspicious entities.
-- Examine the process tree to verify the parent-child relationship between the Java process and any suspicious child processes such as shell scripts or scripting languages (e.g., sh, bash, curl, python).
-- Check the command line arguments and environment variables of the suspicious child processes to identify any potentially malicious payloads or commands being executed.
-- Investigate the host's recent activity and logs for any other indicators of compromise or unusual behavior that might correlate with the suspected exploitation attempt.
-- Assess the system for any unauthorized changes or new files that may have been introduced as a result of the exploitation attempt, focusing on directories commonly used by Java applications.
+- Confirm the inbound `connection_accepted` event: Java was the accepting process, `network.direction` is ingress, the destination port is a service port (below 49152), and the source port is ephemeral (32768 or higher on Linux; 49152 or higher is typical on macOS).
+- Identify the source IP and determine whether it is expected to talk to this Java service. Internal sources still matter; a collector or socket server exposed only on a private network can still be used for lateral movement.
+- Review the child process that started within a few seconds of the accepted connection. Check `process.name`, `process.command_line`, `process.working_directory`, and the parent/child PID relationship to Java.
+- Inspect the Java process command line and working directory to see which application accepted the connection (for example a service under `/opt`) and whether it is a known listener that deserializes input.
+- Look for follow-on activity on the same host after the child process: additional shells, file writes under `/tmp` or `/opt`, new outbound connections, or persistence changes.
+- Correlate with other alerts on the same host or user around the same time to see whether this is isolated or part of a broader intrusion.
 
 ### False positive analysis
 
-- Development and testing environments may trigger false positives when developers use Java applications to test connections to LDAP, RMI, or DNS services. To mitigate this, exclude known development servers or IP ranges from the detection rule.
-- Automated scripts or maintenance tasks that involve Java applications making legitimate outbound connections to the specified ports can be mistaken for exploitation attempts. Identify and whitelist these scripts or tasks by their process names or hashes.
-- Legitimate Java-based applications that require frequent updates or data retrieval from external services might generate similar network patterns. Monitor and document these applications, then create exceptions for their specific network behaviors.
-- Security tools or monitoring solutions that use Java for network scanning or analysis might inadvertently match the rule's criteria. Ensure these tools are recognized and excluded by their process identifiers or network activity profiles.
+- Java services installed under `/opt` may spawn shells or interpreters during install, upgrade, health checks, or administrative scripts. Confirm whether the child command line matches a known maintenance pattern before treating the alert as malicious.
+- Some already-excluded patterns include Flutter tooling, Jira helper scripts, and trivial `bash -c` probes such as `ulimit` or `echo $$`. Add similar exceptions for other trusted `/opt` applications when the parent Java process and command line are stable.
+- Development or lab collectors that intentionally accept serialized Java objects will match this rule if they also start a shell. Restrict those hosts or exclude the specific service path if that activity is expected.
+- Containerized or non-`/opt` Java applications are outside this rule's working-directory constraint and should not be tuned here; investigate those with a broader hunt if needed.
 
 ### Response and remediation
 
-- Immediately isolate the affected host from the network to prevent further outbound connections and potential lateral movement.
-- Terminate any suspicious Java processes identified in the alert, especially those making outbound connections to LDAP, RMI, or DNS ports.
-- Conduct a thorough review of the affected system for any unauthorized changes or additional malicious processes, focusing on child processes like shell scripts or scripting languages.
-- Restore the affected system from a known good backup if unauthorized changes or malware are detected.
-- Update and patch Java and any related applications to the latest versions to mitigate known vulnerabilities.
-- Implement network-level controls to block outbound connections to suspicious or unauthorized LDAP, RMI, or DNS services from Java processes.
-- Escalate the incident to the security operations center (SOC) or incident response team for further investigation and to assess the potential impact on other systems within the network."""
+- Isolate the affected host from the network to stop further inbound exploitation and limit lateral movement.
+- Stop the suspicious child processes and, if exploitation is confirmed, stop the Java listener that accepted the connection until it can be patched or removed.
+- Capture the Java process command line, listening port, child process command line, and inbound source IP for scoping.
+- Hunt for the same source IP, the same Java service path, and similar child processes on other hosts.
+- Remove or disable unused Java socket servers, collectors, or sample bridges that deserialize untrusted input. Patch remaining Java applications and apply a JVM-wide serialization filter where deserialization cannot be avoided.
+- Restore from a known-good backup if unauthorized files, persistence, or additional malware are found.
+- Escalate to the security operations center or incident response team if the inbound source, child process, or follow-on activity indicates a successful compromise."""
 
 
 [[rule.threat]]
