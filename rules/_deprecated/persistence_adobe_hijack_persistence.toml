@@ -1,8 +1,10 @@
 [metadata]
-creation_date = "2020/12/14"
-integration = ["endpoint"]
-maturity = "production"
-updated_date = "2026/04/07"
+creation_date = "2020/02/18"
+deprecation_date = "2026/08/19"
+deprecated_reason = "This rule is not recommended for use because it targets behavior that is too narrow and product-specific to justify a dedicated detection rule."
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
+maturity = "deprecated"
+updated_date = "2026/08/19"
 
 [transform]
 [[transform.osquery]]
@@ -32,24 +34,25 @@ authenticode.path JOIN hash ON services.path = hash.path WHERE authenticode.resu
 
 [rule]
 author = ["Elastic"]
-description = """
-The malware known as SUNBURST targets the SolarWind's Orion business software for command and control. This rule detects
-post-exploitation command and control activity of the SUNBURST backdoor.
-"""
+description = "Detects writing executable files that will be automatically launched by Adobe on launch."
 from = "now-9m"
-index = ["logs-endpoint.events.network-*"]
+index = [
+    "winlogbeat-*",
+    "logs-endpoint.events.file-*",
+    "logs-windows.sysmon_operational-*",
+    "endgame-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-m365_defender.event-*",
+    "logs-crowdstrike.fdr*",
+]
 language = "eql"
 license = "Elastic License v2"
-name = "Deprecated - SUNBURST Command and Control Activity"
+name = "Deprecated - Adobe Hijack Persistence"
 note = """## Triage and analysis
 
-### Investigating Deprecated - SUNBURST Command and Control Activity
+### Investigating Deprecated - Adobe Hijack Persistence
 
-SUNBURST is a trojanized version of a digitally signed SolarWinds Orion plugin called SolarWinds.Orion.Core.BusinessLayer.dll. The plugin contains a backdoor that communicates via HTTP to third-party servers. After an initial dormant period of up to two weeks, SUNBURST may retrieve and execute commands that instruct the backdoor to transfer files, execute files, profile the system, reboot the system, and disable system services. The malware's network traffic attempts to blend in with legitimate SolarWinds activity by imitating the Orion Improvement Program (OIP) protocol, and the malware stores persistent state data within legitimate plugin configuration files. The backdoor uses multiple obfuscated blocklists to identify processes, services, and drivers associated with forensic and anti-virus tools.
-
-More details on SUNBURST can be found on the [Mandiant Report](https://www.mandiant.com/resources/sunburst-additional-technical-details).
-
-This rule identifies suspicious network connections that attempt to blend in with legitimate SolarWinds activity by imitating the Orion Improvement Program (OIP) protocol behavior.
+Attackers can replace the `RdrCEF.exe` executable with their own to maintain their access, which will be launched whenever Adobe Acrobat Reader is executed.
 
 > **Note**:
 > This investigation guide uses the [Osquery Markdown Plugin](https://www.elastic.co/guide/en/security/current/invest-guide-run-osquery.html) introduced in Elastic Stack version 8.5.0. Older Elastic Stack versions will display unrendered Markdown in this guide.
@@ -57,8 +60,11 @@ This rule identifies suspicious network connections that attempt to blend in wit
 #### Possible investigation steps
 
 - Investigate the process execution chain (parent process tree) for unknown processes. Examine their executable files for prevalence, whether they are located in expected locations, and if they are signed with valid digital signatures.
+- Identify the user account that performed the action and whether it should perform this kind of action.
+- Investigate other alerts associated with the user/host during the past 48 hours.
+- Assess whether this behavior is prevalent in the environment by looking for similar occurrences across hosts.
 - Examine the host for derived artifacts that indicate suspicious activities:
-  - Analyze the executable involved using a private sandboxed analysis system.
+  - Analyze the file using a private sandboxed analysis system.
   - Observe and collect information about the following activities in both the sandbox and the alert subject host:
     - Attempts to contact external domains and addresses.
       - Use the Elastic Defend network events to determine domains and addresses contacted by the subject process by filtering by the process' `process.entity_id`.
@@ -74,7 +80,7 @@ This rule identifies suspicious network connections that attempt to blend in wit
 
 ### False positive analysis
 
-- This activity should not happen legitimately. The security team should address any potential benign true positive (B-TP), as this configuration can put the environment at risk.
+- This activity is unlikely to happen legitimately. Benign true positives (B-TPs) can be added as exceptions if necessary.
 
 ### Response and remediation
 
@@ -87,79 +93,80 @@ This rule identifies suspicious network connections that attempt to blend in wit
   - Inspect the affected systems for additional malware backdoors like reverse shells, reverse proxies, or droppers that attackers could use to reinfect the system.
 - Remove and block malicious artifacts identified during triage.
 - Run a full antimalware scan. This may reveal additional artifacts left in the system, persistence mechanisms, and malware components.
-- Reimage the host operating system and restore compromised files to clean versions.
-- Upgrade SolarWinds systems to the latest version to eradicate the chance of reinfection by abusing the same vector.
+- Investigate credential exposure on systems compromised or used by the attacker to ensure all compromised accounts are identified. Reset passwords for these accounts and other potentially compromised credentials, such as email, business systems, and web services.
+- Determine the initial vector abused by the attacker and take action to prevent reinfection through the same vector.
 - Using the incident response data, update logging and audit policies to improve the mean time to detect (MTTD) and the mean time to respond (MTTR).
 """
-references = [
-    "https://www.fireeye.com/blog/threat-research/2020/12/evasive-attacker-leverages-solarwinds-supply-chain-compromises-with-sunburst-backdoor.html",
-]
-risk_score = 73
-rule_id = "22599847-5d13-48cb-8872-5796fee8692b"
-severity = "high"
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Event ID 11 - File Create](https://ela.st/sysmon-event-11-setup)
+"""
+
+references = ["https://twitter.com/pabraeken/status/997997818362155008"]
+risk_score = 21
+rule_id = "2bf78aa2-9c56-48de-b139-f169bf99cf86"
+severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Use Case: Threat Detection",
-    "Tactic: Command and Control",
+    "Tactic: Persistence",
     "Resources: Investigation Guide",
+    "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Crowdstrike",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-network where host.os.type == "windows" and event.type == "protocol" and network.protocol == "http" and
-  process.name : ("ConfigurationWizard.exe",
-                  "NetFlowService.exe",
-                  "NetflowDatabaseMaintenance.exe",
-                  "SolarWinds.Administration.exe",
-                  "SolarWinds.BusinessLayerHost.exe",
-                  "SolarWinds.BusinessLayerHostx64.exe",
-                  "SolarWinds.Collector.Service.exe",
-                  "SolarwindsDiagnostics.exe") and
-  (
-    (
-      (http.request.body.content : "*/swip/Upload.ashx*" and http.request.body.content : ("POST*", "PUT*")) or
-      (http.request.body.content : ("*/swip/SystemDescription*", "*/swip/Events*") and http.request.body.content : ("GET*", "HEAD*"))
-    ) and
-    not http.request.body.content : "*solarwinds.com*"
-  )
+file where host.os.type == "windows" and event.type == "creation" and
+  file.path : (
+    "?:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+    "?:\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+
+    /* Crowdstrike specific condition as it uses NT Object paths */
+    "\\Device\\HarddiskVolume*\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe",
+    "\\Device\\HarddiskVolume*\\Program Files\\Adobe\\Acrobat Reader DC\\Reader\\AcroCEF\\RdrCEF.exe"
+  ) and
+  not process.name : ("msiexec.exe", "AdobeARM.exe")
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1071"
-name = "Application Layer Protocol"
-reference = "https://attack.mitre.org/techniques/T1071/"
-[[rule.threat.technique.subtechnique]]
-id = "T1071.001"
-name = "Web Protocols"
-reference = "https://attack.mitre.org/techniques/T1071/001/"
+id = "T1554"
+name = "Compromise Host Software Binary"
+reference = "https://attack.mitre.org/techniques/T1554/"
 
-
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
-[[rule.threat]]
-framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1195"
-name = "Supply Chain Compromise"
-reference = "https://attack.mitre.org/techniques/T1195/"
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
 [[rule.threat.technique.subtechnique]]
-id = "T1195.002"
-name = "Compromise Software Supply Chain"
-reference = "https://attack.mitre.org/techniques/T1195/002/"
+id = "T1574.010"
+name = "Services File Permissions Weakness"
+reference = "https://attack.mitre.org/techniques/T1574/010/"
 
 
 
 [rule.threat.tactic]
-id = "TA0001"
-name = "Initial Access"
-reference = "https://attack.mitre.org/tactics/TA0001/"
-
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
