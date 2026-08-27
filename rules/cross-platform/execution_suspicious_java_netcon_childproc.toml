@@ -48,19 +48,13 @@ sequence by host.id with maxspan=5s
  [process where event.type == "start" and
 
   /* Suspicious JAVA child process */
-  process.parent.name : "java" and process.working_directory : "/opt/*" and
-   process.name : ("sh",
-                   "bash",
-                   "dash",
-                   "ksh",
-                   "tcsh",
-                   "zsh",
-                   "curl",
-                   "perl*",
-                   "python*",
-                   "ruby*",
-                   "php*",
-                   "wget") and
+  process.parent.name : "java" and
+  process.name : (
+    "sh", "bash", "dash", "ksh", "tcsh", "zsh", "ash",  "mksh", "busybox",
+    "curl", "wget", "perl*", "python*", "ruby*", "php*", "lua*", "socat",
+    "nc", "ncat", "netcat", "netcat.openbsd", "netcat.traditional", "nc.openbsd",
+    "nc.traditional"
+  ) and
     not process.command_line like~ (
       "bash -c ulimit -u",
       "bash /opt/flutter/bin/flutter*",
