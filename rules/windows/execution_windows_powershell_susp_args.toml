@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/13"
+updated_date = "2026/08/28"
 
 [rule]
 author = ["Elastic"]
@@ -95,6 +95,8 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\*.exe"
   ) and
 
+  not process.parent.name : ("CompatTelRunner.exe", "SenseIR.exe") and
+
   (
     process.command_line : (
           "*^*^*^*^*^*^*^*^*^*",
@@ -105,7 +107,6 @@ process where host.os.type == "windows" and event.type == "start" and
           "*[*Convert]*",
           "*.Compression.*",
           "*-join($*",
-          "*.replace*",
           "*MemoryStream*",
           "*WriteAllBytes*",
           "* -enc *",
@@ -160,6 +161,16 @@ process where host.os.type == "windows" and event.type == "start" and
           "*XmlDocument*IEX*"
     ) or
 
+    (
+      process.command_line : "*.replace*" and
+      /* exclude known process and network inventory collection patterns */
+      not process.command_line : (
+        "*Get-CimInstance -Class Win32_Process*ConvertTo-Csv*Select-Object*$_.Replace*",
+        "*function replace_unallowed*$s.replace*Get-Counter*Network Adapter*",
+        "*rename-item*$_.Name.Replace*"
+      )
+    ) or
+
     (process.args : "-c" and process.args : "&{'*") or
 
     (process.args : "-Outfile" and process.args : "Start*") or
@@ -167,6 +178,8 @@ process where host.os.type == "windows" and event.type == "start" and
     (process.args : "-bxor" and process.args : "0x*") or
 
     process.args : "$*$*;set-alias" or
+
+    process.args == "-e" or
 
     // ATHPowerShellCommandLineParameter
     process.args : ("-EncodedCommandParamVariation", "-UseEncodedArguments", "-CommandParamVariation") or
@@ -178,8 +191,8 @@ process where host.os.type == "windows" and event.type == "start" and
     not process.command_line : (
       "*Use-Icinga -Minimal*",
       "*& {$j = sajb {Add-Type -AssemblyName*",
-      "*ConvertTo-Csv*",
-      "*Get-Counter*"
+      "*$j = sajb {*wjb $j*rcjb $j*",
+      "*WebClient*).OpenRead(*"
     )
 '''
 
