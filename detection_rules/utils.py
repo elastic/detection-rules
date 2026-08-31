@@ -349,15 +349,28 @@ def cached(f: Callable[..., Any]) -> Callable[..., Any]:
     return wrapped
 
 
+_cache_tokens: dict[int, Any] = {}
+_registered_caches: list[dict[Any, Any]] = []
+
+
+def register_cache(cache: dict[Any, Any]) -> None:
+    """Register a module-level cache dict so clear_caches() flushes it."""
+    _registered_caches.append(cache)
+
+
 def clear_caches() -> None:
     _cache.clear()
-
-
-_cache_tokens: dict[int, Any] = {}
+    for registered_cache in _registered_caches:
+        registered_cache.clear()
+    # Tokens may only be dropped once every token-keyed cache above is empty: releasing an
+    # object lets CPython recycle its id, which must never collide with a surviving entry.
+    _cache_tokens.clear()
 
 
 def cache_token(obj: Any) -> int:
     """Get a stable cache key standing in for a large, unhashable object."""
+    # Any cache keyed on these tokens must be registered via register_cache() so that
+    # clear_caches() flushes it together with the token table.
     # None and empty containers contribute nothing to a derived schema, so they share a token
     if not obj:
         return 0

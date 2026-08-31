@@ -25,7 +25,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
 from .schemas import definitions
-from .utils import cache_token, cached, get_etc_path, read_gzip, unzip
+from .utils import cache_token, cached, get_etc_path, read_gzip, register_cache, unzip
 
 if TYPE_CHECKING:
     from .rule import QueryRuleData, RuleMeta
@@ -234,11 +234,9 @@ def _parse_clause(clause: str) -> tuple[Version, Version | None]:
 
 @functools.cache
 def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
-    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses.
-
-    Clauses separated by || are OR'd; whitespace-separated tokens within a
-    clause are AND'd. Cached, so the returned list must be treated as read-only.
-    """
+    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses."""
+    # clauses separated by || are OR'd; whitespace-separated tokens within a clause are AND'd
+    # cached: the returned list is shared, so callers must treat it as read-only
     return [_parse_clause(c) for c in version_requirement.split("||")]
 
 
@@ -248,6 +246,7 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
 
 
 _latest_patch_for_minor_cache: dict[tuple[Any, ...], int] = {}
+register_cache(_latest_patch_for_minor_cache)
 
 
 def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
@@ -395,6 +394,7 @@ def resolve_related_integration_version(
 
 
 _latest_compatible_version_cache: dict[tuple[Any, ...], tuple[str, list[str]]] = {}
+register_cache(_latest_compatible_version_cache)
 
 
 def find_latest_compatible_version(
@@ -595,7 +595,8 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
-    """Extracts the integration fields to schema based on package integrations. Treat as read-only."""
+    """Extracts the integration fields to schema based on package integrations."""
+    # the returned schema is memoized and shared, so callers must treat it as read-only
     package_schemas = integrations_schemas.get(package, {}) if integration else None
     package_version, notice = find_latest_compatible_version(
         package,
@@ -613,6 +614,7 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
 
 
 _integration_schema_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+register_cache(_integration_schema_cache)
 
 
 def _resolve_integration_schema(
@@ -622,9 +624,10 @@ def _resolve_integration_schema(
     integration: str,
     ecs_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Merge integration and ECS fields into a `field -> type family` schema. Treat as read-only."""
-    # Keyed on the resolved package version rather than the rule's min_stack, so the many stack
-    # versions that resolve to the same package version share one entry.
+    """Merge integration and ECS fields into a `field -> type family` schema."""
+    # Memoized and shared, so callers must treat the returned dict as read-only. Keyed on the
+    # resolved package version rather than the rule's min_stack, so the many stack versions
+    # that resolve to the same package version share one entry.
     cache_key = (
         cache_token(integrations_schemas),
         cache_token(ecs_schema),

@@ -11,7 +11,7 @@ import unittest
 
 from detection_rules.ecs import get_kql_schema
 from detection_rules.eswrap import Events
-from detection_rules.utils import cached, normalize_timing_and_sort
+from detection_rules.utils import cache_token, cached, clear_caches, normalize_timing_and_sort, register_cache
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -102,3 +102,22 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(increment(), 6)
         self.assertEqual(increment(None), 7)
         self.assertEqual(increment(1), 8)
+
+    def test_cache_token_and_registered_caches(self):
+        """Test that cache_token is identity-stable and clear_caches flushes registered caches."""
+        obj_a = {"a": 1}
+        obj_b = {"a": 1}
+
+        token_a = cache_token(obj_a)
+        self.assertEqual(token_a, cache_token(obj_a))
+        # equal but distinct objects must not share a token
+        self.assertNotEqual(token_a, cache_token(obj_b))
+        # falsy stand-ins share the empty token
+        self.assertEqual(cache_token(None), 0)
+        self.assertEqual(cache_token({}), 0)
+
+        registered: dict = {}
+        register_cache(registered)
+        registered[(cache_token(obj_a), "key")] = "value"
+        clear_caches()
+        self.assertEqual(registered, {})

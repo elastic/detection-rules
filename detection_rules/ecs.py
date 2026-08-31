@@ -216,7 +216,8 @@ def flatten_multi_fields(schema: dict[str, Any]) -> dict[str, Any]:
 
 @cached
 def get_flat_ecs_schema(version: str | None = None) -> dict[str, Any]:
-    """Get the flattened `field -> type` ECS schema by version. Shared: treat as read-only."""
+    """Get the flattened `field -> type` ECS schema by version."""
+    # cached: the returned dict is shared, so callers must treat it as read-only
     return flatten_multi_fields(get_schema(version, name="ecs_flat"))
 
 
