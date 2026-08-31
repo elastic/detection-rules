@@ -99,13 +99,6 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-/*
-Correlate a successful WHfB/FIDO2/passkey sign-in that carries no device identifier with a subsequent
-device registration by the same user within 15 minutes. Keep the sign-in event as the alert.
-authentication_details is a flattened field, so FIELD_EXTRACT is required to read authentication_method
-and authentication_step_date_time. Sequence on the auth step time when present: sign-in @timestamp can
-lag the actual assertion, which would invert the order against the Register device audit event.
-*/
 FROM logs-azure.signinlogs-*, logs-azure.auditlogs-* METADATA _id, _version, _index
 | WHERE
     (
