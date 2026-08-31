@@ -2,7 +2,7 @@
 creation_date = "2026/08/25"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/08/25"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Reading of procfs Syscall File"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Reading of procfs Syscall File
+
+This rule detects Linux utilities reading another process or thread’s `/proc/<pid>/syscall` file, which exposes its active system call, arguments, stack pointer, and instruction pointer and can support process discovery or injection preparation. An attacker may repeatedly run `cat /proc/1234/syscall` to inspect a privileged service’s execution state before selecting it as an injection target.
+
+### Possible investigation steps
+
+- Resolve the referenced PID to its executable, owner, privileges, container or namespace, and service role to determine why it was targeted.
+- Review the reader’s full command line, parent process, user, working directory, executable path, hash, signature, and surrounding process tree for evidence of scripts, shells, or unauthorized tooling.
+- Correlate nearby activity for repeated procfs enumeration, `ptrace` use, debugger attachment, access to `/proc/<pid>/mem` or `/proc/<pid>/maps`, suspicious signal delivery, and credential or privilege changes.
+- Compare the activity with host baselines and approved monitoring or troubleshooting workflows, then examine whether the same user, binary, or command pattern appears on other systems.
+- If unexplained or malicious, isolate the host, preserve process and audit telemetry, terminate unauthorized processes, revoke exposed credentials, and investigate the initial access and persistence mechanism.
+
+### False positive analysis
+
+- An administrator troubleshooting a stalled or high-resource process may read its `/proc/<pid>/syscall` file; confirm the target PID, initiating user, parent shell, timing, and alignment with an approved support activity.
+- An authorized diagnostic or monitoring script may periodically inspect process syscall state using standard Linux utilities; verify the script path, owner, execution schedule, expected target processes, and consistency with the host’s established baseline.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container while preserving volatile evidence, including the reader process, targeted PID, process tree, open files, network connections, and relevant `/proc` artifacts.
+- Terminate unauthorized processes and remove persistence associated with the activity, including malicious systemd units, cron entries, shell startup modifications, container hooks, kernel modules, and altered binaries.
+- Revoke credentials or tokens accessible to the implicated accounts and processes, rotate affected secrets, and review privileged accounts for unauthorized SSH keys or sudo configuration changes.
+- Escalate immediately to incident response if the activity includes `ptrace`, access to `/proc/<pid>/mem` or `/proc/<pid>/maps`, code injection indicators, privileged-process targeting, credential theft, or similar behavior on multiple systems.
+- Rebuild compromised hosts or containers from verified images, restore validated data and configuration, patch exploited software, and confirm that unauthorized files, processes, accounts, and connections are absent before reconnecting them.
+- Harden the environment by restricting procfs visibility with `hidepid`, enforcing least privilege and ptrace restrictions, strengthening SELinux or AppArmor policies, limiting debugging tools, and monitoring repeated access to other processes’ procfs files.
+"""
 references = [
   "https://man7.org/linux/man-pages/man5/proc_pid_syscall.5.html",
   "https://www.akamai.com/blog/security-research/the-definitive-guide-to-linux-process-injection"
@@ -39,6 +70,7 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
