@@ -1,37 +1,44 @@
 [metadata]
-creation_date = "2026/08/14"
+creation_date = "2026/08/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/08/14"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when the AWS managed policy AmazonSESFullAccess is attached to an IAM user, role, or
-group. AmazonSESFullAccess grants unrestricted permission to send email, manage identities and
-templates, manage suppression lists, and access SES account-level settings. Granting this policy
-to an unexpected IAM entity, particularly a newly created user or a role not previously associated
-with email operations, is a documented technique used by threat actors to establish phishing
-infrastructure on compromised AWS accounts, enabling them to send email on behalf of the victim
-organization's trusted sending domain.
+Detects the first occurrence in 7 days of an AWS identity attaching the managed policy
+AmazonSESFullAccess to an IAM user, role, or group. AmazonSESFullAccess grants unrestricted
+permission to send email, manage identities and templates, manage suppression lists, and access
+SES account-level settings. Granting this policy to an unexpected IAM entity, particularly a newly
+created user or a role not previously associated with email operations, is a documented technique
+used by threat actors to establish phishing infrastructure on compromised AWS accounts, enabling
+them to send email on behalf of the victim organization's trusted sending domain. Using new terms
+on the calling identity suppresses recurring attachments by known email automation while
+surfacing identities performing this action for the first time.
 """
 false_positives = [
     """
     Legitimate email service automation may attach AmazonSESFullAccess to a service account.
     Validate the target IAM entity against known email automation roles and CI/CD pipeline identities.
-    The policy is broad; any new attachment warrants review regardless of origin.
+    Because this is a new terms rule keyed on the calling identity, recurring attachments by the
+    same automation will not re-alert within the 7-day history window; first-time attachments by
+    administrators performing legitimate setup may still trigger and should be validated against
+    change management records.
     """,
 ]
 from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS SES Full Access Policy Attached to IAM Entity"
+name = "AWS SES Full Access Policy Attached to IAM Entity by Unusual User"
 note = """## Triage and analysis
 
-### Investigating AWS SES Full Access Policy Attached to IAM Entity
+### Investigating AWS SES Full Access Policy Attached to IAM Entity by Unusual User
 
 AWS Simple Email Service (SES) is a cost-effective bulk email platform with a reputation built on a customer's verified sending domains. Threat actors who compromise an AWS account often establish phishing infrastructure by granting SES access to a new or existing IAM identity and then using that identity's credentials to send phishing emails under the victim organization's trusted domain. Attaching the managed policy `AmazonSESFullAccess` is the simplest way to grant the full range of SES capabilities (send, manage identities, manage suppression lists, configure sending settings).
+
+This is a new terms rule that alerts only when the calling identity (`aws.cloudtrail.user_identity.arn`) has not attached this policy within the previous 7 days, prioritizing anomalous or first-time activity over recurring automation.
 
 ### Possible investigation steps
 
@@ -68,13 +75,13 @@ tags = [
     "Data Source: Amazon Web Services",
     "Service: AWS IAM",
     "Service: AWS SES",
-    "Rule Type: Custom Query (KQL)",
+    "Rule Type: New Terms",
     "Tactic: Persistence",
     "Tactic: Resource Development",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset: "aws.cloudtrail"
@@ -113,6 +120,13 @@ reference = "https://attack.mitre.org/techniques/T1608/"
 id = "TA0042"
 name = "Resource Development"
 reference = "https://attack.mitre.org/tactics/TA0042/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
 [rule.investigation_fields]
 field_names = [
