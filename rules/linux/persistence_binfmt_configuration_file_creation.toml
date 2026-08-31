@@ -2,7 +2,7 @@
 creation_date = "2026/08/25"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/25"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
@@ -16,6 +16,37 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Binfmt Configuration File Creation"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Binfmt Configuration File Creation
+
+This rule detects creation of Linux binfmt configuration files or registrations that alter how the kernel handles executable formats, which may establish persistent command execution. An attacker can register a crafted binary signature and interpreter so that launching a matching executable automatically invokes a backdoor script under the initiating user’s privileges.
+
+### Possible investigation steps
+
+- Inspect the new configuration or registration content for unusual magic bytes, masks, flags, extensions, and interpreter paths that reference scripts, writable directories, temporary locations, or network-mounted files.
+- Review the creating process’s user, command line, parent chain, working directory, package provenance, and nearby shell or privilege-escalation activity to determine whether the change was authorized.
+- Correlate the event with systemd-binfmt restarts, writes to the binfmt_misc register interface, and subsequent execution of the configured interpreter or matching binaries.
+- Search across the environment for the same configuration content, interpreter path, file hash, or responsible account to identify additional affected hosts and determine campaign scope.
+- If unauthorized, preserve the configuration and relevant telemetry, disable or unregister the handler, remove persistence artifacts, and investigate the originating account and process for further compromise.
+
+### False positive analysis
+
+- An administrator or approved automation may create a binfmt configuration to support a legitimate binary format, which analysts can verify by reviewing the change record, responsible account, configuration contents, and interpreter path.
+- An authorized package installation or system update may register or replace a binfmt handler, which analysts can confirm by correlating the event with package activity and validating the creating process and file against expected system changes.
+
+### Response and remediation
+
+- Isolate the affected Linux host from untrusted networks while preserving approved management access, volatile evidence, and copies of the malicious binfmt configuration and interpreter.
+- Unregister the malicious handler under `/proc/sys/fs/binfmt_misc`, remove its files from binfmt configuration directories, delete associated backdoor scripts or binaries, and restart `systemd-binfmt` only after validating remaining entries.
+- Escalate immediately to incident response if the configured interpreter executed, root privileges were involved, credentials may have been exposed, or matching artifacts appear on additional hosts.
+- Revoke attacker-controlled sessions, rotate credentials used on the host, and search for related scheduled tasks, services, startup files, modified SSH keys, and payloads created by the responsible process.
+- Reimage the system from a known-good baseline when integrity cannot be established; otherwise restore trusted configuration files and packages, verify kernel and system binaries, and confirm only approved binfmt handlers remain.
+- Restrict write access to binfmt configuration paths and registration interfaces, enforce least privilege for administrative automation, and monitor future handler creation, registration, and interpreter execution.
+"""
 references = ["https://dfir.ch/posts/today_i_learned_binfmt_misc/"]
 risk_score = 21
 rule_id = "a3b47d21-20d6-45b0-8b75-fc27073bdef2"
@@ -52,6 +83,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
