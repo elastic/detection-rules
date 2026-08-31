@@ -1,14 +1,16 @@
 [metadata]
-creation_date = "2026/08/14"
+creation_date = "2026/08/31"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/08/14"
+min_stack_comments = "ES|QL rule type is still in technical preview as of 8.13, however this rule was tested successfully; integration tests will pass from 8.13"
+min_stack_version = "8.13.0"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the sequence of verifying an SES email identity and subsequently deleting it within
-one hour, performed by the same AWS identity. Amazon SES requires email addresses and domains
+Detects an SES email identity being verified and subsequently deleted within a 30-minute window,
+performed by the same AWS identity. Amazon SES requires email addresses and domains
 to be verified before they can be used as senders. An adversary who obtains SES credentials
 may verify a domain or address they control, use it to send phishing or spam email, then delete
 the identity to remove evidence of the sending domain from the account's verified identity list.
@@ -22,9 +24,8 @@ false_positives = [
     """,
 ]
 from = "now-35m"
-index = ["logs-aws.cloudtrail-*"]
 interval = "30m"
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "AWS SES Email Identity Verified Then Deleted"
 note = """## Triage and analysis
@@ -35,10 +36,12 @@ Amazon SES requires that email addresses and domains be verified (via DNS record
 
 The verify-then-delete sequence is the evidence-destruction component of the SES phishing technique: it removes the compromised identity from `ListIdentities` output, making post-incident attribution harder.
 
+This is an ES|QL rule that aggregates SES verification and deletion events per calling identity within 30-minute windows and alerts when the same identity performed both, with the verification preceding the deletion.
+
 ### Possible investigation steps
 
-- Identify the caller from `aws.cloudtrail.user_identity.arn` and `user.name`.
-- Determine the verified identity from the `VerifyEmailIdentity` or `VerifyDomainIdentity` request parameters and the deleted identity from the `DeleteIdentity` request parameters.
+- Identify the caller from `aws.cloudtrail.user_identity.arn` and the aggregated `user_names` column.
+- Pivot to the raw CloudTrail events for this ARN in the `first_verify` to `last_delete` time range to determine the verified identity from the `VerifyEmailIdentity` or `VerifyDomainIdentity` request parameters and the deleted identity from the `DeleteIdentity` request parameters.
 - Query SES `SendEmail` / `SendRawEmail` CloudTrail events (if CloudTrail management events are being collected) or SES sending statistics between the verification and deletion timestamps to determine whether email was sent from the verified identity.
 - Check your email service provider's delivery logs for any email sourced from the SES identity.
 - Review all SES actions taken by this identity in the surrounding time window.
@@ -64,24 +67,34 @@ tags = [
     "Platform: AWS",
     "Data Source: AWS CloudTrail",
     "Service: AWS SES",
-    "Rule Type: Event Correlation (EQL)",
+    "Language: esql",
     "Tactic: Resource Development",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-sequence by aws.cloudtrail.user_identity.arn with maxspan=30m
-  [any where data_stream.dataset == "aws.cloudtrail"
-   and event.provider == "ses.amazonaws.com"
-   and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim")
-   and event.outcome == "success"]
-  [any where data_stream.dataset == "aws.cloudtrail"
-   and event.provider == "ses.amazonaws.com"
-   and event.action == "DeleteIdentity"
-   and event.outcome == "success"]
+from logs-aws.cloudtrail-* metadata _id, _version, _index
+| where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "ses.amazonaws.com"
+    and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim", "DeleteIdentity")
+    and event.outcome == "success"
+    and aws.cloudtrail.user_identity.arn is not null
+| eval time_window = date_trunc(30 minutes, @timestamp)
+| eval is_verify = case(event.action != "DeleteIdentity", 1, 0),
+       is_delete = case(event.action == "DeleteIdentity", 1, 0)
+| stats verify_count = sum(is_verify),
+        delete_count = sum(is_delete),
+        first_verify = min(case(is_verify == 1, @timestamp)),
+        last_delete = max(case(is_delete == 1, @timestamp)),
+        ses_actions = values(event.action),
+        user_names = values(user.name),
+        account_ids = values(cloud.account.id)
+    by time_window, aws.cloudtrail.user_identity.arn
+| where verify_count > 0 and delete_count > 0 and first_verify < last_delete
+| keep time_window, aws.*, verify_count, delete_count, first_verify, last_delete, ses_actions, user_names, account_ids
 '''
 
 
@@ -116,14 +129,13 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
+    "time_window",
     "aws.cloudtrail.user_identity.arn",
-    "aws.cloudtrail.user_identity.type",
-    "aws.cloudtrail.user_identity.access_key_id",
-    "user.name",
-    "event.action",
-    "event.outcome",
-    "aws.cloudtrail.request_parameters",
-    "source.ip",
-    "cloud.account.id",
+    "verify_count",
+    "delete_count",
+    "first_verify",
+    "last_delete",
+    "ses_actions",
+    "user_names",
+    "account_ids",
 ]
