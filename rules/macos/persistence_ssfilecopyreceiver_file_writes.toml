@@ -7,12 +7,12 @@ updated_date = "2026/08/19"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the macOS Screen Sharing file copy helper SSFileCopyReceiver creating or modifying files in common
-persistence locations such as LaunchDaemons/LaunchAgents, shell profiles, SSH authorized_keys, cron tabs, and hidden paths
-under root's home directory. SSFileCopyReceiver performs file writes with root authority on behalf of a remote viewer.
-Pre-authentication exploitation of the Screen Sharing service (CVE-2026-65400) abuses this write primitive to
-establish persistence; observed in-the-wild activity dropped LaunchDaemons and modified shell startup files to run a
-cryptocurrency miner as root.
+Identifies the macOS Screen Sharing file copy helper SSFileCopyReceiver creating or modifying files in 
+common persistence locations, including system-wide and per-user LaunchDaemons/LaunchAgents, shell profiles, 
+SSH authorized_keys, cron tabs, and hidden paths under root's home directory. SSFileCopyReceiver performs file writes 
+with root authority on behalf of a remote viewer.Pre-authentication exploitation of the Screen Sharing service (CVE-2026-65400) 
+abuses this write primitive to establish persistence; observed in-the-wild activity dropped LaunchDaemons and 
+modified shell startup files to run a cryptocurrency miner as root.
 """
 from = "now-9m"
 language = "esql"
@@ -113,7 +113,9 @@ from logs-endpoint.events.file-* METADATA _id, _index, _version
         OR file.path LIKE "/private/var/at/tabs/*"
         OR file.path LIKE "/var/at/tabs/*"
         OR file.path LIKE "/private/var/root/.*/*"
-        OR file.path LIKE "/var/root/.*/*"
+        OR file.path LIKE "/var/root/.*/*",
+        OR file.path LIKE "/private/var/root/.*",
+        OR file.path LIKE "/var/root/.*"
     )
 | KEEP _id, _index, _version, 
     @timestamp, host.name, host.id, user.id, user.name, process.name, 
