@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/08/14"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when MFA Delete is disabled on an Amazon S3 bucket. MFA Delete is an additional layer of
+security for versioned S3 buckets that requires multi-factor authentication to permanently delete
+object versions or disable versioning. When MFA Delete is disabled, an adversary with S3 write
+access and a compromised long-term access key can permanently delete object versions, a critical
+step in ransomware attacks that target S3 versioning as a backup mechanism. MFA Delete is
+configured via PutBucketVersioning with the MfaDelete parameter set to Disabled.
+"""
+false_positives = [
+    """
+    Disabling MFA Delete when rotating the root account credentials used to manage versioning
+    may trigger this rule. This operation requires root account credentials and is uncommon
+    in automated pipelines.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS S3 Bucket MFA Delete Disabled"
+note = """## Triage and analysis
+
+### Investigating AWS S3 Bucket MFA Delete Disabled
+
+MFA Delete protects versioned S3 buckets by requiring MFA authentication to permanently delete object versions or change the versioning state. This protection is specifically designed to prevent ransomware from destroying version history after encrypting the current object copies. Disabling MFA Delete removes this safeguard and is a recognized ransomware preparation step.
+
+Importantly, only the AWS account root user can enable or disable MFA Delete. A `PutBucketVersioning` call disabling MFA Delete from a non-root identity is a strong indicator of root credential compromise or unauthorized use.
+
+### Possible investigation steps
+
+- Identify the caller from `aws.cloudtrail.user_identity.type`. If this is not a `Root` identity, treat it as high-confidence unauthorized access.
+- Check `aws.cloudtrail.request_parameters` to confirm `mfaDeleteEnabled=false` (Go-map format) or `MfaDelete=Disabled` is present.
+- Review all API calls by the same identity in the surrounding window for other data-destruction or encryption-related actions.
+- Check whether object versioning remains enabled on the affected bucket. If both versioning and MFA Delete are disabled, the bucket has no object-level recovery protection.
+- Investigate whether MFA was presented (`aws.cloudtrail.additional_eventdata` contains MFA information for requests that required it).
+
+### Response and remediation
+
+- If unauthorized, immediately re-enable MFA Delete using root credentials and verify that object version history is intact.
+- Rotate all credentials associated with the calling identity.
+- Review S3 object versions for any permanent deletions that occurred after MFA Delete was disabled.
+- Enable AWS Config rules to detect versioning and MFA Delete configuration changes.
+"""
+references = [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/MultiFactorAuthenticationDelete.html",
+    "https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html",
+    "https://rhinosecuritylabs.com/aws/s3-ransomware-part-1-attack-vector/",
+    "https://www.halcyon.ai/blog/abusing-aws-native-services-ransomware-encrypting-s3-buckets-with-sse-c",
+]
+risk_score = 73
+rule_id = "b8654454-2757-41b4-ae1a-69b3be704c28"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. S3 management events are logged by default."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS S3",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "s3.amazonaws.com"
+    and event.action: "PutBucketVersioning"
+    and event.outcome: "success"
+    and aws.cloudtrail.flattened.request_parameters.mfaDeleteEnabled: (false or "false")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
