@@ -21,7 +21,7 @@ false_positives = [
     rather than a production or attacker-controlled domain.
     """,
 ]
-from = "now-35m"
+from = "now-60m"
 interval = "30m"
 language = "esql"
 license = "Elastic License v2"
@@ -80,7 +80,6 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim", "DeleteIdentity")
     and event.outcome == "success"
     and aws.cloudtrail.user_identity.arn is not null
-| eval Esql.time_window = date_trunc(30 minutes, @timestamp)
 | eval Esql.ses_verify_flag = case(event.action != "DeleteIdentity", 1, 0),
        Esql.ses_delete_flag = case(event.action == "DeleteIdentity", 1, 0)
 | stats Esql.ses_verify_count = sum(Esql.ses_verify_flag),
@@ -90,10 +89,11 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
         Esql.event_action_values = values(event.action),
         Esql_priv.user_name_values = values(user.name),
         Esql.cloud_account_id_values = values(cloud.account.id)
-    by Esql.time_window, aws.cloudtrail.user_identity.arn
+    by aws.cloudtrail.user_identity.arn
 | where Esql.ses_verify_count > 0 and Esql.ses_delete_count > 0
     and Esql.ses_verify_timestamp_min < Esql.ses_delete_timestamp_max
-| keep Esql.time_window, aws.*, Esql.ses_verify_count, Esql.ses_delete_count, Esql.ses_verify_timestamp_min, Esql.ses_delete_timestamp_max, Esql.event_action_values, Esql_priv.user_name_values, Esql.cloud_account_id_values
+    and date_diff("minutes", Esql.ses_verify_timestamp_min, Esql.ses_delete_timestamp_max) <= 30
+| keep aws.cloudtrail.user_identity.arn, Esql.ses_verify_count, Esql.ses_delete_count, Esql.ses_verify_timestamp_min, Esql.ses_delete_timestamp_max, Esql.event_action_values, Esql_priv.user_name_values, Esql.cloud_account_id_values
 '''
 
 
@@ -128,7 +128,6 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.time_window",
     "aws.cloudtrail.user_identity.arn",
     "Esql.ses_verify_count",
     "Esql.ses_delete_count",
