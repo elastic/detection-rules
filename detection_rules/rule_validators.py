@@ -93,12 +93,12 @@ def _target_bucket_key(target: ValidationTarget) -> tuple[Any, ...]:
 
 def _schema_fields(schema: Any) -> dict[str, Any] | None:
     """Return the field->type mapping a validation schema resolves to, or None if unrecognized."""
-    if isinstance(schema, dict):
-        return schema
-    fields = getattr(schema, "kql_schema", None)  # ecs.KqlSchema2Eql
-    if fields is None:
-        fields = getattr(schema, "endgame_schema", None)  # endgame.EndgameSchema
-    return fields if isinstance(fields, dict) else None
+    fields: Any = schema
+    if not isinstance(fields, dict):
+        fields = getattr(schema, "kql_schema", None)  # ecs.KqlSchema2Eql
+        if fields is None:
+            fields = getattr(schema, "endgame_schema", None)  # endgame.EndgameSchema
+    return typing.cast("dict[str, Any]", fields) if isinstance(fields, dict) else None
 
 
 def _schemas_equivalent(first: Any, second: Any) -> bool:
@@ -562,7 +562,7 @@ class EQLValidator(QueryValidator):
 
                 beat_types, _, kql_schema = self.get_beats_schema(data.index_or_dataview, beats_version, ecs_version)
                 err_trailer = (
-                    f"stack: {stack_version}, beats: {beats_version},ecs: {ecs_version}, endgame: {endgame_version}\n"
+                    f"stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}, endgame: {endgame_version}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 # ECS (+beats if present)
