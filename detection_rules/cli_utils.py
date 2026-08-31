@@ -20,7 +20,7 @@ import kql  # type: ignore[reportMissingTypeStubs]
 
 from . import ecs
 from .attack import build_threat_map_entry, matrix, tactics
-from .config import parse_rules_config
+from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .mixins import get_dataclass_required_fields
 from .rule import BYPASS_VERSION_LOCK, TOMLRule, TOMLRuleContents
 from .rule_loader import DEFAULT_PREBUILT_BBR_DIRS, DEFAULT_PREBUILT_RULES_DIRS, RuleCollection, dict_filter
@@ -28,6 +28,20 @@ from .schemas import definitions
 from .utils import clear_caches, ensure_list_of_strings, rulename_to_filename
 
 RULES_CONFIG = parse_rules_config()
+
+
+def _get_rule_prompt_required_fields(
+    props: dict[str, Any], required_fields: list[str], supplied_fields: dict[str, Any]
+) -> list[str]:
+    """Include the required side of the query-or-filters validation."""
+    if "query" not in props or "query" in required_fields:
+        return required_fields
+
+    filter_only_allowed = bool(
+        CUSTOM_RULES_DIR and supplied_fields.get("language") == "kuery" and supplied_fields.get("filters")
+    )
+    required_field = "filters" if filter_only_allowed else "query"
+    return sorted([*required_fields, required_field])
 
 
 def schema_prompt(name: str, value: Any | None = None, is_required: bool = False, **options: Any) -> Any:  # noqa: PLR0911, PLR0912, PLR0915
@@ -103,6 +117,8 @@ def schema_prompt(name: str, value: Any | None = None, is_required: bool = False
             return None
 
         if field_type in ("array", ["array"]):
+            if isinstance(result, list):
+                return result  # type: ignore[reportUnknownVariableType]
             result_list = result.split(",")
 
             if not (min_item < len(result_list) < max_items):
@@ -275,6 +291,11 @@ def rule_prompt(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     schema = target_data_subclass.jsonschema()
     props = schema["properties"]
     required_fields = sorted(required_fields + additional_required)
+
+    # `query` carries a default on the dataclass so filter-only custom KQL rules can
+    # omit it. Mirror QueryRuleData.validates_query_or_filters when deciding which
+    # side of that validation must be retained or prompted for.
+    required_fields = _get_rule_prompt_required_fields(props, required_fields, kwargs)
     contents: dict[str, Any] = {}
     skipped: list[str] = []
 

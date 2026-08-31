@@ -23,6 +23,7 @@ STRING_FIELDS = ("keyword", "text")
 
 
 class KvTree(Tree):
+    """Lark tree with position helpers compatible with lark>=1.3 meta API."""
 
     @property
     def child_trees(self):
@@ -31,6 +32,46 @@ class KvTree(Tree):
     @property
     def child_tokens(self):
         return [child for child in self.children if isinstance(child, Token)]
+
+    @property
+    def line(self):
+        """Get line number from meta or fallback to first token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "line"):
+            return self.meta.line
+        for child in self.children:
+            if isinstance(child, Token) and hasattr(child, "line"):
+                return child.line
+        return 1
+
+    @property
+    def end_line(self):
+        """Get end line number from meta or fallback to last token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "end_line"):
+            return self.meta.end_line
+        for child in reversed(self.children):
+            if isinstance(child, Token) and hasattr(child, "end_line"):
+                return child.end_line
+        return self.line
+
+    @property
+    def column(self):
+        """Get column number from meta or fallback to first token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "column"):
+            return self.meta.column
+        for child in self.children:
+            if isinstance(child, Token) and hasattr(child, "column"):
+                return child.column
+        return 1
+
+    @property
+    def end_column(self):
+        """Get end column number from meta or fallback to last token."""
+        if hasattr(self, "meta") and self.meta and hasattr(self.meta, "end_column"):
+            return self.meta.end_column
+        for child in reversed(self.children):
+            if isinstance(child, Token) and hasattr(child, "end_column"):
+                return child.end_column
+        return self.column
 
 
 grammar_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kql.g")
@@ -113,6 +154,10 @@ class BaseKqlParser(Interpreter):
         self.mapping_schema = schema
         self.star_fields = []
         self.normalize_kql_keywords = normalize_kql_keywords
+        # Stack of nested field paths currently in scope. Field references inside a
+        # `nested:{ ... }` block are relative to the enclosing nested path, so schema
+        # lookups must resolve them against the (flat) dotted mapping schema.
+        self.nested_path = []
 
         if schema:
             for field, field_type in schema.items():
@@ -172,7 +217,14 @@ class BaseKqlParser(Interpreter):
         yield field
         self.scoped_field = None
 
+    def resolve_nested_path(self, dotted_path):
+        """Resolve a nesting-relative field path to its absolute dotted path."""
+        if self.nested_path:
+            return ".".join(self.nested_path) + "." + dotted_path
+        return dotted_path
+
     def get_field_type(self, dotted_path, lark_tree=None):
+        dotted_path = self.resolve_nested_path(dotted_path)
         matches_pattern = any(regex.match(dotted_path) for regex in self.star_fields)
 
         if self.mapping_schema is not None:
@@ -187,7 +239,7 @@ class BaseKqlParser(Interpreter):
             return {field_type} if field_type is not None else None
 
         if self.mapping_schema is not None:
-            regex = wildcard2regex(wildcard_dotted_path)
+            regex = wildcard2regex(self.resolve_nested_path(wildcard_dotted_path))
             field_types = set()
 
             for field, field_type in self.mapping_schema.items():
@@ -307,25 +359,28 @@ class KqlParser(BaseKqlParser):
 
     @contextlib.contextmanager
     def nest(self, lark_tree):
-        schema = self.mapping_schema
-        dotted_path = self.visit(lark_tree)
+        # The path is relative to any enclosing nested block; `field` keeps that
+        # relative form (which is the absolute path at the top level) while the schema
+        # is validated against the resolved absolute path.
+        field = self.visit(lark_tree)
+        dotted_path = field.name
 
-        if self.get_field_type(dotted_path, lark_tree) != "nested":
+        if self.mapping_schema is not None and self.get_field_type(dotted_path, lark_tree) != "nested":
             raise self.error(lark_tree, "Expected a nested field")
 
+        # Store the relative segment; `resolve_nested_path` joins the whole stack so
+        # deeply nested field references resolve to their absolute dotted path.
+        self.nested_path.append(dotted_path)
         try:
-            self.mapping_schema = self.mapping_schema[dotted_path]
-            yield
+            yield field
         finally:
-            self.mapping_schema = schema
+            self.nested_path.pop()
 
     def nested_query(self, tree):
-        # field_tree, query_tree = tree.child_trees
-        #
-        # with self.nest(field_tree) as field:
-        #     return NestedQuery(field, self.visit(query_tree))
+        field_tree, query_tree = tree.child_trees
 
-        raise self.error(tree, "Nested queries are not yet supported")
+        with self.nest(field_tree) as field:
+            return NestedQuery(field, self.visit(query_tree))
 
     def field_value_expression(self, tree):
         field_tree, expr = tree.child_trees
@@ -383,12 +438,26 @@ class KqlParser(BaseKqlParser):
         return Field(eql.utils.to_unicode(literal))
 
     def value(self, tree):
-        if self.scoped_field is None:
-            raise self.error(tree, "Value not tied to field")
-
-        field_name = self.scoped_field.name
         token = tree.children[0]
         value = self.unescape_literal(token)
+
+        if self.scoped_field is None:
+            # A value with no field (e.g. `"Accepted password for root"`) is a free-text
+            # search: Kibana runs it against the index's default fields. There is no field
+            # to type-check or convert the value against, so it is used as-is. Quoted
+            # strings stay literal; an unescaped `*` elsewhere makes the value a wildcard.
+            is_quoted = token.type == "QUOTED_STRING"
+
+            if not is_quoted and self.has_unescaped_wildcard(token.value):
+                # a wildcard compiles to a `query_string`, which has no phrase/best_fields
+                # distinction, so `is_quoted` is irrelevant here (and always False)
+                return FreeText(Wildcard(eql.utils.to_unicode(value)))
+            if eql.utils.is_string(value):
+                return FreeText(String(eql.utils.to_unicode(value)), is_quoted=is_quoted)
+            # bare numbers/booleans/null are never quoted
+            return FreeText(Value.from_python(value))
+
+        field_name = self.scoped_field.name
 
         # Handle wildcard literals (may contain spaces) and unquoted literals with an
         # *unescaped* wildcard. An escaped `\*` is a literal asterisk, not a wildcard, so
