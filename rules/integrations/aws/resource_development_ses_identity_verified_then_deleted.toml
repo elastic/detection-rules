@@ -80,19 +80,20 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
     and event.action in ("VerifyEmailIdentity", "VerifyDomainIdentity", "VerifyEmailAddress", "VerifyDomainDkim", "DeleteIdentity")
     and event.outcome == "success"
     and aws.cloudtrail.user_identity.arn is not null
-| eval time_window = date_trunc(30 minutes, @timestamp)
-| eval is_verify = case(event.action != "DeleteIdentity", 1, 0),
-       is_delete = case(event.action == "DeleteIdentity", 1, 0)
-| stats verify_count = sum(is_verify),
-        delete_count = sum(is_delete),
-        first_verify = min(case(is_verify == 1, @timestamp)),
-        last_delete = max(case(is_delete == 1, @timestamp)),
-        ses_actions = values(event.action),
-        user_names = values(user.name),
-        account_ids = values(cloud.account.id)
-    by time_window, aws.cloudtrail.user_identity.arn
-| where verify_count > 0 and delete_count > 0 and first_verify < last_delete
-| keep time_window, aws.*, verify_count, delete_count, ses_actions, user_names, account_ids
+| eval Esql.time_window = date_trunc(30 minutes, @timestamp)
+| eval Esql.ses_verify_flag = case(event.action != "DeleteIdentity", 1, 0),
+       Esql.ses_delete_flag = case(event.action == "DeleteIdentity", 1, 0)
+| stats Esql.ses_verify_count = sum(Esql.ses_verify_flag),
+        Esql.ses_delete_count = sum(Esql.ses_delete_flag),
+        Esql.ses_verify_timestamp_min = min(case(Esql.ses_verify_flag == 1, @timestamp)),
+        Esql.ses_delete_timestamp_max = max(case(Esql.ses_delete_flag == 1, @timestamp)),
+        Esql.event_action_values = values(event.action),
+        Esql_priv.user_name_values = values(user.name),
+        Esql.cloud_account_id_values = values(cloud.account.id)
+    by Esql.time_window, aws.cloudtrail.user_identity.arn
+| where Esql.ses_verify_count > 0 and Esql.ses_delete_count > 0
+    and Esql.ses_verify_timestamp_min < Esql.ses_delete_timestamp_max
+| keep Esql.time_window, aws.*, Esql.ses_verify_count, Esql.ses_delete_count, Esql.ses_verify_timestamp_min, Esql.ses_delete_timestamp_max, Esql.event_action_values, Esql_priv.user_name_values, Esql.cloud_account_id_values
 '''
 
 
@@ -127,11 +128,13 @@ reference = "https://attack.mitre.org/tactics/TA0005/"
 
 [rule.investigation_fields]
 field_names = [
-    "time_window",
+    "Esql.time_window",
     "aws.cloudtrail.user_identity.arn",
-    "verify_count",
-    "delete_count",
-    "ses_actions",
-    "user_names",
-    "account_ids",
+    "Esql.ses_verify_count",
+    "Esql.ses_delete_count",
+    "Esql.ses_verify_timestamp_min",
+    "Esql.ses_delete_timestamp_max",
+    "Esql.event_action_values",
+    "Esql_priv.user_name_values",
+    "Esql.cloud_account_id_values",
 ]
