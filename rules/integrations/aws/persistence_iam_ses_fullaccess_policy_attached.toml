@@ -10,8 +10,8 @@ description = """
 Detects when the AWS managed policy AmazonSESFullAccess is attached to an IAM user, role, or
 group. AmazonSESFullAccess grants unrestricted permission to send email, manage identities and
 templates, manage suppression lists, and access SES account-level settings. Granting this policy
-to an unexpected IAM entity — particularly a newly created user or a role not previously associated
-with email operations — is a documented technique used by threat actors to establish phishing
+to an unexpected IAM entity, particularly a newly created user or a role not previously associated
+with email operations, is a documented technique used by threat actors to establish phishing
 infrastructure on compromised AWS accounts, enabling them to send email on behalf of the victim
 organization's trusted sending domain.
 """
@@ -24,7 +24,6 @@ false_positives = [
 ]
 from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
-interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SES Full Access Policy Attached to IAM Entity"
@@ -58,14 +57,15 @@ AWS Simple Email Service (SES) is a cost-effective bulk email platform with a re
 references = [
     "https://docs.aws.amazon.com/ses/latest/dg/control-user-access.html"
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "d2e3f4a5-b6c7-8901-bcde-f23456789012"
 setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `iam:AttachUserPolicy`, `iam:AttachRolePolicy`, and `iam:AttachGroupPolicy` are management-plane APIs logged by default."
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Platform: AWS",
-    "Data Source: AWS CloudTrail",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
     "Service: AWS IAM",
     "Service: AWS SES",
     "Rule Type: Custom Query (KQL)",
@@ -81,7 +81,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: ("AttachUserPolicy" or "AttachRolePolicy" or "AttachGroupPolicy")
     and event.outcome: "success"
-    and aws.cloudtrail.request_parameters: *AmazonSESFullAccess*
+    and aws.cloudtrail.flattened.request_parameters.policyArn: "arn:aws:iam::aws:policy/AmazonSESFullAccess"
 '''
 
 
