@@ -66,16 +66,10 @@ FROM logs-unifiedlogs* METADATA _id, _index, _version
         "Jons,sSCR", "Jons,gSYS", "fndr,read", "aevt,odoc", "core,getd"
         )
     OR (apple_event.type_code == "syso,dlog" AND apple_event.parameters == "htxt")
-    OR CONTAINS(message, "AECreateAppleEvent")
+    OR message RLIKE ".*AECreateAppleEvent.*\\((Jons,gClp| syso,dlog| aevt,stvl| syso,ntoc| syso,exec| syso,dsct| Jons,doSH| Jons,kGET| Jons,sSCR| Jons,gSYS| fndr,read| aevt,odoc| core,getd) .*"
     OR CONTAINS(message, "Add coercion from TEXT to url")
     OR CONTAINS(message, "ALLOWING SAFE EVENT")
-    OR CONTAINS(message, "kGET")
-    OR CONTAINS(message, "sSCR")
-    OR CONTAINS(message, "gSYS")
-    OR CONTAINS(message, "odoc")
-    OR CONTAINS(message, "doSH")
-    OR CONTAINS(message, "do shell script")
-    )
+)
 | KEEP _id, _version, _index,
     @timestamp,
     host.name,

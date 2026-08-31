@@ -289,6 +289,14 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
 UNKNOWN_PACKAGE_INTEGRATION = "Unknown"
 # Stack versions at/above this use >= for related_integrations.version (caret below).
 RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK = Version(9, 5, 0)
+# event.dataset suffixes that map to an input-package schema keyed by package name.
+# Only these aliases fall back; typos such as unifiedlogs.lgo must still error.
+INPUT_PACKAGE_DATASET_SUFFIXES = frozenset({"log"})
+
+
+def _input_package_schema_fallback(integration: str, datasets: dict[str, Any], package: str | None) -> bool:
+    """Return True when an input-package schema (keyed by package name) may serve this suffix."""
+    return bool(package and package in datasets and integration in INPUT_PACKAGE_DATASET_SUFFIXES)
 
 
 def _package_version_has_integration(
@@ -301,11 +309,12 @@ def _package_version_has_integration(
 
     Input packages like unifiedlogs store fields under the package name only, while rules
     query event.dataset suffixes such as unifiedlogs.log -> integration "log".
+    Unknown suffixes (e.g. unifiedlogs.lgo) do not fall back.
     """
     if version not in package_schemas:
         return True
     datasets = package_schemas[version]
-    return integration in datasets or bool(package and package in datasets)
+    return integration in datasets or _input_package_schema_fallback(integration, datasets, package)
 
 
 def _find_least_compatible_for_stack(
@@ -604,7 +613,8 @@ def collect_schema_fields(
     """Collects the schema fields for a given integration.
 
     Falls back to the package-named schema for input packages (e.g. unifiedlogs) when
-    event.dataset uses a suffix like "log" that is not a data_stream directory name.
+    event.dataset uses an allowlisted suffix such as "log" that is not a data_stream
+    directory name. Unknown suffixes do not fall back.
     """
     version_schema = integrations_schemas[package][package_version]
     if integration is None:
@@ -617,7 +627,7 @@ def collect_schema_fields(
 
     if integration in version_schema:
         return version_schema[integration]
-    if package in version_schema:
+    if _input_package_schema_fallback(integration, version_schema, package):
         return version_schema[package]
 
     raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
