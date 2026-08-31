@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/08/19"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of the macOS Screen Sharing file-copy helper SSFileCopySender with root UID/GID attributes
+(0 80). Under the native Apple authentication path this helper runs in the connecting user's context; execution as
+root is anomalous and consistent with pre-authentication exploitation of the Screen Sharing service (CVE-2026-65400),
+where a flawed SRP validation path lets an unauthenticated attacker reach privileged file operations. Note that the
+0/80 UID/GID pair reflects only initial exploitation attempts and can be evaded once an attacker enumerates another
+local account. It is advisable to treat this as a tripwire and pair it with 
+the SSFileCopyReceiver Writing to Common Persistence Locations rule coverage.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "SSFileCopySender Executed as Root"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSFileCopySender Executed as Root
+
+This detects the macOS Screen Sharing file-copy helper starting with root privileges, which is abnormal because legitimate file transfers run in the remote user’s context. That pattern matters because it strongly suggests a pre-authentication Screen Sharing exploit path that lets an unauthenticated attacker invoke privileged file operations, for example by reaching the service over the network and copying a payload into /Library/LaunchDaemons before any user logs in.
+
+### Possible investigation steps
+
+- Correlate the alert time with unified logs, firewall records, and endpoint network telemetry to identify the source IP that reached Screen Sharing and determine whether the connection came from an unexpected internal or external host.
+- Reconstruct the 5–10 minute execution timeline around the event to capture the launch context and any follow-on activity such as shell, scripting, download, archive, permission-change, or service-management commands.
+- Review concurrent and subsequent file activity for newly written or modified items in common staging and persistence paths such as /Library/LaunchDaemons, /Library/LaunchAgents, /Library/PrivilegedHelperTools, /Users/Shared, and temporary directories, and collect hashes for any payloads.
+- Validate whether any legitimate remote administration or support session was expected on the host and compare that with authentication and user-session records to spot execution without a corresponding successful login or a rapid pivot to another local account.
+- Scope for broader exploitation by confirming whether Screen Sharing or Remote Management was enabled, checking the host’s patch status for CVE-2026-65400, and searching for the same source IP or related indicators across other macOS systems.
+
+### False positive analysis
+
+- An authorized administrator may manually invoke SSFileCopySender as root during macOS Screen Sharing troubleshooting or control validation; verify the parent process is an expected local shell or maintenance script, the activity aligns with a documented change window, and there are no unexpected follow-on file writes.
+- A lab or staging Mac used for patch verification or regression testing may intentionally exercise the Screen Sharing file-copy helper with the 0/80 arguments; verify the host’s role, confirm the timing matches approved test activity, and ensure any related network source and copied files are expected.
+- Legacy VNC authentication runs SSFileCopySender in a root context, so root-context execution alone is expected and this rule will fire on benign legacy-VNC sessions. Treat it as a lead, not a finding and corroborate with a near-in-time "SSFileCopyReceiver Writing to Common Persistence Locations" alert on the same host before take an action.
+
+### Related Rules 
+
+- SSFileCopyReceiver Writing to Common Persistence Locations - 5773cef4-11a5-4d51-a40b-0e0a79d68432
+
+### Response and remediation
+
+- Immediately isolate the affected Mac from the network, disable Screen Sharing and Remote Management on the host, and block the identified source IP or access path while preserving relevant logs and suspicious files for follow-up analysis.
+- Remove attacker footholds by unloading and deleting unauthorized launchd items from /Library/LaunchDaemons and /Library/LaunchAgents, removing rogue binaries from /Library/PrivilegedHelperTools, /Users/Shared, and temporary directories, and deleting any unknown local accounts or added SSH authorized_keys.
+- Restore the system to a known-good state by reimaging the host or recovering from a trusted backup if SSFileCopySender was followed by writes to privileged locations, modified system settings, or execution of additional payloads.
+- Escalate to incident response immediately if you confirm persistence in system-wide paths, evidence of lateral movement, tampering with security tooling, or the same Screen Sharing source interacting with any other macOS endpoints.
+- Harden the environment by applying the vendor patch for CVE-2026-65400, disabling Screen Sharing where it is not required, restricting remote administration to approved management networks or VPN, and rotating passwords for any local or administrative accounts exposed on the host.
+"""
+references = [
+    "https://www.huntress.com/blog/macos-screen-sharing-rce-patched",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-65400",
+    "https://support.apple.com/en-us/HT201222",
+]
+risk_score = 47
+rule_id = "e54c3f36-e243-402d-9d44-8f7349eb8c88"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a macOS System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, for MacOS it is recommended to select "Traditional Endpoints".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/current/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-endpoint.events.process-* METADATA _id, _index, _version
+| WHERE host.os.type == "macos"
+    AND event.type == "start"
+    AND process.name == "SSFileCopySender"
+    AND KQL(""" process.args : "0" AND process.args : "80" """)
+| KEEP _id, _version, _index,
+    @timestamp,
+    data_stream.namespace,
+    host.name,
+    host.id,
+    user.id,
+    user.name,
+    process.name,
+    process.entity_id,
+    process.parent.name,
+    process.command_line
+| SORT @timestamp DESC
+| LIMIT 100
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
