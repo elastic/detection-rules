@@ -69,13 +69,13 @@ MSI download event as the alert.
 FROM
 (
   FROM logs-endpoint.events.file-* METADATA _id, _version, _index
-    | WHERE event.action == "creation" AND TO_LOWER(file.extension) == "msi" AND file.origin_url IS NOT NULL
-    | EVAL sequence_stage = "origin"
-    | URI_PARTS origin = file.origin_url
-    | EVAL origin.domain = TO_LOWER(origin.domain)
+    | WHERE KQL("event.action: creation") AND TO_LOWER(file.extension) == "msi" AND file.origin_url IS NOT NULL
+    | EVAL Esql.sequence_stage = "origin"
+    | URI_PARTS Esql.origin = file.origin_url
+    | EVAL Esql.origin.domain = TO_LOWER(Esql.origin.domain)
     | WHERE (
       // Source code and developer artifact hosting.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "api.bitbucket.org", "bitbucket.org",
         "api.github.com", "gist.githubusercontent.com", "github.com",
         "github-releases.githubusercontent.com", "objects.githubusercontent.com",
@@ -86,14 +86,14 @@ FROM
         "sourceforge.net", "*.sourceforge.net"
       ) OR
       // AWS S3 object storage.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "s3.amazonaws.com", "*.s3.amazonaws.com",
         "s3.*.amazonaws.com", "*.s3.*.amazonaws.com",
         "s3-*.amazonaws.com", "*.s3-*.amazonaws.com",
         "*.s3express-*.amazonaws.com"
       ) OR
       // Azure, Cloudflare R2, Discord, and Dropbox.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "*.azurewebsites.net", "*.azurestaticapps.net",
         "*.azurecontainerapps.io",
         "*.blob.core.windows.net", "*.blob.storage.azure.net",
@@ -106,7 +106,7 @@ FROM
         "dropboxusercontent.com", "*.dropboxusercontent.com"
       ) OR
       // Firebase Storage, Google Drive, and Cloud Storage.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "*.googleusercontent.com", "content-storage.googleapis.com",
         "firebasestorage.googleapis.com",
         "docs.google.com", "drive.google.com", "drive.usercontent.google.com",
@@ -114,7 +114,7 @@ FROM
         "www.googleapis.com"
       ) OR
       // OneDrive, SharePoint, Onehub, OnlyOffice, pCloud, Slack, Supabase, and Wasabi.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "api.onedrive.com", "files.1drv.com", "*.files.1drv.com",
         "onedrive.live.com", "*.onedrive.live.com",
         "sharepoint.com", "*.sharepoint.com",
@@ -128,7 +128,7 @@ FROM
         "s3.*.wasabisys.com", "*.s3.*.wasabisys.com"
       ) OR
       // Developer tunnels, reverse proxies, automation, and webhooks.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "devtunnels.ms", "*.devtunnels.ms",
         "localtunnel.me", "*.localtunnel.me",
         "n8n.cloud", "*.n8n.cloud",
@@ -141,7 +141,7 @@ FROM
         "webhook.site"
       ) OR
       // File-sharing and transfer services.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "4shared.com", "*.4shared.com",
         "*.4sync.com",
         "bashupload.com", "*.bashupload.com",
@@ -170,7 +170,7 @@ FROM
         "workupload.com"
       ) OR
       // CDN, paste, and public hosting services.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "*.alwaysdata.net",
         "blogspot.com", "*.blogspot.com",
         "b-cdn.net", "*.b-cdn.net",
@@ -184,7 +184,7 @@ FROM
         "*.*.workers.dev"
       ) OR
       // Decentralized and content-addressed storage.
-      origin.domain LIKE (
+      Esql.origin.domain LIKE (
         "ar.io", "*.ar.io", "arweave.net", "*.arweave.net",
         "ic0.app", "*.ic0.app", "icp0.io", "*.icp0.io",
         "dweb.link", "*.dweb.link",
@@ -199,13 +199,15 @@ FROM
 ),
 (
   FROM logs-endpoint.events.process-* METADATA _id, _version, _index
-  | WHERE host.os.type == "windows" AND MV_CONTAINS(event.type, "start") AND process.name.caseless == "msiexec.exe"
-  | EVAL sequence_stage = "execute"
-  | KEEP @timestamp, host.id, process.args, user.id, _id, _version, _index, sequence_stage
+  | WHERE host.os.type == "windows" AND
+      KQL("event.type: start") AND
+      process.name.caseless == "msiexec.exe"
+  | EVAL Esql.sequence_stage = "execute"
+  | KEEP @timestamp, host.id, process.args, user.id, _id, _version, _index, Esql.sequence_stage
 ),
 (
   FROM logs-endpoint.events.file-* METADATA _id, _version, _index
-  | WHERE event.action == "creation" AND process.name.caseless == "msiexec.exe"
+  | WHERE KQL("event.action: creation") AND process.name.caseless == "msiexec.exe"
   | EVAL file.name.caseless = TO_LOWER(file.name)
   | WHERE
     file.name.caseless IN (
@@ -488,9 +490,9 @@ FROM
     )
   // Keep the executable name paired with its creation time through the host-level aggregation.
   | EVAL
-      sequence_stage = "install",
-      install_candidate = CONCAT(TO_STRING(@timestamp), "|", file.name)
-  | KEEP @timestamp, host.id, _id, _version, _index, sequence_stage, install_candidate
+      Esql.sequence_stage = "install",
+      Esql.install_candidate = CONCAT(TO_STRING(@timestamp), "|", file.name)
+  | KEEP @timestamp, host.id, _id, _version, _index, Esql.sequence_stage, Esql.install_candidate
 )
 
 | WHERE host.id IS NOT NULL
@@ -498,67 +500,79 @@ FROM
 // Attach known RMM executable creation candidates to all rows on the same host.
 // Retain only download and execution candidates from hosts with at least one such creation.
 | INLINE STATS
-    install_count = COUNT(*) WHERE sequence_stage == "install",
-    install_candidates = VALUES(install_candidate) WHERE sequence_stage == "install"
+    Esql.install_count = COUNT(*) WHERE Esql.sequence_stage == "install",
+    Esql.install_candidates = VALUES(Esql.install_candidate) WHERE Esql.sequence_stage == "install"
   BY host.id
-| DROP install_candidate
-| WHERE sequence_stage IN ("origin", "execute") AND install_count > 0
+| DROP Esql.install_candidate
+| WHERE Esql.sequence_stage IN ("origin", "execute") AND Esql.install_count > 0
 
 // Lowercase the downloaded path and every msiexec argument, remove the :Zone.Identifier marker,
 // and keep values ending in .msi as the shared path key.
 | EVAL
-    candidate_path = CASE(
-      sequence_stage == "origin", file.path,
+    Esql.candidate_path = CASE(
+      Esql.sequence_stage == "origin", file.path,
       process.args
     ),
-    actor_user_id = user.id
-| MV_EXPAND candidate_path
-| EVAL artifact_path =
-    REPLACE(TO_LOWER(candidate_path), ":zone.identifier", "")
-| WHERE artifact_path LIKE "*.msi" AND actor_user_id IS NOT NULL
+    Esql.actor_user_id = user.id
+| MV_EXPAND Esql.candidate_path
+| EVAL Esql.artifact_path =
+    REPLACE(TO_LOWER(Esql.candidate_path), ":zone.identifier", "")
+| WHERE Esql.artifact_path LIKE "*.msi" AND Esql.actor_user_id IS NOT NULL
 
 // Match the origin event and msiexec start using host, MSI path, and user SID.
 | INLINE STATS
-    execute_count = COUNT(*) WHERE sequence_stage == "execute",
-    execute_times = VALUES(@timestamp) WHERE sequence_stage == "execute"
-  BY host.id, artifact_path, actor_user_id
+    Esql.execute_count = COUNT(*) WHERE Esql.sequence_stage == "execute",
+    Esql.execute_times = VALUES(@timestamp) WHERE Esql.sequence_stage == "execute"
+  BY host.id, Esql.artifact_path, Esql.actor_user_id
 | WHERE
     // Keep the real origin event as the alert document.
-    sequence_stage == "origin" AND
-    execute_count > 0
+    Esql.sequence_stage == "origin" AND
+    Esql.execute_count > 0
 
 // Require the matching msiexec process to start within 10 minutes after the MSI download.
-| MV_EXPAND execute_times
-| EVAL origin_to_execute_s =
-    DATE_DIFF("second", @timestamp, execute_times)
+| MV_EXPAND Esql.execute_times
+| EVAL Esql.origin_to_execute_s =
+    DATE_DIFF("second", @timestamp, Esql.execute_times)
 | WHERE
-    origin_to_execute_s >= 0 AND
-    origin_to_execute_s <= 600
+    Esql.origin_to_execute_s >= 0 AND
+    Esql.origin_to_execute_s <= 600
 
 // On the same host, require any msiexec process to create a known RMM executable
 // within 5 minutes after the matched start.
-| MV_EXPAND install_candidates
+| MV_EXPAND Esql.install_candidates
 | EVAL
-    install_time = TO_DATETIME(MV_FIRST(SPLIT(install_candidates, "|"))),
-    rmm_file_name = MV_LAST(SPLIT(install_candidates, "|")),
-    execute_to_install_s = DATE_DIFF("second", execute_times, install_time)
-| DROP install_candidates
+    Esql.install_time = TO_DATETIME(MV_FIRST(SPLIT(Esql.install_candidates, "|"))),
+    Esql.rmm_file_name = MV_LAST(SPLIT(Esql.install_candidates, "|")),
+    Esql.execute_to_install_s = DATE_DIFF("second", Esql.execute_times, Esql.install_time)
+| DROP Esql.install_candidates
 | WHERE
-    execute_to_install_s >= 0 AND
-    execute_to_install_s <= 300
+    Esql.execute_to_install_s >= 0 AND
+    Esql.execute_to_install_s <= 300
 
 // Select one concrete origin row per host, MSI path, and user, preferring the
 // earliest RMM executable creation when second-level durations tie.
 | SORT
-    execute_times ASC,
-    origin_to_execute_s ASC,
-    execute_to_install_s ASC,
-    install_time ASC,
-    rmm_file_name ASC,
+    Esql.execute_times ASC,
+    Esql.origin_to_execute_s ASC,
+    Esql.execute_to_install_s ASC,
+    Esql.install_time ASC,
+    Esql.rmm_file_name ASC,
     _id ASC
-| LIMIT 1 BY host.id, artifact_path, actor_user_id
+| LIMIT 1 BY host.id, Esql.artifact_path, Esql.actor_user_id
 
-| RENAME execute_times AS execute_time
+| RENAME Esql.execute_times AS Esql.execute_time
+| KEEP
+    @timestamp, _id, _index, _version,
+    event.action, event.category, event.type, event.created, event.ingested,
+    data_stream.dataset, data_stream.namespace,
+    host.id, host.name,
+    user.id, user.name,
+    process.entity_id, process.name, process.executable, process.command_line,
+    file.name, file.path, file.extension, file.origin_url, file.origin_referrer_url,
+    file.size, file.hash.sha256,
+    Esql.origin.domain, Esql.artifact_path, Esql.execute_time,
+    Esql.install_time, Esql.rmm_file_name,
+    Esql.origin_to_execute_s, Esql.execute_to_install_s
 '''
 
 
