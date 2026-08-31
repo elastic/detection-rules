@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/08/31"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects known Java_Ghost threat actor infrastructure markers in AWS CloudTrail logs. Java_Ghost is
+a financially motivated threat actor group targeting AWS environments for phishing, cryptomining,
+ransomware, and data exfiltration. This rule matches two documented indicator sets: the creation
+of an EC2 security group named Java_Ghost (case-insensitive), used by the group to tag
+attacker-controlled infrastructure or prepare ingress/egress rules for malware deployment, and any
+API activity from actor-unique IAM identities (Gh0st_808, Gh0st_365, warkopi). None of these names
+has legitimate business meaning, and any match should be treated as a high-confidence indicator of
+compromise pending investigation.
+"""
+false_positives = [
+    """
+    No known legitimate use case exists for a security group named Java_Ghost or for the IAM
+    identities Gh0st_808, Gh0st_365, or warkopi. Any match should be treated as a true positive
+    pending investigation.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS Potential Java_Ghost Threat Actor Activity"
+note = """## Triage and analysis
+
+### Investigating AWS Potential Java_Ghost Threat Actor Activity
+
+Java_Ghost is a financially motivated threat actor group that targets AWS environments for phishing, cryptomining, ransomware, and data exfiltration. This rule fires on two documented indicator sets: creation of an EC2 security group named `Java_Ghost`, used by the group to tag infrastructure under their control or to prepare ingress/egress rules for their malware, and API activity from actor-unique IAM identities (`Gh0st_808`, `Gh0st_365`, `warkopi`). None of these names has a legitimate business purpose.
+
+### Possible investigation steps
+
+- Determine which condition matched: the security group name (`group.name`) or the calling identity (`user.name`).
+- Identify the caller in `aws.cloudtrail.user_identity.arn` and `user.name`. Determine whether the account is compromised or whether legitimate automation triggered this activity.
+- If the security group condition matched, examine the security group rules (`ec2:DescribeSecurityGroups`), Java_Ghost groups may have inbound rules on non-standard ports used for C2 communication, and check whether any EC2 instances, ECS tasks, or Lambda functions are associated with it (`ec2:DescribeNetworkInterfaces`).
+- Query CloudTrail for all API calls from the same identity in the same time window. Look for co-occurring compute provisioning (`RunInstances`, `CreateLaunchTemplate`), IAM privilege escalation (`CreateAccessKey`, `CreateLoginProfile`, `AttachUserPolicy`), SES or WorkMail activity consistent with phishing, or data exfiltration actions.
+- Search IAM for other usernames matching Java_Ghost's documented persistence naming conventions (`adminuserdevs`, `develops`, `rootdev`, `ses2`) and verify with the account owner whether they were legitimately created.
+- Search for other Java_Ghost IoCs in the environment: known malicious image IDs, high-CPU instance types spun up without justification, or modifications to Auto Scaling launch templates.
+
+### Response and remediation
+
+- Immediately revoke active sessions for the calling identity.
+- Delete the security group if no resources are associated with it.
+- If resources are associated with the security group, isolate them by removing all inbound rules and investigate the instances for cryptomining processes or malware.
+- Rotate all IAM access keys for the calling identity and review all actions taken under that credential.
+- Search CloudTrail for any `RunInstances` calls after this event to identify any compute provisioned under the attacker's infrastructure.
+"""
+references = [
+    "https://unit42.paloaltonetworks.com/javaghost-cloud-phishing/",
+]
+risk_score = 99
+rule_id = "f4a5b6c7-d8e9-0123-def0-456789abcdef"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `ec2:CreateSecurityGroup` is a management-plane API logged by default."
+severity = "critical"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.dataset == "aws.cloudtrail" and
+  (
+    (
+      event.provider == "ec2.amazonaws.com" and
+      event.action == "CreateSecurityGroup" and
+      event.outcome == "success" and
+      group.name like~ "java_ghost"
+    ) or
+    user.name like~ ("gh0st_808", "gh0st_365", "warkopi")
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "group.name",
+    "event.provider",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]
