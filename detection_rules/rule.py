@@ -1784,6 +1784,8 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         rule_integrations: str | list[str] = meta.get("integration") or []
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
+        if not rule_integrations and data.related_integrations:
+            rule_integrations = list({ri.package for ri in data.related_integrations})
         for integration in rule_integrations:
             ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             if isinstance(data, MachineLearningRuleData):
@@ -2098,12 +2100,12 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
         raise ValueError("Min stack version not found")
     cfg = set_eql_config(min_stack_version)
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
-        parsed = (  # type: ignore[reportUnknownVariableType]
-            kql.parse(query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)  # type: ignore[reportUnknownMemberType]
-            if language == "kuery"
-            else eql.parse_query(query)  # type: ignore[reportUnknownMemberType]
-        )
-    return sorted({str(f) for f in parsed if isinstance(f, (eql.ast.Field | kql.ast.Field))})  # type: ignore[reportUnknownVariableType]
+        if language == "kuery":
+            parsed = kql.parse(query, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            return kql.get_field_names(parsed)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+
+        parsed = eql.parse_query(query)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    return sorted({str(f) for f in parsed if isinstance(f, eql.ast.Field)})  # type: ignore[reportUnknownVariableType]
 
 
 def _metadata_package_row_needed(integration: str, datasets: set[str]) -> bool:

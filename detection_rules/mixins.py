@@ -79,7 +79,7 @@ def patch_jsonschema(obj: Any) -> dict[str, Any]:
         if "anyOf" in child:
             child["anyOf"] = [dive(c) for c in child["anyOf"]]
 
-        elif isinstance(child["type"], list):
+        elif isinstance(child.get("type"), list):
             type_vals: list[str] = child["type"]  # type: ignore[reportUnknownVariableType]
 
             if "null" in type_vals:
