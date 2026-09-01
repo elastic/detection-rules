@@ -17,7 +17,7 @@ import re
 import shutil
 import subprocess
 import zipfile
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sized
 from dataclasses import astuple, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -355,7 +355,17 @@ _registered_caches: list[dict[Any, Any]] = []
 
 def register_cache(cache: dict[Any, Any]) -> None:
     """Register a module-level cache dict so clear_caches() flushes it."""
-    _registered_caches.append(cache)
+    # Idempotent by identity so repeat registrations do not queue duplicate entries
+    if not any(registered is cache for registered in _registered_caches):
+        _registered_caches.append(cache)
+
+
+def unregister_cache(cache: dict[Any, Any]) -> None:
+    """Drop a previously registered cache dict, releasing the registry reference to it."""
+    for index, registered in enumerate(_registered_caches):
+        if registered is cache:
+            del _registered_caches[index]
+            return
 
 
 def clear_caches() -> None:
@@ -371,8 +381,10 @@ def cache_token(obj: Any) -> int:
     """Get a stable cache key standing in for a large, unhashable object."""
     # Any cache keyed on these tokens must be registered via register_cache() so that
     # clear_caches() flushes it together with the token table.
-    # None and empty containers contribute nothing to a derived schema, so they share a token
-    if not obj:
+    # None and empty containers contribute nothing to a derived schema, so they share a token.
+    # This is deliberately narrower than falsiness: an unrelated falsy object (0, "", or a custom
+    # __bool__/__len__) gets its own token instead of colliding on the empty sentinel.
+    if obj is None or (isinstance(obj, Sized) and len(obj) == 0):
         return 0
 
     # Retain a strong reference: CPython recycles ids once an object is collected, so a bare

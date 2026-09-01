@@ -11,7 +11,14 @@ import unittest
 
 from detection_rules.ecs import get_kql_schema
 from detection_rules.eswrap import Events
-from detection_rules.utils import cache_token, cached, clear_caches, normalize_timing_and_sort, register_cache
+from detection_rules.utils import (
+    cache_token,
+    cached,
+    clear_caches,
+    normalize_timing_and_sort,
+    register_cache,
+    unregister_cache,
+)
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -118,6 +125,16 @@ class TestTimeUtils(unittest.TestCase):
 
         registered: dict = {}
         register_cache(registered)
-        registered[(cache_token(obj_a), "key")] = "value"
+        try:
+            # repeat registration is idempotent, so the cache is only tracked once
+            register_cache(registered)
+            registered[(cache_token(obj_a), "key")] = "value"
+            clear_caches()
+            self.assertEqual(registered, {})
+        finally:
+            unregister_cache(registered)
+
+        # once unregistered, the registry no longer touches (or holds a reference to) the cache
+        registered["survives"] = "value"
         clear_caches()
-        self.assertEqual(registered, {})
+        self.assertEqual(registered, {"survives": "value"})
