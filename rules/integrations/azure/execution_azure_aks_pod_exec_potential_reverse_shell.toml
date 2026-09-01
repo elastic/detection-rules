@@ -8,16 +8,15 @@ updated_date = "2026/08/04"
 author = ["Elastic"]
 description = """
 Detects successful AKS pod exec sessions whose command resembles reverse-shell or bind-shell one-liner patterns,
-including /dev/tcp and /dev/udp redirection, netcat/ncat/socat exec-style flags, mkfifo pipelines, and common
-language socket idioms (Python, Perl, PHP, Ruby). Legitimate debug sessions sometimes use similar building blocks,
-but together these patterns align with post-exploitation interactive access and command-and-control.
+including /dev/tcp and /dev/udp redirection, netcat/ncat/socat exec-style flags, mkfifo pipelines, and common language
+socket idioms (Python, Perl, PHP, Ruby). Legitimate debug sessions sometimes use similar building blocks, but together
+these patterns align with post-exploitation interactive access and command-and-control.
 """
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "Azure AKS Pod Exec Potential Reverse Shell"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Azure AKS Pod Exec Potential Reverse Shell
 
@@ -63,7 +62,6 @@ and `bash -i`. Common localhost health-check ports are excluded so routine liven
 references = [
     "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
     "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
-    "https://unit42.paloaltonetworks.com/modern-kubernetes-threats/"
 ]
 risk_score = 73
 rule_id = "eb56a087-c726-4683-8d49-8c0253ea63cf"
@@ -118,6 +116,7 @@ FROM logs-azure.platformlogs-* METADATA _id, _index, _version
 | KEEP Esql.*, Esql_priv.*, event.action, data_stream.namespace, _id, _index, _version
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -125,11 +124,11 @@ id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -137,7 +136,9 @@ id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
