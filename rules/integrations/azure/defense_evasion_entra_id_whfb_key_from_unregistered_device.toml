@@ -33,27 +33,20 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Windows Hello or Passkey Sign-in from Unregistered Device
 
-Windows Hello for Business (WHfB) and passkey credentials are cryptographically bound to a device's TPM. A legitimate sign-in with one of these phishing-resistant methods is normally accompanied by the registered device that holds the key. A same-tenant sign-in satisfied by these methods with an empty `device_detail.device_id` indicates the key material is being used away from its bound device - the defining signal of the "borrowing Windows Hello keys" technique, where an adversary reuses a WHfB/NGC key or passkey to mint device-agnostic tokens from their own infrastructure.
+WHfB and passkey credentials are bound to a device's TPM, so a legitimate sign-in with one of these methods is normally accompanied by its registered device. A same-tenant sign-in with an empty `device_detail.device_id` means the key material is being used away from its bound device - the core signal of the "borrowing Windows Hello keys" technique, where an adversary replays a WHfB/NGC key or passkey to mint device-agnostic tokens from their own infrastructure.
 
 ### Possible investigation steps
-- Review `azure.signinlogs.properties.user_principal_name` to identify the user whose credential was used.
-- Confirm `azure.signinlogs.properties.authentication_details.authentication_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey.
-- Confirm `azure.signinlogs.properties.device_detail.device_id` is empty. A device-bound credential should not present without its device. An unmanaged device that still has a `device_id` is a different, noisier condition and is not this rule.
-- Review `azure.signinlogs.properties.app_id` and `azure.signinlogs.properties.resource_display_name`. Access to Microsoft Graph or the Device Registration Service immediately after is common (staging device registration / PRT issuance).
-- Examine `source.ip`, `source.geo.*`, and `user_agent.original`. Automation user agents (for example python-requests) or hosting/VPS ASNs are strong indicators of tooling such as ROADtools/roadtx.
-- Pivot on `azure.signinlogs.properties.user_id` in `azure.auditlogs` for a subsequent "Register device" or "Add Windows Hello for Business credential" event within a short window.
-- Determine whether the user actually enrolled a new WHfB key or passkey around this time; if not, treat the key as compromised.
+- Identify the user via `azure.signinlogs.properties.user_principal_name` and confirm `authentication_details.authentication_method` is WHfB, FIDO2, or a passkey, with `device_detail.device_id` empty (an unmanaged device that still has a `device_id` is a different, noisier condition, not this rule).
+- Review `app_id`/`resource_display_name` for Graph or Device Registration Service access immediately after, and check `source.ip`, `source.geo.*`, and `user_agent.original` for automation (for example python-requests) or hosting/VPS ASNs indicative of tooling such as ROADtools/roadtx.
+- Pivot on `user_id` in `azure.auditlogs` for a subsequent "Register device" or "Add Windows Hello for Business credential" event, and confirm whether the user actually enrolled a new key/passkey around this time; if not, treat the key as compromised.
 
 ### False positive analysis
-- Initial passwordless onboarding may briefly generate a WHfB/passkey sign-in before device registration completes. Correlate with the user's device registration timeline.
-- Legitimate WHfB and passkey sign-ins are otherwise accompanied by a populated device identifier, so recurring alerts for the same user warrant investigation rather than suppression.
+- Initial passwordless onboarding can briefly produce this sign-in before device registration completes; correlate with the user's registration timeline.
+- Legitimate sign-ins are otherwise accompanied by a device identifier, so repeat alerts for the same user warrant investigation rather than suppression.
 
 ### Response and remediation
-- Treat the WHfB/NGC key or passkey as compromised: delete the affected authentication method and any attacker-registered device for the user via Microsoft Graph or the Entra portal.
-- Revoke the user's sessions (`revokeSignInSessions`) and refresh tokens; deleting registered devices first breaks device-bound PRT persistence.
-- Reset credentials and re-enroll phishing-resistant methods from a trusted device.
-- Hunt for device registrations and PRT issuance for the same user following the sign-in, and remove attacker-controlled devices.
-- Consider Conditional Access requiring device compliance for sensitive resources so device-agnostic tokens cannot access them.
+- Treat the key/passkey as compromised: delete the credential and any attacker-registered device via Graph or the Entra portal, then revoke sessions/refresh tokens (delete devices first, since that breaks device-bound PRT persistence) and re-enroll from a trusted device.
+- Hunt for device registrations and PRT issuance following the sign-in, and consider Conditional Access requiring device compliance for sensitive resources.
 """
 references = [
     "https://dirkjanm.io/borrowing-windows-hello-keys/",

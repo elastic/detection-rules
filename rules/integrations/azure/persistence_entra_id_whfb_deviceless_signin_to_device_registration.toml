@@ -37,39 +37,27 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Deviceless Windows Hello Sign-in Followed by Device Registration
 
-This rule correlates two events for the same user within 15 minutes:
+This rule correlates, within 15 minutes for the same user: (1) a successful member sign-in satisfied by a device-bound credential (WHfB, FIDO2, or passkey) with an empty `device_detail.device_id`, and (2) a successful device registration (`Register device`, `Add registered owner to device`, or `Add device`). The alert is the sign-in document enriched with the matching registration. `Esql.signin_time` is the authentication step time from flattened `authentication_details` (falling back to `@timestamp`); use it and `Esql.signin_to_register_s` for sequencing, since Entra can write the sign-in record after the `Register device` audit event, making `@timestamp` unreliable for ordering.
 
-1. A successful member sign-in satisfied by a device-bound credential (Windows Hello for Business, FIDO2, or passkey) with an empty `device_detail.device_id`.
-2. A successful device registration (`Register device`, `Add registered owner to device`, or `Add device`) initiated by that user.
-
-The alert is the sign-in document, enriched with the matching registration. `Esql.signin_time` is the authentication step time extracted from flattened `authentication_details` (falling back to `@timestamp`). Entra often writes the sign-in record after the `Register device` audit event, so `@timestamp` on the alert can be later than `Esql.register_time` even when the assertion happened first. Use `Esql.signin_time` and `Esql.signin_to_register_s` for the sequence, not `@timestamp` alone.
-
-Device-bound credentials should only sign in from the TPM-backed device that holds them. A deviceless WHfB/passkey assertion immediately followed by a new device registration is the escalation step of the "borrowing Windows Hello keys" technique: the adversary mints a device-agnostic token, registers an attacker-controlled device, and obtains a Primary Refresh Token that survives `revokeSignInSessions` and password resets.
+This is the escalation step of the "borrowing Windows Hello keys" technique: an adversary mints a device-agnostic token from a deviceless WHfB/passkey assertion, then immediately registers an attacker-controlled device to obtain a Primary Refresh Token that survives `revokeSignInSessions` and password resets.
 
 ### Possible investigation steps
 
-- Identify the user (`azure.signinlogs.properties.user_principal_name` / `Esql.actor_user_id`) and confirm they were not expected to enroll a new device.
-- Confirm `Esql.auth_method` is "Windows Hello for Business", a FIDO2 security key, or a passkey, that `azure.signinlogs.properties.device_detail.device_id` is empty, and that this was a single same-tenant authentication step (`cross_tenant_access_type` is `none`). A device-bound method presenting without its device is the first-stage signal.
-- Compare `Esql.signin_time` to `Esql.register_time`. A registration a few seconds to a few minutes after the assertion (`Esql.signin_to_register_s`) is the expected attacker cadence. Do not dismiss the alert because `@timestamp` is after `Esql.register_time`.
-- Review `Esql.registered_device_name` and `Esql.register_operation`. Tooling-registered devices are often generic (`DESKTOP-*`) or a hardcoded OS build. Confirm the device is absent from inventory and unmanaged.
-- Inspect `azure.signinlogs.properties.app_display_name` and `azure.signinlogs.properties.resource_display_name`. Azure CLI or similar non-interactive clients targeting Microsoft Graph or the Device Registration Service are common in this chain (for example ROADtools/roadtx).
-- Examine `source.address`, `source.geo.country_name`, and `user_agent.original`. Hosting/VPS ASNs, unexpected geographies, `python-requests/*`, or `None` user agents are high-signal for stolen-key replay.
-- Pivot on `Esql.actor_user_id` in `logs-azure.signinlogs-*` for a follow-on `incoming_token_type` of `primaryRefreshToken` from the new device, and in `logs-azure.auditlogs-*` for `Add Windows Hello for Business credential` (backdoor enrollment).
+- Identify the user (`user_principal_name` / `Esql.actor_user_id`) and confirm `Esql.auth_method` is WHfB/FIDO2/passkey with an empty `device_detail.device_id` and `cross_tenant_access_type` of `none` - a device-bound method presenting without its device is the first-stage signal.
+- Compare `Esql.signin_time` to `Esql.register_time` via `Esql.signin_to_register_s`; a gap of seconds to minutes is the expected attacker cadence. Review `Esql.registered_device_name`/`Esql.register_operation` - tooling-registered devices are often generic (`DESKTOP-*`) and absent from inventory/unmanaged.
+- Inspect `app_display_name`/`resource_display_name` for non-interactive clients (Azure CLI, ROADtools/roadtx) against Graph or the Device Registration Service, and `source.address`, `source.geo.country_name`, `user_agent.original` for hosting/VPS ASNs, unexpected geographies, or automation user agents.
+- Pivot on `Esql.actor_user_id` for a follow-on `incoming_token_type` of `primaryRefreshToken` from the new device, and for `Add Windows Hello for Business credential` (backdoor enrollment).
 
 ### False positive analysis
 
-- Initial passwordless onboarding can produce a WHfB/passkey sign-in and a first device registration in the same session. Validate the device against inventory and confirm it is managed/compliant and named as expected.
-- Authorized security assessments that replay a WHfB/passkey and register a device will match. Document the engagement and add scoped exceptions.
+- Initial passwordless onboarding can produce a sign-in and first device registration in the same session; validate the device against inventory and confirm it is managed/compliant and named as expected.
+- Authorized security assessments that replay a key and register a device will also match; document the engagement and add scoped exceptions.
 
 ### Response and remediation
 
-- Treat as likely key theft plus device persistence. Remove the rogue device BEFORE revoking sessions; a device-bound PRT survives `revokeSignInSessions` and a device left in place re-establishes access.
-    - `GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for unrecognized devices.
-- Treat the WHfB/NGC key or passkey as compromised: delete the affected authentication methods and re-enroll from a trusted device.
-- Revoke refresh tokens and sessions, then reset credentials.
-    - `POST /v1.0/users/{id}/revokeSignInSessions`.
-- Hunt for additional persistence in the same window: attacker-registered MFA methods, extra device registrations, and PRT use from the new device.
-- Restrict who can register or join devices via Conditional Access, and require a compliant/managed device for sensitive resources.
+- Remove the rogue device BEFORE revoking sessions (`GET /v1.0/users/{id}/registeredDevices` and `/ownedDevices`, then `DELETE /v1.0/devices/{deviceObjectId}` for unrecognized devices) - a device-bound PRT survives `revokeSignInSessions`, and a device left in place re-establishes access.
+- Treat the key/passkey as compromised: delete the affected authentication methods, revoke refresh tokens and sessions (`POST /v1.0/users/{id}/revokeSignInSessions`), reset credentials, and re-enroll from a trusted device.
+- Hunt for additional persistence in the same window (attacker-registered MFA methods, extra device registrations, PRT use from the new device), and restrict device registration/join via Conditional Access requiring a compliant device.
 """
 references = [
     "https://dirkjanm.io/borrowing-windows-hello-keys/",
