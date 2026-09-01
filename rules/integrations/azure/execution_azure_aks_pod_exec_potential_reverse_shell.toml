@@ -25,42 +25,41 @@ note = """## Triage and analysis
 AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
 `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
 `azure.platformlogs.category: kube-audit`. The rule extracts `requestURI` on `pods/exec` calls with
-`FIELD_EXTRACT`, `URL_DECODE`s it, and `GROK`s out the literal `command=` array so it can run a single
-regular expression against the decoded, space-normalized command rather than many separate wildcard
-clauses against the raw encoded string. It also requires `log.responseStatus.code` of `101` (the
-protocol-upgrade response for an established exec session), so denied or failed exec attempts do not
-match. The regex matches reverse/bind-shell idioms: `/dev/tcp` or `/dev/udp` redirection (including the
-zsh network pseudo-device form), `nc`/`ncat`/`netcat` with exec-style flags, `socat` exec/pty handoff,
-`mkfifo` pipelines, Python/Perl/PHP/Ruby socket constructors, and `bash -i`. Common localhost
-health-check ports are excluded so routine liveness/readiness probes over `/dev/tcp` don't trigger.
+`FIELD_EXTRACT`, `URL_DECODE`s it, and `GROK`s out the `command=` array so it can run a single regex
+against the decoded, space-normalized command rather than many wildcard clauses against the raw encoded
+string. It requires `responseStatus.code` of `101` (the protocol-upgrade response for an established
+exec session) so denied/failed attempts don't match, and matches reverse/bind-shell idioms —
+`/dev/tcp`/`/dev/udp` redirection (including the zsh pseudo-device form), `nc`/`ncat`/`netcat`
+exec-style flags, `socat` exec/pty handoff, `mkfifo` pipelines, Python/Perl/PHP/Ruby socket
+constructors, and `bash -i` — while excluding common localhost health-check ports so routine
+liveness/readiness probes over `/dev/tcp` don't trigger.
 
 ### Possible investigation steps
 
-- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to determine whether the
-  session originated from a human identity (`kubectl`) or an automated principal.
-- Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace` /
-  `Esql.pod_name` for the target workload. `pods/exec` is a streaming subresource, so kube-audit does not
-  populate `requestObject` for it; the command parameters live only in `requestURI`, already captured in
-  `Esql.executed_command`.
-- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to determine whether the session
+  originated from a human identity (`kubectl`) or an automated principal, and correlate with nearby
+  secret reads, RBAC changes, or workload mutations by the same identity.
+- Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace`/
+  `Esql.pod_name` for the target workload. `pods/exec` is a streaming subresource, so kube-audit doesn't
+  populate `requestObject` for it — the command parameters live only in `requestURI`, already captured
+  in `Esql.executed_command`.
 
 ### False positive analysis
 
 - Interactive debugging shells may look similar; validate command intent and destination. In validated
   telemetry, the only identity performing `pods/exec` was a human `kubectl` session (`masterclient`); no
-  automated/platform identity issued exec calls, and legitimate `elastic-agent status`/`inspect` health
-  checks did not overlap with any of the reverse-shell indicators.
-- Security training, CTF-style images, or vendor diagnostics may include bash redirection or `/dev/tcp`
-  examples; baseline approved images and break-glass accounts if this becomes noisy.
-- Some observability or mesh sidecars use raw sockets, `socat`, or named pipes (`mkfifo`) in ways that
-  could overlap; validate the container image and command lineage before escalating.
+  automated/platform identity issued exec calls, and `elastic-agent status`/`inspect` health checks did
+  not overlap with any reverse-shell indicator.
+- Security training/CTF-style images, vendor diagnostics, or observability/mesh sidecars using raw
+  sockets, `socat`, or named pipes (`mkfifo`) can resemble this pattern; baseline approved images and
+  validate container image/command lineage before escalating.
 
 ### Response and remediation
 
-- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
-- Rotate any secrets or tokens that may have been accessed.
-- Terminate the exec session, isolate the workload or node, and revoke `pods/exec` for the abused principal
-  unless strictly required.
+- If unauthorized, revoke the identity's credentials/kubeconfig, remove malicious objects, and rotate
+  any secrets or tokens that may have been accessed.
+- Terminate the exec session, isolate the workload or node, and revoke `pods/exec` for the abused
+  principal unless strictly required.
 - Harden RBAC to least privilege and review admission controls.
 """
 references = [
