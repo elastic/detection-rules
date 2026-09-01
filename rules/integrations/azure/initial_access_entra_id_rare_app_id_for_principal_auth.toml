@@ -2,7 +2,7 @@
 creation_date = "2025/03/10"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/07/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -45,6 +45,9 @@ This rule identifies rare Azure Entra apps IDs requesting authentication on-beha
 - User account lockouts from forgotten passwords or misconfigured applications may show multiple authentication failures in `azure.signinlogs.properties.status.error_code`.
 - Exclude known trusted IPs, such as corporate infrastructure, from alerts by filtering `source.ip`.
 - Exclude known custom applications from `azure.signinlogs.properties.app_id` that are authorized to use non-interactive authentication.
+- Microsoft Feedback Portal UX generates benign first-seen client activity through PRT-based, non-interactive sign-ins and is excluded by application ID.
+- Microsoft Teams routinely requests tokens for its internal Teams Services, IC3 Gateway, Chat Aggregator, and CMD Services resources; these client-resource combinations are excluded.
+- Managed Windows devices routinely request OfficeHome PRTs with Microsoft 365 Copilot scopes through the standard Microsoft 365 desktop client; this combination is excluded.
 - Ignore principals with a history of failed logins due to legitimate reasons, such as expired passwords or account lockouts, by filtering `azure.signinlogs.properties.user_principal_name`.
 - Correlate sign-in failures with password reset events or normal user behavior before triggering an alert.
 
@@ -72,6 +75,7 @@ tags = [
     "Data Source: Azure",
     "Data Source: Entra ID",
     "Data Source: Entra ID Sign-in",
+    "Platform: Entra ID",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Tactic: Initial Access",
@@ -167,7 +171,28 @@ data_stream.dataset: "azure.signinlogs" and event.category: "authentication"
         "86f4c005-6582-4559-b6cf-8b3111236736" or
         "a0a3c1d3-7b82-4010-bdb0-e7048fb8f1fe" or
         "a187e399-0c36-4b98-8f04-1edc167a0996" or
-        "2d4d3d8e-2be3-4bef-9f87-7875a61c29de"
+        "2d4d3d8e-2be3-4bef-9f87-7875a61c29de" or
+        "c475db56-f463-48d8-931a-cfa7cd642289" or
+        "71a7c376-13e6-4100-968e-92ce98c5d3d2"
+    )
+    and not (
+        azure.signinlogs.properties.app_id: "1fec8e78-bce4-4aaf-ab1b-5451cc387264" and
+        azure.signinlogs.properties.resource_id: (
+            "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe" or
+            "39aaf054-81a5-48c7-a4f8-0293012095b9" or
+            "b1379a75-ce5e-4fa3-80c6-89bb39bf646c" or
+            "6bc3b958-689b-49f5-9006-36d165f30e00"
+        )
+    )
+    and not (
+        azure.signinlogs.properties.app_id: "4765445b-32c6-49b0-83e6-1d93765276ca" and
+        azure.signinlogs.properties.resource_id: "4765445b-32c6-49b0-83e6-1d93765276ca" and
+        azure.signinlogs.properties.authentication_processing_details: *M365Copilot.Read.All* and
+        azure.signinlogs.properties.incoming_token_type: "primaryRefreshToken" and
+        azure.signinlogs.properties.client_app_used: "Mobile Apps and Desktop clients" and
+        azure.signinlogs.properties.device_detail.is_managed: true and
+        azure.signinlogs.properties.device_detail.operating_system: "Windows10" and
+        user_agent.original: Mozilla*Edge/18.*
     )
 '''
 
