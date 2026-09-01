@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/06/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/06/25"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -31,10 +31,9 @@ rule_id = "68c5c9d1-38e5-48bb-b1b2-8b5951d39738"
 severity = "low"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS RDS",
-    "Use Case: Asset Visibility",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS RDS",
     "Tactic: Defense Evasion",
     "Rule Type: BBR",
 ]
@@ -44,6 +43,7 @@ type = "query"
 query = '''
 event.dataset: "aws.cloudtrail" and event.provider: "rds.amazonaws.com" 
     and event.action: ("CreateDBSnapshot" or "CreateDBClusterSnapshot") and event.outcome: "success" 
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 
