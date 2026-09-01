@@ -33,7 +33,7 @@ AKS kube-audit events are carried under the flattened `azure.platformlogs.proper
 `field_extract` to pull `verb`, `objectRef.resource`, `objectRef.namespace`, `user.username`, `userAgent`, and
 `sourceIPs` into named `Esql.*`/`Esql_priv.*` fields. It groups `list`/`watch`/`get` calls on orientation-related
 resources by `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip`, and alerts when the distinct
-`Esql.resource` cardinality for that identity/client fingerprint is 3 or greater — mirroring the Kubernetes ES|QL
+`Esql.resource` cardinality for that identity/client fingerprint is 3 or greater, mirroring the Kubernetes ES|QL
 multi-resource discovery rule. Known platform/control-plane identities (`aksService`, `hcpService`, `acsService`,
 `readinessChecker`, node and `kube-system`/`elastic-system` service accounts) and automation-tool user agents (Azure
 Arc, Helm, Terraform, `OpenAPI-Generator`) are excluded; `kubectl` is never excluded by user agent alone, since both
@@ -49,8 +49,8 @@ admins and attackers with a stolen token typically drive activity through it.
   Both cluster-scoped kinds (nodes, clusterroles, clusterrolebindings) and an all-namespaces list/watch of a
   namespace-scoped kind (for example `kubectl get pods -A`) surface as `(cluster-scoped)`; the latter is a broader
   enumeration than a single-namespace query.
-- Correlate with follow-on activity from the same identity/source IP — secret reads, `SelfSubjectAccessReview`
-  checks, pod exec, RBAC changes — and cross-reference `Esql_priv.source_ip` against expected
+- Correlate with follow-on activity from the same identity/source IP: secret reads, `SelfSubjectAccessReview`
+  checks, pod exec, RBAC changes, and cross-reference `Esql_priv.source_ip` against expected
   control-plane/node/CI-CD egress ranges.
 
 ### False positive analysis
@@ -62,7 +62,7 @@ admins and attackers with a stolen token typically drive activity through it.
   `elastic-system` namespace activity is excluded from the cardinality count; add newly validated automation
   identities/user agents to the exclusion list to reduce further noise.
 - User agents are client-supplied and spoofable, so the exclusions narrow noise but aren't strong identity
-  verification — corroborate with the acting identity and RBAC before dismissing an alert.
+  verification; corroborate with the acting identity and RBAC before dismissing an alert.
 
 ### Response and remediation
 
