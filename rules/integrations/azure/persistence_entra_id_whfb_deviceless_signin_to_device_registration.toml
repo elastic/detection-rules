@@ -44,9 +44,8 @@ This is the escalation step of the "borrowing Windows Hello keys" technique: an 
 ### Possible investigation steps
 
 - Identify the user (`user_principal_name` / `Esql.actor_user_id`) and confirm `Esql.auth_method` is WHfB/FIDO2/passkey with an empty `device_detail.device_id` and `cross_tenant_access_type` of `none` - a device-bound method presenting without its device is the first-stage signal.
-- Compare `Esql.signin_time` to `Esql.register_time` via `Esql.signin_to_register_s`; a gap of seconds to minutes is the expected attacker cadence. Review `Esql.registered_device_name`/`Esql.register_operation` - tooling-registered devices are often generic (`DESKTOP-*`) and absent from inventory/unmanaged.
-- Inspect `app_display_name`/`resource_display_name` for non-interactive clients (Azure CLI, ROADtools/roadtx) against Graph or the Device Registration Service, and `source.address`, `source.geo.country_name`, `user_agent.original` for hosting/VPS ASNs, unexpected geographies, or automation user agents.
-- Pivot on `Esql.actor_user_id` for a follow-on `incoming_token_type` of `primaryRefreshToken` from the new device, and for `Add Windows Hello for Business credential` (backdoor enrollment).
+- Compare `Esql.signin_time` to `Esql.register_time` via `Esql.signin_to_register_s`; a gap of seconds to minutes is the expected attacker cadence. `Esql.registered_device_name`/`Esql.register_operation` for tooling-registered devices are often generic (`DESKTOP-*`) and absent from inventory/unmanaged.
+- Check `app_display_name`/`resource_display_name` for non-interactive clients (Azure CLI, ROADtools/roadtx) against Graph or the Device Registration Service, `source.address`/`source.geo.country_name`/`user_agent.original` for hosting/VPS or automation, and pivot on `Esql.actor_user_id` for a follow-on `primaryRefreshToken` `incoming_token_type` from the new device or an `Add Windows Hello for Business credential` event (backdoor enrollment).
 
 ### False positive analysis
 
