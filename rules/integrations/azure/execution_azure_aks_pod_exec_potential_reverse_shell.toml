@@ -28,10 +28,10 @@ AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` wi
 `FIELD_EXTRACT`, `URL_DECODE`s it, and `GROK`s out the `command=` array so it can run a single regex
 against the decoded, space-normalized command rather than many wildcard clauses against the raw encoded
 string. It requires `responseStatus.code` of `101` (the protocol-upgrade response for an established
-exec session) so denied/failed attempts don't match, and matches reverse/bind-shell idioms —
+exec session) so denied/failed attempts don't match, and matches reverse/bind-shell idioms:
 `/dev/tcp`/`/dev/udp` redirection (including the zsh pseudo-device form), `nc`/`ncat`/`netcat`
 exec-style flags, `socat` exec/pty handoff, `mkfifo` pipelines, Python/Perl/PHP/Ruby socket
-constructors, and `bash -i` — while excluding common localhost health-check ports so routine
+constructors, and `bash -i`, while excluding common localhost health-check ports so routine
 liveness/readiness probes over `/dev/tcp` don't trigger.
 
 ### Possible investigation steps
@@ -41,7 +41,7 @@ liveness/readiness probes over `/dev/tcp` don't trigger.
   secret reads, RBAC changes, or workload mutations by the same identity.
 - Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace`/
   `Esql.pod_name` for the target workload. `pods/exec` is a streaming subresource, so kube-audit doesn't
-  populate `requestObject` for it — the command parameters live only in `requestURI`, already captured
+  populate `requestObject` for it; the command parameters live only in `requestURI`, already captured
   in `Esql.executed_command`.
 
 ### False positive analysis
