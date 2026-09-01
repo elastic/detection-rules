@@ -2,18 +2,18 @@
 creation_date = "2026/08/04"
 integration = ["azure"]
 maturity = "production"
-min_stack_version = "9.5.0"
 min_stack_comments = "field_extract not available until 9.5.0"
+min_stack_version = "9.5.0"
 updated_date = "2026/08/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an AKS (Azure Kubernetes Service) identity that lists, watches, or gets multiple distinct Kubernetes API resource
-types associated with cluster orientation (namespaces, nodes, pods, roles, clusterroles, configmaps, serviceaccounts,
-rolebindings, clusterrolebindings) within a short window. Cardinality of distinct resources touched, not raw event
-count, is the signal that separates recon/orientation behavior from steady-state controllers that repeatedly touch a
-narrow set of resources. Known platform and control-plane identities are excluded.
+Detects an AKS (Azure Kubernetes Service) identity that lists, watches, or gets multiple distinct Kubernetes API
+resource types associated with cluster orientation (namespaces, nodes, pods, roles, clusterroles, configmaps,
+serviceaccounts, rolebindings, clusterrolebindings) within a short window. Cardinality of distinct resources touched,
+not raw event count, is the signal that separates recon/orientation behavior from steady-state controllers that
+repeatedly touch a narrow set of resources. Known platform and control-plane identities are excluded.
 """
 false_positives = [
     """
@@ -31,68 +31,51 @@ note = """## Triage and analysis
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree, so this rule uses
 `field_extract` to pull `verb`, `objectRef.resource`, `objectRef.namespace`, `user.username`, `userAgent`, and
-`sourceIPs` out of `azure.platformlogs.properties` into named `Esql.*`/`Esql_priv.*` fields. It groups `list`/`watch`/`get`
-calls on orientation-related resources by `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip` over the
-rule's lookback and alerts when the distinct `Esql.resource` cardinality for that identity/client fingerprint is 3 or
-greater — mirroring the `count_distinct(resource)` pattern used by the Kubernetes ES|QL multi-resource discovery rule.
-Known platform and control-plane identities (`aksService`, `hcpService`, `acsService`, `readinessChecker`, node and
-`kube-system`/`elastic-system` service accounts, and core control-plane users) are excluded, as are known
-automation-tool user agents (Azure Arc control-plane binaries, Helm, Terraform, and `OpenAPI-Generator` clients)
-whose pre-flight `list`/`get` checks otherwise resemble cluster orientation. `kubectl` is intentionally never excluded
-by user agent alone, since both administrators and attackers using a stolen token typically drive activity through it.
+`sourceIPs` into named `Esql.*`/`Esql_priv.*` fields. It groups `list`/`watch`/`get` calls on orientation-related
+resources by `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip`, and alerts when the distinct
+`Esql.resource` cardinality for that identity/client fingerprint is 3 or greater — mirroring the Kubernetes ES|QL
+multi-resource discovery rule. Known platform/control-plane identities (`aksService`, `hcpService`, `acsService`,
+`readinessChecker`, node and `kube-system`/`elastic-system` service accounts) and automation-tool user agents (Azure
+Arc, Helm, Terraform, `OpenAPI-Generator`) are excluded; `kubectl` is never excluded by user agent alone, since both
+admins and attackers with a stolen token typically drive activity through it.
 
 ### Possible investigation steps
 
-- Review `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip` to identify the acting identity and its
-  client fingerprint, and bound the activity with `Esql.earliest_timestamp`/`Esql.latest_timestamp` before pivoting
-  into the raw `kube-audit` logs to see call ordering.
-- Check `Esql.enumerated_resources` and `Esql.enumerated_namespaces` to see which resource types and namespaces were
-  touched, and whether the scope matches a known job, GitOps sync, or CI/CD pipeline. Cluster-scoped kinds (nodes,
-  clusterroles, clusterrolebindings) and namespace-scoped kinds (for example pods) requested without a namespace
-  (an all-namespaces list/watch, for example `kubectl get pods -A`) both surface as `(cluster-scoped)`, per the
-  Kubernetes audit event schema, where the object reference does not apply to list-type requests that lack a specific
-  namespace target; an all-namespaces call against a normally namespace-scoped kind is a broader enumeration than a
-  single-namespace query and should be weighed accordingly.
-- Validate whether the identity is expected automation (GitOps, CI/CD, monitoring) versus a human or potentially
-  stolen token; unexpected `kubectl` or custom user agents (for example `kubectl-recon`) from human-style identities
-  warrant closer review.
-- Correlate with follow-on activity from the same identity or source IP: secret reads, `SelfSubjectAccessReview`
-  checks, pod exec, RBAC changes (roles/rolebindings/clusterrolebindings), or anonymous/unusual user agents.
-- Cross-reference `Esql_priv.source_ip` against expected AKS control-plane, node, and CI/CD egress ranges for the
-  cluster; unfamiliar source networks raise the priority of the alert. The same identity operating from multiple
-  distinct user agents or source IPs (separate alert rows) can itself indicate credential sharing or reuse.
+- Review `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip` for the acting identity and client
+  fingerprint, bound the window with `Esql.earliest_timestamp`/`Esql.latest_timestamp`, and pivot into raw
+  `kube-audit` logs for call ordering. Unexpected `kubectl` or custom user agents (for example `kubectl-recon`) from
+  human-style identities, or the same identity spanning multiple user agents/source IPs, warrant closer review.
+- Check `Esql.enumerated_resources`/`Esql.enumerated_namespaces` against a known job, GitOps sync, or CI/CD pipeline.
+  Both cluster-scoped kinds (nodes, clusterroles, clusterrolebindings) and an all-namespaces list/watch of a
+  namespace-scoped kind (for example `kubectl get pods -A`) surface as `(cluster-scoped)`; the latter is a broader
+  enumeration than a single-namespace query.
+- Correlate with follow-on activity from the same identity/source IP — secret reads, `SelfSubjectAccessReview`
+  checks, pod exec, RBAC changes — and cross-reference `Esql_priv.source_ip` against expected
+  control-plane/node/CI-CD egress ranges.
 
 ### False positive analysis
 
-- Controllers and operators (GitOps, backup, service-mesh, autoscalers) that reconcile cluster state can legitimately
-  span several of these resource types in one window; validate the service account and exclude it once confirmed.
-- CI/CD pipelines or bootstrap tooling that provision namespaces, roles, and service accounts together during
-  deployment can trigger this rule; correlate with change/deploy windows before treating the activity as suspicious.
-- Helm, Terraform, and Azure Arc control-plane user agents are pre-filtered because their pre-install/reconciliation
-  `list`/`get` checks are the dominant automation noise source for this pattern; add newly identified, validated
-  automation identities or user agents to the exclusion list in the rule query to reduce further noise.
-- Activity scoped to the `elastic-system` namespace (routine Elastic Agent/Fleet management) is excluded from the
-  resource-cardinality count, since it otherwise pads out the distinct-resource-type signal with expected day-2
-  operations; cluster-scoped resources with no namespace (nodes, clusterroles, clusterrolebindings) are unaffected
-  and appear in `Esql.enumerated_namespaces` as `(cluster-scoped)` rather than a bare null.
-- User agent strings are client-supplied and can be spoofed, so the user-agent exclusions above narrow noise but
-  should not be treated as strong identity verification on their own; corroborate with the acting identity and RBAC
-  before dismissing an alert.
+- Controllers/operators (GitOps, backup, service-mesh, autoscalers) and CI/CD or bootstrap tooling can legitimately
+  span several resource types, or provision namespaces/roles/service accounts together, in one window; validate the
+  service account and correlate with change/deploy windows before treating as suspicious.
+- Helm, Terraform, and Azure Arc user agents are pre-filtered as the dominant automation noise source, and
+  `elastic-system` namespace activity is excluded from the cardinality count; add newly validated automation
+  identities/user agents to the exclusion list to reduce further noise.
+- User agents are client-supplied and spoofable, so the exclusions narrow noise but aren't strong identity
+  verification — corroborate with the acting identity and RBAC before dismissing an alert.
 
 ### Response and remediation
 
-- If unauthorized, revoke or rotate the implicated credentials/tokens, review and tighten RBAC bindings for the
-  identity, and inspect for follow-on data access or privilege escalation.
-- Collect the relevant `kube-audit` events and AKS diagnostic logs for the identity, source IP, and time window as
-  part of incident response.
-- If the identity is a compromised service account, rotate its token or certificate and review any workloads that
-  mount it.
+- If unauthorized, revoke or rotate the implicated credentials/tokens, tighten RBAC bindings for the identity, and
+  inspect for follow-on data access or privilege escalation.
+- Collect the relevant `kube-audit` events and AKS diagnostic logs for the identity, source IP, and time window for
+  incident response.
+- If the identity is a compromised service account, rotate its token/certificate and review any workloads that mount it.
 """
 references = ["https://microsoft.github.io/Threat-Matrix-for-Kubernetes/"]
 risk_score = 47
 rule_id = "86bdaa43-9268-436f-b944-d9c64a68def3"
-setup = """
-The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
+setup = """The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub
 into the `azure.platformlogs` data stream is required for this rule.
 """
 severity = "medium"
@@ -143,15 +126,17 @@ from logs-azure.platformlogs-* metadata _id, _index, _version
 | keep Esql.*, Esql_priv.*
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
