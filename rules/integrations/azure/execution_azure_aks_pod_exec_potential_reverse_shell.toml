@@ -27,19 +27,21 @@ AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` wi
 `azure.platformlogs.category: kube-audit`. The rule extracts `requestURI` on `pods/exec` calls with
 `FIELD_EXTRACT`, `URL_DECODE`s it, and `GROK`s out the literal `command=` array so it can run a single
 regular expression against the decoded, space-normalized command rather than many separate wildcard
-clauses against the raw encoded string. The regex matches reverse/bind-shell idioms: `/dev/tcp` or
-`/dev/udp` redirection (including the zsh network pseudo-device form), `nc`/`ncat`/`netcat` with
-exec-style flags, `socat` exec/pty handoff, `mkfifo` pipelines, Python/Perl/PHP/Ruby socket constructors,
-and `bash -i`. Common localhost health-check ports are excluded so routine liveness/readiness probes over
-`/dev/tcp` don't trigger.
+clauses against the raw encoded string. It also requires `log.responseStatus.code` of `101` (the
+protocol-upgrade response for an established exec session), so denied or failed exec attempts do not
+match. The regex matches reverse/bind-shell idioms: `/dev/tcp` or `/dev/udp` redirection (including the
+zsh network pseudo-device form), `nc`/`ncat`/`netcat` with exec-style flags, `socat` exec/pty handoff,
+`mkfifo` pipelines, Python/Perl/PHP/Ruby socket constructors, and `bash -i`. Common localhost
+health-check ports are excluded so routine liveness/readiness probes over `/dev/tcp` don't trigger.
 
 ### Possible investigation steps
 
 - Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to determine whether the
   session originated from a human identity (`kubectl`) or an automated principal.
 - Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace` /
-  `Esql.pod_name` for the target workload.
-- If present, examine `requestObject` for privileged fields or binding subjects.
+  `Esql.pod_name` for the target workload. `pods/exec` is a streaming subresource, so kube-audit does not
+  populate `requestObject` for it; the command parameters live only in `requestURI`, already captured in
+  `Esql.executed_command`.
 - Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
 
 ### False positive analysis
@@ -99,11 +101,13 @@ FROM logs-azure.platformlogs-* METADATA _id, _index, _version
     Esql.pod_name = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.name"),
     Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
     Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
-    Esql.source_ip = MV_FIRST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs"))
+    Esql.source_ip = MV_FIRST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs")),
+    Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code")
 | WHERE Esql.resource == "pods"
     AND Esql.subresource == "exec"
     AND Esql.verb IN ("create", "get")
     AND Esql.requestURI LIKE "*command=*"
+    AND Esql.response_code == "101"
     AND Esql.username IS NOT NULL
     AND NOT Esql.username RLIKE "system:node:.*|system:serviceaccount:kube-system:.*"
     AND NOT Esql.username IN ("aksService", "hcpService", "readinessChecker", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
