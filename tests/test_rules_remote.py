@@ -16,6 +16,7 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
+from detection_rules.index_mappings import reconcile_flattened_object_conflicts
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -87,6 +88,52 @@ class TestESQLRemoteValidation(unittest.TestCase):
         self.assertIn("9.2.0", prepared_stack_versions)
         self.assertIn("9.2.4", prepared_stack_versions)
         self.assertIn("9.3.0", prepared_stack_versions)
+
+    @staticmethod
+    def flattened_conflict_mappings() -> dict[str, dict[str, object]]:
+        """Integration mapping typing a field as `flattened` alongside a non-ecs mapping of its subfields."""
+        return {
+            "azure-platformlogs": {
+                "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
+            },
+            "rule-non-ecs-index": {
+                "azure": {
+                    "properties": {
+                        "platformlogs": {
+                            "properties": {
+                                "properties": {"properties": {"log": {"properties": {"verb": {"type": "keyword"}}}}}
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+    def test_flattened_object_conflict_reconciled(self):
+        """A field typed `flattened` in one data source is mapped as `flattened` in all of them."""
+        mappings = self.flattened_conflict_mappings()
+        logged: list[str] = []
+
+        reconcile_flattened_object_conflicts(mappings, logged.append)
+
+        expected = {"azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}}
+        self.assertEqual(mappings["rule-non-ecs-index"], expected)
+        self.assertEqual(mappings["azure-platformlogs"], expected)
+        self.assertEqual(len(logged), 1)
+        self.assertIn("azure.platformlogs.properties", logged[0])
+
+    def test_mappings_without_flattened_conflict_untouched(self):
+        """Mappings that do not collide with a `flattened` field are left alone."""
+        mappings = self.flattened_conflict_mappings()
+        # An unrelated index whose object subtree shares no path with the flattened field
+        mappings["rule-ecs-index"] = {"user": {"properties": {"name": {"type": "keyword"}}}}
+        expected = deepcopy(mappings["rule-ecs-index"])
+        logged: list[str] = []
+
+        reconcile_flattened_object_conflicts(mappings, logged.append)
+
+        self.assertEqual(mappings["rule-ecs-index"], expected)
+        self.assertNotIn("rule-ecs-index", "".join(logged))
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")

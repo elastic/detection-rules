@@ -39,6 +39,7 @@ from .index_mappings import (
     execute_query_against_indices,
     get_rule_integrations,
     prepare_mappings,
+    reconcile_flattened_object_conflicts,
 )
 from .integrations import (
     find_latest_integration_patch_for_minor,
@@ -915,6 +916,14 @@ class ESQLValidator(QueryValidator):
         )
         self.log(f"Collected mappings: {len(existing_mappings)}")
         self.log(f"Combined mappings prepared: {len(combined_mappings)}")
+
+        # A field an integration types as `flattened` can be an implicit `object` in the mappings built
+        # from the non-ecs, custom or ECS schemas, which only declare its subfields. Reading the parent
+        # across the union of the resulting test indices then fails with an ambiguous mapping error, so
+        # align those mappings on `flattened` before the indices are created.
+        reconcile_flattened_object_conflicts(
+            {"existing-index-template-mappings": existing_mappings, **index_lookup}, self.log
+        )
 
         # Create remote indices
         full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)

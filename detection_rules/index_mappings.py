@@ -435,6 +435,73 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
     return flattened_fields_with_subfields
 
 
+def find_flattened_fields(mapping: dict[str, Any], path: str = "") -> set[str]:
+    """Recursively collect the dotted paths of every field typed `flattened` in Elasticsearch mappings."""
+    flattened_fields: set[str] = set()
+
+    for field, properties in mapping.items():
+        if not isinstance(properties, dict):
+            continue
+        current_path = f"{path}.{field}" if path else field
+
+        if properties.get("type") == "flattened":  # type: ignore[reportUnknownMemberType]
+            flattened_fields.add(current_path)
+
+        # Recurse into subfields
+        if "properties" in properties:
+            flattened_fields |= find_flattened_fields(properties["properties"], current_path)  # type: ignore[reportUnknownArgumentType]
+
+    return flattened_fields
+
+
+def coerce_field_to_flattened(mapping: dict[str, Any], field_path: str) -> bool:
+    """Map `field_path` as `flattened`, dropping its subfields. Returns True if the mapping changed."""
+    parts = field_path.split(".")
+    current_level: dict[str, Any] = mapping
+    for part in parts[:-1]:
+        node: dict[str, Any] = current_level.get(part) or {}
+        properties: dict[str, Any] = node.get("properties") or {}
+        if not properties:
+            return False
+        current_level = properties
+
+    field: dict[str, Any] = current_level.get(parts[-1]) or {}
+    if not field or field.get("type") == "flattened":
+        return False
+
+    field.pop("properties", None)
+    field.pop("fields", None)
+    field["type"] = "flattened"
+    return True
+
+
+def reconcile_flattened_object_conflicts(mappings: dict[str, dict[str, Any]], log: Callable[[str], None]) -> None:
+    """
+    Align `flattened` fields across the mappings the test indices are built from.
+
+    An integration can type a field as `flattened` (e.g. `azure.platformlogs.properties`) while the
+    non-ecs, custom or ECS schemas only declare its subfields, which leaves the parent as an implicit
+    `object` in the index built from those. ES|QL then refuses to read the parent across the union of
+    the test indices with an ambiguous mapping error, even though the field is unambiguously
+    `flattened` in a real deployment, so the `flattened` definition is treated as authoritative.
+
+    Dropping those subfields matches a real deployment as well: ES|QL cannot read a subfield of a
+    flattened field as a column (hence `field_extract`), while KQL predicates against subfields keep
+    working through the `flattened` parent.
+    """
+    flattened_fields: set[str] = set()
+    for mapping in mappings.values():
+        flattened_fields |= find_flattened_fields(mapping)
+
+    for field_path in sorted(flattened_fields):
+        for name, mapping in mappings.items():
+            if coerce_field_to_flattened(mapping, field_path):
+                log(
+                    f"Warning: field `{field_path}` is mapped as `flattened` in another data source but as "
+                    f"an object in `{name}`. Mapping it as `flattened` for ES|QL validation."
+                )
+
+
 def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
     """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
