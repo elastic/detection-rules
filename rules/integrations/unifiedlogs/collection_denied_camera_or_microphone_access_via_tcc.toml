@@ -1,0 +1,109 @@
+[metadata]
+creation_date = "2026/09/03"
+integration = ["unifiedlogs"]
+maturity = "production"
+updated_date = "2026/09/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a denied Camera or Microphone consent prompt via macOS TCC telemetry. 
+Spyware and surveillance tools attempt to activate the camera or microphone to record the user without authorization.
+Detection is based on the tccd CFUserNotification response decision record for kTCCServiceCamera or kTCCServiceMicrophone.
+"""
+false_positives = [
+    """
+    Video conferencing tools (Zoom, FaceTime, Teams), voice recording applications, and communication software
+    will trigger camera and microphone denials before the user grants access. Browser-based conferencing may also
+    trigger these events when requesting media permissions for the first time.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Camera or Microphone Access Denied via TCC"
+note = """## Triage and analysis
+
+### Investigating Camera or Microphone Access Denied via TCC
+
+This rule detects when an application is denied Camera or Microphone access by macOS TCC. The `kTCCServiceCamera` and `kTCCServiceMicrophone` services control which applications can access the device's camera and microphone respectively.
+
+### Possible investigation steps
+
+- Review the `message` field to identify which service was denied (Camera vs. Microphone) and the process identity (bundle ID, binary path, PID).
+- Correlate the denied process with Elastic Defend telemetry to understand how the process was launched.
+- Check if the application is a known communication or conferencing tool, or if it is unexpected on the host.
+- Look for related TCC denials (e.g., screen capture) from the same process, which may indicate surveillance or spyware behavior.
+- Check if the same process has been repeatedly denied, which could indicate persistent spyware attempting to activate recording.
+- Review the host for recently installed applications or persistence mechanisms that could be associated with the denied process.
+
+### False positive analysis
+
+- Zoom, FaceTime, Microsoft Teams, Slack, and other conferencing tools generate these events before being granted access.
+- Web browsers (Safari, Chrome) trigger camera/mic denials when websites request media access.
+- Voice memo, dictation, and accessibility tools may access the microphone legitimately.
+
+### Response and remediation
+
+- If the denied application is unknown or suspicious, isolate the host and investigate the process.
+- Check for indicators of spyware or surveillance tools (persistent camera/mic access attempts, exfiltration behaviors).
+- Review network connections from the denied process for data exfiltration.
+"""
+references = [
+    "https://www.phorion.tech/articles/the-clock-is-tccing/",
+    "https://www.elastic.co/docs/reference/integrations/unifiedlogs",
+]
+risk_score = 21
+rule_id = "816933da-57dd-4c07-a65a-91616b8871cb"
+setup = """## Setup
+
+The Unified Logs integration must be installed and collecting debug-level telemetry on the macOS host.
+
+Specific Setup instructions can be found in the following documentation:
+- [macOS Unified Logs](https://www.elastic.co/docs/reference/security/prebuilt-rules/unified_logs/readme)
+- [TCC Events](https://www.elastic.co/docs/reference/security/prebuilt-rules/unified_logs/com_apple_tccevents)
+"""
+severity = "low"
+tags = [
+    "Tactic: Collection",
+    "Use Case: Threat Detection",
+    "Data Source: Unified Logs",
+    "Rule Type: ESQL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-unifiedlogs* METADATA _id, _version, _index
+| WHERE event.dataset == "unifiedlogs.log" AND host.os.type == "macos" AND unified_log.subsystem == "com.apple.TCC"
+    AND unified_log.category == "access"
+    AND message LIKE "*CFUserNotification response*"
+    AND (message LIKE "*kTCCServiceMicrophone*" OR message LIKE "*kTCCServiceCamera*")
+| KEEP _id, _version, _index,
+    @timestamp,
+    host.name,
+    data_stream.namespace,
+    data_stream.type,
+    process.name,
+    process.pid,
+    unified_log.subsystem,
+    message
+| SORT @timestamp DESC
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1125"
+name = "Video Capture"
+reference = "https://attack.mitre.org/techniques/T1125/"
+
+[[rule.threat.technique]]
+id = "T1123"
+name = "Audio Capture"
+reference = "https://attack.mitre.org/techniques/T1123/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
