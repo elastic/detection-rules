@@ -1757,7 +1757,6 @@ class TestEQLEventFieldUsage(BaseRuleTest):
 
     def test_process_fields_present_in_endpoint_schema(self):
         """Ensure process.* fields used in non-process EQL clauses exist in the endpoint integration schema."""
-        load_integrations_schemas.clear()
         schemas = load_integrations_schemas()
         endpoint_versions = schemas.get("endpoint", {})
         if not endpoint_versions:
