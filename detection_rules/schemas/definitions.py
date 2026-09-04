@@ -146,6 +146,9 @@ TIMELINE_TEMPLATES: Final[dict[str, str]] = {
 # known casing conflicts in existing rules are omitted until a normalization PR
 # (currently: AWS CloudTrail vs Cloudtrail; Entra ID Sign-In vs Sign-in).
 EXPECTED_RULE_TAGS = [
+    "Compliance: EU DORA",
+    "Compliance: NIST CSF 2.0",
+    "Compliance: SOC 2 Type II",
     "Data Source: APM",
     "Data Source: AWS",
     "Data Source: AWS Bedrock Invocation Logs",
