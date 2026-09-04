@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["netflow", "goflow2"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a newly observed NetFlow, IPFIX, or sFlow exporter IP followed by another detection alert with
+medium-or-higher severity or an elevated risk score, where that exporter IP is the source of the detected activity in
+the same data stream namespace. This correlation adds behavioral evidence that can help distinguish routine exporter
+onboarding from a potentially unauthorized or compromised exporter introduced as part of defense evasion.
+"""
+false_positives = [
+    """
+    Newly deployed network devices may legitimately generate other detection alerts during commissioning, testing,
+    vulnerability scanning, or monitoring validation. Shared addresses, network address translation, and incomplete
+    asset attribution can also cause unrelated activity to correlate to the exporter IP.
+    """,
+]
+from = "now-45m"
+index = [".alerts-security.*"]
+interval = "15m"
+language = "eql"
+license = "Elastic License v2"
+name = "First Seen Network Flow Exporter Followed by Suspicious Source Activity"
+note = """## Triage and analysis
+
+### Investigating First Seen Network Flow Exporter Followed by Suspicious Source Activity
+
+This higher-order rule correlates a sequence containing the building-block alert "First Seen Network Flow Exporter"
+followed by another detection alert with medium-or-higher severity or an elevated risk score within 30 minutes. The new
+exporter's `observer.ip` must equal the later alert's `source.ip`, and both alerts must share the same
+`data_stream.namespace`.
+
+This relationship provides stronger evidence than suspicious flows merely reported by the exporter. It indicates that
+the exporter address itself was subsequently identified as the source of separately detected activity. It does not by
+itself prove telemetry injection, exporter compromise, or the addition of a rogue collector. A rogue collector receives
+flow exports and generally requires network-device configuration or audit telemetry to detect directly.
+
+### Possible investigation steps
+
+- Review both events in the sequence. Identify the exporter in the first alert and the rule name, risk score, source,
+  destination, host, and user context in the second alert.
+- Confirm that `observer.ip` belongs to the newly observed exporter and that NAT, shared addressing, or stale asset
+  records did not cause the correlation.
+- Examine the second alert's rule name and determine what behavior associated the exporter address with `source.ip`.
+- Verify the exporter's owner, device type, software version, management plane, recent configuration changes, and
+  approved collector destinations.
+- Review authentication, process, network-device audit, and configuration telemetry for the exporter around the
+  correlation window.
+- Compare observation domains, exporter version, uptime, sequence values, templates, sampling configuration, and flow
+  volume with established exporters.
+- Search for additional alerts involving the exporter address and for malformed, implausible, or conflicting flow
+  records received from it.
+
+### False positive analysis
+
+- Validate recent device onboarding, migrations, disaster-recovery activation, penetration tests, vulnerability scans,
+  and monitoring validation.
+- Determine whether `source.ip` represents the exporter itself or a shared NAT, proxy, scanner, or management address.
+- Confirm that the correlated source alert is a meaningful behavioral detection rather than an expected administrative
+  or discovery event.
+
+### Response and remediation
+
+- If the exporter is unauthorized or compromised, restrict it at the collector boundary and isolate its management
+  plane as appropriate.
+- Preserve flow records, source alerts, configuration history, authentication events, and network evidence.
+- Remove unauthorized export configuration, restore trusted device configuration, rotate affected credentials, and
+  review collector ACLs and authentication.
+"""
+references = [
+    "https://www.elastic.co/docs/solutions/security/detect-and-alert/about-building-block-rules",
+    "https://www.elastic.co/docs/reference/integrations/netflow",
+    "https://www.elastic.co/docs/reference/integrations/goflow2",
+    "https://datatracker.ietf.org/doc/html/rfc7011",
+    "https://sflow.org/sflow_version_5.txt",
+]
+risk_score = 73
+rule_id = "882c8edc-1e39-4a60-80b2-485491b6c91c"
+setup = """## Setup
+
+Enable the building-block rule "First Seen Network Flow Exporter" and detection rules that can identify suspicious
+activity with `source.ip` populated. The building-block rule requires decoded NetFlow, IPFIX, or sFlow records from the
+Elastic NetFlow (`netflow.log`) or GoFlow2 (`goflow2.sflow`) integration.
+
+The higher-order rule searches Elastic Security alert indices. The correlated source alert must preserve the exporter
+address in `source.ip` and preserve `data_stream.namespace`; alerts without either field cannot contribute to this
+correlation. Building-block, higher-order, machine-learning, new-terms, threat-match, and deprecated-rule alerts are
+excluded as the second event.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Rule Type: Higher-Order Rule",
+    "Data Source: Elastic Security",
+    "Data Source: NetFlow",
+    "Data Source: GoFlow2",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by data_stream.namespace with maxspan=30m
+  [any where
+    event.kind == "signal" and
+    kibana.alert.rule.rule_id == "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
+    data_stream.namespace != null and
+    observer.ip != null
+  ] by observer.ip
+  [any where
+    event.kind == "signal" and
+    data_stream.namespace != null and
+    source.ip != null and
+    kibana.alert.rule.name != null and
+    kibana.alert.rule.rule_id != null and
+    kibana.alert.rule.rule_id != "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
+    (kibana.alert.risk_score >= 47 or
+     kibana.alert.severity in ("medium", "high", "critical")) and
+    ?kibana.alert.building_block_type == null and
+    not kibana.alert.rule.type in ("machine_learning", "new_terms", "threat_match") and
+    not kibana.alert.rule.name like "Deprecated - *" and
+    not ?kibana.alert.rule.tags : "Rule Type: Higher-Order Rule"
+  ] by source.ip
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
