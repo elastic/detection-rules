@@ -713,7 +713,7 @@ class QueryValidator:
         raise NotImplementedError
 
     @cached_method
-    def get_required_fields(self, index: str) -> list[dict[str, Any]]:
+    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
@@ -852,7 +852,7 @@ class QueryRuleData(BaseRuleData):
         return None
 
     @cached_method
-    def get_required_fields(self, index: str) -> list[dict[str, Any]] | None:
+    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]] | None:
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
