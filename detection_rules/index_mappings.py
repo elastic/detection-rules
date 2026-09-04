@@ -281,7 +281,9 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
 
     matches: list[str] = []
     for index in indices:
-        pattern = re.compile(index.replace(".", r"\.").replace("*", ".*").rstrip("-"))
+        # Escaped rather than substituted so that an unexpected source, e.g. a parenthesis picked up
+        # from a subquery, raises EsqlUnknownIndexError below instead of an invalid pattern error
+        pattern = re.compile(re.escape(index.rstrip("-")).replace(r"\*", ".*"))
         matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
 
     if not matches:
@@ -334,10 +336,13 @@ def create_remote_indices(
     existing_mappings: dict[str, Any],
     index_lookup: dict[str, Any],
     log: Callable[[str], None],
+    name_suffix: str = "",
 ) -> str:
     """Create remote indices for validation and return the index string."""
 
-    suffix = str(int(time.time() * 1000))
+    # A rule prepares one set of indices per FROM clause, and those sets can be created within the
+    # same millisecond, so the caller passes a suffix to keep the index names distinct
+    suffix = f"{int(time.time() * 1000)}{name_suffix}"
     test_index = f"rule-test-index-{suffix}"
     response = create_index_with_index_mapping(elastic_client, test_index, existing_mappings)
     log(f"Index `{test_index}` created: {response}")
