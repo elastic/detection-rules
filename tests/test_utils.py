@@ -8,10 +8,11 @@
 import random
 import time
 import unittest
+from typing import Any
 
 from detection_rules.ecs import get_kql_schema
 from detection_rules.eswrap import Events
-from detection_rules.utils import cached, normalize_timing_and_sort
+from detection_rules.utils import cached, cached_method, clear_caches, clear_method_cache, normalize_timing_and_sort
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -102,3 +103,37 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(increment(), 6)
         self.assertEqual(increment(None), 7)
         self.assertEqual(increment(1), 8)
+
+    def test_cached_method_flushes_with_clear_caches(self):
+        """Test that cached_method memoizes per instance and is invalidated by clear_caches()."""
+
+        class Counter:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            @cached_method
+            def compute(self, *_args: Any, **_kwargs: Any) -> int:
+                self.calls += 1
+                return self.calls
+
+        first, second = Counter(), Counter()
+
+        # memoized per instance and per argument set
+        self.assertEqual(first.compute(), 1)
+        self.assertEqual(first.compute(), 1)
+        self.assertEqual(first.compute(["hello", "world"]), 2)
+        self.assertEqual(first.compute(["hello", "world"]), 2)
+        self.assertEqual(second.compute(), 1)
+
+        # the auto-add schema retry path relies on clear_caches() to make every memoized derived
+        # result reload, including ones stored on instances that outlive the flush
+        clear_caches()
+        self.assertEqual(first.compute(), 3)
+        self.assertEqual(first.compute(["hello", "world"]), 4)
+        self.assertEqual(first.compute(), 3)
+        self.assertEqual(second.compute(), 2)
+
+        # per-instance flush leaves other instances alone
+        clear_method_cache(first)
+        self.assertEqual(first.compute(), 5)
+        self.assertEqual(second.compute(), 2)
