@@ -16,6 +16,7 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
+from detection_rules.index_mappings import reconcile_flattened_object_conflicts
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -87,6 +88,78 @@ class TestESQLRemoteValidation(unittest.TestCase):
         self.assertIn("9.2.0", prepared_stack_versions)
         self.assertIn("9.2.4", prepared_stack_versions)
         self.assertIn("9.3.0", prepared_stack_versions)
+
+    @staticmethod
+    def flattened_conflict_mappings() -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
+        """Integration mapping typing a field as `flattened` alongside schema mappings of its subfields."""
+        authoritative: dict[str, dict[str, object]] = {
+            "azure-platformlogs": {
+                "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
+            },
+        }
+        targets: dict[str, dict[str, object]] = {
+            "rule-non-ecs-index": {
+                "azure": {
+                    "properties": {
+                        "platformlogs": {
+                            "properties": {
+                                "properties": {"properties": {"log": {"properties": {"verb": {"type": "keyword"}}}}}
+                            }
+                        }
+                    }
+                }
+            },
+            "rule-ecs-index": {"user": {"properties": {"name": {"type": "keyword"}}}},
+        }
+        return authoritative, targets
+
+    def test_flattened_object_conflict_reconciled(self):
+        """A field typed `flattened` in an integration is mapped as `flattened` in the schema-derived mappings."""
+        authoritative, targets = self.flattened_conflict_mappings()
+        expected_authoritative = deepcopy(authoritative)
+        expected_ecs = deepcopy(targets["rule-ecs-index"])
+        logged: list[str] = []
+
+        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
+
+        expected = {"azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}}
+        self.assertEqual(targets["rule-non-ecs-index"], expected)
+        # Unrelated mappings and the authoritative integration mappings are left alone
+        self.assertEqual(targets["rule-ecs-index"], expected_ecs)
+        self.assertEqual(authoritative, expected_authoritative)
+        self.assertEqual(len(logged), 1)
+        self.assertIn("`azure.platformlogs.properties`", logged[0])
+        self.assertIn("`flattened` in `azure-platformlogs`", logged[0])
+        self.assertIn("`object` in `rule-non-ecs-index`", logged[0])
+
+    def test_flattened_conflict_between_authoritative_mappings_not_reconciled(self):
+        """A `flattened` vs `object` conflict between two real data sources is not masked."""
+        authoritative, targets = self.flattened_conflict_mappings()
+        authoritative["other-integration"] = deepcopy(targets["rule-non-ecs-index"])
+        expected_authoritative = deepcopy(authoritative)
+        logged: list[str] = []
+
+        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
+
+        self.assertEqual(authoritative, expected_authoritative)
+        self.assertNotIn("other-integration", "".join(logged))
+
+    def test_flattened_scalar_conflict_reconciled(self):
+        """A field typed `flattened` in an integration overrides a scalar type in the schema-derived mappings."""
+        authoritative, _ = self.flattened_conflict_mappings()
+        targets: dict[str, dict[str, object]] = {
+            "custom logs-azure.platformlogs-*": {
+                "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "keyword"}}}}}
+            }
+        }
+        logged: list[str] = []
+
+        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
+
+        expected = {"azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}}
+        self.assertEqual(targets["custom logs-azure.platformlogs-*"], expected)
+        self.assertEqual(len(logged), 1)
+        self.assertIn("`keyword` in `custom logs-azure.platformlogs-*`", logged[0])
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
