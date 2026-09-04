@@ -96,42 +96,46 @@ def wildcard2regex(wc: str) -> re.Pattern:
     return re.compile("^{regex}$".format(regex=".*?".join(re.escape(w) for w in parts)))
 
 
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
+# Module scope: looked up tens of millions of times during a full rule load
+ELASTICSEARCH_TYPE_FAMILIES = {
+    # range types
+    "long_range": "range",
+    "double_range": "range",
+    "date_range": "range",
+    "ip_range": "range",
+
+    # text search types
+    "annotated-text": "text",
+    "completion": "text",
+    "match_only_text": "text",
+    "search-as_you_type": "text",
+
+    # keyword
+    "constant_keyword": "keyword",
+    "wildcard": "keyword",
+
+    # date
+    "date_nanos": "date",
+
+    # integer
+    "token_count": "integer",
+    "long": "integer",
+    "short": "integer",
+    "byte": "integer",
+    "unsigned_long": "integer",
+
+    # float
+    "double": "float",
+    "half_float": "float",
+    "scaled_float": "float",
+
+}
+
+
 def elasticsearch_type_family(mapping_type: str) -> str:
     """Get the family of type for an Elasticsearch mapping type."""
-    # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
-    return {
-        # range types
-        "long_range": "range",
-        "double_range": "range",
-        "date_range": "range",
-        "ip_range": "range",
-
-        # text search types
-        "annotated-text": "text",
-        "completion": "text",
-        "match_only_text": "text",
-        "search-as_you_type": "text",
-
-        # keyword
-        "constant_keyword": "keyword",
-        "wildcard": "keyword",
-
-        # date
-        "date_nanos": "date",
-
-        # integer
-        "token_count": "integer",
-        "long": "integer",
-        "short": "integer",
-        "byte": "integer",
-        "unsigned_long": "integer",
-
-        # float
-        "double": "float",
-        "half_float": "float",
-        "scaled_float": "float",
-
-    }.get(mapping_type, mapping_type)
+    return ELASTICSEARCH_TYPE_FAMILIES.get(mapping_type, mapping_type)
 
 
 class BaseKqlParser(Interpreter):

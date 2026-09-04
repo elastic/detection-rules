@@ -214,6 +214,13 @@ def flatten_multi_fields(schema: dict[str, Any]) -> dict[str, Any]:
     return converted
 
 
+@cached
+def get_flat_ecs_schema(version: str | None = None) -> dict[str, Any]:
+    """Get the flattened `field -> type` ECS schema by version."""
+    # cached: the returned dict is shared, so callers must treat it as read-only
+    return flatten_multi_fields(get_schema(version, name="ecs_flat"))
+
+
 class KqlSchema2Eql(eql.Schema):
     type_mapping = {  # noqa: RUF012
         "keyword": eql.types.TypeHint.String,
@@ -257,7 +264,8 @@ def get_kql_schema(
 ) -> dict[str, Any]:
     """Get schema for KQL."""
     indexes = indexes or []
-    converted = flatten_multi_fields(get_schema(version, name="ecs_flat"))
+    # copy: get_flat_ecs_schema hands back a shared dict and this function mutates it
+    converted = dict(get_flat_ecs_schema(version))
 
     # non-ecs schema
     for index_name in indexes:

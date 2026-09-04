@@ -6,6 +6,7 @@
 """Functions to support and interact with Kibana integrations."""
 
 import fnmatch
+import functools
 import gzip
 import json
 from collections import defaultdict
@@ -24,7 +25,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
 from .schemas import definitions
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .utils import cache_token, cached, get_etc_path, read_gzip, register_cache, unzip
 
 if TYPE_CHECKING:
     from .rule import QueryRuleData, RuleMeta
@@ -231,18 +232,21 @@ def _parse_clause(clause: str) -> tuple[Version, Version | None]:
     return lo, hi
 
 
+@functools.cache
 def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
-    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses.
-
-    Clauses separated by || are OR'd; whitespace-separated tokens within a
-    clause are AND'd.
-    """
+    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses."""
+    # clauses separated by || are OR'd; whitespace-separated tokens within a clause are AND'd
+    # cached: the returned list is shared, so callers must treat it as read-only
     return [_parse_clause(c) for c in version_requirement.split("||")]
 
 
 def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
     """Return True iff stack satisfies the EPR conditions.kibana.version string."""
     return any(lo <= stack and (hi is None or stack < hi) for lo, hi in _parse_kibana_range(version_requirement))
+
+
+_latest_patch_for_minor_cache: dict[tuple[Any, ...], int] = {}
+register_cache(_latest_patch_for_minor_cache)
 
 
 def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
@@ -258,6 +262,12 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
     # gates ^7.16.1 but the newer 7.16.2 gates ^7.16.0); honoring the newest version
     # matches what Fleet installs rather than an older, higher floor.
     manifests = load_integrations_manifests()
+    packages = frozenset(packages)
+    cache_key = (cache_token(manifests), packages, major, minor)
+    memoized = _latest_patch_for_minor_cache.get(cache_key)
+    if memoized is not None:
+        return memoized
+
     latest_patch = 0
     for package in packages:
         latest_package_version: Version | None = None
@@ -279,6 +289,8 @@ def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int,
                 latest_package_version = parsed_package_version
                 latest_package_patch = max(floors)
         latest_patch = max(latest_patch, latest_package_patch)
+
+    _latest_patch_for_minor_cache[cache_key] = latest_patch
     return latest_patch
 
 
@@ -381,6 +393,10 @@ def resolve_related_integration_version(
     return RelatedIntegrationVersion(expression=f"{operator}{manifest_version}", manifest_versions=(manifest_version,))
 
 
+_latest_compatible_version_cache: dict[tuple[Any, ...], tuple[str, list[str]]] = {}
+register_cache(_latest_compatible_version_cache)
+
+
 def find_latest_compatible_version(
     package: str,
     integration: str,
@@ -393,6 +409,35 @@ def find_latest_compatible_version(
     if not package:
         raise ValueError("Package must be specified")
 
+    # Memoized: resolving a version re-parses and re-sorts every manifest version, and rules
+    # repeat the same lookups across stack versions. Failures are not cached and re-raise.
+    cache_key = (
+        cache_token(packages_manifest),
+        cache_token(package_schemas),
+        package,
+        integration,
+        str(rule_stack_version),
+    )
+    memoized = _latest_compatible_version_cache.get(cache_key)
+    if memoized is None:
+        memoized = _resolve_latest_compatible_version(
+            package, integration, rule_stack_version, packages_manifest, package_schemas
+        )
+        _latest_compatible_version_cache[cache_key] = memoized
+
+    version, notice = memoized
+    # copy the notice so a caller cannot mutate the memoized entry
+    return version, list(notice)
+
+
+def _resolve_latest_compatible_version(
+    package: str,
+    integration: str,
+    rule_stack_version: Version,
+    packages_manifest: dict[str, Any],
+    package_schemas: dict[str, Any] | None = None,
+) -> tuple[str, list[str]]:
+    """Uncached body of `find_latest_compatible_version`."""
     package_manifest = packages_manifest.get(package)
     if package_manifest is None:
         raise ValueError(f"Package {package} not found in manifest.")
@@ -512,7 +557,7 @@ def get_integration_schema_data(
                 max(parsed_stack_version.patch, patch_floor),
             )
 
-            ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+            ecs_schema = ecs.get_flat_ecs_schema(ecs_version)
 
             for pk_int in package_integrations:
                 package = pk_int["package"]
@@ -551,6 +596,7 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
 ) -> tuple[dict[str, Any], str]:
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     """Extracts the integration fields to schema based on package integrations."""
+    # the returned schema is memoized and shared, so callers must treat it as read-only
     package_schemas = integrations_schemas.get(package, {}) if integration else None
     package_version, notice = find_latest_compatible_version(
         package,
@@ -561,11 +607,42 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     )
     notify_user_if_update_available(data, notice, integration)
 
-    schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
-    schema.update(ecs_schema)
-
-    integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
+    integration_schema = _resolve_integration_schema(
+        integrations_schemas, package, package_version, integration, ecs_schema
+    )
     return integration_schema, package_version
+
+
+_integration_schema_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+register_cache(_integration_schema_cache)
+
+
+def _resolve_integration_schema(
+    integrations_schemas: dict[str, Any],
+    package: str,
+    package_version: str,
+    integration: str,
+    ecs_schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge integration and ECS fields into a `field -> type family` schema."""
+    # Memoized and shared, so callers must treat the returned dict as read-only. Keyed on the
+    # resolved package version rather than the rule's min_stack, so the many stack versions
+    # that resolve to the same package version share one entry.
+    cache_key = (
+        cache_token(integrations_schemas),
+        cache_token(ecs_schema),
+        package,
+        package_version,
+        integration,
+    )
+    integration_schema = _integration_schema_cache.get(cache_key)
+    if integration_schema is None:
+        schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
+        schema.update(ecs_schema)
+        integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
+        _integration_schema_cache[cache_key] = integration_schema
+
+    return integration_schema
 
 
 def notify_user_if_update_available(
@@ -603,7 +680,9 @@ def collect_schema_fields(
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return integrations_schemas[package][package_version][integration]
+    # copy: callers merge ECS fields in, which would otherwise leak into the shared
+    # integration schema data loaded from integration-schemas.json.gz
+    return dict(integrations_schemas[package][package_version][integration])
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
