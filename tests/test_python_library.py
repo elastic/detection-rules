@@ -3,12 +3,19 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import unittest
 from typing import Any
 
 import eql
 from marshmallow import ValidationError
 
+from detection_rules import ecs, endgame
 from detection_rules.rule_loader import RuleCollection
+from detection_rules.rule_validators import (
+    DUPLICATE_TRAILER_HEADER,
+    ValidationTarget,
+    deduplicate_validation_targets,
+)
 
 from .base import BaseRuleTest
 
@@ -499,3 +506,111 @@ class TestAlertSuppressionValidation(BaseRuleTest):
         }
         with self.assertRaises((ValidationError, TypeError)):
             _ = rc.load_dict(rule_dict)
+
+
+class TestValidationTargetDeduplication(unittest.TestCase):
+    """Test deduplication of validation targets that perform identical validation work."""
+
+    @staticmethod
+    def mk_target(schema: Any, err_trailer: str, **overrides: Any) -> ValidationTarget:
+        kwargs: dict[str, Any] = {
+            "query_text": "process where true",
+            "schema": schema,
+            "err_trailer": err_trailer,
+            "min_stack_version": "8.3.0",
+            "kind": "stack",
+        }
+        kwargs.update(overrides)
+        return ValidationTarget(**kwargs)
+
+    def test_equal_dict_schemas_merge_into_first_target(self):
+        schema = {"process.name": "keyword", "host.os.type": "keyword"}
+        targets = [
+            self.mk_target(dict(schema), "stack: 9.4.0, ecs: 9.4.0\nrule: Test - abc"),
+            self.mk_target(dict(schema), "stack: 9.5.0, ecs: 9.4.0\nrule: Test - abc"),
+            self.mk_target(dict(schema), "stack: 9.6.0, ecs: 9.4.0\nrule: Test - abc"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 1)
+        merged = result[0]
+        self.assertIs(merged.schema, targets[0].schema)
+        self.assertTrue(merged.err_trailer.startswith(targets[0].err_trailer))
+        self.assertIn(DUPLICATE_TRAILER_HEADER, merged.err_trailer)
+        self.assertIn("stack: 9.5.0, ecs: 9.4.0", merged.err_trailer)
+        self.assertIn("stack: 9.6.0, ecs: 9.4.0", merged.err_trailer)
+        # shared lines are not repeated
+        self.assertEqual(merged.err_trailer.count("rule: Test - abc"), 1)
+
+    def test_different_schema_contents_do_not_merge(self):
+        targets = [
+            self.mk_target({"process.name": "keyword"}, "stack: 9.3.0"),
+            self.mk_target({"process.name": "keyword", "user.name": "keyword"}, "stack: 9.4.0"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual([t.err_trailer for t in result], ["stack: 9.3.0", "stack: 9.4.0"])
+
+    def test_wrapped_schemas_merge_on_contents(self):
+        kql_schema = {"process.name": "keyword"}
+        targets = [
+            self.mk_target(ecs.KqlSchema2Eql(dict(kql_schema)), "stack: 9.4.0"),
+            self.mk_target(ecs.KqlSchema2Eql(dict(kql_schema)), "stack: 9.5.0"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 1)
+        self.assertIn("stack: 9.5.0", result[0].err_trailer)
+
+    def test_schema_class_mismatch_does_not_merge(self):
+        fields = {"process.name": "keyword"}
+        targets = [
+            self.mk_target(ecs.KqlSchema2Eql(dict(fields)), "stack: 9.4.0"),
+            self.mk_target(endgame.EndgameSchema(dict(fields)), "stack: 9.4.0"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 2)
+
+    def test_kind_and_query_text_isolate_targets(self):
+        schema = {"process.name": "keyword"}
+        targets = [
+            self.mk_target(dict(schema), "stack: 9.4.0"),
+            self.mk_target(dict(schema), "stack: 9.4.0", kind="integration"),
+            self.mk_target(dict(schema), "stack: 9.4.0", query_text="network where true"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 3)
+
+    def test_identical_targets_collapse_without_trailer_header(self):
+        schema = {"process.name": "keyword"}
+        trailer = "stack: 9.4.0\nrule: Test - abc"
+        targets = [self.mk_target(dict(schema), trailer), self.mk_target(dict(schema), trailer)]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].err_trailer, trailer)
+
+    def test_first_appearance_order_is_preserved(self):
+        schema_a = {"process.name": "keyword"}
+        schema_b = {"user.name": "keyword"}
+        targets = [
+            self.mk_target(dict(schema_a), "a: first"),
+            self.mk_target(dict(schema_b), "b: first"),
+            self.mk_target(dict(schema_a), "a: second"),
+            self.mk_target(dict(schema_b), "b: second"),
+        ]
+
+        result = deduplicate_validation_targets(targets)
+
+        self.assertEqual(len(result), 2)
+        self.assertTrue(result[0].err_trailer.startswith("a: first"))
+        self.assertTrue(result[1].err_trailer.startswith("b: first"))
