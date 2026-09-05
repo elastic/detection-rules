@@ -2,7 +2,7 @@
 creation_date = "2026/04/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/01"
+updated_date = "2026/09/05"
 
 [rule]
 author = ["Elastic"]
@@ -85,7 +85,14 @@ data_stream.dataset:aws.cloudtrail and
  event.provider:sts.amazonaws.com and 
  event.action:AssumeRoleWithWebIdentity and 
  event.outcome:success and user.name:(system\:serviceaccount\:* and not system\:serviceaccount\:kube-system\:aws-load-balancer-controller) and 
- source.as.organization.name:(* and not (Amazon* or AMAZON*))
+ source.as.organization.name:(* and not (Amazon* or AMAZON*)) and 
+ not (
+  user.id:(
+    *oic.prod-aks.azure.com* or
+    *container.googleapis.com*
+  ) and
+  source.as.organization.name:("Microsoft Corporation" or "Google LLC")
+)
 '''
 
 [rule.investigation_fields]
