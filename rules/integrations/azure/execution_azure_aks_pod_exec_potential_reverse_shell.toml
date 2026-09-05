@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful AKS pod exec sessions whose command resembles reverse-shell or bind-shell one-liner patterns,
+including /dev/tcp and /dev/udp redirection, netcat/ncat/socat exec-style flags, mkfifo pipelines, and common language
+socket idioms (Python, Perl, PHP, Ruby). Legitimate debug sessions sometimes use similar building blocks, but together
+these patterns align with post-exploitation interactive access and command-and-control.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure AKS Pod Exec Potential Reverse Shell"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Pod Exec Potential Reverse Shell
+
+AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
+`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
+`azure.platformlogs.category: kube-audit`. The rule extracts `requestURI` on `pods/exec` calls with
+`FIELD_EXTRACT`, `URL_DECODE`s it, and `GROK`s out the `command=` array so it can run a single regex
+against the decoded, space-normalized command rather than many wildcard clauses against the raw encoded
+string. It requires `responseStatus.code` of `101` (the protocol-upgrade response for an established
+exec session) so denied/failed attempts don't match, and matches reverse/bind-shell idioms:
+`/dev/tcp`/`/dev/udp` redirection (including the zsh pseudo-device form), `nc`/`ncat`/`netcat`
+exec-style flags, `socat` exec/pty handoff, `mkfifo` pipelines, Python/Perl/PHP/Ruby socket
+constructors, and `bash -i`, while excluding common localhost health-check ports so routine
+liveness/readiness probes over `/dev/tcp` don't trigger.
+
+### Possible investigation steps
+
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to determine whether the session
+  originated from a human identity (`kubectl`) or an automated principal, and correlate with nearby
+  secret reads, RBAC changes, or workload mutations by the same identity.
+- Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace`/
+  `Esql.pod_name` for the target workload. `pods/exec` is a streaming subresource, so kube-audit doesn't
+  populate `requestObject` for it; the command parameters live only in `requestURI`, already captured
+  in `Esql.executed_command`.
+
+### False positive analysis
+
+- Interactive debugging shells may look similar; validate command intent and destination. In validated
+  telemetry, the only identity performing `pods/exec` was a human `kubectl` session (`masterclient`); no
+  automated/platform identity issued exec calls, and `elastic-agent status`/`inspect` health checks did
+  not overlap with any reverse-shell indicator.
+- Security training/CTF-style images, vendor diagnostics, or observability/mesh sidecars using raw
+  sockets, `socat`, or named pipes (`mkfifo`) can resemble this pattern; baseline approved images and
+  validate container image/command lineage before escalating.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials/kubeconfig, remove malicious objects, and rotate
+  any secrets or tokens that may have been accessed.
+- Terminate the exec session, isolate the workload or node, and revoke `pods/exec` for the abused
+  principal unless strictly required.
+- Harden RBAC to least privilege and review admission controls.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+]
+risk_score = 73
+rule_id = "eb56a087-c726-4683-8d49-8c0253ea63cf"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: ESQL",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.platformlogs-* METADATA _id, _index, _version
+| WHERE data_stream.dataset == "azure.platformlogs"
+    AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
+    AND azure.platformlogs.category == "kube-audit"
+| EVAL Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+    Esql.subresource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.subresource"),
+    Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
+    Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
+    Esql.namespace = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.namespace"),
+    Esql.pod_name = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.name"),
+    Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
+    Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
+    Esql.source_ip = MV_FIRST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs")),
+    Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code")
+| WHERE Esql.resource == "pods"
+    AND Esql.subresource == "exec"
+    AND Esql.verb IN ("create", "get")
+    AND Esql.requestURI LIKE "*command=*"
+    AND Esql.response_code == "101"
+    AND Esql.username IS NOT NULL
+    AND NOT Esql.username RLIKE "system:node:.*|system:serviceaccount:kube-system:.*"
+    AND NOT Esql.username IN ("aksService", "hcpService", "readinessChecker", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
+| EVAL Esql.decoded_uri = URL_DECODE(Esql.requestURI)
+| GROK Esql.decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL Esql.command = REPLACE(raw_commands, "command=", "")
+| EVAL Esql.command = REPLACE(Esql.command, "&", " ")
+| EVAL Esql.executed_command = REPLACE(Esql.command, "\\+", " ")
+| WHERE Esql.executed_command IS NOT NULL
+    AND Esql.executed_command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*"""
+    AND NOT Esql.executed_command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
+| KEEP Esql.*, Esql_priv.*, event.action, data_stream.namespace, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
