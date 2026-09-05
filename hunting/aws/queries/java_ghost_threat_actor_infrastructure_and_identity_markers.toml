@@ -1,0 +1,50 @@
+[hunt]
+author = "Elastic"
+description = """
+Hunt for infrastructure and identity markers associated with the Java_Ghost threat actor group in AWS CloudTrail logs. Java_Ghost is a financially motivated group targeting AWS environments for phishing (via SES/WorkMail abuse), cryptomining, ransomware, and data exfiltration, with public reporting from Unit 42, Datadog, and Wiz throughout 2025. Documented markers include the creation of EC2 security groups named Java_Ghost, activity from actor-unique IAM identities (Gh0st_808, Gh0st_365, warkopi), and the creation of IAM users matching the group's persistence naming conventions (adminuserdevs, develops, rootdev, ses2). The security group name and the unique identities have no plausible legitimate use; the generic persistence usernames may collide with legitimate identities and require verification of the creating identity and surrounding activity.
+"""
+integration = ["aws.cloudtrail"]
+uuid = "b8df458f-73eb-44c2-b98d-f4413f093ab5"
+name = "Java_Ghost Threat Actor Infrastructure and Identity Markers"
+language = ["ES|QL"]
+license = "Elastic License v2"
+notes = [
+    "The first query surfaces creation of EC2 security groups named Java_Ghost in any casing. Any hit should be treated as high-confidence pending investigation; the name has no legitimate business meaning.",
+    "The second query surfaces any CloudTrail activity from the actor-unique IAM identities. Any hit is high-confidence; pivot to all API calls from the matching ARN and review for SES/WorkMail phishing activity, IAM persistence (CreateUser, CreateAccessKey, CreateLoginProfile), and compute provisioning (RunInstances).",
+    "The third query surfaces creation of IAM users matching Java_Ghost's documented persistence naming conventions. The generic names (adminuserdevs, develops, rootdev, ses2) may match legitimate users; verify the creating identity, source IP, and whether the creation was expected before escalating.",
+    "For confirmed hits, review the security group's ingress/egress rules and associated ENIs, rotate credentials for the calling identity, and search for follow-on activity between the marker event and the present.",
+]
+mitre = ["T1496", "T1136.003", "T1583"]
+
+query = [
+'''
+from logs-aws.cloudtrail-*
+| where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "ec2.amazonaws.com"
+    and event.action == "CreateSecurityGroup"
+    and event.outcome == "success"
+    and to_lower(group.name) == "java_ghost"
+| keep @timestamp, aws.cloudtrail.user_identity.arn, user.name, group.name, source.ip, cloud.region, cloud.account.id
+''',
+'''
+from logs-aws.cloudtrail-*
+| where data_stream.dataset == "aws.cloudtrail"
+    and to_lower(user.name) in ("gh0st_808", "gh0st_365", "warkopi")
+| stats event_count = count(*), actions = values(event.action), providers = values(event.provider), source_ips = values(source.ip), regions = values(cloud.region)
+    by user.name, aws.cloudtrail.user_identity.arn, cloud.account.id
+''',
+'''
+from logs-aws.cloudtrail-*
+| where data_stream.dataset == "aws.cloudtrail"
+    and event.provider == "iam.amazonaws.com"
+    and event.action == "CreateUser"
+    and event.outcome == "success"
+| dissect aws.cloudtrail.request_parameters "%{}userName=%{created_user_name}}"
+| where to_lower(created_user_name) in ("adminuserdevs", "develops", "rootdev", "ses2", "gh0st_808", "gh0st_365", "warkopi")
+| keep @timestamp, aws.cloudtrail.user_identity.arn, user.name, created_user_name, source.ip, cloud.region, cloud.account.id
+''',
+]
+
+references = [
+    "https://unit42.paloaltonetworks.com/javaghost-cloud-phishing/",
+]
