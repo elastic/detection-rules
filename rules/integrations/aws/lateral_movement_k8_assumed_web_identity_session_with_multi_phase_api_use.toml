@@ -137,10 +137,10 @@ FROM logs-aws.cloudtrail-*
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp),
     Esql.total_calls = COUNT(*)
-  BY access_key, source.ip, source.as.organization.name
+  BY access_key, source.ip, source.`as`.number, source.`as`.organization.name
 | WHERE access_key is not null and Esql.assume_count >= 1 AND Esql.post_exploit_count >= 3
 | EVAL aws.cloudtrail.user_identity.access_key_id = MV_FIRST(access_key)
-| KEEP aws.cloudtrail.user_identity.access_key_id, source.ip, source.as.organization.name, Esql.*
+| KEEP aws.cloudtrail.user_identity.access_key_id, source.ip, source.`as`.number, source.`as`.organization.name, Esql.*
 '''
 
 [rule.investigation_fields]
@@ -150,8 +150,7 @@ field_names = [
     "Esql.post_exploit_count",
     "Esql.attack_phases",
     "Esql.event_action_values",
-    "Esql.source_ip_values",
-    "Esql.source_as_organization_name_values",
+    "source.ip",
     "Esql.user_name_values",
     "Esql.user_agent_original_values",
     "Esql.first_seen",
