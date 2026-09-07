@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
-updated_date = "2026/07/20"
+updated_date = "2026/09/07"
 
 [rule]
 author = ["Elastic"]
@@ -29,7 +29,7 @@ This rule flags a Linux process making DNS lookups for top-level domains that th
 
 ### Possible investigation steps
 
-- Review the originating binary’s full command line, executable path, parent or child lineage, and user or service account to determine whether the lookup came from approved software, an admin script, or an unexpected downloader or shell.
+- Review the originating binary's full command line, executable path, parent or child lineage, and user or service account to determine whether the lookup came from approved software, an admin script, or an unexpected downloader or shell.
 - Correlate the DNS event with nearby outbound connections, HTTP or TLS sessions, and file activity on the same host to see whether the domain was followed by beaconing, payload retrieval, or data transfer.
 - Enrich the queried domain and any resolved IPs with passive DNS, registration age, reputation, ASN or geolocation, and prevalence in your environment to distinguish newly created or low-reputation infrastructure from known business services.
 - Determine whether the host is a server, workstation, or containerized workload and validate if the domain fits its normal role by comparing against recent activity, peer hosts, deployed applications, and change or deployment records.
@@ -38,7 +38,7 @@ This rule flags a Linux process making DNS lookups for top-level domains that th
 ### False positive analysis
 
 - Newly deployed or updated Linux applications, scripts, or package retrieval tasks may legitimately resolve domains in low-cost or regional TLDs for updates, licensing, or content delivery; verify the process path and parent chain match approved software and that similar lookups appear on peer hosts during the same change window.
-- A user or service performing legitimate research or accessing region-specific content may query a country-code or commonly abused TLD from a browser or expected application; confirm the domain aligns with the host’s business purpose and that the activity is limited to normal browsing without subsequent suspicious connections, downloads, or persistence changes.
+- A user or service performing legitimate research or accessing region-specific content may query a country-code or commonly abused TLD from a browser or expected application; confirm the domain aligns with the host's business purpose and that the activity is limited to normal browsing without subsequent suspicious connections, downloads, or persistence changes.
 
 ### Response and remediation
 
@@ -66,6 +66,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 network where host.os.type == "linux" and dns.question.name != null and process.name != null and
+not process.name in ("systemd-resolved", "named", "unbound") and
 dns.question.name like~ (
   "*.forum", "*.pro", "*.team", "*.lol", "*.kr", "*.ke", "*.nu", "*.space", "*.capital", "*.in", "*.cfd", "*.online",
   "*.ru", "*.info", "*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.network",
