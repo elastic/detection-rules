@@ -2,7 +2,7 @@
 creation_date = "2024/07/12"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -99,11 +99,11 @@ rule_id = "30b5bb96-c7db-492c-80e9-1eab00db580b"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS S3",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS S3",
     "Tactic: Impact",
+    "Rule Type: Event Correlation (EQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -115,6 +115,7 @@ info where data_stream.dataset == "aws.cloudtrail"
    and event.action == "PutBucketVersioning"
    and event.outcome == "success"
    and stringContains(aws.cloudtrail.request_parameters, "Status=Suspended")
+   and not user_agent.original like~ ("*Terraform*", "*Pulumi*")
 '''
 
 

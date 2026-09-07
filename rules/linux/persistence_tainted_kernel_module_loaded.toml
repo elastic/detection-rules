@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/08/05"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.5.0"
+min_stack_comments = "The process.Ext.load_module.taint_flags field was introduced in 9.5.0, and is required for this rule to function."
+updated_date = "2026/08/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects the loading of tainted kernel modules on Linux systems. A tainted kernel module indicates that
+the module is not officially supported or may have been modified. Attackers may load tainted kernel modules to
+maintain persistence or evade detection on the system. This may be a sign of malicious activity involving kernel
+modules.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Kernel Module Loaded with Tainting Flags"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Kernel Module Loaded with Tainting Flags
+
+This alert triggers when Linux loads a kernel module marked tainted, which means the code is unsupported, altered, or built outside the trusted kernel tree. That matters because kernel-level code can bypass normal visibility, tamper with system behavior, and help an intruder persist on the host. A common attacker pattern is loading a custom rootkit module after gaining root access to hook system calls and hide backdoor processes or network activity.
+
+### Possible investigation steps
+
+- Determine whether the module is expected for the host by validating it against approved drivers, security tools, recent kernel updates, hardware changes, and any open change requests with the system owner.
+- Collect the module’s file path, hash, package ownership, signer status, and build metadata, then compare them with trusted baselines or vendor artifacts to identify tampering or an out-of-band build.
+- Review kernel, audit, and system logs around the load time for preceding root-level activity, module insertion commands, boot-time scripts, service changes, or errors that explain how the module was introduced.
+- Assess the host for post-load impact such as hidden processes or sockets, disabled security controls, unusual kernel hooks, or persistence via startup configuration that would indicate malicious kernel-level behavior.
+- If the module is not approved or cannot be verified, isolate the host, preserve volatile evidence and a copy of the module for forensic analysis, and plan controlled removal with reboot validation to confirm the kernel returns to an expected state.
+
+### False positive analysis
+
+- An administrator may legitimately load an out-of-tree or locally compiled driver after a kernel update or hardware change, which can set taint flags; verify the module path, hash, and package or build records match an approved change for the host.
+- A Linux system may load an unsigned or unsupported module during maintenance, troubleshooting, or compatibility testing, causing a benign taint event; confirm the load time aligns with documented admin activity and that the same module is expected on similar hosts.
+
+### Response and remediation
+
+- Immediately isolate the affected Linux host from all production networks except a trusted containment channel, stop nonessential remote access, and preserve the loaded module file and related boot artifacts before any cleanup.
+- Remove attacker persistence by deleting the module from disk and clearing every load path that references it, including `/etc/modules`, `/etc/modules-load.d/`, initramfs or dracut hooks, DKMS builds, kernel command lines, and any systemd unit or script that runs `insmod` or `modprobe`.
+- Restore the system to a known-good state by rebuilding or reimaging from a trusted baseline, reinstalling vendor-signed kernel packages, regenerating initramfs, and rebooting into the clean kernel rather than relying on module unload alone.
+- Escalate immediately to incident response if the same tainted module or hash appears on more than one host, if you find signs of kernel tampering such as hidden processes or modified system call behavior, or if Secure Boot or module-signing protections were bypassed.
+- After containment, rotate credentials used on the host, review adjacent systems for the same module filename, hash, startup scripts, or package changes, and harden Linux endpoints by enforcing Secure Boot, kernel module signing, lockdown mode, least-privilege admin access, and alerting on new out-of-tree module loads.
+"""
+risk_score = 47
+rule_id = "cc3dab79-3706-4775-9404-a722e2b00fed"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action == "load_module" and
+process.Ext.load_module.taint_flags != null
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1547"
+name = "Boot or Logon Autostart Execution"
+reference = "https://attack.mitre.org/techniques/T1547/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1547.006"
+name = "Kernel Modules and Extensions"
+reference = "https://attack.mitre.org/techniques/T1547/006/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
