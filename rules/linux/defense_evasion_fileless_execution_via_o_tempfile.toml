@@ -23,6 +23,37 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Fileless Execution via O_TMPFILE"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Fileless Execution via O_TMPFILE
+
+This rule detects Linux processes launched from anonymous temporary files created with O_TMPFILE, a pattern associated with execveat and AT_EMPTY_PATH execution that leaves no normal filesystem pathname. An attacker can write a malicious ELF payload into an unnamed file descriptor and execute it directly, reducing disk artifacts and making the payload harder to discover through routine file inspection.
+
+### Possible investigation steps
+
+- Preserve volatile evidence from the live process by collecting its `/proc/<pid>/exe`, file descriptors, memory maps, command line, environment, namespaces, and a hash or copy of the anonymous executable where policy permits.
+- Reconstruct the full process ancestry and execution context, focusing on the initiating user, parent binary, container or service identity, privilege changes, and whether the chain originated from a shell, web service, or remote session.
+- Correlate audit telemetry for the preceding `openat` or `openat2` call using `O_TMPFILE`, subsequent writes and permission changes, and the final `execveat` call using `AT_EMPTY_PATH`.
+- Review nearby network, authentication, and endpoint activity for payload delivery, command-and-control connections, credential access, persistence creation, lateral movement, or additional spawned processes.
+- Determine prevalence across hosts and compare hashes, ancestry, and execution context with approved software, escalating isolated or unsigned occurrences and containing affected systems when malicious behavior is confirmed.
+
+### False positive analysis
+
+- Legitimate system or application software may use O_TMPFILE for secure temporary execution, so verify the process ancestry, executable hash, package ownership, and consistency with approved activity.
+- Authorized software installation, update, or testing workflows may execute an anonymous ELF binary, so confirm the timing against approved changes and validate the initiating user, service, and expected recurrence across comparable hosts.
+
+### Response and remediation
+
+- Isolate the affected Linux host or container from the network while preserving `/proc/<pid>/exe`, open file descriptors, memory, and relevant audit logs for forensic analysis.
+- Terminate the malicious process tree, revoke exposed credentials and active sessions, and block identified executable hashes, command-and-control destinations, and payload sources across the environment.
+- Remove attacker persistence from systemd units, cron jobs, shell profiles, SSH `authorized_keys`, startup scripts, modified containers, and unauthorized accounts or packages.
+- Escalate immediately to incident response if privileged execution, credential theft, command-and-control traffic, persistence, or activity on additional hosts is identified.
+- Reimage compromised systems from known-good media, restore validated data, rotate affected secrets, patch the initial access vector, and verify that no anonymous executable or related attacker activity remains.
+- Harden Linux endpoints by restricting unnecessary O_TMPFILE and `execveat` behavior through application allowlisting, SELinux or AppArmor policies, container controls, and enhanced auditing of anonymous-file execution.
+"""
 references = [
     "https://github.com/MatheuZSecurity/Dntry"
 ]
@@ -73,8 +104,6 @@ process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.executable regex """.*/\#[0-9]+.*"""
 '''
-note = """
-"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
