@@ -36,7 +36,7 @@ AWS Security Hub aggregates security findings from GuardDuty, Inspector, IAM Acc
 
 - Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Determine whether this is a human operator, a CI/CD service role, or an automated account lifecycle script.
 - Check source.ip against known office CIDRs, VPN endpoints, and CI/CD runner IPs. A call from an unexpected geography or cloud provider IP is a strong indicator of credential compromise.
-- Query CloudTrail for all API calls from this identity in the same time window. Look for co-occurring DisableGuardDuty, DeleteDetector, DeleteTrail, StopLogging, PutEventSelectors (reducing event selectors), DeleteFlowLogs, or DisableMacie calls — a multi-service security teardown is high confidence ransomware/wiperware preparation.
+- Query CloudTrail for all API calls from this identity in the same time window. Look for co-occurring DeleteDetector or UpdateDetector with enable false (GuardDuty), DisableMacie or UpdateMacieSession with status PAUSED (Macie), DeleteTrail, StopLogging, PutEventSelectors (reducing event selectors), or DeleteFlowLogs calls — a multi-service security teardown is high confidence ransomware/wiperware preparation.
 - Determine whether Security Hub was re-enabled shortly after (indicating a momentary operational toggle) or remained disabled.
 - Check whether this corresponds to a known change window or approved infrastructure operation.
 
