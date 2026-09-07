@@ -2,7 +2,7 @@
 creation_date = "2025/07/03"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/12"
 
 [rule]
 author = ["Elastic"]
@@ -19,7 +19,7 @@ index = ["filebeat-*", "logs-azure.signinlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Entra ID OAuth user_impersonation Scope for Unusual User and Client"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating Entra ID OAuth user_impersonation Scope for Unusual User and Client
 
@@ -43,6 +43,8 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Some legitimate applications may use the `user_impersonation` scope for valid purposes, such as accessing user resources on behalf of the user. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
 - Users may occasionally authenticate using single-factor authentication for specific applications or scenarios, especially in environments where MFA is not enforced or required. If this is expected behavior, consider adjusting the rule or adding exceptions for specific user principals or applications.
 - Some applications may use the `user_impersonation` scope for legitimate purposes, such as accessing user resources in a controlled manner. If this is expected behavior, consider adjusting the rule or adding exceptions for specific applications or user principals.
+- The `restricted_user_impersonation` scope is distinct from `user_impersonation` and is excluded.
+- Expected OCaaS bootstrap requests from Exchange Online or Microsoft Forms Web are excluded when they originate from compliant, managed, joined Windows devices and do not use an incoming refresh token or primary refresh token.
 
 ### Response and remediation
 
@@ -56,6 +58,8 @@ unauthorized access attempts, especially when the user type is `Member` and the 
 - Educate users about the risks associated with OAuth user impersonation and encourage them to use more secure authentication methods, such as OAuth 2.0 or OpenID Connect, whenever possible.
 """
 references = [
+    "https://aadinternals.com/post/phishing/",
+    "https://dirkjanm.io/assets/raw/Finding%20Entra%20ID%20CA%20Bypasses%20-%20the%20structured%20way.pdf",
     "https://github.com/Flangvik/TeamFiltration",
     "https://www.proofpoint.com/us/blog/threat-insight/attackers-unleash-teamfiltration-account-takeover-campaign",
 ]
@@ -68,41 +72,59 @@ tags = [
     "Use Case: Threat Detection",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
-    "Data Source: Microsoft Entra ID Sign-In Logs",
+    "Data Source: Microsoft Entra ID Sign-in Logs",
+    "Platform: Entra ID",
     "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-data_stream.dataset: azure.signinlogs and
-    azure.signinlogs.properties.authentication_processing_details: *user_impersonation* and
-    azure.signinlogs.properties.authentication_requirement: "singleFactorAuthentication" and
-    azure.signinlogs.properties.token_issuer_type: "AzureAD" and
-    azure.signinlogs.properties.token_protection_status_details.sign_in_session_status: "unbound" and
-    azure.signinlogs.properties.user_type: "Member" and
-    azure.signinlogs.properties.conditional_access_status: "notApplied" and
-    not user_agent.original: (Mozilla*PKeyAuth/1.0 or Microsoft*Authentication*iPhone*) and
-    not azure.signinlogs.properties.device_detail.operating_system: (Ios* or Android*) and
-    event.outcome: "success"
-    and not azure.signinlogs.properties.app_id: (
-        "a5f63c0-b750-4f38-a71c-4fc0d58b89e2" or
-        "6bc3b958-689b-49f5-9006-36d165f30e00" or
-        "66a88757-258c-4c72-893c-3e8bed4d6899" or
-        "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe" or
-        "0000000c-0000-0000-c000-000000000000" or
-        "0a5f63c0-b750-4f38-a71c-4fc0d58b89e2" or
-        "48af08dc-f6d2-435f-b2a7-069abd99c086" or
-        "ab9b8c07-8f02-4f72-87fa-80105867a763" or
-        "fc0f3af4-6835-4174-b806-f7db311fd2f3" or
-        "5e3ce6c0-2b1f-4285-8d4b-75ee78787346" or
-        "e8be65d6-d430-4289-a665-51bf2a194bda" or
-        "95de633a-083e-42f5-b444-a4295d8e9314" or
-        "d52792f4-ba38-424d-8140-ada5b883f293" or
-        "65d91a3d-ab74-42e6-8a2f-0add61688c74" or
-        "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
-    )
+data_stream.dataset:azure.signinlogs and
+azure.signinlogs.properties.authentication_processing_details:(*user_impersonation* and not *restricted_user_impersonation*) and
+azure.signinlogs.properties.authentication_requirement:singleFactorAuthentication and
+azure.signinlogs.properties.token_issuer_type:AzureAD and
+azure.signinlogs.properties.token_protection_status_details.sign_in_session_status:unbound and
+azure.signinlogs.properties.user_type:Member and
+azure.signinlogs.properties.conditional_access_status:"notApplied" and
+not user_agent.original:(Microsoft*Authentication*iPhone* or Mozilla*PKeyAuth/1.0) and
+not azure.signinlogs.properties.device_detail.operating_system:(Android* or Ios*) and
+event.outcome:success and
+not azure.signinlogs.properties.app_id:(
+    0000000c-0000-0000-c000-000000000000 or
+    0a5f63c0-b750-4f38-a71c-4fc0d58b89e2 or
+    48af08dc-f6d2-435f-b2a7-069abd99c086 or
+    5e3ce6c0-2b1f-4285-8d4b-75ee78787346 or
+    65d91a3d-ab74-42e6-8a2f-0add61688c74 or
+    66a88757-258c-4c72-893c-3e8bed4d6899 or
+    6bc3b958-689b-49f5-9006-36d165f30e00 or
+    8c59ead7-d703-4a27-9e55-c96a0054c8d2 or
+    95de633a-083e-42f5-b444-a4295d8e9314 or
+    ab9b8c07-8f02-4f72-87fa-80105867a763 or
+    cc15fd57-2c6c-4117-a88c-83b1d56b4bbe or
+    d52792f4-ba38-424d-8140-ada5b883f293 or
+    e8be65d6-d430-4289-a665-51bf2a194bda or
+    fc0f3af4-6835-4174-b806-f7db311fd2f3
+) and
+not (
+    azure.signinlogs.properties.resource_id:c2ada927-a9e2-4564-aae2-70775a2fa0af and
+    (
+        azure.signinlogs.properties.app_id:00000002-0000-0ff1-ce00-000000000000 and
+        azure.signinlogs.properties.device_detail.operating_system:Windows or
+        azure.signinlogs.properties.app_id:5f00fd34-f302-417f-81ef-1adda179d8fd and
+        azure.signinlogs.properties.device_detail.operating_system:Windows*
+    ) and
+    azure.signinlogs.properties.device_detail.is_managed:true and
+    azure.signinlogs.properties.device_detail.is_compliant:true and
+    azure.signinlogs.properties.device_detail.trust_type:("Azure AD joined" or "Hybrid Azure AD joined") and
+    azure.signinlogs.properties.device_detail.device_id:(* and not "") and
+    azure.signinlogs.properties.incoming_token_type:none and
+    azure.signinlogs.properties.client_app_used:Browser and
+    azure.signinlogs.category:NonInteractiveUserSignInLogs
+)
 '''
 
 [rule.investigation_fields]
