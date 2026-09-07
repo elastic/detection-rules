@@ -18,7 +18,36 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File with High Entropy Created by Web Server"
-note = """
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File with High Entropy Created by Web Server
+
+This detection identifies a Linux web server process writing a high-entropy file with a web-executable extension, which can signal an encoded or encrypted payload planted through an exposed application. After exploiting a vulnerable upload endpoint, an attacker may save an obfuscated PHP web shell as a .phtml file under the document root, then invoke it over HTTP to establish persistent remote access.
+
+### Possible investigation steps
+
+- Determine the file’s full path, owner, permissions, timestamps, hash, and proximity to document roots, upload directories, temporary locations, or recent authorized deployments.
+- Preserve a copy and inspect its true file type, strings, structure, obfuscation, embedded payloads, and known-malware reputation in a controlled environment without executing it.
+- Correlate the creation time with process ancestry, command lines, service account activity, child processes, and network connections to identify the originating request or exploited application component.
+- Review reverse-proxy, web access, WAF, and application logs for upload attempts, exploit patterns, source addresses, authentication context, and subsequent requests to the created file.
+- Hunt for the same hash, filename, path, source address, or related execution across hosts, and isolate the server while removing the artifact and remediating the vulnerable entry point if malicious activity is confirmed.
+
+### False positive analysis
+
+- An authorized application deployment may cause a web server process to write minified JavaScript or packaged application files with naturally high entropy; verify the creation time, path, hash, and deployment records against the approved release.
+- A Python web application may legitimately generate high-entropy bytecode cache files with a .pyc extension during startup or module import; confirm the files reside in expected cache directories and correlate with a sanctioned restart or code update.
+
+### Response and remediation
+
+- Isolate the affected web server from untrusted networks while preserving the high-entropy file, web logs, process artifacts, and memory for incident-response analysis.
+- Quarantine the malicious file and remove related web shells, unauthorized accounts, scheduled tasks, service changes, startup scripts, SSH keys, and altered application components identified across the environment.
+- Rebuild the server from a known-good image, restore validated application content and configuration, patch the exploited component, and rotate web service, application, database, API, and administrative credentials.
+- Open an incident-response case and escalate to major-incident handling immediately if the file was executed, attacker commands or outbound connections are found, privileged credentials were exposed, or related artifacts appear on other hosts.
+- Block confirmed malicious hashes, source addresses, domains, and request patterns, then hunt for matching files, exploitation attempts, and post-compromise activity across web servers and dependent systems.
+- Prevent recurrence by restricting upload locations from executing code, enforcing extension and content validation, applying least-privilege permissions to web service accounts, and strengthening WAF rules and file-integrity monitoring.
 """
 risk_score = 73
 rule_id = "f2738cad-28ab-4c9e-b7f0-66f3b2775e5f"

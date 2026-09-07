@@ -16,7 +16,36 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "File with Suspicious Double Extension Created by Web Server"
-note = """
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File with Suspicious Double Extension Created by Web Server
+
+This rule identifies Linux web server processes creating files whose names combine a web-executable suffix with a misleading image, archive, script, or binary extension, a pattern often used to conceal malicious content and bypass upload controls. For example, an attacker exploiting an upload endpoint may write `shell.php.jpg` into a served directory, then rely on a permissive or manipulated server configuration to execute it as a web shell for persistent remote access.
+
+### Possible investigation steps
+
+- Record the file’s full path, ownership, permissions, timestamps, cryptographic hash, MIME type, and magic bytes, then safely inspect its contents for obfuscated code, command execution, credential theft, or web-shell functionality.
+- Review virtual-host, handler, rewrite, and directory configuration to determine whether the file is web-accessible or interpreted as executable content despite its final extension.
+- Correlate the creation time with HTTP access, application, proxy, and authentication logs to identify the originating request, source address, user session, upload endpoint, and related reconnaissance or exploitation attempts.
+- Examine the creating process lineage and subsequent activity for spawned shells, interpreters, system utilities, outbound connections, privilege escalation, persistence changes, or additional file writes.
+- Hunt across endpoints and web logs for the file hash, naming pattern, source address, request indicators, and similar artifacts, and isolate the server while preserving evidence if malicious activity is confirmed.
+
+### False positive analysis
+
+- A legitimate upload or content-management workflow may preserve a user-supplied filename such as `template.php.jpg`; verify the associated HTTP request, authenticated user, expected upload path, file MIME type, and application behavior.
+- A deployment, backup, or testing process run through a web application may generate files such as `page.jsp.zip` or `handler.cgi.sh`; verify the change record, process lineage, file contents, ownership, and whether the destination is expected and non-executable.
+
+### Response and remediation
+
+- Isolate the affected web server from untrusted networks, restrict administrative access, preserve the suspicious file and relevant logs, and block identified source addresses, hashes, domains, and URLs.
+- Remove the double-extension file and any related web shells, unauthorized accounts, SSH keys, cron jobs, systemd units, startup scripts, modified web-server handlers, and attacker-created files after preserving forensic copies.
+- Rotate exposed application, database, service-account, API, and administrative credentials, revoke active sessions and tokens, and replace potentially compromised TLS or SSH keys.
+- Escalate immediately to incident response if the web server spawned shells, made suspicious outbound connections, accessed credentials, gained elevated privileges, or produced evidence of lateral movement or additional compromised hosts.
+- Rebuild the server from a known-good image or restore verified clean application content and configuration, patch the exploited web application or server component, and validate integrity before returning it to service.
+- Prevent recurrence by enforcing upload allowlists and content validation, storing uploads outside executable web roots, disabling script execution in upload directories, applying least-privilege permissions, and monitoring for similar filenames and web-process child activity.
 """
 risk_score = 73
 rule_id = "5fc7e978-4fa0-47e9-a8e0-bad853c8d09b"

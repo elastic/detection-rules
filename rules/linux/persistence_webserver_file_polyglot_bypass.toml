@@ -18,7 +18,36 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Potential Polyglot Bypass File Created by Web Server"
-note = """
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Polyglot Bypass File Created by Web Server
+
+This rule identifies Linux web server processes creating files with script or executable extensions whose header bytes indicate a different format, which may expose an upload-validation bypass or concealed malicious payload. An attacker could upload a JPEG/PHP polyglot named `avatar.php`, pass image-type validation using valid JPEG header bytes, and later execute appended PHP code as a web shell.
+
+### Possible investigation steps
+
+- Preserve the file and record its path, owner, permissions, timestamps, hash, and web-accessibility before quarantining it for static analysis.
+- Compare the declared extension, detected file type, and full contents to identify appended server-side code, embedded executables, obfuscation, or multiple valid file formats.
+- Correlate the creation time with reverse-proxy, web access, application, authentication, and upload logs to identify the source IP, account, request URI, user agent, and response status.
+- Review related process activity and network connections for execution of the file, shell or interpreter launches, persistence changes, credential access, or outbound command-and-control traffic.
+- Determine whether the application legitimately creates this file type and, if malicious or unexplained, isolate the host, block the artifact and source indicators, remove exposed files, and remediate the upload-validation weakness.
+
+### False positive analysis
+
+- A legitimate upload or media-processing workflow may save an image, document, or RIFF file with a script-like extension because of application naming logic, so verify the originating request, expected application behavior, and absence of appended executable code.
+- A deployment, testing, or packaging process running under a web server account may create a valid ELF or archive-derived artifact with a monitored extension, so confirm the change against authorized deployment records and validate the file hash, contents, path, and owner.
+
+### Response and remediation
+
+- Isolate the affected web server and any systems contacted by the malicious file while preserving the polyglot artifact, relevant logs, and volatile evidence.
+- Quarantine the file, block its hash and associated source addresses, and remove related web shells, dropped payloads, unauthorized accounts, and altered application files.
+- Eliminate persistence from cron jobs, systemd units, startup scripts, SSH `authorized_keys`, web server modules, application plugins, and writable web-root directories.
+- Rebuild the server from a known-good image, restore validated application content and configuration, patch exploited components, and rotate credentials or secrets accessible to the web server account.
+- Escalate immediately to incident response and expand scoping if the file executed, spawned a shell or interpreter, initiated outbound connections, accessed credentials, or enabled lateral movement.
+- Prevent recurrence by validating complete file content rather than extensions or headers, renaming uploads, storing them outside executable web paths, disabling script execution in upload directories, and enforcing least-privilege permissions.
 """
 risk_score = 73
 rule_id = "82f6fa8d-ea35-4329-b334-f1a557dc58c7"
