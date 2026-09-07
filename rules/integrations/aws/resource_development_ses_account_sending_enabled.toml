@@ -7,13 +7,13 @@ updated_date = "2026/08/24"
 [rule]
 author = ["Elastic"]
 description = """
-Detects when account-level email sending is explicitly enabled in Amazon SES via the
-UpdateAccountSendingEnabled API with Enabled: true. SES account-level sending can be
-suspended automatically (for example, when bounce or complaint rates exceed SES thresholds) or
-disabled administratively. An attacker who compromises an AWS account may re-enable sending to
-restore a suppressed SES capability as part of phishing infrastructure setup which enables the
-account to send bulk email under the victim organization's trusted sending domain even after SES
-had suspended it.
+Detects when account-level email sending is explicitly enabled in Amazon SES, via the v1
+UpdateAccountSendingEnabled API with Enabled: true or the v2 PutAccountSendingAttributes API with
+SendingEnabled: true. Account-level sending is commonly paused by an administrator, or by automation
+wired to CloudWatch reputation alarms when bounce or complaint rates rise. An attacker who
+compromises an AWS account may re-enable sending to restore a paused capability as part of phishing
+infrastructure setup, allowing bulk email under the victim organization's trusted sending domain.
+Neither API can resume sending that AWS itself has paused.
 """
 false_positives = [
     """
@@ -31,12 +31,12 @@ note = """## Triage and analysis
 
 ### Investigating AWS SES Account Email Sending Enabled
 
-ses:UpdateAccountSendingEnabled is a privileged SES API that controls whether the entire AWS account can send email from any region. Enabling account-level sending is a one-step action that lifts a sending suspension. In normal operations this API is rarely called, typically only when an account-level suspension has been issued by AWS and the issue has been remediated. An attacker with SES permissions may call this API to restore sending capability that was suspended or to enable sending in a region where it was not previously active.
+ses:UpdateAccountSendingEnabled (v1) and ses:PutAccountSendingAttributes (v2) both control whether the entire AWS account can send email in the current region, and both log under event.provider ses.amazonaws.com, so a caller can reach the same outcome through either API version. Enabling account-level sending is a one-step action that lifts a pause set by an administrator or by CloudWatch-driven automation. Per the v2 documentation neither API can resume sending that AWS has paused, so this is not a path out of an AWS enforcement action. In normal operations these APIs are rarely called. An attacker with SES permissions may call either one to restore paused sending capability, or to enable sending in a region where it was not previously active.
 
 ### Possible investigation steps
 
 - Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Determine whether this is a known SES administrator or an anomalous identity.
-- Verify whether account-level sending was previously disabled (ses:GetAccountSendingEnabled returning false) and cross-reference with prior CloudTrail events for this API.
+- Verify whether account-level sending was previously disabled (ses:GetAccountSendingEnabled in v1, or ses:GetAccount returning SendingEnabled false in v2) and cross-reference prior CloudTrail events for both APIs.
 - Query CloudTrail for co-occurring events from the same identity: IAM privilege escalation (AttachUserPolicy, AttachRolePolicy), SES identity creation (VerifyEmailIdentity, CreateEmailIdentity), or SES template/suppression-list manipulation.
 - Check the account's SES sending statistics for any unusual spike in sent email volume following this event.
 - Determine whether this corresponds to a legitimate remediation of a bounce/complaint rate issue with a change management ticket.
@@ -47,20 +47,20 @@ ses:UpdateAccountSendingEnabled is a privileged SES API that controls whether th
 
 ### Response and remediation
 
-- If unauthorized, disable account-level sending immediately via ses:UpdateAccountSendingEnabled with Enabled: false.
+- If unauthorized, disable account-level sending immediately via ses:UpdateAccountSendingEnabled with Enabled: false, or ses:PutAccountSendingAttributes with SendingEnabled: false.
 - Revoke active sessions for the calling identity.
 - Review SES send statistics for unauthorized email activity during the enabled window.
 - Check all SES email identities and sending authorization policies for unauthorized entries.
 """
 references = [
     "https://docs.aws.amazon.com/ses/latest/APIReference/API_UpdateAccountSendingEnabled.html",
+    "https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_PutAccountSendingAttributes.html",
     "https://permiso.io/blog/s/aws-ses-pionage-detecting-ses-abuse/",
     "https://www.rapid7.com/blog/post/dr-threat-actors-aws-workmail-phishing-campaigns/",
 ]
 risk_score = 47
 rule_id = "e3f4a5b6-c7d8-9012-cdef-34567890abcd"
-setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `ses:UpdateAccountSendingEnabled` is a management-plane API logged by default."
-severity = "medium"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. No additional data event selectors are required — `ses:UpdateAccountSendingEnabled` and `ses:PutAccountSendingAttributes` are management-plane APIs logged by default."severity = "medium"
 tags = [
     "Domain: Cloud",
     "Platform: AWS",
@@ -76,7 +76,7 @@ type = "query"
 query = '''
 data_stream.dataset: "aws.cloudtrail"
     and event.provider: "ses.amazonaws.com"
-    and event.action: "UpdateAccountSendingEnabled"
+    and event.action: ("UpdateAccountSendingEnabled" or "PutAccountSendingAttributes")
     and event.outcome: "success"
     and aws.cloudtrail.request_parameters: *enabled=true*
     and not user_agent.original: (*Terraform* or *terraform* or *Pulumi* or *pulumi* or *Ansible* or "batch.amazonaws.com" or "cloudformation.amazonaws.com")
