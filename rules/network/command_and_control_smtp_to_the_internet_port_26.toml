@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/02/18"
-integration = ["network_traffic", "panw", "pfsense", "zeek", "corelight"]
+integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-pfsense.log-*", "logs-zeek.*", "logs-corelight.*"]
+index = ["logs-network_traffic.*", "logs-panw.panos*", "logs-fortinet_fortigate.log-*", "logs-pfsense.log-*", "logs-zeek.*", "logs-corelight.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMTP to the Internet on Port 26/TCP"
@@ -37,6 +37,7 @@ tags = ["Tactic: Command and Control",
         "Domain: Endpoint",
         "Use Case: Threat Detection",
         "Data Source: Corelight",
+        "Data Source: Fortinet",
         "Data Source: PAN-OS",
         "Data Source: Network Traffic",
         "Data Source: pfSense",
@@ -47,7 +48,7 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-(data_stream.dataset: (network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and
+(data_stream.dataset: (fortinet_fortigate.log or network_traffic.flow or zeek.smtp) or event.category:(network or network_traffic)) and
   network.transport:tcp and destination.port:26 and
   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16) and
   not destination.ip:(10.0.0.0/8

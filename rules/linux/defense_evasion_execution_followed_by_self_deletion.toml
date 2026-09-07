@@ -2,7 +2,7 @@
 creation_date = "2026/08/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/19"
+updated_date = "2026/08/31"
 
 [rule]
 author = ["Elastic"]
@@ -15,6 +15,37 @@ index = ["logs-endpoint.events.process*", "logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Process Execution Followed by Self-Deletion"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Process Execution Followed by Self-Deletion
+
+This rule detects a Linux process launched from a temporary, shared-memory, web, or file-descriptor path whose executable is deleted within 30 seconds, a pattern that can erase evidence and hinder analysis. An attacker may drop a payload in `/dev/shm`, execute it to establish access or run malicious commands, and immediately unlink the file while the process continues running.
+
+### Possible investigation steps
+
+- Reconstruct the process tree and review the command line, user, working directory, execution context, and parent legitimacy to determine whether the activity was expected.
+- If the process remains active, preserve volatile evidence such as its executable through `/proc/<pid>/exe`, memory, open file descriptors, and cryptographic hashes before containment.
+- Correlate nearby child processes, file modifications, persistence changes, DNS requests, and network connections to identify payload behavior and command-and-control activity.
+- Trace how the executable reached the host using file-creation events, download records, shell activity, web-server logs, authentication events, and relevant audit telemetry.
+- Search the environment for the same hash, command line, user, parent process, destination infrastructure, or deletion pattern, then isolate affected hosts and revoke exposed credentials when malicious activity is confirmed.
+
+### False positive analysis
+
+- Legitimate installation, update, or maintenance scripts may execute a temporary helper from `/tmp`, `/var/tmp`, or `/run` and remove it after completion; verify the parent process, package or change records, signer or hash reputation, and timing against approved activity.
+- Administrators or applications may intentionally run short-lived executables from shared memory, web directories, or file descriptors and unlink them immediately; confirm the initiating user, command line, expected application workflow, and absence of suspicious child processes or network activity.
+
+### Response and remediation
+
+- Isolate affected Linux hosts from the network while preserving access for responders, and terminate malicious processes after capturing `/proc/<pid>/exe`, memory, open file descriptors, hashes, and active connections.
+- Remove related payloads and persistence from cron jobs, systemd units, shell profiles, SSH `authorized_keys`, startup scripts, web directories, temporary paths, and shared-memory locations.
+- Revoke or rotate credentials, API keys, SSH keys, and session tokens used by the malicious process or exposed on the host, and block identified hashes, domains, IP addresses, and download sources.
+- Reimage the host or restore it from a verified known-good backup when system integrity cannot be established, then validate packages, configurations, accounts, services, and security tooling before reconnecting it.
+- Escalate to incident response immediately if the same payload or infrastructure appears on multiple hosts, privileged accounts were accessed, persistence is present, or command-and-control or data-exfiltration activity is identified.
+- Prevent recurrence by restricting execution from `/tmp`, `/var/tmp`, `/dev/shm`, and web-writable directories where operationally feasible, correcting unsafe permissions, patching the initial access vector, and deploying detections for related hashes and behaviors.
+"""
 risk_score = 47
 rule_id = "702a2046-ea74-4bdc-b8ea-b185471f64c8"
 setup = """## Setup
@@ -48,7 +79,8 @@ tags = [
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 type = "eql"
 query = '''
