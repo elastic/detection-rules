@@ -37,7 +37,7 @@ Importantly, only the AWS account root user can enable or disable MFA Delete. A 
 ### Possible investigation steps
 
 - Identify the caller from `aws.cloudtrail.user_identity.type`. If this is not a `Root` identity, treat it as high-confidence unauthorized access.
-- Check `aws.cloudtrail.request_parameters` to confirm `mfaDeleteEnabled=false` (Go-map format) or `MfaDelete=Disabled` is present.
+- Check `aws.cloudtrail.request_parameters` to confirm `VersioningConfiguration={... MfaDelete=Disabled}` is present.
 - Review all API calls by the same identity in the surrounding window for other data-destruction or encryption-related actions.
 - Check whether object versioning remains enabled on the affected bucket. If both versioning and MFA Delete are disabled, the bucket has no object-level recovery protection.
 - Investigate whether MFA was presented (`aws.cloudtrail.additional_eventdata` contains MFA information for requests that required it).
