@@ -2,7 +2,7 @@
 creation_date = "2026/07/17"
 integration = ["gcp"]
 maturity = "production"
-updated_date = "2026/07/31"
+updated_date = "2026/08/25"
 
 [rule]
 author = ["Elastic"]
@@ -75,12 +75,17 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
+    "Domain: Containers",
     "Data Source: GCP",
     "Data Source: Google Cloud Platform",
+    "Data Source: GCP Audit Logs",
+    "Platform: GCP",
+    "Platform: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Tactic: Persistence",
     "Resources: Investigation Guide",
+    "Rule Type: ESQL",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -96,7 +101,12 @@ from logs-gcp.audit-* metadata _id, _index, _version
     and not client.user.email in (
       "system:addon-manager",
       "system:apiserver",
-      "system:kube-controller-manager"
+      "system:kube-controller-manager",
+      "system:serviceaccount:flux-system:kustomize-controller",
+      "system:serviceaccount:flux-system:helm-controller",
+      "system:serviceaccount:flux-system:source-controller",
+      "system:serviceaccount:flux-system:flux-operator",
+      "system:serviceaccount:flux-operator:flux-operator"
     )
     and (
       (
