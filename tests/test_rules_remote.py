@@ -16,7 +16,11 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
-from detection_rules.index_mappings import reconcile_flattened_object_conflicts
+from detection_rules.index_mappings import (
+    align_flat_schema_to_flattened_fields,
+    collect_flattened_fields,
+    prepare_mappings,
+)
 from detection_rules.misc import (
     get_default_config,
     getdefault,
@@ -89,77 +93,136 @@ class TestESQLRemoteValidation(unittest.TestCase):
         self.assertIn("9.2.4", prepared_stack_versions)
         self.assertIn("9.3.0", prepared_stack_versions)
 
-    @staticmethod
-    def flattened_conflict_mappings() -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
-        """Integration mapping typing a field as `flattened` alongside schema mappings of its subfields."""
-        authoritative: dict[str, dict[str, object]] = {
+    def test_collect_flattened_fields_keeps_first_source(self):
+        """Known `flattened` fields are collected with the name of the first mapping that declares them."""
+        mappings: dict[str, dict[str, object]] = {
+            "existing-index-template-mappings": {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}},
             "azure-platformlogs": {
                 "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
             },
+            "other-integration": {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}},
         }
-        targets: dict[str, dict[str, object]] = {
-            "rule-non-ecs-index": {
-                "azure": {
-                    "properties": {
-                        "platformlogs": {
-                            "properties": {
-                                "properties": {"properties": {"log": {"properties": {"verb": {"type": "keyword"}}}}}
-                            }
-                        }
-                    }
-                }
+        self.assertEqual(
+            collect_flattened_fields(mappings),
+            {
+                "custom_ns.payload": "existing-index-template-mappings",
+                "azure.platformlogs.properties": "azure-platformlogs",
             },
-            "rule-ecs-index": {"user": {"properties": {"name": {"type": "keyword"}}}},
-        }
-        return authoritative, targets
+        )
 
-    def test_flattened_object_conflict_reconciled(self):
-        """A field typed `flattened` in an integration is mapped as `flattened` in the schema-derived mappings."""
-        authoritative, targets = self.flattened_conflict_mappings()
-        expected_authoritative = deepcopy(authoritative)
-        expected_ecs = deepcopy(targets["rule-ecs-index"])
+    def test_flat_schema_subfields_collapsed_onto_flattened_parent(self):
+        """Entries below a known `flattened` field collapse onto that field instead of nesting as `object`."""
+        flattened_fields = {"azure.platformlogs.properties": "azure-platformlogs"}
+        flat_schema = {
+            "azure.platformlogs.properties.log.verb": "keyword",
+            "azure.platformlogs.properties.id": "keyword",
+            "azure.platformlogs.category": "keyword",
+            "user.name": "keyword",
+        }
         logged: list[str] = []
 
-        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
+        aligned = align_flat_schema_to_flattened_fields(
+            flat_schema, flattened_fields, "rule-non-ecs-index", logged.append
+        )
 
-        expected = {"azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}}
-        self.assertEqual(targets["rule-non-ecs-index"], expected)
-        # Unrelated mappings and the authoritative integration mappings are left alone
-        self.assertEqual(targets["rule-ecs-index"], expected_ecs)
-        self.assertEqual(authoritative, expected_authoritative)
+        self.assertEqual(
+            aligned,
+            {
+                "azure.platformlogs.properties": "flattened",
+                "azure.platformlogs.category": "keyword",
+                "user.name": "keyword",
+            },
+        )
         self.assertEqual(len(logged), 1)
         self.assertIn("`azure.platformlogs.properties`", logged[0])
         self.assertIn("`flattened` in `azure-platformlogs`", logged[0])
         self.assertIn("`object` in `rule-non-ecs-index`", logged[0])
 
-    def test_flattened_conflict_between_authoritative_mappings_not_reconciled(self):
-        """A `flattened` vs `object` conflict between two real data sources is not masked."""
-        authoritative, targets = self.flattened_conflict_mappings()
-        authoritative["other-integration"] = deepcopy(targets["rule-non-ecs-index"])
-        expected_authoritative = deepcopy(authoritative)
-        logged: list[str] = []
-
-        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
-
-        self.assertEqual(authoritative, expected_authoritative)
-        self.assertNotIn("other-integration", "".join(logged))
-
-    def test_flattened_scalar_conflict_reconciled(self):
-        """A field typed `flattened` in an integration overrides a scalar type in the schema-derived mappings."""
-        authoritative, _ = self.flattened_conflict_mappings()
-        targets: dict[str, dict[str, object]] = {
-            "custom logs-azure.platformlogs-*": {
-                "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "keyword"}}}}}
-            }
+    def test_flat_schema_scalar_conflict_collapsed_onto_flattened_field(self):
+        """An entry typed differently from a known `flattened` field is retyped as `flattened`."""
+        flattened_fields = {"azure.platformlogs.properties": "azure-platformlogs"}
+        flat_schema = {
+            "azure.platformlogs.properties": "keyword",
+            "azure.platformlogs.properties.log.verb": "keyword",
         }
         logged: list[str] = []
 
-        reconcile_flattened_object_conflicts(authoritative, targets, logged.append)
+        aligned = align_flat_schema_to_flattened_fields(
+            flat_schema, flattened_fields, "custom logs-azure.platformlogs-*", logged.append
+        )
 
-        expected = {"azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}}
-        self.assertEqual(targets["custom logs-azure.platformlogs-*"], expected)
+        self.assertEqual(aligned, {"azure.platformlogs.properties": "flattened"})
         self.assertEqual(len(logged), 1)
         self.assertIn("`keyword` in `custom logs-azure.platformlogs-*`", logged[0])
+
+    def test_flat_schema_unchanged_without_conflicts(self):
+        """Schemas that already agree with the known `flattened` fields, or have none, are left as they are."""
+        flat_schema = {"azure.platformlogs.properties": "flattened", "user.name": "keyword"}
+        logged: list[str] = []
+
+        self.assertEqual(align_flat_schema_to_flattened_fields(flat_schema, {}, "x", logged.append), flat_schema)
+        self.assertEqual(
+            align_flat_schema_to_flattened_fields(
+                flat_schema, {"azure.platformlogs.properties": "azure-platformlogs"}, "x", logged.append
+            ),
+            flat_schema,
+        )
+        self.assertEqual(logged, [])
+
+    def test_prepare_mappings_aligns_schema_mappings_with_flattened_fields(self):
+        """`prepare_mappings` collapses non-ecs and custom subfields onto `flattened` fields from both real sources.
+
+        This pins the ordering inside `prepare_mappings`: the integration and existing index template mappings
+        must be loaded before the schema-derived mappings are converted, otherwise the known `flattened` fields
+        are empty at conversion time and the ambiguous mapping error from #6724 silently returns.
+        """
+        index = "logs-azure.platformlogs-*"
+        # `flattened` in the existing index template mappings only
+        existing_mappings: dict[str, object] = {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}}
+        # `flattened` in the integration mappings only
+        integration_mapping: dict[str, object] = {
+            "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
+        }
+        non_ecs_schema = {index: {"azure": {"platformlogs": {"properties": {"log": {"verb": "keyword"}}}}}}
+        custom_schema = {index: {"custom_ns": {"payload": {"key": "keyword"}}}}
+        logged: list[str] = []
+
+        with (
+            unittest.mock.patch(
+                "detection_rules.index_mappings.get_existing_mappings",
+                return_value=(existing_mappings, {index: deepcopy(existing_mappings)}),
+            ),
+            unittest.mock.patch("detection_rules.index_mappings.get_rule_integrations", return_value=["azure"]),
+            unittest.mock.patch("detection_rules.index_mappings.load_integrations_manifests", return_value={}),
+            unittest.mock.patch("detection_rules.index_mappings.load_integrations_schemas", return_value={}),
+            unittest.mock.patch(
+                "detection_rules.index_mappings.prepare_integration_mappings",
+                return_value=(deepcopy(integration_mapping), {"azure-platformlogs": integration_mapping}),
+            ),
+            unittest.mock.patch("detection_rules.ecs.get_non_ecs_schema", return_value=non_ecs_schema),
+            unittest.mock.patch("detection_rules.ecs.get_custom_schemas", return_value=custom_schema),
+        ):
+            _, index_lookup, combined_mappings = prepare_mappings(
+                elastic_client=object(),  # type: ignore[reportArgumentType]
+                indices=[index],
+                event_dataset_integrations=[],
+                metadata=SimpleNamespace(),  # type: ignore[reportArgumentType]
+                stack_version="9.3.0",
+                log=logged.append,
+            )
+
+        # non-ecs subfields collapsed onto the integration's `flattened` field
+        self.assertEqual(
+            index_lookup["rule-non-ecs-index"]["azure"]["properties"]["platformlogs"]["properties"]["properties"],
+            {"type": "flattened"},
+        )
+        # custom subfields collapsed onto the existing index template's `flattened` field
+        self.assertEqual(combined_mappings["custom_ns"]["properties"]["payload"], {"type": "flattened"})
+        warnings = [line for line in logged if "Mapping it as `flattened`" in line]
+        self.assertEqual(len(warnings), 3)
+        self.assertTrue(any("`azure.platformlogs.properties`" in w and "`non-ecs logs-azure" in w for w in warnings))
+        self.assertTrue(any("`azure.platformlogs.properties`" in w and "`rule-non-ecs-index`" in w for w in warnings))
+        self.assertTrue(any("`custom_ns.payload`" in w and "`existing-index-template-mappings`" in w for w in warnings))
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
