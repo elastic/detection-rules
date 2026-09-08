@@ -26,6 +26,7 @@ from detection_rules.integrations import (
     resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
+from detection_rules.utils import clear_caches
 
 
 def _manifest(kibana_version: str) -> dict:
@@ -151,6 +152,13 @@ class TestSatisfiesKibanaRange(unittest.TestCase):
 class TestFindLatestCompatibleVersion(unittest.TestCase):
     """Regression + behavior coverage for ``find_latest_compatible_version``."""
 
+    def setUp(self):
+        # The integration schema helpers memoize on (package, integration, stack version) and load
+        # the bundled manifests/schemas internally, so results resolved against a patched loader
+        # must not leak into other tests (or the real data) through the cache.
+        clear_caches()
+        self.addCleanup(clear_caches)
+
     def test_picks_latest_compatible_on_same_major(self):
         """Returns the newest manifest whose range admits the stack, with a notice for any skipped newer manifest."""
         manifests = {
@@ -270,8 +278,8 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
 
         with (
             unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
-            unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
             unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
         ):
             required_fields = validator.get_required_fields([])
 
