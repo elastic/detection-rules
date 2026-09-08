@@ -4,17 +4,23 @@
 # 2.0.
 
 import unittest
+from collections import Counter
 from typing import Any, ClassVar
+from unittest import mock
 
 import eql
 from marshmallow import ValidationError
 
 from detection_rules.beats import parse_beats_from_index
+from detection_rules.integrations import get_integration_schema_data, load_integrations_manifests
+from detection_rules.rule import RuleMeta, TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.rule_validators import (
+    ValidationTarget,
     group_integration_schemas_by_stack,
     group_stack_versions_by_schema,
 )
+from detection_rules.schemas import get_stack_schemas, load_stack_schema_map
 
 from .base import BaseRuleTest
 
@@ -612,3 +618,146 @@ class TestValidationPlanHasNoDuplicateTargets(BaseRuleTest):
             checked += 1
 
         self.assertGreater(checked, 0, "expected at least one sequence rule with beats indices")
+
+
+def _target_fields(target: ValidationTarget) -> dict[str, Any]:
+    schema: Any = target.schema
+    return schema if isinstance(schema, dict) else getattr(schema, "kql_schema", None) or schema.endgame_schema
+
+
+def _target_identity(target: ValidationTarget) -> tuple[Any, ...]:
+    """What a target validates, minus the schema contents."""
+    return (
+        target.kind,
+        target.query_text,
+        type(target.schema).__name__,
+        tuple(target.beat_types or ()),
+        tuple(target.integration_types or ()),
+    )
+
+
+def _target_signature(target: ValidationTarget) -> tuple[Any, ...]:
+    """Everything that determines how a target validates: its identity plus the full field map."""
+    return (*_target_identity(target), tuple(sorted(_target_fields(target).items())))
+
+
+def _describe_schema_mismatch(alone: list[ValidationTarget], grouped: list[ValidationTarget]) -> str:
+    """Explain how the single-stack targets differ from the grouped targets covering that stack."""
+    by_identity_alone = {_target_identity(t): t for t in alone}
+    by_identity_grouped = {_target_identity(t): t for t in grouped}
+    lines: list[str] = []
+    for identity in set(by_identity_alone) ^ set(by_identity_grouped):
+        side = "only when planned alone" if identity in by_identity_alone else "only in the grouped plan"
+        lines.append(f"target {identity[0]}/{identity[2]} present {side}")
+    for identity in set(by_identity_alone) & set(by_identity_grouped):
+        alone_fields = _target_fields(by_identity_alone[identity])
+        grouped_fields = _target_fields(by_identity_grouped[identity])
+        differing = sorted(
+            f for f in set(alone_fields) | set(grouped_fields) if alone_fields.get(f) != grouped_fields.get(f)
+        )
+        if differing:
+            shown = ", ".join(differing[:10]) + (" ..." if len(differing) > 10 else "")
+            lines.append(f"target {identity[0]}/{identity[2]}: {len(differing)} field(s) differ: {shown}")
+    return "; ".join(lines) or "duplicate targets differ in count"
+
+
+class TestValidationPlanGroupingIsLossless(BaseRuleTest):
+    """Grouping stack versions must never change what a stack version is validated against.
+
+    The grouping keys (stack-schema-map values, resolved package versions) are only correct while they capture every
+    stack-dependent input to schema assembly. Rather than trust the key, rebuild each sampled rule's plan one stack
+    version at a time through the real code path and check that every single-stack schema is exactly the grouped
+    schema that claims to cover that stack version. A new stack-dependent input that is missing from the key fails
+    here instead of silently under-validating.
+    """
+
+    SAMPLE_PER_SHAPE = 3
+
+    def _sample_rules(self) -> list[Any]:
+        shapes: dict[str, Any] = {
+            "kql with integrations": lambda d, m: d.language == "kuery" and bool(m.get("integration")),
+            "kql stack only": lambda d, m: d.language == "kuery" and not m.get("integration"),
+            "eql endgame": lambda d, _: d.language == "eql" and "endgame-*" in (d.index_or_dataview or []),
+            "eql sequence with beats": lambda d, _: (
+                d.language == "eql"
+                and getattr(d, "is_sequence", False)
+                and bool(parse_beats_from_index(d.index_or_dataview or []))
+            ),
+            "eql sequence without beats": lambda d, _: (
+                d.language == "eql"
+                and getattr(d, "is_sequence", False)
+                and not parse_beats_from_index(d.index_or_dataview or [])
+            ),
+        }
+        sampled: list[Any] = []
+        for predicate in shapes.values():
+            matches = [
+                r
+                for r in self.all_rules
+                if getattr(r.contents.data, "language", None) in ("kuery", "eql")
+                and r.contents.metadata.query_schema_validation is not False
+                and predicate(r.contents.data, r.contents.metadata)
+            ]
+            sampled.extend(matches[: self.SAMPLE_PER_SHAPE])
+        return sampled
+
+    def test_each_stack_version_validates_against_the_same_schema_as_when_planned_alone(self):
+        sampled = self._sample_rules()
+        self.assertGreater(len(sampled), 0)
+
+        for rule in sampled:
+            data, meta = rule.contents.data, rule.contents.metadata
+            grouped = data.validator.build_validation_plan(data, meta)
+            for target in grouped:
+                self.assertTrue(target.stack_versions, f"{rule.id}: target has no stack versions: {target.err_trailer}")
+
+            for stack_version, mapping in get_stack_schemas(meta.min_stack_version).items():
+                with mock.patch.object(
+                    RuleMeta, "get_validation_stack_versions", return_value={stack_version: mapping}
+                ):
+                    alone = data.validator.build_validation_plan(data, meta)
+
+                covering = [t for t in grouped if stack_version in (t.stack_versions or [])]
+                if Counter(map(_target_signature, alone)) != Counter(map(_target_signature, covering)):
+                    self.fail(
+                        f"{rule.id}: stack {stack_version} is validated differently when grouped with other stacks: "
+                        f"{_describe_schema_mismatch(alone, covering)}"
+                    )
+
+
+class TestGroupingKeyCoversResolutionInputs(BaseRuleTest):
+    """Tripwires for the inputs the grouping keys are built from.
+
+    If either of these fails, a new stack-dependent input has appeared. Decide whether it changes the schema and, if
+    so, add it to `integration_resolution_key` or `group_stack_versions_by_schema` and extend the lossless test above.
+    """
+
+    def test_integration_schema_records_have_only_known_fields(self):
+        known = {
+            "schema",
+            "package",
+            "integration",
+            "stack_version",
+            "ecs_version",
+            "package_version",
+            "endgame_version",
+        }
+        manifests = load_integrations_manifests()
+        for rule in self.all_rules:
+            data, meta = rule.contents.data, rule.contents.metadata
+            if getattr(data, "language", None) not in ("kuery", "eql"):
+                continue
+            packaged = TOMLRuleContents.get_packaged_integrations(data, meta, manifests)
+            if not packaged:
+                continue
+            record = next(get_integration_schema_data(data, meta, packaged), None)
+            self.assertIsNotNone(record)
+            self.assertEqual(set(record), known, "new field on integration schema data; is it part of the schema key?")  # type: ignore[reportArgumentType]
+            return
+        self.fail("expected at least one rule with packaged integrations")
+
+    def test_stack_schema_map_entries_have_only_known_schemas(self):
+        for stack_version, mapping in load_stack_schema_map().items():
+            self.assertEqual(
+                set(mapping), {"beats", "ecs", "endgame"}, f"{stack_version}: new schema source in stack-schema-map"
+            )

@@ -75,6 +75,8 @@ class ValidationTarget:
     # Optional context about schema selection
     beat_types: list[str] | None = None
     integration_types: list[str] | None = None
+    # Stack versions this target validates on behalf of; equal-schema stack versions share one target
+    stack_versions: list[str] | None = None
 
 
 def group_stack_versions_by_schema(
@@ -276,6 +278,7 @@ class KQLValidator(QueryValidator):
                         min_stack_version=str(meta.min_stack_version or load_current_package_version()),
                         beat_types=None,
                         integration_types=sorted(group.packages),
+                        stack_versions=list(group.stack_versions),
                         kind="integration",
                     )
                 )
@@ -304,6 +307,7 @@ class KQLValidator(QueryValidator):
                         min_stack_version=str(meta.min_stack_version or load_current_package_version()),
                         beat_types=beat_types,
                         integration_types=None,
+                        stack_versions=list(stacks),
                         kind="stack",
                     )
                 )
@@ -485,6 +489,7 @@ class EQLValidator(QueryValidator):
                         min_stack_version=min_stack_str,
                         beat_types=None,
                         integration_types=sorted(group.packages),
+                        stack_versions=list(group.stack_versions),
                         kind="integration",
                     )
                 )
@@ -509,6 +514,7 @@ class EQLValidator(QueryValidator):
                         min_stack_version=min_stack_str,
                         beat_types=beat_types,
                         integration_types=None,
+                        stack_versions=list(stacks),
                         kind="stack",
                     )
                 )
@@ -529,6 +535,7 @@ class EQLValidator(QueryValidator):
                                 min_stack_version=min_stack_str,
                                 beat_types=None,
                                 integration_types=None,
+                                stack_versions=list(stacks),
                                 kind="stack",
                             )
                         )
@@ -574,6 +581,7 @@ class EQLValidator(QueryValidator):
                                 min_stack_version=min_stack_str,
                                 beat_types=None,
                                 integration_types=[package],
+                                stack_versions=list(stacks),
                                 kind="integration",
                             )
                         )
