@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when curl or nscurl is spawned by a shell or osascript to make a JSON-RPC request to a blockchain
+endpoint for command and control purposes. Adversaries may leverage blockchain smart contracts as a covert
+C2 channel to retrieve commands or payload staging information, as observed in ClickFix campaigns.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential EtherHiding C2 via Curl JSON-RPC Request"
+references = [
+    "https://notes.netbytesec.com/2026/08/anatomy-of-macos-clickfix-crimekit-that.html",
+    "https://cloud.google.com/blog/topics/threat-intelligence/etherhiding-blockchain-to-host-malware",
+]
+risk_score = 73
+rule_id = "54285d96-2b7c-4345-890e-3c40e173f099"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "macos" and event.type == "start" and event.action == "exec" and
+  process.name in ("curl", "nscurl") and
+  process.parent.name in ("osascript", "bash", "sh", "zsh") and
+  process.command_line like~ ("*eth_call*", "*\"jsonrpc\"*")
+'''
+
+note = """## Triage and analysis
+
+### Investigating Potential EtherHiding C2 via Curl JSON-RPC Request
+
+EtherHiding is a command and control technique in which threat actors store malicious configuration, commands,
+or payload URLs inside smart contract data on public blockchains. Because the blockchain is immutable and the
+RPC endpoints are legitimate public infrastructure, this provides a takedown-resistant C2 channel. On macOS,
+ClickFix-delivered loaders have been observed reading contract data by spawning curl from a shell or osascript
+with a raw JSON-RPC eth_call request body.
+
+### Possible investigation steps
+
+- Review process.command_line to identify the destination RPC endpoint, the contract address in the eth_call
+  parameters, and the method selector.
+- Examine the parent process chain (process.parent.command_line, effective parent) to determine how the shell
+  or osascript was launched — interactive terminal, LaunchAgent, or another persistence mechanism.
+- Search the same host for follow-on network connections shortly after this event; EtherHiding reads are
+  typically followed by a connection to the decoded C2 host.
+- Check for recent LaunchAgent or LaunchDaemon plist creation on the host, which commonly accompanies this
+  activity as persistence.
+- Search the contract address against threat intelligence sources to identify the associated campaign.
+- Pivot fleet-wide on the destination RPC domain and any decoded C2 domains to identify additional hosts.
+
+### False positive analysis
+
+- Web3 developers may test contract calls with curl against RPC endpoints. Verify whether the user has a
+  legitimate blockchain development role and whether the parent context (terminal session vs. persistence
+  item) matches interactive development work.
+- CI or build scripts that query chain state via curl could match. Confirm with the owning team and consider
+  excluding specific parent scripts or hosts.
+
+### Response and remediation
+
+- Isolate the affected host to interrupt the C2 channel.
+- Terminate the parent shell or osascript process tree.
+- Identify and remove any associated persistence (LaunchAgents/LaunchDaemons) and decoded payloads.
+- Block decoded C2 domains identified from the contract data; note that blocking public RPC aggregators may
+  impact legitimate use and should be a risk-based decision.
+- Rotate credentials accessible from the host and review for evidence of data theft.
+- Escalate for full incident response if the activity chains from a ClickFix or social engineering delivery.
+"""
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1102"
+name = "Web Service"
+reference = "https://attack.mitre.org/techniques/T1102/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.001"
+name = "Dead Drop Resolver"
+reference = "https://attack.mitre.org/techniques/T1102/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1102.002"
+name = "Bidirectional Communication"
+reference = "https://attack.mitre.org/techniques/T1102/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
