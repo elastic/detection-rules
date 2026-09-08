@@ -276,6 +276,7 @@ EXPECTED_RULE_TAGS = [
     "Service: AWS STS",
     "Service: AWS Secrets Manager",
     "Service: AWS WAF",
+    "Service: AWS Security Hub",
     "Service: Apache HTTP Server",
     "Service: Apache Tomcat",
     "Service: Azure Event Hubs",
