@@ -12,7 +12,7 @@ from typing import Any
 
 from detection_rules.ecs import get_kql_schema
 from detection_rules.eswrap import Events
-from detection_rules.utils import cached, cached_method, clear_caches, clear_method_cache, normalize_timing_and_sort
+from detection_rules.utils import cached, cached_method, clear_caches, normalize_timing_and_sort
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -131,9 +131,4 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(first.compute(), 3)
         self.assertEqual(first.compute(["hello", "world"]), 4)
         self.assertEqual(first.compute(), 3)
-        self.assertEqual(second.compute(), 2)
-
-        # per-instance flush leaves other instances alone
-        clear_method_cache(first)
-        self.assertEqual(first.compute(), 5)
         self.assertEqual(second.compute(), 2)

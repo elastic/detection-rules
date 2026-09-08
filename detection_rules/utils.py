@@ -360,27 +360,24 @@ def clear_caches() -> None:
     _cache_generation += 1
 
 
-METHOD_CACHE_ATTR = "_method_cache"
-
-
 def cached_method(f: Callable[..., Any]) -> Callable[..., Any]:
     """Helper function to memoize a method's result on the instance it is called on."""
     # unlike `cached`, `self` is not part of the cache key, so no `astuple()` deep copy of the
     # instance is needed to look a result up - only use this where the result is fully determined by
     # an immutable instance plus the call arguments
-    name = f.__qualname__
+    attr = f"_cached_{f.__qualname__}"
 
     @functools.wraps(f)
     def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
         # frozen dataclasses block __setattr__, but their __dict__ is still writable
-        store: tuple[int, dict[tuple[Any, ...], Any]] | None = self.__dict__.get(METHOD_CACHE_ATTR)
+        store: tuple[int, dict[tuple[Any, ...], Any]] | None = self.__dict__.get(attr)
         if store is None or store[0] != _cache_generation:
             # first use, or clear_caches() ran since this instance last memoized: start over so
             # derived results (schemas, hashes) reload like the module-level `cached` ones do
             store = (_cache_generation, {})
-            self.__dict__[METHOD_CACHE_ATTR] = store
+            self.__dict__[attr] = store
         cache = store[1]
-        cache_key = (name, freeze(args), freeze(kwargs))
+        cache_key = (freeze(args), freeze(kwargs))
 
         if cache_key not in cache:
             cache[cache_key] = f(self, *args, **kwargs)
@@ -388,11 +385,6 @@ def cached_method(f: Callable[..., Any]) -> Callable[..., Any]:
         return cache[cache_key]
 
     return wrapped
-
-
-def clear_method_cache(obj: Any) -> None:
-    """Drop every `cached_method` result memoized on an instance."""
-    _ = obj.__dict__.pop(METHOD_CACHE_ATTR, None)
 
 
 def rulename_to_filename(name: str, tactic_name: str | None = None, ext: str = ".toml") -> str:

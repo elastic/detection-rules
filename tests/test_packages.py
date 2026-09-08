@@ -22,7 +22,7 @@ from detection_rules.packaging import (
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import definitions
 from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
-from detection_rules.utils import clear_method_cache
+from detection_rules.utils import clear_caches
 from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
@@ -114,8 +114,8 @@ class TestPackages(BaseRuleTest):
 
         # hashes are memoized per rule, so re-hash a sample from scratch to confirm the underlying
         # rule contents - not just the cached hash - are unchanged
+        clear_caches()
         for rule in list(package.rules)[:UNCACHED_HASH_SAMPLE]:
-            clear_method_cache(rule.contents)
             self.assertEqual(
                 self.pre_package_hashes[rule.id],
                 rule.contents.get_hash(),
