@@ -543,8 +543,8 @@ def get_integration_schema_fields(
     ecs_version: str | None,
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
-    data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     """Extracts the integration fields to schema based on the bundled package integrations."""
+    data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     # Resolves against the bundled integration-manifests / integration-schemas / ECS schemas via
     # memoized helpers keyed on hashable args. `ecs_version=None` skips the ECS merge. The
     # returned schema is memoized and shared, so callers must treat it as read-only.
