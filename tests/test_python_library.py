@@ -4,17 +4,16 @@
 # 2.0.
 
 import unittest
-from typing import Any
+from typing import Any, ClassVar
 
 import eql
 from marshmallow import ValidationError
 
-from detection_rules import ecs, endgame
+from detection_rules.beats import parse_beats_from_index
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.rule_validators import (
-    DUPLICATE_TRAILER_HEADER,
-    ValidationTarget,
-    deduplicate_validation_targets,
+    group_integration_schemas_by_stack,
+    group_stack_versions_by_schema,
 )
 
 from .base import BaseRuleTest
@@ -508,109 +507,108 @@ class TestAlertSuppressionValidation(BaseRuleTest):
             _ = rc.load_dict(rule_dict)
 
 
-class TestValidationTargetDeduplication(unittest.TestCase):
-    """Test deduplication of validation targets that perform identical validation work."""
+class TestValidationTargetGrouping(unittest.TestCase):
+    """Test grouping of stack versions that resolve to identical validation schemas."""
+
+    STACK_MAP: ClassVar[dict[str, dict[str, str]]] = {
+        "9.6.0": {"beats": "9.5.0", "ecs": "9.5.0", "endgame": "8.4.0"},
+        "9.5.0": {"beats": "9.5.0", "ecs": "9.5.0", "endgame": "8.4.0"},
+        "9.4.0": {"beats": "9.4.4", "ecs": "9.4.0", "endgame": "8.4.0"},
+        "8.19.0": {"beats": "8.18.3", "ecs": "8.17.0", "endgame": "8.4.0"},
+    }
+
+    def test_stack_versions_group_on_beats_and_ecs(self):
+        groups = group_stack_versions_by_schema(self.STACK_MAP, "beats", "ecs")
+
+        self.assertEqual(
+            groups,
+            {
+                ("9.5.0", "9.5.0"): ["9.6.0", "9.5.0"],
+                ("9.4.4", "9.4.0"): ["9.4.0"],
+                ("8.18.3", "8.17.0"): ["8.19.0"],
+            },
+        )
+        # first-seen order is preserved so the newest stack version reports first
+        self.assertEqual(list(groups), [("9.5.0", "9.5.0"), ("9.4.4", "9.4.0"), ("8.18.3", "8.17.0")])
+
+    def test_stack_versions_group_on_endgame_alone(self):
+        groups = group_stack_versions_by_schema(self.STACK_MAP, "endgame")
+
+        self.assertEqual(groups, {("8.4.0",): ["9.6.0", "9.5.0", "9.4.0", "8.19.0"]})
 
     @staticmethod
-    def mk_target(schema: Any, err_trailer: str, **overrides: Any) -> ValidationTarget:
-        kwargs: dict[str, Any] = {
-            "query_text": "process where true",
+    def mk_integ(stack: str, ecs_version: str, package: str, package_version: str, schema: dict[str, str]) -> dict:
+        return {
             "schema": schema,
-            "err_trailer": err_trailer,
-            "min_stack_version": "8.3.0",
-            "kind": "stack",
+            "package": package,
+            "integration": None,
+            "stack_version": stack,
+            "ecs_version": ecs_version,
+            "package_version": package_version,
+            "endgame_version": "8.4.0",
         }
-        kwargs.update(overrides)
-        return ValidationTarget(**kwargs)
 
-    def test_equal_dict_schemas_merge_into_first_target(self):
-        schema = {"process.name": "keyword", "host.os.type": "keyword"}
-        targets = [
-            self.mk_target(dict(schema), "stack: 9.4.0, ecs: 9.4.0\nrule: Test - abc"),
-            self.mk_target(dict(schema), "stack: 9.5.0, ecs: 9.4.0\nrule: Test - abc"),
-            self.mk_target(dict(schema), "stack: 9.6.0, ecs: 9.4.0\nrule: Test - abc"),
+    def test_integration_schemas_merge_stacks_with_identical_resolutions(self):
+        integrations = [
+            self.mk_integ("9.6.0", "9.5.0", "endpoint", "9.5.0", {"process.name": "keyword"}),
+            self.mk_integ("9.6.0", "9.5.0", "windows", "3.0.0", {"winlog.channel": "keyword"}),
+            self.mk_integ("9.5.0", "9.5.0", "endpoint", "9.5.0", {"process.name": "keyword"}),
+            self.mk_integ("9.5.0", "9.5.0", "windows", "3.0.0", {"winlog.channel": "keyword"}),
+            self.mk_integ("9.4.0", "9.4.0", "endpoint", "9.4.0", {"process.name": "keyword"}),
+            self.mk_integ("9.4.0", "9.4.0", "windows", "3.0.0", {"winlog.channel": "keyword"}),
         ]
 
-        result = deduplicate_validation_targets(targets)
+        groups = group_integration_schemas_by_stack(integrations, lambda schema, _: dict(schema, prepared="keyword"))
 
-        self.assertEqual(len(result), 1)
-        merged = result[0]
-        self.assertIs(merged.schema, targets[0].schema)
-        self.assertTrue(merged.err_trailer.startswith(targets[0].err_trailer))
-        self.assertIn(DUPLICATE_TRAILER_HEADER, merged.err_trailer)
-        self.assertIn("stack: 9.5.0, ecs: 9.4.0", merged.err_trailer)
-        self.assertIn("stack: 9.6.0, ecs: 9.4.0", merged.err_trailer)
-        # shared lines are not repeated
-        self.assertEqual(merged.err_trailer.count("rule: Test - abc"), 1)
+        self.assertEqual(len(groups), 2)
+        merged, single = groups
+        self.assertEqual(merged.stack_versions, ["9.6.0", "9.5.0"])
+        self.assertEqual(merged.ecs_version, "9.5.0")
+        self.assertEqual(merged.packages, {"endpoint", "windows"})
+        # union of every package schema, after preparation
+        self.assertEqual(merged.schema, {"process.name": "keyword", "winlog.channel": "keyword", "prepared": "keyword"})
+        self.assertEqual(single.stack_versions, ["9.4.0"])
+        self.assertEqual(single.ecs_version, "9.4.0")
 
-    def test_different_schema_contents_do_not_merge(self):
-        targets = [
-            self.mk_target({"process.name": "keyword"}, "stack: 9.3.0"),
-            self.mk_target({"process.name": "keyword", "user.name": "keyword"}, "stack: 9.4.0"),
+    def test_integration_schemas_split_when_one_package_version_differs(self):
+        integrations = [
+            self.mk_integ("9.6.0", "9.5.0", "endpoint", "9.6.0", {"process.name": "keyword"}),
+            self.mk_integ("9.6.0", "9.5.0", "windows", "3.0.0", {"winlog.channel": "keyword"}),
+            self.mk_integ("9.5.0", "9.5.0", "endpoint", "9.5.0", {"process.name": "keyword"}),
+            self.mk_integ("9.5.0", "9.5.0", "windows", "3.0.0", {"winlog.channel": "keyword"}),
         ]
 
-        result = deduplicate_validation_targets(targets)
+        groups = group_integration_schemas_by_stack(integrations, lambda schema, _: schema)
 
-        self.assertEqual(len(result), 2)
-        self.assertEqual([t.err_trailer for t in result], ["stack: 9.3.0", "stack: 9.4.0"])
+        self.assertEqual([g.stack_versions for g in groups], [["9.6.0"], ["9.5.0"]])
 
-    def test_wrapped_schemas_merge_on_contents(self):
-        kql_schema = {"process.name": "keyword"}
-        targets = [
-            self.mk_target(ecs.KqlSchema2Eql(dict(kql_schema)), "stack: 9.4.0"),
-            self.mk_target(ecs.KqlSchema2Eql(dict(kql_schema)), "stack: 9.5.0"),
-        ]
+    def test_integration_schemas_do_not_mutate_inputs(self):
+        base = {"process.name": "keyword"}
+        integrations = [self.mk_integ("9.6.0", "9.5.0", "endpoint", "9.5.0", base)]
 
-        result = deduplicate_validation_targets(targets)
+        groups = group_integration_schemas_by_stack(integrations, lambda schema, _: dict(schema, extra="keyword"))
 
-        self.assertEqual(len(result), 1)
-        self.assertIn("stack: 9.5.0", result[0].err_trailer)
+        self.assertEqual(base, {"process.name": "keyword"})
+        self.assertEqual(groups[0].schema, {"process.name": "keyword", "extra": "keyword"})
 
-    def test_schema_class_mismatch_does_not_merge(self):
-        fields = {"process.name": "keyword"}
-        targets = [
-            self.mk_target(ecs.KqlSchema2Eql(dict(fields)), "stack: 9.4.0"),
-            self.mk_target(endgame.EndgameSchema(dict(fields)), "stack: 9.4.0"),
-        ]
 
-        result = deduplicate_validation_targets(targets)
+class TestValidationPlanHasNoDuplicateTargets(BaseRuleTest):
+    """Every validation target in a rule's plan should perform distinct work."""
 
-        self.assertEqual(len(result), 2)
+    def test_sequence_rules_with_beats_indices_emit_each_stack_target_once(self):
+        checked = 0
+        for rule in self.all_rules:
+            data, meta = rule.contents.data, rule.contents.metadata
+            if getattr(data, "language", None) != "eql" or not getattr(data, "is_sequence", False):
+                continue
+            if not parse_beats_from_index(data.index_or_dataview or []):
+                continue
+            if meta.query_schema_validation is False:
+                continue
 
-    def test_kind_and_query_text_isolate_targets(self):
-        schema = {"process.name": "keyword"}
-        targets = [
-            self.mk_target(dict(schema), "stack: 9.4.0"),
-            self.mk_target(dict(schema), "stack: 9.4.0", kind="integration"),
-            self.mk_target(dict(schema), "stack: 9.4.0", query_text="network where true"),
-        ]
+            targets = data.validator.build_validation_plan(data, meta)
+            seen = {(t.query_text, t.kind, type(t.schema).__name__, t.err_trailer) for t in targets}
+            self.assertEqual(len(seen), len(targets), f"{rule.id} emits duplicate validation targets")
+            checked += 1
 
-        result = deduplicate_validation_targets(targets)
-
-        self.assertEqual(len(result), 3)
-
-    def test_identical_targets_collapse_without_trailer_header(self):
-        schema = {"process.name": "keyword"}
-        trailer = "stack: 9.4.0\nrule: Test - abc"
-        targets = [self.mk_target(dict(schema), trailer), self.mk_target(dict(schema), trailer)]
-
-        result = deduplicate_validation_targets(targets)
-
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].err_trailer, trailer)
-
-    def test_first_appearance_order_is_preserved(self):
-        schema_a = {"process.name": "keyword"}
-        schema_b = {"user.name": "keyword"}
-        targets = [
-            self.mk_target(dict(schema_a), "a: first"),
-            self.mk_target(dict(schema_b), "b: first"),
-            self.mk_target(dict(schema_a), "a: second"),
-            self.mk_target(dict(schema_b), "b: second"),
-        ]
-
-        result = deduplicate_validation_targets(targets)
-
-        self.assertEqual(len(result), 2)
-        self.assertTrue(result[0].err_trailer.startswith("a: first"))
-        self.assertTrue(result[1].err_trailer.startswith("b: first"))
+        self.assertGreater(checked, 0, "expected at least one sequence rule with beats indices")
