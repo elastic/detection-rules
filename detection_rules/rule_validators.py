@@ -82,11 +82,9 @@ class ValidationTarget:
 def group_stack_versions_by_schema(
     stack_versions: dict[str, dict[str, Any]], *schema_keys: str
 ) -> dict[tuple[Any, ...], list[str]]:
-    """Group stack versions whose stack-schema-map entries agree on the given schema keys.
-
-    Several stack versions map to the same beats/ecs/endgame schema versions, so validating each of them separately
-    repeats identical work. Groups preserve first-seen order and list every stack version they cover.
-    """
+    """Group stack versions whose stack-schema-map entries agree on the given schema keys."""
+    # Several stack versions map to the same schema versions, so validating each separately repeats identical work.
+    # Groups preserve first-seen order so the newest stack version reports first.
     grouped: dict[tuple[Any, ...], list[str]] = {}
     for stack_version, mapping in stack_versions.items():
         grouped.setdefault(tuple(mapping[key] for key in schema_keys), []).append(stack_version)
@@ -126,11 +124,9 @@ def group_integration_schemas_by_stack(
     integrations: Iterable[dict[str, Any]],
     prepare_schema: Callable[[dict[str, Any], str], dict[str, Any]],
 ) -> list[IntegrationSchemaGroup]:
-    """Union integration schemas per stack version, then merge stack versions with identical resolutions.
-
-    A stack version's combined schema is determined by the ECS version and the package versions it resolves to, so
-    stack versions that share those resolve to identical schemas and only need to be validated once.
-    """
+    """Union integration schemas per stack version, then merge stack versions with identical resolutions."""
+    # A stack version's combined schema is determined by its ECS version and resolved package versions, so stack
+    # versions that share those only need to be validated once.
     by_stack: dict[str, IntegrationSchemaGroup] = {}
     resolutions_by_stack: dict[str, set[tuple[Any, ...]]] = {}
     for integ in integrations:
@@ -554,8 +550,7 @@ class EQLValidator(QueryValidator):
 
                 if subquery_datasets:
                     subquery_pkg_ints = parse_datasets(list(subquery_datasets), packages_manifest)
-                    # Per-subquery: validate each integration individually (no accumulation), once per distinct
-                    # package version + ECS version rather than once per stack version
+                    # Per-subquery: validate each integration individually (no accumulation), once per resolution
                     per_resolution: dict[tuple[Any, ...], tuple[dict[str, Any], list[str]]] = {}
                     for integ in get_integration_schema_data(data, meta, subquery_pkg_ints):
                         stack_version = integ["stack_version"]

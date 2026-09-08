@@ -599,7 +599,7 @@ class TestValidationTargetGrouping(unittest.TestCase):
 
 
 class TestValidationPlanHasNoDuplicateTargets(BaseRuleTest):
-    """Every validation target in a rule's plan should perform distinct work."""
+    """Test that every validation target in a rule's plan performs distinct work."""
 
     def test_sequence_rules_with_beats_indices_emit_each_stack_target_once(self):
         checked = 0
@@ -621,12 +621,13 @@ class TestValidationPlanHasNoDuplicateTargets(BaseRuleTest):
 
 
 def _target_fields(target: ValidationTarget) -> dict[str, Any]:
+    """Return the field map a target's schema validates against."""
     schema: Any = target.schema
     return schema if isinstance(schema, dict) else getattr(schema, "kql_schema", None) or schema.endgame_schema
 
 
 def _target_identity(target: ValidationTarget) -> tuple[Any, ...]:
-    """What a target validates, minus the schema contents."""
+    """Return what a target validates, minus the schema contents."""
     return (
         target.kind,
         target.query_text,
@@ -637,7 +638,7 @@ def _target_identity(target: ValidationTarget) -> tuple[Any, ...]:
 
 
 def _target_signature(target: ValidationTarget) -> tuple[Any, ...]:
-    """Everything that determines how a target validates: its identity plus the full field map."""
+    """Return everything that determines how a target validates, including the full field map."""
     return (*_target_identity(target), tuple(sorted(_target_fields(target).items())))
 
 
@@ -662,15 +663,11 @@ def _describe_schema_mismatch(alone: list[ValidationTarget], grouped: list[Valid
 
 
 class TestValidationPlanGroupingIsLossless(BaseRuleTest):
-    """Grouping stack versions must never change what a stack version is validated against.
+    """Test that grouping stack versions never changes what a stack version is validated against."""
 
-    The grouping keys (stack-schema-map values, resolved package versions) are only correct while they capture every
-    stack-dependent input to schema assembly. Rather than trust the key, rebuild each sampled rule's plan one stack
-    version at a time through the real code path and check that every single-stack schema is exactly the grouped
-    schema that claims to cover that stack version. A new stack-dependent input that is missing from the key fails
-    here instead of silently under-validating.
-    """
-
+    # The grouping keys are only correct while they capture every stack-dependent input to schema assembly. Rather
+    # than trust the key, rebuild each sampled plan one stack version at a time and compare against the grouped plan,
+    # so a new stack-dependent input missing from the key fails here instead of silently under-validating.
     SAMPLE_PER_SHAPE = 3
 
     def _sample_rules(self) -> list[Any]:
@@ -726,12 +723,10 @@ class TestValidationPlanGroupingIsLossless(BaseRuleTest):
 
 
 class TestGroupingKeyCoversResolutionInputs(BaseRuleTest):
-    """Tripwires for the inputs the grouping keys are built from.
+    """Test that the inputs the grouping keys are built from have not gained new fields."""
 
-    If either of these fails, a new stack-dependent input has appeared. Decide whether it changes the schema and, if
-    so, add it to `integration_resolution_key` or `group_stack_versions_by_schema` and extend the lossless test above.
-    """
-
+    # A failure here means a new stack-dependent input has appeared. Decide whether it changes the schema and, if so,
+    # add it to `integration_resolution_key` or `group_stack_versions_by_schema`.
     def test_integration_schema_records_have_only_known_fields(self):
         known = {
             "schema",
