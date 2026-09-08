@@ -39,7 +39,7 @@ from logs-aws.cloudtrail-*
     and event.provider == "iam.amazonaws.com"
     and event.action == "CreateUser"
     and event.outcome == "success"
-| dissect aws.cloudtrail.request_parameters "%{}userName=%{created_user_name}}"
+| grok aws.cloudtrail.request_parameters "userName=%{DATA:created_user_name}(,|})"
 | where to_lower(created_user_name) in ("adminuserdevs", "develops", "rootdev", "ses2", "gh0st_808", "gh0st_365", "warkopi")
 | keep @timestamp, aws.cloudtrail.user_identity.arn, user.name, created_user_name, source.ip, cloud.region, cloud.account.id
 ''',
@@ -47,4 +47,6 @@ from logs-aws.cloudtrail-*
 
 references = [
     "https://unit42.paloaltonetworks.com/javaghost-cloud-phishing/",
+    "https://securitylabs.datadoghq.com/articles/tales-from-the-cloud-trenches-the-attacker-doth-persist-too-much/",
+    "https://threats.wiz.io/all-incidents/javaghost-ses-abuse",
 ]
