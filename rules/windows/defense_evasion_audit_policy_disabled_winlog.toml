@@ -4,7 +4,7 @@ integration = ["windows", "system"]
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0, MV_CONTAINS is in preview since 9.2."
 min_stack_version = "9.3.0"
-updated_date = "2026/05/04"
+updated_date = "2026/09/08"
 
 [rule]
 author = ["Elastic"]
@@ -73,6 +73,7 @@ type = "esql"
 query = '''
 from logs-windows.forwarded*, logs-system.security* metadata _id, _version, _index
 | where host.os.type == "windows" and event.code == "4719" and
+  winlog.event_data.SubjectUserSid != "S-1-5-18" and
   winlog.event_data.AuditPolicyChangesDescription in ("Success removed", "Success Added") and
   winlog.event_data.SubCategory in (
     "Logon",
@@ -129,4 +130,3 @@ reference = "https://attack.mitre.org/techniques/T1562/006/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
