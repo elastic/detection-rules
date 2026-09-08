@@ -589,6 +589,15 @@ def _integration_schema(
     return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
 
+# The helpers above memoize on hashable args and read the bundled manifests/schemas internally, so
+# clearing a loader (e.g. after build_integrations_schemas()) must also drop what was derived from
+# it. ECS schemas are not chained: nothing reloads them in-process and ecs must not import this module.
+load_integrations_manifests.add_dependent(_latest_patch_for_minor)  # type: ignore[reportFunctionMemberAccess]
+load_integrations_manifests.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
+load_integrations_schemas.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
+load_integrations_schemas.add_dependent(_integration_schema)  # type: ignore[reportFunctionMemberAccess]
+
+
 def notify_user_if_update_available(
     data: Any,  # type: ignore[reportRedeclaration]
     notice: list[str],
