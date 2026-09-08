@@ -2,7 +2,7 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/08"
 
 [rule]
 author = ["Elastic"]
@@ -99,6 +99,7 @@ from logs-o365.audit-* metadata _id, _version, _index
     )
 | eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
 | where session.id is not null
+| eval file.size = to_long(file.size)
 | eval Esql.time_window_date_trunc = date_trunc(3 minutes, @timestamp)
 | stats
     Esql.file_directory_values = values(file.directory),
