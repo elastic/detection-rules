@@ -746,8 +746,8 @@ class QueryValidator:
         )
 
         # flattened ECS schema so integrations that inherit ECS via ecs@mappings (or predate
-        # ECS scoping) contribute the full ECS field set to int_schema, while integrations
-        # that declare their ECS fields contribute only the fields they populate
+        # ECS scoping) contribute the full ECS field set to int_schema, while ECS-scoped
+        # integrations contribute only the ECS fields in their own field schema
         flat_ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
         for pk_int in package_integrations:
             package = pk_int["package"]

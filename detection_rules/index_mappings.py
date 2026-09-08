@@ -226,14 +226,14 @@ def rule_datasets_by_package(
     return {package: list[str | None](dataset_restriction.get(package) or [None]) for package in packages}
 
 
-def rule_integrations_declare_ecs_fields(
+def rule_integrations_are_ecs_scoped(
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
     package_manifests: Any,
     integration_schemas: Any,
     stack_version: str,
 ) -> bool:
-    """Return True when every integration the rule references declares its ECS fields."""
+    """Return True when every integration the rule references is ECS-scoped."""
     # Mirrors the KQL/EQL scoping semantics: data streams named by event.dataset are checked
     # individually; packages referenced only through rule metadata are checked package-wide.
     datasets_by_package = rule_datasets_by_package(rule_integrations, event_dataset_integrations)
@@ -252,7 +252,7 @@ def rule_integrations_declare_ecs_fields(
             return False
         for dataset in datasets:
             # packages that inherit ECS via ecs@mappings also keep the full-ECS fallback
-            if not integrations.integration_declares_ecs_fields(integration_schemas, package, package_version, dataset):
+            if not integrations.integration_is_ecs_scoped(integration_schemas, package, package_version, dataset):
                 return False
     return True
 
@@ -274,55 +274,6 @@ def esql_indices_covered_by_packages(
         if package not in packages:
             return False
     return True
-
-
-def get_rule_populated_ecs_mappings(  # noqa: PLR0913, PLR0917
-    rule_integrations: list[str],
-    event_dataset_integrations: list[EventDataset],
-    package_manifests: Any,
-    integration_schemas: Any,
-    stack_version: str,
-    current_version: Version,
-) -> dict[str, Any]:
-    """Get index mappings for the ECS fields the rule's integrations populate but do not declare."""
-    # Used instead of the full ECS schema mappings when every integration the rule references
-    # declares its ECS fields (strict ECS scoping): only the ECS fields the packages populate
-    # through their ingest pipelines and sample events are mapped on top of the integration
-    # schemas, mirroring the KQL/EQL scoping behavior.
-    populated_fields: set[str] = set()
-    for package, datasets in rule_datasets_by_package(rule_integrations, event_dataset_integrations).items():
-        try:
-            package_version, _ = integrations.find_latest_compatible_version(
-                package,
-                "",
-                Version.parse(stack_version),
-                package_manifests,
-            )
-        except ValueError:
-            continue
-        for dataset in datasets:
-            populated_fields.update(
-                integrations.get_integration_populated_ecs_fields(
-                    integration_schemas, package, package_version, dataset
-                )
-            )
-
-    ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
-    ecs_flat = ecs.get_schema(ecs_version, name="ecs_flat")
-    flat_populated = {field: ecs_flat[field]["type"] for field in sorted(populated_fields) if field in ecs_flat}
-    mappings = flat_schema_to_index_mapping(flat_populated)
-
-    # scaled_float mappings are invalid without their scaling factor (see get_ecs_schema_mappings)
-    for field, field_type in flat_populated.items():
-        if field_type != "scaled_float":
-            continue
-        parts = field.split(".")
-        current = mappings
-        for part in parts[:-1]:
-            current = current.setdefault(part, {}).setdefault("properties", {})
-        current[parts[-1]].update({"scaling_factor": ecs_flat[field]["scaling_factor"]})
-
-    return mappings
 
 
 def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
@@ -347,9 +298,8 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
             Version.parse(stack_version),
             package_manifests,
         )
-        # Drop the ECS scoping metadata (`_uses_ecs_mappings`, `_ecs_declared`,
-        # `_ecs_populated`) and ML job lists from the cached schema; only data stream field
-        # dicts become index mappings.
+        # Drop the ECS scoping metadata (`_ecs_scoped`) and ML job lists from the cached
+        # schema; only data stream field dicts become index mappings.
         package_schema = {
             stream: {field: value for field, value in stream_schema.items() if not field.startswith("_")}
             for stream, stream_schema in integration_schemas[package][package_version].items()
@@ -645,24 +595,17 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
         custom_mapping.update({index: index_mapping})
 
     # Load ECS in an index mapping format (nested schema). When every integration the rule
-    # references declares its ECS fields (strict ECS scoping), only the ECS fields those
-    # packages populate are mapped instead of the full ECS schema, mirroring the KQL/EQL
-    # validation behavior.
+    # references is ECS-scoped, the full ECS schema is not mapped: the integration mappings
+    # already carry the ECS fields those packages declare or emit in their sample events,
+    # mirroring the KQL/EQL validation behavior.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+    ecs_schema: dict[str, Any] = {}
     if esql_indices_covered_by_packages(
         indices, rule_integrations, event_dataset_integrations
-    ) and rule_integrations_declare_ecs_fields(
+    ) and rule_integrations_are_ecs_scoped(
         rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, stack_version
     ):
-        log("All rule integrations declare their ECS fields; scoping ECS mappings to the fields they populate")
-        ecs_schema = get_rule_populated_ecs_mappings(
-            rule_integrations,
-            event_dataset_integrations,
-            package_manifests,
-            integration_schemas,
-            stack_version,
-            current_version,
-        )
+        log("All rule integrations are ECS-scoped; validating against their field schemas without the full ECS schema")
     else:
         ecs_schema = get_ecs_schema_mappings(current_version)
 

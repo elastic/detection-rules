@@ -23,7 +23,6 @@ from semver import Version
 from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
-from .integration_ecs_sources import extract_populated_fields
 from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
@@ -113,10 +112,20 @@ def build_integrations_manifest(
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-# Data streams declare the ECS fields they populate in ecs.yml, with some packages using
-# name variants (protocol_ecs.yml in network_traffic; ecs-extended.yml in o365, azure,
-# and m365_defender).
+# Data streams that predate the ecs@mappings migration declare the ECS fields they populate in
+# an ECS field file: ecs.yml, or a name variant such as protocol_ecs.yml in network_traffic.
 ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
+
+# Minimum number of ECS fields an ECS field file must declare for the data stream to be treated as
+# enumerating the ECS fields it populates. Packages migrated to the ecs@mappings component template
+# (elastic/integrations#10135) dropped their ECS definitions and keep only the few fields the
+# template does not cover (o365 audit declares 3, crowdstrike alert 4), so a small file is a
+# residual rather than a subset declaration; scoping on it would reject the ECS fields the package
+# populates through its ingest pipeline. Unmigrated streams declare far more (auditd_manager 50,
+# network_traffic 77+, fortinet_fortigate 146).
+MIN_DECLARED_ECS_FIELDS = 20
+
+SAMPLE_EVENT_FILE_PATTERN = "*/data_stream/*/sample_event.json"
 
 
 def _is_ecs_field_file(file_name: str) -> bool:
@@ -125,14 +134,53 @@ def _is_ecs_field_file(file_name: str) -> bool:
 
 
 @cached
-def all_ecs_field_names() -> set[str]:
-    """Every field name defined by any locally available ECS version."""
+def all_ecs_field_types() -> dict[str, str]:
+    """Every field defined by any locally available ECS version, mapped to its type."""
     # The union across versions keeps the cached package schemas independent of which ECS
     # version a rule is validated against, so an ECS bump does not invalidate them.
-    field_names: set[str] = set()
+    field_types: dict[str, str] = {}
     for version_schemas in ecs.get_schemas().values():
-        field_names.update(ecs.flatten_multi_fields(version_schemas.get("ecs_flat", {})))
-    return field_names
+        field_types.update(ecs.flatten_multi_fields(version_schemas.get("ecs_flat", {})))
+    return field_types
+
+
+def flatten_document(document: dict[str, Any], prefix: str = "") -> set[str]:
+    """Flatten a document into dotted leaf field names."""
+    fields: set[str] = set()
+    for key, value in document.items():
+        name = f"{prefix}{key}"
+        if isinstance(value, dict):
+            fields.update(flatten_document(value, f"{name}."))  # type: ignore[reportUnknownArgumentType]
+        elif isinstance(value, list):
+            # a list of objects still contributes its leaves; a list of scalars is the field
+            for item in value:  # type: ignore[reportUnknownVariableType]
+                if isinstance(item, dict):
+                    fields.update(flatten_document(item, f"{name}."))  # type: ignore[reportUnknownArgumentType]
+                else:
+                    fields.add(name)
+        else:
+            fields.add(name)
+    return fields
+
+
+def extract_sample_event_fields(zip_ref: "zipfile.ZipFile") -> dict[str, set[str]]:
+    """Map each data stream to the fields present in its sample event."""
+    sample_fields: dict[str, set[str]] = {}
+
+    for file in zip_ref.namelist():
+        if not fnmatch.fnmatch(file, SAMPLE_EVENT_FILE_PATTERN):
+            continue
+        data_stream = Path(file).parent.name
+        try:
+            sample_event = json.loads(zip_ref.read(file))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(sample_event, dict):
+            continue
+
+        sample_fields.setdefault(data_stream, set()).update(flatten_document(sample_event))  # type: ignore[reportUnknownArgumentType]
+
+    return sample_fields
 
 
 def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
@@ -163,8 +211,6 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
             version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
             if _is_ecs_field_file(Path(file).name):
-                # ECS fields the data stream explicitly declares; used to scope query
-                # validation to the ECS fields the integration actually populates
                 ecs_declared.setdefault(integration_name, set()).update(flat_data)
 
         # add machine learning jobs to the schema
@@ -177,54 +223,26 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
 
         del file_data_bytes
 
-    # ECS fields the package populates without declaring them in its field definitions:
-    # written by an ingest pipeline, or present in the data stream's sample event. Only
-    # stored for data streams that declare ECS fields, since those are the only ones
-    # validated strictly; its presence also marks the entry as carrying this metadata.
-    populated_fields = extract_populated_fields(zip_ref)
-    ecs_field_names = all_ecs_field_names()
-
+    # Data streams whose ECS field file is substantial enough to be a real subset declaration are
+    # flagged as ECS-scoped: query validation checks them against their own field files instead
+    # of the entire ECS schema. Their sample event is a real document from the data stream, so the
+    # ECS fields in it (Elastic Agent metadata, pipeline enrichment) are folded into the field
+    # schema to cover what the field files leave undeclared.
+    ecs_field_types = all_ecs_field_types()
+    sample_fields = extract_sample_event_fields(zip_ref)
     for integration_name, declared in ecs_declared.items():
-        version_schema[integration_name]["_ecs_declared"] = sorted(declared)
-        populated_ecs = populated_fields.get(integration_name, set()) & ecs_field_names
-        version_schema[integration_name]["_ecs_populated"] = sorted(populated_ecs - declared)
+        if len(declared) < MIN_DECLARED_ECS_FIELDS:
+            continue
+        stream_schema: dict[str, Any] = version_schema[integration_name]
+        for field in sorted(sample_fields.get(integration_name, set())):
+            if field in ecs_field_types:
+                stream_schema.setdefault(field, ecs_field_types[field])
+        stream_schema["_ecs_scoped"] = True
 
-    # Packages that declare no ECS fields in any data stream rely on the ecs@mappings
-    # component template (applied by Fleet to all spec 3.x packages) to inherit every
-    # ECS field mapping at index time, so they must be validated against the full ECS schema.
-    version_schema["_uses_ecs_mappings"] = not ecs_declared
     return version_schema
 
 
-def needs_ecs_scope_refresh(version_schema: Any) -> bool:
-    """Return True when a cached entry is ECS-scoped but predates the derived ECS field metadata."""
-    # `_ecs_populated` is only derivable from the package zip, so entries cached before it
-    # existed have to be re-downloaded to gain it. That is opt-in (see the `refresh_ecs_scope`
-    # argument to build_integrations_schemas) so a routine build never re-fetches the world.
-    if not isinstance(version_schema, dict):
-        return False
-    schema: dict[str, Any] = version_schema  # type: ignore[reportUnknownVariableType]
-    if schema.get("_uses_ecs_mappings") is not False:
-        return False
-    return any(
-        _dataset_needs_scope_refresh(dataset_schema)
-        for key, dataset_schema in schema.items()
-        if key != "jobs" and not key.startswith("_")
-    )
-
-
-def _dataset_needs_scope_refresh(dataset_schema: Any) -> bool:
-    """Return True when a cached data stream schema declares ECS fields but lacks the derived ones."""
-    if not isinstance(dataset_schema, dict):
-        return False
-    return bool(dataset_schema.get("_ecs_declared")) and "_ecs_populated" not in dataset_schema  # type: ignore[reportUnknownMemberType]
-
-
-def build_integrations_schemas(
-    overwrite: bool,
-    integration: str | None = None,
-    refresh_ecs_scope: bool = False,
-) -> None:
+def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
     # Check if the file already exists and handle accordingly
@@ -251,11 +269,8 @@ def build_integrations_schemas(
         print(f"processing {package}")
         final_integration_schemas.setdefault(package, {})  # type: ignore[reportUnknownMemberType]
         for version, manifest in versions.items():
-            existing_version_schema: dict[str, Any] | None = final_integration_schemas.get(package, {}).get(version)  # type: ignore[reportUnknownMemberType]
-            if existing_version_schema is not None and "_uses_ecs_mappings" in existing_version_schema:
-                if not (refresh_ecs_scope and needs_ecs_scope_refresh(existing_version_schema)):
-                    continue
-                print(f"  refreshing ECS scope metadata for {package} {version}")
+            if package in final_integration_schemas and version in final_integration_schemas[package]:
+                continue
 
             # Download the zip file
             download_url = f"https://epr.elastic.co{manifest['download']}"
@@ -655,83 +670,43 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
 
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
 
-    if integration_declares_ecs_fields(integrations_schemas, package, package_version, integration):
-        # The integration explicitly enumerates the ECS fields it populates (per data stream
-        # ecs.yml), so validate strictly against those instead of the entire ECS schema. The
-        # ECS fields it populates without declaring them (ingest pipelines, sample events) are
-        # cached alongside per package version; anything left over belongs in non-ecs-schema.json.
-        populated = get_integration_populated_ecs_fields(integrations_schemas, package, package_version, integration)
-        schema.update({field: ecs_schema[field] for field in populated if field in ecs_schema})
-    else:
-        # The integration inherits all ECS field mappings via the ecs@mappings component
-        # template (or the cached schema predates ECS scoping), so any ECS field is valid.
+    if not integration_is_ecs_scoped(integrations_schemas, package, package_version, integration):
+        # The integration does not enumerate the ECS fields it populates (it relies on the
+        # ecs@mappings component template, or the cached schema predates ECS scoping), so any
+        # ECS field is valid. ECS-scoped integrations are validated against their own field
+        # schema only, which already includes the ECS fields they declare or emit in their
+        # sample event; anything else they populate belongs in non-ecs-schema.json.
         schema.update(ecs_schema)
 
     integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
     return integration_schema, package_version
 
 
-def integration_declares_ecs_fields(
+def integration_is_ecs_scoped(
     integrations_schemas: dict[str, Any],
     package: str,
     package_version: str,
     integration: str | None = None,
 ) -> bool:
-    """Return True when the package version explicitly declares the ECS fields it populates."""
-    # Data streams declare their ECS fields in per-data-stream ECS field files (ecs.yml or the
-    # ECS_FIELD_FILE_PATTERNS name variants, e.g. protocol_ecs.yml, ecs-extended.yml), captured
-    # in the cached schema as `_ecs_declared`.
+    """Return True when the package version enumerates the ECS fields it populates."""
+    # Set per data stream at schema build time (see parse_version_schema). Missing on packages
+    # that rely on the ecs@mappings component template (e.g. cloud_defend, endpoint), on data
+    # streams whose ECS field file is only a post-migration residual, and on legacy cache
+    # entries; all of those keep the historical full-ECS validation.
     version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
-    if version_schema.get("_uses_ecs_mappings") is not False:
-        # True -> the package declares no ECS fields (e.g. cloud_defend, endpoint) and inherits
-        # every ECS field at index time via the ecs@mappings component template, so it must keep
-        # full-ECS validation. Missing -> legacy cache format built before this metadata existed;
-        # preserve the historical full-ECS behavior until the cache is regenerated.
-        return False
     if integration:
-        return _dataset_is_ecs_scoped(version_schema.get(integration, {}))
-    # package-wide query: only strict when every data stream declares its ECS fields,
-    # otherwise an undeclared data stream could produce false validation failures
-    dataset_schemas: list[dict[str, Any]] = [
-        value
-        for key, value in version_schema.items()
-        if key != "jobs" and not key.startswith("_") and isinstance(value, dict)
+        return _dataset_is_ecs_scoped(version_schema.get(integration))
+    # package-wide query: only strict when every data stream is scoped, otherwise an
+    # unscoped data stream could produce false validation failures
+    dataset_schemas: list[Any] = [
+        value for key, value in version_schema.items() if key != "jobs" and not key.startswith("_")
     ]
     return bool(dataset_schemas) and all(_dataset_is_ecs_scoped(dataset) for dataset in dataset_schemas)
 
 
 def _dataset_is_ecs_scoped(dataset_schema: Any) -> bool:
-    """Return True when a cached data stream schema carries complete ECS scoping metadata."""
-    if not isinstance(dataset_schema, dict):
-        return False
-    # `_ecs_populated` is written for every ECS-declaring data stream, so its absence means the
-    # entry was cached before the derived ECS fields were tracked. Scoping such an entry would
-    # reject fields the integration does populate, so it keeps the full-ECS behavior until it is
-    # refreshed (`build-schemas --refresh-ecs-scope`).
-    return bool(dataset_schema.get("_ecs_declared")) and "_ecs_populated" in dataset_schema  # type: ignore[reportUnknownMemberType]
-
-
-def get_integration_populated_ecs_fields(
-    integrations_schemas: dict[str, Any],
-    package: str,
-    package_version: str,
-    integration: str | None = None,
-) -> set[str]:
-    """Get the ECS fields a package version populates without declaring them in its field files."""
-    # Derived from the package's ingest pipelines and sample events at schema build time; see
-    # integration_ecs_sources and the `_ecs_populated` key in integration-schemas.json.gz.
-    version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
-    dataset_schemas: Iterable[Any] = (
-        [version_schema.get(integration, {})]
-        if integration
-        else [value for key, value in version_schema.items() if key != "jobs" and not key.startswith("_")]
-    )
-
-    populated: set[str] = set()
-    for dataset_schema in dataset_schemas:
-        if isinstance(dataset_schema, dict):
-            populated.update(dataset_schema.get("_ecs_populated") or [])  # type: ignore[reportUnknownArgumentType]
-    return populated
+    """Return True when a cached data stream schema is flagged as ECS-scoped."""
+    return isinstance(dataset_schema, dict) and dataset_schema.get("_ecs_scoped") is True  # type: ignore[reportUnknownMemberType]
 
 
 def notify_user_if_update_available(
