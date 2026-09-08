@@ -525,6 +525,9 @@ def get_ecs_schema_mappings(
     log: Callable[[str], None] = print,
 ) -> dict[str, Any]:
     """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
+    # NOTE: the result depends on `flattened_fields` (the rule's integration and index template mappings),
+    # not only on `current_version`. Do not memoize it by stack version alone; if caching is ever needed,
+    # cache the version-only flat ECS schema and keep the alignment and nesting per rule.
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_schemas = ecs.get_schemas()
     ecs_flat_schema: dict[str, Any] = {}
