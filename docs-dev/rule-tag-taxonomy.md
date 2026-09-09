@@ -32,7 +32,7 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 | Service | `Service:` | Optional | Prefer when a specific service is targeted |
 | Vulnerability | `Vuln:` | Optional | `CVE-YYYY-NNNNN` when exploit-specific |
 | Threat | `Threat:` | Optional | Named exploit/campaign only — not actors/malware families on generic rules |
-| MITRE ATLAS | `Mitre Atlas:` | GenAI when applicable | Technique IDs (e.g. `T0051`) |
+| MITRE ATLAS | `Mitre Atlas:` | GenAI when applicable | Technique IDs (`AML.T0051` or short `T0051`) |
 | Profile | `Profile:` | Optional | `Recommended`, `Aggressive`, `Beta` |
 | Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, OS Query |
 
@@ -42,6 +42,12 @@ Legacy prefixes such as `Use Case:` and `Promotion:` remain valid during migrati
 
 `Endpoint`, `Cloud`, `Container` (legacy enforced spelling), `Containers`, `Network`,
 `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`.
+
+Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
+(agents, MCP, foundation-model APIs, model artifacts). Do **not** use `Domain: LLM`.
+
+Rules that *invoke* an LLM as part of detection (ES|QL `COMPLETION`) keep their existing
+attack-surface domain and add `Resources: LLM`. Those are not GenAI-domain detections.
 
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.

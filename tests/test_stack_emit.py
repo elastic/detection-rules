@@ -27,9 +27,9 @@ class TestStackEmitHelpers(unittest.TestCase):
     """Unit tests for emit epoch helpers."""
 
     def test_epoch_shared_across_minors_without_new_transforms(self) -> None:
-        """9.5 and 9.6 share the same epoch while only 9.5 transforms exist."""
+        """9.6 introduces the ATLAS emit epoch; 9.5 stays on the v19 epoch."""
         self.assertEqual(emit_epoch_key(Version(9, 5, 0)), "9.5")
-        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.5")
+        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.6")
         self.assertIsNone(emit_epoch_key(Version(9, 4, 0)))
 
     def test_transforms_empty_below_min_stack(self) -> None:
@@ -73,6 +73,61 @@ class TestStackEmitHelpers(unittest.TestCase):
         self.assertIn("Data Source: foo", rewritten)
         self.assertNotIn("Tactic: Defense Evasion", rewritten)
         self.assertIn("Tactic: Impact", rewritten)
+
+    def test_atlas_threat_stripped_below_9_6(self) -> None:
+        """ATLAS threat entries must not ship on stacks older than 9.6."""
+        atlas_entry = {
+            "framework": "MITRE ATLAS",
+            "tactic": {
+                "id": "AML.TA0009",
+                "name": "Collection",
+                "reference": "https://atlas.mitre.org/tactics/AML.TA0009/",
+            },
+            "technique": [],
+        }
+        attack_entry = {
+            "framework": "MITRE ATT&CK",
+            "tactic": {
+                "id": "TA0009",
+                "name": "Collection",
+                "reference": "https://attack.mitre.org/tactics/TA0009/",
+            },
+            "technique": [],
+        }
+        obj: dict[str, Any] = {"threat": [attack_entry, atlas_entry]}
+        apply_emit_transforms(obj, stack="9.5.0")
+        frameworks = [e["framework"] for e in obj["threat"]]
+        self.assertIn("MITRE ATT&CK", frameworks)
+        self.assertNotIn("MITRE ATLAS", frameworks)
+
+    def test_atlas_threat_mappings_appended_on_9_6(self) -> None:
+        """ATLAS threat_mappings are appended to threat on 9.6+."""
+        attack_entry = {
+            "framework": "MITRE ATT&CK",
+            "tactic": {
+                "id": "TA0009",
+                "name": "Collection",
+                "reference": "https://attack.mitre.org/tactics/TA0009/",
+            },
+            "technique": [],
+        }
+        atlas_entry = {
+            "framework": "MITRE ATLAS",
+            "tactic": {
+                "id": "AML.TA0009",
+                "name": "Collection",
+                "reference": "https://atlas.mitre.org/tactics/AML.TA0009/",
+            },
+            "technique": [],
+        }
+        mappings = [{"framework": "MITRE ATLAS", "version": "2026.08", "threat": [atlas_entry]}]
+        obj: dict[str, Any] = {"threat": [attack_entry]}
+        apply_emit_transforms(obj, stack="9.5.0", context=EmitContext(threat_mappings=mappings))
+        self.assertEqual([e["framework"] for e in obj["threat"]], ["MITRE ATT&CK"])
+
+        obj = {"threat": [attack_entry]}
+        apply_emit_transforms(obj, stack="9.6.0", context=EmitContext(threat_mappings=mappings))
+        self.assertEqual([e["framework"] for e in obj["threat"]], ["MITRE ATT&CK", "MITRE ATLAS"])
 
     def test_apply_emit_transforms_runs_registry_hooks(self) -> None:
         """apply_emit_transforms invokes each applicable transform's apply fn."""

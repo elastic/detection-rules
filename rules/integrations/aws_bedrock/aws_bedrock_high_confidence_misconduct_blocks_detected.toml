@@ -2,7 +2,7 @@
 creation_date = "2024/05/05"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/11/10"
+updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
@@ -68,13 +68,15 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS Bedrock",
     "Data Source: AWS S3",
     "Use Case: Policy Violation",
-    "Mitre Atlas: T0051",
-    "Mitre Atlas: T0054",
     "Resources: Investigation Guide",
+    "Domain: Cloud",
+    "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -120,3 +122,28 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_policy_blocked_violation_total_count desc
 '''
 
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"

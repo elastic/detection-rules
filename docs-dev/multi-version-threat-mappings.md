@@ -68,6 +68,27 @@ Because the baseline hash path strips `threat_mappings` and skips emit transform
 hashes. Package stacks that apply transforms record a separate `stack_emit` epoch in
 `version.lock.json` so 9.5+ can version independently of ≤9.4.
 
+## MITRE ATLAS
+
+ATLAS is a separate framework from ATT&CK. Author ATLAS mappings as additional
+`[[rule.threat_mappings]]` blocks (`framework = "MITRE ATLAS"`, `version` = the content
+version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** put ATLAS
+entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
+
+- **Stack < 9.6** — ATLAS entries are stripped and never shipped (Kibana does not support
+  the ATLAS framework yet). This gate lives in `apply_emit_transforms`.
+- **Stack ≥ 9.6** — the `mitre_atlas` emit transform appends ATLAS `threat_mappings` onto the
+  shipped `threat` array alongside ATT&CK.
+
+Refresh ATLAS data the same way as ATT&CK:
+
+```bash
+python -m detection_rules dev atlas refresh-data
+```
+
+This writes `detection_rules/etc/atlas-v<content-version>.json.gz` from the MITRE ATLAS
+manifest (`dist/v6/ATLAS-*.yaml`) without deleting older versioned files.
+
 ## `stack_emit` (version lock)
 
 The shared, backported `version.lock.json` may include optional emit epochs per rule:
@@ -87,7 +108,9 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- Building 9.6 with the same transforms **reuses** `stack_emit["9.5"]` — no new lock row.
+- 9.5 is the ATT&CK v19 epoch. 9.6 introduces `mitre_atlas`. Rules whose 9.6 payload actually
+  changes (ATLAS mappings appended) get a `stack_emit["9.6"]` row when re-locked. Other rules
+  keep inheriting `stack_emit["9.5"]`.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 

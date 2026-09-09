@@ -33,7 +33,7 @@ from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
 from kibana.resources import Signal  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
-from . import attack, rule_loader, utils
+from . import atlas, attack, rule_loader, utils
 from .beats import download_beats_schema, download_latest_beats_schema, refresh_main_schema
 from .cli_utils import multi_collection, single_collection
 from .config import (
@@ -2129,6 +2129,18 @@ def scaffold_version_map(target_version: str, source_version: str, framework: st
         f"{len(skeleton['subtechniques'])} subtechniques)."
     )
     return output
+
+
+@dev_group.group("atlas")
+def atlas_group() -> None:
+    """Commands for managing MITRE ATLAS data and mappings."""
+
+
+@atlas_group.command("refresh-data")
+def refresh_atlas_data() -> dict[str, Any] | None:
+    """Refresh the versioned ATLAS data file (atlas-v*.json.gz), same pattern as ATT&CK."""
+    data, _ = atlas.refresh_atlas_data()
+    return data
 
 
 @dev_group.group("transforms")
