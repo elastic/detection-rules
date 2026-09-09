@@ -2,7 +2,7 @@
 creation_date = "2026/08/24"
 integration = ["netflow", "goflow2"]
 maturity = "production"
-updated_date = "2026/08/24"
+updated_date = "2026/09/08"
 
 [rule]
 author = ["Elastic"]
@@ -20,19 +20,17 @@ false_positives = [
     """,
 ]
 from = "now-45m"
-index = [".alerts-security.*"]
 interval = "15m"
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "First Seen Network Flow Exporter Followed by Suspicious Source Activity"
 note = """## Triage and analysis
 
 ### Investigating First Seen Network Flow Exporter Followed by Suspicious Source Activity
 
-This higher-order rule correlates a sequence containing the building-block alert "First Seen Network Flow Exporter"
-followed by another detection alert with medium-or-higher severity or an elevated risk score within 30 minutes. The new
-exporter's `observer.ip` must equal the later alert's `source.ip`, and both alerts must share the same
-`data_stream.namespace`.
+This higher-order rule correlates the building-block alert "First Seen Network Flow Exporter" with a later detection
+alert that has medium-or-higher severity or an elevated risk score within 30 minutes. The new exporter's `observer.ip`
+must equal the later alert's `source.ip`, and both alerts must share the same `data_stream.namespace`.
 
 This relationship provides stronger evidence than suspicious flows merely reported by the exporter. It indicates that
 the exporter address itself was subsequently identified as the source of separately detected activity. It does not by
@@ -41,8 +39,8 @@ flow exports and generally requires network-device configuration or audit teleme
 
 ### Possible investigation steps
 
-- Review both events in the sequence. Identify the exporter in the first alert and the rule name, risk score, source,
-  destination, host, and user context in the second alert.
+- Review the `observer.ip`, `source.ip`, correlation timestamps, and suspicious rule names and IDs surfaced in the
+  alert. Pivot to the contributing alerts to review their risk score, destination, host, and user context.
 - Confirm that `observer.ip` belongs to the newly observed exporter and that NAT, shared addressing, or stale asset
   records did not cause the correlation.
 - Examine the second alert's rule name and determine what behavior associated the exporter address with `source.ip`.
@@ -104,30 +102,63 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-sequence by data_stream.namespace with maxspan=30m
-  [any where
-    event.kind == "signal" and
-    kibana.alert.rule.rule_id == "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
-    data_stream.namespace != null and
-    observer.ip != null
-  ] by observer.ip
-  [any where
-    event.kind == "signal" and
-    data_stream.namespace != null and
-    source.ip != null and
-    kibana.alert.rule.name != null and
-    kibana.alert.rule.rule_id != null and
-    kibana.alert.rule.rule_id != "dfe3f626-4224-417e-aff1-8ef9a72c3191" and
-    (kibana.alert.risk_score >= 47 or
-     kibana.alert.severity in ("medium", "high", "critical")) and
-    ?kibana.alert.building_block_type == null and
-    not kibana.alert.rule.type in ("machine_learning", "new_terms", "threat_match") and
-    not kibana.alert.rule.name like "Deprecated - *" and
-    not ?kibana.alert.rule.tags : "Rule Type: Higher-Order Rule"
-  ] by source.ip
+FROM .alerts-security.*
+| WHERE event.kind == "signal"
+    AND data_stream.namespace IS NOT NULL
+    AND (
+      (kibana.alert.rule.rule_id == "dfe3f626-4224-417e-aff1-8ef9a72c3191" AND observer.ip IS NOT NULL)
+      OR
+      (source.ip IS NOT NULL
+        AND kibana.alert.rule.name IS NOT NULL
+        AND kibana.alert.rule.rule_id IS NOT NULL
+        AND kibana.alert.rule.rule_id != "dfe3f626-4224-417e-aff1-8ef9a72c3191"
+        AND (kibana.alert.risk_score >= 47 OR kibana.alert.severity IN ("medium", "high", "critical"))
+        AND kibana.alert.building_block_type IS NULL
+        AND NOT kibana.alert.rule.type IN ("machine_learning", "new_terms", "threat_match")
+        AND NOT kibana.alert.rule.name LIKE "Deprecated - *"
+        AND NOT KQL("""kibana.alert.rule.tags : "Rule Type: Higher-Order Rule" """))
+    )
+| EVAL
+    Esql.is_exporter_alert = kibana.alert.rule.rule_id == "dfe3f626-4224-417e-aff1-8ef9a72c3191",
+    Esql.is_suspicious_source_alert = kibana.alert.rule.rule_id != "dfe3f626-4224-417e-aff1-8ef9a72c3191",
+    Esql.correlation_ip = CASE(Esql.is_exporter_alert, observer.ip, source.ip),
+    Esql.exporter_alert_timestamp = CASE(Esql.is_exporter_alert, @timestamp, null),
+    Esql.suspicious_source_alert_timestamp = CASE(Esql.is_suspicious_source_alert, @timestamp, null),
+    Esql.suspicious_rule_name = CASE(Esql.is_suspicious_source_alert, kibana.alert.rule.name, null),
+    Esql.suspicious_rule_id = CASE(Esql.is_suspicious_source_alert, kibana.alert.rule.rule_id, null)
+| WHERE Esql.correlation_ip IS NOT NULL
+| STATS
+    Esql.exporter_alert_count = SUM(CASE(Esql.is_exporter_alert, 1, 0)),
+    Esql.suspicious_source_alert_count = SUM(CASE(Esql.is_suspicious_source_alert, 1, 0)),
+    observer.ip = MAX(CASE(Esql.is_exporter_alert, Esql.correlation_ip, null)),
+    source.ip = MAX(CASE(Esql.is_suspicious_source_alert, Esql.correlation_ip, null)),
+    Esql.exporter_alert_timestamp = MIN(Esql.exporter_alert_timestamp),
+    Esql.suspicious_source_alert_timestamp = MAX(Esql.suspicious_source_alert_timestamp),
+    Esql.suspicious_rule_name_values = VALUES(Esql.suspicious_rule_name),
+    Esql.suspicious_rule_id_values = VALUES(Esql.suspicious_rule_id)
+  BY data_stream.namespace, Esql.correlation_ip
+| EVAL Esql.time_diff_seconds = DATE_DIFF(
+    "second", Esql.exporter_alert_timestamp, Esql.suspicious_source_alert_timestamp
+  )
+| WHERE Esql.exporter_alert_count > 0
+    AND Esql.suspicious_source_alert_count > 0
+    AND Esql.time_diff_seconds >= 0
+    AND Esql.time_diff_seconds <= 1800
+| KEEP
+    data_stream.namespace,
+    observer.ip,
+    source.ip,
+    Esql.correlation_ip,
+    Esql.exporter_alert_count,
+    Esql.suspicious_source_alert_count,
+    Esql.exporter_alert_timestamp,
+    Esql.suspicious_source_alert_timestamp,
+    Esql.suspicious_rule_name_values,
+    Esql.suspicious_rule_id_values,
+    Esql.time_diff_seconds
 '''
 
 
@@ -143,3 +174,15 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "observer.ip",
+    "source.ip",
+    "data_stream.namespace",
+    "Esql.exporter_alert_timestamp",
+    "Esql.suspicious_source_alert_timestamp",
+    "Esql.suspicious_rule_name_values",
+    "Esql.suspicious_rule_id_values",
+    "Esql.time_diff_seconds",
+]
