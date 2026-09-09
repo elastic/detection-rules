@@ -20,6 +20,7 @@ from semver import Version
 
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
+from detection_rules.custom_schemas import get_custom_schemas
 from detection_rules.esql_errors import EsqlSemanticError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
@@ -861,6 +862,14 @@ class TestVersions(unittest.TestCase):
         self.assertEqual(list(schemas), [future_version])
         self.assertEqual(schemas[future_version], newest_entry)
         self.assertLessEqual({"beats", "ecs", "endgame"}, set(schemas[future_version]))
+
+        # custom schema lookups must fall back the same way rather than dropping custom schemas
+        newest_version = max(stack_map, key=Version.parse)
+        get_custom_schemas.clear()
+        try:
+            self.assertEqual(get_custom_schemas(future_version), get_custom_schemas(newest_version))
+        finally:
+            get_custom_schemas.clear()
 
 
 class TestESQLValidation(unittest.TestCase):
