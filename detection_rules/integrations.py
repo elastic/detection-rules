@@ -116,25 +116,20 @@ def build_integrations_manifest(
 # an ECS field file: ecs.yml, or a name variant such as protocol_ecs.yml in network_traffic.
 ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
 
-# Minimum number of ECS fields an ECS field file must declare for the data stream to be treated as
+# Minimum number of ECS-defined fields an ECS field file must declare for the data stream to count as
 # enumerating the ECS fields it populates. Packages migrated to the ecs@mappings component template
-# (elastic/integrations#10135) dropped their ECS definitions and keep only the few fields the
-# template does not cover (o365 audit declares 3, crowdstrike alert 4), so a small file is a
-# residual rather than a subset declaration; scoping on it would reject the ECS fields the package
-# populates through its ingest pipeline. Unmigrated streams declare far more (auditd_manager 42,
-# network_traffic 77+, fortinet_fortigate 146). Only names ECS defines count: ECS field files also
-# carry package fields (entityanalytics_entra_id lists 36 `asset.*` names in ecs.yml) and built
-# packages expand multi-fields (`process.name.text`), neither of which is evidence that the stream
-# enumerates the ECS fields it populates.
+# (elastic/integrations#10135) keep only a residual ECS file with the few fields the template does not
+# cover (o365 audit 3, crowdstrike alert 4); unmigrated streams declare far more (auditd_manager 42,
+# network_traffic 77+, fortinet_fortigate 146). Non-ECS names in the file (entityanalytics_entra_id
+# lists 36 `asset.*` names in ecs.yml) and multi-field expansions (`process.name.text`) do not count.
 MIN_DECLARED_ECS_FIELDS = 20
 
-# ECS field sets Elastic Agent populates on every document it ships, independent of the package:
-# agent identity, plus the host and cloud metadata from the add_host_metadata and add_cloud_metadata
-# processors that Fleet enables by default in every agent policy.
+# Fields Elastic Agent adds to every document it ships, independent of the package: the ECS agent,
+# cloud and host field sets (host and cloud come from the add_host_metadata and add_cloud_metadata
+# processors Fleet enables by default), the Beats-only extras those processors declare, and the two
+# fields stamped by Fleet's final ingest pipeline.
 ELASTIC_AGENT_ENVELOPE_FIELDSETS = ("agent", "cloud", "host")
-# Beats processors whose extra (non-ECS) fields the Beats schema declares under libbeat/processors.
 ELASTIC_AGENT_ENVELOPE_PROCESSORS = ("add_host_metadata", "add_cloud_metadata")
-# Stamped on every document by Fleet's final ingest pipeline; neither Beats nor the packages declare them.
 FLEET_FINAL_PIPELINE_FIELDS = ("event.agent_id_status", "event.ingested")
 
 
@@ -157,16 +152,12 @@ def all_ecs_field_types() -> dict[str, str]:
 @cached
 def elastic_agent_envelope_fields() -> dict[str, str]:
     """Fields Elastic Agent adds to every document it ships, mapped to their types."""
-    # Package field files rarely declare these, so they are folded into ECS-scoped streams at schema
-    # build time. The set is derived from data the repo already carries instead of a hand-written list:
-    # - the ECS `agent`, `cloud` and `host` field sets, including `host.os.*` (which ECS nests from
-    #   `os`) but not the sets ECS re-nests from elsewhere (`host.geo.*`, `host.risk.*`, `*.entity.*`)
-    #   or the `origin`/`target` self-nestings, which no shipper populates;
-    # - the Beats-specific extras that add_host_metadata and add_cloud_metadata declare in the Beats
-    #   schema (`host.containerized`, `host.os.build`, `cloud.image.id`, ...);
-    # - the two fields stamped by Fleet's final ingest pipeline.
-    # The ECS host set also carries a few metrics-style fields (host.uptime, host.cpu.usage, ...) that
-    # Agent does not add to log events; accepting them on scoped streams is harmless.
+    # Package field files rarely declare these, so they are folded into ECS-scoped streams at build time.
+    # ECS side: the agent, cloud and host sets including `host.os.*`, minus fields ECS re-nests from
+    # other sets (`host.geo.*`, `host.risk.*`, `*.entity.*`) and the `origin`/`target` self-nestings,
+    # which no shipper populates. Beats side: the extras add_host_metadata and add_cloud_metadata
+    # declare (`host.containerized`, `cloud.image.id`, ...). The few metrics-style host fields that
+    # come along (host.uptime, ...) are harmless.
     envelope: dict[str, str] = {}
     for version_schemas in ecs.get_schemas().values():
         flat: dict[str, Any] = version_schemas.get("ecs_flat", {})
@@ -189,7 +180,7 @@ def elastic_agent_envelope_fields() -> dict[str, str]:
     )
     for processor in ELASTIC_AGENT_ENVELOPE_PROCESSORS:
         for field in get_field_schema(processors.get(processor, {}), include_common=True):
-            # skip the deprecated `meta.cloud.*` aliases; aliases are not queryable fields of their own
+            # aliases (the deprecated `meta.cloud.*`) are not fields of their own
             if field.get("type") != "alias":
                 _ = envelope.setdefault(field["name"], field["type"])
 
@@ -225,7 +216,7 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
             version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
             if _is_ecs_field_file(Path(file).name):
-                # count declared names before multi-field expansion, and only those ECS defines
+                # only ECS-defined names count, before multi-field expansion
                 ecs_declared.setdefault(integration_name, set()).update(
                     field["name"] for field in data if field["name"] in ecs_field_types
                 )
@@ -240,11 +231,9 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
 
         del file_data_bytes
 
-    # Data streams whose ECS field file declares enough ECS fields to be a real subset declaration
-    # are flagged as ECS-scoped: query validation checks them against their own field files instead
-    # of the entire ECS schema. Elastic Agent adds the same envelope of fields to every document it
-    # ships, so those are folded in; anything else a package's ingest pipeline populates without
-    # declaring it belongs in non-ecs-schema.json.
+    # Streams whose ECS field file declares enough ECS fields are flagged as ECS-scoped: validation
+    # checks them against their own field files instead of the full ECS schema. The Elastic Agent
+    # envelope is folded in; anything else a pipeline populates undeclared belongs in non-ecs-schema.json.
     envelope = elastic_agent_envelope_fields()
     for integration_name, declared in ecs_declared.items():
         if len(declared) < MIN_DECLARED_ECS_FIELDS:
@@ -659,7 +648,7 @@ def get_integration_schema_data(
                     "ecs_version": ecs_version,
                     "package_version": package_version,
                     "endgame_version": endgame_version,
-                    # True when the schema above was validated without the full ECS union
+                    # True when `schema` excludes the full ECS union
                     "ecs_scoped": integration_is_ecs_scoped(
                         integrations_schemas, package, package_version, integration
                     ),
@@ -690,11 +679,9 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
 
     if not integration_is_ecs_scoped(integrations_schemas, package, package_version, integration):
-        # The integration does not enumerate the ECS fields it populates (it relies on the
-        # ecs@mappings component template, or the cached schema predates ECS scoping), so any
-        # ECS field is valid. ECS-scoped integrations are validated against their own field
-        # schema only, which already includes the ECS fields they declare or emit in their
-        # sample event; anything else they populate belongs in non-ecs-schema.json.
+        # Unscoped integrations (ecs@mappings packages, residual ECS files, legacy cache entries) accept
+        # any ECS field. Scoped ones are checked against their own field schema only; undeclared fields
+        # they populate belong in non-ecs-schema.json.
         schema.update(ecs_schema)
 
     integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
@@ -708,15 +695,12 @@ def integration_is_ecs_scoped(
     integration: str | None = None,
 ) -> bool:
     """Return True when the package version enumerates the ECS fields it populates."""
-    # Set per data stream at schema build time (see parse_version_schema). Missing on packages
-    # that rely on the ecs@mappings component template (e.g. cloud_defend, endpoint), on data
-    # streams whose ECS field file is only a post-migration residual, and on legacy cache
-    # entries; all of those keep the historical full-ECS validation.
+    # Set per data stream at schema build time (parse_version_schema); absent on ecs@mappings packages
+    # (cloud_defend, endpoint), residual ECS files and legacy cache entries, which keep full-ECS validation.
     version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
     if integration:
         return _dataset_is_ecs_scoped(version_schema.get(integration))
-    # package-wide query: only strict when every data stream is scoped, otherwise an
-    # unscoped data stream could produce false validation failures
+    # package-wide: strict only when every data stream is scoped
     dataset_schemas: list[Any] = [
         value for key, value in version_schema.items() if key != "jobs" and not key.startswith("_")
     ]

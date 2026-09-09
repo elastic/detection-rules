@@ -149,13 +149,13 @@ eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[repo
 
 
 def _scoped_trailer(scoped_pkgs: set[str]) -> str:
-    """Error trailer line explaining that ECS was intentionally not unioned for ECS-scoped packages."""
+    """Error trailer explaining that ECS was not unioned for ECS-scoped packages."""
     if not scoped_pkgs:
         return ""
     pkgs = ", ".join(sorted(scoped_pkgs))
     return (
-        f"\nECS-scoped packages [{pkgs}]: the full ECS schema was intentionally not unioned; only ECS fields declared "
-        "in the package field files (plus non-ecs-schema.json entries for the rule's index patterns) are accepted. "
+        f"\nECS-scoped packages [{pkgs}]: the full ECS schema was not unioned; only ECS fields the package field "
+        "files declare (plus non-ecs-schema.json entries for the rule's index patterns) are accepted. "
         "Add genuinely populated fields to detection_rules/etc/non-ecs-schema.json"
     )
 
