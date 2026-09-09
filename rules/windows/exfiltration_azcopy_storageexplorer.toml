@@ -7,11 +7,10 @@ updated_date = "2026/09/09"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first time a host runs AzCopy copy or sync to Azure Blob, Data Lake, or File storage, or starts Azure
-Storage Explorer, from a path that is not a standard Program Files or per-user Programs install. These Microsoft
+Identifies the first time, in a historical window, a host runs AzCopy copy or sync to Azure Blob, Data Lake, or File storage, 
+or starts Azure Storage Explorer, from a path that is not a standard Program Files or per-user Programs install. These Microsoft
 utilities are legitimate data-transfer tools; ransomware and cloud-ransomware operators drop portable copies and use
-SAS-authenticated jobs to pull data from victim storage and push it to attacker-controlled accounts. Alerts once per
-host.id within the history window.
+SAS-authenticated jobs to pull data from victim storage and push it to attacker-controlled accounts.
 """
 false_positives = [
     "IT or DevOps using a portable AzCopy binary (not installed under Program Files) for authorized migrations.",
@@ -33,10 +32,10 @@ index = [
 ]
 language = "kuery"
 license = "Elastic License v2"
-name = "Potential Data Exfiltration via AzCopy or Azure Storage Explorer"
+name = "AzCopy or Azure Storage Explorer Usage on Unusual Host"
 note = """## Triage and analysis
 
-### Investigating Potential Data Exfiltration via AzCopy or Azure Storage Explorer
+### Investigating AzCopy or Azure Storage Explorer Usage on Unusual Host
 
 AzCopy and Azure Storage Explorer are Microsoft utilities for moving data to and from Azure Storage. Threat actors abuse portable copies as living-off-the-land binaries: they run `azcopy copy` with SAS URLs against `*.blob.core.windows.net` (GetBlob from a victim account, PutBlob to an attacker account, or Blob-to-Blob between them) and launch Storage Explorer from a non-install path. CISA's Rhysida advisory is one example of that tradecraft; the rule does not key on actor staging folder names.
 
