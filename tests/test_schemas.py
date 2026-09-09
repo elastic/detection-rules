@@ -20,10 +20,11 @@ from semver import Version
 
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
+from detection_rules.custom_schemas import get_stack_schema_map_entry
 from detection_rules.esql_errors import EsqlSemanticError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.schemas import RULES_CONFIG, downgrade
+from detection_rules.schemas import RULES_CONFIG, downgrade, get_stack_schemas
 from detection_rules.version_lock import VersionLockFile
 
 
@@ -843,6 +844,52 @@ class TestVersions(unittest.TestCase):
         stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
         err_msg = f"There is no entry defined for the current package ({package_version}) in the stack-schema-map"
         self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
+
+    def test_stack_schemas_above_current_package(self):
+        """Test that a min_stack_version above the current package yields a complete, string-keyed mapping."""
+        stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
+        newest_entry = stack_map[max(stack_map, key=Version.parse)]
+        package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        future_version = str(package_version.bump_minor())
+
+        get_stack_schemas.clear()
+        try:
+            schemas = get_stack_schemas(future_version)
+        finally:
+            get_stack_schemas.clear()
+
+        self.assertEqual(list(schemas), [future_version])
+        self.assertTrue(all(isinstance(k, str) for k in schemas))
+        mapping = schemas[future_version]
+        self.assertEqual(mapping["beats"], "main")
+        self.assertEqual(mapping["ecs"], "master")
+        self.assertEqual(mapping["endgame"], newest_entry["endgame"])
+        # every consumer indexes these keys directly, so they must all be present
+        self.assertEqual(set(mapping), {"beats", "ecs", "endgame"})
+
+    def test_stack_schemas_within_current_package(self):
+        """Test that the fallback entry is not added when min_stack_version is within the current package."""
+        package_version = str(Version.parse(load_current_package_version(), optional_minor_and_patch=True))
+        get_stack_schemas.clear()
+        try:
+            schemas = get_stack_schemas(package_version)
+        finally:
+            get_stack_schemas.clear()
+        self.assertEqual(list(schemas), [package_version])
+        self.assertNotEqual(schemas[package_version]["ecs"], "master")
+
+    def test_stack_schema_map_entry_lookup(self):
+        """Test that custom schema lookups carry the newest entry forward for versions above the stack-schema-map."""
+        stack_map = RULES_CONFIG.stack_schema_map
+        newest_version = max(stack_map, key=Version.parse)
+        oldest_version = min(stack_map, key=Version.parse)
+
+        self.assertEqual(get_stack_schema_map_entry(newest_version), stack_map[newest_version])
+        future_version = str(Version.parse(newest_version).bump_minor())
+        self.assertEqual(get_stack_schema_map_entry(future_version), stack_map[newest_version])
+        below_version = str(Version.parse(oldest_version).replace(major=0))
+        with self.assertRaises(KeyError):
+            get_stack_schema_map_entry(below_version)
 
 
 class TestESQLValidation(unittest.TestCase):

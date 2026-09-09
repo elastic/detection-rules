@@ -380,6 +380,11 @@ def downgrade(
     return api_contents
 
 
+# Newest bundled endgame schema (detection_rules/etc/endgame_schemas). Used only when no stack-schema-map entry
+# defines an endgame version to inherit for a stack version above the current package.
+DEFAULT_ENDGAME_VERSION = "8.4.0"
+
+
 @cached
 def load_stack_schema_map() -> dict[str, Any]:
     return RULES_CONFIG.stack_schema_map
@@ -402,7 +407,16 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     }
 
     if stack_version > current_package:
-        versions[stack_version] = {"beats": "main", "ecs": "master"}
+        # A rule may require a stack version newer than the current package (e.g. a DaC config pinned to an older
+        # Kibana release). Validate it against the unreleased beats/ecs branches and carry forward the endgame version
+        # from the newest mapped release, since endgame schemas are versioned independently of the stack. The key must
+        # be a string to match the entries loaded from stack-schema-map.yaml.
+        newest_mapping: dict[str, Any] = stack_map[max(stack_map, key=Version.parse)] if stack_map else {}
+        versions[str(stack_version)] = {
+            "beats": "main",
+            "ecs": "master",
+            "endgame": newest_mapping.get("endgame", DEFAULT_ENDGAME_VERSION),
+        }
 
     return OrderedDict(sorted(versions.items(), reverse=True))
 

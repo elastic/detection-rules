@@ -11,12 +11,30 @@ from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 from eql import load_dump, save_dump  # type: ignore[reportMissingTypeStubs]
+from semver import Version
 
 from .config import parse_rules_config
 from .utils import cached, clear_caches
 
 RULES_CONFIG = parse_rules_config()
 RESERVED_SCHEMA_NAMES = ["beats", "ecs", "endgame"]
+
+
+def get_stack_schema_map_entry(stack_version: str) -> dict[str, Any]:
+    """Return the stack-schema-map entry for a stack version.
+
+    A rule's min_stack_version may be newer than every entry in stack-schema-map.yaml (e.g. a DaC config pinned to an
+    older Kibana release). In that case the newest entry is carried forward, mirroring `get_stack_schemas`.
+    """
+    stack_schema_map = RULES_CONFIG.stack_schema_map
+    if stack_version in stack_schema_map:
+        return stack_schema_map[stack_version]
+
+    newest_version = max(stack_schema_map, key=Version.parse) if stack_schema_map else None
+    if newest_version and Version.parse(stack_version, optional_minor_and_patch=True) > Version.parse(newest_version):
+        return stack_schema_map[newest_version]
+
+    raise KeyError(f"No stack-schema-map entry found for stack version {stack_version}")
 
 
 @cached
@@ -27,7 +45,7 @@ def get_custom_schemas(stack_version: str | None = None) -> dict[str, Any]:
     stack_versions = [stack_version] if stack_version else RULES_CONFIG.stack_schema_map.keys()
 
     for version in stack_versions:
-        stack_schema_map = RULES_CONFIG.stack_schema_map[version]
+        stack_schema_map = get_stack_schema_map_entry(version)
 
         for schema, value in stack_schema_map.items():
             if schema not in RESERVED_SCHEMA_NAMES:
