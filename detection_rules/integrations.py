@@ -21,7 +21,7 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 from semver import Version
 
 from . import ecs
-from .beats import flatten_ecs_schema
+from .beats import flatten_ecs_schema, get_field_schema, get_max_version, read_beats_schema
 from .config import load_current_package_version
 from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
@@ -121,11 +121,21 @@ ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
 # (elastic/integrations#10135) dropped their ECS definitions and keep only the few fields the
 # template does not cover (o365 audit declares 3, crowdstrike alert 4), so a small file is a
 # residual rather than a subset declaration; scoping on it would reject the ECS fields the package
-# populates through its ingest pipeline. Unmigrated streams declare far more (auditd_manager 50,
-# network_traffic 77+, fortinet_fortigate 146).
+# populates through its ingest pipeline. Unmigrated streams declare far more (auditd_manager 42,
+# network_traffic 77+, fortinet_fortigate 146). Only names ECS defines count: ECS field files also
+# carry package fields (entityanalytics_entra_id lists 36 `asset.*` names in ecs.yml) and built
+# packages expand multi-fields (`process.name.text`), neither of which is evidence that the stream
+# enumerates the ECS fields it populates.
 MIN_DECLARED_ECS_FIELDS = 20
 
-SAMPLE_EVENT_FILE_PATTERN = "*/data_stream/*/sample_event.json"
+# ECS field sets Elastic Agent populates on every document it ships, independent of the package:
+# agent identity, plus the host and cloud metadata from the add_host_metadata and add_cloud_metadata
+# processors that Fleet enables by default in every agent policy.
+ELASTIC_AGENT_ENVELOPE_FIELDSETS = ("agent", "cloud", "host")
+# Beats processors whose extra (non-ECS) fields the Beats schema declares under libbeat/processors.
+ELASTIC_AGENT_ENVELOPE_PROCESSORS = ("add_host_metadata", "add_cloud_metadata")
+# Stamped on every document by Fleet's final ingest pipeline; neither Beats nor the packages declare them.
+FLEET_FINAL_PIPELINE_FIELDS = ("event.agent_id_status", "event.ingested")
 
 
 def _is_ecs_field_file(file_name: str) -> bool:
@@ -144,49 +154,53 @@ def all_ecs_field_types() -> dict[str, str]:
     return field_types
 
 
-def flatten_document(document: dict[str, Any], prefix: str = "") -> set[str]:
-    """Flatten a document into dotted leaf field names."""
-    fields: set[str] = set()
-    for key, value in document.items():
-        name = f"{prefix}{key}"
-        if isinstance(value, dict):
-            fields.update(flatten_document(value, f"{name}."))  # type: ignore[reportUnknownArgumentType]
-        elif isinstance(value, list):
-            # a list of objects still contributes its leaves; a list of scalars is the field
-            for item in value:  # type: ignore[reportUnknownVariableType]
-                if isinstance(item, dict):
-                    fields.update(flatten_document(item, f"{name}."))  # type: ignore[reportUnknownArgumentType]
-                else:
-                    fields.add(name)
-        else:
-            fields.add(name)
-    return fields
+@cached
+def elastic_agent_envelope_fields() -> dict[str, str]:
+    """Fields Elastic Agent adds to every document it ships, mapped to their types."""
+    # Package field files rarely declare these, so they are folded into ECS-scoped streams at schema
+    # build time. The set is derived from data the repo already carries instead of a hand-written list:
+    # - the ECS `agent`, `cloud` and `host` field sets, including `host.os.*` (which ECS nests from
+    #   `os`) but not the sets ECS re-nests from elsewhere (`host.geo.*`, `host.risk.*`, `*.entity.*`)
+    #   or the `origin`/`target` self-nestings, which no shipper populates;
+    # - the Beats-specific extras that add_host_metadata and add_cloud_metadata declare in the Beats
+    #   schema (`host.containerized`, `host.os.build`, `cloud.image.id`, ...);
+    # - the two fields stamped by Fleet's final ingest pipeline.
+    # The ECS host set also carries a few metrics-style fields (host.uptime, host.cpu.usage, ...) that
+    # Agent does not add to log events; accepting them on scoped streams is harmless.
+    envelope: dict[str, str] = {}
+    for version_schemas in ecs.get_schemas().values():
+        flat: dict[str, Any] = version_schemas.get("ecs_flat", {})
+        selected = {
+            name: info
+            for name, info in flat.items()
+            if name.split(".", 1)[0] in ELASTIC_AGENT_ENVELOPE_FIELDSETS
+            and info.get("original_fieldset") in (None, "os")
+            and name.split(".")[1] not in ("origin", "target")
+        }
+        envelope.update(ecs.flatten_multi_fields(selected))
+        envelope.update({name: flat[name]["type"] for name in FLEET_FINAL_PIPELINE_FIELDS if name in flat})
 
+    processors: dict[str, Any] = (
+        read_beats_schema(get_max_version())
+        .get("libbeat", {})
+        .get("folders", {})
+        .get("processors", {})
+        .get("folders", {})
+    )
+    for processor in ELASTIC_AGENT_ENVELOPE_PROCESSORS:
+        for field in get_field_schema(processors.get(processor, {}), include_common=True):
+            # skip the deprecated `meta.cloud.*` aliases; aliases are not queryable fields of their own
+            if field.get("type") != "alias":
+                _ = envelope.setdefault(field["name"], field["type"])
 
-def extract_sample_event_fields(zip_ref: "zipfile.ZipFile") -> dict[str, set[str]]:
-    """Map each data stream to the fields present in its sample event."""
-    sample_fields: dict[str, set[str]] = {}
-
-    for file in zip_ref.namelist():
-        if not fnmatch.fnmatch(file, SAMPLE_EVENT_FILE_PATTERN):
-            continue
-        data_stream = Path(file).parent.name
-        try:
-            sample_event = json.loads(zip_ref.read(file))
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(sample_event, dict):
-            continue
-
-        sample_fields.setdefault(data_stream, set()).update(flatten_document(sample_event))  # type: ignore[reportUnknownArgumentType]
-
-    return sample_fields
+    return envelope
 
 
 def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
     """Parse the field files of an EPR package zip into a single version schema."""
     version_schema: dict[str, Any] = {}
     ecs_declared: dict[str, set[str]] = {}
+    ecs_field_types = all_ecs_field_types()
 
     for file in zip_ref.namelist():
         file_data_bytes = zip_ref.read(file)
@@ -211,7 +225,10 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
             version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
 
             if _is_ecs_field_file(Path(file).name):
-                ecs_declared.setdefault(integration_name, set()).update(flat_data)
+                # count declared names before multi-field expansion, and only those ECS defines
+                ecs_declared.setdefault(integration_name, set()).update(
+                    field["name"] for field in data if field["name"] in ecs_field_types
+                )
 
         # add machine learning jobs to the schema
         if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
@@ -223,20 +240,18 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
 
         del file_data_bytes
 
-    # Data streams whose ECS field file is substantial enough to be a real subset declaration are
-    # flagged as ECS-scoped: query validation checks them against their own field files instead
-    # of the entire ECS schema. Their sample event is a real document from the data stream, so the
-    # ECS fields in it (Elastic Agent metadata, pipeline enrichment) are folded into the field
-    # schema to cover what the field files leave undeclared.
-    ecs_field_types = all_ecs_field_types()
-    sample_fields = extract_sample_event_fields(zip_ref)
+    # Data streams whose ECS field file declares enough ECS fields to be a real subset declaration
+    # are flagged as ECS-scoped: query validation checks them against their own field files instead
+    # of the entire ECS schema. Elastic Agent adds the same envelope of fields to every document it
+    # ships, so those are folded in; anything else a package's ingest pipeline populates without
+    # declaring it belongs in non-ecs-schema.json.
+    envelope = elastic_agent_envelope_fields()
     for integration_name, declared in ecs_declared.items():
         if len(declared) < MIN_DECLARED_ECS_FIELDS:
             continue
         stream_schema: dict[str, Any] = version_schema[integration_name]
-        for field in sorted(sample_fields.get(integration_name, set())):
-            if field in ecs_field_types:
-                stream_schema.setdefault(field, ecs_field_types[field])
+        for field, field_type in envelope.items():
+            stream_schema.setdefault(field, field_type)
         stream_schema["_ecs_scoped"] = True
 
     return version_schema
@@ -644,6 +659,10 @@ def get_integration_schema_data(
                     "ecs_version": ecs_version,
                     "package_version": package_version,
                     "endgame_version": endgame_version,
+                    # True when the schema above was validated without the full ECS union
+                    "ecs_scoped": integration_is_ecs_scoped(
+                        integrations_schemas, package, package_version, integration
+                    ),
                 }
 
 

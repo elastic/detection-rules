@@ -148,6 +148,18 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
 eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage] # noqa: SLF001
 
 
+def _scoped_trailer(scoped_pkgs: set[str]) -> str:
+    """Error trailer line explaining that ECS was intentionally not unioned for ECS-scoped packages."""
+    if not scoped_pkgs:
+        return ""
+    pkgs = ", ".join(sorted(scoped_pkgs))
+    return (
+        f"\nECS-scoped packages [{pkgs}]: the full ECS schema was intentionally not unioned; only ECS fields declared "
+        "in the package field files (plus non-ecs-schema.json entries for the rule's index patterns) are accepted. "
+        "Add genuinely populated fields to detection_rules/etc/non-ecs-schema.json"
+    )
+
+
 class KQLValidator(QueryValidator):
     """Specific fields for KQL query event types."""
 
@@ -199,6 +211,7 @@ class KQLValidator(QueryValidator):
             combined_by_stack: dict[str, dict[str, Any]] = {}
             ecs_by_stack: dict[str, str] = {}
             packages_by_stack: dict[str, set[str]] = {}
+            scoped_by_stack: dict[str, set[str]] = {}
 
             for integ in get_integration_schema_data(data, meta, package_integrations):
                 stack_version = integ["stack_version"]
@@ -208,15 +221,18 @@ class KQLValidator(QueryValidator):
 
                 _ = ecs_by_stack.setdefault(stack_version, ecs_version)
                 _ = packages_by_stack.setdefault(stack_version, set()).add(package)
+                if integ.get("ecs_scoped"):
+                    _ = scoped_by_stack.setdefault(stack_version, set()).add(package)
                 combined_by_stack.setdefault(stack_version, {}).update(schema)
 
             for stack_version, schema_dict in combined_by_stack.items():
                 ecs_version = ecs_by_stack.get(stack_version, "unknown")
                 pkgs_set = packages_by_stack.get(stack_version, set())
                 pkgs = ", ".join(sorted(pkgs_set))
+                scoped_line = _scoped_trailer(scoped_by_stack.get(stack_version, set()))
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
-                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}{scoped_line}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -418,11 +434,14 @@ class EQLValidator(QueryValidator):
             combined_by_stack: dict[str, dict[str, Any]] = {}
             ecs_by_stack: dict[str, str] = {}
             packages_by_stack: dict[str, set[str]] = {}
+            scoped_by_stack: dict[str, set[str]] = {}
             for integ in get_integration_schema_data(data, meta, packaged):
                 stack_version = integ["stack_version"]
                 ecs_version = integ["ecs_version"]
                 package = integ["package"]
                 schema = integ["schema"]
+                if integ.get("ecs_scoped"):
+                    _ = scoped_by_stack.setdefault(stack_version, set()).add(package)
                 # prepare with index/custom/endpoint fields
                 if data.index_or_dataview:
                     for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
@@ -442,8 +461,10 @@ class EQLValidator(QueryValidator):
                 ecs_version = ecs_by_stack.get(stack_version, "unknown")
                 pkgs_set = packages_by_stack.get(stack_version, set())
                 pkgs = ", ".join(sorted(pkgs_set))
+                scoped_line = _scoped_trailer(scoped_by_stack.get(stack_version, set()))
                 err_trailer = (
-                    f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}"
+                    f"{scoped_line}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -526,10 +547,11 @@ class EQLValidator(QueryValidator):
                                     )
                         schema_dict.update(**ecs.flatten(ecs.get_endpoint_schemas()))
 
+                        scoped_line = _scoped_trailer({package} if integ.get("ecs_scoped") else set())
                         err_trailer = (
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
-                            f"stack: {stack_version}, ecs: {ecs_version}\n"
+                            f"stack: {stack_version}, ecs: {ecs_version}{scoped_line}\n"
                             f"rule: {data.name} - {data.rule_id}"
                         )
                         targets.append(
