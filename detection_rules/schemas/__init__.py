@@ -402,8 +402,7 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     }
 
     if stack_version > current_package:
-        # No entry exists above the current package (e.g. a DaC config pinned to an older Kibana release), so validate
-        # against the newest mapped release. The key must be a string to match the stack-schema-map.yaml entries.
+        # no mapped entry above the current package, so validate against the newest mapped release
         versions[str(stack_version)] = stack_map[max(stack_map, key=Version.parse)]
 
     return OrderedDict(sorted(versions.items(), reverse=True))
