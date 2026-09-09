@@ -11,7 +11,7 @@ The default Authentication configuration does not collect sshd authentication me
 Edit the predicate entry `process == "sshd"` to:
 
 ```
-process == "sshd" OR process == "sshd-session"
+process == "sshd" OR process == "sshd-session" OR process == "sshd-auth"
 ```
 
 On OpenSSH 9.8+, the per-connection process execs `sshd-keygen-wrapper` → `sshd` → `sshd-session`, and authentication messages are logged under `sshd-session`, which the default predicate excludes.
