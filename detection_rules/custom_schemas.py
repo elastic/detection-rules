@@ -21,15 +21,13 @@ RESERVED_SCHEMA_NAMES = ["beats", "ecs", "endgame"]
 
 
 def get_stack_schema_map_entry(stack_version: str) -> dict[str, Any]:
-    """Return the stack-schema-map entry for a stack version.
-
-    A rule's min_stack_version may be newer than every entry in stack-schema-map.yaml (e.g. a DaC config pinned to an
-    older Kibana release). In that case the newest entry is carried forward, mirroring `get_stack_schemas`.
-    """
+    """Return the stack-schema-map entry for a stack version, carrying the newest entry forward if needed."""
     stack_schema_map = RULES_CONFIG.stack_schema_map
     if stack_version in stack_schema_map:
         return stack_schema_map[stack_version]
 
+    # A rule's min_stack_version may be newer than every entry in stack-schema-map.yaml (e.g. a DaC config pinned to
+    # an older Kibana release). Carry the newest entry forward in that case, mirroring `get_stack_schemas`.
     newest_version = max(stack_schema_map, key=Version.parse) if stack_schema_map else None
     if newest_version and Version.parse(stack_version, optional_minor_and_patch=True) > Version.parse(newest_version):
         return stack_schema_map[newest_version]

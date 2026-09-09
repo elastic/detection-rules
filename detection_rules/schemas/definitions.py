@@ -87,6 +87,9 @@ ESQL_FROM_SOURCES_TERMINATOR_REGEX = re.compile(r"\||\)|\bMETADATA\b", re.IGNORE
 ESQL_INDEX_PATTERN_REGEX = re.compile(r"^[\w.*\-]+$")
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
+# Newest bundled endgame schema (detection_rules/etc/endgame_schemas). Used only when no stack-schema-map entry
+# defines an endgame version to inherit for a stack version above the current package.
+DEFAULT_ENDGAME_VERSION = "8.4.0"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),
     "allow_runs": (Version.parse("7.16.0"), None),

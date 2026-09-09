@@ -380,11 +380,6 @@ def downgrade(
     return api_contents
 
 
-# Newest bundled endgame schema (detection_rules/etc/endgame_schemas). Used only when no stack-schema-map entry
-# defines an endgame version to inherit for a stack version above the current package.
-DEFAULT_ENDGAME_VERSION = "8.4.0"
-
-
 @cached
 def load_stack_schema_map() -> dict[str, Any]:
     return RULES_CONFIG.stack_schema_map
@@ -415,7 +410,7 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
         versions[str(stack_version)] = {
             "beats": "main",
             "ecs": "master",
-            "endgame": newest_mapping.get("endgame", DEFAULT_ENDGAME_VERSION),
+            "endgame": newest_mapping.get("endgame", definitions.DEFAULT_ENDGAME_VERSION),
         }
 
     return OrderedDict(sorted(versions.items(), reverse=True))
