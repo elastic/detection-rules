@@ -402,16 +402,9 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     }
 
     if stack_version > current_package:
-        # A rule may require a stack version newer than the current package (e.g. a DaC config pinned to an older
-        # Kibana release). Validate it against the unreleased beats/ecs branches and carry forward the endgame version
-        # from the newest mapped release, since endgame schemas are versioned independently of the stack. The key must
-        # be a string to match the entries loaded from stack-schema-map.yaml.
-        newest_mapping: dict[str, Any] = stack_map[max(stack_map, key=Version.parse)] if stack_map else {}
-        versions[str(stack_version)] = {
-            "beats": "main",
-            "ecs": "master",
-            "endgame": newest_mapping.get("endgame", definitions.DEFAULT_ENDGAME_VERSION),
-        }
+        # No entry exists above the current package (e.g. a DaC config pinned to an older Kibana release), so validate
+        # against the newest mapped release. The key must be a string to match the stack-schema-map.yaml entries.
+        versions[str(stack_version)] = stack_map[max(stack_map, key=Version.parse)]
 
     return OrderedDict(sorted(versions.items(), reverse=True))
 

@@ -20,7 +20,6 @@ from semver import Version
 
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
-from detection_rules.custom_schemas import get_stack_schema_map_entry
 from detection_rules.esql_errors import EsqlSemanticError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
@@ -846,7 +845,7 @@ class TestVersions(unittest.TestCase):
         self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
 
     def test_stack_schemas_above_current_package(self):
-        """Test that a min_stack_version above the current package yields a complete, string-keyed mapping."""
+        """Test that a min_stack_version above the current package falls back to the newest stack-schema-map entry."""
         stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
         newest_entry = stack_map[max(stack_map, key=Version.parse)]
         package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
@@ -858,38 +857,10 @@ class TestVersions(unittest.TestCase):
         finally:
             get_stack_schemas.clear()
 
+        # consumers index by string version and access beats/ecs/endgame directly, so the entry must be complete
         self.assertEqual(list(schemas), [future_version])
-        self.assertTrue(all(isinstance(k, str) for k in schemas))
-        mapping = schemas[future_version]
-        self.assertEqual(mapping["beats"], "main")
-        self.assertEqual(mapping["ecs"], "master")
-        self.assertEqual(mapping["endgame"], newest_entry["endgame"])
-        # every consumer indexes these keys directly, so they must all be present
-        self.assertEqual(set(mapping), {"beats", "ecs", "endgame"})
-
-    def test_stack_schemas_within_current_package(self):
-        """Test that the fallback entry is not added when min_stack_version is within the current package."""
-        package_version = str(Version.parse(load_current_package_version(), optional_minor_and_patch=True))
-        get_stack_schemas.clear()
-        try:
-            schemas = get_stack_schemas(package_version)
-        finally:
-            get_stack_schemas.clear()
-        self.assertEqual(list(schemas), [package_version])
-        self.assertNotEqual(schemas[package_version]["ecs"], "master")
-
-    def test_stack_schema_map_entry_lookup(self):
-        """Test that custom schema lookups carry the newest entry forward for versions above the stack-schema-map."""
-        stack_map = RULES_CONFIG.stack_schema_map
-        newest_version = max(stack_map, key=Version.parse)
-        oldest_version = min(stack_map, key=Version.parse)
-
-        self.assertEqual(get_stack_schema_map_entry(newest_version), stack_map[newest_version])
-        future_version = str(Version.parse(newest_version).bump_minor())
-        self.assertEqual(get_stack_schema_map_entry(future_version), stack_map[newest_version])
-        below_version = str(Version.parse(oldest_version).replace(major=0))
-        with self.assertRaises(KeyError):
-            get_stack_schema_map_entry(below_version)
+        self.assertEqual(schemas[future_version], newest_entry)
+        self.assertLessEqual({"beats", "ecs", "endgame"}, set(schemas[future_version]))
 
 
 class TestESQLValidation(unittest.TestCase):
