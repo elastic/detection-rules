@@ -16,6 +16,7 @@
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where data_stream.dataset == "aws.cloudtrail"
     and event.provider == "ec2.amazonaws.com"
     and event.action == "CreateSecurityGroup"
@@ -26,6 +27,7 @@ from logs-aws.cloudtrail-*
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where data_stream.dataset == "aws.cloudtrail"
     and to_lower(user.name) in ("gh0st_808", "gh0st_365", "warkopi")
 | stats event_count = count(*), actions = values(event.action), providers = values(event.provider), source_ips = values(source.ip), regions = values(cloud.region)
@@ -34,6 +36,7 @@ from logs-aws.cloudtrail-*
 
 ```sql
 from logs-aws.cloudtrail-*
+| where @timestamp > now() - 7 day
 | where data_stream.dataset == "aws.cloudtrail"
     and event.provider == "iam.amazonaws.com"
     and event.action == "CreateUser"
