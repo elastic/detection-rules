@@ -718,14 +718,20 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
         self.assertNotIn("_ecs_scoped", package_fields)
         self.assertIn("destination.ip", package_fields)
 
-    def test_required_fields_mark_undeclared_ecs_fields(self):
-        """required_fields entries flip to ecs=False when the integration lacks the field."""
+    def test_required_fields_keep_ecs_flag_for_undeclared_ecs_fields(self):
+        """ECS scoping only gates validation; required_fields.ecs still means "is an ECS field".
+
+        A field that ECS defines keeps ecs=True and its ECS type even when the rule's (scoped)
+        integration does not declare it, matching Kibana's semantics for required_fields.
+        Non-ECS fields are still typed from the integration schema.
+        """
         package = "pkg"
         integration = "ds"
         manifests = {package: {"1.0.0": _manifest("^9.0.0")}}
         schemas = self._strict_schemas(package, integration)
         validator = KQLValidator(
-            f"data_stream.dataset:{package}.{integration} and destination.ip:* and process.title:foo"
+            f"data_stream.dataset:{package}.{integration} and destination.ip:* and process.title:foo "
+            f"and {package}.custom_field:bar"
         )
 
         with (
@@ -739,8 +745,12 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
 
         by_name = {f["name"]: f for f in required_fields}
         self.assertTrue(by_name["destination.ip"]["ecs"])
-        self.assertFalse(by_name["process.title"]["ecs"])
-        self.assertEqual(by_name["process.title"]["type"], "unknown")
+        self.assertEqual(by_name["destination.ip"]["type"], "ip")
+        # process.title is not in the scoped integration schema, but it is an ECS field
+        self.assertTrue(by_name["process.title"]["ecs"])
+        self.assertNotEqual(by_name["process.title"]["type"], "unknown")
+        self.assertFalse(by_name[f"{package}.custom_field"]["ecs"])
+        self.assertEqual(by_name[f"{package}.custom_field"]["type"], "keyword")
 
 
 class TestParseVersionSchema(unittest.TestCase):
