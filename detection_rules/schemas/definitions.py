@@ -188,6 +188,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Kubernetes API Server Audit Logs",
     "Data Source: Linux Auditd Logs",
     "Data Source: Linux Sysmon Logs",
+    "Data Source: macOS Security Events",
     "Data Source: M365 Audit Logs",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft Defender for Cloud Alerts",
