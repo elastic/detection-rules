@@ -304,13 +304,8 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
             Version.parse(stack_version),
             package_manifests,
         )
-        # Drop the ECS scoping metadata (`_ecs_scoped`) and ML job lists from the cached
-        # schema; only data stream field dicts become index mappings.
-        package_schema = {
-            stream: {field: value for field, value in stream_schema.items() if not field.startswith("_")}
-            for stream, stream_schema in integration_schemas[package][package_version].items()
-            if stream != "jobs" and not stream.startswith("_")
-        }
+        # only data stream field dicts (not `_meta` or ML job lists) become index mappings
+        package_schema = integrations.data_stream_schemas(integration_schemas[package][package_version])
 
         # Apply dataset restrictions if any
         if integration in dataset_restriction:

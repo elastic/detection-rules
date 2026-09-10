@@ -34,9 +34,10 @@ def _schemas(scoped: bool) -> dict:
         "destination.ip": "ip",
         f"{PACKAGE}.{INTEGRATION}.request.type": "long",
     }
+    version_schema: dict = {INTEGRATION: data_stream}
     if scoped:
-        data_stream["_ecs_scoped"] = True
-    return {PACKAGE: {"1.0.0": {INTEGRATION: data_stream}}}
+        version_schema["_meta"] = {"ecs_scoped": [INTEGRATION]}
+    return {PACKAGE: {"1.0.0": version_schema}}
 
 
 def _build_plan(schemas: dict) -> list[ValidationTarget]:

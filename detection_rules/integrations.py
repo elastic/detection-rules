@@ -132,10 +132,23 @@ ELASTIC_AGENT_ENVELOPE_FIELDSETS = ("agent", "cloud", "host")
 ELASTIC_AGENT_ENVELOPE_PROCESSORS = ("add_host_metadata", "add_cloud_metadata")
 FLEET_FINAL_PIPELINE_FIELDS = ("event.agent_id_status", "event.ingested")
 
+# Version-level key in the cached package schemas holding metadata about the version rather than a data
+# stream's fields: `ecs_scoped` lists the data streams checked against their own field files.
+SCHEMA_META_KEY = "_meta"
+
 
 def _is_ecs_field_file(file_name: str) -> bool:
     """Return True when a fields file contains ECS field declarations."""
     return any(fnmatch.fnmatch(file_name, pattern) for pattern in ECS_FIELD_FILE_PATTERNS)
+
+
+def data_stream_schemas(version_schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The data stream field schemas of a cached package version, without `_meta` and ML job lists."""
+    return {
+        name: schema
+        for name, schema in version_schema.items()
+        if name not in ("jobs", SCHEMA_META_KEY) and isinstance(schema, dict)
+    }
 
 
 @cached
@@ -231,17 +244,21 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
 
         del file_data_bytes
 
-    # Streams whose ECS field file declares enough ECS fields are flagged as ECS-scoped: validation
-    # checks them against their own field files instead of the full ECS schema. The Elastic Agent
-    # envelope is folded in; anything else a pipeline populates undeclared belongs in non-ecs-schema.json.
+    # Streams whose ECS field file declares enough ECS fields are recorded as ECS-scoped in the version's
+    # `_meta`: validation checks them against their own field files instead of the full ECS schema. The
+    # Elastic Agent envelope is folded in; anything else a pipeline populates undeclared belongs in
+    # non-ecs-schema.json.
     envelope = elastic_agent_envelope_fields()
+    ecs_scoped: list[str] = []
     for integration_name, declared in ecs_declared.items():
         if len(declared) < MIN_DECLARED_ECS_FIELDS:
             continue
         stream_schema: dict[str, Any] = version_schema[integration_name]
         for field, field_type in envelope.items():
             stream_schema.setdefault(field, field_type)
-        stream_schema["_ecs_scoped"] = True
+        ecs_scoped.append(integration_name)
+    if ecs_scoped:
+        version_schema[SCHEMA_META_KEY] = {"ecs_scoped": sorted(ecs_scoped)}
 
     return version_schema
 
@@ -695,21 +712,17 @@ def integration_is_ecs_scoped(
     integration: str | None = None,
 ) -> bool:
     """Return True when the package version enumerates the ECS fields it populates."""
-    # Set per data stream at schema build time (parse_version_schema); absent on ecs@mappings packages
-    # (cloud_defend, endpoint), residual ECS files and legacy cache entries, which keep full-ECS validation.
+    # Listed in the version's `_meta.ecs_scoped` at schema build time (parse_version_schema); absent on
+    # ecs@mappings packages (cloud_defend, endpoint), residual ECS files and legacy cache entries, which
+    # keep full-ECS validation.
     version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
+    meta: dict[str, Any] = version_schema.get(SCHEMA_META_KEY) or {}
+    ecs_scoped: set[str] = set(meta.get("ecs_scoped") or [])
     if integration:
-        return _dataset_is_ecs_scoped(version_schema.get(integration))
+        return integration in ecs_scoped
     # package-wide: strict only when every data stream is scoped
-    dataset_schemas: list[Any] = [
-        value for key, value in version_schema.items() if key != "jobs" and not key.startswith("_")
-    ]
-    return bool(dataset_schemas) and all(_dataset_is_ecs_scoped(dataset) for dataset in dataset_schemas)
-
-
-def _dataset_is_ecs_scoped(dataset_schema: Any) -> bool:
-    """Return True when a cached data stream schema is flagged as ECS-scoped."""
-    return isinstance(dataset_schema, dict) and dataset_schema.get("_ecs_scoped") is True  # type: ignore[reportUnknownMemberType]
+    datasets = data_stream_schemas(version_schema)
+    return bool(datasets) and all(dataset in ecs_scoped for dataset in datasets)
 
 
 def notify_user_if_update_available(
@@ -736,23 +749,18 @@ def collect_schema_fields(
     integration: str | None = None,
 ) -> dict[str, Any]:
     """Collects the schema fields for a given integration."""
+    version_schema: dict[str, Any] = integrations_schemas[package][package_version]
     if integration is None:
         return {
             field: value
-            for dataset in integrations_schemas[package][package_version]
-            if dataset != "jobs" and not dataset.startswith("_")
-            for field, value in integrations_schemas[package][package_version][dataset].items()
-            if not field.startswith("_")
+            for dataset_schema in data_stream_schemas(version_schema).values()
+            for field, value in dataset_schema.items()
         }
 
-    if integration not in integrations_schemas[package][package_version]:
+    if integration not in version_schema:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return {
-        field: value
-        for field, value in integrations_schemas[package][package_version][integration].items()
-        if not field.startswith("_")
-    }
+    return dict(version_schema[integration])
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
