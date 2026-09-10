@@ -1,33 +1,27 @@
 [metadata]
 creation_date = "2026/09/09"
-integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+integration = ["endpoint", "windows", "m365_defender", "crowdstrike"]
 maturity = "production"
 updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the first time, in a historical window, a host runs AzCopy copy or sync to Azure Blob, Data Lake, or File storage, 
-or starts Azure Storage Explorer, from a path that is not a standard Program Files or per-user Programs install. These Microsoft
-utilities are legitimate data-transfer tools; ransomware and cloud-ransomware operators drop portable copies and use
-SAS-authenticated jobs to pull data from victim storage and push it to attacker-controlled accounts.
+Identifies the first time, in a historical window, a host runs AzCopy copy or sync to Azure Blob, Data Lake, or File
+storage, or starts Azure Storage Explorer. These Microsoft utilities are legitimate data-transfer tools; ransomware and
+cloud-ransomware operators drop portable copies and use SAS-authenticated jobs to pull data from victim storage and push
+it to attacker-controlled accounts.
 """
 false_positives = [
-    "IT or DevOps using a portable AzCopy binary (not installed under Program Files) for authorized migrations.",
-    """
-    Users launching the Azure Storage Explorer installer or a portable build from Downloads, Desktop, or Temp before it
-    is installed under Program Files.
-    """,
+    "IT or DevOps using AzCopy for authorized migrations on a host that has not used it in the history window.",
+    "Users launching Azure Storage Explorer (including the installer) for the first time on a host.",
 ]
 from = "now-9m"
 index = [
     "logs-crowdstrike.fdr*",
     "logs-endpoint.events.process-*",
     "logs-m365_defender.event-*",
-    "logs-sentinel_one_cloud_funnel.*",
-    "logs-system.security*",
     "logs-windows.sysmon_operational-*",
-    "winlogbeat-*",
 ]
 language = "kuery"
 license = "Elastic License v2"
@@ -36,24 +30,23 @@ note = """## Triage and analysis
 
 ### Investigating AzCopy or Azure Storage Explorer Usage on Unusual Host
 
-AzCopy and Azure Storage Explorer are Microsoft utilities for moving data to and from Azure Storage. Threat actors abuse portable copies as living-off-the-land binaries: they run `azcopy copy` with SAS URLs against `*.blob.core.windows.net` (GetBlob from a victim account, PutBlob to an attacker account, or Blob-to-Blob between them) and launch Storage Explorer from a non-install path. CISA's Rhysida advisory is one example of that tradecraft; the rule does not key on actor staging folder names.
+AzCopy and Azure Storage Explorer are Microsoft utilities for moving data to and from Azure Storage. Threat actors abuse them as living-off-the-land binaries: they run `azcopy copy` with SAS URLs against `*.blob.core.windows.net` (GetBlob from a victim account, PutBlob to an attacker account, or Blob-to-Blob between them) and launch Storage Explorer to browse or move the same data. CISA's Rhysida advisory is one example of that tradecraft.
 
-This is a new-terms rule: it alerts the first time a `host.id` matches in the history window (7 days). AzCopy `copy`/`sync` whose command line includes an Azure Storage hostname, or Storage Explorer (`StorageExplorer.exe`, `StorageExplorer-windows-x64.exe`, `StorageExplorer-windows-arm64.exe`, `StorageExplorer-windowsx64.exe`), from a path that is not Program Files or a per-user Programs install, fires once per host. Recurring portable use on the same host will not re-alert until the history window expires.
+This is a new-terms rule: it alerts the first time a `host.id` matches in the history window (7 days). AzCopy `copy`/`sync` whose command line includes an Azure Storage hostname, or Storage Explorer (`StorageExplorer.exe`, `StorageExplorer-windows-x64.exe`, `StorageExplorer-windows-arm64.exe`, `StorageExplorer-windowsx64.exe`), fires once per host. Recurring use on the same host will not re-alert until the history window expires.
 
 ### Possible investigation steps
 
 - Confirm which utility fired the alert. For AzCopy, inspect `process.command_line` for `copy` vs `sync`, `--from-to` (`BlobLocal`, `LocalBlob`, `BlobBlob`), and the SAS URL host, container, and `sp`/`se` parameters. For Storage Explorer, note the installer vs application name and silent-install flags such as `/VERYSILENT`.
 - Identify source and destination. AzCopy command lines often contain a local path and one or two `https://<account>.blob.core.windows.net/...` URLs. Treat Blob-to-Blob copies as direct tenant-to-attacker movement even when no files touch disk.
-- Check `process.executable` and `process.parent.executable`. A portable copy outside Program Files, especially spawned by PowerShell or a scripting host, is more suspicious than a packaged install.
-- Compare `process.name` with `process.pe.original_file_name` and `process.code_signature.subject_name`. A Microsoft-signed AzCopy from an unusual path is still the Rhysida/Storm-0501 tradecraft; a renamed unsigned copy is additional evasion.
-- Pivot to Azure Storage diagnostic logs for the same window: GetBlob, PutBlob, and BlobBlob with user agent `AzCopy*` and SAS authentication. Correlate with the SIEM rule "Azure Storage Blob Retrieval via AzCopy".
+- Check `process.executable` and `process.parent.executable`. A copy from a user-writable or staging path, especially spawned by PowerShell or a scripting host, is more suspicious than a packaged install.
+- Compare `process.name` with `process.pe.original_file_name` and `process.code_signature.subject_name`. A Microsoft-signed binary from an unusual path is still the Rhysida/Storm-0501 tradecraft; a renamed unsigned copy is additional evasion.
+- Pivot to Azure Storage diagnostic logs for the same window: GetBlob, PutBlob, and BlobBlob with user agent `AzCopy*` or `Microsoft Azure Storage Explorer*` and SAS authentication. Correlate with the SIEM rule "Azure Storage Blob Retrieval via AzCopy".
 - Review network telemetry from the same `process.entity_id` to `*.blob.core.windows.net` or `*.dfs.core.windows.net` and estimate volume.
 - Hunt sibling activity on the host: other Azure LOLBINs, rclone, or bulk archive creation preceding the copy.
 
 ### False positive analysis
 
-- Portable AzCopy used by IT for one-off migrations will match if it is not installed under Program Files and the command line contains a storage hostname. This rule alerts only the first time a given `host.id` matches within 5 days; allowlist by executable path or approved destination if that first alert is expected.
-- Running Storage Explorer from Downloads, Desktop, or Temp (including the installer) will match until the product is installed under Program Files or a per-user Programs directory. Later launches from those install paths should not alert.
+- Authorized AzCopy migrations and first-time Storage Explorer use on a host will match. This rule alerts only the first time a given `host.id` matches within 7 days; allowlist by host, user, or approved destination if that first alert is expected.
 - Do not treat a trusted Microsoft signature as benign by itself; CISA's Rhysida advisory describes the official AzCopy and Storage Explorer binaries.
 
 ### Response and remediation
@@ -90,9 +83,7 @@ This rule also supports the following third-party data sources. For setup instru
 
 - [CrowdStrike](https://ela.st/crowdstrike-integration)
 - [Microsoft Defender XDR](https://ela.st/m365-defender)
-- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
 - [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
-- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
 """
 severity = "medium"
 tags = [
@@ -109,10 +100,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Sysmon",
-    "Data Source: SentinelOne",
     "Data Source: Microsoft Defender XDR",
     "Data Source: Crowdstrike",
-    "Data Source: Windows Security Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -126,8 +115,7 @@ host.os.type:windows and event.category:process and event.type:start and
     process.command_line:(*blob.core.windows.net* or *dfs.core.windows.net* or *file.core.windows.net* or *blob.storage.azure.net*)
   ) or
   process.name:("StorageExplorer.exe" or "StorageExplorer-windows-x64.exe" or "StorageExplorer-windows-arm64.exe" or "StorageExplorer-windowsx64.exe")
-) and
-not process.executable:(*\\Program*Files* or *\\Device\\HarddiskVolume*\\Program Files* or *\\AppData\\Local\\Programs\\*)
+)
 '''
 
 
