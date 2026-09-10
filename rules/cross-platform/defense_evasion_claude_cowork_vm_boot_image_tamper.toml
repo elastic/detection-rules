@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/08/05"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects unexpected modification of Claude Desktop Cowork VM boot images (kernel, initrd, root filesystem). Adversaries
+with user-context access can rewrite these stored images so later Cowork sessions boot attacker-controlled code inside a
+virtual instance that host EDR cannot inspect by default.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Claude Cowork VM Boot Image Tamper"
+note = """## Triage and analysis
+
+### Investigating Claude Cowork VM Boot Image Tamper
+
+Cowork boots a local Linux VM from images under the user's Claude AppData / Application Support tree. Those files are
+writable by the user and are not integrity-checked before boot. A non-Claude writer changing them is a strong signal of
+post-compromise defense evasion: later Cowork sessions can run attacker code inside a sanctioned Hyper-V /
+Virtualization.framework guest that host EDR does not see by default. This does not grant new privileges.
+
+### Possible investigation steps
+
+- Confirm the writer: `process.name`, `process.executable`, `process.parent.executable`, and `user.name`. This rule
+  already excludes Claude Desktop (`claude.exe` under `WindowsApps\\Claude_*\\app\\`, and `Claude` /
+  `Claude Helper` under `/Applications/Claude.app/`). Any other writer (script host, LOLBin, unsigned binary) is
+  unexpected.
+- Note which artifact changed (`file.name` / `file.path`) and `event.action`:
+  - `initrd` / `initrd.zst`: primary PoC target; both are often replaced together so the service cannot re-extract a
+    clean initrd from the `.zst`.
+  - `vmlinuz` / `rootfs.*` / `smol-bin.vhdx`: full guest control if replaced.
+- Pivot on `process.entity_id` / `host.id` for ~30m around the alert: how the writer started, other file writes under
+  the Claude package path, and whether `claude.exe` / Claude.app then started a Cowork session.
+- If Cowork runs afterward, check whether the session failed and Claude re-downloaded images (careless tamper) or
+  continued normally (payload may have kept the expected guest daemon alive).
+- Treat this as evidence of existing host compromise; hunt for the initial access that produced the writer process.
+
+### False positive analysis
+
+- Claude Desktop updates should not alert; if they do, the install path likely changed (new WindowsApps package layout
+  or non-AppX install) and the allowlist needs updating, not an exception for the writer name alone.
+- Backup or sync tools rewriting these exact filenames are uncommon; require a stable `process.executable` before
+  adding an exception. This rule watches create/overwrite/rename/modification only; deletions are out of scope.
+
+### Response and remediation
+
+- Delete or restore the affected bundle directory (Windows:
+  `%LOCALAPPDATA%\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\`; macOS:
+  `~/Library/Application Support/Claude/vm_bundles/claudevm.bundle/`) and let Claude re-download trusted images, or
+  restore from a known-good backup.
+- Isolate the host and investigate the writer process lineage; rotate credentials and secrets available to that user.
+- Search the environment for the same writer hash/path and for other unexpected modifications under Claude package
+  paths.
+"""
+references = ["https://y637f9qq2x.com/posts/cowork-boot-trust"]
+risk_score = 47
+rule_id = "a0939500-a817-4ce9-85a9-191133352a9e"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Domain: LLM",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type in ("windows", "macos") and
+  event.action in ("creation", "modification", "overwrite", "rename") and
+  event.outcome == "success" and
+  file.path : (
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/initrd",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/initrd.zst",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/vmlinuz",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/vmlinuz.zst",
+    "/Users/*/Library/Application Support/Claude/vm_bundles/claudevm.bundle/rootfs.img",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\initrd",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\initrd.zst",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\vmlinuz",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\rootfs.vhdx",
+    "?:\\Users\\*\\AppData\\Local\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\vm_bundles\\claudevm.bundle\\smol-bin.vhdx"
+  ) and
+  not (
+    (process.name : "claude.exe" and
+     process.executable : "?:\\Program Files\\WindowsApps\\Claude_*\\app\\claude.exe") or
+    (process.name : ("Claude", "Claude Helper") and
+     process.executable like "/Applications/Claude.app/*")
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1564"
+name = "Hide Artifacts"
+reference = "https://attack.mitre.org/techniques/T1564/"
+[[rule.threat.technique.subtechnique]]
+id = "T1564.006"
+name = "Run Virtual Instance"
+reference = "https://attack.mitre.org/techniques/T1564/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+

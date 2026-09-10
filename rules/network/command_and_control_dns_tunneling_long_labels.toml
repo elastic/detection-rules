@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2026/08/20"
-integration = ["network_traffic", "zeek"]
+integration = ["network_traffic", "fortinet_fortigate", "zeek"]
 maturity = "production"
-updated_date = "2026/08/20"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -72,6 +72,7 @@ setup = """## Setup
 This rule requires DNS transaction events from one of the following sources:
 
 - Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
+- Fortinet FortiGate DNS logs (`fortinet_fortigate.log`) in `logs-fortinet_fortigate.log-*`
 - Elastic Zeek (`zeek.dns`) in `logs-zeek.dns-*`
 - Legacy Packetbeat DNS events in `packetbeat-*` with `event.dataset` set to `dns`
 
@@ -91,6 +92,7 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Exfiltration",
     "Data Source: Network Packet Capture",
+    "Data Source: Fortinet",
     "Data Source: Network Traffic",
     "Data Source: Zeek",
     "Resources: Investigation Guide",
@@ -99,10 +101,10 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from logs-network_traffic.dns-*, logs-zeek.dns-*, packetbeat-*
+from logs-network_traffic.dns-*, logs-fortinet_fortigate.log-*, logs-zeek.dns-*, packetbeat-*
 | where
     (
-      data_stream.dataset in ("network_traffic.dns", "zeek.dns")
+      data_stream.dataset in ("network_traffic.dns", "fortinet_fortigate.log", "zeek.dns")
       or event.dataset == "dns"
     )
     and dns.question.name is not null

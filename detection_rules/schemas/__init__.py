@@ -402,7 +402,8 @@ def get_stack_schemas(stack_version_val: str | None = "0.0.0") -> OrderedDictTyp
     }
 
     if stack_version > current_package:
-        versions[stack_version] = {"beats": "main", "ecs": "master"}
+        # no mapped entry above the current package, so validate against the newest mapped release
+        versions[str(stack_version)] = stack_map[max(stack_map, key=Version.parse)]
 
     return OrderedDict(sorted(versions.items(), reverse=True))
 
