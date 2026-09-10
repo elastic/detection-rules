@@ -5,7 +5,6 @@
 
 """Validation logic for rules containing queries."""
 
-from logging import log
 import re
 import time
 from collections.abc import Callable
