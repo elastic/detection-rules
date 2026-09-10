@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/20"
+updated_date = "2026/08/05"
 min_stack_comments = "Changing min stack to 9.3.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.3.0"
 
@@ -79,12 +79,12 @@ rule_id = "f6d07a70-9ad0-11ef-954f-f661ea17fbcd"
 severity = "low"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS IAM",
-    "Resources: Investigation Guide",
-    "Use Case: Identity and Access Audit",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM",
     "Tactic: Privilege Escalation",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -95,6 +95,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.action: "AttachRolePolicy"
     and event.outcome: "success"
     and not related.entity: arn\:aws\:iam\:\:aws\:policy*
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 

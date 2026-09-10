@@ -4,14 +4,14 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/15"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects interactive 'exec' events launched against a container using the 'exec' command. Using the 'exec'
+This rule detects 'exec' events launched against a container using the 'exec' command. Using the 'exec'
 command in a pod allows a user to establish a temporary shell session and execute any process/command inside the
-container. This rule specifically targets higher-risk interactive commands that allow real-time interaction with a
+container. This rule specifically targets higher-risk commands that allow real-time interaction with a
 container's shell. A malicious actor could use this level of access to further compromise the container environment or
 attempt a container breakout.
 """
@@ -30,7 +30,7 @@ index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Interactive Exec Into Container Detected via Defend for Containers"
+name = "Exec Into Container Detected via Defend for Containers"
 note = """## Setup
 
 ## Triage and analysis
@@ -38,16 +38,15 @@ note = """## Setup
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Interactive Exec Into Container Detected via Defend for Containers
+### Investigating Exec Into Container Detected via Defend for Containers
 
-In containerized environments, the 'exec' command is used to run processes inside a running container, often for debugging or administrative tasks. Adversaries may exploit this to gain shell access, potentially leading to further compromise or container escape. The detection rule identifies such activities by monitoring for interactive 'exec' sessions, focusing on initial processes within containers, and flagging high-risk interactions.
+In containerized environments, the 'exec' command is used to run processes inside a running container, often for debugging or administrative tasks. Adversaries may exploit this to gain shell access, potentially leading to further compromise or container escape. The detection rule identifies such activities by monitoring for 'exec' sessions, focusing on initial processes within containers, and flagging high-risk interactions.
 
 ### Possible investigation steps
 
 - Review the container.id to identify which specific container the interactive exec command was executed against and gather information about its purpose and criticality.
 - Examine the process.entry_leader.entry_meta.type to confirm that the process was indeed initiated within a container environment, ensuring the context of the alert is accurate.
 - Investigate the process.entry_leader.same_as_process field to verify that the process in question is the initial process run in the container, which may indicate a new or unexpected session.
-- Analyze the process.interactive field to understand the nature of the interaction and determine if it aligns with expected administrative activities or if it suggests unauthorized access.
 - Check for any recent changes or deployments in the container environment that might explain the interactive session, such as updates or debugging activities.
 - Correlate the event with user activity logs to identify the user or service account responsible for initiating the exec command and assess their access permissions and recent actions.
 - Investigate any subsequent actions or commands executed within the container following the interactive session to identify potential malicious activities or attempts at container breakout.
@@ -91,11 +90,9 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox") and
 process.entry_leader.entry_meta.type == "container" and
 
-/* process is the inital process run in a container */
+/* process is the initial process run in a container */
 process.entry_leader.same_as_process == true and
-
-/* interactive process */
-process.interactive == true and container.id like "*"
+container.id like "*"
 '''
 
 [[rule.threat]]

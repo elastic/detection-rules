@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/04/20"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/09/01"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -38,12 +38,11 @@ rule_id = "1251b98a-ff45-11ee-89a1-f661ea17fbce"
 severity = "low"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Lambda",
-    "Use Case: Asset Visibility",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Lambda",
     "Tactic: Execution",
-    "Rule Type: BBR"
+    "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -53,6 +52,7 @@ event.dataset: "aws.cloudtrail"
     and event.provider: "lambda.amazonaws.com"
     and event.outcome: "success"
     and event.action: (CreateFunction* or UpdateFunctionCode*)
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 

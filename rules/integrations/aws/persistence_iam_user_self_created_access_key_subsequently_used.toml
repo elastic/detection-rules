@@ -1,0 +1,231 @@
+[metadata]
+creation_date = "2026/07/13"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/13"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an AWS IAM user using an existing credential to create a new access key for itself and subsequently using the
+new key within one hour. This behavior can indicate an adversary converting compromised credentials into an additional
+long-term credential for persistence. Unlike a standalone self-service key creation alert, requiring subsequent use of
+the new key reduces noise from unused or abandoned credential-rotation operations.
+"""
+false_positives = [
+    """
+    Approved credential-rotation automation may create and immediately validate or use a replacement access key. Confirm
+    the principal, source addresses, user agents, timing, and change records. Exclude only verified rotation workflows.
+    """,
+]
+from = "now-35m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS IAM User Self-Created Access Key Subsequently Used"
+note = """## Triage and analysis
+
+### Investigating AWS IAM User Self-Created Access Key Subsequently Used
+
+This rule detects an IAM user using an existing access key (Token A) to create a new access key for itself (Token B), followed by an AWS API request authenticated with Token B within one hour. The creation event proves that Token A was used to request the additional credential, while the subsequent CloudTrail event confirms that Token B became active.
+
+This sequence can indicate persistence after an IAM user's credentials are compromised. An adversary can use the compromised key to create another long-term credential, then continue accessing the account through the new key even after the original credential is identified and disabled.
+
+### Possible investigation steps
+
+- Identify the IAM user and AWS account using `aws.cloudtrail.user_identity.arn` and `cloud.account.id`.
+- Review Token A in `Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator_values`. Determine whether it is an expected credential for the IAM user and whether it was previously observed from unusual infrastructure.
+- Confirm that the key in `Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id_values` matches the subsequently used key in `Esql_priv.aws_cloudtrail_user_identity_access_key_id_created_key_use_values`.
+- Compare `Esql.source_ip_self_access_key_creation_values` with `Esql.source_ip_created_access_key_use_values`. A rapid change in source IP, ASN, geography, or hosting provider increases suspicion.
+- Compare `Esql.user_agent_original_self_access_key_creation_values` with `Esql.user_agent_original_created_access_key_use_values` to identify changes between the creation and use clients.
+- Review `Esql.event_action_created_access_key_use_values` to determine what Token B accessed or modified after creation.
+- Examine nearby CloudTrail activity for IAM reconnaissance, MFA changes, login-profile changes, policy modifications, or attempts to create additional credentials.
+- Confirm whether the activity corresponds to an approved credential-rotation workflow and whether the user is permitted to create its own long-term access keys.
+
+### False positive analysis
+
+- Approved credential-rotation automation may create and immediately test or use a replacement access key.
+- Developer onboarding or recovery workflows may create a key and validate it with an initial AWS API request.
+- Validate the principal, source addresses, user agents, timing, and change records before excluding the activity. Prefer narrowly scoped exceptions for verified automation rather than excluding the IAM user broadly.
+
+### Response and remediation
+
+- If unauthorized, deactivate or delete Token B immediately.
+- Rotate or disable Token A and investigate how it was exposed or compromised.
+- Review every CloudTrail event authenticated with Token B and determine whether it accessed data, changed IAM permissions, created resources, or established additional persistence.
+- Review the IAM user's policies and remove unnecessary `iam:CreateAccessKey` permissions.
+- Prefer temporary credentials and IAM Identity Center for human access instead of long-term IAM user access keys.
+- Preserve the relevant CloudTrail events, access key IDs, source addresses, and user-agent values for incident response.
+"""
+references = [
+    "https://hackingthe.cloud/aws/exploitation/iam_privilege_escalation/#iamcreateaccesskey",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html",
+    "https://github.com/RhinoSecurityLabs/pacu/tree/master/pacu/modules/iam__backdoor_users_keys",
+]
+risk_score = 47
+rule_id = "dfb7dc0b-2caf-4186-9b59-5752bc59bc19"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND (
+      (
+        event.provider == "iam.amazonaws.com"
+        AND event.action == "CreateAccessKey"
+        AND event.outcome == "success"
+        AND aws.cloudtrail.user_identity.type == "IAMUser"
+      )
+      OR (
+        aws.cloudtrail.user_identity.type == "IAMUser"
+        AND aws.cloudtrail.user_identity.access_key_id LIKE "AKIA*"
+        AND NOT (
+          event.provider == "iam.amazonaws.com"
+          AND event.action == "CreateAccessKey"
+        )
+      )
+    )
+| GROK aws.cloudtrail.response_elements """.*accessKeyId=(?<Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id>AKIA[A-Z0-9]{16}).*"""
+| EVAL
+    Esql.aws_cloudtrail_self_access_key_creation_flag = CASE(
+      event.provider == "iam.amazonaws.com"
+        AND event.action == "CreateAccessKey"
+        AND event.outcome == "success"
+        AND aws.cloudtrail.user_identity.type == "IAMUser"
+        AND (
+          user.target.name IS NULL
+          OR user.name == user.target.name
+        )
+        AND Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id IS NOT NULL,
+      1,
+      0
+    ),
+    Esql.aws_cloudtrail_created_access_key_use_flag = CASE(
+      aws.cloudtrail.user_identity.type == "IAMUser"
+        AND aws.cloudtrail.user_identity.access_key_id LIKE "AKIA*"
+        AND NOT (
+          event.provider == "iam.amazonaws.com"
+          AND event.action == "CreateAccessKey"
+        ),
+      1,
+      0
+    )
+| EVAL
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator = CASE(
+      Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+      aws.cloudtrail.user_identity.access_key_id,
+      null
+    ),
+    Esql_priv.aws_cloudtrail_access_key_id_correlation = CASE(
+      Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+      Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id,
+      aws.cloudtrail.user_identity.access_key_id
+    )
+| WHERE Esql_priv.aws_cloudtrail_access_key_id_correlation IS NOT NULL
+    AND aws.cloudtrail.user_identity.arn IS NOT NULL
+| STATS
+    Esql.aws_cloudtrail_self_access_key_creation_count =
+      COUNT(*) WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.aws_cloudtrail_created_access_key_use_count =
+      COUNT(*) WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator_values =
+      VALUES(Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id_values =
+      VALUES(Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql_priv.aws_cloudtrail_user_identity_access_key_id_created_key_use_values =
+      VALUES(aws.cloudtrail.user_identity.access_key_id)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.timestamp_self_access_key_creation_min =
+      MIN(@timestamp)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.timestamp_created_access_key_use_min =
+      MIN(@timestamp)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.source_ip_self_access_key_creation_values =
+      VALUES(source.ip)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.source_ip_created_access_key_use_values =
+      VALUES(source.ip)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.user_agent_original_self_access_key_creation_values =
+      VALUES(user_agent.original)
+      WHERE Esql.aws_cloudtrail_self_access_key_creation_flag == 1,
+    Esql.user_agent_original_created_access_key_use_values =
+      VALUES(user_agent.original)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1,
+    Esql.event_action_created_access_key_use_values =
+      VALUES(event.action)
+      WHERE Esql.aws_cloudtrail_created_access_key_use_flag == 1
+  BY cloud.account.id,
+     aws.cloudtrail.user_identity.arn,
+     Esql_priv.aws_cloudtrail_access_key_id_correlation
+| WHERE Esql.aws_cloudtrail_self_access_key_creation_count > 0
+    AND Esql.aws_cloudtrail_created_access_key_use_count > 0
+    AND Esql.timestamp_created_access_key_use_min >
+        Esql.timestamp_self_access_key_creation_min
+    AND DATE_DIFF(
+      "seconds",
+      Esql.timestamp_self_access_key_creation_min,
+      Esql.timestamp_created_access_key_use_min
+    ) <= 3600
+| KEEP
+    cloud.account.id,
+    aws.cloudtrail.user_identity.arn,
+    Esql.*,
+    Esql_priv.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.user_identity.arn","cloud.account.id"]
+missing_fields_strategy = "suppress"
+[rule.alert_suppression.duration]
+unit = "m"
+value = 35
+
+[rule.investigation_fields]
+field_names = [
+    "cloud.account.id",
+    "aws.cloudtrail.user_identity.arn",
+    "Esql_priv.aws_cloudtrail_user_identity_access_key_id_creator_values",
+    "Esql_priv.aws_cloudtrail_response_elements_access_key_access_key_id_values",
+    "Esql_priv.aws_cloudtrail_user_identity_access_key_id_created_key_use_values",
+    "Esql.timestamp_self_access_key_creation_min",
+    "Esql.timestamp_created_access_key_use_min",
+    "Esql.source_ip_self_access_key_creation_values",
+    "Esql.source_ip_created_access_key_use_values",
+    "Esql.user_agent_original_self_access_key_creation_values",
+    "Esql.user_agent_original_created_access_key_use_values",
+    "Esql.event_action_created_access_key_use_values",
+]
+

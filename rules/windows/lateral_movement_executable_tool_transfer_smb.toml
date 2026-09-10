@@ -2,7 +2,7 @@
 creation_date = "2020/11/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -89,7 +89,11 @@ sequence by host.id with maxspan=30s
   ] by process.entity_id
   /* add more executable / script extensions here if they are not noisy in your environment */
   [file where host.os.type == "windows" and event.type in ("creation", "change") and process.pid == 4 and user.id like ("S-1-5-21*", "S-1-12-*") and 
-   (file.Ext.header_bytes : "4d5a*" or file.extension : ("exe", "scr", "pif", "com", "dll", "bat", "cmd", "ps1", "vbs", "vbe", "js", "jse", "wsh", "wsf", "sct", "hta", "cpl"))] by process.entity_id
+   (file.Ext.header_bytes : "4d5a*" or file.extension : ("exe", "scr", "pif", "com", "dll", "bat", "cmd", "ps1", "vbs", "vbe", "js", "jse", "wsh", "wsf", "sct", "hta", "cpl")) and
+   not file.path : (
+     "?:\\Windows\\VeeamVssSupport\\*",
+     "?:\\Windows\\VeeamLogShipper\\*"
+   )] by process.entity_id
 '''
 
 

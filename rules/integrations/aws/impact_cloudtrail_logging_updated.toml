@@ -2,7 +2,7 @@
 creation_date = "2020/06/10"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -67,12 +67,11 @@ rule_id = "3e002465-876f-4f04-b016-84ef48ce7e5d"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Cloudtrail",
-    "Use Case: Log Auditing",
-    "Resources: Investigation Guide",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
     "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -82,6 +81,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.provider: "cloudtrail.amazonaws.com" 
     and event.action: "UpdateTrail" 
     and event.outcome: "success"
+    and not user_agent.original: (*Pulumi* or *Terraform*)
 '''
 
 

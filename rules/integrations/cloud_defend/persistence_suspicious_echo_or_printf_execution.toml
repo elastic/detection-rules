@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -27,7 +27,7 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Echo or Printf Execution Detected via Defend for Containers
 
-This rule flags interactive shell commands that invoke echo or printf with patterns used to write or stage data into sensitive paths, decode encoded payloads, or reach out via /dev/tcp. Attackers use these lightweight built-ins to avoid dropping tools while creating persistence or privilege escalation by modifying cron, rc.local, sudoers, ld.so preload, or SSH authorized_keys. In a container, a common pattern is execing into a pod and running `sh -c 'printf <base64> | base64 -d > /etc/cron.d/job; chmod +x …'` to implant a scheduled backdoor.
+This rule flags shell commands that invoke echo or printf with patterns used to write or stage data into sensitive paths, decode encoded payloads, or reach out via /dev/tcp. Attackers use these lightweight built-ins to avoid dropping tools while creating persistence or privilege escalation by modifying cron, rc.local, sudoers, ld.so preload, or SSH authorized_keys. In a container, a common pattern is execing into a pod and running `sh -c 'printf <base64> | base64 -d > /etc/cron.d/job; chmod +x …'` to implant a scheduled backdoor.
 
 ### Possible investigation steps
 
@@ -69,7 +69,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where event.type == "start" and event.action == "exec" and process.interactive == true and
+process where event.type == "start" and event.action == "exec" and
 process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
 process.args in ("-lc", "-c", "-cl") and process.args like ("*echo *", "*printf *") and
 process.args like (

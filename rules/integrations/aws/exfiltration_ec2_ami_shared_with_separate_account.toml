@@ -2,7 +2,7 @@
 creation_date = "2024/04/16"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -67,11 +67,11 @@ rule_id = "6a309864-fc3f-11ee-b8cc-f661ea17fbce"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS EC2",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
     "Tactic: Exfiltration",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -82,6 +82,7 @@ data_stream.dataset: "aws.cloudtrail" and event.provider: "ec2.amazonaws.com"
     and event.action: ModifyImageAttribute and event.outcome: success
     and aws.cloudtrail.request_parameters: *add=*
     and not aws.cloudtrail.user_identity.invoked_by: "assets.marketplace.amazonaws.com"
+    and not user_agent.original: (*packer-plugin-amazon* or *Ansible*)
 '''
 
 

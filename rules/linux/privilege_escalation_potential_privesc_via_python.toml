@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a UID change event to 0 (root) where the responsible process is a Python interpreter
+running from a user- or world-writable working directory and the parent process is non-root.
+This may be indicative of a local privilege escalation exploit executed via Python. Using
+the new terms feature, noise from automated tools or system processes is partially filtered out.
+"""
+false_positives = [
+    """
+    Some automation or break-glass tooling may invoke Python from scripts under /home or other temporary directories;
+    validate parent identity and working directory before escalating.
+    """,
+]
+from = "now-6m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suspicious UID Change to Root via Python"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious UID Change to Root via Python
+
+This rule flags a Linux process where a Python interpreter launched from a user- or world-writable location suddenly switches to UID 0 even though its parent was not running as root, a strong sign of local privilege escalation. An attacker might drop or compile an exploit in /tmp or a home directory, execute it through python3, and use the resulting root context to take full control of the host.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and command line around the Python execution, including any shell, script, package manager, or developer tooling that launched it, to quickly separate expected admin activity from an unexpected exploit chain.
+- Review the Python code and surrounding file activity in writable directories for exploit indicators such as dropped ELF binaries, compiled modules, kernel-targeting source, symlink abuse, or references to known privilege-escalation PoCs.
+- Correlate the event with session context by identifying the associated user login, TTY, SSH source, sudo or su history, and recent commands to determine whether the root transition was intentional or adversary-driven.
+- Examine actions performed immediately after the privilege change for signs of follow-on compromise, such as spawning an interactive root shell, modifying sudoers or PAM, creating cron or systemd persistence, adding users or SSH keys, or disabling security tooling.
+- Validate whether the host was susceptible to a local privilege-escalation path at the time by checking kernel and OS version, recent patch status, and whether the observed artifacts match public exploits relevant to that platform.
+
+### False positive analysis
+
+- A developer or administrator may be legitimately testing a custom privileged Python helper from `/tmp` or a home directory that uses an approved setuid-root wrapper or retained capabilities to switch to UID 0, so verify the script and interpreter ownership, permissions/capabilities, and whether the activity matches a documented maintenance or test window.
+- A local installation, upgrade, or recovery workflow can stage Python code in `/var/tmp`, `/dev/shm`, or `/home` and briefly elevate to root to complete expected file or permission changes, so confirm the parent process lineage, review the script contents and resulting system modifications, and ensure they align with recent authorized admin activity.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network except for approved response channels, suspend the compromised user session, and preserve the malicious Python script, its parent shell history, and any binaries dropped in `/tmp`, `/var/tmp`, `/dev/shm`, or the user home directory for forensic review.
+- Kill the attacker-controlled Python process and any spawned root shell or child processes, then remove persistence such as new cron entries, rogue systemd services or timers, modified `/etc/rc.local`, added `authorized_keys`, backdoored `sudoers`, and unauthorized local accounts.
+- Quarantine or delete exploit files and any trojaned binaries they replaced, rotate passwords and any SSH keys, API tokens, or service credentials exposed on the host, and review lateral access from that system while it was running with root privileges.
+- Rebuild or restore the host from a known-good image if root-level changes cannot be fully scoped, then validate the kernel, installed packages, PAM configuration, `/etc/sudoers`, critical system binaries, and endpoint security tooling against a trusted baseline before reconnecting it.
+- Escalate to incident response immediately if you find PAM or `sudoers` tampering, kernel module loading, additional root-capable accounts, signs of data staging or exfiltration, or the same Python-based privilege escalation pattern on more than one host.
+- Harden the environment by patching the kernel and vulnerable packages, mounting `/tmp` and `/dev/shm` with `noexec`, `nodev`, and `nosuid` where feasible, removing unnecessary setuid bits and file capabilities, and alerting on interpreters elevating to root from user-writable directories.
+"""
+references = [
+    "https://research.jfrog.com/post/dissecting-and-exploiting-linux-lpe-variant-dirtyclone-cve-2026-43503/",
+    "https://github.com/mooder1/dirtyclone-CVE-2026-43503"
+]
+risk_score = 47
+rule_id = "792411c3-361a-4ad6-8a38-7f7f6322ada1"
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:change and event.action:uid_change and
+user.id:0 and not process.parent.user.id:0 and not process.parent.group.id:0 and process.name:python* and
+process.working_directory:(/tmp* or /var/tmp* or /dev/shm* or /home/* or /run/user* or /var/run/user* or /var/www*) and
+process.parent.working_directory:(/tmp* or /var/tmp* or /dev/shm* or /home/* or /run/user* or /var/run/user* or /var/www*) and
+process.command_line:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Privilege Escalation"
+  id = "TA0004"
+  reference = "https://attack.mitre.org/tactics/TA0004/"
+
+    [[rule.threat.technique]]
+    id = "T1068"
+    name = "Exploitation for Privilege Escalation"
+    reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+    [[rule.threat.technique]]
+    id = "T1059"
+    name = "Command and Scripting Interpreter"
+    reference = "https://attack.mitre.org/techniques/T1059/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Python"
+      id = "T1059.006"
+      reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["process.command_line", "host.id"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"

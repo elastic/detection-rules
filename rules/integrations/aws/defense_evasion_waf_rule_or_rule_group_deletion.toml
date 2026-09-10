@@ -2,7 +2,7 @@
 creation_date = "2020/06/09"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -119,11 +119,11 @@ rule_id = "5beaebc1-cc13-4bfc-9949-776f9e0dc318"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS WAF",
-    "Use Case: Network Security Monitoring",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS WAF",
     "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -134,6 +134,7 @@ data_stream.dataset: aws.cloudtrail
     and event.provider: (waf.amazonaws.com or waf-regional.amazonaws.com or wafv2.amazonaws.com) 
     and event.action: (DeleteRule or DeleteRuleGroup) 
     and event.outcome: success
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 

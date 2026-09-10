@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+min_stack_comments = "Requires ES|QL JSON_EXTRACT on _source to read SIP fields across current and legacy schemas."
+min_stack_version = "9.4.0"
+updated_date = "2026/07/31"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies SIP OPTIONS requests targeting many distinct extension values from a single client within two minutes.
+Attackers and VoIP scanners use OPTIONS sweeps to discover valid users before REGISTER brute force, toll fraud, or
+registration hijacking attempts.
+"""
+false_positives = [
+    """
+    Some legitimate provisioning or monitoring tools enumerate extensions during onboarding. Validate the source against
+    known PBX management systems before closing.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+max_signals = 5
+name = "Potential SIP Extension Enumeration"
+note = """## Triage and analysis
+
+### Investigating Potential SIP Extension Enumeration
+
+SIP OPTIONS is commonly used for capability discovery. Attack tools such as SIPvicious send OPTIONS across sequential or randomized extensions to map valid users. High cardinality of `Esql.to_user` values from one client IP is a strong reconnaissance signal on VoIP segments.
+
+### Possible investigation steps
+
+- Review `Esql.sample_extensions` for sequential or patterned usernames indicative of scanning.
+- Inspect `Esql.user_agents` for scanner strings such as `friendly-scanner` or SIPvicious variants.
+- Check for follow-on REGISTER or INVITE activity from the same source within the next hour.
+- Confirm whether `Esql.client_ip` is an expected management or monitoring host for the `Esql.server_ip` PBX/SBC.
+
+### False positive analysis
+
+- PBX auto-provisioning, extension audits, or SBC health checks may generate OPTIONS to many extensions from a fixed management IP. Add exceptions for those sources only after documenting the tool and schedule.
+
+### Response and remediation
+
+- Block the scanning `Esql.client_ip` at the SBC or perimeter firewall if the activity is unauthorized.
+- Enforce SIP authentication and rate limits on the targeted PBX/SBC.
+- Hunt for subsequent credential access or toll-fraud INVITE patterns from the same source.
+"""
+references = ["https://attack.mitre.org/techniques/T1595/", "https://attack.mitre.org/techniques/T1046/"]
+risk_score = 47
+rule_id = "e7bf9314-f346-45b5-a6ed-044dc3b839c8"
+setup = """## Setup
+
+This rule requires the Elastic **network_traffic** integration with the **SIP** protocol module enabled on a sensor that
+observes VoIP signaling traffic. SIP monitoring uses UDP port 5060 by default. Enable the integration's **Use TCP**
+option when the monitored environment carries plaintext SIP over TCP; Packetbeat monitors the selected transport.
+
+The rule requires decoded SIP headers. SIP over TLS (commonly TCP 5061) is not visible unless the sensor receives
+decrypted traffic or observes plaintext SIP after TLS termination. SRTP encryption does not affect this rule when SIP
+signaling remains visible.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Tactic: Discovery",
+    "Tactic: Reconnaissance",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.sip-*, packetbeat-* metadata _source
+| eval
+    Esql.method = TO_UPPER(COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.method"),
+        JSON_EXTRACT(_source, "sip.method")
+    )),
+    Esql.to_user = COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.to.uri.username"),
+        JSON_EXTRACT(_source, "sip.to.uri.username")
+    ),
+    Esql.user_agent = COALESCE(
+        JSON_EXTRACT(_source, "network_traffic.sip.user_agent.original"),
+        JSON_EXTRACT(_source, "sip.user_agent.original")
+    ),
+    Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.server_ip = COALESCE(server.ip, destination.ip)
+| where
+    Esql.method == "OPTIONS" and
+    Esql.to_user is not null and
+    Esql.client_ip is not null and
+    Esql.server_ip is not null
+| eval Esql.time_window = DATE_TRUNC(2 minutes, @timestamp)
+| stats
+    Esql.distinct_extensions = COUNT_DISTINCT(Esql.to_user),
+    Esql.request_count = COUNT(*),
+    Esql.sample_extensions = MV_SLICE(VALUES(Esql.to_user), 0, 20),
+    Esql.user_agents = MV_SLICE(VALUES(Esql.user_agent), 0, 10)
+  by Esql.time_window, Esql.client_ip, Esql.server_ip
+| where Esql.distinct_extensions >= 20
+| keep Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1046"
+name = "Network Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1046/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+
+
+[rule.threat.tactic]
+id = "TA0043"
+name = "Reconnaissance"
+reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.alert_suppression]
+group_by = ["Esql.client_ip", "Esql.server_ip"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
