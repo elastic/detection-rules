@@ -2,7 +2,7 @@
 creation_date = "2025/02/19"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
@@ -100,12 +100,14 @@ from logs-o365.audit-* metadata _id, _version, _index
 | eval session.id = coalesce(o365.audit.AppAccessContext.AADSessionId, session.id, null)
 | where session.id is not null
 | eval Esql.time_window_date_trunc = date_trunc(3 minutes, @timestamp)
+// file.size is dynamically mapped in o365.audit and can be keyword or long across backing indices
+| eval Esql.file_size_bytes = to_long(file.size)
 | stats
     Esql.file_directory_values = values(file.directory),
     Esql.file_extension_values = values(file.extension),
     Esql.application_name_values = values(application.name),
     Esql.file_name_count_distinct = count_distinct(file.name),
-    Esql.total_file_size_mb = round((mv_sum(values(file.size))) / 1048576.0, 2),
+    Esql.total_file_size_mb = round((mv_sum(values(Esql.file_size_bytes))) / 1048576.0, 2),
     Esql.o365_audit_Site_values = values(o365.audit.Site),
     Esql.o365_audit_SiteUrl_values = values(o365.audit.SiteUrl),
     Esql.user_domain_values = values(user.domain),
