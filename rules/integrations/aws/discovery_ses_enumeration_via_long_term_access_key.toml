@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects enumeration of Amazon Simple Email Service (SES) resources using long-term IAM access
+keys (AKIA* prefix). Long-term access keys are associated with IAM users and are the credential
+type most commonly exfiltrated from repositories, configuration files, and environment variables.
+An adversary who obtains a long-term key may enumerate SES to discover verified email identities,
+sending quotas, and DKIM/MAIL FROM domain configurations as a precursor to phishing or spam
+campaigns launched from the compromised account's verified domains.
+"""
+false_positives = [
+    """
+    Automated monitoring scripts, infrastructure inventory tools, or CI/CD pipelines that use
+    long-term IAM keys to audit SES configuration will trigger this rule. Migrate automation
+    to IAM roles with short-lived credentials; long-term keys used for SES management are a
+    security anti-pattern regardless of this alert.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS SES Enumeration via Long-Term Access Key"
+note = """## Triage and analysis
+
+### Investigating AWS SES Enumeration via Long-Term Access Key
+
+Amazon SES verified identities (email addresses and domains) are the sending credentials that allow SES to send email on behalf of a domain. Adversaries who exfiltrate long-term IAM keys may enumerate SES to identify available verified domains for phishing, discover DKIM configurations, or check sending limits before launching a bulk email campaign.
+
+Long-term keys (AKIA* prefix) are lower-security than assumed-role credentials: they do not expire and are frequently exposed in source code, .env files, CI/CD configuration, and developer workstations. This makes them the most common compromised credential type in cloud environments.
+
+### Possible investigation steps
+
+- Identify the IAM user behind the long-term key from aws.cloudtrail.user_identity.arn.
+- Check whether this access key has been rotated recently (GetAccessKeyLastUsed, ListAccessKeys). Confirm the user who owns the key initiated this activity.
+- Review source.ip and source.as.organization.name against known developer or automation infrastructure. API calls from unexpected geographies using a long-term key are high-risk.
+- Query CloudTrail for subsequent SES write operations (SendEmail, SendRawEmail, VerifyEmailIdentity, UpdateAccountSendingEnabled) using the same access key.
+- Check GitHub, GitLab, and CI/CD logs for any public exposure of this key.
+
+### Response and remediation
+
+- Immediately deactivate the long-term access key (UpdateAccessKey --status Inactive).
+- Rotate all credentials associated with the IAM user.
+- Review all SES quotas and sending history to determine whether unauthorized email was sent.
+- Migrate automation that used this key to IAM roles with short-lived assumed-role credentials.
+"""
+references = [
+    "https://docs.aws.amazon.com/ses/latest/APIReference/API_ListIdentities.html",
+    "https://permiso.io/blog/s/aws-ses-pionage-detecting-ses-abuse/",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.discovery.ses-enumerate/",
+]
+risk_score = 21
+rule_id = "8d05971b-5858-4b72-b09a-17e3cee0af54"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. SES management APIs are logged by default."
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS SES",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "ses.amazonaws.com"
+    and event.action: (
+        "ListIdentities" or
+        "GetAccountSendingEnabled" or
+        "GetSendQuota" or
+        "ListEmailIdentities" or
+        "GetEmailIdentity" or
+        "DescribeActiveReceiptRuleSet" or
+        "ListReceiptRuleSets"
+    )
+    and event.outcome: "success"
+    and aws.cloudtrail.user_identity.access_key_id: AKIA*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "source.ip",
+    "source.as.organization.name",
+    "cloud.region",
+    "cloud.account.id",
+]
