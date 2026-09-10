@@ -20,10 +20,11 @@ from semver import Version
 
 from detection_rules import utils
 from detection_rules.config import load_current_package_version
+from detection_rules.custom_schemas import get_custom_schemas
 from detection_rules.esql_errors import EsqlSemanticError
 from detection_rules.rule import TOMLRuleContents
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.schemas import RULES_CONFIG, downgrade
+from detection_rules.schemas import RULES_CONFIG, downgrade, get_stack_schemas
 from detection_rules.version_lock import VersionLockFile
 
 
@@ -843,6 +844,32 @@ class TestVersions(unittest.TestCase):
         stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
         err_msg = f"There is no entry defined for the current package ({package_version}) in the stack-schema-map"
         self.assertIn(package_version, [Version.parse(v) for v in stack_map], err_msg)
+
+    def test_stack_schemas_above_current_package(self):
+        """Test that a min_stack_version above the current package falls back to the newest stack-schema-map entry."""
+        stack_map = utils.load_etc_dump(["stack-schema-map.yaml"])
+        newest_entry = stack_map[max(stack_map, key=Version.parse)]
+        package_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
+        future_version = str(package_version.bump_minor())
+
+        get_stack_schemas.clear()
+        try:
+            schemas = get_stack_schemas(future_version)
+        finally:
+            get_stack_schemas.clear()
+
+        # consumers index by string version and access beats/ecs/endgame directly, so the entry must be complete
+        self.assertEqual(list(schemas), [future_version])
+        self.assertEqual(schemas[future_version], newest_entry)
+        self.assertLessEqual({"beats", "ecs", "endgame"}, set(schemas[future_version]))
+
+        # custom schema lookups must fall back the same way rather than dropping custom schemas
+        newest_version = max(stack_map, key=Version.parse)
+        get_custom_schemas.clear()
+        try:
+            self.assertEqual(get_custom_schemas(future_version), get_custom_schemas(newest_version))
+        finally:
+            get_custom_schemas.clear()
 
 
 class TestESQLValidation(unittest.TestCase):
