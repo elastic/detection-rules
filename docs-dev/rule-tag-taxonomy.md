@@ -46,11 +46,24 @@ Legacy prefixes such as `Use Case:` and `Promotion:` remain valid during migrati
 Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
 (agents, MCP, foundation-model APIs, model artifacts). Do **not** use `Domain: LLM`.
 
-Rules that *invoke* an LLM as part of detection (ES|QL `COMPLETION`) keep their existing
-attack-surface domain and add `Resources: LLM`. Those are not GenAI-domain detections.
-
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.
+
+## Resources: LLM — rules that call an LLM
+
+`Resources: LLM` is the **user-visible** tag that a detection invokes a large language
+model. Customers use it in Kibana to find rules that require Elastic Inference Service
+(or another LLM connector) and incur token cost.
+
+**Add `Resources: LLM` when** the rule `query` uses the ES|QL `COMPLETION` command
+(typically `| COMPLETION ... WITH { "inference_id": "..." }`).
+
+**Do not add `Resources: LLM` when** the rule only detects GenAI/LLM *threats*
+(`Domain: GenAI` + `Mitre Atlas:` instead), or when an investigation guide merely
+mentions LLMs.
+
+COMPLETION rules keep their existing attack-surface `Domain:` (Endpoint, Identity,
+…). They are not GenAI-domain detections just because they call a model.
 
 ## Platform values
 

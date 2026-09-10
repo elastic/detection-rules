@@ -27,9 +27,9 @@ class TestStackEmitHelpers(unittest.TestCase):
     """Unit tests for emit epoch helpers."""
 
     def test_epoch_shared_across_minors_without_new_transforms(self) -> None:
-        """9.6 introduces the ATLAS emit epoch; 9.5 stays on the v19 epoch."""
+        """9.6 reuses the 9.5 v19 epoch; ATLAS is gated without a new lock epoch."""
         self.assertEqual(emit_epoch_key(Version(9, 5, 0)), "9.5")
-        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.6")
+        self.assertEqual(emit_epoch_key(Version(9, 6, 0)), "9.5")
         self.assertIsNone(emit_epoch_key(Version(9, 4, 0)))
 
     def test_transforms_empty_below_min_stack(self) -> None:
@@ -75,7 +75,7 @@ class TestStackEmitHelpers(unittest.TestCase):
         self.assertIn("Tactic: Impact", rewritten)
 
     def test_atlas_threat_stripped_below_9_6(self) -> None:
-        """ATLAS threat entries must not ship on stacks older than 9.6."""
+        """ATLAS threat entries must not ship on 8.19 / 9.4 / 9.5 release stacks."""
         atlas_entry = {
             "framework": "MITRE ATLAS",
             "tactic": {
@@ -94,11 +94,13 @@ class TestStackEmitHelpers(unittest.TestCase):
             },
             "technique": [],
         }
-        obj: dict[str, Any] = {"threat": [attack_entry, atlas_entry]}
-        apply_emit_transforms(obj, stack="9.5.0")
-        frameworks = [e["framework"] for e in obj["threat"]]
-        self.assertIn("MITRE ATT&CK", frameworks)
-        self.assertNotIn("MITRE ATLAS", frameworks)
+        mappings = [{"framework": "MITRE ATLAS", "version": "2026.08", "threat": [atlas_entry]}]
+        for stack in ("8.19.0", "9.4.0", "9.5.0"):
+            obj: dict[str, Any] = {"threat": [attack_entry, atlas_entry]}
+            apply_emit_transforms(obj, stack=stack, context=EmitContext(threat_mappings=mappings))
+            frameworks = [e["framework"] for e in obj["threat"]]
+            self.assertIn("MITRE ATT&CK", frameworks, stack)
+            self.assertNotIn("MITRE ATLAS", frameworks, stack)
 
     def test_atlas_threat_mappings_appended_on_9_6(self) -> None:
         """ATLAS threat_mappings are appended to threat on 9.6+."""

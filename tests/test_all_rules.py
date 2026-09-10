@@ -744,6 +744,20 @@ class TestRuleTags(BaseRuleTest):
             err_msg = "\n".join(invalid)
             self.fail(f"Rules with ES|QL COMPLETION missing Resources: LLM tag:\n{err_msg}")
 
+    def test_resources_llm_only_on_completion(self):
+        """Resources: LLM is the user-visible COMPLETION label; do not use it elsewhere."""
+        invalid = []
+        completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
+        for rule in self.all_rules:
+            tags = rule.contents.data.tags or []
+            if "Resources: LLM" not in tags:
+                continue
+            query = rule.contents.data.get("query") or ""
+            if not completion_re.search(query):
+                invalid.append(self.rule_str(rule))
+        if invalid:
+            self.fail("Resources: LLM is only for rules whose query uses ES|QL COMPLETION:\n" + "\n".join(invalid))
+
     def test_no_domain_llm_tag(self):
         """Domain: LLM is not a taxonomy domain; use Domain: GenAI or Resources: LLM."""
         invalid = []

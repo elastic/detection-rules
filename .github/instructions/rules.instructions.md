@@ -72,7 +72,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `OS:` — required when the rule lives under `rules/windows|linux|macos/` or is endpoint-scoped: `OS: Windows`, `OS: Linux`, `OS: macOS`.
   - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services). Use spellings from `EXPECTED_RULE_TAGS` / `docs-dev/rule-tag-taxonomy.md`. Do not suggest `AWS CloudTrail` or `Entra ID Sign-In Logs` casing changes until those are normalized (existing rules use mixed `Cloudtrail` / `Sign-in` variants).
   - `Resources: Investigation Guide` if `note` contains an investigation guide.
-  - `Resources: LLM` if the query uses the ES|QL `COMPLETION` command (the rule consumes an LLM; this is not a domain tag).
+  - **`Resources: LLM` — user-visible label that the rule calls an LLM.** Required when the query uses ES|QL `| COMPLETION`. This is how users find inference-backed rules (EIS / connector + token cost). Keep the existing `Domain:` (Endpoint, Identity, …). Do **not** use `Domain: LLM`, and do **not** add `Resources: LLM` to GenAI-threat rules that do not invoke `COMPLETION`.
   - `Mitre Atlas: AML.Txxxx` (or short `Txxxx`) for GenAI-domain rules when an ATLAS technique applies. IDs must exist in the current ATLAS data — do not use OWASP LLM Top 10 labels (`LLM04`, `LLM06`, …).
 
   **Optional (suggest when clearly applicable):**
@@ -189,6 +189,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - `MV_*` (multi-value) functions require proper null handling — always check for `IS NOT NULL` before using.
 - Prefer `| keep` with explicit field lists over `| keep *` for clarity and to control which fields appear in alerts.
 - Verify that `FROM` source indices are correct and not overly broad.
+- If the query uses `| COMPLETION`, the rule **must** be tagged `Resources: LLM` (user-visible inference/token-cost label). Flag missing tags, and flag `Resources: LLM` on queries that do not call `COMPLETION`.
 
 </Query — ES|QL Specific>
 

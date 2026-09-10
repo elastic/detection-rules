@@ -104,22 +104,14 @@ def _apply_mitre_attack_v19(obj: dict[str, Any], stack: Version, context: EmitCo
         obj["tags"] = rewrite_tactic_tags(obj.get("tags"), baseline_threat, obj.get("threat"))
 
 
-def _apply_mitre_atlas(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
-    """Append versioned ATLAS mappings on stacks that support the ATLAS framework."""
-    threat = list(obj.get("threat") or [])
+def _atlas_entries_from_mappings(context: EmitContext) -> list[dict[str, Any]]:
+    """Collect MITRE ATLAS threat entries from repo-only threat_mappings."""
     atlas_from_mappings: list[dict[str, Any]] = []
     for block in context.threat_mappings or []:
         if not isinstance(block, dict) or block.get("framework") != "MITRE ATLAS":
             continue
         atlas_from_mappings.extend(cast("list[dict[str, Any]]", block.get("threat") or []))
-
-    if stack < MITRE_ATLAS_MIN_STACK:
-        obj["threat"] = [e for e in threat if e.get("framework") != "MITRE ATLAS"]
-        return
-
-    if atlas_from_mappings:
-        without_atlas = [e for e in threat if e.get("framework") != "MITRE ATLAS"]
-        obj["threat"] = without_atlas + atlas_from_mappings
+    return atlas_from_mappings
 
 
 def _apply_related_integrations_gte(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
@@ -149,12 +141,8 @@ EMIT_TRANSFORMS: tuple[EmitTransform, ...] = (
         affects=("related_integrations",),
         apply=_apply_related_integrations_gte,
     ),
-    EmitTransform(
-        id="mitre_atlas",
-        min_stack=MITRE_ATLAS_MIN_STACK,
-        affects=("threat",),
-        apply=_apply_mitre_atlas,
-    ),
+    # ATLAS is gated in apply_emit_transforms (9.6+) and is not an emit epoch —
+    # registering it here would force stack_emit["9.6"] rows on every rule.
 )
 
 
@@ -196,11 +184,16 @@ def apply_emit_transforms(
     """
     stack_ver = parse_stack(stack if stack is not None else load_current_package_version())
     ctx = context or EmitContext()
-    # One-line gate: never ship ATLAS threat entries below 9.6 (no Kibana support).
+    # One-line gate: never ship ATLAS below 9.6 (8.19 API schema and Kibana lack support).
     if stack_ver < MITRE_ATLAS_MIN_STACK:
         obj["threat"] = [e for e in (obj.get("threat") or []) if e.get("framework") != "MITRE ATLAS"]
     for transform in transforms_for_stack(stack_ver):
         transform.apply(obj, stack_ver, ctx)
+    if stack_ver >= MITRE_ATLAS_MIN_STACK:
+        atlas_entries = _atlas_entries_from_mappings(ctx)
+        if atlas_entries:
+            without_atlas = [e for e in (obj.get("threat") or []) if e.get("framework") != "MITRE ATLAS"]
+            obj["threat"] = without_atlas + atlas_entries
     return obj
 
 

@@ -75,9 +75,11 @@ ATLAS is a separate framework from ATT&CK. Author ATLAS mappings as additional
 version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** put ATLAS
 entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
 
-- **Stack < 9.6** — ATLAS entries are stripped and never shipped (Kibana does not support
-  the ATLAS framework yet). This gate lives in `apply_emit_transforms`.
-- **Stack ≥ 9.6** — the `mitre_atlas` emit transform appends ATLAS `threat_mappings` onto the
+- **Stack < 9.6** (8.19 / 9.4 / 9.5 packages) — ATLAS entries are stripped and never
+  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. This gate
+  lives in `apply_emit_transforms` and does **not** create a new `stack_emit` epoch,
+  so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
+- **Stack ≥ 9.6** — `apply_emit_transforms` appends ATLAS `threat_mappings` onto the
   shipped `threat` array alongside ATT&CK.
 
 Refresh ATLAS data the same way as ATT&CK:
@@ -108,9 +110,8 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- 9.5 is the ATT&CK v19 epoch. 9.6 introduces `mitre_atlas`. Rules whose 9.6 payload actually
-  changes (ATLAS mappings appended) get a `stack_emit["9.6"]` row when re-locked. Other rules
-  keep inheriting `stack_emit["9.5"]`.
+- 9.5 is the ATT&CK v19 epoch. ATLAS shipping is stack-gated in `apply_emit_transforms`
+  and does **not** add a `9.6` epoch, so 9.6 packages keep inheriting `stack_emit["9.5"]`.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 
