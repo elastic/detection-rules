@@ -7,12 +7,16 @@
 # The gate takes the newest status by created_at for this context.
 #
 # Timing: the producer finalizer wait starts only AFTER the sequential `commit`
-# matrix finishes. Size this gate for commit worst-case + finalizer wait
-# (see WAIT_SECONDS / timeout-minutes below), not finalizer alone.
+# matrix finishes. Gate budget = N × commit shard timeout + finalizer wait +
+# buffer (today: up to 5 targets × 30m + 60m + buffer ≈ 240m). Raise both
+# WAIT_SECONDS and timeout-minutes when adding release targets.
 #
 # Target list: discovered inline with `actions/checkout` ref: main (not via the
 # PR-supplied reusable workflow), so a PR cannot shrink targets by editing
-# get-target-branches.yml.
+# get-target-branches.yml. Full workflow trust still requires a follow-up to
+# run this gate via pull_request_target (or rulesets) so the script cannot be
+# replaced by the candidate revision — bootstrap keeps pull_request so this
+# PR can introduce the check.
 #
 # Producer-live detection: if main's backport.yml contains the post-pending job
 # (or repo var RELEASE_LINE_PRODUCER_LIVE=true), tip-CI fallback is disabled and
@@ -25,13 +29,16 @@
 # Merge queue settings (required for safe serialization):
 #   - Max entries to merge / merge group size: 1
 #   - Concurrent merges: 1
+#   - Status timeout ≥ 240 minutes (must exceed this job's timeout)
 #
 # Polling uses a 120s interval to stay within GITHUB_TOKEN REST budgets when the
-# finalizer and gate overlap.
+# finalizer and gate overlap. Superseded PR/merge_group runs are cancelled.
 #
 # Recovery when the line is red: land a fix on main (admin bypass if needed),
 # let auto-backport finish, confirm tip Unit Tests are green, and wait for
-# release-line-caught-up success on the new merge SHA.
+# release-line-caught-up success on the new merge SHA. Admin-bypass of a red
+# gate does not restore earlier missing cherries — reconcile those (cherry-pick
+# onto the release branch) before the next merge.
 #
 name: Release Line Caught Up
 
@@ -40,6 +47,11 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
+
+# Cancel superseded long polls (synchronize / new merge_group head).
+concurrency:
+  group: release-line-gate-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -82,8 +94,8 @@ jobs:
     # when branch discovery did not succeed.
     if: always()
     runs-on: ubuntu-latest
-    # Bound for sequential commit matrix (4 × 30m) + finalizer (65m) + buffer.
-    timeout-minutes: 200
+    # Bound for up to 5 serial commit shards (5 × 30m) + finalizer (65m) + buffer.
+    timeout-minutes: 250
     steps:
       - name: Wait until origin/main is backported and tip Unit Tests passed
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -93,7 +105,7 @@ jobs:
           STATUS_CONTEXT: release-line-caught-up
           WORKFLOW_FILE: pythonpackage.yml
           # Must cover producer commit wall-clock + mark-caught-up WAIT (3600s).
-          WAIT_SECONDS: "11400"
+          WAIT_SECONDS: "14400"
           POLL_SECONDS: "120"
           RELEASE_LINE_PRODUCER_LIVE: ${{ vars.RELEASE_LINE_PRODUCER_LIVE }}
         with:

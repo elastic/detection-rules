@@ -17,6 +17,13 @@ permissions:
   statuses: write
   actions: read
 
+# One producer run per merge SHA. Re-label after merge cancels the prior run
+# (avoids competing cherry-picks / status writes). Open-PR events stay per-action
+# so default labeling is not cancelled by unrelated label churn.
+concurrency:
+  group: ${{ github.event.pull_request.merged && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-pr-{0}-{1}', github.event.pull_request.number, github.event.action) }}
+  cancel-in-progress: true
+
 jobs:
   get-branches:
     uses: ./.github/workflows/get-target-branches.yml
@@ -179,6 +186,7 @@ jobs:
   #   1) post-pending — runs in parallel with cherry-picks, posts pending only
   #   2) mark-caught-up — needs post-pending + commit, posts only terminal success/failure
   # Ordering within the workflow run is enforced by `needs: post-pending` on the finalizer.
+  # Per-merge-SHA concurrency cancels duplicate producer runs (e.g. re-label after merge).
   post-pending:
     if: |
       github.event.pull_request.merged == true
@@ -230,6 +238,34 @@ jobs:
               description: 'backport: skip; no release-line wait required',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
+
+  # Merged with neither backport label → fail closed so the next gate does not
+  # spin for the full wait window on a missing status.
+  mark-caught-up-unlabeled:
+    if: |
+      github.event.pull_request.merged == true
+      && github.event.action == 'closed'
+      && !contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release-line-caught-up failure (no backport label)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.MERGE_SHA,
+              state: 'failure',
+              context: process.env.STATUS_CONTEXT,
+              description: 'Merged without backport: auto or backport: skip',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            core.setFailed('Merged without backport: auto or backport: skip; refusing to leave release-line status missing.');
 
   mark-caught-up:
     needs: [get-branches, commit, post-pending]
@@ -359,12 +395,27 @@ jobs:
                 return 'missing';
               }
 
+              // Tip must contain this merge SHA (not just have green Unit Tests from an older tip).
+              async function tipContainsMerge(tipSha) {
+                const { data } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner,
+                  repo,
+                  basehead: `${mergeSha}...${tipSha}`,
+                });
+                return data.status === 'ahead' || data.status === 'identical';
+              }
+
               while (true) {
                 try {
                   const results = [];
                   for (const branch of branches) {
                     const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
                     const sha = data.commit.sha;
+                    const containsMerge = await tipContainsMerge(sha);
+                    if (!containsMerge) {
+                      results.push({ branch, sha, result: 'pending:missing-merge' });
+                      continue;
+                    }
                     const result = classifyRuns(await unitTestRuns(sha));
                     results.push({ branch, sha, result });
                   }
