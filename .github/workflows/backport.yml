@@ -14,6 +14,16 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
+  actions: read
+
+# Cancel only when a replacement producer actually starts (closed, or labeled
+# backport: auto). Unrelated post-merge label/unlabel events must not share this
+# group — they would cancel the in-flight run and then skip every status job,
+# leaving the merge SHA stuck pending until the gate times out.
+concurrency:
+  group: ${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}
+  cancel-in-progress: true
 
 jobs:
   get-branches:
@@ -55,12 +65,16 @@ jobs:
     if: |
       github.event.pull_request.merged == true
       && contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && !contains(github.event.pull_request.labels.*.name, 'backport: skip')
       && (
         (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
         || (github.event.action == 'closed')
       )
     needs: get-branches
     runs-on: ubuntu-latest
+    # Per matrix shard. With max-parallel: 1 and four targets, wall-clock ≤ 4× this.
+    # release-line-caught-up gate WAIT must cover this plus mark-caught-up.
+    timeout-minutes: 30
     strategy:
       max-parallel: 1
       matrix:
@@ -168,3 +182,278 @@ jobs:
           slack_webhook_url: ${{ secrets.EXTERNAL_SLACK_DETECTION_RULES_URL }}
           status: failure
         if: failure()
+
+  # Two-phase ordered status producer for release-line-caught-up:
+  #   1) post-pending — runs in parallel with cherry-picks, posts pending only
+  #   2) mark-caught-up — needs post-pending + commit, posts only terminal success/failure
+  # Ordering within the workflow run is enforced by `needs: post-pending` on the finalizer.
+  # Per-merge-SHA concurrency cancels duplicate producer runs (e.g. re-label after merge).
+  post-pending:
+    if: |
+      github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+      && (
+        (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
+        || (github.event.action == 'closed')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release-line-caught-up pending
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.MERGE_SHA,
+              state: 'pending',
+              context: process.env.STATUS_CONTEXT,
+              description: 'Waiting for auto-backports and release-branch Unit Tests',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
+  mark-caught-up-skip:
+    if: |
+      github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'backport: skip')
+      && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release-line-caught-up success (backport skipped)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.MERGE_SHA,
+              state: 'success',
+              context: process.env.STATUS_CONTEXT,
+              description: 'backport: skip; no release-line wait required',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
+  # Merged with neither backport label → fail closed so the next gate does not
+  # spin for the full wait window on a missing status.
+  mark-caught-up-unlabeled:
+    if: |
+      github.event.pull_request.merged == true
+      && github.event.action == 'closed'
+      && !contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release-line-caught-up failure (no backport label)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.MERGE_SHA,
+              state: 'failure',
+              context: process.env.STATUS_CONTEXT,
+              description: 'Merged without backport: auto or backport: skip',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            core.setFailed('Merged without backport: auto or backport: skip; refusing to leave release-line status missing.');
+
+  mark-caught-up:
+    needs: [get-branches, commit, post-pending]
+    # Always finalize when backport: auto merged — including get-branches/commit
+    # skipped or failed — so the next PR never waits on a missing status.
+    # Posts only terminal success/failure (pending comes from post-pending).
+    if: |
+      always()
+      && github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && !contains(github.event.pull_request.labels.*.name, 'backport: skip')
+      && (
+        (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
+        || (github.event.action == 'closed')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Wait for tip Unit Tests and mark release-line-caught-up
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          BRANCHES: ${{ needs.get-branches.outputs.branches }}
+          GET_BRANCHES_RESULT: ${{ needs.get-branches.result }}
+          COMMIT_RESULT: ${{ needs.commit.result }}
+          POST_PENDING_RESULT: ${{ needs.post-pending.result }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+          WORKFLOW_FILE: pythonpackage.yml
+          WAIT_SECONDS: "3600"
+          POLL_SECONDS: "120"
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const contextName = process.env.STATUS_CONTEXT;
+            const mergeSha = process.env.MERGE_SHA;
+            const targetUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            async function postStatus(state, description) {
+              await github.rest.repos.createCommitStatus({
+                owner,
+                repo,
+                sha: mergeSha,
+                state,
+                context: contextName,
+                description: description.slice(0, 140),
+                target_url: targetUrl,
+              });
+            }
+
+            try {
+              if (process.env.POST_PENDING_RESULT === 'failure') {
+                core.warning('post-pending failed; continuing to publish a terminal status');
+              }
+
+              if (process.env.GET_BRANCHES_RESULT !== 'success') {
+                const message = `Target-branch discovery ${process.env.GET_BRANCHES_RESULT}`;
+                await postStatus('failure', message);
+                core.setFailed(message);
+                return;
+              }
+
+              if (process.env.COMMIT_RESULT !== 'success') {
+                const message = `Auto-backport commit job ${process.env.COMMIT_RESULT}`;
+                await postStatus('failure', message);
+                core.setFailed(message);
+                return;
+              }
+
+              let branches;
+              try {
+                branches = JSON.parse(process.env.BRANCHES || '[]');
+              } catch (err) {
+                const message = `Invalid target-branch list: ${err}`;
+                await postStatus('failure', message);
+                core.setFailed(message);
+                return;
+              }
+              if (!Array.isArray(branches) || branches.length === 0) {
+                const message = 'No release target branches to wait on';
+                await postStatus('failure', message);
+                core.setFailed(message);
+                return;
+              }
+
+              const workflowFile = process.env.WORKFLOW_FILE;
+              const waitMs = Number(process.env.WAIT_SECONDS) * 1000;
+              const pollMs = Number(process.env.POLL_SECONDS) * 1000;
+              const deadline = Date.now() + waitMs;
+
+              async function sleep() {
+                await new Promise((resolve) => setTimeout(resolve, pollMs));
+              }
+
+              async function unitTestRuns(sha) {
+                const params = {
+                  owner,
+                  repo,
+                  workflow_id: workflowFile,
+                  head_sha: sha,
+                  event: 'push',
+                  per_page: 10,
+                };
+                const actions = github.rest.actions;
+                const listRuns = actions.listWorkflowRunsForWorkflow || actions.listWorkflowRuns;
+                const { data } = await listRuns(params);
+                return data.workflow_runs || [];
+              }
+
+              // Newest run wins: if it is still queued/running, wait; only then use its conclusion.
+              function classifyRuns(runs) {
+                if (!runs.length) {
+                  return 'missing';
+                }
+                const sorted = [...runs].sort(
+                  (a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at),
+                );
+                const newest = sorted[0];
+                if (['in_progress', 'queued', 'waiting', 'pending'].includes(newest.status)) {
+                  return 'pending';
+                }
+                if (newest.status === 'completed') {
+                  if (newest.conclusion === 'success') {
+                    return 'success';
+                  }
+                  return `failed:${newest.conclusion}`;
+                }
+                return 'missing';
+              }
+
+              while (true) {
+                try {
+                  const results = [];
+                  for (const branch of branches) {
+                    const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                    const sha = data.commit.sha;
+                    const result = classifyRuns(await unitTestRuns(sha));
+                    results.push({ branch, sha, result });
+                  }
+
+                  const summary = results
+                    .map((item) => `${item.branch} @ ${item.sha.slice(0, 7)}: ${item.result}`)
+                    .join('\n');
+                  core.info(summary);
+
+                  if (results.every((item) => item.result === 'success')) {
+                    await postStatus('success', 'All release targets backported; tip Unit Tests passed');
+                    return;
+                  }
+
+                  const failed = results.find((item) => item.result.startsWith('failed:'));
+                  if (failed) {
+                    const message = `${failed.branch} Unit Tests ${failed.result}`;
+                    await postStatus('failure', message);
+                    core.setFailed(`${message}\n${summary}`);
+                    return;
+                  }
+
+                  if (Date.now() >= deadline) {
+                    const message = `Timed out waiting for release-branch Unit Tests`;
+                    await postStatus('failure', message);
+                    core.setFailed(`${message}\n${summary}`);
+                    return;
+                  }
+                } catch (err) {
+                  // Do not sticky-fail the merge SHA on transient REST errors;
+                  // only terminal failure for real tip/backport outcomes or timeout.
+                  core.warning(`Transient release-line finalizer poll error: ${err}`);
+                  if (Date.now() >= deadline) {
+                    const message = `Timed out waiting for release-branch Unit Tests (last error: ${err})`;
+                    try {
+                      await postStatus('failure', message);
+                    } catch (statusErr) {
+                      core.error(`Failed to post terminal status: ${statusErr}`);
+                    }
+                    core.setFailed(message);
+                    return;
+                  }
+                }
+                await sleep();
+              }
+            } catch (err) {
+              // Setup / pre-poll failures (branch list, commit job) only.
+              const message = `release-line finalizer error: ${err}`;
+              try {
+                await postStatus('failure', message);
+              } catch (statusErr) {
+                core.error(`Failed to post terminal status: ${statusErr}`);
+              }
+              core.setFailed(message);
+            }
