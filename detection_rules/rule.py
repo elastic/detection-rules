@@ -749,7 +749,7 @@ class QueryValidator:
             package = pk_int["package"]
             integration = pk_int["integration"]
             schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, min_stack, packages_manifest, {}, data
+                integrations_schemas, package, integration, min_stack, packages_manifest, data
             )
             int_schema.update(schema)
 
