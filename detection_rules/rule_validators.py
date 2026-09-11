@@ -7,7 +7,7 @@
 
 import re
 import typing
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property, wraps
@@ -79,77 +79,40 @@ class ValidationTarget:
     # Optional context about schema selection
     beat_types: list[str] | None = None
     integration_types: list[str] | None = None
-    # Stack versions this target validates on behalf of; equal-schema stack versions share one target
-    stack_versions: list[str] | None = None
 
 
-def group_stack_versions_by_schema(
-    stack_versions: dict[str, dict[str, Any]], *schema_keys: str
-) -> dict[tuple[Any, ...], list[str]]:
-    """Group stack versions whose stack-schema-map entries agree on the given schema keys."""
-    # Several stack versions map to the same schema versions, so validating each separately repeats identical work.
-    # Groups preserve first-seen order so the newest stack version reports first.
-    grouped: dict[tuple[Any, ...], list[str]] = {}
-    for stack_version, mapping in stack_versions.items():
-        grouped.setdefault(tuple(mapping[key] for key in schema_keys), []).append(stack_version)
-    return grouped
+def _schema_fields(schema: Any) -> dict[str, Any] | None:
+    """Return the field mapping used by a supported validation schema."""
+    if isinstance(schema, dict):
+        return schema
+    fields = getattr(schema, "kql_schema", None)
+    if fields is None:
+        fields = getattr(schema, "endgame_schema", None)
+    return fields if isinstance(fields, dict) else None
 
 
-def integration_resolution_key(integ: dict[str, Any]) -> tuple[Any, ...]:
-    """Return the parts of a resolved integration schema that determine its fields."""
-    # Custom schemas are loaded per stack version, so they keep every stack version separate.
-    custom_schema_key = integ["stack_version"] if CUSTOM_RULES_DIR else None
-    return (integ["package"], integ["integration"], integ["package_version"], integ["ecs_version"], custom_schema_key)
+def deduplicate_validation_targets(targets: list[ValidationTarget]) -> list[ValidationTarget]:
+    """Keep only the first target for each distinct parser input."""
+    unique: list[ValidationTarget] = []
+    seen: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
 
+    for target in targets:
+        fields = _schema_fields(target.schema)
+        if fields is None:
+            unique.append(target)
+            continue
 
-def prepare_integration_schema(base_schema: dict[str, Any], stack_version: str, data: QueryRuleData) -> dict[str, Any]:
-    """Augment a base integration schema with index/custom/endpoint fields."""
-    schema = dict(base_schema)
-    for index_name in data.index_or_dataview:
-        schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
-    if data.index and CUSTOM_RULES_DIR:
-        for index_name in data.index_or_dataview:
-            schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
-    schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
-    return schema
+        # Trailers and source metadata only affect error reporting. Keeping the first target preserves the existing
+        # first-error behavior while equivalent later targets skip the expensive parse and type-check.
+        key = (target.query_text, target.min_stack_version, type(target.schema))
+        schemas = seen.setdefault(key, [])
+        if fields in schemas:
+            continue
 
+        schemas.append(fields)
+        unique.append(target)
 
-@dataclass
-class IntegrationSchemaGroup:
-    """Stack versions that resolve to the same combined integration schema."""
-
-    stack_versions: list[str]
-    ecs_version: str
-    packages: set[str]
-    schema: dict[str, Any]
-
-
-def group_integration_schemas_by_stack(
-    integrations: Iterable[dict[str, Any]],
-    prepare_schema: Callable[[dict[str, Any], str], dict[str, Any]],
-) -> list[IntegrationSchemaGroup]:
-    """Union integration schemas per stack version, then merge stack versions with identical resolutions."""
-    # A stack version's combined schema is determined by its ECS version and resolved package versions, so stack
-    # versions that share those only need to be validated once.
-    by_stack: dict[str, IntegrationSchemaGroup] = {}
-    resolutions_by_stack: dict[str, set[tuple[Any, ...]]] = {}
-    for integ in integrations:
-        stack_version = integ["stack_version"]
-        group = by_stack.get(stack_version)
-        if group is None:
-            group = by_stack[stack_version] = IntegrationSchemaGroup([stack_version], integ["ecs_version"], set(), {})
-        group.packages.add(integ["package"])
-        resolutions_by_stack.setdefault(stack_version, set()).add(integration_resolution_key(integ))
-        group.schema.update(prepare_schema(integ["schema"], stack_version))
-
-    merged: dict[frozenset[tuple[Any, ...]], IntegrationSchemaGroup] = {}
-    for stack_version, group in by_stack.items():
-        key = frozenset(resolutions_by_stack[stack_version])
-        if key in merged:
-            merged[key].stack_versions.append(stack_version)
-        else:
-            merged[key] = group
-    return list(merged.values())
+    return unique
 
 
 class ExtendedTypeHint(Enum):
@@ -255,6 +218,19 @@ class KQLValidator(QueryValidator):
     def to_eql(self) -> eql.ast.Expression:
         return kql.to_eql(self.query)  # type: ignore[reportUnknownVariableType]
 
+    def _prepare_integration_schema(
+        self, base_schema: dict[str, Any], stack_version: str, data: QueryRuleData
+    ) -> dict[str, Any]:
+        """Augment a base integration schema with index/custom/endpoint fields."""
+        schema = dict(base_schema)
+        for index_name in data.index_or_dataview:
+            schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+        if data.index and CUSTOM_RULES_DIR:
+            for index_name in data.index_or_dataview:
+                schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
+        schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+        return schema
+
     def build_validation_plan(self, data: QueryRuleData, meta: RuleMeta) -> list[ValidationTarget]:
         """Return a unified list of validation targets for this query.
 
@@ -268,28 +244,38 @@ class KQLValidator(QueryValidator):
         package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest)
 
         if package_integrations:
-            groups = group_integration_schemas_by_stack(
-                get_integration_schema_data(data, meta, package_integrations),
-                lambda schema, stack_version: prepare_integration_schema(schema, stack_version, data),
-            )
-            for group in groups:
-                pkgs = ", ".join(sorted(group.packages))
-                stacks = ", ".join(group.stack_versions)
+            combined_by_stack: dict[str, dict[str, Any]] = {}
+            ecs_by_stack: dict[str, str] = {}
+            packages_by_stack: dict[str, set[str]] = {}
+
+            for integ in get_integration_schema_data(data, meta, package_integrations):
+                stack_version = integ["stack_version"]
+                ecs_version = integ["ecs_version"]
+                package = integ["package"]
+                schema = self._prepare_integration_schema(integ["schema"], stack_version, data)
+
+                _ = ecs_by_stack.setdefault(stack_version, ecs_version)
+                _ = packages_by_stack.setdefault(stack_version, set()).add(package)
+                combined_by_stack.setdefault(stack_version, {}).update(schema)
+
+            for stack_version, schema_dict in combined_by_stack.items():
+                ecs_version = ecs_by_stack.get(stack_version, "unknown")
+                pkgs_set = packages_by_stack.get(stack_version, set())
+                pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
-                    f"Checked against packages [{pkgs}]; stack: {stacks}; ecs: {group.ecs_version}\n"
+                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
                     f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
                     ValidationTarget(
                         query_text=self.query,
-                        schema=group.schema,
+                        schema=schema_dict,
                         err_trailer=err_trailer,
                         min_stack_version=str(meta.min_stack_version or load_current_package_version()),
                         beat_types=None,
-                        integration_types=sorted(group.packages),
-                        stack_versions=list(group.stack_versions),
+                        integration_types=sorted(pkgs_set),
                         kind="integration",
                     )
                 )
@@ -301,13 +287,12 @@ class KQLValidator(QueryValidator):
         endgame_present = bool(data.index_or_dataview and "endgame-*" in data.index_or_dataview)
         should_add_stack_targets = (not package_integrations) or (bool(beat_types_present) or endgame_present)
         if should_add_stack_targets:
-            stack_versions = meta.get_validation_stack_versions()
-            for (beats_version, ecs_version), stacks in group_stack_versions_by_schema(
-                stack_versions, "beats", "ecs"
-            ).items():
+            for stack_version, mapping in meta.get_validation_stack_versions().items():
+                beats_version = mapping["beats"]
+                ecs_version = mapping["ecs"]
                 beat_types, _, schema = self.get_beats_schema(data.index_or_dataview, beats_version, ecs_version)
                 err_trailer = (
-                    f"stack: {', '.join(stacks)}, beats: {beats_version}, ecs: {ecs_version}\n"
+                    f"stack: {stack_version}, beats: {beats_version}, ecs: {ecs_version}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -318,7 +303,6 @@ class KQLValidator(QueryValidator):
                         min_stack_version=str(meta.min_stack_version or load_current_package_version()),
                         beat_types=beat_types,
                         integration_types=None,
-                        stack_versions=list(stacks),
                         kind="stack",
                     )
                 )
@@ -343,7 +327,7 @@ class KQLValidator(QueryValidator):
                 else [t for t in all_targets if t.kind == "stack"]
             )
             retry = False
-            for t in ordered_targets:
+            for t in deduplicate_validation_targets(ordered_targets):
                 exc = self.validate_query_text_with_schema(
                     schema=t.schema,
                     err_trailer=t.err_trailer,
@@ -480,44 +464,63 @@ class EQLValidator(QueryValidator):
         # Helper for union-by-stack integration targets
         def add_accumulated_integration_targets(query_text: str, packaged: list[dict[str, Any]], context: str) -> None:
             """Add integration-based validation targets by accumulating schemas per stack version."""
-            # Do not merge Beats into integration schemas; validate independently via stack targets
-            groups = group_integration_schemas_by_stack(
-                get_integration_schema_data(data, meta, packaged),
-                lambda schema, stack_version: prepare_integration_schema(schema, stack_version, data),
-            )
-            for group in groups:
-                pkgs = ", ".join(sorted(group.packages))
-                stacks = ", ".join(group.stack_versions)
+            combined_by_stack: dict[str, dict[str, Any]] = {}
+            ecs_by_stack: dict[str, str] = {}
+            packages_by_stack: dict[str, set[str]] = {}
+            for integ in get_integration_schema_data(data, meta, packaged):
+                stack_version = integ["stack_version"]
+                ecs_version = integ["ecs_version"]
+                package = integ["package"]
+                schema = integ["schema"]
+                # prepare with index/custom/endpoint fields
+                if data.index_or_dataview:
+                    for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
+                        schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+                    if data.index and CUSTOM_RULES_DIR:
+                        for index_name in data.index_or_dataview:
+                            schema.update(**ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version)))
+                schema.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+
+                # Do not merge Beats into integration schemas; validate independently via stack targets
+
+                _ = ecs_by_stack.setdefault(stack_version, ecs_version)
+                packages_by_stack.setdefault(stack_version, set()).add(package)
+                combined_by_stack.setdefault(stack_version, {}).update(schema)
+
+            for stack_version, schema_dict in combined_by_stack.items():
+                ecs_version = ecs_by_stack.get(stack_version, "unknown")
+                pkgs_set = packages_by_stack.get(stack_version, set())
+                pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
-                    f"{context}\nChecked against packages [{pkgs}]; stack: {stacks}; ecs: {group.ecs_version}\n"
+                    f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
                     f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
                     ValidationTarget(
                         query_text=query_text,
-                        schema=ecs.KqlSchema2Eql(group.schema),
+                        schema=ecs.KqlSchema2Eql(schema_dict),
                         err_trailer=err_trailer,
                         min_stack_version=min_stack_str,
                         beat_types=None,
-                        integration_types=sorted(group.packages),
-                        stack_versions=list(group.stack_versions),
+                        integration_types=sorted(pkgs_set),
                         kind="integration",
                     )
                 )
 
         # Helper to add Beats/ECS (and optionally Endgame) stack targets for a given query text
         def add_stack_targets(query_text: str, include_endgame: bool) -> None:
-            stack_versions = meta.get_validation_stack_versions()
-            # ECS (+beats if present)
-            for (beats_version, ecs_version), stacks in group_stack_versions_by_schema(
-                stack_versions, "beats", "ecs"
-            ).items():
+            for stack_version, mapping in meta.get_validation_stack_versions().items():
+                beats_version = mapping["beats"]
+                ecs_version = mapping["ecs"]
+                endgame_version = mapping["endgame"]
+
                 beat_types, _, kql_schema = self.get_beats_schema(data.index_or_dataview, beats_version, ecs_version)
                 err_trailer = (
-                    f"stack: {', '.join(stacks)}, beats: {beats_version}, ecs: {ecs_version}\n"
+                    f"stack: {stack_version}, beats: {beats_version},ecs: {ecs_version}, endgame: {endgame_version}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
+                # ECS (+beats if present)
                 targets.append(
                     ValidationTarget(
                         query_text=query_text,
@@ -526,19 +529,13 @@ class EQLValidator(QueryValidator):
                         min_stack_version=min_stack_str,
                         beat_types=beat_types,
                         integration_types=None,
-                        stack_versions=list(stacks),
                         kind="stack",
                     )
                 )
-            # Optionally add Endgame; its schema depends only on the endgame version
-            if include_endgame:
-                for (endgame_version,), stacks in group_stack_versions_by_schema(stack_versions, "endgame").items():
+                # Optionally add Endgame
+                if include_endgame:
                     endgame_schema = self.get_endgame_schema(data.index_or_dataview, endgame_version)
                     if endgame_schema:
-                        err_trailer = (
-                            f"stack: {', '.join(stacks)}, endgame: {endgame_version}\n"
-                            f"rule: {data.name} - {data.rule_id}"
-                        )
                         targets.append(
                             ValidationTarget(
                                 query_text=query_text,
@@ -547,7 +544,6 @@ class EQLValidator(QueryValidator):
                                 min_stack_version=min_stack_str,
                                 beat_types=None,
                                 integration_types=None,
-                                stack_versions=list(stacks),
                                 kind="stack",
                             )
                         )
@@ -555,33 +551,35 @@ class EQLValidator(QueryValidator):
         # Sequence queries: per-subquery validation
         if is_sequence:
             sequence: ast.Sequence = self.ast.first  # type: ignore[reportAttributeAccessIssue]
-            planned_subqueries: set[str] = set()
             for subquery in sequence.queries:  # type: ignore[reportUnknownVariableType]
-                synthetic_sequence = self._build_synthetic_sequence_from_subquery(subquery)  # type: ignore[reportArgumentType]
-                # `with runs=N` expands into N identical subqueries; identical text needs validating only once
-                if synthetic_sequence in planned_subqueries:
-                    continue
-                planned_subqueries.add(synthetic_sequence)
                 subquery_datasets, _ = get_datasets_and_modules(subquery)  # type: ignore[reportUnknownVariableType]
+                synthetic_sequence = self._build_synthetic_sequence_from_subquery(subquery)  # type: ignore[reportArgumentType]
 
                 if subquery_datasets:
                     subquery_pkg_ints = parse_datasets(list(subquery_datasets), packages_manifest)
-                    # Per-subquery: validate each integration individually (no accumulation), once per resolution
-                    per_resolution: dict[tuple[Any, ...], tuple[dict[str, Any], list[str]]] = {}
+                    # Per-subquery: validate each integration combination individually (no accumulation)
                     for integ in get_integration_schema_data(data, meta, subquery_pkg_ints):
+                        package = integ["package"]
+                        package_version = integ["package_version"]
                         stack_version = integ["stack_version"]
-                        key = integration_resolution_key(integ)
-                        if key in per_resolution:
-                            per_resolution[key][1].append(stack_version)
-                            continue
-                        schema_dict = prepare_integration_schema(integ["schema"], stack_version, data)
-                        per_resolution[key] = (schema_dict, [stack_version])
+                        ecs_version = integ["ecs_version"]
+                        schema_dict = integ["schema"]
 
-                    for (package, _, package_version, ecs_version, _), (schema_dict, stacks) in per_resolution.items():
+                        # prepare schema
+                        if data.index_or_dataview:
+                            for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
+                                schema_dict.update(**ecs.flatten(ecs.get_index_schema(index_name)))
+                            if data.index and CUSTOM_RULES_DIR:
+                                for index_name in data.index_or_dataview:
+                                    schema_dict.update(
+                                        **ecs.flatten(ecs.get_custom_index_schema(index_name, stack_version))
+                                    )
+                        schema_dict.update(**ecs.flatten(ecs.get_endpoint_schemas()))
+
                         err_trailer = (
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
-                            f"stack: {', '.join(stacks)}, ecs: {ecs_version}\n"
+                            f"stack: {stack_version}, ecs: {ecs_version}\n"
                             f"{INTEGRATION_SCHEMA_HINT}\n"
                             f"rule: {data.name} - {data.rule_id}"
                         )
@@ -593,13 +591,12 @@ class EQLValidator(QueryValidator):
                                 min_stack_version=min_stack_str,
                                 beat_types=None,
                                 integration_types=[package],
-                                stack_versions=list(stacks),
                                 kind="integration",
                             )
                         )
-                    # Additionally validate this subquery against Beats/ECS if beats indices are present
-                    if beat_types_present:
-                        add_stack_targets(synthetic_sequence, include_endgame=False)
+                        # Additionally validate this subquery against Beats/ECS if beats indices are present
+                        if beat_types_present:
+                            add_stack_targets(synthetic_sequence, include_endgame=False)
                 else:
                     # Datasetless subquery: try metadata integrations first, else add per-subquery stack targets
                     meta_integrations = get_rule_integrations(meta)
@@ -666,7 +663,7 @@ class EQLValidator(QueryValidator):
                 else [t for t in all_targets if t.kind == "stack"]
             )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
-            for t in ordered_targets:
+            for t in deduplicate_validation_targets(ordered_targets):
                 exc, field = self.validate_query_text_with_schema(
                     t.query_text,
                     t.schema,

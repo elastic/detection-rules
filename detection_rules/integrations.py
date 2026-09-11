@@ -641,8 +641,7 @@ def collect_schema_fields(
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    # Copy: callers merge ECS fields into the result, and the loaded schemas are cached process-wide.
-    return dict(integrations_schemas[package][package_version][integration])
+    return integrations_schemas[package][package_version][integration]
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
