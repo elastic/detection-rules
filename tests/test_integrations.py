@@ -318,8 +318,6 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         with (
             unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
-            unittest.mock.patch("detection_rules.integrations.ecs.get_schema", return_value={}),
-            unittest.mock.patch("detection_rules.integrations.ecs.flatten_multi_fields", return_value={}),
         ):
             schema_data = list(
                 get_integration_schema_data(

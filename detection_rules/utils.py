@@ -331,8 +331,6 @@ _cache: dict[int, dict[tuple[Any, Any], Any]] = {}
 def cached(f: Callable[..., Any]) -> Callable[..., Any]:
     """Helper function to memoize functions."""
     func_key = id(f)
-    # memoized functions whose results are derived from this function's data
-    dependents: list[Callable[..., Any]] = []
 
     @functools.wraps(f)
     def wrapped(*args: Any, **kwargs: Any) -> Any:
@@ -345,18 +343,9 @@ def cached(f: Callable[..., Any]) -> Callable[..., Any]:
         return _cache[func_key][cache_key]
 
     def clear() -> None:
-        """Clear this function's cache and propagate to all registered dependents."""
         _ = _cache.pop(func_key, None)
-        # a memo built from this function's data is only valid for as long as that data is
-        for dependent in dependents:
-            dependent.clear()  # type: ignore[reportFunctionMemberAccess]
-
-    def add_dependent(memo: Callable[..., Any]) -> None:
-        """Register a memoized function whose cache must be dropped whenever this one is cleared."""
-        dependents.append(memo)
 
     wrapped.clear = clear  # type: ignore[reportAttributeAccessIssue]
-    wrapped.add_dependent = add_dependent  # type: ignore[reportAttributeAccessIssue]
     return wrapped
 
 

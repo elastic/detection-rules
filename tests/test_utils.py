@@ -104,39 +104,6 @@ class TestTimeUtils(unittest.TestCase):
         self.assertEqual(increment(None), 7)
         self.assertEqual(increment(1), 8)
 
-    def test_cached_clear_drops_dependents(self):
-        """Test that clearing a cached function also clears memos registered as derived from it."""
-        source_calls = 0
-        derived_calls = 0
-
-        @cached
-        def source() -> dict:
-            nonlocal source_calls
-            source_calls += 1
-            return {"value": source_calls}
-
-        @cached
-        def derived(key: str) -> int:
-            nonlocal derived_calls
-            derived_calls += 1
-            return source()["value"]
-
-        source.add_dependent(derived)
-
-        self.assertEqual(derived("a"), 1)
-        self.assertEqual(derived("a"), 1)
-        self.assertEqual((source_calls, derived_calls), (1, 1))
-
-        # clearing only the derived memo leaves the source cached
-        derived.clear()
-        self.assertEqual(derived("a"), 1)
-        self.assertEqual((source_calls, derived_calls), (1, 2))
-
-        # clearing the source also drops the derived memo, so the next call recomputes from fresh data
-        source.clear()
-        self.assertEqual(derived("a"), 2)
-        self.assertEqual((source_calls, derived_calls), (2, 3))
-
     def test_cached_method_flushes_with_clear_caches(self):
         """Test that cached_method memoizes per instance and is invalidated by clear_caches()."""
 

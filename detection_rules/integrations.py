@@ -26,7 +26,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
 from .schemas import definitions
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .utils import cached, clear_caches, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
     from .rule import QueryRuleData, RuleMeta
@@ -109,6 +109,7 @@ def build_integrations_manifest(
         manifest_file_contents[integration] = final_integration_manifests[integration]
         write_manifests(manifest_file_contents)
 
+    clear_caches()
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
@@ -220,6 +221,7 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
         schema_file_bytes = json.dumps(final_integration_schemas).encode("utf-8")
         _ = schema_file.write(schema_file_bytes)
 
+    clear_caches()
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
@@ -629,14 +631,6 @@ def _integration_schema(package: str, package_version: str, integration: str) ->
     return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
 
-# The helpers above memoize on hashable args and read the bundled manifests/schemas internally, so
-# clearing a loader (e.g. after build_integrations_schemas()) must also drop what was derived from it.
-load_integrations_manifests.add_dependent(_latest_patch_for_minor)  # type: ignore[reportFunctionMemberAccess]
-load_integrations_manifests.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
-load_integrations_schemas.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
-load_integrations_schemas.add_dependent(_integration_schema)  # type: ignore[reportFunctionMemberAccess]
-
-
 def notify_user_if_update_available(
     data: Any,  # type: ignore[reportRedeclaration]
     notice: list[str],
@@ -672,9 +666,7 @@ def collect_schema_fields(
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    # copy: callers merge ECS fields in, which would otherwise leak into the shared
-    # integration schema data loaded from integration-schemas.json.gz
-    return dict(integrations_schemas[package][package_version][integration])
+    return integrations_schemas[package][package_version][integration]
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
