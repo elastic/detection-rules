@@ -676,7 +676,10 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
 
     index_lookup.update({"rule-ecs-index": ecs_schema})
 
-    if (not integration_mappings or existing_mappings) and not non_ecs_schema and not ecs_schema:
+    # Every source can legitimately be empty on its own (the full ECS schema is skipped for integration-only
+    # indices, a rule's indices may have no non-ecs entries, the stack may have no matching index template), so only
+    # the absence of all of them means nothing could be validated
+    if not (integration_mappings or existing_mappings or non_ecs_schema or ecs_schema):
         raise ValueError("No mappings found")
     index_lookup.update({"rule-non-ecs-index": non_ecs_schema})
     utils.combine_dicts(combined_mappings, deepcopy(non_ecs_schema))
