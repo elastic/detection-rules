@@ -172,8 +172,10 @@ jobs:
           status: failure
         if: failure()
 
-  # Early pending: parallel with `commit`. Finalizer `needs: post-pending` so pending
-  # is always recorded before any terminal status from this workflow run.
+  # Two-phase ordered status producer for release-line-caught-up:
+  #   1) post-pending — runs in parallel with cherry-picks, posts pending only
+  #   2) mark-caught-up — needs post-pending + commit, posts only terminal success/failure
+  # Ordering within the workflow run is enforced by `needs: post-pending` on the finalizer.
   post-pending:
     if: |
       github.event.pull_request.merged == true
@@ -254,7 +256,7 @@ jobs:
           STATUS_CONTEXT: release-line-caught-up
           WORKFLOW_FILE: pythonpackage.yml
           WAIT_SECONDS: "3600"
-          POLL_SECONDS: "30"
+          POLL_SECONDS: "120"
         with:
           script: |
             const { owner, repo } = context.repo;
