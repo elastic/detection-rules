@@ -30,9 +30,8 @@ from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
-# rules re-hashed with their caches dropped in test_rule_versioning. Each one pays a full
-# re-serialization of the rule, so rather than re-hash the whole package, take this many rules of
-# each rule type and query language: the API payload (and so the hash) is built differently per type
+# 4 rule sample per type to catch cases where hashing might miss a rule contents change incorrectly.
+# This will help us catch logic errors that may be introduced over time in the hashing and API contents build.
 UNCACHED_HASH_SAMPLE_PER_KIND = 4
 
 
