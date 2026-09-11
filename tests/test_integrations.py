@@ -33,6 +33,7 @@ from detection_rules.integrations import (
     resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
+from detection_rules.utils import clear_caches
 
 
 def _manifest(kibana_version: str) -> dict:
@@ -158,6 +159,13 @@ class TestSatisfiesKibanaRange(unittest.TestCase):
 class TestFindLatestCompatibleVersion(unittest.TestCase):
     """Regression + behavior coverage for ``find_latest_compatible_version``."""
 
+    def setUp(self):
+        # The integration schema helpers memoize on (package, integration, stack version) and load
+        # the bundled manifests/schemas internally, so results resolved against a patched loader
+        # must not leak into other tests (or the real data) through the cache.
+        clear_caches()
+        self.addCleanup(clear_caches)
+
     def test_picks_latest_compatible_on_same_major(self):
         """Returns the newest manifest whose range admits the stack, with a notice for any skipped newer manifest."""
         manifests = {
@@ -277,8 +285,8 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
 
         with (
             unittest.mock.patch("detection_rules.rule.load_integrations_manifests", return_value=manifests),
-            unittest.mock.patch("detection_rules.rule.load_integrations_schemas", return_value=schemas),
             unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
         ):
             required_fields = validator.get_required_fields([])
 
@@ -310,8 +318,6 @@ class TestFindLatestCompatibleVersion(unittest.TestCase):
         with (
             unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
             unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
-            unittest.mock.patch("detection_rules.integrations.ecs.get_schema", return_value={}),
-            unittest.mock.patch("detection_rules.integrations.ecs.flatten_multi_fields", return_value={}),
         ):
             schema_data = list(
                 get_integration_schema_data(
@@ -599,6 +605,12 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
 class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
     """Integration validation checks a query against the package field schema only, never the full ECS schema."""
 
+    def setUp(self):
+        # the schema helpers memoize and load the bundled manifests/schemas internally; see
+        # TestFindLatestCompatibleVersion.setUp
+        clear_caches()
+        self.addCleanup(clear_caches)
+
     def test_undeclared_ecs_field_is_not_in_schema(self):
         schemas = {
             "network_traffic": {
@@ -613,11 +625,12 @@ class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
         }
         manifests = {"network_traffic": {"1.0.0": _manifest("^9.0.0")}}
         data = SimpleNamespace(get=lambda key, default=None: False if key == "notify" else default)
-        with unittest.mock.patch(
-            "detection_rules.integrations.find_latest_integration_patch_for_minor", return_value=0
+        with (
+            unittest.mock.patch("detection_rules.integrations.load_integrations_manifests", return_value=manifests),
+            unittest.mock.patch("detection_rules.integrations.load_integrations_schemas", return_value=schemas),
         ):
             schema, package_version = get_integration_schema_fields(
-                schemas, "network_traffic", "icmp", Version.parse("9.0.0"), manifests, data
+                "network_traffic", "icmp", Version.parse("9.0.0"), data
             )
 
         self.assertEqual(package_version, "1.0.0")

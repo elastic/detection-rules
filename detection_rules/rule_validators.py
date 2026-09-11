@@ -467,7 +467,8 @@ class EQLValidator(QueryValidator):
                 stack_version = integ["stack_version"]
                 ecs_version = integ["ecs_version"]
                 package = integ["package"]
-                schema = integ["schema"]
+                # copy: the integration schema is memoized and shared across rules
+                schema = dict(integ["schema"])
                 # prepare with index/custom/endpoint fields
                 if data.index_or_dataview:
                     for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
@@ -559,7 +560,8 @@ class EQLValidator(QueryValidator):
                         package_version = integ["package_version"]
                         stack_version = integ["stack_version"]
                         ecs_version = integ["ecs_version"]
-                        schema_dict = integ["schema"]
+                        # copy: the integration schema is memoized and shared across rules
+                        schema_dict = dict(integ["schema"])
 
                         # prepare schema
                         if data.index_or_dataview:
