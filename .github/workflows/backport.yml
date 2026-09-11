@@ -171,33 +171,9 @@ jobs:
           status: failure
         if: failure()
 
-  post-pending:
-    if: |
-      github.event.pull_request.merged == true
-      && contains(github.event.pull_request.labels.*.name, 'backport: auto')
-      && (
-        (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
-        || (github.event.action == 'closed')
-      )
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mark release-line-caught-up pending
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          STATUS_CONTEXT: release-line-caught-up
-        with:
-          script: |
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: process.env.MERGE_SHA,
-              state: 'pending',
-              context: process.env.STATUS_CONTEXT,
-              description: 'Waiting for auto-backports and release-branch Unit Tests',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
-
+  # Single ordered producer for release-line-caught-up: pending, then a terminal
+  # success/failure. Do not post pending from a separate job — a delayed pending
+  # after success would become the latest status and stall the gate.
   mark-caught-up-skip:
     if: |
       github.event.pull_request.merged == true
@@ -224,6 +200,8 @@ jobs:
 
   mark-caught-up:
     needs: [get-branches, commit]
+    # Always finalize when backport: auto merged — including get-branches/commit
+    # skipped or failed — so the next PR never waits 28m on a missing status.
     if: |
       always()
       && github.event.pull_request.merged == true
@@ -232,20 +210,20 @@ jobs:
         (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
         || (github.event.action == 'closed')
       )
-      && needs.commit.result != 'skipped'
     runs-on: ubuntu-latest
-    timeout-minutes: 24
+    timeout-minutes: 65
     steps:
       - name: Wait for tip Unit Tests and mark release-line-caught-up
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          BRANCHES: ${{ toJSON(fromJSON(needs.get-branches.outputs.branches)) }}
+          BRANCHES: ${{ needs.get-branches.outputs.branches }}
+          GET_BRANCHES_RESULT: ${{ needs.get-branches.result }}
           COMMIT_RESULT: ${{ needs.commit.result }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           STATUS_CONTEXT: release-line-caught-up
           WORKFLOW_FILE: pythonpackage.yml
-          WAIT_SECONDS: "1320"
-          POLL_SECONDS: "15"
+          WAIT_SECONDS: "3600"
+          POLL_SECONDS: "30"
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -265,6 +243,16 @@ jobs:
               });
             }
 
+            // Ordered: pending first, then only a terminal state from this job.
+            await postStatus('pending', 'Waiting for auto-backports and release-branch Unit Tests');
+
+            if (process.env.GET_BRANCHES_RESULT !== 'success') {
+              const message = `Target-branch discovery ${process.env.GET_BRANCHES_RESULT}`;
+              await postStatus('failure', message);
+              core.setFailed(message);
+              return;
+            }
+
             if (process.env.COMMIT_RESULT !== 'success') {
               const message = `Auto-backport commit job ${process.env.COMMIT_RESULT}`;
               await postStatus('failure', message);
@@ -272,7 +260,22 @@ jobs:
               return;
             }
 
-            const branches = JSON.parse(process.env.BRANCHES);
+            let branches;
+            try {
+              branches = JSON.parse(process.env.BRANCHES || '[]');
+            } catch (err) {
+              const message = `Invalid target-branch list: ${err}`;
+              await postStatus('failure', message);
+              core.setFailed(message);
+              return;
+            }
+            if (!Array.isArray(branches) || branches.length === 0) {
+              const message = 'No release target branches to wait on';
+              await postStatus('failure', message);
+              core.setFailed(message);
+              return;
+            }
+
             const workflowFile = process.env.WORKFLOW_FILE;
             const waitMs = Number(process.env.WAIT_SECONDS) * 1000;
             const pollMs = Number(process.env.POLL_SECONDS) * 1000;
@@ -288,21 +291,30 @@ jobs:
                 repo,
                 workflow_id: workflowFile,
                 head_sha: sha,
+                event: 'push',
                 per_page: 10,
               });
               return data.workflow_runs || [];
             }
 
+            // Prefer the newest completed run for this tip SHA (not "any historical success").
             function classifyRuns(runs) {
-              if (runs.some((run) => run.status === 'completed' && run.conclusion === 'success')) {
-                return 'success';
+              const sorted = [...runs].sort(
+                (a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at),
+              );
+              const newestCompleted = sorted.find((run) => run.status === 'completed');
+              if (newestCompleted) {
+                if (newestCompleted.conclusion === 'success') {
+                  return 'success';
+                }
+                return `failed:${newestCompleted.conclusion}`;
               }
-              if (runs.some((run) => run.status === 'in_progress' || run.status === 'queued' || run.status === 'waiting' || run.status === 'pending')) {
+              if (
+                sorted.some((run) =>
+                  ['in_progress', 'queued', 'waiting', 'pending'].includes(run.status),
+                )
+              ) {
                 return 'pending';
-              }
-              if (runs.some((run) => run.status === 'completed')) {
-                const failed = runs.find((run) => run.status === 'completed');
-                return `failed:${failed.conclusion}`;
               }
               return 'missing';
             }
