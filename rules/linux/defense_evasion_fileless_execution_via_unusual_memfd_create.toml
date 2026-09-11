@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "Memfd_create syscall collection for Linux was introduced in 9.3.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects a memfd_create syscall event on Linux where the combination of host and process lineage (parent executable and executable path) has not been seen before.
+This can indicate fileless execution using memfd-backed executables.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Fileless Execution via Unusual memfd Create Call"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Fileless Execution via Unusual memfd Create Call
+
+This rule detects a Linux process using memfd_create from a suspicious memory-backed or temporary path with a previously unseen host and process lineage, which may reveal code executing without a conventional on-disk file. An attacker can decrypt an ELF payload into an anonymous memory file and execute it through `/proc/self/fd`, reducing disk artifacts and evading file-based controls.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and execution timeline, examining command-line arguments, effective user, working directory, session context, and nearby process starts for evidence of initial access or privilege escalation.
+- Determine whether the executable is still running and, if so, preserve its memory, open file descriptors, `/proc/<pid>/exe` target, and loaded mappings before containment to support payload recovery and analysis.
+- Correlate the event with outbound network connections, DNS activity, authentication events, and file modifications from the same process tree to identify command-and-control or follow-on behavior.
+- Compare the lineage and binary metadata against approved software inventories and known behavior from browsers, language runtimes, container tooling, security agents, and self-updating applications to rule out legitimate memfd use.
+- If malicious activity is confirmed, isolate the host, terminate the associated process tree, revoke affected credentials, quarantine recovered payloads, and hunt across Linux endpoints for matching hashes, command lines, destinations, or ancestry patterns.
+
+### False positive analysis
+
+- A legitimate application or language runtime may use memfd-backed files for just-in-time compilation or helper execution; verify the process lineage, package ownership, user context, and behavior against an approved baseline.
+- An authorized security agent, container workload, or self-updating application may execute transient code from memory or temporary paths; confirm the timing matches a documented deployment or update and that no anomalous network or child-process activity followed.
+
+### Response and remediation
+
+- Isolate affected Linux systems from the network while preserving access for incident responders, then terminate the malicious memfd-backed process tree and block associated domains, IP addresses, hashes, and command lines.
+- Remove persistence associated with the process lineage, including unauthorized systemd units, cron jobs, shell-profile changes, SSH keys, modified startup scripts, containers, and executables under `/tmp`, `/var/tmp`, `/dev/shm`, or `/run/user`.
+- Revoke and rotate credentials, API tokens, SSH keys, and service secrets accessible to the compromised account or process, and review neighboring systems for reuse of those credentials.
+- Escalate immediately to incident response if the payload ran with root privileges, accessed credentials, established external communications, modified multiple hosts, or cannot be fully scoped from available evidence.
+- Reimage materially compromised hosts from trusted media or restore them from a verified known-good backup, then validate package integrity, security controls, accounts, services, and network behavior before reconnecting them.
+- Prevent recurrence by patching the exploited entry point, restricting execution from writable and memory-backed locations where operationally feasible, applying least privilege and systemd sandboxing, and hunting fleet-wide for matching process ancestry, `/proc/*/fd/*` execution, and memfd-backed artifacts.
+"""
+risk_score = 47
+rule_id = "42663c0e-572e-4459-bf61-476a81d6aab1"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Platform: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms"
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+host.os.type:"linux" and event.category:process and event.type:start and event.action:memfd_create and
+process.executable:(
+  *memfd\:* or /tmp/* or /var/tmp/* or /dev/shm/* or ./* or /run/user/* or /var/run/user/* or
+  /boot/* or /sys/* or /lost+found/* or /proc/* or /var/mail/* or /root/* or *\(deleted\)* or
+  /proc/*/fd/*
+) and process.parent.executable:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Defense Evasion"
+  id = "TA0005"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  name = "Reflective Code Loading"
+  id = "T1620"
+  reference = "https://attack.mitre.org/techniques/T1620/"
+
+  [[rule.threat.technique]]
+  name = "Process Injection"
+  id = "T1055"
+  reference = "https://attack.mitre.org/techniques/T1055/"
+
+      [[rule.threat.technique.subtechnique]]
+      name = "Proc Memory"
+      id = "T1055.009"
+      reference = "https://attack.mitre.org/techniques/T1055/009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Execution"
+  id = "TA0002"
+  reference = "https://attack.mitre.org/tactics/TA0002/"
+
+  [[rule.threat.technique]]
+  name = "Native API"
+  id = "T1106"
+  reference = "https://attack.mitre.org/techniques/T1106/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable", "process.executable"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
