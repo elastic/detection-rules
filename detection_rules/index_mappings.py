@@ -190,6 +190,47 @@ def prune_mappings_of_unsupported_types(
     return stream_mappings
 
 
+def resolve_rule_packages(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Resolve a rule's packages and the data stream restrictions for packages named only by event.dataset."""
+    # Metadata packages keep every data stream: event.dataset values are regex-extracted and may sit
+    # inside OR branches, so they cannot be trusted to drop fields. Only packages referenced solely
+    # through event.dataset are restricted to the named streams.
+    packages = list(rule_integrations)
+    dataset_restriction: dict[str, list[str]] = {}
+    for event_dataset in event_dataset_integrations:
+        if event_dataset.package in rule_integrations:
+            continue
+        if event_dataset.package not in packages:
+            packages.append(event_dataset.package)
+        dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
+
+    return packages, dataset_restriction
+
+
+def esql_indices_covered_by_packages(
+    indices: list[str],
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> bool:
+    """Return True when every FROM index resolves to one of the rule's integration packages."""
+    # Beats indices (auditbeat-*, filebeat-*, ...) have their own schemas, which the ES|QL mapping
+    # build does not model, so rules reading them keep the full-ECS fallback.
+    if not indices:
+        # nothing extracted from FROM: do not pass vacuously
+        return False
+    packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    for index in indices:
+        if not index.startswith("logs-"):
+            return False
+        package = re.split(r"[.\-*]", index.removeprefix("logs-"), maxsplit=1)[0]
+        if package not in packages:
+            return False
+    return True
+
+
 def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
@@ -201,16 +242,8 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     """Prepare integration mappings for the given rule integrations."""
     integration_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
-    dataset_restriction: dict[str, list[str]] = {}
 
-    # Process restrictions, note we need this for loops to be separate
-    for event_dataset in event_dataset_integrations:
-        # Ensure the integration is in rule_integrations
-        if event_dataset.package not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
-    for event_dataset in event_dataset_integrations:
-        if event_dataset.package not in rule_integrations:
-            rule_integrations.append(event_dataset.package)
+    rule_integrations, dataset_restriction = resolve_rule_packages(rule_integrations, event_dataset_integrations)
 
     for integration in rule_integrations:
         package = integration
@@ -626,9 +659,15 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
         )
         custom_mapping.update({index: index_mapping})
 
-    # Load ECS in an index mapping format (nested schema)
+    # Load ECS in an index mapping format (nested schema). Skipped when every FROM index resolves to one of the
+    # rule's integration packages: as in KQL/EQL validation, integration indices are then checked against the
+    # package field schemas (plus non-ecs) only, since packages populate just a subset of ECS.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    ecs_schema = get_ecs_schema_mappings(current_version, known_flattened_fields, log)
+    ecs_schema: dict[str, Any] = {}
+    if esql_indices_covered_by_packages(indices, rule_integrations, event_dataset_integrations):
+        log("All indices resolve to the rule's integrations; validating without the full ECS schema")
+    else:
+        ecs_schema = get_ecs_schema_mappings(current_version, known_flattened_fields, log)
 
     # Filter combined mappings based on the provided indices
     combined_mappings, index_lookup = get_filtered_index_schema(
