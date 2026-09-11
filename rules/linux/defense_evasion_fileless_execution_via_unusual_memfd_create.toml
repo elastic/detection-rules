@@ -17,6 +17,37 @@ index = ["logs-endpoint.events.process*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Potential Fileless Execution via Unusual memfd Create Call"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Fileless Execution via Unusual memfd Create Call
+
+This rule detects a Linux process using memfd_create from a suspicious memory-backed or temporary path with a previously unseen host and process lineage, which may reveal code executing without a conventional on-disk file. An attacker can decrypt an ELF payload into an anonymous memory file and execute it through `/proc/self/fd`, reducing disk artifacts and evading file-based controls.
+
+### Possible investigation steps
+
+- Reconstruct the full process ancestry and execution timeline, examining command-line arguments, effective user, working directory, session context, and nearby process starts for evidence of initial access or privilege escalation.
+- Determine whether the executable is still running and, if so, preserve its memory, open file descriptors, `/proc/<pid>/exe` target, and loaded mappings before containment to support payload recovery and analysis.
+- Correlate the event with outbound network connections, DNS activity, authentication events, and file modifications from the same process tree to identify command-and-control or follow-on behavior.
+- Compare the lineage and binary metadata against approved software inventories and known behavior from browsers, language runtimes, container tooling, security agents, and self-updating applications to rule out legitimate memfd use.
+- If malicious activity is confirmed, isolate the host, terminate the associated process tree, revoke affected credentials, quarantine recovered payloads, and hunt across Linux endpoints for matching hashes, command lines, destinations, or ancestry patterns.
+
+### False positive analysis
+
+- A legitimate application or language runtime may use memfd-backed files for just-in-time compilation or helper execution; verify the process lineage, package ownership, user context, and behavior against an approved baseline.
+- An authorized security agent, container workload, or self-updating application may execute transient code from memory or temporary paths; confirm the timing matches a documented deployment or update and that no anomalous network or child-process activity followed.
+
+### Response and remediation
+
+- Isolate affected Linux systems from the network while preserving access for incident responders, then terminate the malicious memfd-backed process tree and block associated domains, IP addresses, hashes, and command lines.
+- Remove persistence associated with the process lineage, including unauthorized systemd units, cron jobs, shell-profile changes, SSH keys, modified startup scripts, containers, and executables under `/tmp`, `/var/tmp`, `/dev/shm`, or `/run/user`.
+- Revoke and rotate credentials, API tokens, SSH keys, and service secrets accessible to the compromised account or process, and review neighboring systems for reuse of those credentials.
+- Escalate immediately to incident response if the payload ran with root privileges, accessed credentials, established external communications, modified multiple hosts, or cannot be fully scoped from available evidence.
+- Reimage materially compromised hosts from trusted media or restore them from a verified known-good backup, then validate package integrity, security controls, accounts, services, and network behavior before reconnecting them.
+- Prevent recurrence by patching the exploited entry point, restricting execution from writable and memory-backed locations where operationally feasible, applying least privilege and systemd sandboxing, and hunting fleet-wide for matching process ancestry, `/proc/*/fd/*` execution, and memfd-backed artifacts.
+"""
 risk_score = 47
 rule_id = "42663c0e-572e-4459-bf61-476a81d6aab1"
 setup = """## Setup
