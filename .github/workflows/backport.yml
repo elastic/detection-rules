@@ -22,7 +22,8 @@ permissions:
 # group — they would cancel the in-flight run and then skip every status job,
 # leaving the merge SHA stuck pending until the gate times out.
 concurrency:
-  group: ${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}
+  # Double-quoted so YAML does not treat "backport: auto" as a mapping.
+  group: "${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}"
   cancel-in-progress: true
 
 jobs:
