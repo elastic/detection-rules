@@ -2,7 +2,7 @@
 creation_date = "2026/04/22"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/22"
+updated_date = "2026/09/07"
 
 [rule]
 author = ["Elastic"]
@@ -17,11 +17,11 @@ writes are excluded from the correlation set to reduce noise from normal data-pl
 false_positives = [
     """
     In-cluster automation may produce the same pattern: validate `Esql.user_name_values`, workload ownership, and
-    whether `Esql.source_ip_values` / `Esql.source_asn_names` match expected egress before tuning or allowlisting.
+    whether `source.ip` / `source.as.organization.name` match expected egress before tuning or allowlisting.
     """,
 ]
-from = "now-24h"
-interval = "1h"
+from = "now-1h"
+interval = "30m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS Lateral Movement from Kubernetes SA via AssumeRoleWithWebIdentity"
@@ -41,7 +41,7 @@ use the bundled fields to scope time, identity, and network context before drill
 - **`Esql.post_exploit_count`**, **`Esql.event_action_values`**, **`Esql.attack_phases`**: which distinct APIs fired on the
   same key; flag unexpected IAM, secrets, or `RunInstances` alongside recon.
 - **`Esql.total_calls`**: volume beyond “three distinct actions”—helps separate quick probes from sustained abuse.
-- **`Esql.source_ip_values`**, **`Esql.source_asn_names`**, **`Esql.user_agent_values`**: compare to known cluster egress,
+- **`source.ip`**, **`source.as.organization.name`**, **`Esql.user_agent_original_values`**: compare to known cluster egress,
   NAT, or approved automation; divergent ASNs or clients can indicate token use off-cluster.
 
 **Next pivots**
@@ -130,8 +130,6 @@ FROM logs-aws.cloudtrail-*
     Esql.post_exploit_count = COUNT_DISTINCT(event.action),
     Esql.attack_phases = VALUES(phase),
     Esql.event_action_values = VALUES(event.action),
-    Esql.source_ip_values = VALUES(source.ip),
-    Esql.source_as_organization_name_values = VALUES(source.as.organization.name),
     Esql.user_name_values = VALUES(user.name),
     Esql.user_agent_original_values = VALUES(user_agent.original),
     Esql.cloud_account_id_values = VALUES(cloud.account.id),
@@ -139,10 +137,10 @@ FROM logs-aws.cloudtrail-*
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp),
     Esql.total_calls = COUNT(*)
-  BY access_key
+  BY access_key, source.ip, source.`as`.number, source.`as`.organization.name
 | WHERE access_key is not null and Esql.assume_count >= 1 AND Esql.post_exploit_count >= 3
 | EVAL aws.cloudtrail.user_identity.access_key_id = MV_FIRST(access_key)
-| KEEP aws.cloudtrail.user_identity.access_key_id, Esql.*
+| KEEP aws.cloudtrail.user_identity.access_key_id, source.ip, source.`as`.number, source.`as`.organization.name, Esql.*
 '''
 
 [rule.investigation_fields]
@@ -152,8 +150,7 @@ field_names = [
     "Esql.post_exploit_count",
     "Esql.attack_phases",
     "Esql.event_action_values",
-    "Esql.source_ip_values",
-    "Esql.source_as_organization_name_values",
+    "source.ip",
     "Esql.user_name_values",
     "Esql.user_agent_original_values",
     "Esql.first_seen",
