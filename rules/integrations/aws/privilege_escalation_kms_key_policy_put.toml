@@ -2,7 +2,7 @@
 creation_date = "2026/04/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -62,12 +62,12 @@ rule_id = "f6a0b2c3-4d5e-4f7a-8b9c-0d1e2f3a4b5c"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS KMS",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS KMS",
     "Tactic: Defense Evasion",
     "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -79,6 +79,7 @@ event.dataset: "aws.cloudtrail"
     and event.action: "PutKeyPolicy"
     and event.outcome: "success"
     and not aws.cloudtrail.user_identity.type: "AWSService"
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 [rule.investigation_fields]

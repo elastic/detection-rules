@@ -13,6 +13,7 @@ from kql.ast import (
     Field,
     FieldComparison,
     FieldRange,
+    FreeText,
     NestedQuery,
     NotExpr,
     NotValue,
@@ -160,13 +161,19 @@ class ParserTests(unittest.TestCase):
         """Test the exact query reported in #6282 end to end."""
         # Previously this failed to lex at the escaped colon ("Invalid syntax"). It now
         # lexes, and ` or ` splits the query the same way Kibana does: the wildcard value
-        # ends at "file", followed by OR and the bare term `directory`. Kibana searches
-        # bare terms against default fields, which this library cannot represent, so full
-        # parsing reports "Value not tied to field" at `directory` — not a syntax error.
+        # ends at "file", followed by OR and the bare term `directory`, which Kibana
+        # searches against the index's default fields (a FreeText term -- see #6419).
         query = r"app_message : *\: No such file or directory"
         kql.lark_parse(query)  # lexes and builds a parse tree without error
-        with self.assertRaisesRegex(kql.KqlParseError, "Value not tied to field"):
-            kql.parse(query)
+        self.validate(
+            query,
+            OrExpr(
+                [
+                    FieldComparison(Field("app_message"), Wildcard("*: No such file")),
+                    FreeText(String("directory"), is_quoted=False),
+                ]
+            ),
+        )
 
         # With the trailing bare term tied to a field, the query round-trips fully.
         self.validate(
@@ -265,6 +272,41 @@ class ParserTests(unittest.TestCase):
         # `*` mixed with an unescaped one collapse together once unescaped, so the literal
         # asterisk is lost in this case -- a known limitation of unescaping wildcard values.
         self.validate(r"field:foo\*bar*", FieldComparison(Field("field"), Wildcard("foo*bar*")))
+
+    def test_free_text_value(self):
+        """Test values not tied to any field (issue #6419)."""
+        # Kibana searches a bare value against the index's default fields, so it is valid
+        # KQL. The exact rule query from #6419:
+        self.validate(
+            'process.name : agent12 and "Accepted password for root"',
+            AndExpr(
+                [
+                    FieldComparison(Field("process.name"), String("agent12")),
+                    FreeText(String("Accepted password for root"), is_quoted=True),
+                ]
+            ),
+        )
+
+        # Bare quoted, unquoted, numeric, and wildcard values. Quoting is tracked because
+        # Kibana searches a quoted value as a phrase and an unquoted one as best_fields.
+        self.validate('"Accepted password for root"', FreeText(String("Accepted password for root"), is_quoted=True))
+        self.validate("agent12", FreeText(String("agent12"), is_quoted=False))
+        self.validate("1", FreeText(Number(1), is_quoted=False))
+        self.validate("*password*", FreeText(Wildcard("*password*")))
+
+        # A bare `*` is a match-all, not an `Exists` — there is no field to check for
+        self.validate("*", FreeText(Wildcard("*")))
+
+        # Wildcards in quotes, and escaped wildcards, stay literal — same as field values
+        self.validate('"*password*"', FreeText(String("*password*"), is_quoted=True))
+        self.validate(r"\*", FreeText(String("*"), is_quoted=False))
+
+        # Negation and composition with field expressions
+        self.validate('not "foo bar"', NotExpr(FreeText(String("foo bar"), is_quoted=True)))
+        self.validate(
+            '"a" or process.name : b',
+            OrExpr([FreeText(String("a"), is_quoted=True), FieldComparison(Field("process.name"), String("b"))]),
+        )
 
     def test_nested_query(self):
         """Nested KQL (`field:{ ... }`) parses to a NestedQuery with relative inner fields."""

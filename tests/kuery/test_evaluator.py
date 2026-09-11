@@ -69,6 +69,19 @@ class EvaluatorTests(unittest.TestCase):
 
         self.assertFalse(self.evaluate("number:(0 or 3)"))
 
+    def test_free_text(self):
+        """Values not tied to a field are checked against every field in the document."""
+        self.assertTrue(self.evaluate('"hello world"'))
+        self.assertTrue(self.evaluate("example"))  # inside string_list
+        self.assertTrue(self.evaluate("hello*"))  # wildcard, matches "hello world"
+        self.assertTrue(self.evaluate("1"))  # number leaf, including nested structured docs
+        self.assertTrue(self.evaluate('not "missing"'))
+
+        self.assertFalse(self.evaluate('"missing"'))
+        self.assertFalse(self.evaluate("goodbye*"))
+        self.assertFalse(self.evaluate('"hello world" and "missing"'))
+        self.assertTrue(self.evaluate('"missing" or number:1'))
+
     def test_and_expr(self):
         self.assertTrue(self.evaluate("number:1 and boolean:true"))
 

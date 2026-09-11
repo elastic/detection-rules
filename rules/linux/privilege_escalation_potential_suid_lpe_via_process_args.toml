@@ -2,7 +2,7 @@
 creation_date = "2026/05/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/17"
+updated_date = "2026/08/27"
 
 [rule]
 author = ["Elastic"]
@@ -72,12 +72,18 @@ process where host.os.type == "linux" and event.type == "start" and event.action
   )
 ) and
 not (
+  /* Common SUID/SGID binaries (subset also covered by e7856173-6489-449f-80ec-c1f5fcd7b87c); excluded here to reduce noise */
+  process.name in (
+    "unix_chkpwd", "fusermount", "fusermount3", "umount", "newgrp", "chsh", "sudoedit", "gpasswd", "chfn", "polkit-agent-helper-1",
+    "dbus-daemon-launch-helper", "ssh-keysign", "pam_extrausers_chkpwd", "expiry", "chage", "wall", "bsd-write", "ssh-agent",
+    "ping6", "traceroute", "mtr", "ntfs-3g", "Xorg.wrap", "chrome-sandbox", "bwrap", "hostname", "sudo", "su", "pkexec", "passwd",
+    "mount"
+  ) or
   (process.executable == "/usr/lib/landscape/apt-update" and process.args == "/usr/lib/landscape/apt-update") or
   (process.executable == "/usr/bin/mount" and process.args in ("/usr/bin/mount", "mount")) or
   (process.executable like "/u0?/app/agent/agent_*/sbin/nmo" and process.args like "/u0?/app/agent/agent_*/sbin/nmo") or
   (process.executable == "/usr/bin/screen" and process.args == "screen") or
-  (process.executable == "/usr/sbin/playpen" and process.args == "/usr/sbin/playpen") or
-  process.executable == "/usr/bin/sudo"
+  (process.executable == "/usr/sbin/playpen" and process.args == "/usr/sbin/playpen")
 )
 '''
 
@@ -93,11 +99,6 @@ reference = "https://attack.mitre.org/techniques/T1548/"
 id = "T1548.001"
 name = "Setuid and Setgid"
 reference = "https://attack.mitre.org/techniques/T1548/001/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1548.003"
-name = "Sudo and Sudo Caching"
-reference = "https://attack.mitre.org/techniques/T1548/003/"
 
 [rule.threat.tactic]
 id = "TA0004"

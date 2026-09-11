@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2026/06/10"
-integration = ["corelight", "network_traffic", "panw", "pfsense", "zeek"]
+integration = ["corelight", "network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek"]
 maturity = "production"
-updated_date = "2026/06/10"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ threat actors seeking initial access. Inbound SMB from a public IP is a direct p
 EternalBlue (MS17-010) and related SMB remote code execution vulnerabilities.
 """
 from = "now-9m"
-index = ["logs-corelight.*", "logs-network_traffic.*", "logs-panw.panos*", "logs-pfsense.log-*", "logs-zeek.*"]
+index = ["logs-corelight.*", "logs-network_traffic.*", "logs-panw.panos*", "logs-fortinet_fortigate.log-*", "logs-pfsense.log-*", "logs-zeek.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "SMB (Windows File Sharing) Activity from the Internet"
@@ -56,6 +56,7 @@ This rule requires network flow or firewall log data that captures inbound TCP c
 
 - **Elastic Network Traffic** integration (Packetbeat)
 - **Corelight** integration (network and SMB telemetry)
+- **Fortinet FortiGate** integration (firewall traffic logs)
 - **PAN-OS** integration (Palo Alto Networks firewall logs)
 - **pfSense** integration (syslog-based firewall flow logs; requires pfSense syslog forwarding enabled)
 - **Zeek** integration (SMB-specific log types: `smb_cmd`, `smb_files`, `smb_mapping`)
@@ -73,6 +74,7 @@ tags = [
     "Domain: Network",
     "Use Case: Threat Detection",
     "Data Source: Corelight",
+    "Data Source: Fortinet",
     "Data Source: PAN-OS",
     "Data Source: Network Traffic",
     "Data Source: pfSense",
@@ -83,7 +85,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-(data_stream.dataset:(network_traffic.flow or zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping or pfsense.log) or event.category:(network or network_traffic))
+(data_stream.dataset:(fortinet_fortigate.log or network_traffic.flow or pfsense.log or zeek.smb_cmd or zeek.smb_files or zeek.smb_mapping) or event.category:(network or network_traffic))
   and network.transport:tcp and destination.port:(139 or 445)
   and destination.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
   and not source.ip:(

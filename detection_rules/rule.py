@@ -58,7 +58,7 @@ from .stack_emit import (
     parse_stack,
     transforms_for_stack,
 )
-from .utils import PatchedTemplate, cached, convert_time_span, get_nested_value, set_nested_value
+from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
 
 if typing.TYPE_CHECKING:
@@ -712,8 +712,8 @@ class QueryValidator:
     def validate(self, _: "QueryRuleData", __: RuleMeta) -> None:
         raise NotImplementedError
 
-    @cached
-    def get_required_fields(self, index: str) -> list[dict[str, Any]]:
+    @cached_method
+    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]]:
         """Retrieves fields needed for the query along with type information from the schema."""
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
@@ -749,7 +749,7 @@ class QueryValidator:
             package = pk_int["package"]
             integration = pk_int["integration"]
             schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, min_stack, packages_manifest, {}, data
+                integrations_schemas, package, integration, min_stack, packages_manifest, data
             )
             int_schema.update(schema)
 
@@ -777,7 +777,7 @@ class QueryValidator:
 
         return sorted(required, key=lambda f: f["name"])
 
-    @cached
+    @cached_method
     def get_beats_schema(
         self, indices: list[str], beats_version: str, ecs_version: str
     ) -> tuple[list[str], dict[str, Any] | None, dict[str, Any]]:
@@ -787,7 +787,7 @@ class QueryValidator:
         schema = ecs.get_kql_schema(version=ecs_version, indexes=indices, beat_schema=beat_schema)
         return beat_types, beat_schema, schema
 
-    @cached
+    @cached_method
     def get_endgame_schema(self, indices: list[str], endgame_version: str) -> endgame.EndgameSchema | None:
         """Get an assembled flat endgame schema."""
         # Only include endgame when explicitly requested by TOML via indices
@@ -851,8 +851,8 @@ class QueryRuleData(BaseRuleData):
             return validator.unique_fields
         return None
 
-    @cached
-    def get_required_fields(self, index: str) -> list[dict[str, Any]] | None:
+    @cached_method
+    def get_required_fields(self, index: list[str]) -> list[dict[str, Any]] | None:
         validator = self.validator
         if validator is not None:
             return validator.get_required_fields(index or [])
@@ -1161,7 +1161,16 @@ class ThreatMatchRuleData(QueryRuleData):
             else:
                 return
 
-            threat_query_validator.validate(self, meta)
+            # The threat query runs against the indicator indices, so schemas must be built from
+            # `threat_index` rather than the rule's source `index` patterns
+            threat_data = dataclasses.replace(
+                self,
+                index=self.threat_index,
+                data_view_id=None,
+                query=self.threat_query,
+                language=self.threat_language,
+            )
+            threat_query_validator.validate(threat_data, meta)
 
     def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
         """Validate negate usage and group semantics for threat mapping."""
@@ -1291,7 +1300,7 @@ class BaseRuleContents(ABC):
 
     def get_untransformed_hashable_content(self) -> dict[str, Any]:
         """API payload with build-time fields but without stack emit transforms."""
-        payload = self.to_api_format(include_version=False, apply_emit_transforms=False)
+        payload = self._hash_api_payload(apply_emit_transforms=False)
         if self._uses_keep_star(payload):
             payload.pop("required_fields", None)
         return payload
@@ -1458,6 +1467,18 @@ class BaseRuleContents(ABC):
     def to_api_format(self, include_version: bool = True, apply_emit_transforms: bool = True) -> dict[str, Any]:
         """Convert the rule to the API format."""
 
+    @cached_method
+    def _converted_api_payload(self, apply_emit_transforms: bool) -> dict[str, Any]:
+        """Unversioned API payload, converted (and re-validated) once per emit variant."""
+        # the hash paths ask for the same two payloads up to four times per rule (baseline hash,
+        # baseline hash with integrations, untransformed hash, emit hash) and every conversion
+        # re-runs the marshmallow validation of the build-time fields
+        return self.to_api_format(include_version=False, apply_emit_transforms=apply_emit_transforms)
+
+    def _hash_api_payload(self, apply_emit_transforms: bool) -> dict[str, Any]:
+        """Copy of the cached unversioned API payload, safe for callers to strip fields from."""
+        return copy.deepcopy(self._converted_api_payload(apply_emit_transforms=apply_emit_transforms))
+
     def get_hashable_content(self, include_version: bool = False, include_integrations: bool = False) -> dict[str, Any]:
         """Returns the rule content to be used for calculating the hash value for the rule.
 
@@ -1466,7 +1487,10 @@ class BaseRuleContents(ABC):
         """
 
         # get the API dict without the version by default, otherwise it'll always be dirty.
-        hashable_dict = self.to_api_format(include_version=include_version, apply_emit_transforms=False)
+        if include_version:
+            hashable_dict = self.to_api_format(include_version=True, apply_emit_transforms=False)
+        else:
+            hashable_dict = self._hash_api_payload(apply_emit_transforms=False)
 
         # drop related integrations if present
         if not include_integrations:
@@ -1479,7 +1503,7 @@ class BaseRuleContents(ABC):
 
         return hashable_dict
 
-    @cached
+    @cached_method
     def get_hash(self, include_version: bool = False, include_integrations: bool = False) -> str:
         """Returns a sha256 hash of the rule contents"""
         hashable_contents = self.get_hashable_content(
@@ -1490,13 +1514,13 @@ class BaseRuleContents(ABC):
 
     def get_emit_hashable_content(self) -> dict[str, Any]:
         """Return the stack-transformed API payload used for stack_emit hashing."""
-        emit_dict = self.to_api_format(include_version=False, apply_emit_transforms=True)
+        emit_dict = self._hash_api_payload(apply_emit_transforms=True)
         # Emit hash includes related_integrations so ^ vs >= participates in the epoch.
         if self._uses_keep_star(emit_dict):
             emit_dict.pop("required_fields", None)
         return emit_dict
 
-    @cached
+    @cached_method
     def get_emit_hash(self) -> str:
         """Hash of the current package-stack emitted payload (for stack_emit lock channel)."""
         return utils.dict_hash(self.get_emit_hashable_content())
@@ -1702,7 +1726,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
                     obj[field_name] = field_value
                     break
 
-    @cached
+    @cached_method
     def _convert_get_setup_content(self, note_tree: list[Any]) -> str:
         """Get note paragraph starting from the setup header."""
         setup: list[str] = []
