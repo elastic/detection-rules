@@ -8,6 +8,7 @@
 import fnmatch
 import gzip
 import json
+import zipfile
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -27,8 +28,6 @@ from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
-    import zipfile
-
     from .rule import QueryRuleData, RuleMeta
 
 
@@ -144,7 +143,7 @@ def elastic_agent_fields() -> dict[str, str]:
     return ecs.flatten_multi_fields(selected)
 
 
-def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
+def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, Any]:
     """Parse the field files of an EPR package zip into a single version schema."""
     version_schema: dict[str, Any] = {}
 
