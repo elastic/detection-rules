@@ -17,11 +17,12 @@ permissions:
   statuses: write
   actions: read
 
-# One producer run per merge SHA. Re-label after merge cancels the prior run
-# (avoids competing cherry-picks / status writes). Open-PR events stay per-action
-# so default labeling is not cancelled by unrelated label churn.
+# Cancel only when a replacement producer actually starts (closed, or labeled
+# backport: auto). Unrelated post-merge label/unlabel events must not share this
+# group — they would cancel the in-flight run and then skip every status job,
+# leaving the merge SHA stuck pending until the gate times out.
 concurrency:
-  group: ${{ github.event.pull_request.merged && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-pr-{0}-{1}', github.event.pull_request.number, github.event.action) }}
+  group: ${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}
   cancel-in-progress: true
 
 jobs:
