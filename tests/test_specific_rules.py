@@ -14,6 +14,7 @@ from detection_rules import ecs
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
     find_latest_compatible_version,
+    find_latest_integration_patch_for_minor,
     load_integrations_manifests,
     load_integrations_schemas,
 )
@@ -111,17 +112,31 @@ class TestNewTerms(BaseRuleTest):
                 # checks if new terms field(s) are in ecs, beats non-ecs or integration schemas
                 queryvalidator = QueryValidator(rule.contents.data.query)
                 _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
+                # copy: the returned schema is a memoized object shared by every caller, so updating it in place
+                # would leak this rule's integration fields into later lookups (and depend on earlier ones)
+                schema = dict(schema)
                 for index_name in rule.contents.data.index:
                     schema.update(**ecs.flatten(ecs.get_index_schema(index_name)))
                 integration_manifests = load_integrations_manifests()
                 integration_schemas = load_integrations_schemas()
                 integration_tags = meta.get("integration")
                 if integration_tags:
+                    # resolve the package like get_required_fields does: stack-schema-map keys stacks at
+                    # MAJOR.MINOR.0, but a package may gate the version that adds a data stream behind a later
+                    # patch (e.g. azure ~8.19.10), so resolving against the literal .0 picks an older package
+                    patch_floor = find_latest_integration_patch_for_minor(
+                        integration_tags, min_stack_version.major, min_stack_version.minor
+                    )
+                    integration_stack_version = Version(
+                        min_stack_version.major,
+                        min_stack_version.minor,
+                        max(min_stack_version.patch, patch_floor),
+                    )
                     for tag in integration_tags:
                         latest_tag_compat_ver, _ = find_latest_compatible_version(
                             package=tag,
                             integration="",
-                            rule_stack_version=min_stack_version,
+                            rule_stack_version=integration_stack_version,
                             packages_manifest=integration_manifests,
                         )
                         if latest_tag_compat_ver:
