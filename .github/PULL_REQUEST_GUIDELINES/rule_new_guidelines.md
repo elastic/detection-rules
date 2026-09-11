@@ -14,7 +14,7 @@ These guidelines serve as a reminder set of considerations when proposing a new 
 - [ ] `creation_date` matches the date of creation PR initially merged.
 - [ ] `min_stack_version` should support the widest stack versions.
 - [ ] `name` and `description` should be descriptive and not include typos.
-- [ ] `query` should be inclusive, not overly exclusive, considering performance for diverse environments. Non ecs fields should be added to `non-ecs-schema.json` if not available in an integration.
+- [ ] `query` should be inclusive, not overly exclusive, considering performance for diverse environments. Non ecs fields should be added to `non-ecs-schema.json` if not available in an integration, and ECS fields an integration emits without declaring to `integration-emitted-ecs-schema.json`.
 - [ ] `min_stack_comments` and `min_stack_version` should be included if the rule is only compatible starting from a specific stack version.
 - [ ] `index` pattern should be neither too specific nor too vague, ensuring it accurately matches the relevant data stream (e.g., use logs-endpoint.process-* for process data).
 - [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest, schemas, and `new_rule.yaml` template are updated.

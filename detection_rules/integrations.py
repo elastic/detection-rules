@@ -623,8 +623,8 @@ def _integration_schema(package: str, package_version: str, integration: str) ->
     #
     # Packages populate only a subset of ECS, so the full ECS schema is not unioned in: a query is
     # checked against the fields the package field files declare (plus the Elastic Agent fields
-    # folded in at schema build time). Fields a package populates without declaring them belong in
-    # non-ecs-schema.json.
+    # folded in at schema build time). ECS fields a package populates without declaring them belong
+    # in integration-emitted-ecs-schema.json; fields outside ECS belong in non-ecs-schema.json.
     schema = collect_schema_fields(load_integrations_schemas(), package, package_version, integration)
     return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
