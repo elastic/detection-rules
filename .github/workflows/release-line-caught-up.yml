@@ -1,6 +1,11 @@
 # Gate main merges (and the merge queue) until origin/main's latest merge is
 # backported to every release target and tip Unit Tests (pythonpackage.yml) passed.
 #
+# Status contract (backport.yml):
+#   - `post-pending` runs immediately on merge (parallel with cherry-picks) → pending
+#   - `mark-caught-up` posts only terminal success/failure after cherry-picks + tip tests
+# The gate takes the newest status by created_at for this context.
+#
 # Merge queue settings (required for safe serialization):
 #   - Max entries to merge / merge group size: 1
 #   - Concurrent merges: 1
@@ -31,6 +36,9 @@ jobs:
 
   release-line-caught-up:
     needs: get-branches
+    # Required checks treat skipped jobs as success — always run and fail closed
+    # when branch discovery did not succeed.
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
@@ -38,6 +46,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           BRANCHES: ${{ needs.get-branches.outputs.branches }}
+          GET_BRANCHES_RESULT: ${{ needs.get-branches.result }}
           STATUS_CONTEXT: release-line-caught-up
           WORKFLOW_FILE: pythonpackage.yml
           WAIT_SECONDS: "3900"
@@ -46,11 +55,29 @@ jobs:
           script: |
             const contextName = process.env.STATUS_CONTEXT;
             const workflowFile = process.env.WORKFLOW_FILE;
-            const branches = JSON.parse(process.env.BRANCHES || '[]');
             const waitMs = Number(process.env.WAIT_SECONDS) * 1000;
             const pollMs = Number(process.env.POLL_SECONDS) * 1000;
             const deadline = Date.now() + waitMs;
             const { owner, repo } = context.repo;
+
+            if (process.env.GET_BRANCHES_RESULT !== 'success') {
+              core.setFailed(
+                `Target-branch discovery ${process.env.GET_BRANCHES_RESULT}; cannot evaluate release-line-caught-up.`,
+              );
+              return;
+            }
+
+            let branches;
+            try {
+              branches = JSON.parse(process.env.BRANCHES || '[]');
+            } catch (err) {
+              core.setFailed(`Invalid target-branch list: ${err}`);
+              return;
+            }
+            if (!Array.isArray(branches) || branches.length === 0) {
+              core.setFailed('No release target branches returned; refusing to pass the gate.');
+              return;
+            }
 
             async function sleep() {
               await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -65,7 +92,9 @@ jobs:
               return data.commit.sha;
             }
 
-            // Prefer a terminal status over a later pending (guards delayed pending posts).
+            // Newest status wins. Pending is only posted early; terminal only from the
+            // finalizer — so a newer pending means "still in flight", and a newer
+            // terminal replaces an older pending.
             async function latestStatus(sha) {
               const { data } = await github.rest.repos.listCommitStatusesForRef({
                 owner,
@@ -77,39 +106,41 @@ jobs:
               if (!matches.length) {
                 return null;
               }
-              const terminal = matches.filter((status) =>
-                ['success', 'failure', 'error'].includes(status.state),
-              );
-              const pool = terminal.length ? terminal : matches;
-              pool.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-              return pool[0].state;
+              matches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              return matches[0].state;
             }
 
-            // After the first merge posts a status, missing status means the finalizer
-            // did not run — fail closed. Before that (cutover), fall back to tip CI.
+            // After the first merge posts a status anywhere on main history, missing
+            // status on the current tip means the finalizer did not run — fail closed.
+            // Paginate until a producer status is found (or history is exhausted).
             async function statusProducerIsLive() {
-              const { data: commits } = await github.rest.repos.listCommits({
-                owner,
-                repo,
-                sha: 'main',
-                per_page: 30,
-              });
-              for (const commit of commits) {
-                const { data } = await github.rest.repos.listCommitStatusesForRef({
+              let page = 1;
+              while (page <= 10) {
+                const { data: commits } = await github.rest.repos.listCommits({
                   owner,
                   repo,
-                  ref: commit.sha,
+                  sha: 'main',
                   per_page: 100,
+                  page,
                 });
-                if (
-                  data.some(
-                    (status) =>
-                      status.context === contextName &&
-                      ['success', 'failure', 'error', 'pending'].includes(status.state),
-                  )
-                ) {
-                  return true;
+                if (!commits.length) {
+                  return false;
                 }
+                for (const commit of commits) {
+                  const { data } = await github.rest.repos.listCommitStatusesForRef({
+                    owner,
+                    repo,
+                    ref: commit.sha,
+                    per_page: 100,
+                  });
+                  if (data.some((status) => status.context === contextName)) {
+                    return true;
+                  }
+                }
+                if (commits.length < 100) {
+                  return false;
+                }
+                page += 1;
               }
               return false;
             }
@@ -126,23 +157,23 @@ jobs:
               return data.workflow_runs || [];
             }
 
+            // Newest run wins: if it is still queued/running, wait.
             function classifyRuns(runs) {
+              if (!runs.length) {
+                return 'missing';
+              }
               const sorted = [...runs].sort(
                 (a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at),
               );
-              const newestCompleted = sorted.find((run) => run.status === 'completed');
-              if (newestCompleted) {
-                if (newestCompleted.conclusion === 'success') {
+              const newest = sorted[0];
+              if (['in_progress', 'queued', 'waiting', 'pending'].includes(newest.status)) {
+                return 'pending';
+              }
+              if (newest.status === 'completed') {
+                if (newest.conclusion === 'success') {
                   return 'success';
                 }
-                return `failed:${newestCompleted.conclusion}`;
-              }
-              if (
-                sorted.some((run) =>
-                  ['in_progress', 'queued', 'waiting', 'pending'].includes(run.status),
-                )
-              ) {
-                return 'pending';
+                return `failed:${newest.conclusion}`;
               }
               return 'missing';
             }
@@ -171,8 +202,6 @@ jobs:
                 .join('\n');
             }
 
-            const producerLive = await statusProducerIsLive();
-
             while (true) {
               const sha = await mainSha();
               const status = await latestStatus(sha);
@@ -189,29 +218,34 @@ jobs:
               }
 
               if (!status) {
+                // Re-check each loop: producer may come online while we wait.
+                const producerLive = await statusProducerIsLive();
                 if (producerLive) {
-                  core.setFailed(
-                    `No ${contextName} status on main @ ${sha.slice(0, 7)} after the status producer is live. The backport finalizer likely skipped; investigate backport.yml before merging.`,
-                  );
-                  return;
-                }
-                // Cutover only: no status has ever been posted on recent main commits.
-                const tips = await classifyTips();
-                if (tips.state === 'success') {
+                  // After cutover, missing usually means post-pending has not landed yet
+                  // or the finalizer never started — wait until timeout rather than
+                  // false-green via tip CI.
                   core.info(
-                    `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}; all release tips have green Unit Tests.\n${formatTips(tips.results)}`,
+                    `No ${contextName} status on main @ ${sha.slice(0, 7)} yet (producer is live); waiting for pending/terminal.`,
                   );
-                  return;
-                }
-                if (tips.state === 'failure') {
-                  core.setFailed(
-                    `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}, and a release tip failed Unit Tests:\n${formatTips(tips.results)}`,
+                } else {
+                  // Cutover only: no status has ever been posted on main history.
+                  const tips = await classifyTips();
+                  if (tips.state === 'success') {
+                    core.info(
+                      `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}; all release tips have green Unit Tests.\n${formatTips(tips.results)}`,
+                    );
+                    return;
+                  }
+                  if (tips.state === 'failure') {
+                    core.setFailed(
+                      `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}, and a release tip failed Unit Tests:\n${formatTips(tips.results)}`,
+                    );
+                    return;
+                  }
+                  core.info(
+                    `Cutover fallback: waiting on release tip Unit Tests (no ${contextName} status yet):\n${formatTips(tips.results)}`,
                   );
-                  return;
                 }
-                core.info(
-                  `Cutover fallback: waiting on release tip Unit Tests (no ${contextName} status yet):\n${formatTips(tips.results)}`,
-                );
               } else {
                 core.info(`${contextName} is ${status} on main @ ${sha.slice(0, 7)}`);
               }

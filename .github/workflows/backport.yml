@@ -171,9 +171,37 @@ jobs:
           status: failure
         if: failure()
 
-  # Single ordered producer for release-line-caught-up: pending, then a terminal
-  # success/failure. Do not post pending from a separate job — a delayed pending
-  # after success would become the latest status and stall the gate.
+  # Early pending: runs in parallel with `commit` so the next PR/queue entry sees
+  # pending (and waits) instead of missing status while cherry-picks are still running.
+  # Only this job posts pending. `mark-caught-up` posts only terminal states, so a
+  # delayed pending cannot overwrite success/failure.
+  post-pending:
+    if: |
+      github.event.pull_request.merged == true
+      && contains(github.event.pull_request.labels.*.name, 'backport: auto')
+      && (
+        (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')
+        || (github.event.action == 'closed')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark release-line-caught-up pending
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          STATUS_CONTEXT: release-line-caught-up
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.MERGE_SHA,
+              state: 'pending',
+              context: process.env.STATUS_CONTEXT,
+              description: 'Waiting for auto-backports and release-branch Unit Tests',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
   mark-caught-up-skip:
     if: |
       github.event.pull_request.merged == true
@@ -201,7 +229,8 @@ jobs:
   mark-caught-up:
     needs: [get-branches, commit]
     # Always finalize when backport: auto merged — including get-branches/commit
-    # skipped or failed — so the next PR never waits 28m on a missing status.
+    # skipped or failed — so the next PR never waits on a missing status.
+    # Posts only terminal success/failure (pending comes from post-pending).
     if: |
       always()
       && github.event.pull_request.merged == true
@@ -242,9 +271,6 @@ jobs:
                 target_url: targetUrl,
               });
             }
-
-            // Ordered: pending first, then only a terminal state from this job.
-            await postStatus('pending', 'Waiting for auto-backports and release-branch Unit Tests');
 
             if (process.env.GET_BRANCHES_RESULT !== 'success') {
               const message = `Target-branch discovery ${process.env.GET_BRANCHES_RESULT}`;
@@ -297,24 +323,23 @@ jobs:
               return data.workflow_runs || [];
             }
 
-            // Prefer the newest completed run for this tip SHA (not "any historical success").
+            // Newest run wins: if it is still queued/running, wait; only then use its conclusion.
             function classifyRuns(runs) {
+              if (!runs.length) {
+                return 'missing';
+              }
               const sorted = [...runs].sort(
                 (a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at),
               );
-              const newestCompleted = sorted.find((run) => run.status === 'completed');
-              if (newestCompleted) {
-                if (newestCompleted.conclusion === 'success') {
+              const newest = sorted[0];
+              if (['in_progress', 'queued', 'waiting', 'pending'].includes(newest.status)) {
+                return 'pending';
+              }
+              if (newest.status === 'completed') {
+                if (newest.conclusion === 'success') {
                   return 'success';
                 }
-                return `failed:${newestCompleted.conclusion}`;
-              }
-              if (
-                sorted.some((run) =>
-                  ['in_progress', 'queued', 'waiting', 'pending'].includes(run.status),
-                )
-              ) {
-                return 'pending';
+                return `failed:${newest.conclusion}`;
               }
               return 'missing';
             }
