@@ -37,7 +37,6 @@ from .integrations import (
     find_latest_integration_patch_for_minor,
     get_integration_schema_fields,
     load_integrations_manifests,
-    load_integrations_schemas,
     resolve_related_integration_version,
 )
 from .mixins import MarshmallowDataclassMixin, StackCompatMixin
@@ -727,7 +726,6 @@ class QueryValidator:
 
         # construct integration schemas
         packages_manifest = load_integrations_manifests()
-        integrations_schemas = load_integrations_schemas()
         datasets: set[str] = set()
         if self.ast:
             datasets, _ = beats.get_datasets_and_modules(self.ast)
@@ -748,9 +746,7 @@ class QueryValidator:
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
-            schema, _ = get_integration_schema_fields(
-                integrations_schemas, package, integration, min_stack, packages_manifest, data
-            )
+            schema, _ = get_integration_schema_fields(package, integration, min_stack, data)
             int_schema.update(schema)
 
         required: list[dict[str, Any]] = []
