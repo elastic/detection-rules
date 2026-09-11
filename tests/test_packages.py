@@ -30,8 +30,9 @@ from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
-# 4 rule sample per type to catch cases where hashing might miss a rule contents change incorrectly.
-# This can catch logic errors that may be introduced over time in the hashing and API contents build.
+# Number of rules of each type/language to re-hash to 
+# ensure that the cached hash still matches a fresh one. 
+# Guards against a flaw in memoization process/code.
 UNCACHED_HASH_SAMPLE_PER_KIND = 4
 
 
