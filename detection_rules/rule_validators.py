@@ -152,6 +152,15 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
 eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage] # noqa: SLF001
 
 
+# Integration targets do not union the full ECS schema (packages populate only a subset of it); the hint tells the
+# author where a field the package populates without declaring belongs.
+INTEGRATION_SCHEMA_HINT = (
+    "Only fields the package field files declare (plus non-ecs-schema.json entries for the rule's index patterns) "
+    "are accepted; the full ECS schema is not unioned. Add genuinely populated fields to "
+    "detection_rules/etc/non-ecs-schema.json"
+)
+
+
 class KQLValidator(QueryValidator):
     """Specific fields for KQL query event types."""
 
@@ -221,6 +230,7 @@ class KQLValidator(QueryValidator):
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
                     f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -448,6 +458,7 @@ class EQLValidator(QueryValidator):
                 pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
                     f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -534,6 +545,7 @@ class EQLValidator(QueryValidator):
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
                             f"stack: {stack_version}, ecs: {ecs_version}\n"
+                            f"{INTEGRATION_SCHEMA_HINT}\n"
                             f"rule: {data.name} - {data.rule_id}"
                         )
                         targets.append(
