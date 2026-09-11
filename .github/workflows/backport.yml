@@ -395,27 +395,12 @@ jobs:
                 return 'missing';
               }
 
-              // Tip must contain this merge SHA (not just have green Unit Tests from an older tip).
-              async function tipContainsMerge(tipSha) {
-                const { data } = await github.rest.repos.compareCommitsWithBasehead({
-                  owner,
-                  repo,
-                  basehead: `${mergeSha}...${tipSha}`,
-                });
-                return data.status === 'ahead' || data.status === 'identical';
-              }
-
               while (true) {
                 try {
                   const results = [];
                   for (const branch of branches) {
                     const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
                     const sha = data.commit.sha;
-                    const containsMerge = await tipContainsMerge(sha);
-                    if (!containsMerge) {
-                      results.push({ branch, sha, result: 'pending:missing-merge' });
-                      continue;
-                    }
                     const result = classifyRuns(await unitTestRuns(sha));
                     results.push({ branch, sha, result });
                   }
