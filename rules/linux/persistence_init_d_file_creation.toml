@@ -19,7 +19,8 @@ query = """
 SELECT f.path, u.username AS file_owner, g.groupname AS group_owner, datetime(f.atime, 'unixepoch') AS
 file_last_access_time, datetime(f.mtime, 'unixepoch') AS file_last_modified_time, datetime(f.ctime, 'unixepoch') AS
 file_last_status_change_time, datetime(f.btime, 'unixepoch') AS file_created_time, f.size AS size_bytes FROM file f LEFT
-JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path LIKE '/etc/init.d/%'
+JOIN users u ON f.uid = u.uid LEFT JOIN groups g ON f.gid = g.gid WHERE path LIKE '/etc/init.d/%' OR path LIKE '/etc/init/%' OR path IN ('/etc/init', '/etc/inittab', '/etc/inittab2')
+
 """
 
 [[transform.osquery]]
