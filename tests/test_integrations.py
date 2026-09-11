@@ -5,10 +5,13 @@
 
 """Test integration version resolution against EPR manifest ranges."""
 
+import io
 import unittest
 import unittest.mock
+import zipfile
 from types import SimpleNamespace
 
+import yaml
 from semver import Version
 
 from detection_rules.config import load_current_package_version
@@ -20,9 +23,13 @@ from detection_rules.integrations import (
     _parse_kibana_range,
     _related_integration_version_operator,
     _satisfies_kibana_range,
+    elastic_agent_fields,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
+    get_integration_schema_fields,
+    load_integrations_schemas,
+    parse_version_schema,
     resolve_related_integration_version,
 )
 from detection_rules.rule_validators import KQLValidator
@@ -587,3 +594,130 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         self.assertFalse(_esql_metadata_package_row_needed("aws", {"aws.cloudtrail", "aws.billing"}))
         self.assertTrue(_esql_metadata_package_row_needed("azure", set()))
         self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
+
+
+class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
+    """Integration validation checks a query against the package field schema only, never the full ECS schema."""
+
+    def test_undeclared_ecs_field_is_not_in_schema(self):
+        schemas = {
+            "network_traffic": {
+                "1.0.0": {
+                    "icmp": {
+                        "data_stream.dataset": "constant_keyword",
+                        "destination.ip": "ip",
+                        "network_traffic.icmp.request.type": "long",
+                    },
+                }
+            }
+        }
+        manifests = {"network_traffic": {"1.0.0": _manifest("^9.0.0")}}
+        data = SimpleNamespace(get=lambda key, default=None: False if key == "notify" else default)
+        with unittest.mock.patch(
+            "detection_rules.integrations.find_latest_integration_patch_for_minor", return_value=0
+        ):
+            schema, package_version = get_integration_schema_fields(
+                schemas, "network_traffic", "icmp", Version.parse("9.0.0"), manifests, data
+            )
+
+        self.assertEqual(package_version, "1.0.0")
+        self.assertEqual(set(schema), {"data_stream.dataset", "destination.ip", "network_traffic.icmp.request.type"})
+        # process.title is a valid ECS field the data stream does not declare
+        self.assertNotIn("process.title", schema)
+
+
+class TestParseVersionSchema(unittest.TestCase):
+    """Package field files plus the Elastic Agent fields make up a data stream's cached schema."""
+
+    @staticmethod
+    def _package_zip(files: dict[str, str]) -> zipfile.ZipFile:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zip_ref:
+            for name, contents in files.items():
+                zip_ref.writestr(name, yaml.safe_dump(contents))
+        return zipfile.ZipFile(buffer)
+
+    def test_elastic_agent_fields_are_derived_from_ecs(self):
+        """The agent, cloud and host ECS sets, the data_stream constant keywords and the Fleet pipeline fields."""
+        fields = elastic_agent_fields()
+
+        for name, field_type in {
+            "agent.id": "keyword",
+            "host.name": "keyword",
+            "host.ip": "ip",
+            "host.os.type": "keyword",
+            "host.os.name.text": "match_only_text",
+            "cloud.provider": "keyword",
+            "data_stream.dataset": "constant_keyword",
+            "event.agent_id_status": "keyword",
+            "event.ingested": "date",
+        }.items():
+            self.assertEqual(fields.get(name), field_type, name)
+        # field sets ECS re-nests under host/cloud and the origin/target self-nestings are not shipped by Agent
+        for name in (
+            "host.geo.city_name",
+            "host.risk.calculated_level",
+            "cloud.origin.provider",
+            "cloud.target.region",
+        ):
+            self.assertNotIn(name, fields)
+        self.assertTrue(
+            all(name.startswith(("agent.", "cloud.", "host.", "data_stream.", "event.")) for name in fields), fields
+        )
+
+    def test_every_data_stream_gets_agent_fields_and_declared_fields_win(self):
+        zip_ref = self._package_zip(
+            {
+                "pkg-1.0.0/data_stream/ds/fields/ecs.yml": [
+                    {"name": "destination.ip", "type": "ip"},
+                    {"name": "agent.id", "type": "wildcard"},
+                    # built packages resolve `external: ecs` into explicit multi_fields, which are mapped too
+                    {
+                        "name": "process.name",
+                        "type": "keyword",
+                        "multi_fields": [{"name": "text", "type": "match_only_text"}],
+                    },
+                ],
+                "pkg-1.0.0/data_stream/plain/fields/fields.yml": [{"name": "pkg.y", "type": "keyword"}],
+            }
+        )
+
+        version_schema = parse_version_schema(zip_ref, "pkg")
+
+        self.assertEqual(set(version_schema), {"ds", "plain"})
+        self.assertEqual(version_schema["ds"]["destination.ip"], "ip")
+        self.assertEqual(version_schema["ds"]["agent.id"], "wildcard")
+        self.assertEqual(version_schema["ds"]["process.name.text"], "match_only_text")
+        self.assertEqual(version_schema["ds"]["event.ingested"], "date")
+        self.assertEqual(version_schema["plain"]["pkg.y"], "keyword")
+        self.assertEqual(version_schema["plain"]["agent.id"], "keyword")
+        self.assertEqual(version_schema["plain"]["data_stream.dataset"], "constant_keyword")
+        # undeclared ECS fields are not part of the schema
+        self.assertNotIn("process.title", version_schema["ds"])
+
+    def test_committed_cache_was_built_by_parse_version_schema(self):
+        """Every cached data stream carries the Agent fields and nothing but field schemas (and ML job lists)."""
+        for package, versions in load_integrations_schemas().items():
+            version = sorted(versions, key=Version.parse)[-1]
+            for name, stream in versions[version].items():
+                if name == "jobs":
+                    continue
+                self.assertIn("data_stream.dataset", stream, f"{package} {version} {name}")
+                self.assertIn("agent.id", stream, f"{package} {version} {name}")
+
+
+class TestEsqlIndexCoverage(unittest.TestCase):
+    """Remote ES|QL validation skips the full ECS mappings only when every FROM index belongs to a rule integration."""
+
+    def test_non_integration_indices_keep_full_ecs(self):
+        from detection_rules.esql import EventDataset
+        from detection_rules.index_mappings import esql_indices_covered_by_packages
+
+        eds = [EventDataset("pkg", "audit")]
+        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg.audit-*"], [], eds))
+        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg*"], ["pkg"], []))
+        # Beats and unrelated indices are not modelled by the integration mappings
+        self.assertFalse(esql_indices_covered_by_packages(["logs-pkg.audit-*", "auditbeat-*"], [], eds))
+        self.assertFalse(esql_indices_covered_by_packages(["logs-other.stream-*"], [], eds))
+        # nothing extracted from FROM must not pass vacuously
+        self.assertFalse(esql_indices_covered_by_packages([], ["pkg"], []))
