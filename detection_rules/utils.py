@@ -365,7 +365,10 @@ def cached_method(f: Callable[..., Any]) -> Callable[..., Any]:
     # unlike `cached`, `self` is not part of the cache key, so no `astuple()` deep copy of the
     # instance is needed to look a result up - only use this where the result is fully determined by
     # an immutable instance plus the call arguments
-    attr = f"_cached_{f.__qualname__}"
+    #
+    # qualname, not name: a subclass that overrides and super()-calls a memoized method must not share
+    # its store with the parent. Dots replaced so the key is a plain identifier in vars(self).
+    attr = f"_cached_{f.__qualname__.replace('.', '_')}"
 
     @functools.wraps(f)
     def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
