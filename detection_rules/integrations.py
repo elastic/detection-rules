@@ -621,15 +621,9 @@ def _latest_compatible_version_from_etc(
 @cached
 def _integration_schema(package: str, package_version: str, integration: str) -> dict[str, Any]:
     """Build the bundled integration fields into a memoized `field -> type family` schema."""
-    # Memoized and shared, so callers must treat the returned dict as read-only. Keyed on the
-    # resolved package version rather than the rule's min_stack, so the many stack versions
-    # that resolve to the same package version share one entry.
-    #
-    # Packages populate only a subset of ECS, so the full ECS schema is not unioned in: a query is
-    # checked against the fields the package field files declare (plus the Elastic Agent fields
-    # folded in at schema build time). ECS fields a package populates without declaring them belong
-    # in integration-emitted-ecs-schema.json; fields outside ECS belong in non-ecs-schema.json.
+    # Packages populate only a subset of ECS, so the full ECS schema is not unioned in.
     schema = collect_schema_fields(load_integrations_schemas(), package, package_version, integration)
+    # Memoized and shared, so callers must treat the returned dict as read-only.
     return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
 
