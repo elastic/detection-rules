@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/08/16"
+integration = ["suricata"]
+maturity = "production"
+updated_date = "2026/08/16"
+
+[rule]
+author = ["Ahmed Hassan"]
+description = """
+Detects dual-signal corroboration on Suricata: a classic high-priority IDS classification
+(Generator ID not SnortML GID 411) followed within a short window by another high-severity
+Suricata alert on the same source and destination.
+
+Signature + second high-severity network signal is a stronger remediation candidate than
+ML-only paths (GID 411 alone). This is the Suricata-native analogue of signature + high EVE
+corroboration used on Secure Firewall pipelines.
+"""
+false_positives = [
+    """
+    Busy egress gateways where unrelated high-severity alerts share source/destination within
+    the correlation window.
+    """,
+    """
+    Lab and red-team traffic designed to trip multiple inspectors in sequence.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-suricata.*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suricata Signature And High Severity Corroboration"
+note = """## Triage and analysis
+
+### Investigating Suricata Signature And High Severity Corroboration
+
+This correlation requires (1) a classic high-priority classification with GID != 411, then
+(2) another high-severity Suricata alert for the same source/destination IPs and ports within 5 minutes.
+That dual-signal pattern is a stronger remediation candidate than ML-only (GID 411) alerts.
+
+### Possible investigation steps
+
+- Inspect both events in Timeline; confirm the first event's category and that GID ≠ 411.
+- Validate asset ownership of source and destination; check endpoint detections.
+- Prefer gated remediation (HITL / policy Gate→Prove) when business impact is material.
+
+### False positive analysis
+
+- High-churn internet-facing services may accumulate unrelated Suricata hits.
+- Tighten by excluding known scanner ranges or requiring matching destination.port.
+
+### Response and remediation
+
+- Treat as a strong dual-signal TP candidate relative to GID 411 ML-only alerts.
+- Isolate or block after confirming scope; collect network and host forensics.
+- Do not collapse this disposition into the ML-only path in SOAR automations.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/suricata",
+    "https://github.com/elastic/detection-rules/issues/6661",
+    "https://github.com/SigmaHQ/sigma/pull/6237",
+    "https://github.com/Cisco-Talos/EvidenceForge/pull/389",
+    "https://github.com/splunk/attack_data/pull/1206",
+    "https://github.com/AAH20/aegis-decision-fabric",
+    "https://a2zsoc.com/consultation",
+]
+risk_score = 73
+rule_id = "71835572-24e9-49c1-91a8-a801268f0a56"
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Platform: Elastic",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: Event Correlation (EQL)",
+    "Data Source: Suricata",
+    "Data Source: Suricata Logs",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+
+query = '''
+sequence by source.ip, destination.ip, source.port, destination.port with maxspan=5m
+  [network where data_stream.dataset == "suricata.eve" and event.kind == "alert" and
+   suricata.eve.alert.gid != 411 and
+   suricata.eve.alert.category in (
+     "A Network Trojan was detected",
+     "Successful Administrator Privilege Gain",
+     "Successful User Privilege Gain",
+     "Attempted Administrator Privilege Gain",
+     "Attempted User Privilege Gain",
+     "Malware Command and Control Activity Detected",
+     "Known malware command and control traffic",
+     "A Network Trojan was Detected",
+     "Large Scale Information Leak"
+   )]
+  [network where data_stream.dataset == "suricata.eve" and event.kind == "alert" and
+   event.severity == 1]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique]]
+id = "T1041"
+name = "Exfiltration Over C2 Channel"
+reference = "https://attack.mitre.org/techniques/T1041/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
