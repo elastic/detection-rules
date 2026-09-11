@@ -746,8 +746,7 @@ class QueryValidator:
         for pk_int in package_integrations:
             package = pk_int["package"]
             integration = pk_int["integration"]
-            # ecs_version=None: the ECS fields are looked up separately below
-            schema, _ = get_integration_schema_fields(package, integration, min_stack, None, data)
+            schema, _ = get_integration_schema_fields(package, integration, min_stack, data)
             int_schema.update(schema)
 
         required: list[dict[str, Any]] = []
@@ -1158,7 +1157,16 @@ class ThreatMatchRuleData(QueryRuleData):
             else:
                 return
 
-            threat_query_validator.validate(self, meta)
+            # The threat query runs against the indicator indices, so schemas must be built from
+            # `threat_index` rather than the rule's source `index` patterns
+            threat_data = dataclasses.replace(
+                self,
+                index=self.threat_index,
+                data_view_id=None,
+                query=self.threat_query,
+                language=self.threat_language,
+            )
+            threat_query_validator.validate(threat_data, meta)
 
     def validate(self, meta: RuleMeta) -> None:  # noqa: ARG002
         """Validate negate usage and group semantics for threat mapping."""

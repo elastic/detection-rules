@@ -9,6 +9,7 @@ import fnmatch
 import functools
 import gzip
 import json
+import zipfile
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -111,6 +112,70 @@ def build_integrations_manifest(
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
+# Fields Elastic Agent adds to every document it ships, independent of the package, which package field files
+# rarely declare: the ECS agent, cloud and host field sets (host and cloud come from the add_host_metadata and
+# add_cloud_metadata processors Fleet enables by default), the data_stream constant keywords, and the two fields
+# stamped by Fleet's final ingest pipeline.
+ELASTIC_AGENT_FIELDSETS = ("agent", "cloud", "host")
+ELASTIC_AGENT_FIELDS = (
+    "data_stream.dataset",
+    "data_stream.namespace",
+    "data_stream.type",
+    "event.agent_id_status",
+    "event.ingested",
+)
+
+
+@cached
+def elastic_agent_fields() -> dict[str, str]:
+    """Fields Elastic Agent adds to every document it ships, mapped to their ECS types."""
+    ecs_flat: dict[str, Any] = ecs.get_schema(ecs.get_max_version(), name="ecs_flat")
+    selected = {name: ecs_flat[name] for name in ELASTIC_AGENT_FIELDS}
+    for name, info in ecs_flat.items():
+        fieldset, _, subpath = name.partition(".")
+        # skip the field sets ECS re-nests under host and cloud (host.geo.*, host.risk.*, *.entity.*) and the
+        # origin/target self-nestings, which no shipper populates
+        if (
+            fieldset in ELASTIC_AGENT_FIELDSETS
+            and info.get("original_fieldset") in (None, "os")
+            and not subpath.startswith(("origin.", "target."))
+        ):
+            selected[name] = info
+    return ecs.flatten_multi_fields(selected)
+
+
+def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, Any]:
+    """Parse the field files of an EPR package zip into a single version schema."""
+    version_schema: dict[str, Any] = {}
+
+    for file in zip_ref.namelist():
+        file_data_bytes = zip_ref.read(file)
+        # Check if the file is a match
+        if fnmatch.fnmatch(file, "*/fields/*.yml"):
+            integration_name = Path(file).parent.parent.name
+            # every data stream carries the Elastic Agent fields on top of what its field files declare
+            stream_schema: dict[str, str] = version_schema.setdefault(integration_name, dict(elastic_agent_fields()))
+            for field in flatten_ecs_schema(yaml.safe_load(file_data_bytes)):
+                stream_schema[field["name"]] = field["type"]
+                # Built packages resolve `external: ecs` references into explicit multi_fields (e.g. process.name
+                # -> a `text` variant), so a data stream that maps a field also maps its multi-field variants.
+                multi_fields: list[dict[str, Any]] = field.get("multi_fields") or []
+                for subfield in multi_fields:
+                    stream_schema[f"{field['name']}.{subfield['name']}"] = subfield.get("type", "keyword")
+
+        # add machine learning jobs to the schema
+        if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
+            file, "*/ml_module/*ml.json"
+        ):
+            ml_module = json.loads(file_data_bytes)
+            job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
+            version_schema["jobs"] = job_ids
+
+        del file_data_bytes
+
+    return version_schema
+
+
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
     """Builds a new local copy of integration-schemas.json.gz from EPR integrations."""
 
@@ -146,34 +211,9 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
             response = requests.get(download_url, timeout=30)
             response.raise_for_status()
 
-            # Update the final integration schemas
-            final_integration_schemas[package].update({version: {}})  # type: ignore[reportUnknownMemberType]
-
             # Open the zip file
             with unzip(response.content) as zip_ref:
-                for file in zip_ref.namelist():
-                    file_data_bytes = zip_ref.read(file)
-                    # Check if the file is a match
-                    if fnmatch.fnmatch(file, "*/fields/*.yml"):
-                        integration_name = Path(file).parent.parent.name
-                        final_integration_schemas[package][version].setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
-                        schema_fields = yaml.safe_load(file_data_bytes)
-
-                        # Parse the schema and add to the integration_manifests
-                        data = flatten_ecs_schema(schema_fields)
-                        flat_data = {field["name"]: field["type"] for field in data}
-
-                        final_integration_schemas[package][version][integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
-
-                    # add machine learning jobs to the schema
-                    if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
-                        file, "*/ml_module/*ml.json"
-                    ):
-                        ml_module = json.loads(file_data_bytes)
-                        job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
-                        final_integration_schemas[package][version]["jobs"] = job_ids
-
-                    del file_data_bytes
+                final_integration_schemas[package][version] = parse_version_schema(zip_ref, package)
 
     # Write the final integration schemas to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
@@ -522,7 +562,7 @@ def get_integration_schema_data(
 
                 # Extract the integration schema fields
                 integration_schema, package_version = get_integration_schema_fields(
-                    package, integration, min_stack, ecs_version, data
+                    package, integration, min_stack, data
                 )
 
                 yield {
@@ -540,18 +580,17 @@ def get_integration_schema_fields(
     package: str,
     integration: str,
     min_stack: Version,
-    ecs_version: str | None,
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
     """Extracts the integration fields to schema based on the bundled package integrations."""
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
-    # Resolves against the bundled integration-manifests / integration-schemas / ECS schemas via
-    # memoized helpers keyed on hashable args. `ecs_version=None` skips the ECS merge. The
-    # returned schema is memoized and shared, so callers must treat it as read-only.
+    # Resolves against the bundled integration-manifests / integration-schemas via memoized helpers
+    # keyed on hashable args. The returned schema is memoized and shared, so callers must treat it
+    # as read-only.
     package_version, notice = _latest_compatible_version_from_etc(package, integration, str(min_stack))
     notify_user_if_update_available(data, list(notice), integration)
 
-    integration_schema = _integration_schema(package, package_version, integration, ecs_version)
+    integration_schema = _integration_schema(package, package_version, integration)
     return integration_schema, package_version
 
 
@@ -576,22 +615,22 @@ def _latest_compatible_version_from_etc(
 
 
 @cached
-def _integration_schema(
-    package: str, package_version: str, integration: str, ecs_version: str | None
-) -> dict[str, Any]:
-    """Merge bundled integration and ECS fields into a memoized `field -> type family` schema."""
+def _integration_schema(package: str, package_version: str, integration: str) -> dict[str, Any]:
+    """Build the bundled integration fields into a memoized `field -> type family` schema."""
     # Memoized and shared, so callers must treat the returned dict as read-only. Keyed on the
     # resolved package version rather than the rule's min_stack, so the many stack versions
     # that resolve to the same package version share one entry.
+    #
+    # Packages populate only a subset of ECS, so the full ECS schema is not unioned in: a query is
+    # checked against the fields the package field files declare (plus the Elastic Agent fields
+    # folded in at schema build time). Fields a package populates without declaring them belong in
+    # non-ecs-schema.json.
     schema = collect_schema_fields(load_integrations_schemas(), package, package_version, integration)
-    if ecs_version is not None:
-        schema.update(ecs.get_flat_ecs_schema(ecs_version))
     return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
 
 # The helpers above memoize on hashable args and read the bundled manifests/schemas internally, so
-# clearing a loader (e.g. after build_integrations_schemas()) must also drop what was derived from
-# it. ECS schemas are not chained: nothing reloads them in-process and ecs must not import this module.
+# clearing a loader (e.g. after build_integrations_schemas()) must also drop what was derived from it.
 load_integrations_manifests.add_dependent(_latest_patch_for_minor)  # type: ignore[reportFunctionMemberAccess]
 load_integrations_manifests.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
 load_integrations_schemas.add_dependent(_latest_compatible_version_from_etc)  # type: ignore[reportFunctionMemberAccess]
