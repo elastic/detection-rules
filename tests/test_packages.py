@@ -30,8 +30,8 @@ from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
-# Number of rules of each type/language to re-hash to 
-# ensure that the cached hash still matches a fresh one. 
+# Number of rules of each type/language to re-hash to
+# ensure that the cached hash still matches a fresh one.
 # Guards against a flaw in memoization process/code.
 UNCACHED_HASH_SAMPLE_PER_KIND = 4
 
