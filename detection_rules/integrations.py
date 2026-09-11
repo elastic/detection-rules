@@ -40,6 +40,7 @@ SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
 _notified_integrations: set[str] = set()
 
 
+# These loaders feed derived caches; use clear_caches(), not loader.clear(), to invalidate them.
 @cached
 def load_integrations_manifests() -> dict[str, Any]:
     """Load the consolidated integrations manifest."""
@@ -278,6 +279,7 @@ def _parse_clause(clause: str) -> tuple[Version, Version | None]:
 def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
     """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses."""
     # clauses separated by || are OR'd; whitespace-separated tokens within a clause are AND'd
+    # this pure string-to-bounds cache intentionally does not participate in clear_caches()
     # cached: the returned list is shared, so callers must treat it as read-only
     return [_parse_clause(c) for c in version_requirement.split("||")]
 
@@ -666,7 +668,7 @@ def collect_schema_fields(
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return integrations_schemas[package][package_version][integration]
+    return dict(integrations_schemas[package][package_version][integration])
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
