@@ -2,97 +2,124 @@
 creation_date = "2026/08/04"
 integration = ["azure"]
 maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
 updated_date = "2026/08/04"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects pod exec on AKS where the command line invokes curl or wget, commonly used to stage tooling after compromise.
+Detects successful AKS pod exec sessions where the reconstructed command invokes curl or wget against an HTTPS URL.
+Adversaries holding pods/exec commonly run one-liners to stage tooling, pull scripts or binaries, or exfiltrate data
+over HTTPS from inside a workload, which is rare compared to shells, debuggers, or expected health checks. Cluster
+health, localhost, OIDC/JWKS, in-cluster API server, and instance metadata endpoints are excluded so benign automation
+and activity already covered by dedicated rules do not alert here.
 """
-false_positives = [
-    """
-    Admins may curl for diagnostics. Correlate with unusual identities and destinations.
-    """,
-]
 from = "now-9m"
-index = ["logs-azure.platformlogs-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Azure AKS Pod Exec with Curl or Wget to HTTPS"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating Azure AKS Pod Exec with Curl or Wget to HTTPS
 
-AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
-`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
-`azure.platformlogs.category: kube-audit`. Detects pod exec on AKS where the command line invokes curl or wget, commonly used to stage tooling after compromise.
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree, so this rule uses
+`FIELD_EXTRACT` to pull `objectRef.*`, `verb`, `requestURI`, `user.username`, `userAgent`, `sourceIPs`, and
+`responseStatus.code` into named `Esql.*` fields. `pods/exec` is a streaming subresource, so kube-audit never populates
+`requestObject` for it and the command parameters live only in the URL-encoded `requestURI`. The rule decodes that URI,
+normalizes embedded newlines to spaces so multi-line scripts still reconstruct, and `GROK`s the repeated `command=`
+parameters into a single readable `Esql.executed_command` that one regular expression can evaluate. A
+`responseStatus.code` of `101` (the protocol upgrade for an established exec session) restricts matches to sessions that
+actually ran, and health, localhost, OIDC/JWKS, `kubernetes.default.svc`, and `169.254.169.254` destinations are
+excluded because in-cluster API server calls and instance metadata theft are covered by the secret access and pod exec
+instance metadata rules.
 
 ### Possible investigation steps
 
-- Review `azure.platformlogs.properties.log.user.username`, `userAgent`, and `sourceIPs`.
-- Inspect `objectRef` (resource, namespace, name, subresource) and `verb`.
-- If present, examine `requestObject` for privileged fields or binding subjects.
-- Correlate with nearby secret reads, RBAC changes, pod exec, or workload mutations by the same identity.
+- Review `Esql.executed_command` for the decoded command and destination URL, with `Esql.namespace`/`Esql.pod_name` for
+  the target workload. Determine whether the URL is a known internal artifact host or an unrecognized external
+  endpoint, and whether the fetch writes to disk or pipes directly into a shell.
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip` to establish whether the session came from a human
+  `kubectl` identity or automation, and confirm the principal is expected to hold `pods/exec` on that namespace.
+- Correlate adjacent activity from the same identity: secret reads, additional execs, RBAC changes, or workload
+  mutations. Inspect the pod for artifacts the fetch dropped, such as new binaries, scripts, or cron entries.
 
 ### False positive analysis
 
-- Admins may curl for diagnostics. Correlate with unusual identities and destinations.
+- Approved runbooks or support sessions may curl or wget over HTTPS to test egress or pull vendor tooling; document
+  break-glass identities and add scoped exclusions once the destination is validated.
+- Sidecars and platform components reaching first-party HTTPS endpoints can resemble this pattern. Health, localhost,
+  OIDC/JWKS, and in-cluster API server URLs are already excluded; extend the exclusion regex if the platform uses
+  additional first-party hosts.
 
 ### Response and remediation
 
-- If unauthorized, revoke the identity's credentials/kubeconfig and remove malicious objects.
-- Rotate any secrets or tokens that may have been accessed.
-- Harden RBAC to least privilege and review admission controls.
+- If unauthorized, revoke the identity's credentials/kubeconfig, terminate the exec session, and remove artifacts the
+  fetch dropped in the workload.
+- Rotate secrets and service account tokens reachable from the pod, and cordon or replace the workload if compromise is
+  confirmed.
+- Tighten RBAC so only required principals retain `pods/exec` on sensitive namespaces, and review egress and admission
+  controls for the namespace.
 """
 references = [
     "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
     "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "e215bb76-3614-4869-98ec-08670a844877"
 setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Cloud",
     "Domain: Kubernetes",
     "Data Source: Azure",
     "Data Source: Azure Platform Logs",
     "Data Source: Kubernetes",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: ESQL",
     "Use Case: Threat Detection",
-    "Tactic: Command and Control",
     "Tactic: Execution",
+    "Tactic: Command and Control",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset:azure.platformlogs and
-  event.action:"Microsoft.ContainerService/managedClusters/diagnosticLogs/Read" and
-  azure.platformlogs.category:"kube-audit" and
-  azure.platformlogs.properties.log.objectRef.resource:"pods" and
-  azure.platformlogs.properties.log.objectRef.subresource:"exec" and
-  azure.platformlogs.properties.log.verb:("create" or "get") and
-  azure.platformlogs.properties.log.requestURI:(*curl* or *wget*) and
-  not azure.platformlogs.properties.log.user.username:(
-    system\:node\:* or "aksService" or "hcpService" or "readinessChecker" or
-    system\:serviceaccount\:kube-system\:* or "system:apiserver" or
-    "system:kube-controller-manager" or "system:kube-scheduler"
-  )
+FROM logs-azure.platformlogs-* METADATA _id, _index, _version
+| WHERE data_stream.dataset == "azure.platformlogs"
+    AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
+    AND azure.platformlogs.category == "kube-audit"
+| EVAL Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+    Esql.subresource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.subresource"),
+    Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
+    Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
+    Esql.namespace = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.namespace"),
+    Esql.pod_name = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.name"),
+    Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
+    Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
+    Esql.source_ip = MV_FIRST(FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs")),
+    Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code")
+| WHERE Esql.resource == "pods"
+    AND Esql.subresource == "exec"
+    AND Esql.verb IN ("create", "get")
+    AND Esql.requestURI LIKE "*command=*"
+    AND Esql.response_code == "101"
+    AND Esql.username IS NOT NULL
+    AND NOT Esql.username RLIKE "system:node:.*|system:serviceaccount:kube-system:.*"
+    AND NOT Esql.username IN ("aksService", "hcpService", "acsService", "readinessChecker", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
+| EVAL Esql.decoded_uri = REPLACE(URL_DECODE(Esql.requestURI), "\n", " ")
+| GROK Esql.decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL Esql.command = REPLACE(raw_commands, "command=", "")
+| EVAL Esql.command = REPLACE(Esql.command, "&", " ")
+| EVAL Esql.executed_command = REPLACE(Esql.command, "\\+", " ")
+| WHERE Esql.executed_command IS NOT NULL
+    AND Esql.executed_command RLIKE """.*(curl|wget).*https://.*"""
+    AND NOT Esql.executed_command RLIKE """.*(/api/v1/health|/healthz|/readyz|/livez|127\.0\.0\.1|localhost|/openid/v1/jwks|/openid-connect/certs|/\.well-known/openid-configuration|/\.well-known/jwks\.json|kubernetes\.default\.svc|169\.254\.169\.254).*"""
+| KEEP Esql.*, event.action, data_stream.namespace, _id, _index, _version
 '''
 
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -101,23 +128,21 @@ id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "azure.platformlogs.category",
-    "azure.platformlogs.properties.log.verb",
-    "azure.platformlogs.properties.log.user.username",
-    "azure.platformlogs.properties.log.userAgent",
-    "azure.platformlogs.properties.log.sourceIPs",
-    "azure.platformlogs.properties.log.objectRef.resource",
-    "azure.platformlogs.properties.log.objectRef.subresource",
-    "azure.platformlogs.properties.log.objectRef.namespace",
-    "azure.platformlogs.properties.log.objectRef.name",
-    "azure.platformlogs.properties.log.responseStatus.code",
-]
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
