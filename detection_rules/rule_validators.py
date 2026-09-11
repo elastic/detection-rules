@@ -308,7 +308,7 @@ class KQLValidator(QueryValidator):
                     )
                 )
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: QueryRuleData, meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethod]
         """Validate the query using computed schema combinations, favoring integrations when present."""
@@ -328,7 +328,7 @@ class KQLValidator(QueryValidator):
                 else [t for t in all_targets if t.kind == "stack"]
             )
             retry = False
-            for t in deduplicate_validation_targets(ordered_targets):
+            for t in ordered_targets:
                 exc = self.validate_query_text_with_schema(
                     schema=t.schema,
                     err_trailer=t.err_trailer,
@@ -637,7 +637,7 @@ class EQLValidator(QueryValidator):
         if need_stack_targets:
             add_stack_targets(self.query, include_endgame=True)
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
@@ -664,7 +664,7 @@ class EQLValidator(QueryValidator):
                 else [t for t in all_targets if t.kind == "stack"]
             )
             first_error: EQL_ERROR_TYPES | ValueError | None = None
-            for t in deduplicate_validation_targets(ordered_targets):
+            for t in ordered_targets:
                 exc, field = self.validate_query_text_with_schema(
                     t.query_text,
                     t.schema,
