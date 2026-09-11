@@ -717,14 +717,9 @@ class QueryValidator:
         """Retrieves fields needed for the query along with type information from the schema."""
 
         current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-        # look the schemas up by the version resolved here rather than indexing the unfiltered map:
-        # `get_stack_schemas()` caps its keys at the package version it reads itself, so it has no entry
-        # when this module's `load_current_package_version` is pinned above the package (release branch
-        # tests pin the emit stack), and this function's fallback handles that case
-        stack_schemas = get_stack_schemas(str(current_version))[str(current_version)]
-        ecs_version = stack_schemas["ecs"]
-        beats_version = stack_schemas["beats"]
-        endgame_version = stack_schemas["endgame"]
+        ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
+        beats_version = get_stack_schemas()[str(current_version)]["beats"]
+        endgame_version = get_stack_schemas()[str(current_version)]["endgame"]
         ecs_schema = ecs.get_schema(ecs_version)
 
         _, beat_schema, schema = self.get_beats_schema(index or [], beats_version, ecs_version)
