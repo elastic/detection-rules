@@ -7,6 +7,8 @@
 
 import unittest
 import uuid
+from collections import defaultdict
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
 
@@ -19,6 +21,7 @@ from detection_rules.packaging import (
     Package,
     build_deprecated_rule_asset,
 )
+from detection_rules.rule import TOMLRule
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import definitions
 from detection_rules.schemas.registry_package import RegistryPackageManifestV1, RegistryPackageManifestV3
@@ -27,9 +30,10 @@ from tests.base import BaseRuleTest
 
 package_configs = Package.load_configs()
 
-# rules re-hashed with their caches dropped in test_rule_versioning; keep this bounded, since each
-# one pays a full re-serialization of the rule
-UNCACHED_HASH_SAMPLE = 25
+# rules re-hashed with their caches dropped in test_rule_versioning. Each one pays a full
+# re-serialization of the rule, so rather than re-hash the whole package, take this many rules of
+# each rule type and query language: the API payload (and so the hash) is built differently per type
+UNCACHED_HASH_SAMPLE_PER_KIND = 4
 
 
 class TestPackages(BaseRuleTest):
@@ -115,12 +119,22 @@ class TestPackages(BaseRuleTest):
         # hashes are memoized per rule, so re-hash a sample from scratch to confirm the underlying
         # rule contents - not just the cached hash - are unchanged
         clear_caches()
-        for rule in list(package.rules)[:UNCACHED_HASH_SAMPLE]:
+        for rule in self.sample_rules_by_kind(package.rules, UNCACHED_HASH_SAMPLE_PER_KIND):
             self.assertEqual(
                 self.pre_package_hashes[rule.id],
                 rule.contents.get_hash(),
-                f"{self.rule_str(rule)} hash changed after building the package",
+                f"{self.rule_str(rule)} ({rule.contents.data.type}) hash changed after building the package",
             )
+
+    @staticmethod
+    def sample_rules_by_kind(rules: Iterable[TOMLRule], per_kind: int) -> list[TOMLRule]:
+        """The first `per_kind` rules of each rule type and query language, in load order."""
+        by_kind: dict[tuple[str, str | None], list[TOMLRule]] = defaultdict(list)
+        for rule in rules:
+            kind = (rule.contents.data.type, getattr(rule.contents.data, "language", None))
+            if len(by_kind[kind]) < per_kind:
+                by_kind[kind].append(rule)
+        return [rule for kind_rules in by_kind.values() for rule in kind_rules]
 
 
 class TestRegistryPackage(unittest.TestCase):
