@@ -21,7 +21,7 @@ from marshmallow import EXCLUDE, Schema, fields, post_load
 from semver import Version
 
 from . import ecs
-from .beats import flatten_ecs_schema, get_field_schema, get_max_version, read_beats_schema
+from .beats import flatten_ecs_schema
 from .config import load_current_package_version
 from .schemas import definitions
 from .utils import cached, get_etc_path, read_gzip, unzip
@@ -112,127 +112,56 @@ def build_integrations_manifest(
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
 
 
-# Data streams that predate the ecs@mappings migration declare the ECS fields they populate in
-# an ECS field file: ecs.yml, or a name variant such as protocol_ecs.yml in network_traffic.
-ECS_FIELD_FILE_PATTERNS = ("ecs.yml", "ecs-*.yml", "ecs_*.yml", "*_ecs.yml")
-
-# Minimum number of ECS-defined fields an ECS field file must declare for the data stream to count as
-# enumerating the ECS fields it populates. Packages migrated to the ecs@mappings component template
-# (elastic/integrations#10135) keep only a residual ECS file with the few fields the template does not
-# cover (o365 audit 3, crowdstrike alert 4); unmigrated streams declare far more (auditd_manager 42,
-# network_traffic 77+, fortinet_fortigate 146). Non-ECS names in the file (entityanalytics_entra_id
-# lists 36 `asset.*` names in ecs.yml) and multi-field expansions (`process.name.text`) do not count.
-MIN_DECLARED_ECS_FIELDS = 20
-
-# Fields Elastic Agent adds to every document it ships, independent of the package: the ECS agent,
-# cloud and host field sets (host and cloud come from the add_host_metadata and add_cloud_metadata
-# processors Fleet enables by default), the Beats-only extras those processors declare, and the two
-# fields stamped by Fleet's final ingest pipeline.
-ELASTIC_AGENT_ENVELOPE_FIELDSETS = ("agent", "cloud", "host")
-ELASTIC_AGENT_ENVELOPE_PROCESSORS = ("add_host_metadata", "add_cloud_metadata")
-FLEET_FINAL_PIPELINE_FIELDS = ("event.agent_id_status", "event.ingested")
-
-# Version-level key in the cached package schemas holding metadata about the version rather than a data
-# stream's fields: `ecs_scoped` lists the data streams checked against their own field files.
-SCHEMA_META_KEY = "_meta"
-
-
-def _is_ecs_field_file(file_name: str) -> bool:
-    """Return True when a fields file contains ECS field declarations."""
-    return any(fnmatch.fnmatch(file_name, pattern) for pattern in ECS_FIELD_FILE_PATTERNS)
-
-
-def data_stream_schemas(version_schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """The data stream field schemas of a cached package version, without `_meta` and ML job lists."""
-    return {
-        name: schema
-        for name, schema in version_schema.items()
-        if name not in ("jobs", SCHEMA_META_KEY) and isinstance(schema, dict)
-    }
+# Fields Elastic Agent adds to every document it ships, independent of the package, which package field files
+# rarely declare: the ECS agent, cloud and host field sets (host and cloud come from the add_host_metadata and
+# add_cloud_metadata processors Fleet enables by default), the data_stream constant keywords, and the two fields
+# stamped by Fleet's final ingest pipeline.
+ELASTIC_AGENT_FIELDSETS = ("agent", "cloud", "host")
+ELASTIC_AGENT_FIELDS = (
+    "data_stream.dataset",
+    "data_stream.namespace",
+    "data_stream.type",
+    "event.agent_id_status",
+    "event.ingested",
+)
 
 
 @cached
-def all_ecs_field_types() -> dict[str, str]:
-    """Every field defined by any locally available ECS version, mapped to its type."""
-    # The union across versions keeps the cached package schemas independent of which ECS
-    # version a rule is validated against, so an ECS bump does not invalidate them.
-    field_types: dict[str, str] = {}
-    for version_schemas in ecs.get_schemas().values():
-        field_types.update(ecs.flatten_multi_fields(version_schemas.get("ecs_flat", {})))
-    return field_types
-
-
-@cached
-def elastic_agent_envelope_fields() -> dict[str, str]:
-    """Fields Elastic Agent adds to every document it ships, mapped to their types."""
-    # Package field files rarely declare these, so they are folded into ECS-scoped streams at build time.
-    # ECS side: the agent, cloud and host sets including `host.os.*`, minus fields ECS re-nests from
-    # other sets (`host.geo.*`, `host.risk.*`, `*.entity.*`) and the `origin`/`target` self-nestings,
-    # which no shipper populates. Beats side: the extras add_host_metadata and add_cloud_metadata
-    # declare (`host.containerized`, `cloud.image.id`, ...). The few metrics-style host fields that
-    # come along (host.uptime, ...) are harmless.
-    envelope: dict[str, str] = {}
-    for version_schemas in ecs.get_schemas().values():
-        flat: dict[str, Any] = version_schemas.get("ecs_flat", {})
-        selected = {
-            name: info
-            for name, info in flat.items()
-            if name.split(".", 1)[0] in ELASTIC_AGENT_ENVELOPE_FIELDSETS
+def elastic_agent_fields() -> dict[str, str]:
+    """Fields Elastic Agent adds to every document it ships, mapped to their ECS types."""
+    ecs_flat: dict[str, Any] = ecs.get_schema(ecs.get_max_version(), name="ecs_flat")
+    selected = {name: ecs_flat[name] for name in ELASTIC_AGENT_FIELDS}
+    for name, info in ecs_flat.items():
+        fieldset, _, subpath = name.partition(".")
+        # skip the field sets ECS re-nests under host and cloud (host.geo.*, host.risk.*, *.entity.*) and the
+        # origin/target self-nestings, which no shipper populates
+        if (
+            fieldset in ELASTIC_AGENT_FIELDSETS
             and info.get("original_fieldset") in (None, "os")
-            and name.split(".")[1] not in ("origin", "target")
-        }
-        envelope.update(ecs.flatten_multi_fields(selected))
-        envelope.update({name: flat[name]["type"] for name in FLEET_FINAL_PIPELINE_FIELDS if name in flat})
-
-    processors: dict[str, Any] = (
-        read_beats_schema(get_max_version())
-        .get("libbeat", {})
-        .get("folders", {})
-        .get("processors", {})
-        .get("folders", {})
-    )
-    for processor in ELASTIC_AGENT_ENVELOPE_PROCESSORS:
-        for field in get_field_schema(processors.get(processor, {}), include_common=True):
-            # aliases (the deprecated `meta.cloud.*`) are not fields of their own
-            if field.get("type") != "alias":
-                _ = envelope.setdefault(field["name"], field["type"])
-
-    return envelope
+            and not subpath.startswith(("origin.", "target."))
+        ):
+            selected[name] = info
+    return ecs.flatten_multi_fields(selected)
 
 
 def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, Any]:
     """Parse the field files of an EPR package zip into a single version schema."""
     version_schema: dict[str, Any] = {}
-    ecs_declared: dict[str, set[str]] = {}
-    ecs_field_types = all_ecs_field_types()
 
     for file in zip_ref.namelist():
         file_data_bytes = zip_ref.read(file)
         # Check if the file is a match
         if fnmatch.fnmatch(file, "*/fields/*.yml"):
             integration_name = Path(file).parent.parent.name
-            version_schema.setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
-            schema_fields = yaml.safe_load(file_data_bytes)
-
-            # Parse the schema and add to the integration_manifests
-            data = flatten_ecs_schema(schema_fields)
-            flat_data = {field["name"]: field["type"] for field in data}
-
-            # Built packages resolve `external: ecs` references into explicit multi_fields
-            # (e.g. process.name -> a `text` variant), so expand them: a data stream that
-            # maps a field also maps its multi-field variants (process.name.text).
-            for field in data:
+            # every data stream carries the Elastic Agent fields on top of what its field files declare
+            stream_schema: dict[str, str] = version_schema.setdefault(integration_name, dict(elastic_agent_fields()))
+            for field in flatten_ecs_schema(yaml.safe_load(file_data_bytes)):
+                stream_schema[field["name"]] = field["type"]
+                # Built packages resolve `external: ecs` references into explicit multi_fields (e.g. process.name
+                # -> a `text` variant), so a data stream that maps a field also maps its multi-field variants.
                 multi_fields: list[dict[str, Any]] = field.get("multi_fields") or []
                 for subfield in multi_fields:
-                    flat_data[f"{field['name']}.{subfield['name']}"] = subfield.get("type", "keyword")
-
-            version_schema[integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
-
-            if _is_ecs_field_file(Path(file).name):
-                # only ECS-defined names count, before multi-field expansion
-                ecs_declared.setdefault(integration_name, set()).update(
-                    field["name"] for field in data if field["name"] in ecs_field_types
-                )
+                    stream_schema[f"{field['name']}.{subfield['name']}"] = subfield.get("type", "keyword")
 
         # add machine learning jobs to the schema
         if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
@@ -243,22 +172,6 @@ def parse_version_schema(zip_ref: "zipfile.ZipFile", package: str) -> dict[str, 
             version_schema["jobs"] = job_ids
 
         del file_data_bytes
-
-    # Streams whose ECS field file declares enough ECS fields are recorded as ECS-scoped in the version's
-    # `_meta`: validation checks them against their own field files instead of the full ECS schema. The
-    # Elastic Agent envelope is folded in; anything else a pipeline populates undeclared belongs in
-    # non-ecs-schema.json.
-    envelope = elastic_agent_envelope_fields()
-    ecs_scoped: list[str] = []
-    for integration_name, declared in ecs_declared.items():
-        if len(declared) < MIN_DECLARED_ECS_FIELDS:
-            continue
-        stream_schema: dict[str, Any] = version_schema[integration_name]
-        for field, field_type in envelope.items():
-            stream_schema.setdefault(field, field_type)
-        ecs_scoped.append(integration_name)
-    if ecs_scoped:
-        version_schema[SCHEMA_META_KEY] = {"ecs_scoped": sorted(ecs_scoped)}
 
     return version_schema
 
@@ -640,8 +553,6 @@ def get_integration_schema_data(
                 max(parsed_stack_version.patch, patch_floor),
             )
 
-            ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
-
             for pk_int in package_integrations:
                 package = pk_int["package"]
                 integration = pk_int["integration"]
@@ -653,7 +564,6 @@ def get_integration_schema_data(
                     integration,
                     min_stack,
                     packages_manifest,
-                    ecs_schema,
                     data,
                 )
 
@@ -665,10 +575,6 @@ def get_integration_schema_data(
                     "ecs_version": ecs_version,
                     "package_version": package_version,
                     "endgame_version": endgame_version,
-                    # True when `schema` excludes the full ECS union
-                    "ecs_scoped": integration_is_ecs_scoped(
-                        integrations_schemas, package, package_version, integration
-                    ),
                 }
 
 
@@ -678,7 +584,6 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     integration: str,
     min_stack: Version,
     packages_manifest: dict[str, Any],
-    ecs_schema: dict[str, Any],
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
@@ -693,36 +598,12 @@ def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
     )
     notify_user_if_update_available(data, notice, integration)
 
+    # Packages populate only a subset of ECS, so the full ECS schema is not unioned in: a query is checked against
+    # the fields the package field files declare (plus the Elastic Agent fields folded in at schema build time).
+    # Fields a package populates without declaring them belong in non-ecs-schema.json.
     schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
-
-    if not integration_is_ecs_scoped(integrations_schemas, package, package_version, integration):
-        # Unscoped integrations (ecs@mappings packages, residual ECS files, legacy cache entries) accept
-        # any ECS field. Scoped ones are checked against their own field schema only; undeclared fields
-        # they populate belong in non-ecs-schema.json.
-        schema.update(ecs_schema)
-
     integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
     return integration_schema, package_version
-
-
-def integration_is_ecs_scoped(
-    integrations_schemas: dict[str, Any],
-    package: str,
-    package_version: str,
-    integration: str | None = None,
-) -> bool:
-    """Return True when the package version enumerates the ECS fields it populates."""
-    # Listed in the version's `_meta.ecs_scoped` at schema build time (parse_version_schema); absent on
-    # ecs@mappings packages (cloud_defend, endpoint), residual ECS files and legacy cache entries, which
-    # keep full-ECS validation.
-    version_schema: dict[str, Any] = integrations_schemas.get(package, {}).get(package_version, {})
-    meta: dict[str, Any] = version_schema.get(SCHEMA_META_KEY) or {}
-    ecs_scoped: set[str] = set(meta.get("ecs_scoped") or [])
-    if integration:
-        return integration in ecs_scoped
-    # package-wide: strict only when every data stream is scoped
-    datasets = data_stream_schemas(version_schema)
-    return bool(datasets) and all(dataset in ecs_scoped for dataset in datasets)
 
 
 def notify_user_if_update_available(
@@ -749,18 +630,18 @@ def collect_schema_fields(
     integration: str | None = None,
 ) -> dict[str, Any]:
     """Collects the schema fields for a given integration."""
-    version_schema: dict[str, Any] = integrations_schemas[package][package_version]
     if integration is None:
         return {
             field: value
-            for dataset_schema in data_stream_schemas(version_schema).values()
-            for field, value in dataset_schema.items()
+            for dataset in integrations_schemas[package][package_version]
+            if dataset != "jobs"
+            for field, value in integrations_schemas[package][package_version][dataset].items()
         }
 
-    if integration not in version_schema:
+    if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return dict(version_schema[integration])
+    return integrations_schemas[package][package_version][integration]
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:

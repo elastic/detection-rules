@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Test the ECS-scoping hint in query validation error trailers."""
+"""Test that integration validation targets use the package field schema without the full ECS schema."""
 
 import unittest
 import unittest.mock
@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from semver import Version
 
 from detection_rules.config import load_current_package_version
-from detection_rules.rule_validators import KQLValidator, ValidationTarget, _scoped_trailer
+from detection_rules.rule_validators import INTEGRATION_SCHEMA_HINT, KQLValidator, ValidationTarget
 from detection_rules.schemas import get_stack_schemas
 
 PACKAGE = "network_traffic"
@@ -27,17 +27,14 @@ def _manifests() -> dict:
     return {PACKAGE: {"1.0.0": {"conditions": {"kibana": {"version": f"^{current_major}.0.0"}}}}}
 
 
-def _schemas(scoped: bool) -> dict:
-    """Cached package schema for a single data stream, optionally flagged as ECS-scoped."""
+def _schemas() -> dict:
+    """Cached package schema for a single data stream."""
     data_stream = {
         "data_stream.dataset": "constant_keyword",
         "destination.ip": "ip",
         f"{PACKAGE}.{INTEGRATION}.request.type": "long",
     }
-    version_schema: dict = {INTEGRATION: data_stream}
-    if scoped:
-        version_schema["_meta"] = {"ecs_scoped": [INTEGRATION]}
-    return {PACKAGE: {"1.0.0": version_schema}}
+    return {PACKAGE: {"1.0.0": {INTEGRATION: data_stream}}}
 
 
 def _build_plan(schemas: dict) -> list[ValidationTarget]:
@@ -48,7 +45,7 @@ def _build_plan(schemas: dict) -> list[ValidationTarget]:
         language="kuery",
         index=[INDEX],
         index_or_dataview=[INDEX],
-        name="scoping test rule",
+        name="integration schema test rule",
         rule_id="00000000-0000-0000-0000-000000000000",
         ast=validator.ast,
         get=lambda key, default=None: {"ast": validator.ast, "notify": False}.get(key, default),
@@ -70,44 +67,19 @@ def _build_plan(schemas: dict) -> list[ValidationTarget]:
         return validator.build_validation_plan(data, meta)  # type: ignore[reportArgumentType]
 
 
-class TestScopedTrailerHelper(unittest.TestCase):
-    """The helper renders nothing for unscoped rows and a sorted package list otherwise."""
+class TestKQLPlanIntegrationTargets(unittest.TestCase):
+    """Integration targets exclude undeclared ECS fields and tell the author where populated fields belong."""
 
-    def test_empty_when_no_scoped_packages(self):
-        self.assertEqual(_scoped_trailer(set()), "")
-
-    def test_lists_scoped_packages_sorted(self):
-        trailer = _scoped_trailer({"zeek", "network_traffic"})
-        self.assertIn("ECS-scoped packages [network_traffic, zeek]", trailer)
-        self.assertIn("detection_rules/etc/non-ecs-schema.json", trailer)
-
-
-class TestKQLPlanScopedTrailer(unittest.TestCase):
-    """Integration targets built from ECS-scoped packages explain why ECS fields were rejected."""
-
-    def _integration_targets(self, scoped: bool) -> list[ValidationTarget]:
-        targets = [target for target in _build_plan(_schemas(scoped)) if target.kind == "integration"]
+    def test_integration_target_uses_package_schema_and_hints(self):
+        targets = [target for target in _build_plan(_schemas()) if target.kind == "integration"]
         self.assertTrue(targets, "expected at least one integration validation target")
-        return targets
-
-    def test_scoped_package_adds_ecs_scoped_line(self):
-        for target in self._integration_targets(scoped=True):
+        for target in targets:
             self.assertEqual(target.integration_types, [PACKAGE])
-            # existing lines are preserved
-            self.assertIn("Try adding event.module or event.dataset", target.err_trailer)
-            self.assertIn(f"Checked against packages [{PACKAGE}]", target.err_trailer)
-            self.assertIn("rule: scoping test rule", target.err_trailer)
-            # new hint names the scoped package and where to declare populated fields
-            self.assertIn(f"ECS-scoped packages [{PACKAGE}]", target.err_trailer)
-            self.assertIn("detection_rules/etc/non-ecs-schema.json", target.err_trailer)
-            # the schema behind the target really excludes the undeclared ECS field
+            # the schema behind the target excludes the undeclared ECS field
             self.assertNotIn("process.title", target.schema)
             self.assertIn("destination.ip", target.schema)
-
-    def test_unscoped_package_keeps_trailer_unchanged(self):
-        for target in self._integration_targets(scoped=False):
+            # existing trailer lines are preserved and the hint names where to declare populated fields
+            self.assertIn("Try adding event.module or event.dataset", target.err_trailer)
             self.assertIn(f"Checked against packages [{PACKAGE}]", target.err_trailer)
-            self.assertNotIn("ECS-scoped", target.err_trailer)
-            self.assertNotIn("non-ecs-schema.json", target.err_trailer)
-            # full ECS union applies, so the ECS field is accepted
-            self.assertIn("process.title", target.schema)
+            self.assertIn(INTEGRATION_SCHEMA_HINT, target.err_trailer)
+            self.assertIn("rule: integration schema test rule", target.err_trailer)

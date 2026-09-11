@@ -197,8 +197,7 @@ def resolve_rule_packages(
     """Resolve a rule's packages and the data stream restrictions for packages named only by event.dataset."""
     # Metadata packages keep every data stream: event.dataset values are regex-extracted and may sit
     # inside OR branches, so they cannot be trusted to drop fields. Only packages referenced solely
-    # through event.dataset are restricted to the named streams. ECS scoping is decided separately
-    # (see rule_datasets_by_package).
+    # through event.dataset are restricted to the named streams.
     packages = list(rule_integrations)
     dataset_restriction: dict[str, list[str]] = {}
     for event_dataset in event_dataset_integrations:
@@ -209,56 +208,6 @@ def resolve_rule_packages(
         dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
 
     return packages, dataset_restriction
-
-
-def rule_datasets_by_package(
-    rule_integrations: list[str],
-    event_dataset_integrations: list[EventDataset],
-) -> dict[str, list[str | None]]:
-    """Map each package a rule references to the data streams its ECS scoping is decided on."""
-    # Mirrors KQL/EQL validation: data streams named in the query decide, even for packages also listed
-    # in rule metadata; a metadata package with no named streams is decided package-wide ([None]).
-    named_datasets: dict[str, list[str]] = {}
-    for event_dataset in event_dataset_integrations:
-        datasets = named_datasets.setdefault(event_dataset.package, [])
-        if event_dataset.integration not in datasets:
-            datasets.append(event_dataset.integration)
-
-    packages = list(rule_integrations) + [package for package in named_datasets if package not in rule_integrations]
-    datasets_by_package: dict[str, list[str | None]] = {}
-    for package in packages:
-        datasets_by_package[package] = list(named_datasets.get(package) or [None])
-    return datasets_by_package
-
-
-def rule_integrations_are_ecs_scoped(
-    rule_integrations: list[str],
-    event_dataset_integrations: list[EventDataset],
-    package_manifests: Any,
-    integration_schemas: Any,
-    stack_version: str,
-) -> bool:
-    """Return True when every integration the rule references is ECS-scoped."""
-    # Same rule as KQL/EQL validation (TOMLRuleContents.get_packaged_integrations): each named data
-    # stream is checked individually, a metadata package with no named streams is checked package-wide.
-    # Any unresolvable package or unscoped data stream keeps the whole rule on the full-ECS fallback.
-    datasets_by_package = rule_datasets_by_package(rule_integrations, event_dataset_integrations)
-    if not datasets_by_package:
-        return False
-    for package, datasets in datasets_by_package.items():
-        try:
-            package_version, _ = integrations.find_latest_compatible_version(
-                package,
-                "",
-                Version.parse(stack_version),
-                package_manifests,
-            )
-        except ValueError:
-            return False
-        for dataset in datasets:
-            if not integrations.integration_is_ecs_scoped(integration_schemas, package, package_version, dataset):
-                return False
-    return True
 
 
 def esql_indices_covered_by_packages(
@@ -304,8 +253,7 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
             Version.parse(stack_version),
             package_manifests,
         )
-        # only data stream field dicts (not `_meta` or ML job lists) become index mappings
-        package_schema = integrations.data_stream_schemas(integration_schemas[package][package_version])
+        package_schema = integration_schemas[package][package_version]
 
         # Apply dataset restrictions if any
         if integration in dataset_restriction:
@@ -711,17 +659,13 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
         )
         custom_mapping.update({index: index_mapping})
 
-    # Load ECS in an index mapping format (nested schema). Skipped when every integration the rule
-    # references is ECS-scoped: the integration mappings then already carry every ECS field those
-    # packages declare, mirroring KQL/EQL validation.
+    # Load ECS in an index mapping format (nested schema). Skipped when every FROM index resolves to one of the
+    # rule's integration packages: as in KQL/EQL validation, integration indices are then checked against the
+    # package field schemas (plus non-ecs) only, since packages populate just a subset of ECS.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
     ecs_schema: dict[str, Any] = {}
-    if esql_indices_covered_by_packages(
-        indices, rule_integrations, event_dataset_integrations
-    ) and rule_integrations_are_ecs_scoped(
-        rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, stack_version
-    ):
-        log("All rule integrations are ECS-scoped; validating against their field schemas without the full ECS schema")
+    if esql_indices_covered_by_packages(indices, rule_integrations, event_dataset_integrations):
+        log("All indices resolve to the rule's integrations; validating without the full ECS schema")
     else:
         ecs_schema = get_ecs_schema_mappings(current_version, known_flattened_fields, log)
 

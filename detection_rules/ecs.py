@@ -20,7 +20,7 @@ from semver import Version
 
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
-from .integrations import data_stream_schemas, load_integrations_schemas
+from .integrations import load_integrations_schemas
 from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, load_etc_dump, read_gzip, unzip
 
 ECS_NAME = "ecs_schemas"
@@ -167,14 +167,13 @@ def get_all_flattened_schema() -> dict[str, Any]:
 
     for integration_schema in load_integrations_schemas().values():
         for index_schema in integration_schema.values():
-            # only data stream field dicts (not `_meta` or ML job lists) contribute to the flattened schema
-            datasets = data_stream_schemas(index_schema)
             # Detect if ML integration
             if "jobs" in index_schema:
-                for ml_schema in datasets.values():
+                ml_schemas = {k: v for k, v in index_schema.items() if k != "jobs"}
+                for ml_schema in ml_schemas.values():
                     all_flattened_schema.update(flatten(ml_schema))
             else:
-                all_flattened_schema.update(flatten(datasets))
+                all_flattened_schema.update(flatten(index_schema))
 
     return all_flattened_schema
 

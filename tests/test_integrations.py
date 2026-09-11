@@ -6,6 +6,7 @@
 """Test integration version resolution against EPR manifest ranges."""
 
 import io
+import json
 import unittest
 import unittest.mock
 import zipfile
@@ -17,7 +18,6 @@ from semver import Version
 
 from detection_rules.config import load_current_package_version
 from detection_rules.integrations import (
-    MIN_DECLARED_ECS_FIELDS,
     RELATED_INTEGRATION_GTE_OPERATOR_MIN_STACK,
     IntegrationVersionNotFoundError,
     _find_least_compatible_for_stack,
@@ -25,14 +25,12 @@ from detection_rules.integrations import (
     _parse_kibana_range,
     _related_integration_version_operator,
     _satisfies_kibana_range,
-    all_ecs_field_types,
     collect_schema_fields,
-    elastic_agent_envelope_fields,
+    elastic_agent_fields,
     find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
     get_integration_schema_fields,
-    integration_is_ecs_scoped,
     load_integrations_schemas,
     parse_version_schema,
     resolve_related_integration_version,
@@ -601,18 +599,12 @@ class TestEsqlPackagedIntegrations(unittest.TestCase):
         self.assertTrue(_esql_metadata_package_row_needed("aws_bedrock", set()))
 
 
-class TestIntegrationScopedEcsValidation(unittest.TestCase):
-    """ECS fields must be scoped to the field schema of ECS-scoped integrations."""
-
-    ECS_SCHEMA: ClassVar[dict[str, str]] = {
-        "process.title": "keyword",
-        "destination.ip": "ip",
-        "process.name": "keyword",
-    }
+class TestIntegrationSchemaWithoutEcsUnion(unittest.TestCase):
+    """Integration validation checks a query against the package field schema only, never the full ECS schema."""
 
     @staticmethod
-    def _strict_schemas(package: str, integration: str) -> dict:
-        """Package version whose data stream is flagged as ECS-scoped."""
+    def _schemas(package: str, integration: str) -> dict:
+        """Cached package version whose data stream declares a few ECS fields and a package field."""
         return {
             package: {
                 "1.0.0": {
@@ -622,111 +614,40 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
                         "agent.id": "keyword",
                         f"{package}.custom_field": "keyword",
                     },
-                    "_meta": {"ecs_scoped": [integration]},
                 }
             }
         }
 
-    @staticmethod
-    def _ecs_mappings_schemas(package: str, integration: str) -> dict:
-        """Package version that declares no ECS fields and inherits them via ecs@mappings."""
-        return {
-            package: {
-                "1.0.0": {
-                    integration: {
-                        "data_stream.dataset": "constant_keyword",
-                        f"{package}.custom_field": "keyword",
-                    },
-                }
-            }
-        }
-
-    def _get_schema(self, schemas: dict, package: str, integration: str) -> dict:
-        manifests = {package: {"1.0.0": _manifest("^9.0.0")}}
+    def test_undeclared_ecs_field_is_not_in_schema(self):
+        """An ECS field the data stream does not declare must not enter the integration schema."""
+        manifests = {"network_traffic": {"1.0.0": _manifest("^9.0.0")}}
         data = SimpleNamespace(get=lambda key, default=None: False if key == "notify" else default)
         with unittest.mock.patch(
             "detection_rules.integrations.find_latest_integration_patch_for_minor", return_value=0
         ):
-            schema, _ = get_integration_schema_fields(
-                schemas,
-                package,
-                integration,
+            schema, package_version = get_integration_schema_fields(
+                self._schemas("network_traffic", "icmp"),
+                "network_traffic",
+                "icmp",
                 Version.parse("9.0.0"),
                 manifests,
-                self.ECS_SCHEMA,
                 data,
             )
-        return schema
 
-    def test_strict_integration_rejects_undeclared_ecs_field(self):
-        """An ECS field outside the integration's field schema must not enter the schema."""
-        schema = self._get_schema(self._strict_schemas("network_traffic", "icmp"), "network_traffic", "icmp")
-
+        self.assertEqual(package_version, "1.0.0")
         self.assertNotIn("process.title", schema)
         self.assertIn("destination.ip", schema)
-        # ECS fields folded in from the sample event at build time are part of the field schema
         self.assertIn("agent.id", schema)
         self.assertIn("network_traffic.custom_field", schema)
-        self.assertNotIn("_meta", schema)
-
-    def test_ecs_mappings_integration_passes_all_ecs_fields(self):
-        """Packages relying on ecs@mappings keep the full ECS schema."""
-        schema = self._get_schema(self._ecs_mappings_schemas("cloud_defend", "process"), "cloud_defend", "process")
-
-        self.assertIn("process.title", schema)
-        self.assertIn("process.name", schema)
-        self.assertIn("cloud_defend.custom_field", schema)
-
-    def test_legacy_cache_format_keeps_full_ecs(self):
-        """Cached schemas without the ECS scoping flag preserve the historical behavior."""
-        schemas = self._strict_schemas("pkg", "ds")
-        del schemas["pkg"]["1.0.0"]["_meta"]
-
-        self.assertFalse(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", "ds"))
-        self.assertIn("process.title", self._get_schema(schemas, "pkg", "ds"))
-
-    def test_integration_is_ecs_scoped_package_wide(self):
-        """Package-wide resolution is strict only when every data stream is ECS-scoped."""
-        schemas = {
-            "pkg": {
-                "1.0.0": {
-                    "scoped": {"destination.ip": "ip"},
-                    "unscoped": {"pkg.custom": "keyword"},
-                    "_meta": {"ecs_scoped": ["scoped"]},
-                }
-            }
-        }
-        self.assertTrue(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", "scoped"))
-        self.assertFalse(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", "unscoped"))
-        self.assertFalse(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", "missing"))
-        self.assertFalse(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", None))
-
-        schemas["pkg"]["1.0.0"]["_meta"]["ecs_scoped"].append("unscoped")
-        self.assertTrue(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", None))
-
-        # ML job lists are not data streams and must not affect the package-wide verdict
-        schemas["pkg"]["1.0.0"]["jobs"] = ["job-1"]
-        self.assertTrue(integration_is_ecs_scoped(schemas, "pkg", "1.0.0", None))
-
-    def test_collect_schema_fields_filters_metadata(self):
-        """Metadata keys must not leak into the collected field schemas."""
-        schemas = self._strict_schemas("pkg", "ds")
-
-        integration_fields = collect_schema_fields(schemas, "pkg", "1.0.0", "ds")
-        self.assertNotIn("_meta", integration_fields)
-
-        package_fields = collect_schema_fields(schemas, "pkg", "1.0.0")
-        self.assertNotIn("_meta", package_fields)
-        self.assertIn("destination.ip", package_fields)
 
     def test_required_fields_keep_ecs_flag_for_undeclared_ecs_fields(self):
-        """An ECS field keeps ecs=True and its ECS type even when the scoped integration does not declare it."""
-        # ECS scoping only gates validation; required_fields.ecs keeps Kibana's meaning ("is an ECS
-        # field"), and non-ECS fields are still typed from the integration schema.
+        """An ECS field keeps ecs=True and its ECS type even when the integration does not declare it."""
+        # The integration schema only gates validation; required_fields.ecs keeps Kibana's meaning ("is an
+        # ECS field"), and non-ECS fields are still typed from the integration schema.
         package = "pkg"
         integration = "ds"
         manifests = {package: {"1.0.0": _manifest("^9.0.0")}}
-        schemas = self._strict_schemas(package, integration)
+        schemas = self._schemas(package, integration)
         validator = KQLValidator(
             f"data_stream.dataset:{package}.{integration} and destination.ip:* and process.title:foo "
             f"and {package}.custom_field:bar"
@@ -744,7 +665,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
         by_name = {f["name"]: f for f in required_fields}
         self.assertTrue(by_name["destination.ip"]["ecs"])
         self.assertEqual(by_name["destination.ip"]["type"], "ip")
-        # process.title is not in the scoped integration schema, but it is an ECS field
+        # process.title is not in the integration schema, but it is an ECS field
         self.assertTrue(by_name["process.title"]["ecs"])
         self.assertNotEqual(by_name["process.title"]["type"], "unknown")
         self.assertFalse(by_name[f"{package}.custom_field"]["ecs"])
@@ -752,37 +673,7 @@ class TestIntegrationScopedEcsValidation(unittest.TestCase):
 
 
 class TestParseVersionSchema(unittest.TestCase):
-    """The ECS scoping flag and the Elastic Agent envelope must be derived from the package zip."""
-
-    # real ECS field names, so the fixture exercises the "only ECS names count" rule
-    ECS_NAMES: ClassVar[list[str]] = [
-        "destination.ip",
-        "source.ip",
-        "event.action",
-        "event.outcome",
-        "user.name",
-        "host.name",
-        "destination.port",
-        "source.port",
-        "event.category",
-        "event.type",
-        "event.kind",
-        "network.transport",
-        "network.protocol",
-        "process.name",
-        "process.pid",
-        "file.path",
-        "file.name",
-        "url.original",
-        "user_agent.original",
-        "dns.question.name",
-        "http.request.method",
-        "http.response.status_code",
-        "related.ip",
-        "related.user",
-        "error.message",
-        "message",
-    ]
+    """Package field files plus the Elastic Agent fields make up a data stream's cached schema."""
 
     @staticmethod
     def _package_zip(files: dict[str, str]) -> zipfile.ZipFile:
@@ -792,110 +683,68 @@ class TestParseVersionSchema(unittest.TestCase):
                 zip_ref.writestr(name, contents)
         return zipfile.ZipFile(buffer)
 
-    @classmethod
-    def _ecs_fields(cls, count: int, extra_names: list[str] | None = None) -> str:
-        """An ecs.yml declaring `count` distinct ECS fields (plus any non-ECS `extra_names`)."""
-        names = cls.ECS_NAMES[:count] + (extra_names or [])
-        return yaml.safe_dump([{"name": name, "type": "keyword"} for name in names])
+    def test_elastic_agent_fields_are_derived_from_ecs(self):
+        """The agent, cloud and host ECS sets, the data_stream constant keywords and the Fleet pipeline fields."""
+        fields = elastic_agent_fields()
 
-    def test_fixture_names_are_ecs(self):
-        """Guard the fixture against names ECS does not define."""
-        ecs_names = all_ecs_field_types()
-        self.assertGreaterEqual(len(self.ECS_NAMES), MIN_DECLARED_ECS_FIELDS + 1)
-        self.assertEqual([name for name in self.ECS_NAMES if name not in ecs_names], [])
+        for name, field_type in {
+            "agent.id": "keyword",
+            "agent.ephemeral_id": "keyword",
+            "host.id": "keyword",
+            "host.name": "keyword",
+            "host.ip": "ip",
+            "host.os.type": "keyword",
+            "host.os.name.text": "match_only_text",
+            "cloud.provider": "keyword",
+            "cloud.account.id": "keyword",
+            "data_stream.dataset": "constant_keyword",
+            "data_stream.namespace": "constant_keyword",
+            "data_stream.type": "constant_keyword",
+            "event.agent_id_status": "keyword",
+            "event.ingested": "date",
+        }.items():
+            self.assertEqual(fields.get(name), field_type, name)
+        # field sets ECS re-nests under host/cloud and the origin/target self-nestings are not shipped by Agent
+        for name in (
+            "host.geo.city_name",
+            "host.risk.calculated_level",
+            "cloud.origin.provider",
+            "cloud.target.region",
+        ):
+            self.assertNotIn(name, fields)
+        self.assertEqual([name for name in fields if ".entity." in name], [])
+        # nothing outside the Agent field sets sneaks in
+        self.assertTrue(
+            all(name.startswith(("agent.", "cloud.", "host.", "data_stream.", "event.")) for name in fields), fields
+        )
 
-    def test_elastic_agent_envelope_is_derived_from_ecs_and_beats(self):
-        """The envelope is the agent/cloud/host ECS sets plus Beats processor extras and Fleet fields."""
-        envelope = elastic_agent_envelope_fields()
-        ecs_names = all_ecs_field_types()
-
-        # ECS-defined agent, host (including host.os.*) and cloud metadata, with ECS types
-        for name in ("agent.id", "agent.ephemeral_id", "host.id", "host.name", "host.os.type", "cloud.provider"):
-            self.assertEqual(envelope[name], ecs_names[name], name)
-        # Fleet final pipeline fields
-        self.assertEqual(envelope["event.ingested"], "date")
-        self.assertEqual(envelope["event.agent_id_status"], "keyword")
-        # re-nested sets and origin/target self-nestings are not part of what Agent ships
-        for name in ("host.geo.city_name", "host.risk.calculated_level", "host.target.name", "cloud.origin.provider"):
-            self.assertNotIn(name, envelope)
-        self.assertEqual([name for name in envelope if ".entity." in name], [])
-        # Beats-specific processor extras come from the Beats schema; nothing else is non-ECS
-        self.assertEqual(envelope["host.containerized"], "boolean")
-        self.assertEqual(envelope["host.os.build"], "keyword")
-        non_ecs = sorted(name for name in envelope if name not in ecs_names)
-        self.assertTrue(all(name.startswith(("host.", "cloud.")) for name in non_ecs), non_ecs)
-        self.assertNotIn("meta.cloud.provider", envelope)
-
-    def test_substantial_ecs_file_marks_stream_scoped(self):
-        """A data stream declaring enough ECS fields is scoped and gains the Elastic Agent envelope."""
+    def test_every_data_stream_gets_agent_fields_and_declared_fields_win(self):
+        """Each data stream carries the Elastic Agent fields; a field the package declares keeps the declared type."""
         zip_ref = self._package_zip(
             {
-                "pkg-1.0.0/data_stream/ds/fields/ecs.yml": self._ecs_fields(MIN_DECLARED_ECS_FIELDS),
+                "pkg-1.0.0/data_stream/ds/fields/ecs.yml": yaml.safe_dump(
+                    [{"name": "destination.ip", "type": "ip"}, {"name": "agent.id", "type": "wildcard"}]
+                ),
                 "pkg-1.0.0/data_stream/plain/fields/fields.yml": yaml.safe_dump([{"name": "pkg.y", "type": "keyword"}]),
             }
         )
 
         version_schema = parse_version_schema(zip_ref, "pkg")
 
-        self.assertEqual(version_schema["_meta"], {"ecs_scoped": ["ds"]})
-        self.assertEqual(version_schema["ds"]["destination.ip"], "keyword")
-        # Elastic Agent envelope fields are folded into the field schema with their ECS types
-        self.assertEqual(version_schema["ds"]["agent.id"], "keyword")
+        self.assertEqual(set(version_schema), {"ds", "plain"})
+        self.assertEqual(version_schema["ds"]["destination.ip"], "ip")
+        self.assertEqual(version_schema["ds"]["agent.id"], "wildcard")
         self.assertEqual(version_schema["ds"]["host.os.type"], "keyword")
         self.assertEqual(version_schema["ds"]["event.ingested"], "date")
-        # a data stream without an ECS field file is never scoped and gets no envelope
-        self.assertNotIn("agent.id", version_schema["plain"])
+        self.assertEqual(version_schema["plain"]["pkg.y"], "keyword")
+        self.assertEqual(version_schema["plain"]["agent.id"], "keyword")
+        self.assertEqual(version_schema["plain"]["data_stream.dataset"], "constant_keyword")
+        # undeclared ECS fields are not part of the schema
+        self.assertNotIn("process.title", version_schema["ds"])
+        self.assertNotIn("process.title", version_schema["plain"])
 
-    def test_non_ecs_names_do_not_count_toward_threshold(self):
-        """Package fields listed in an ECS field file must not make the stream look ECS-scoped."""
-        non_ecs = [f"asset.attr_{i}" for i in range(20)]
-        zip_ref = self._package_zip(
-            {
-                "pkg-1.0.0/data_stream/short/fields/ecs.yml": self._ecs_fields(MIN_DECLARED_ECS_FIELDS - 1, non_ecs),
-                "pkg-1.0.0/data_stream/enough/fields/ecs.yml": self._ecs_fields(MIN_DECLARED_ECS_FIELDS, non_ecs),
-            }
-        )
-
-        version_schema = parse_version_schema(zip_ref, "pkg")
-
-        self.assertEqual(version_schema["_meta"], {"ecs_scoped": ["enough"]})
-        # the non-ECS names are still part of the field schema either way
-        self.assertEqual(version_schema["short"]["asset.attr_0"], "keyword")
-        self.assertEqual(version_schema["enough"]["asset.attr_0"], "keyword")
-
-    def test_multi_field_expansions_do_not_count_toward_threshold(self):
-        """Expanded multi-field variants are mapped but are not additional declared ECS fields."""
-        fields = [
-            {"name": name, "type": "keyword", "multi_fields": [{"name": "text", "type": "match_only_text"}]}
-            for name in self.ECS_NAMES[: MIN_DECLARED_ECS_FIELDS - 1]
-        ]
-        zip_ref = self._package_zip({"pkg-1.0.0/data_stream/ds/fields/ecs.yml": yaml.safe_dump(fields)})
-
-        version_schema = parse_version_schema(zip_ref, "pkg")
-
-        self.assertNotIn("_meta", version_schema)
-        self.assertEqual(version_schema["ds"]["destination.ip.text"], "match_only_text")
-
-    def test_residual_ecs_file_does_not_scope_stream(self):
-        """A post-ecs@mappings residual (few ECS fields) must not trigger strict validation."""
-        zip_ref = self._package_zip(
-            {
-                "pkg-1.0.0/data_stream/ds/fields/ecs-extended.yml": self._ecs_fields(MIN_DECLARED_ECS_FIELDS - 1),
-            }
-        )
-
-        version_schema = parse_version_schema(zip_ref, "pkg")
-
-        # no scoped streams: the version carries no `_meta`
-        self.assertNotIn("_meta", version_schema)
-        # unscoped streams validate against full ECS, so the envelope is not folded in
-        self.assertNotIn("agent.id", version_schema["ds"])
-        self.assertIn("destination.ip", version_schema["ds"])
-
-    def test_parse_version_schema_expands_multi_fields(self):
-        """Multi-field variants resolved into built packages are mapped."""
-        # built packages resolve `external: ecs` references into explicit multi_fields,
-        # so a data stream that maps process.name also maps process.name.text
+    def test_multi_field_variants_are_expanded(self):
+        """Built packages resolve `external: ecs` into explicit multi_fields, which are mapped too."""
         ecs_fields = yaml.safe_dump(
             [
                 {
@@ -912,9 +761,24 @@ class TestParseVersionSchema(unittest.TestCase):
         self.assertEqual(version_schema["ds"]["process.name"], "keyword")
         self.assertEqual(version_schema["ds"]["process.name.text"], "match_only_text")
 
+    def test_ml_jobs_are_recorded_for_ml_packages(self):
+        """ML packages list their job ids under `jobs`, next to the data stream schemas."""
+        zip_ref = self._package_zip(
+            {
+                "dga-1.0.0/data_stream/dga/fields/fields.yml": yaml.safe_dump([{"name": "dga.x", "type": "keyword"}]),
+                "dga-1.0.0/kibana/ml_module/dga-ml.json": json.dumps({"attributes": {"jobs": [{"id": "dga-job"}]}}),
+            }
+        )
 
-class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
-    """The committed schema cache must classify known archetypes correctly."""
+        version_schema = parse_version_schema(zip_ref, "dga")
+
+        self.assertEqual(version_schema["jobs"], ["dga-job"])
+        self.assertEqual(version_schema["dga"]["dga.x"], "keyword")
+        self.assertEqual(collect_schema_fields({"dga": {"1.0.0": version_schema}}, "dga", "1.0.0")["dga.x"], "keyword")
+
+
+class TestIntegrationSchemaCache(unittest.TestCase):
+    """The committed schema cache must be built by parse_version_schema."""
 
     @classmethod
     def setUpClass(cls):
@@ -923,125 +787,64 @@ class TestIntegrationScopedEcsCachedSchema(unittest.TestCase):
     def _latest(self, package: str) -> str:
         return sorted(self.schemas[package], key=Version.parse)[-1]
 
-    def test_network_traffic_icmp_is_scoped(self):
+    def test_network_traffic_icmp(self):
         """network_traffic enumerates its ECS fields; process.title is not one of them."""
-        version = self._latest("network_traffic")
-        self.assertTrue(integration_is_ecs_scoped(self.schemas, "network_traffic", version, "icmp"))
-        fields = collect_schema_fields(self.schemas, "network_traffic", version, "icmp")
+        fields = collect_schema_fields(self.schemas, "network_traffic", self._latest("network_traffic"), "icmp")
         self.assertIn("destination.ip", fields)
-        # Elastic Agent metadata present in the sample event but absent from ecs.yml
         self.assertIn("agent.id", fields)
         self.assertNotIn("process.title", fields)
 
-    def test_o365_audit_is_not_scoped(self):
-        """o365 audit's ecs-extended.yml is a post-ecs@mappings residual (3 fields), not a subset."""
-        version = self._latest("o365")
-        self.assertFalse(integration_is_ecs_scoped(self.schemas, "o365", version, "audit"))
+    def test_ecs_mappings_package_gets_only_agent_fields(self):
+        """o365 audit relies on ecs@mappings and declares almost no ECS fields; only the Agent fields are added."""
+        fields = collect_schema_fields(self.schemas, "o365", self._latest("o365"), "audit")
+        self.assertIn("data_stream.dataset", fields)
+        self.assertIn("agent.id", fields)
+        self.assertIn("o365.audit.Operation", fields)
+        self.assertNotIn("process.title", fields)
 
-    def test_cloud_defend_is_not_scoped(self):
-        """cloud_defend declares no ECS fields and must keep the full ECS fallback."""
-        version = self._latest("cloud_defend")
-        self.assertFalse(integration_is_ecs_scoped(self.schemas, "cloud_defend", version, "process"))
-        self.assertFalse(integration_is_ecs_scoped(self.schemas, "cloud_defend", version))
+    def test_no_metadata_keys(self):
+        """Every version-level key is a data stream schema, apart from ML job lists."""
+        for package, versions in self.schemas.items():
+            for version, version_schema in versions.items():
+                for key, value in version_schema.items():
+                    if key == "jobs":
+                        continue
+                    self.assertIsInstance(value, dict, f"{package} {version} {key}")
+                    self.assertFalse(key.startswith("_"), f"{package} {version} {key}")
 
 
-class TestEsqlEcsScoping(unittest.TestCase):
-    """Remote ES|QL validation must scope ECS mappings like KQL/EQL validation does."""
+class TestEsqlIndexCoverage(unittest.TestCase):
+    """Remote ES|QL validation skips the full ECS mappings only for indices the rule's integrations describe."""
 
     MANIFESTS: ClassVar[dict] = {"pkg": {"1.0.0": _manifest("^9.0.0")}}
     SCHEMAS: ClassVar[dict] = {
         "pkg": {
             "1.0.0": {
-                "scoped": {
-                    "destination.ip": "ip",
-                    "user_agent.original": "keyword",
-                },
-                "unscoped": {"pkg.custom": "keyword"},
-                "_meta": {"ecs_scoped": ["scoped"]},
+                "audit": {"destination.ip": "ip", "user_agent.original": "keyword"},
+                "metrics": {"pkg.custom": "keyword"},
             }
         }
     }
 
-    def test_strict_when_named_datasets_are_scoped(self):
-        """Datasets named via event.dataset are checked individually."""
-        from detection_rules.esql import EventDataset
-        from detection_rules.index_mappings import rule_integrations_are_ecs_scoped
-
-        self.assertTrue(
-            rule_integrations_are_ecs_scoped([], [EventDataset("pkg", "scoped")], self.MANIFESTS, self.SCHEMAS, "9.0.0")
-        )
-        self.assertFalse(
-            rule_integrations_are_ecs_scoped(
-                [], [EventDataset("pkg", "unscoped")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
-            )
-        )
-
-    def test_package_wide_when_no_datasets_named(self):
-        """Packages referenced only through rule metadata are checked package-wide."""
-        from detection_rules.index_mappings import rule_integrations_are_ecs_scoped
-
-        # 'unscoped' data stream keeps the whole package on the full-ECS fallback
-        self.assertFalse(rule_integrations_are_ecs_scoped(["pkg"], [], self.MANIFESTS, self.SCHEMAS, "9.0.0"))
-        self.assertFalse(rule_integrations_are_ecs_scoped([], [], self.MANIFESTS, self.SCHEMAS, "9.0.0"))
-
-    def test_metadata_package_with_named_dataset_is_checked_on_that_dataset(self):
-        """Naming a dataset narrows a package also referenced in rule metadata, as in KQL/EQL validation."""
-        from detection_rules.esql import EventDataset
-        from detection_rules.index_mappings import rule_datasets_by_package, rule_integrations_are_ecs_scoped
-
-        # metadata package + named scoped dataset -> strict, even though the unscoped sibling exists
-        self.assertTrue(
-            rule_integrations_are_ecs_scoped(
-                ["pkg"], [EventDataset("pkg", "scoped")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
-            )
-        )
-        # metadata package + named unscoped dataset -> lenient
-        self.assertFalse(
-            rule_integrations_are_ecs_scoped(
-                ["pkg"], [EventDataset("pkg", "unscoped")], self.MANIFESTS, self.SCHEMAS, "9.0.0"
-            )
-        )
-        # metadata package with no named datasets -> package-wide verdict
-        self.assertEqual(rule_datasets_by_package(["pkg"], []), {"pkg": [None]})
-        self.assertEqual(rule_datasets_by_package(["pkg"], [EventDataset("pkg", "scoped")]), {"pkg": ["scoped"]})
-        self.assertFalse(rule_integrations_are_ecs_scoped(["pkg"], [], self.MANIFESTS, self.SCHEMAS, "9.0.0"))
-        schemas = {"pkg": {"1.0.0": {"scoped": {"destination.ip": "ip"}, "_meta": {"ecs_scoped": ["scoped"]}}}}
-        self.assertTrue(rule_integrations_are_ecs_scoped(["pkg"], [], self.MANIFESTS, schemas, "9.0.0"))
-
-    def test_mixed_scoped_dataset_and_unscoped_metadata_package_is_lenient(self):
-        """A scoped named dataset does not rescue a second, package-wide unscoped metadata package."""
-        from detection_rules.esql import EventDataset
-        from detection_rules.index_mappings import rule_datasets_by_package, rule_integrations_are_ecs_scoped
-
-        manifests = {**self.MANIFESTS, "other": {"1.0.0": _manifest("^9.0.0")}}
-        schemas = {**self.SCHEMAS, "other": {"1.0.0": {"stream": {"other.custom": "keyword"}}}}
-        eds = [EventDataset("pkg", "scoped")]
-        self.assertEqual(rule_datasets_by_package(["pkg", "other"], eds), {"pkg": ["scoped"], "other": [None]})
-        self.assertFalse(rule_integrations_are_ecs_scoped(["pkg", "other"], eds, manifests, schemas, "9.0.0"))
-        # with the second package fully scoped, the mixed rule is strict
-        schemas["other"]["1.0.0"]["_meta"] = {"ecs_scoped": ["stream"]}
-        self.assertTrue(rule_integrations_are_ecs_scoped(["pkg", "other"], eds, manifests, schemas, "9.0.0"))
-
-    def test_integration_mappings_exclude_scoping_metadata(self):
-        """The cached scoping flag must not leak into ES|QL index mappings."""
+    def test_integration_mappings(self):
         from detection_rules.index_mappings import prepare_integration_mappings
 
         mappings, index_lookup = prepare_integration_mappings(
             ["pkg"], [], self.MANIFESTS, self.SCHEMAS, "9.0.0", lambda _msg: None
         )
-        self.assertNotIn("_meta", mappings)
         self.assertIn("original", mappings["user_agent"]["properties"])
-        self.assertIn("pkg-scoped", index_lookup)
+        self.assertIn("custom", mappings["pkg"]["properties"])
+        self.assertEqual(set(index_lookup), {"pkg-audit", "pkg-metrics"})
 
-    def test_beats_indices_disable_strict_scoping(self):
-        """Rules reading non-integration (Beats) indices must keep the full-ECS fallback."""
+    def test_non_integration_indices_keep_full_ecs(self):
+        """Rules reading Beats or unrelated indices must keep the full-ECS fallback."""
         from detection_rules.esql import EventDataset
         from detection_rules.index_mappings import esql_indices_covered_by_packages
 
-        eds = [EventDataset("pkg", "scoped")]
-        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg.scoped-*"], [], eds))
+        eds = [EventDataset("pkg", "audit")]
+        self.assertTrue(esql_indices_covered_by_packages(["logs-pkg.audit-*"], [], eds))
         self.assertTrue(esql_indices_covered_by_packages(["logs-pkg*"], ["pkg"], []))
-        self.assertFalse(esql_indices_covered_by_packages(["logs-pkg.scoped-*", "auditbeat-*"], [], eds))
+        self.assertFalse(esql_indices_covered_by_packages(["logs-pkg.audit-*", "auditbeat-*"], [], eds))
         self.assertFalse(esql_indices_covered_by_packages(["logs-other.stream-*"], [], eds))
         # nothing extracted from FROM must not pass vacuously
         self.assertFalse(esql_indices_covered_by_packages([], ["pkg"], []))
