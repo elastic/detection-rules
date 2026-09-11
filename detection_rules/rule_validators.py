@@ -226,8 +226,9 @@ eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[repo
 # Integration targets do not union the full ECS schema (packages populate only a subset of it); the hint tells the
 # author where a field the package populates without declaring belongs.
 INTEGRATION_SCHEMA_HINT = (
-    "Only fields the package field files declare (plus non-ecs-schema.json entries for the rule's index patterns) "
-    "are accepted; the full ECS schema is not unioned. Add genuinely populated fields to "
+    "Only fields the package field files declare (plus the non-ecs-schema.json and integration-emitted-ecs-schema.json "
+    "entries for the rule's index patterns) are accepted; the full ECS schema is not unioned. Add genuinely populated "
+    "ECS fields to detection_rules/etc/integration-emitted-ecs-schema.json and fields outside ECS to "
     "detection_rules/etc/non-ecs-schema.json"
 )
 
