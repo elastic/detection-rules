@@ -1156,10 +1156,12 @@ class TestRuleMetadata(BaseRuleTest):
             """,
         ]
 
+        # integration validation accepts only fields the package declares plus non-ecs-schema.json entries for the
+        # rule's index patterns, so the synthetic rules read the same google_workspace patterns real rules use
         base_fields_eql = {
             "author": ["Elastic"],
             "description": "test description",
-            "index": ["filebeat-*"],
+            "index": ["filebeat-*", "logs-google_workspace.drive-*"],
             "language": "eql",
             "license": "Elastic License v2",
             "name": "test rule",
@@ -1172,7 +1174,7 @@ class TestRuleMetadata(BaseRuleTest):
         base_fields_kql = {
             "author": ["Elastic"],
             "description": "test description",
-            "index": ["filebeat-*"],
+            "index": ["filebeat-*", "logs-google_workspace*"],
             "language": "kuery",
             "license": "Elastic License v2",
             "name": "test rule",

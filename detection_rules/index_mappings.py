@@ -190,6 +190,47 @@ def prune_mappings_of_unsupported_types(
     return stream_mappings
 
 
+def resolve_rule_packages(
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Resolve a rule's packages and the data stream restrictions for packages named only by event.dataset."""
+    # Metadata packages keep every data stream: event.dataset values are regex-extracted and may sit
+    # inside OR branches, so they cannot be trusted to drop fields. Only packages referenced solely
+    # through event.dataset are restricted to the named streams.
+    packages = list(rule_integrations)
+    dataset_restriction: dict[str, list[str]] = {}
+    for event_dataset in event_dataset_integrations:
+        if event_dataset.package in rule_integrations:
+            continue
+        if event_dataset.package not in packages:
+            packages.append(event_dataset.package)
+        dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
+
+    return packages, dataset_restriction
+
+
+def esql_indices_covered_by_packages(
+    indices: list[str],
+    rule_integrations: list[str],
+    event_dataset_integrations: list[EventDataset],
+) -> bool:
+    """Return True when every FROM index resolves to one of the rule's integration packages."""
+    # Beats indices (auditbeat-*, filebeat-*, ...) have their own schemas, which the ES|QL mapping
+    # build does not model, so rules reading them keep the full-ECS fallback.
+    if not indices:
+        # nothing extracted from FROM: do not pass vacuously
+        return False
+    packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    for index in indices:
+        if not index.startswith("logs-"):
+            return False
+        package = re.split(r"[.\-*]", index.removeprefix("logs-"), maxsplit=1)[0]
+        if package not in packages:
+            return False
+    return True
+
+
 def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     rule_integrations: list[str],
     event_dataset_integrations: list[EventDataset],
@@ -201,16 +242,8 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     """Prepare integration mappings for the given rule integrations."""
     integration_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
-    dataset_restriction: dict[str, list[str]] = {}
 
-    # Process restrictions, note we need this for loops to be separate
-    for event_dataset in event_dataset_integrations:
-        # Ensure the integration is in rule_integrations
-        if event_dataset.package not in rule_integrations:
-            dataset_restriction.setdefault(event_dataset.package, []).append(event_dataset.integration)
-    for event_dataset in event_dataset_integrations:
-        if event_dataset.package not in rule_integrations:
-            rule_integrations.append(event_dataset.package)
+    rule_integrations, dataset_restriction = resolve_rule_packages(rule_integrations, event_dataset_integrations)
 
     for integration in rule_integrations:
         package = integration
@@ -440,18 +473,115 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
     return flattened_fields_with_subfields
 
 
-def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
+def find_flattened_fields(mapping: dict[str, Any], path: str = "") -> set[str]:
+    """Recursively collect the dotted paths of every field typed `flattened` in Elasticsearch mappings."""
+    flattened_fields: set[str] = set()
+
+    for field, properties in mapping.items():
+        if not isinstance(properties, dict):
+            continue
+        current_path = f"{path}.{field}" if path else field
+
+        if properties.get("type") == "flattened":  # type: ignore[reportUnknownMemberType]
+            flattened_fields.add(current_path)
+
+        # Recurse into subfields
+        if "properties" in properties:
+            flattened_fields |= find_flattened_fields(properties["properties"], current_path)  # type: ignore[reportUnknownArgumentType]
+
+    return flattened_fields
+
+
+def collect_flattened_fields(mappings: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Map every dotted path typed `flattened` in `mappings` to the name of the first mapping declaring it."""
+    flattened_fields: dict[str, str] = {}
+    for name, mapping in mappings.items():
+        for field_path in find_flattened_fields(mapping):
+            _ = flattened_fields.setdefault(field_path, name)
+    return flattened_fields
+
+
+def find_flattened_ancestor(field_path: str, flattened_fields: dict[str, str]) -> str | None:
+    """Return the outermost known `flattened` field that is `field_path` or one of its ancestors."""
+    parts = field_path.split(".")
+    for depth in range(1, len(parts) + 1):
+        candidate = ".".join(parts[:depth])
+        if candidate in flattened_fields:
+            return candidate
+    return None
+
+
+def align_flat_schema_to_flattened_fields(
+    flat_schema: dict[str, str], flattened_fields: dict[str, str], source: str, log: Callable[[str], None]
+) -> dict[str, str]:
+    """Collapse every `flat_schema` entry at or below a known `flattened` field onto that field, typed `flattened`."""
+    # An integration can type a field as `flattened` (e.g. `azure.platformlogs.properties`) while the
+    # non-ecs, custom or ECS schemas only declare its subfields. Nesting those subfields as-is would leave
+    # the parent as an implicit `object` in the test index built from that schema, and ES|QL then refuses
+    # to read the parent across the union of the test indices with an ambiguous mapping error, even though
+    # the field is unambiguously `flattened` in a real deployment where those schema-only indices do not exist.
+    #
+    # Dropping the subfields matches a real deployment as well: ES|QL cannot read a subfield of a
+    # flattened field as a column (hence `field_extract`), while KQL predicates against subfields keep
+    # working through the `flattened` parent. The dotted entries stay in the source schema files.
+    if not flattened_fields:
+        return dict(flat_schema)
+
+    aligned: dict[str, str] = {}
+    replaced: dict[str, str] = {}
+    for field_path, field_type in flat_schema.items():
+        parent = find_flattened_ancestor(field_path, flattened_fields)
+        if parent is None:
+            aligned[field_path] = field_type
+            continue
+        aligned[parent] = "flattened"
+        if field_path == parent:
+            if field_type != "flattened":
+                replaced[parent] = field_type
+        else:
+            _ = replaced.setdefault(parent, "object")
+
+    for parent, previous_type in sorted(replaced.items()):
+        log(
+            f"Warning: field `{parent}` is mapped as `flattened` in `{flattened_fields[parent]}` but as "
+            f"`{previous_type}` in `{source}`. Mapping it as `flattened` for ES|QL validation."
+        )
+    return aligned
+
+
+def flat_schema_to_nested_mapping(
+    flat_schema: dict[str, str], flattened_fields: dict[str, str], source: str, log: Callable[[str], None]
+) -> dict[str, Any]:
+    """Convert a flat schema to a nested index mapping, aligned with the known `flattened` fields."""
+    aligned = align_flat_schema_to_flattened_fields(flat_schema, flattened_fields, source, log)
+    return utils.convert_to_nested_schema(aligned)
+
+
+def get_ecs_schema_mappings(
+    current_version: Version,
+    flattened_fields: dict[str, str] | None = None,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any]:
     """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
+    # NOTE: the result depends on `flattened_fields` (the rule's integration and index template mappings),
+    # not only on `current_version`. Do not memoize it by stack version alone; if caching is ever needed,
+    # cache the version-only flat ECS schema and keep the alignment and nesting per rule.
     ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
     ecs_schemas = ecs.get_schemas()
-    ecs_schema_flattened: dict[str, Any] = {}
+    ecs_flat_schema: dict[str, Any] = {}
     ecs_schema_scaled_floats: dict[str, Any] = {}
     for index, info in ecs_schemas[ecs_version]["ecs_flat"].items():
         if info["type"] == "scaled_float":
             ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
-        ecs_schema_flattened.update({index: info["type"]})
-    ecs_schema = utils.convert_to_nested_schema(ecs_schema_flattened)
+        ecs_flat_schema.update({index: info["type"]})
+    ecs_flat_schema = align_flat_schema_to_flattened_fields(
+        ecs_flat_schema, flattened_fields or {}, "rule-ecs-index", log
+    )
+    ecs_schema = utils.convert_to_nested_schema(ecs_flat_schema)
     for index, info in ecs_schema_scaled_floats.items():
+        if ecs_flat_schema.get(index) != "scaled_float":
+            # Collapsed onto a `flattened` parent above
+            continue
         parts = index.split(".")
         current = ecs_schema
 
@@ -487,6 +617,17 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
 
     index_lookup.update(integration_index_lookup)
 
+    # The integration and existing index template mappings describe real indices, so a field they type as
+    # `flattened` is authoritative. The schema-derived mappings built below (ECS, non-ecs, custom) may only
+    # declare its subfields, which would leave the parent as an implicit `object` in their test indices and
+    # make ES|QL reject the field as ambiguously mapped across the test indices. Their entries at or below a
+    # known `flattened` field are therefore collapsed onto it while they are converted to index mappings.
+    # NOTE: this relies on both authoritative sources being loaded before any schema-derived mapping is
+    # converted. `test_prepare_mappings_aligns_schema_mappings_with_flattened_fields` pins that ordering.
+    known_flattened_fields = collect_flattened_fields(
+        {"existing-index-template-mappings": existing_mappings, **integration_index_lookup}
+    )
+
     # Load non-ecs schema and convert to index mapping format (nested schema)
     # For non_ecs we need both a mapping and a schema as custom schemas can override non-ecs fields
     # In these cases we need to accept the overwrite keep the original non-ecs field in the schema
@@ -496,14 +637,16 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     for index in indices:
         index_mapping = non_ecs.get(index, {})
         non_ecs_schema.update(index_mapping)
-        index_mapping = ecs.flatten(index_mapping)
-        index_mapping = utils.convert_to_nested_schema(index_mapping)
+        index_mapping = flat_schema_to_nested_mapping(
+            ecs.flatten(index_mapping), known_flattened_fields, f"non-ecs {index}", log
+        )
         non_ecs_mapping.update({index: index_mapping})
 
     # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
     # and also at a per index level as custom schemas can override non-ecs fields and/or indices
-    non_ecs_schema = ecs.flatten(non_ecs_schema)
-    non_ecs_schema = utils.convert_to_nested_schema(non_ecs_schema)
+    non_ecs_schema = flat_schema_to_nested_mapping(
+        ecs.flatten(non_ecs_schema), known_flattened_fields, "rule-non-ecs-index", log
+    )
     non_ecs_schema = prune_mappings_of_unsupported_types("non-ecs", non_ecs_schema, log)
 
     # Load custom schema and convert to index mapping format (nested schema)
@@ -511,13 +654,20 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     custom_indices = ecs.get_custom_schemas()
     for index in indices:
         index_mapping = custom_indices.get(index, {})
-        index_mapping = ecs.flatten(index_mapping)
-        index_mapping = utils.convert_to_nested_schema(index_mapping)
+        index_mapping = flat_schema_to_nested_mapping(
+            ecs.flatten(index_mapping), known_flattened_fields, f"custom {index}", log
+        )
         custom_mapping.update({index: index_mapping})
 
-    # Load ECS in an index mapping format (nested schema)
+    # Load ECS in an index mapping format (nested schema). Skipped when every FROM index resolves to one of the
+    # rule's integration packages: as in KQL/EQL validation, integration indices are then checked against the
+    # package field schemas (plus non-ecs) only, since packages populate just a subset of ECS.
     current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    ecs_schema = get_ecs_schema_mappings(current_version)
+    ecs_schema: dict[str, Any] = {}
+    if esql_indices_covered_by_packages(indices, rule_integrations, event_dataset_integrations):
+        log("All indices resolve to the rule's integrations; validating without the full ECS schema")
+    else:
+        ecs_schema = get_ecs_schema_mappings(current_version, known_flattened_fields, log)
 
     # Filter combined mappings based on the provided indices
     combined_mappings, index_lookup = get_filtered_index_schema(
