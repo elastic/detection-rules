@@ -1,0 +1,189 @@
+[metadata]
+creation_date = "2026/09/07"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "The file.Ext.* fields for file events were introduced in 9.3.0, and are required for this rule to function."
+updated_date = "2026/09/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a web server process creates a file with a file extension that does not
+match the file content based on the file header bytes. This is a common technique used by attackers
+to bypass security measures and to hide the true nature of the file.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Polyglot Bypass File Created by Web Server"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Polyglot Bypass File Created by Web Server
+
+This rule identifies Linux web server processes creating files with script or executable extensions whose header bytes indicate a different format, which may expose an upload-validation bypass or concealed malicious payload. An attacker could upload a JPEG/PHP polyglot named `avatar.php`, pass image-type validation using valid JPEG header bytes, and later execute appended PHP code as a web shell.
+
+### Possible investigation steps
+
+- Preserve the file and record its path, owner, permissions, timestamps, hash, and web-accessibility before quarantining it for static analysis.
+- Compare the declared extension, detected file type, and full contents to identify appended server-side code, embedded executables, obfuscation, or multiple valid file formats.
+- Correlate the creation time with reverse-proxy, web access, application, authentication, and upload logs to identify the source IP, account, request URI, user agent, and response status.
+- Review related process activity and network connections for execution of the file, shell or interpreter launches, persistence changes, credential access, or outbound command-and-control traffic.
+- Determine whether the application legitimately creates this file type and, if malicious or unexplained, isolate the host, block the artifact and source indicators, remove exposed files, and remediate the upload-validation weakness.
+
+### False positive analysis
+
+- A legitimate upload or media-processing workflow may save an image, document, or RIFF file with a script-like extension because of application naming logic, so verify the originating request, expected application behavior, and absence of appended executable code.
+- A deployment, testing, or packaging process running under a web server account may create a valid ELF or archive-derived artifact with a monitored extension, so confirm the change against authorized deployment records and validate the file hash, contents, path, and owner.
+
+### Response and remediation
+
+- Isolate the affected web server and any systems contacted by the malicious file while preserving the polyglot artifact, relevant logs, and volatile evidence.
+- Quarantine the file, block its hash and associated source addresses, and remove related web shells, dropped payloads, unauthorized accounts, and altered application files.
+- Eliminate persistence from cron jobs, systemd units, startup scripts, SSH `authorized_keys`, web server modules, application plugins, and writable web-root directories.
+- Rebuild the server from a known-good image, restore validated application content and configuration, patch exploited components, and rotate credentials or secrets accessible to the web server account.
+- Escalate immediately to incident response and expand scoping if the file executed, spawned a shell or interpreter, initiated outbound connections, accessed credentials, or enabled lateral movement.
+- Prevent recurrence by validating complete file content rather than extensions or headers, renaming uploads, storing them outside executable web paths, disabling script execution in upload directories, and enforcing least-privilege permissions.
+"""
+risk_score = 73
+rule_id = "82f6fa8d-ea35-4329-b334-f1a557dc58c7"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+
+Elastic Defend integration does not collect advanced file information (such as the different file.Ext.* fields) by default.
+In order to capture this behavior, this rule requires a specific configuration option set within the advanced settings of the Elastic Defend integration.
+ #### To set up advanced file information capture for an Elastic Agent policy:
+- Go to “Security → Manage → Policies”.
+- Select an “Elastic Agent policy”.
+- Click “Show advanced settings”.
+- Scroll down or search for “linux.advanced.events.populate_file_data”.
+- For this rule the linux.advanced.events.populate_file_data variable should be set to "true".
+- Click “Save”.
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action != "deletion" and
+(
+  process.name in (
+    "nginx", "apache2", "httpd", "caddy", "lighttpd", "httpd.worker", "httpd-worker", "httpd-prefork",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs", "frankenphp", "lshttpd", "litespeed", "openlitespeed",
+    "fcgiwrap", "uwsgi", "daphne", "uvicorn", "hypercorn", "granian", "waitress-serve", "flask", "puma",
+    "unicorn", "unicorn_rails", "thin", "rackup", "mongrel_rails", "starman", "plackup", "twiggy",
+    "hypnotoad", "starlet", "unitd", "unitd-debug", "java", "node", "nodejs"
+  ) or
+  process.name like (
+    "php-fpm*", "lsphp*", "gunicorn*", "*.cgi", "*.fcgi", "mono*", "xsp*", "mod-mono-server*",
+    "fastcgi-mono-server*", "python*", "ruby*", "perl*", "lua*"
+  )
+) and
+file.extension in~ ( 
+  "php", "phtml", "pht", "php3", "php4", "php5", "php7", "phar",
+  "asp", "aspx", "ashx", "asmx", "ascx", "cshtml",
+  "jsp", "jspx", "jsx", "jspf", "tag", "tagx", "war", "ear",
+  "js", "mjs", "cjs", "ts", "mts", "cts", "tsx",
+  "razor",
+  "py", "wsgi", "cgi", "fcgi", "pyc",
+  "erb", "ru",
+  "psgi",
+  "lua", "luac",
+  "sh", "elf"
+) and
+file.Ext.header_bytes like (
+  "ffd8ff*",                // JPEG / JPG
+  "89504e470d0a1a0a*",      // PNG 
+  "47494638*",              // GIF (GIF87a / GIF89a)
+  "00000100*",              // ICO
+  "00000200*",              // CUR
+  "424d*",                  // BMP
+  "49492a00*",              // TIFF (little endian)
+  "4d4d002a*",              // TIFF (big endian)
+  "52494646*",              // RIFF container (WEBP/AVI/etc)
+  "255044462d*",            // PDF
+  "7f454c46*"               // ELF
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  id = "T1505"
+  name = "Server Software Component"
+  reference = "https://attack.mitre.org/techniques/T1505/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1505.003"
+    name = "Web Shell"
+    reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Initial Access"
+  id = "TA0001"
+  reference = "https://attack.mitre.org/tactics/TA0001/"
+
+  [[rule.threat.technique]]
+  name = "Exploit Public-Facing Application"
+  id = "T1190"
+  reference = "https://attack.mitre.org/techniques/T1190/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [[rule.threat.technique]]
+  id = "T1210"
+  name = "Exploitation of Remote Services"
+  reference = "https://attack.mitre.org/techniques/T1210/"
+
+  [rule.threat.tactic]
+  id = "TA0008"
+  name = "Lateral Movement"
+  reference = "https://attack.mitre.org/tactics/TA0008/"

@@ -100,7 +100,9 @@ class KqlToEQL(BaseKqlParser):
 
     def value(self, tree):
         if self.scoped_field is None:
-            raise self.error(tree, "Value not tied to field")
+            # KQL allows a value with no field (a free-text search against the index's
+            # default fields), but EQL has no equivalent — every comparison needs a field.
+            raise self.error(tree, "Unable to convert free text search to EQL")
 
         token = tree.children[0]
         value = self.unescape_literal(token)

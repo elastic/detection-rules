@@ -2,7 +2,7 @@
 creation_date = "2026/04/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -64,11 +64,11 @@ severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS IAM",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM",
     "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -83,6 +83,7 @@ event.dataset: "aws.cloudtrail"
     and not aws.cloudtrail.user_identity.arn:arn*/terraform 
     and not source.as.organization.name:(Amazon* or AMAZON* or "Google LLC" or "MongoDB, Inc.")
     and not source.address: ( "cloudformation.amazonaws.com" or "servicecatalog.amazonaws.com")
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 [rule.investigation_fields]

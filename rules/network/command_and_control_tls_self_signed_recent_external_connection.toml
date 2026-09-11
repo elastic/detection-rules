@@ -1,0 +1,254 @@
+[metadata]
+creation_date = "2026/08/20"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/08/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies completed outbound TLS connections to external destinations where the server presents a recently issued,
+likely self-signed certificate whose issuer and subject distinguished names are equal. C2 frameworks frequently use
+freshly generated self-signed certificates instead of publicly trusted CAs. This behavioral logic complements hash-based
+C2 certificate rules, such as default Cobalt Strike team-server certificates, by catching rotated or custom
+infrastructure that does not reuse default tooling certificates. Distinguished-name equality identifies self-issued
+certificates but does not cryptographically prove that the certificate signed itself. The rule does not cover private-CA
+signed certificates, where issuer and subject differ, or C2 that uses publicly trusted certificates such as Let's
+Encrypt.
+"""
+false_positives = [
+    """
+    Development servers, lab environments, newly stood-up self-hosted services on public IPs (VPS, homelab, NAS,
+    cameras, and similar IoT), and some vendor appliances may use recently issued self-signed certificates. Exclude
+    known internal development egress or validated vendor destinations after review.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential Self-Signed TLS Certificate Recently Issued on External Connection"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Self-Signed TLS Certificate Recently Issued on External Connection
+
+Malware and post-exploitation C2 often ships with ephemeral, self-signed TLS certificates rather than CA-issued
+credentials. This rule matches external, successfully established TLS sessions where the server certificate issuer
+matches the subject (self-issued and commonly self-signed) and the `not_before` date falls between 30 days ago and the
+current time. Matching sessions are aggregated by source IP, destination IP, subject DN, and certificate `not_before`
+so repeated full handshakes in the same detection window collapse into one alert. Distinguished-name equality alone
+does not cryptographically verify the certificate signature.
+
+This logic does not detect private-CA signed leaves (issuer DN differs from subject DN) or publicly trusted certificates.
+Hash-based default-certificate rules remain complementary coverage for known tooling certs that are often years old.
+Resumed TLS sessions typically omit `tls.server.x509.*` fields, so only full handshakes are eligible.
+
+### Possible investigation steps
+
+- Review `source.ip`, `destination.ip`, `Esql.destination_port_values`, `tls.server.x509.subject.distinguished_name`,
+  `Esql.tls_server_x509_serial_number_values`, `tls.server.x509.not_before`, and `Esql.tls_client_server_name_values`.
+  Common names can be empty on self-signed certificates; prefer the distinguished name and serial.
+- Compare SNI (`Esql.tls_client_server_name_values`) with the certificate subject. A mismatch is a useful pivot, not
+  proof of malice.
+- Pivot on destination IP and certificate serial or available SHA-1/SHA-256 fingerprints across other internal sources:
+  ```esql
+  FROM logs-network_traffic.tls-*
+  | WHERE tls.established == true
+    AND tls.server.x509.issuer.distinguished_name == tls.server.x509.subject.distinguished_name
+  | STATS event_count = COUNT(*), hosts = MV_SLICE(VALUES(source.ip), 0, 99)
+      BY destination.ip, tls.server.x509.serial_number, tls.server.hash.sha1, tls.server.hash.sha256
+  | SORT event_count DESC
+  ```
+- Correlate with endpoint alerts, DNS anomalies, or prior commodity C2 detections on the source host, including the
+  Default Cobalt Strike Team Server Certificate rule.
+- Compare certificate age and validity window against expected vendor or ACME renewal patterns. ACME-issued public
+  certificates should not match this rule because they are not self-signed.
+
+### False positive analysis
+
+- Internal developers testing against staging servers with self-signed certs may appear if traffic hairpins through
+  external IPs or if staging is hosted outside RFC1918 / ULA space.
+- Newly published self-hosted services (Proxmox, NAS, cameras, small-business appliances) often generate a self-signed
+  certificate on first boot and will match for 30 days. Exclude by destination after validation.
+- Some appliance vendors ship with short-lived factory self-signed certificates; exclude by destination after validation.
+- Repeated alerts for the same source, destination, and certificate across intervals are expected while the certificate
+  remains inside the 30-day `not_before` window. Add a destination or serial exception after the first review if the
+  traffic is authorized.
+
+### Response and remediation
+
+- Isolate the source host if the destination is unknown and no authorized workflow explains the session.
+- Block the destination IP or domain at the perimeter pending investigation.
+- Preserve the available certificate hashes, `Esql.tls_server_x509_serial_number_values`, and the subject DN for threat
+  intel sharing. Collect a PCAP or full TLS metadata sample when available.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/beats/packetbeat/configuration-tls",
+    "https://www.elastic.co/docs/reference/ecs/ecs-x509",
+    "https://www.elastic.co/security-labs/collecting-cobalt-strike-beacons-with-the-elastic-stack",
+]
+risk_score = 47
+rule_id = "869fe008-5dd4-4f07-9c2e-aa90c3926fd9"
+setup = """## Setup
+
+This rule requires TLS certificate metadata from the Elastic network_traffic integration
+(`logs-network_traffic.tls-*`) with `send_certificates` enabled (the Packetbeat TLS default) so ECS fields under
+`tls.server.x509.*` are populated, including `issuer.distinguished_name`, `subject.distinguished_name`, and
+`not_before`.
+
+Packetbeat calculates SHA-1 certificate fingerprints by default. To populate `tls.server.hash.sha256`, add `sha256` to
+the TLS protocol analyzer's `fingerprints` setting.
+
+Resumed TLS sessions typically do not include certificate fields and will not match. Legacy `packetbeat-*` indices are
+intentionally not queried: this rule uses CIDR-based internal-to-external directionality that should be validated per
+source mapping before claiming Packetbeat coverage.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: ESQL",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.tls-*
+| where
+    network.protocol == "tls"
+    and network.transport == "tcp"
+    and tls.established == true
+    and source.ip is not null
+    and destination.ip is not null
+    and tls.server.x509.not_before is not null
+    and tls.server.x509.issuer.distinguished_name is not null
+    and tls.server.x509.subject.distinguished_name is not null
+    and tls.server.x509.issuer.distinguished_name == tls.server.x509.subject.distinguished_name
+    and tls.server.x509.not_before >= now() - 30 days
+    and tls.server.x509.not_before <= now()
+    and CIDR_MATCH(
+      source.ip,
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "fc00::/7"
+    )
+    and not CIDR_MATCH(
+      destination.ip,
+      "0.0.0.0/8",
+      "10.0.0.0/8",
+      "100.64.0.0/10",
+      "127.0.0.0/8",
+      "169.254.0.0/16",
+      "172.16.0.0/12",
+      "192.0.0.0/24",
+      "192.0.2.0/24",
+      "192.168.0.0/16",
+      "192.175.48.0/24",
+      "192.31.196.0/24",
+      "192.52.193.0/24",
+      "192.88.99.0/24",
+      "198.18.0.0/15",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4",
+      "::/128",
+      "::1/128",
+      "2001:db8::/32",
+      "fc00::/7",
+      "fe80::/10",
+      "ff00::/8"
+    )
+| stats
+    Esql.event_count = COUNT(*),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.destination_port_values = MV_SLICE(VALUES(destination.port), 0, 9),
+    Esql.tls_client_server_name_values = MV_SLICE(VALUES(tls.client.server_name), 0, 9),
+    Esql.tls_server_x509_subject_common_name_values = MV_SLICE(VALUES(tls.server.x509.subject.common_name), 0, 9),
+    Esql.tls_server_x509_serial_number_values = MV_SLICE(VALUES(tls.server.x509.serial_number), 0, 4),
+    Esql.tls_server_hash_sha1_values = MV_SLICE(VALUES(tls.server.hash.sha1), 0, 4),
+    Esql.tls_server_hash_sha256_values = MV_SLICE(VALUES(tls.server.hash.sha256), 0, 4),
+    Esql.tls_server_x509_not_after_values = MV_SLICE(VALUES(tls.server.x509.not_after), 0, 4),
+    Esql.network_community_id_values = MV_SLICE(VALUES(network.community_id), 0, 9),
+    Esql.host_name_values = MV_SLICE(VALUES(host.name), 0, 9),
+    Esql.observer_name_values = MV_SLICE(VALUES(observer.name), 0, 19)
+  by
+    source.ip,
+    destination.ip,
+    tls.server.x509.subject.distinguished_name,
+    tls.server.x509.not_before
+| keep
+    source.ip,
+    destination.ip,
+    tls.server.x509.subject.distinguished_name,
+    tls.server.x509.not_before,
+    Esql.event_count,
+    Esql.first_seen,
+    Esql.last_seen,
+    Esql.destination_port_values,
+    Esql.tls_client_server_name_values,
+    Esql.tls_server_x509_subject_common_name_values,
+    Esql.tls_server_x509_serial_number_values,
+    Esql.tls_server_hash_sha1_values,
+    Esql.tls_server_hash_sha256_values,
+    Esql.tls_server_x509_not_after_values,
+    Esql.network_community_id_values,
+    Esql.host_name_values,
+    Esql.observer_name_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[[rule.threat.technique]]
+id = "T1573"
+name = "Encrypted Channel"
+reference = "https://attack.mitre.org/techniques/T1573/"
+[[rule.threat.technique.subtechnique]]
+id = "T1573.002"
+name = "Asymmetric Cryptography"
+reference = "https://attack.mitre.org/techniques/T1573/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "destination.ip",
+    "tls.server.x509.subject.distinguished_name",
+    "tls.server.x509.not_before",
+    "Esql.event_count",
+    "Esql.first_seen",
+    "Esql.last_seen",
+    "Esql.destination_port_values",
+    "Esql.tls_client_server_name_values",
+    "Esql.tls_server_x509_subject_common_name_values",
+    "Esql.tls_server_x509_serial_number_values",
+    "Esql.tls_server_hash_sha1_values",
+    "Esql.tls_server_hash_sha256_values",
+    "Esql.tls_server_x509_not_after_values",
+    "Esql.network_community_id_values",
+    "Esql.host_name_values",
+    "Esql.observer_name_values",
+]
+

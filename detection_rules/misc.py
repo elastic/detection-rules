@@ -332,7 +332,13 @@ client_options = {
         "cloud_id": click.Option(["--cloud-id"], default=getdefault("cloud_id"), help="ID of the cloud instance."),
         "api_key": click.Option(["--api-key"], default=getdefault("api_key")),
         "space": click.Option(["--space"], default=None, help="Kibana space"),
-        "ignore_ssl_errors": click.Option(["--ignore-ssl-errors"], default=getdefault("ignore_ssl_errors")),
+        "ignore_ssl_errors": click.Option(
+            ["--ignore-ssl-errors"],
+            type=click.BOOL,
+            is_flag=False,
+            flag_value=True,
+            default=getdefault("ignore_ssl_errors"),
+        ),
     },
     "elasticsearch": {
         "cloud_id": click.Option(["--cloud-id"], default=getdefault("cloud_id")),
@@ -341,7 +347,13 @@ client_options = {
         "es_user": click.Option(["--es-user", "-eu"], default=getdefault("es_user")),
         "es_password": click.Option(["--es-password", "-ep"], default=getdefault("es_password")),
         "timeout": click.Option(["--timeout", "-et"], default=60, help="Timeout for elasticsearch client"),
-        "ignore_ssl_errors": click.Option(["--ignore-ssl-errors"], default=getdefault("ignore_ssl_errors")),
+        "ignore_ssl_errors": click.Option(
+            ["--ignore-ssl-errors"],
+            type=click.BOOL,
+            is_flag=False,
+            flag_value=True,
+            default=getdefault("ignore_ssl_errors"),
+        ),
     },
 }
 kibana_options = list(client_options["kibana"].values())
