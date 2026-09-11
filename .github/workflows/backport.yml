@@ -357,41 +357,58 @@ jobs:
               }
 
               while (true) {
-                const results = [];
-                for (const branch of branches) {
-                  const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
-                  const sha = data.commit.sha;
-                  const result = classifyRuns(await unitTestRuns(sha));
-                  results.push({ branch, sha, result });
-                }
+                try {
+                  const results = [];
+                  for (const branch of branches) {
+                    const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                    const sha = data.commit.sha;
+                    const result = classifyRuns(await unitTestRuns(sha));
+                    results.push({ branch, sha, result });
+                  }
 
-                const summary = results
-                  .map((item) => `${item.branch} @ ${item.sha.slice(0, 7)}: ${item.result}`)
-                  .join('\n');
-                core.info(summary);
+                  const summary = results
+                    .map((item) => `${item.branch} @ ${item.sha.slice(0, 7)}: ${item.result}`)
+                    .join('\n');
+                  core.info(summary);
 
-                if (results.every((item) => item.result === 'success')) {
-                  await postStatus('success', 'All release targets backported; tip Unit Tests passed');
-                  return;
-                }
+                  if (results.every((item) => item.result === 'success')) {
+                    await postStatus('success', 'All release targets backported; tip Unit Tests passed');
+                    return;
+                  }
 
-                const failed = results.find((item) => item.result.startsWith('failed:'));
-                if (failed) {
-                  const message = `${failed.branch} Unit Tests ${failed.result}`;
-                  await postStatus('failure', message);
-                  core.setFailed(`${message}\n${summary}`);
-                  return;
-                }
+                  const failed = results.find((item) => item.result.startsWith('failed:'));
+                  if (failed) {
+                    const message = `${failed.branch} Unit Tests ${failed.result}`;
+                    await postStatus('failure', message);
+                    core.setFailed(`${message}\n${summary}`);
+                    return;
+                  }
 
-                if (Date.now() >= deadline) {
-                  const message = `Timed out waiting for release-branch Unit Tests`;
-                  await postStatus('failure', message);
-                  core.setFailed(`${message}\n${summary}`);
-                  return;
+                  if (Date.now() >= deadline) {
+                    const message = `Timed out waiting for release-branch Unit Tests`;
+                    await postStatus('failure', message);
+                    core.setFailed(`${message}\n${summary}`);
+                    return;
+                  }
+                } catch (err) {
+                  // Do not sticky-fail the merge SHA on transient REST errors;
+                  // only terminal failure for real tip/backport outcomes or timeout.
+                  core.warning(`Transient release-line finalizer poll error: ${err}`);
+                  if (Date.now() >= deadline) {
+                    const message = `Timed out waiting for release-branch Unit Tests (last error: ${err})`;
+                    try {
+                      await postStatus('failure', message);
+                    } catch (statusErr) {
+                      core.error(`Failed to post terminal status: ${statusErr}`);
+                    }
+                    core.setFailed(message);
+                    return;
+                  }
                 }
                 await sleep();
               }
             } catch (err) {
+              // Setup / pre-poll failures (branch list, commit job) only.
               const message = `release-line finalizer error: ${err}`;
               try {
                 await postStatus('failure', message);

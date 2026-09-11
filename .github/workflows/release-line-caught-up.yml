@@ -10,6 +10,9 @@
 # (or repo var RELEASE_LINE_PRODUCER_LIVE=true), tip-CI fallback is disabled and
 # the gate waits for a real status. That prevents the first post-merge PR from
 # false-greening on historical tip Unit Tests while pending is still queued.
+# Contents API probe failures are treated as live (wait) and retried — never
+# cached as "not live." Transient REST errors during polling also retry until
+# the deadline instead of failing the required check immediately.
 #
 # Merge queue settings (required for safe serialization):
 #   - Max entries to merge / merge group size: 1
@@ -131,7 +134,6 @@ jobs:
               if (probedWorkflow) {
                 return cachedProducerLive;
               }
-              probedWorkflow = true;
               try {
                 const { data } = await github.rest.repos.getContent({
                   owner,
@@ -140,6 +142,8 @@ jobs:
                   ref: 'main',
                 });
                 const content = Buffer.from(data.content, 'base64').toString('utf8');
+                // Only cache after a successful read — never cache probe failures.
+                probedWorkflow = true;
                 if (
                   content.includes('post-pending:') &&
                   content.includes('release-line-caught-up') &&
@@ -148,10 +152,14 @@ jobs:
                   cachedProducerLive = true;
                   return true;
                 }
+                return false;
               } catch (err) {
-                core.warning(`Could not read main backport.yml for producer-live probe: ${err}`);
+                core.warning(
+                  `Could not read main backport.yml for producer-live probe (treating as live this poll): ${err}`,
+                );
+                // Unknown: fail closed (wait, do not tip-fallback); retry next poll.
+                return true;
               }
-              return false;
             }
 
             async function unitTestRuns(sha) {
@@ -213,9 +221,10 @@ jobs:
                 .join('\n');
             }
 
-            try {
-              while (true) {
-                const sha = await mainSha();
+            while (true) {
+              let sha = 'unknown';
+              try {
+                sha = await mainSha();
                 const status = await latestStatus(sha);
 
                 if (status === 'success') {
@@ -263,8 +272,15 @@ jobs:
                   );
                   return;
                 }
-                await sleep();
+              } catch (err) {
+                // Keep the required check pending on transient REST errors.
+                core.warning(`Transient release-line gate poll error: ${err}`);
+                if (Date.now() >= deadline) {
+                  core.setFailed(
+                    `Timed out after ${process.env.WAIT_SECONDS}s waiting for ${contextName} on main @ ${String(sha).slice(0, 7)} (last error: ${err}).`,
+                  );
+                  return;
+                }
               }
-            } catch (err) {
-              core.setFailed(`release-line gate error: ${err}`);
+              await sleep();
             }
