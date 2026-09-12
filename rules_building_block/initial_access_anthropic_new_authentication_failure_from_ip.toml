@@ -1,19 +1,26 @@
 [metadata]
 bypass_bbr_timing = true
-creation_date = "2026/06/15"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 building_block_type = "default"
 description = """
-Identifies the first occurrence of a failed Anthropic magic link or SSO sign-in from a source IP not seen in the last 14
-days. Adversaries may probe authentication paths with stolen or sprayed credentials after weakening MFA or SSO controls.
-This building block surfaces new failure sources for correlation with auth control changes and successful login
-activity.
+Detects the first failed Anthropic magic link or SSO sign-in from a source IP not seen in the last 14 days. Attackers
+may probe authentication paths with stolen or sprayed credentials after weakening MFA or SSO controls. Use this
+building block to correlate new failure sources with auth control changes and successful logins.
 """
+false_positives = [
+    """
+    New corporate egress IPs, VPN pools, or IdP infrastructure changes can appear as first-seen failure sources.
+    """,
+    """
+    Users mistyping credentials from a new device or location may trigger a single failure before a successful login.
+    """,
+]
 from = "now-9m"
 index = ["logs-anthropic.audit-*"]
 language = "kuery"
@@ -64,9 +71,10 @@ tags = [
     "Data Source: Anthropic",
     "Use Case: Identity and Access Audit",
     "Use Case: UEBA",
-    "Tactic: Initial Access",
     "Rule Type: BBR",
     "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+    "Tactic: Credential Access",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -123,7 +131,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["source.ip", "event.action"]
+value = ["source.ip"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

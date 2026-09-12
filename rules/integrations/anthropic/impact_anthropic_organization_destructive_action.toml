@@ -1,16 +1,16 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Organization deletion and bulk delete remove tenant data, projects, and member access in a single administrative action.
-An adversary may use this to disrupt AI-assisted workflows as an impact technique, ransom or extort the organization, or
-destroy evidence after completing a data export. Once deletion progresses, recovery options are limited and earlier
-exfiltration activity may be harder to reconstruct from the tenant itself.
+Organization deletion and bulk delete remove tenant data, projects, and member access in a single administrative
+action. An attacker can use this to break AI-assisted workflows as an impact technique, to extort the organization, or
+to destroy evidence after finishing a data export. Once deletion progresses, recovery options shrink and earlier
+exfiltration activity is harder to reconstruct from the tenant itself.
 """
 false_positives = [
     """
@@ -19,25 +19,25 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic Organization Destructive Action"
 note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Destructive Action
 
-This rule matches organization deletion requests and bulk delete activity. The `event.action` value indicates how far
-the process has progressed.
+This rule matches organization deletion requests and bulk delete activity. Treat `org_deletion_requested` as an urgent
+early signal; recovery options shrink as the action progresses to bulk delete completion.
 
 #### Possible investigation steps
 
 - Identify the actor using `anthropic.audit.actor.type` and `organization.id`.
-- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Review the action value:
-  - `org_deletion_requested` indicates deletion was requested.
-  - `org_bulk_delete_initiated` and `org_deleted_via_bulk` indicate bulk delete activity.
-- Search for preceding admin role grants, primary owner transfers, admin API key creation, or data exports.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Review the action value and urgency:
+  - `org_deletion_requested`: deletion was requested. Intervene immediately if unauthorized.
+  - `org_bulk_delete_initiated`: bulk delete started.
+  - `org_deleted_via_bulk`: bulk delete completed. Prioritize evidence preservation outside the tenant.
+- Look for preceding admin role grants, primary owner transfers, admin API key creation, or data exports.
 - Confirm with platform owners whether offboarding or decommissioning was scheduled.
 
 ### False positive analysis
@@ -47,7 +47,8 @@ the process has progressed.
 ### Response and remediation
 
 - If the activity was unauthorized, engage Anthropic support and internal incident response immediately.
-- Preserve remaining audit logs and rotate administrative credentials for the organization.
+- Preserve remaining audit logs (including any prior exports) and rotate administrative credentials for the
+  organization.
 
 ## Setup
 
@@ -70,12 +71,15 @@ tags = [
     "Tactic: Impact",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "configuration" and
-    event.action: ("org_deletion_requested" or "org_bulk_delete_initiated" or "org_deleted_via_bulk")
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "configuration" and
+    event.action in ("org_deletion_requested", "org_bulk_delete_initiated", "org_deleted_via_bulk")
+| keep *
 '''
 
 

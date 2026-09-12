@@ -1,17 +1,16 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Primary ownership is the highest administrative authority in an Anthropic organization, including billing, membership,
-and organization-wide settings. An adversary who transfers ownership to an account they control can lock out the
-legitimate administrator from recovery paths that depend on the original owner and cement long-term tenant control. This
-is often used after role escalation to prevent defenders from reversing earlier privilege changes through normal
-administration or vendor support workflows.
+Primary ownership is the highest administrative authority in an Anthropic organization, covering billing, membership,
+and organization-wide settings. Transferring ownership to an attacker-controlled account can lock out the legitimate
+administrator from recovery paths that depend on the original owner. Attackers often do this after role escalation so
+defenders cannot reverse earlier privilege changes through normal administration.
 """
 false_positives = [
     """
@@ -20,8 +19,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic Primary Owner Transferred"
 note = """## Triage and analysis
@@ -56,7 +54,7 @@ be rare and is often preceded by formal approval outside the application.
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1098/",
+    "https://attack.mitre.org/techniques/T1098/003/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -67,16 +65,20 @@ tags = [
     "Domain: LLM",
     "Data Source: Anthropic",
     "Use Case: Identity and Access Audit",
-    "Tactic: Privilege Escalation",
+    "Use Case: Threat Detection",
     "Resources: Investigation Guide",
+    "Tactic: Privilege Escalation",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "iam" and
-    event.action: "primary_owner_transferred"
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "iam" and
+    event.action == "primary_owner_transferred"
+| keep *
 '''
 
 
@@ -86,6 +88,10 @@ framework = "MITRE ATT&CK"
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
 
 
 [rule.threat.tactic]

@@ -1,50 +1,50 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Compliance API logging feeds the anthropic.audit dataset that powers Anthropic audit detections. An adversary with
-administrative access may disable it as a preparatory step so subsequent role grants, API key creation, exports, and
-authentication changes stop reaching this compliance API data source. This rule detects the disable action itself;
-events after logging stops may not appear in `logs-anthropic.audit-*`.
+Compliance API logging feeds the anthropic.audit dataset that Anthropic audit detections run on. An attacker with
+administrative access can disable it so later role grants, API key creation, exports, and authentication changes stop
+reaching this data source. This rule detects the disable action itself. Activity that happens after logging stops may
+not appear in logs-anthropic.audit-*.
 """
 false_positives = [
     """
-    Platform or security administrators may disable compliance logging during onboarding, integration testing, or log
+    Platform or security administrators disable compliance logging during onboarding, integration testing, or log
     pipeline migrations. Verify the actor, source IP, and whether logging was re-enabled promptly. Planned changes can
     be exempted from this rule.
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic Compliance API Logging Disabled"
 note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance API Logging Disabled
 
-Compliance API logging feeds the `logs-anthropic.audit-*` indices used by Anthropic audit detections. Disabling it
-reduces visibility into subsequent administrative activity even if other logging remains in place. This rule detects
-the disable action itself; activity after logging stops may not reach this data source.
+Compliance API logging feeds the `logs-anthropic.audit-*` indices that Anthropic audit detections run against.
+Disabling it hides later administrative activity from this data source, even if other logging remains in place.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.actor.type`, `organization.id`, and `anthropic.audit.compliance_api_logging_enabled`.
-- When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
-- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Review `anthropic.audit.actor.type`, `organization.id`, and `anthropic.audit.compliance_api_logging_enabled`. This
+  rule matches when logging is disabled (`compliance_api_logging_enabled == false`).
+  `anthropic.audit.compliance_api_enabled` is a separate control for whether the Compliance API itself is enabled.
+- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Pivot on the same `organization.id` for admin role grants, admin API key creation, exports, or SSO changes.
-- Correlate with **Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action** when high-risk activity
+- Correlate with "Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action" when high-risk activity
   follows within 24 hours.
-- Determine whether a change ticket or integration project authorized the update.
+- Confirm whether a change ticket or integration project authorized the update.
 
 ### False positive analysis
 
-- Validate planned integration work with the team that manages the Anthropic Fleet policy.
+- Confirm planned integration work with the team that manages the Anthropic Fleet policy.
 
 ### Response and remediation
 
@@ -73,13 +73,16 @@ tags = [
     "Tactic: Defense Evasion",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "configuration" and
-    event.action: "org_compliance_api_settings_updated" and
-    anthropic.audit.compliance_api_logging_enabled: false
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "configuration" and
+    event.action == "org_compliance_api_settings_updated" and
+    anthropic.audit.compliance_api_logging_enabled == false
+| keep *
 '''
 
 

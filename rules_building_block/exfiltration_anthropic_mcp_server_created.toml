@@ -1,16 +1,18 @@
 [metadata]
-creation_date = "2026/06/16"
+bypass_bbr_timing = true
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
+building_block_type = "default"
 description = """
-Model Context Protocol (MCP) server integrations add external data pathways into Claude. An adversary who registers an
-unapproved MCP server can expose organizational data to third-party infrastructure or establish a channel for staged
-exfiltration. New MCP integrations should be verified against an approved connector inventory, especially when created
-outside routine platform administration.
+Detects creation of a Model Context Protocol (MCP) server integration in an Anthropic organization. MCP servers add
+external data pathways into Claude and can expose organizational data to third-party infrastructure. This building block
+is for correlation with exports, artifact sharing, or privilege changes, not standalone escalation. Routine Claude
+rollouts commonly create approved connectors.
 """
 false_positives = [
     """
@@ -19,15 +21,16 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic MCP Server Created"
 note = """## Triage and analysis
 
 ### Investigating Anthropic MCP Server Created
 
-Each MCP server is a new external integration surface. Review whether the connector was expected and who authorized it.
+This building block alerts on `mcp_server_created` events. It is intended for hunt and correlation workflows, not
+standalone escalation. Pair with data export, public artifact sharing, or admin role grants from the same actor or
+organization.
 
 #### Possible investigation steps
 
@@ -53,24 +56,28 @@ references = [
     "https://attack.mitre.org/techniques/T1567/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 47
+risk_score = 21
 rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
-severity = "medium"
+severity = "low"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
     "Use Case: Threat Detection",
+    "Rule Type: BBR",
     "Resources: Investigation Guide",
     "Tactic: Exfiltration",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "configuration" and
-    event.action: "mcp_server_created"
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "configuration" and
+    event.action == "mcp_server_created"
+| keep *
 '''
 
 
@@ -101,4 +108,3 @@ field_names = [
     "source.ip",
     "user_agent.original",
 ]
-

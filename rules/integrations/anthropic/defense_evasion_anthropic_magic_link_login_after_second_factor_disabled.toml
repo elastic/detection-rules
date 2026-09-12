@@ -1,20 +1,20 @@
 [metadata]
-creation_date = "2026/06/15"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Disabling magic link second factor removes an additional authentication step for passwordless sign-in. An adversary who
-weakens this control and then observes a successful magic link login in the same organization may be abusing a stolen or
-attacker-controlled mailbox for interactive access outside corporate SSO enforcement.
+Disabling magic link second factor drops an extra authentication step from passwordless sign-in. If someone weakens
+that control and a magic link login then succeeds in the same organization, the login may be riding a stolen or
+attacker-controlled mailbox to get interactive access outside corporate SSO enforcement.
 """
 false_positives = [
     """
-    Authentication policy migrations may temporarily disable magic link second factor while users continue signing in
-    with magic links during testing. Validate the change window with the identity team.
+    Authentication policy migrations sometimes disable magic link second factor while users continue signing in with
+    magic links during testing. Validate the change window with the identity team.
     """,
 ]
 from = "now-4h"
@@ -27,25 +27,26 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Magic Link Login After Second Factor Disabled
 
-This rule correlates org-wide magic link second factor disablement with a subsequent successful magic link login for
-the same organization within four hours. The sequence keys on `organization.id` only — the user who disabled second
-factor and the user who signed in may differ. Review both events alongside other identity control changes.
+This rule pairs org-wide magic link second factor disablement with a later successful magic link login in the same
+organization within four hours. The sequence keys on `organization.id` only, so the user who disabled second factor
+and the user who signed in may be different. The login stage is typed as `authentication` (the package also tags
+`session`). Review both events alongside other identity control changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.enabled` on the `org_magic_link_second_factor_toggled` event and `user.email`, `user.id`,
+- Review `anthropic.audit.enabled` on the `org_magic_link_second_factor_toggled` event, and `user.email`, `user.id`,
   `source.ip`, and `user_agent.original` on the `magic_link_login_succeeded` event.
-- Determine whether the login user was expected to authenticate via magic link rather than SSO, and whether that user
+- Confirm whether the login user was expected to authenticate via magic link rather than SSO, and whether that user
   matches the actor who changed the policy.
-- Search for related SSO deactivation, admin role grants, invite activity, or authentication failures from the login
+- Look for related SSO deactivation, admin role grants, invite activity, or authentication failures from the login
   user's `source.ip` in the same window.
-- Correlate with the standalone **Anthropic Magic Link Second Factor Disabled** rule if only the configuration event
+- Correlate with the standalone "Anthropic Magic Link Second Factor Disabled" rule if only the configuration event
   fired.
 - Confirm with the identity team whether the authentication policy change was authorized.
 
 ### False positive analysis
 
-- Planned authentication migrations may disable second factor temporarily while users validate magic link flows.
+- Planned authentication migrations sometimes disable second factor temporarily while users validate magic link flows.
 
 ### Response and remediation
 
@@ -72,6 +73,7 @@ tags = [
     "Rule Type: Higher-Order Rule",
     "Resources: Investigation Guide",
     "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -81,7 +83,7 @@ sequence by organization.id with maxspan=4h
   [configuration where data_stream.dataset == "anthropic.audit" and
       event.action == "org_magic_link_second_factor_toggled" and
       anthropic.audit.enabled == false]
-  [any where data_stream.dataset == "anthropic.audit" and
+  [authentication where data_stream.dataset == "anthropic.audit" and
       event.action == "magic_link_login_succeeded"]
 '''
 

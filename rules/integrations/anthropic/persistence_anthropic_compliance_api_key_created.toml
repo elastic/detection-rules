@@ -1,47 +1,45 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Compliance-scoped API keys can read organization audit activity and compliance data through the Compliance API. An
-adversary who creates one after gaining administrative access can poll chats, files, and membership data
-programmatically without an interactive session. This is distinct from `admin_api_key_created`, which governs
-organization administration rather than compliance read scopes.
+Compliance-scoped API keys read organization audit activity and compliance data. Once an attacker has administrative
+access, creating one gives them programmatic read of chats, files, and membership without an interactive session. This
+is separate from admin API key creation, which covers organization administration rather than compliance read scopes.
 """
 false_positives = [
     """
     Platform and security teams create compliance-scoped API keys when onboarding the Anthropic Fleet integration or
-    standing up SIEM ingestion. Verify the actor and whether the key appears in your approved credentials inventory.
+    setting up SIEM ingestion. Verify the actor and confirm the key is in the approved credentials inventory.
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic Compliance API Key Created"
 note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance API Key Created
 
-This rule matches `api_key_created` events where the key receives compliance read scopes. Review
+This rule matches `api_key_created` events where the new key carries compliance read scopes. Review
 `anthropic.audit.scopes` for the exact permissions granted.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.api_key_id`, `anthropic.audit.scopes`, and `anthropic.audit.actor.type`.
-- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- When the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
-- Hunt for subsequent `compliance_api_accessed` events using `anthropic.audit.api_key_id` to confirm programmatic use.
-  There is no standalone production rule for that activity type; use it as a manual correlation pivot.
-- Confirm the creation aligns with an approved integration or investigation project.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
+- Pivot on `anthropic.audit.api_key_id` and look for later `compliance_api_accessed` events to confirm programmatic
+  use. There is no standalone production rule for that activity, so use it as a manual correlation pivot.
+- Confirm the creation matches an approved integration or investigation ticket.
 
 ### False positive analysis
 
-- Fleet onboarding commonly creates the first compliance-scoped key for an organization.
+- Fleet onboarding usually creates the first compliance-scoped key for an organization.
 
 ### Response and remediation
 
@@ -68,13 +66,18 @@ tags = [
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "configuration" and
-    event.action: "api_key_created" and
-    anthropic.audit.scopes: ("read:compliance_activities" or "read:compliance_org_data")
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action == "api_key_created" and
+    (
+        mv_contains(anthropic.audit.scopes, "read:compliance_activities") or
+        mv_contains(anthropic.audit.scopes, "read:compliance_org_data")
+    )
+| keep *
 '''
 
 

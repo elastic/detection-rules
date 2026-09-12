@@ -1,43 +1,41 @@
 [metadata]
-creation_date = "2026/06/10"
+creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/06/16"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
-Verified organization domains control which email addresses can join or be captured into an Anthropic tenant. An
-adversary who verifies, claims, adds, or removes a domain can expand or shift the tenant boundary to include
-attacker-controlled mailboxes or exclude legitimate corporate domains. These events are infrequent and affect
-organization-wide membership trust.
+Verified organization domains control which email addresses can join or be pulled into an Anthropic tenant. Verifying,
+claiming, adding, or removing a domain changes the tenant boundary and can pull in attacker-controlled mailboxes or
+push out legitimate corporate domains. These events are infrequent and affect organization-wide membership trust.
 """
 false_positives = [
     """
-    IT and identity teams verify or add corporate domains during tenant onboarding, mergers, or DNS migrations. Confirm
-    the domain and actor against change management records.
+    IT and identity teams verify or add corporate domains during tenant onboarding, mergers, or DNS migrations.
+    Confirm the domain and actor against change management records.
     """,
 ]
 from = "now-9m"
-index = ["logs-anthropic.audit-*"]
-language = "kuery"
+language = "esql"
 license = "Elastic License v2"
 name = "Anthropic Organization Domain Boundary Changed"
 note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Domain Boundary Changed
 
-Domain events change which email domains are trusted for the organization. Review `event.action` to determine
-whether a domain was verified, added, removed, or claimed.
+Domain events change which email domains are trusted for the organization. Check `event.action` to see whether a
+domain was verified, added, removed, or claimed.
 
 #### Possible investigation steps
 
 - Review `event.action`, `anthropic.audit.domain`, `anthropic.audit.actor.type`, and `organization.id`.
-- `anthropic.audit.domain` may be empty on `org_domain_add_initiated` or `domain_claim_initiated`; pivot on
-  `organization.id` and nearby domain events when the field is missing.
-- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- `anthropic.audit.domain` can be empty on `org_domain_add_initiated` or `domain_claim_initiated`. When it is missing,
+  pivot on `organization.id` and nearby domain events.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - For `domain_claim_initiated`, confirm whether a domain capture attempt was expected.
-- Search for related invite, SSO, or membership changes in the same window.
+- Look for related invite, SSO, or membership changes in the same window.
 
 ### False positive analysis
 
@@ -45,7 +43,8 @@ whether a domain was verified, added, removed, or claimed.
 
 ### Response and remediation
 
-- If unauthorized, revert the domain change with Anthropic administration and review users added under the affected domain.
+- If unauthorized, revert the domain change with Anthropic administration and review users added under the affected
+  domain.
 
 ## Setup
 
@@ -68,17 +67,20 @@ tags = [
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset: "anthropic.audit" and
-    event.category: "configuration" and
-    event.action: (
-        "org_domain_verified" or
-        "org_domain_removed" or
-        "org_domain_add_initiated" or
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "configuration" and
+    event.action in (
+        "org_domain_verified",
+        "org_domain_removed",
+        "org_domain_add_initiated",
         "domain_claim_initiated"
     )
+| keep *
 '''
 
 
