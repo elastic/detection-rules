@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+An audit log export archive was accessed, meaning the actor downloaded exported audit activity. Attackers pull audit
+exports to see what defenders can observe, look for detection gaps, or remove evidence before making other
+control-plane changes.
+"""
+false_positives = [
+    """
+    Security and compliance teams download audit log exports for investigations, regulatory requests, or SIEM
+    validation. Validate the actor and confirm the activity matches an approved ticket.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Compliance Audit Log Export Accessed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance Audit Log Export Accessed
+
+The audit export archive was accessed or downloaded. Correlate with `audit_log_export_started` for the same
+`organization.id` to see who requested the export and when.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
+  The export window shows which administrative activity the actor reviewed.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Look for a preceding `audit_log_export_started` event, and check whether the export window covers recent IAM or
+  logging changes.
+- Check whether the download preceded compliance logging changes, SSO changes, or data exports. That sequence is a
+  common recon step before further intrusion.
+- Correlate with compliance logging changes, admin role grants, or data exports in the same period.
+
+### False positive analysis
+
+- Planned audit exports for compliance reviews or SIEM onboarding are expected in some environments.
+
+### Response and remediation
+
+- If unauthorized, revoke access for the actor and determine whether the exported audit data left the organization.
+- Review whether compliance API logging was disabled or modified around the same time.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1530/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "754f378f-5828-4ab7-ba3c-01ad4365b474"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "file" and
+    event.action == "audit_log_export_accessed"
+| keep *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.from_date",
+    "anthropic.audit.to_date",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
