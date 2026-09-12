@@ -17,14 +17,13 @@ permissions:
   statuses: write
   actions: read
 
-# Cancel only when a replacement producer actually starts (closed, or labeled
-# backport: auto). Unrelated post-merge label/unlabel events must not share this
-# group — they would cancel the in-flight run and then skip every status job,
-# leaving the merge SHA stuck pending until the gate times out.
+# Merged backport: auto producers share one group and queue (cancel-in-progress
+# false). Merge queue only serializes main — without this, two PRs race on 8.19.
+# Open-PR / non-producer events keep unique groups so they do not block producers.
+# Double-quoted so YAML does not treat "backport: auto" as a mapping.
 concurrency:
-  # Double-quoted so YAML does not treat "backport: auto" as a mapping.
-  group: "${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && format('release-line-producer-{0}', github.event.pull_request.merge_commit_sha) || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}"
-  cancel-in-progress: true
+  group: "${{ github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto')) && 'release-line-producer' || format('backport-event-{0}-{1}-{2}', github.event.pull_request.number, github.event.action, github.run_id) }}"
+  cancel-in-progress: ${{ !(github.event.pull_request.merged && (github.event.action == 'closed' || (github.event.action == 'labeled' && github.event.label.name == 'backport: auto'))) }}
 
 jobs:
   get-branches:
@@ -76,8 +75,8 @@ jobs:
     # Per matrix shard. With max-parallel: 1 and four targets, wall-clock ≤ 4× this.
     # release-line-caught-up gate WAIT must cover this plus mark-caught-up.
     timeout-minutes: 30
-    # Serialize pushes per release branch across concurrent backport workflow
-    # runs (different PRs). max-parallel only serializes within one matrix.
+    # Belt-and-suspenders with workflow-level release-line-producer lock:
+    # serialize pushes per release branch if anything else advances the tip.
     concurrency:
       group: backport-commit-${{ matrix.target_branch }}
       cancel-in-progress: false
@@ -186,18 +185,23 @@ jobs:
           echo "Amend the commit message and push"
           git commit --amend -F $COMMIT_MSG_FILE
 
-          # Retry on non-fast-forward races that sneak past job concurrency.
-          for attempt in 1 2 3 4 5; do
-            if git push origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
-              exit 0
-            fi
-            echo "Push rejected (attempt ${attempt}); fetch + rebase onto latest tip"
+          # Re-fetch/rebase before each push — covers manual tip moves and any
+          # race that slips past the workflow-level producer lock.
+          pushed=
+          for attempt in 1 2 3; do
             git fetch origin "${TARGET_BRANCH}"
-            git rebase "origin/${TARGET_BRANCH}"
-            sleep $((attempt * 3))
+            git rebase "origin/${TARGET_BRANCH}" || exit 1
+            if git push origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
+              pushed=1
+              break
+            fi
+            echo "Push rejected (attempt ${attempt}); retrying after sleep"
+            sleep 5
           done
-          echo "Failed to push after retries"
-          exit 1
+          if [ -z "${pushed}" ]; then
+            echo "Failed to push after retries"
+            exit 1
+          fi
 
       - name: "Notify slack on failure"
         uses: craftech-io/slack-action@fb1d4e50375d7758efb90fa0564734bae931f84f # v1
