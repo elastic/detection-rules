@@ -34,7 +34,7 @@ Linux environments often utilize various tools for system administration and sec
 
 ### Possible investigation steps
 
-- Review the process name that triggered the alert to determine if it matches any known hacking tools listed in the query, such as "crackmapexec" or "sqlmap".
+- Review the process name and command-line arguments that triggered the alert to determine if they identify any known hacking tools listed in the query, such as "crackmapexec" or "sqlmap".
 - Check the user account associated with the process execution to assess if it is a legitimate user or potentially compromised.
 - Investigate the source and destination IP addresses involved in the process execution to identify any unusual or unauthorized network activity.
 - Examine the command line arguments used during the process execution to understand the intent and scope of the activity.
@@ -132,11 +132,8 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "p
   ) or
   (
     process.name in~ ("bash", "dash", "sh", "zsh", "ksh", "fish", "busybox") and (
-      process.args : ("*linenum.sh", "*linpeas.sh", "*linux-exploit-suggester.sh", "*panix.sh") or
-      (
-        process.args == null and
-        process.command_line : ("*linenum.sh*", "*linpeas.sh*", "*linux-exploit-suggester.sh*", "*panix.sh*")
-      )
+      process.args : ("*linenum.sh*", "*linpeas.sh*", "*linux-exploit-suggester.sh*", "*panix.sh*") or
+      process.command_line : ("*linenum.sh*", "*linpeas.sh*", "*linux-exploit-suggester.sh*", "*panix.sh*")
     )
   ) or
   (
