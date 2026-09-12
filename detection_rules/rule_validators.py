@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property, wraps
-from typing import Any
+from typing import Any, cast
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import kql  # type: ignore[reportMissingTypeStubs]
@@ -79,6 +79,36 @@ class ValidationTarget:
     # Optional context about schema selection
     beat_types: list[str] | None = None
     integration_types: list[str] | None = None
+
+
+def deduplicate_validation_targets(targets: list[ValidationTarget]) -> list[ValidationTarget]:
+    """Keep only the first target for each distinct parser input."""
+    unique: list[ValidationTarget] = []
+    seen: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+
+    for target in targets:
+        schema = target.schema
+        if isinstance(schema, dict):
+            fields: dict[str, Any] | None = cast("dict[str, Any]", schema)
+        elif isinstance(schema, ecs.KqlSchema2Eql):
+            fields = schema.kql_schema
+        elif isinstance(schema, endgame.EndgameSchema):
+            fields = schema.endgame_schema
+        else:
+            unique.append(target)
+            continue
+
+        # Trailers / beat/integration metadata only affect error reporting.
+        schema_type = type(cast("object", schema))
+        key = (target.query_text, target.min_stack_version, schema_type)
+        schemas = seen.setdefault(key, [])
+        if fields in schemas:
+            continue
+
+        schemas.append(fields)
+        unique.append(target)
+
+    return unique
 
 
 class ExtendedTypeHint(Enum):
@@ -152,6 +182,16 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
 eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage] # noqa: SLF001
 
 
+# Integration targets do not union the full ECS schema (packages populate only a subset of it); the hint tells the
+# author where a field the package populates without declaring belongs.
+INTEGRATION_SCHEMA_HINT = (
+    "Only fields the package field files declare (plus the non-ecs-schema.json and integration-emitted-ecs-schema.json "
+    "entries for the rule's index patterns) are accepted; the full ECS schema is not unioned. Add genuinely populated "
+    "ECS fields to detection_rules/etc/integration-emitted-ecs-schema.json and fields outside ECS to "
+    "detection_rules/etc/non-ecs-schema.json"
+)
+
+
 class KQLValidator(QueryValidator):
     """Specific fields for KQL query event types."""
 
@@ -221,6 +261,7 @@ class KQLValidator(QueryValidator):
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
                     f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -262,7 +303,7 @@ class KQLValidator(QueryValidator):
                     )
                 )
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: QueryRuleData, meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethod]
         """Validate the query using computed schema combinations, favoring integrations when present."""
@@ -426,7 +467,8 @@ class EQLValidator(QueryValidator):
                 stack_version = integ["stack_version"]
                 ecs_version = integ["ecs_version"]
                 package = integ["package"]
-                schema = integ["schema"]
+                # copy: the integration schema is memoized and shared across rules
+                schema = dict(integ["schema"])
                 # prepare with index/custom/endpoint fields
                 if data.index_or_dataview:
                     for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
@@ -448,6 +490,7 @@ class EQLValidator(QueryValidator):
                 pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
                     f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -517,7 +560,8 @@ class EQLValidator(QueryValidator):
                         package_version = integ["package_version"]
                         stack_version = integ["stack_version"]
                         ecs_version = integ["ecs_version"]
-                        schema_dict = integ["schema"]
+                        # copy: the integration schema is memoized and shared across rules
+                        schema_dict = dict(integ["schema"])
 
                         # prepare schema
                         if data.index_or_dataview:
@@ -534,6 +578,7 @@ class EQLValidator(QueryValidator):
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
                             f"stack: {stack_version}, ecs: {ecs_version}\n"
+                            f"{INTEGRATION_SCHEMA_HINT}\n"
                             f"rule: {data.name} - {data.rule_id}"
                         )
                         targets.append(
@@ -589,7 +634,7 @@ class EQLValidator(QueryValidator):
         if need_stack_targets:
             add_stack_targets(self.query, include_endgame=True)
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
