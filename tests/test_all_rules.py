@@ -930,7 +930,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     @unittest.skipIf(os.getenv("GITHUB_EVENT_NAME") == "push", "Skipping this test when not running on pull requests.")
     def test_rule_change_has_updated_date(self):
-        """Fail when a modified rule lacks an updated_date bump and is not same-day UTC."""
+        """Pass when a modified rule bumps updated_date, is already today UTC, or omits it; else fail."""
 
         rules_path = get_path(["rules"])
         rules_bbr_path = get_path(["rules_building_block"])
@@ -983,9 +983,10 @@ class TestRuleMetadata(BaseRuleTest):
                 failed_rules.append(f"{modified_rule_path}")
 
             if failed_rules:
-                fail_msg = """
-                The following rules in the below path(s) have been modified but updated_date has not been changed \n
-                """
+                fail_msg = (
+                    "Modified rules must bump updated_date, already be today's UTC date, "
+                    "or omit metadata.updated_date. Failed:\n"
+                )
                 self.fail(fail_msg + "\n".join(failed_rules))
 
     @unittest.skipIf(
