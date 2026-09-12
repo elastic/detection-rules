@@ -179,9 +179,30 @@ def get_all_flattened_schema() -> dict[str, Any]:
 
 
 @cached
-def get_non_ecs_schema() -> Any:
-    """Load non-ecs schema."""
+def get_strict_non_ecs_schema() -> Any:
+    """Load the fields that are not part of ECS at all (vendor- or use-case-specific), keyed by index pattern."""
     return load_etc_dump(["non-ecs-schema.json"])
+
+
+@cached
+def get_integration_emitted_ecs_schema() -> Any:
+    """Load the ECS fields integrations populate without declaring them in their field files, keyed by index pattern."""
+    return load_etc_dump(["integration-emitted-ecs-schema.json"])
+
+
+@cached
+def get_non_ecs_schema() -> Any:
+    """Load the combined schema of fields accepted on top of ECS and the integration field files.
+
+    The two source files are kept apart only for bookkeeping: `non-ecs-schema.json` holds fields that are not ECS,
+    `integration-emitted-ecs-schema.json` holds ECS fields an integration emits without declaring. Both serve the
+    same purpose in validation, so they are merged here per index pattern.
+    """
+    combined: dict[str, Any] = {}
+    for schema in (get_strict_non_ecs_schema(), get_integration_emitted_ecs_schema()):
+        for index_pattern, fields in schema.items():
+            combined.setdefault(index_pattern, {}).update(fields)
+    return combined
 
 
 @cached
@@ -212,6 +233,13 @@ def flatten_multi_fields(schema: dict[str, Any]) -> dict[str, Any]:
             converted[field + "." + subfield["name"]] = subfield["type"]
 
     return converted
+
+
+@cached
+def get_flat_ecs_schema(version: str | None = None) -> dict[str, Any]:
+    """Get the flattened `field -> type` ECS schema by version."""
+    # cached: the returned dict is shared, so callers must treat it as read-only
+    return flatten_multi_fields(get_schema(version, name="ecs_flat"))
 
 
 class KqlSchema2Eql(eql.Schema):
@@ -257,7 +285,8 @@ def get_kql_schema(
 ) -> dict[str, Any]:
     """Get schema for KQL."""
     indexes = indexes or []
-    converted = flatten_multi_fields(get_schema(version, name="ecs_flat"))
+    # copy: get_flat_ecs_schema hands back a shared dict and this function mutates it
+    converted = dict(get_flat_ecs_schema(version))
 
     # non-ecs schema
     for index_name in indexes:
