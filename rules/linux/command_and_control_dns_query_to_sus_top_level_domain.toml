@@ -4,20 +4,20 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
-updated_date = "2026/07/20"
+updated_date = "2026/09/10"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects DNS queries to commonly abused top level domains. Malware authors may use these
-domains to host command and control infrastructure, exfiltrate data, or to download payloads
-for later execution.
+This rule detects unusual DNS queries to commonly abused top level domains. Malware authors may
+use these domains to host command and control infrastructure, exfiltrate data, or to download
+payloads for later execution.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.network-*"]
-language = "eql"
+language = "kuery"
 license = "Elastic License v2"
-name = "DNS Request to Suspicious Top Level Domain"
+name = "Unusual DNS Request to Suspicious Top Level Domain"
 note = """ ## Triage and analysis
 
 > **Disclaimer**:
@@ -63,15 +63,15 @@ tags = [
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "new_terms"
 query = '''
-network where host.os.type == "linux" and dns.question.name != null and process.name != null and
-dns.question.name like~ (
-  "*.forum", "*.pro", "*.team", "*.lol", "*.kr", "*.ke", "*.nu", "*.space", "*.capital", "*.in", "*.cfd", "*.online",
-  "*.ru", "*.info", "*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.network",
-  "*.monster", "*.marketing", "*.cyou", "*.quest", "*.cc", "*.bar", "*.click", "*.cam", "*.surf", "*.tk", "*.shop",
-  "*.club", "*.icu", "*.pw", "*.ws", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.mom",
-  "*.beauty", "*.bond", "*.biz", "*.live", "*.zone"
+event.category:network and host.os.type:linux and process.executable:* and dns.question.name:
+(
+  *.forum or *.pro or *.team or *.lol or *.kr or *.ke or *.nu or *.space or *.capital or *.in or *.cfd or *.online or
+  *.ru or *.info or *.top or *.buzz or *.xyz or *.rest or *.ml or *.cf or *.gq or *.ga or *.onion or *.network or
+  *.monster or *.marketing or *.cyou or *.quest or *.cc or *.bar or *.click or *.cam or *.surf or *.tk or *.shop or
+  *.club or *.icu or *.pw or *.ws or *.fun or *.life or *.boats or *.store or *.hair or *.mom or *.beauty or *.bond or
+  *.biz or *.live or *.zone
 )
 '''
 
@@ -155,3 +155,11 @@ reference = "https://attack.mitre.org/techniques/T1567/003/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable", "dns.question.name"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
