@@ -2,7 +2,7 @@
 creation_date = "2025/02/25"
 integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2025/09/25"
+updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
@@ -63,12 +63,15 @@ https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitori
 """
 severity = "medium"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: Azure OpenAI",
     "Data Source: Azure Event Hubs",
     "Use Case: Model Theft",
-    "Mitre Atlas: T0044",
     "Resources: Investigation Guide",
+    "Domain: Cloud",
+    "Service: Azure OpenAI",
+    "Mitre Atlas: AML.T0044",
+    "Mitre Atlas: AML.T0024.002",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -98,3 +101,32 @@ from logs-azure_openai.logs-*
     Esql.event_count desc
 '''
 
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0044"
+name = "Full AI Model Access"
+reference = "https://atlas.mitre.org/techniques/AML.T0044/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0000"
+name = "AI Model Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0000/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0024"
+name = "Exfiltration via AI Inference API"
+reference = "https://atlas.mitre.org/techniques/AML.T0024/"
+[[rule.threat_mappings.threat.technique.subtechnique]]
+id = "AML.T0024.002"
+name = "Extract AI Model"
+reference = "https://atlas.mitre.org/techniques/AML.T0024.002/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"

@@ -2,7 +2,7 @@
 creation_date = "2024/05/02"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/09/25"
+updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
@@ -65,13 +65,15 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "high"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS Bedrock",
     "Data Source: AWS S3",
     "Resources: Investigation Guide",
     "Use Case: Policy Violation",
-    "Mitre Atlas: T0015",
-    "Mitre Atlas: T0034",
+    "Domain: Cloud",
+    "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0015",
+    "Mitre Atlas: AML.T0034",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -109,3 +111,28 @@ from logs-aws_bedrock.invocation-*
 [rule.investigation_fields]
 field_names = ["user.id", "cloud.account.id", "gen_ai.request.model.id", "total_denials"]
 
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0015"
+name = "Evade AI Model"
+reference = "https://atlas.mitre.org/techniques/AML.T0015/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0034"
+name = "Cost Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0034/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"

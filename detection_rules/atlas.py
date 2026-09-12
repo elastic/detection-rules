@@ -3,174 +3,319 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Mitre ATLAS info."""
+"""MITRE ATLAS info, versioned like ATT&CK (`atlas-v*.json.gz`)."""
 
+from __future__ import annotations
+
+import json
 from collections import OrderedDict
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import requests
 import yaml
-from semver import Version
 
-from .utils import cached, clear_caches, get_etc_path
+from .utils import cached, clear_caches, get_etc_glob_path, get_etc_path, gzip_compress, read_gzip
 
-ATLAS_FILE = get_etc_path(["ATLAS.yaml"])
+if TYPE_CHECKING:
+    from pathlib import Path
 
-# Maps tactic name to tactic ID (e.g., "Collection" -> "AML.TA0009")
-tactics_map: dict[str, str] = {}
-technique_lookup: dict[str, dict[str, Any]] = {}
-matrix: dict[str, list[str]] = {}  # Maps tactic name to list of technique IDs
+ATLAS_JSON_GZ_PATTERN = "atlas-v*.json.gz"
+ATLAS_DIST_BASE = "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist"
+ATLAS_MANIFEST_URL = f"{ATLAS_DIST_BASE}/manifest.yaml"
+ATLAS_URL_BASE = "https://atlas.mitre.org/{type}/{id}/"
+# AML.T0000 vs AML.T0000.000 — sub-techniques contain two dots.
+ATLAS_SUBTECHNIQUE_DOT_COUNT = 2
+# Stack at which MITRE ATLAS threat mappings are shipped (emit transform gate).
+# Keep in sync with stack_emit.MITRE_ATLAS_MIN_STACK.
+MITRE_ATLAS_MIN_STACK_MAJOR_MINOR = (9, 6)
+
+
+def _atlas_file_version_key(path: Path) -> tuple[int, ...]:
+    """Sort key for an atlas-v*.json.gz filename (content version, e.g. 2026.08 or 5.1.0)."""
+    ver = path.name.split("-v", 1)[1][: -len(".json.gz")]
+    parts: list[int] = []
+    for part in ver.split("."):
+        try:
+            parts.append(int(part))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
+def get_atlas_file_path() -> Path:
+    """Return the latest ATLAS data file (highest content version)."""
+    atlas_files = get_etc_glob_path([ATLAS_JSON_GZ_PATTERN])
+    if not atlas_files:
+        raise FileNotFoundError(f"Missing required {ATLAS_JSON_GZ_PATTERN} file")
+    return max(atlas_files, key=_atlas_file_version_key)
+
+
+def get_atlas_file_path_for_version(version: str) -> Path:
+    """Return the ATLAS data file whose content version matches `version`."""
+    wanted = str(version).lstrip("v")
+    atlas_files = get_etc_glob_path([ATLAS_JSON_GZ_PATTERN])
+    for path in atlas_files:
+        file_ver = path.name.split("-v", 1)[1][: -len(".json.gz")]
+        if file_ver == wanted:
+            return path
+    available = [p.name.split("-v", 1)[1][: -len(".json.gz")] for p in atlas_files]
+    raise FileNotFoundError(f"No ATLAS data file found for version {version!r}. Available: {available}")
+
+
+def _current_atlas_version() -> str:
+    try:
+        path = get_atlas_file_path()
+    except FileNotFoundError:
+        return "unknown"
+    return path.name.split("-v", 1)[1][: -len(".json.gz")]
+
+
+CURRENT_ATLAS_VERSION = _current_atlas_version()
+
+
+def load_atlas_gz() -> dict[str, Any]:
+    """Load the latest ATLAS JSON payload."""
+    return json.loads(read_gzip(get_atlas_file_path()))
+
+
+@dataclass
+class AtlasLookups:
+    """Pre-built ATLAS lookup structures for a specific content version."""
+
+    version: str
+    tactics_map: dict[str, str]
+    tactic_id_to_detail: dict[str, dict[str, str]]
+    technique_lookup: OrderedDict[str, dict[str, Any]]
+    matrix: dict[str, list[str]]
+
+
+def _normalize_atlas_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize v5 (legacy matrices list) and v6 (collection + dict maps) payloads."""
+    if "collection" in raw and "tactics" in raw and isinstance(raw.get("tactics"), dict):
+        version = str(raw.get("collection", {}).get("version") or raw.get("format-version") or "unknown")
+        tactics_list = list(raw["tactics"].values())
+        techniques_list = list(raw.get("techniques", {}).values()) if isinstance(raw.get("techniques"), dict) else []
+        relationships = raw.get("relationships") or {}
+        return {
+            "version": version,
+            "tactics": tactics_list,
+            "techniques": techniques_list,
+            "relationships": relationships,
+        }
+
+    # v5 / legacy: version + matrices[].tactics / techniques
+    version = str(raw.get("version") or "unknown")
+    matrices = raw.get("matrices") or []
+    matrix_data = None
+    for matrix in matrices:
+        if matrix.get("id") == "ATLAS":
+            matrix_data = matrix
+            break
+    if matrix_data is None and matrices:
+        matrix_data = matrices[0]
+    matrix_data = matrix_data or {}
+    return {
+        "version": version,
+        "tactics": matrix_data.get("tactics") or [],
+        "techniques": matrix_data.get("techniques") or [],
+        "relationships": {},
+    }
+
+
+def _tactics_for_technique(
+    technique: dict[str, Any],
+    relationships: dict[str, Any],
+    tactic_id_to_name: dict[str, str],
+) -> list[str]:
+    """Return tactic IDs for a technique from v6 relationships or a v5 tactics field."""
+    tech_id = technique.get("id", "")
+    rel = relationships.get(tech_id) or {}
+    achieved = [entry.get("target") for entry in rel.get("achieves") or [] if entry.get("target")]
+    if achieved:
+        return [tid for tid in achieved if tid in tactic_id_to_name]
+    raw_tactics = technique.get("tactics") or []
+    return [tid for tid in raw_tactics if tid in tactic_id_to_name]
+
+
+def _build_lookups(version: str, raw: dict[str, Any]) -> AtlasLookups:
+    """Build ATLAS lookup structures from a normalized or raw ATLAS payload."""
+    normalized = _normalize_atlas_payload(raw)
+    version = version or str(normalized.get("version") or "unknown")
+
+    tactics_map: dict[str, str] = {}
+    tactic_id_to_detail: dict[str, dict[str, str]] = {}
+    for tactic in normalized["tactics"]:
+        tactic_id = str(tactic["id"])
+        tactic_name = str(tactic["name"])
+        tactics_map[tactic_name] = tactic_id
+        tactic_id_to_detail[tactic_id] = {
+            "id": tactic_id,
+            "name": tactic_name,
+            "reference": ATLAS_URL_BASE.format(type="tactics", id=tactic_id),
+        }
+
+    technique_lookup: dict[str, dict[str, Any]] = {}
+    matrix: dict[str, list[str]] = {name: [] for name in tactics_map}
+    relationships = normalized.get("relationships") or {}
+
+    for technique in normalized["techniques"]:
+        technique_id = str(technique["id"])
+        tactic_ids = _tactics_for_technique(technique, relationships, tactic_id_to_detail)
+        technique_lookup[technique_id] = {
+            "name": technique["name"],
+            "id": technique_id,
+            "tactics": tactic_ids,
+        }
+        for tactic_id in tactic_ids:
+            tactic_name = tactic_id_to_detail[tactic_id]["name"]
+            if technique_id not in matrix[tactic_name]:
+                matrix[tactic_name].append(technique_id)
+
+    for val in matrix.values():
+        val.sort(key=lambda tid: technique_lookup.get(tid, {}).get("name", "").lower())
+
+    return AtlasLookups(
+        version=version,
+        tactics_map=tactics_map,
+        tactic_id_to_detail=tactic_id_to_detail,
+        technique_lookup=OrderedDict(sorted(technique_lookup.items())),
+        matrix=matrix,
+    )
 
 
 @cached
-def get_atlas_file_path() -> Path:
-    """Get the path to the ATLAS YAML file."""
-    if not ATLAS_FILE.exists():
-        # Try to download it if it doesn't exist
-        _ = download_atlas_data()
-    return ATLAS_FILE
+def build_atlas_lookups_for_version(version: str) -> AtlasLookups:
+    """Load and cache ATLAS lookup structures for a specific content version."""
+    path = get_atlas_file_path_for_version(version)
+    raw = json.loads(read_gzip(path))
+    return _build_lookups(version, raw)
+
+
+def _empty_lookups() -> AtlasLookups:
+    return AtlasLookups(
+        version="unknown",
+        tactics_map={},
+        tactic_id_to_detail={},
+        technique_lookup=OrderedDict(),
+        matrix={},
+    )
+
+
+def _load_latest_lookups() -> AtlasLookups:
+    if CURRENT_ATLAS_VERSION == "unknown":
+        return _empty_lookups()
+    try:
+        return build_atlas_lookups_for_version(CURRENT_ATLAS_VERSION)
+    except FileNotFoundError:
+        return _empty_lookups()
+
+
+_latest = _load_latest_lookups()
+tactics_map = _latest.tactics_map
+technique_lookup = _latest.technique_lookup
+matrix = _latest.matrix
+tactics = list(tactics_map)
+techniques = sorted({v["name"] for _, v in technique_lookup.items()})
+technique_id_list = [t for t in technique_lookup if t.count(".") < ATLAS_SUBTECHNIQUE_DOT_COUNT]
+sub_technique_id_list = [t for t in technique_lookup if t.count(".") >= ATLAS_SUBTECHNIQUE_DOT_COUNT]
+
+
+def _latest_manifest_release() -> tuple[str, str]:
+    """Return (content_version, dist-relative yaml path) for the newest v6 ATLAS release."""
+    response = requests.get(ATLAS_MANIFEST_URL, timeout=30)
+    response.raise_for_status()
+    manifest = yaml.safe_load(response.text)
+    if not isinstance(manifest, list) or not manifest:
+        raise ValueError("ATLAS manifest is empty or invalid")
+
+    def _release_key(entry: dict[str, Any]) -> tuple[int, ...]:
+        rel = str(entry.get("release") or "0")
+        parts: list[int] = []
+        for part in rel.split("."):
+            try:
+                parts.append(int(part))
+            except ValueError:
+                parts.append(0)
+        return tuple(parts)
+
+    latest = max(manifest, key=_release_key)
+    content_version = str(latest["release"])
+    versions = latest.get("versions") or []
+    v6 = next((v for v in versions if str(v.get("format-version", "")).startswith("6.")), None)
+    if v6 is None and versions:
+        v6 = versions[0]
+    if v6 is None or not v6.get("path"):
+        raise ValueError(f"No ATLAS distribution path for release {content_version}")
+    return content_version, str(v6["path"])
 
 
 def download_atlas_data(save: bool = True) -> dict[str, Any] | None:
-    """Download ATLAS data from MITRE."""
-    url = "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/ATLAS.yaml"
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    atlas_data = yaml.safe_load(r.text)
+    """Download the latest ATLAS YAML and optionally persist it as versioned json.gz."""
+    content_version, rel_path = _latest_manifest_release()
+    url = f"{ATLAS_DIST_BASE}/{rel_path.lstrip('/')}"
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    atlas_data = yaml.safe_load(response.text)
+    if not isinstance(atlas_data, dict):
+        raise TypeError("ATLAS download did not return a mapping")
 
     if save:
-        _ = ATLAS_FILE.write_text(r.text)
-        print(f"Downloaded ATLAS data to {ATLAS_FILE}")
+        compressed = gzip_compress(json.dumps(atlas_data, sort_keys=True, default=str))
+        new_path = get_etc_path([f"atlas-v{content_version}.json.gz"])
+        _ = new_path.write_bytes(compressed)
+        print(f"Downloaded ATLAS {content_version} to {new_path}")
 
     return atlas_data
 
 
-@cached
-def load_atlas_yaml() -> dict[str, Any]:
-    """Load ATLAS data from YAML file."""
-    atlas_file = get_atlas_file_path()
-    return yaml.safe_load(atlas_file.read_text())
-
-
-atlas = load_atlas_yaml()
-
-# Extract version
-CURRENT_ATLAS_VERSION = atlas.get("version", "unknown")
-
-# Process the ATLAS matrix
-# Look for the specific ATLAS matrix by ID, fall back to first matrix if not found
-ATLAS_MATRIX_ID = "ATLAS"
-matrix_data = None
-
-if "matrices" in atlas and len(atlas["matrices"]) > 0:
-    # Try to find the ATLAS matrix by ID
-    for m in atlas["matrices"]:
-        if m.get("id") == ATLAS_MATRIX_ID:
-            matrix_data = m
-            break
-
-    # Fall back to first matrix if ATLAS matrix not found by ID
-    if matrix_data is None:
-        matrix_data = atlas["matrices"][0]
-
-if matrix_data is not None:
-    # Build tactics map
-    if "tactics" in matrix_data:
-        for tactic in matrix_data["tactics"]:
-            tactic_id = tactic["id"]
-            tactic_name = tactic["name"]
-            tactics_map[tactic_name] = tactic_id
-
-    # Build technique lookup and matrix
-    if "techniques" in matrix_data:
-        for technique in matrix_data["techniques"]:
-            technique_id = technique["id"]
-            technique_name = technique["name"]
-            technique_tactics = technique.get("tactics", [])
-
-            # Store technique info
-            technique_lookup[technique_id] = {
-                "name": technique_name,
-                "id": technique_id,
-                "tactics": technique_tactics,
-            }
-
-            # Build matrix: map tactic IDs to technique IDs
-            for tech_tactic_id in technique_tactics:
-                # Find tactic name from ID
-                tech_tactic_name = next((name for name, tid in tactics_map.items() if tid == tech_tactic_id), None)
-                if tech_tactic_name:
-                    if tech_tactic_name not in matrix:
-                        matrix[tech_tactic_name] = []
-                    if technique_id not in matrix[tech_tactic_name]:
-                        matrix[tech_tactic_name].append(technique_id)
-
-# Sort matrix values
-for val in matrix.values():
-    val.sort(key=lambda tid: technique_lookup.get(tid, {}).get("name", "").lower())
-
-technique_lookup = OrderedDict(sorted(technique_lookup.items()))
-techniques = sorted({v["name"] for _, v in technique_lookup.items()})
-technique_id_list = [t for t in technique_lookup if "." not in t]
-sub_technique_id_list = [t for t in technique_lookup if "." in t]
-tactics = list(tactics_map)
-
-
-def refresh_atlas_data(save: bool = True) -> dict[str, Any] | None:
-    """Refresh ATLAS data from MITRE."""
-    atlas_file = get_atlas_file_path()
-    current_version_str = CURRENT_ATLAS_VERSION
-
+def refresh_atlas_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes | None]:
+    """Refresh ATLAS data from MITRE when a newer content version exists."""
     try:
-        current_version = Version.parse(current_version_str, optional_minor_and_patch=True)
-    except (ValueError, TypeError):
-        # If version parsing fails, download anyway
-        current_version = Version.parse("0.0.0", optional_minor_and_patch=True)
+        current_key = _atlas_file_version_key(get_atlas_file_path())
+        current_version = CURRENT_ATLAS_VERSION
+    except FileNotFoundError:
+        current_key = (0,)
+        current_version = "none"
 
-    # Get latest version from GitHub
-    r = requests.get("https://api.github.com/repos/mitre-atlas/atlas-data/tags", timeout=30)
-    r.raise_for_status()
-    releases = r.json()
-    if not releases:
-        print("No releases found")
-        return None
+    content_version, rel_path = _latest_manifest_release()
+    latest_key = tuple(int(p) if p.isdigit() else 0 for p in str(content_version).split("."))
+    if current_key >= latest_key:
+        print(f"No versions newer than the current detected: {current_version}")
+        return None, None
 
-    # Find latest version (tags might be like "v5.1.0" or "5.1.0")
-    latest_release = None
-    latest_version = current_version
-    for release in releases:
-        tag_name = release["name"].lstrip("v")
-        try:
-            ver = Version.parse(tag_name, optional_minor_and_patch=True)
-            if ver > latest_version:
-                latest_version = ver
-                latest_release = release
-        except (ValueError, TypeError):
-            continue
-
-    if latest_release is None:
-        print(f"No versions newer than the current detected: {current_version_str}")
-        return None
-
-    download = f"https://raw.githubusercontent.com/mitre-atlas/atlas-data/{latest_release['name']}/dist/ATLAS.yaml"
-    r = requests.get(download, timeout=30)
-    r.raise_for_status()
-    atlas_data = yaml.safe_load(r.text)
+    url = f"{ATLAS_DIST_BASE}/{rel_path.lstrip('/')}"
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    atlas_data = yaml.safe_load(response.text)
+    compressed = gzip_compress(json.dumps(atlas_data, sort_keys=True, default=str))
 
     if save:
-        _ = atlas_file.write_text(r.text)
-        print(f"Replaced file: {atlas_file} with version {latest_version}")
+        new_path = get_etc_path([f"atlas-v{content_version}.json.gz"])
+        _ = new_path.write_bytes(compressed)
+        print(f"Saved ATLAS {content_version} to {new_path} (previous: {current_version})")
+        clear_caches()
 
-    # Clear cache to reload
-    clear_caches()
+    return atlas_data, compressed
 
-    return atlas_data
+
+def load_atlas_yaml() -> dict[str, Any]:
+    """Load ATLAS data (kept for callers that still expect YAML-shaped dicts)."""
+    return load_atlas_gz()
+
+
+def canonical_technique_id(technique_id: str) -> str:
+    """Normalize a tagged/authored ATLAS technique id to the AML.Txxxx form."""
+    tid = technique_id.strip()
+    if tid.upper().startswith("AML."):
+        return f"AML.{tid[4:]}" if tid.startswith("aml.") else tid
+    if tid.upper().startswith("T") and tid[1:2].isdigit():
+        return f"AML.{tid}"
+    return tid
 
 
 def build_threat_map_entry(tactic_name: str, *technique_ids: str) -> dict[str, Any]:
     """Build rule threat map from ATLAS technique IDs."""
-    url_base = "https://atlas.mitre.org/{type}/{id}/"
     tactic_id = tactics_map.get(tactic_name)
     if not tactic_id:
         raise ValueError(f"Unknown ATLAS tactic: {tactic_name}")
@@ -184,10 +329,11 @@ def build_threat_map_entry(tactic_name: str, *technique_ids: str) -> dict[str, A
         return {
             "id": _id,
             "name": tech_info["name"],
-            "reference": url_base.format(type="techniques", id=_id.replace(".", "/")),
+            "reference": ATLAS_URL_BASE.format(type="techniques", id=_id),
         }
 
-    for tid in technique_ids:
+    for raw_tid in technique_ids:
+        tid = canonical_technique_id(raw_tid)
         if tid not in technique_lookup:
             raise ValueError(f"Unknown ATLAS technique ID: {tid}")
 
@@ -196,11 +342,9 @@ def build_threat_map_entry(tactic_name: str, *technique_ids: str) -> dict[str, A
         if tactic_id not in tech_tactic_ids:
             raise ValueError(f"ATLAS technique ID: {tid} does not fall under tactic: {tactic_name}")
 
-        # Handle sub-techniques (e.g., AML.T0000.000)
-        if "." in tid and tid.count(".") > 1:
-            # This is a sub-technique
-            parts = tid.rsplit(".", 1)
-            parent_technique = parts[0]
+        # Sub-techniques are AML.T0000.000 (two dots)
+        if tid.count(".") >= ATLAS_SUBTECHNIQUE_DOT_COUNT:
+            parent_technique = tid.rsplit(".", 1)[0]
             tech_entries.setdefault(parent_technique, make_entry(parent_technique))
             tech_entries[parent_technique].setdefault("subtechnique", []).append(make_entry(tid))
         else:
@@ -211,7 +355,7 @@ def build_threat_map_entry(tactic_name: str, *technique_ids: str) -> dict[str, A
         "tactic": {
             "id": tactic_id,
             "name": tactic_name,
-            "reference": url_base.format(type="tactics", id=tactic_id),
+            "reference": ATLAS_URL_BASE.format(type="tactics", id=tactic_id),
         },
     }
 
