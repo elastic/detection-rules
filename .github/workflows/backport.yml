@@ -76,6 +76,11 @@ jobs:
     # Per matrix shard. With max-parallel: 1 and four targets, wall-clock ≤ 4× this.
     # release-line-caught-up gate WAIT must cover this plus mark-caught-up.
     timeout-minutes: 30
+    # Serialize pushes per release branch across concurrent backport workflow
+    # runs (different PRs). max-parallel only serializes within one matrix.
+    concurrency:
+      group: backport-commit-${{ matrix.target_branch }}
+      cancel-in-progress: false
     strategy:
       max-parallel: 1
       matrix:
@@ -139,8 +144,13 @@ jobs:
         run: |
           set -x
 
-          echo "Switch to the target branch and keep the staged changes"
-          git checkout ${{matrix.target_branch}}
+          TARGET_BRANCH="${{ matrix.target_branch }}"
+
+          # Re-fetch immediately before switching — tip can move during pip install
+          # while another PR's backport job is pushing the same release branch.
+          echo "Refresh ${TARGET_BRANCH} tip and keep staged changes"
+          git fetch origin "${TARGET_BRANCH}"
+          git checkout -B "${TARGET_BRANCH}" "origin/${TARGET_BRANCH}"
 
           NEEDS_BACKPORT=$(git diff HEAD --quiet --exit-code && echo n || echo y)
 
@@ -175,7 +185,19 @@ jobs:
 
           echo "Amend the commit message and push"
           git commit --amend -F $COMMIT_MSG_FILE
-          git push
+
+          # Retry on non-fast-forward races that sneak past job concurrency.
+          for attempt in 1 2 3 4 5; do
+            if git push origin "HEAD:refs/heads/${TARGET_BRANCH}"; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); fetch + rebase onto latest tip"
+            git fetch origin "${TARGET_BRANCH}"
+            git rebase "origin/${TARGET_BRANCH}"
+            sleep $((attempt * 3))
+          done
+          echo "Failed to push after retries"
+          exit 1
 
       - name: "Notify slack on failure"
         uses: craftech-io/slack-action@fb1d4e50375d7758efb90fa0564734bae931f84f # v1
