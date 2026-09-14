@@ -6,8 +6,10 @@
 """Functions to support and interact with Kibana integrations."""
 
 import fnmatch
+import functools
 import gzip
 import json
+import zipfile
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
@@ -24,7 +26,7 @@ from . import ecs
 from .beats import flatten_ecs_schema
 from .config import load_current_package_version
 from .schemas import definitions
-from .utils import cached, get_etc_path, read_gzip, unzip
+from .utils import cached, clear_caches, get_etc_path, read_gzip, unzip
 
 if TYPE_CHECKING:
     from .rule import QueryRuleData, RuleMeta
@@ -38,6 +40,7 @@ SCHEMA_FILE_PATH = get_etc_path(["integration-schemas.json.gz"])
 _notified_integrations: set[str] = set()
 
 
+# These loaders feed derived caches; use clear_caches(), not loader.clear(), to invalidate them.
 @cached
 def load_integrations_manifests() -> dict[str, Any]:
     """Load the consolidated integrations manifest."""
@@ -107,7 +110,72 @@ def build_integrations_manifest(
         manifest_file_contents[integration] = final_integration_manifests[integration]
         write_manifests(manifest_file_contents)
 
+    clear_caches()
     print(f"final integrations manifests dumped: {MANIFEST_FILE_PATH}")
+
+
+# Fields Elastic Agent adds to every document it ships, independent of the package, which package field files
+# rarely declare: the ECS agent, cloud and host field sets (host and cloud come from the add_host_metadata and
+# add_cloud_metadata processors Fleet enables by default), the data_stream constant keywords, and the two fields
+# stamped by Fleet's final ingest pipeline.
+ELASTIC_AGENT_FIELDSETS = ("agent", "cloud", "host")
+ELASTIC_AGENT_FIELDS = (
+    "data_stream.dataset",
+    "data_stream.namespace",
+    "data_stream.type",
+    "event.agent_id_status",
+    "event.ingested",
+)
+
+
+@cached
+def elastic_agent_fields() -> dict[str, str]:
+    """Fields Elastic Agent adds to every document it ships, mapped to their ECS types."""
+    ecs_flat: dict[str, Any] = ecs.get_schema(ecs.get_max_version(), name="ecs_flat")
+    selected = {name: ecs_flat[name] for name in ELASTIC_AGENT_FIELDS}
+    for name, info in ecs_flat.items():
+        fieldset, _, subpath = name.partition(".")
+        # skip the field sets ECS re-nests under host and cloud (host.geo.*, host.risk.*, *.entity.*) and the
+        # origin/target self-nestings, which no shipper populates
+        if (
+            fieldset in ELASTIC_AGENT_FIELDSETS
+            and info.get("original_fieldset") in (None, "os")
+            and not subpath.startswith(("origin.", "target."))
+        ):
+            selected[name] = info
+    return ecs.flatten_multi_fields(selected)
+
+
+def parse_version_schema(zip_ref: zipfile.ZipFile, package: str) -> dict[str, Any]:
+    """Parse the field files of an EPR package zip into a single version schema."""
+    version_schema: dict[str, Any] = {}
+
+    for file in zip_ref.namelist():
+        file_data_bytes = zip_ref.read(file)
+        # Check if the file is a match
+        if fnmatch.fnmatch(file, "*/fields/*.yml"):
+            integration_name = Path(file).parent.parent.name
+            # every data stream carries the Elastic Agent fields on top of what its field files declare
+            stream_schema: dict[str, str] = version_schema.setdefault(integration_name, dict(elastic_agent_fields()))
+            for field in flatten_ecs_schema(yaml.safe_load(file_data_bytes)):
+                stream_schema[field["name"]] = field["type"]
+                # Built packages resolve `external: ecs` references into explicit multi_fields (e.g. process.name
+                # -> a `text` variant), so a data stream that maps a field also maps its multi-field variants.
+                multi_fields: list[dict[str, Any]] = field.get("multi_fields") or []
+                for subfield in multi_fields:
+                    stream_schema[f"{field['name']}.{subfield['name']}"] = subfield.get("type", "keyword")
+
+        # add machine learning jobs to the schema
+        if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
+            file, "*/ml_module/*ml.json"
+        ):
+            ml_module = json.loads(file_data_bytes)
+            job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
+            version_schema["jobs"] = job_ids
+
+        del file_data_bytes
+
+    return version_schema
 
 
 def build_integrations_schemas(overwrite: bool, integration: str | None = None) -> None:
@@ -145,40 +213,16 @@ def build_integrations_schemas(overwrite: bool, integration: str | None = None) 
             response = requests.get(download_url, timeout=30)
             response.raise_for_status()
 
-            # Update the final integration schemas
-            final_integration_schemas[package].update({version: {}})  # type: ignore[reportUnknownMemberType]
-
             # Open the zip file
             with unzip(response.content) as zip_ref:
-                for file in zip_ref.namelist():
-                    file_data_bytes = zip_ref.read(file)
-                    # Check if the file is a match
-                    if fnmatch.fnmatch(file, "*/fields/*.yml"):
-                        integration_name = Path(file).parent.parent.name
-                        final_integration_schemas[package][version].setdefault(integration_name, {})  # type: ignore[reportUnknownMemberType]
-                        schema_fields = yaml.safe_load(file_data_bytes)
-
-                        # Parse the schema and add to the integration_manifests
-                        data = flatten_ecs_schema(schema_fields)
-                        flat_data = {field["name"]: field["type"] for field in data}
-
-                        final_integration_schemas[package][version][integration_name].update(flat_data)  # type: ignore[reportUnknownMemberType]
-
-                    # add machine learning jobs to the schema
-                    if package in [str.lower(x) for x in definitions.MACHINE_LEARNING_PACKAGES] and fnmatch.fnmatch(
-                        file, "*/ml_module/*ml.json"
-                    ):
-                        ml_module = json.loads(file_data_bytes)
-                        job_ids = [job["id"] for job in ml_module["attributes"]["jobs"]]
-                        final_integration_schemas[package][version]["jobs"] = job_ids
-
-                    del file_data_bytes
+                final_integration_schemas[package][version] = parse_version_schema(zip_ref, package)
 
     # Write the final integration schemas to disk
     with gzip.open(SCHEMA_FILE_PATH, "w") as schema_file:
         schema_file_bytes = json.dumps(final_integration_schemas).encode("utf-8")
         _ = schema_file.write(schema_file_bytes)
 
+    clear_caches()
     print(f"final integrations manifests dumped: {SCHEMA_FILE_PATH}")
 
 
@@ -231,12 +275,12 @@ def _parse_clause(clause: str) -> tuple[Version, Version | None]:
     return lo, hi
 
 
+@functools.cache
 def _parse_kibana_range(version_requirement: str) -> list[tuple[Version, Version | None]]:
-    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses.
-
-    Clauses separated by || are OR'd; whitespace-separated tokens within a
-    clause are AND'd.
-    """
+    """Parse an EPR conditions.kibana.version string into a list of [lo, hi) clauses."""
+    # clauses separated by || are OR'd; whitespace-separated tokens within a clause are AND'd
+    # this pure string-to-bounds cache intentionally does not participate in clear_caches()
+    # cached: the returned list is shared, so callers must treat it as read-only
     return [_parse_clause(c) for c in version_requirement.split("||")]
 
 
@@ -247,6 +291,13 @@ def _satisfies_kibana_range(stack: Version, version_requirement: str) -> bool:
 
 def find_latest_integration_patch_for_minor(packages: Iterable[str], major: int, minor: int) -> int:
     """Find the latest stack patch integration packages need for a major.minor."""
+    # freeze() does not handle sets, so normalize to a hashable frozenset before memoizing
+    return _latest_patch_for_minor(frozenset(packages), major, minor)
+
+
+@cached
+def _latest_patch_for_minor(packages: frozenset[str], major: int, minor: int) -> int:
+    """Memoized body of `find_latest_integration_patch_for_minor` against the bundled manifests."""
     # stack-schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its latest
     # package (and newly-added data streams) behind a later patch (e.g. azure ~8.19.10).
     # Resolving against the literal .0 falls back to an older package that predates the
@@ -492,9 +543,6 @@ def get_integration_schema_data(
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
     meta: RuleMeta = meta  # noqa: PLW0127
 
-    packages_manifest = load_integrations_manifests()
-    integrations_schemas = load_integrations_schemas()
-
     # validate the query against related integration fields
     if data.language != "lucene" and meta.maturity == "production":
         for stack_version, mapping in meta.get_validation_stack_versions().items():
@@ -512,21 +560,13 @@ def get_integration_schema_data(
                 max(parsed_stack_version.patch, patch_floor),
             )
 
-            ecs_schema = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
-
             for pk_int in package_integrations:
                 package = pk_int["package"]
                 integration = pk_int["integration"]
 
                 # Extract the integration schema fields
                 integration_schema, package_version = get_integration_schema_fields(
-                    integrations_schemas,
-                    package,
-                    integration,
-                    min_stack,
-                    packages_manifest,
-                    ecs_schema,
-                    data,
+                    package, integration, min_stack, data
                 )
 
                 yield {
@@ -540,32 +580,51 @@ def get_integration_schema_data(
                 }
 
 
-def get_integration_schema_fields(  # noqa: PLR0913, PLR0917
-    integrations_schemas: dict[str, Any],
+def get_integration_schema_fields(
     package: str,
     integration: str,
     min_stack: Version,
-    packages_manifest: dict[str, Any],
-    ecs_schema: dict[str, Any],
     data: Any,  # type: ignore[reportRedeclaration]
 ) -> tuple[dict[str, Any], str]:
+    """Extracts the integration fields to schema based on the bundled package integrations."""
     data: QueryRuleData = data  # type: ignore[reportAssignmentType]  # noqa: PLW0127
-    """Extracts the integration fields to schema based on package integrations."""
-    package_schemas = integrations_schemas.get(package, {}) if integration else None
-    package_version, notice = find_latest_compatible_version(
+    # Resolves against the bundled integration-manifests / integration-schemas via memoized helpers
+    # keyed on hashable args. The returned schema is memoized and shared, so callers must treat it
+    # as read-only.
+    package_version, notice = _latest_compatible_version_from_etc(package, integration, str(min_stack))
+    notify_user_if_update_available(data, list(notice), integration)
+
+    integration_schema = _integration_schema(package, package_version, integration)
+    return integration_schema, package_version
+
+
+@cached
+def _latest_compatible_version_from_etc(
+    package: str, integration: str, stack_version: str
+) -> tuple[str, tuple[str, ...]]:
+    """Memoized `find_latest_compatible_version` against the bundled manifests and schemas."""
+    # Resolving a version re-parses and re-sorts every manifest version, and rules repeat the
+    # same lookups across stack versions. Failures are not cached and re-raise.
+    packages_manifest = load_integrations_manifests()
+    package_schemas = load_integrations_schemas().get(package, {}) if integration else None
+    version, notice = find_latest_compatible_version(
         package,
         integration,
-        min_stack,
+        Version.parse(stack_version),
         packages_manifest,
         package_schemas=package_schemas,
     )
-    notify_user_if_update_available(data, notice, integration)
+    # tuple so the memoized notice cannot be mutated by a caller
+    return version, tuple(notice)
 
-    schema = collect_schema_fields(integrations_schemas, package, package_version, integration)
-    schema.update(ecs_schema)
 
-    integration_schema = {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
-    return integration_schema, package_version
+@cached
+def _integration_schema(package: str, package_version: str, integration: str) -> dict[str, Any]:
+    """Build the bundled integration fields into a memoized `field -> type family` schema."""
+    # Packages populate only a subset of ECS, so the full ECS schema is not unioned in.
+    schema = collect_schema_fields(load_integrations_schemas(), package, package_version, integration)
+    # Memoized and shared, so callers must treat the returned dict as read-only.
+    return {key: kql.parser.elasticsearch_type_family(value) for key, value in schema.items()}
 
 
 def notify_user_if_update_available(
@@ -603,7 +662,7 @@ def collect_schema_fields(
     if integration not in integrations_schemas[package][package_version]:
         raise ValueError(f"Integration {integration} not found in package {package} version {package_version}")
 
-    return integrations_schemas[package][package_version][integration]
+    return dict(integrations_schemas[package][package_version][integration])
 
 
 def parse_datasets(datasets: list[str], package_manifest: dict[str, Any]) -> list[dict[str, Any]]:
