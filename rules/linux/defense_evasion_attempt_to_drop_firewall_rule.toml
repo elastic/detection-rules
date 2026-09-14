@@ -23,7 +23,36 @@ index = [
 language = "eql"
 license = "Elastic License v2"
 name = "Attempt to Drop Firewall Rule"
-note = """"""
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Attempt to Drop Firewall Rule
+
+This rule detects Linux firewall-management commands that create DROP or deny rules, activity that can disrupt connectivity, isolate hosts, or bypass monitoring and access controls. An attacker with shell access may insert an outbound DROP rule to prevent a compromised server from reaching security collectors, or block selected inbound traffic while preserving a covert access path.
+
+### Possible investigation steps
+
+- Review the complete command line to identify the affected chains, interfaces, protocols, ports, source or destination ranges, and whether the change blocks security tooling or critical services.
+- Trace the initiating user, parent process, login session, and preceding commands to determine whether the action originated from approved administration, automation, a deployment tool, or an unexpected shell.
+- Compare the active firewall configuration with the approved baseline and inspect recent configuration changes to establish what changed, whether the rule persists after reboot, and which earlier rules it supersedes.
+- Correlate the event with authentication activity, privilege escalation, remote access, new processes, and network connections on the host to identify unauthorized access or broader defense-evasion behavior.
+- Validate the change with the system owner or change-management records, and if unauthorized, preserve relevant evidence, isolate the host as appropriate, restore the approved policy, and rotate potentially exposed credentials.
+
+### False positive analysis
+
+- A system administrator may add a DROP or deny rule during approved firewall hardening or incident containment; verify the initiating user, command scope, maintenance window, and associated change record.
+- An authorized startup script or configuration automation may enforce the approved firewall baseline by recreating deny rules; confirm the parent process, execution timing, resulting ruleset, and consistency with the host’s documented policy.
+
+### Response and remediation
+
+- Isolate the affected Linux host from untrusted networks while preserving controlled access for evidence collection and recovery.
+- Remove unauthorized DROP or deny rules and eradicate persistence from firewall configuration files, startup scripts, systemd units, cron jobs, and configuration-management tasks.
+- Restore the complete iptables, nftables, or UFW ruleset from a verified known-good baseline, then confirm connectivity to security collectors and required business services.
+- Escalate immediately to incident response if the rule blocked monitoring infrastructure, followed unauthorized privilege escalation, affected multiple hosts, or coincided with suspicious remote access.
+- Rotate credentials and revoke active sessions associated with the compromised account, then patch the host and restrict firewall administration to approved privileged users and signed automation.
+"""
 risk_score = 21
 rule_id = "1f736c4f-3c09-4515-985e-92cd0f20bf1b"
 setup = """## Setup
@@ -55,6 +84,7 @@ severity = "low"
 tags = [
     "Domain: Endpoint",
     "OS: Linux",
+    "Platform: Linux",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: Auditd Manager",
@@ -63,7 +93,7 @@ tags = [
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
-    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
