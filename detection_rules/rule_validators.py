@@ -985,12 +985,16 @@ class ESQLValidator(QueryValidator):
                 cache_key = (("__stack__",), indices_key, str(stack_version), str(ecs_version))
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
-                    raw_schema = ecs.get_schema(ecs_version)
-                    schema_dict: dict[str, Any] = {
-                        k: (v.get("type") if isinstance(v, dict) else v) for k, v in raw_schema.items()
-                    }
-                    schema_dict.update(index_fields)
-                    _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
+                    raw_schema = cast(dict[str, Any], ecs.get_schema(ecs_version))
+                    built: dict[str, Any] = {}
+                    for key, value in raw_schema.items():
+                        if isinstance(value, dict):
+                            built[str(key)] = cast(dict[str, Any], value).get("type")
+                        else:
+                            built[str(key)] = value
+                    built.update(index_fields)
+                    _ESQL_SCHEMA_DICT_CACHE[cache_key] = built
+                    schema_dict = built
                 err_trailer = f"stack: {stack_version}, ecs: {ecs_version}\nrule: {data.name} - {data.rule_id}"
                 targets.append(
                     ValidationTarget(
