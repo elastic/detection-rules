@@ -827,7 +827,8 @@ def prepare_mappings(  # noqa: PLR0912, PLR0913, PLR0917
         if not isinstance(properties, dict):
             continue
         merged = deepcopy(ecs_schema)
-        combine_index_mappings(merged, cast("dict[str, Any]", deepcopy(properties)))
+        props = cast("dict[str, Any]", properties)
+        combine_index_mappings(merged, deepcopy(props))
         index_lookup[key] = prune_scalar_fields_with_subfields(merged)
 
     return existing_mappings, index_lookup, combined_mappings
