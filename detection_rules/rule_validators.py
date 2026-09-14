@@ -864,9 +864,11 @@ class ESQLValidator(QueryValidator):
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
-        # Class default is None; getattr default only applies when the attr is missing.
-        esql_unique_fields = getattr(self, "esql_unique_fields", None) or []
-        for field in esql_unique_fields:
+        # Class default is None until remote validation populates columns.
+        fields = self.esql_unique_fields
+        if not fields:
+            return None
+        for field in fields:
             if field["name"] == field_name:
                 return field["type"]
         return None
