@@ -24,43 +24,24 @@ note = """## Triage and analysis
 
 ### Investigating Azure AKS Pod Exec Potential Reverse Shell
 
-AKS kube-audit events are carried under `azure.platformlogs.properties.log.*` with
-`event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read` and
-`azure.platformlogs.category: kube-audit`. `pods/exec` is a streaming subresource, so kube-audit never
-populates `requestObject` and the command parameters live only in the URL-encoded `requestURI`. The rule
-`URL_DECODE`s that URI and strips the path prefix, the non-command parameters, and the repeated
-`command=` keys so a single regex runs against one readable `Esql.executed_command`. The reconstruction
-is order independent, so it holds even when a client sends `container=` or `stdin=` ahead of `command=`,
-and it survives multi-line payloads.
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`.
 
-Each exec is audited twice, once at `ResponseStarted` and once at `ResponseComplete`, both carrying code
-`101`, so the rule pins `log.stage` to `ResponseComplete` to alert once per session. A
-`responseStatus.code` of `101` (the protocol upgrade for an established exec session) keeps denied or
-failed attempts out.
-
-Matching runs as several regex clauses grouped by tool family, covering `/dev/tcp`, `/dev/udp` and gawk
-`/inet` redirection (including the zsh `ztcp` form), interactive invocation of any common shell (`sh`,
-`bash`, `dash`, `ash`, `zsh`, `ksh`, `csh`, `tcsh`, `mksh`, `fish`) with `-i`, `-il` or `-li`, the netcat
-family including clustered-flag `-e`/`-c` bind shells, `ncat --exec`/`--sh-exec` and busybox `nc`,
-`socat` command-execution and listener addresses in their conventional uppercase spelling, `mkfifo` and
-`mknod` pipelines, socket and process-spawn idioms across Python, Perl, PHP, Ruby, Lua and Node, and
-tooling such as gsocket, `openssl s_server`, `xterm -display` and `stty raw -echo`.
-
-Two exclusions keep it quiet: common localhost health-check ports, so routine liveness and readiness
-probes over `/dev/tcp` do not trigger, and `socat` with a `UNIX-CONNECT`/`UNIX-LISTEN` address, which is
-the standard in-cluster port-forwarding sidecar idiom. `openssl s_client` and bare `telnet` are
-deliberately not matched, since TLS and connectivity checks against a remote host are routine container
-troubleshooting.
+The rule reconstructs the executed command from the URL-encoded `requestURI` on `pods/exec` calls and matches reverse
+and bind shell idioms: `/dev/tcp` and `/dev/udp` redirection, interactive shell invocation, the netcat and socat
+families, named pipes, interpreter socket one-liners, and related tooling. It alerts only on established sessions,
+`responseStatus.code` of `101` at the `ResponseComplete` stage, so denied attempts and the duplicate `ResponseStarted`
+audit record are excluded.
 
 ### Possible investigation steps
 
-- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ips` to determine whether the session
-  originated from a human identity (`kubectl`) or an automated principal, and correlate with nearby
-  secret reads, RBAC changes, or workload mutations by the same identity. `Esql.source_ips` retains the
-  full array, so check the trailing entries for the originating client behind any proxy hops.
-- Review `Esql.executed_command` for the decoded, reconstructed exec payload, and `Esql.namespace`/
-  `Esql.pod_name` for the target workload. This is the only place the command is recorded, since
-  kube-audit does not populate `requestObject` for a streaming subresource.
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ips` to determine whether the session originated from a
+  human identity (`kubectl`) or an automated principal, and correlate with nearby secret reads, RBAC changes, or
+  workload mutations by the same identity. `Esql.source_ips` retains the full array, so check the trailing entries for
+  the originating client behind any proxy hops.
+- Review `Esql.executed_command` for the decoded exec payload, and `Esql.namespace`/`Esql.pod_name` for the target
+  workload. This is the only place the command is recorded, since kube-audit does not populate `requestObject` for a
+  streaming subresource.
 
 ### False positive analysis
 
