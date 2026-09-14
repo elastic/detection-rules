@@ -985,11 +985,11 @@ class ESQLValidator(QueryValidator):
                 cache_key = (("__stack__",), indices_key, str(stack_version), str(ecs_version))
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
-                    raw_schema = cast(dict[str, Any], ecs.get_schema(ecs_version))
+                    raw_schema = cast("dict[str, Any]", ecs.get_schema(ecs_version))
                     built: dict[str, Any] = {}
                     for key, value in raw_schema.items():
                         if isinstance(value, dict):
-                            built[str(key)] = cast(dict[str, Any], value).get("type")
+                            built[str(key)] = cast("dict[str, Any]", value).get("type")
                         else:
                             built[str(key)] = value
                     built.update(index_fields)
