@@ -1,0 +1,331 @@
+# Gate main merges (and the merge queue) until origin/main's latest merge is
+# backported to every release target and tip Unit Tests (pythonpackage.yml) passed.
+#
+# Status contract (backport.yml) — two-phase ordered producer:
+#   1) `post-pending` — parallel with cherry-picks → pending
+#   2) `mark-caught-up` — needs post-pending + commit → terminal success/failure only
+# The gate takes the newest status by created_at for this context.
+#
+# Timing: the producer finalizer wait starts only AFTER the sequential `commit`
+# matrix finishes. Gate budget = N × commit shard timeout + finalizer wait +
+# buffer (today: up to 5 targets × 30m + 60m + buffer ≈ 240m). Raise both
+# WAIT_SECONDS and timeout-minutes when adding release targets.
+#
+# Target list: discovered inline with `actions/checkout` ref: main (not via the
+# PR-supplied reusable workflow), so a PR cannot shrink targets by editing
+# get-target-branches.yml. Full workflow trust still requires a follow-up to
+# run this gate via pull_request_target (or rulesets) so the script cannot be
+# replaced by the candidate revision — bootstrap keeps pull_request so this
+# PR can introduce the check.
+#
+# Producer-live detection: if main's backport.yml contains the post-pending job
+# (or repo var RELEASE_LINE_PRODUCER_LIVE=true), tip-CI fallback is disabled and
+# the gate waits for a real status. That prevents the first post-merge PR from
+# false-greening on historical tip Unit Tests while pending is still queued.
+# Contents API probe failures are treated as live (wait) and retried — never
+# cached as "not live." Transient REST errors during polling also retry until
+# the deadline instead of failing the required check immediately.
+#
+# Merge queue settings (required for safe serialization):
+#   - Max entries to merge / merge group size: 1
+#   - Concurrent merges: 1
+#   - Status timeout ≥ 240 minutes (must exceed this job's timeout)
+#
+# Polling uses a 120s interval to stay within GITHUB_TOKEN REST budgets when the
+# finalizer and gate overlap. Superseded PR/merge_group runs are cancelled.
+#
+# Recovery when the line is red: land a fix on main (admin bypass if needed),
+# let auto-backport finish, confirm tip Unit Tests are green, and wait for
+# release-line-caught-up success on the new merge SHA. Admin-bypass of a red
+# gate does not restore earlier missing cherries — reconcile those (cherry-pick
+# onto the release branch) before the next merge.
+#
+name: Release Line Caught Up
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+
+# Cancel superseded long polls (synchronize / new merge_group head).
+concurrency:
+  group: release-line-gate-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  statuses: read
+
+jobs:
+  # Inline (not workflow_call): a relative reusable-workflow `uses:` is loaded
+  # from the caller PR, so editing get-target-branches.yml could ignore ref:main.
+  # Hard-code checkout of main here instead.
+  get-branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      branches: ${{ steps.get-branch-list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip cache purge
+          pip install .[dev]
+
+      - id: get-branch-list
+        run: |
+          python -m detection_rules dev utils get-branches
+          echo "matrix=$(cat ./detection_rules/etc/target-branches.yaml)" >> "$GITHUB_OUTPUT"
+
+  release-line-caught-up:
+    needs: get-branches
+    # Required checks treat skipped jobs as success — always run and fail closed
+    # when branch discovery did not succeed.
+    if: always()
+    runs-on: ubuntu-latest
+    # Bound for up to 5 serial commit shards (5 × 30m) + finalizer (65m) + buffer.
+    timeout-minutes: 250
+    steps:
+      - name: Wait until origin/main is backported and tip Unit Tests passed
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          BRANCHES: ${{ needs.get-branches.outputs.branches }}
+          GET_BRANCHES_RESULT: ${{ needs.get-branches.result }}
+          STATUS_CONTEXT: release-line-caught-up
+          WORKFLOW_FILE: pythonpackage.yml
+          # Must cover producer commit wall-clock + mark-caught-up WAIT (3600s).
+          WAIT_SECONDS: "14400"
+          POLL_SECONDS: "120"
+          RELEASE_LINE_PRODUCER_LIVE: ${{ vars.RELEASE_LINE_PRODUCER_LIVE }}
+        with:
+          script: |
+            const contextName = process.env.STATUS_CONTEXT;
+            const workflowFile = process.env.WORKFLOW_FILE;
+            const waitMs = Number(process.env.WAIT_SECONDS) * 1000;
+            const pollMs = Number(process.env.POLL_SECONDS) * 1000;
+            const deadline = Date.now() + waitMs;
+            const { owner, repo } = context.repo;
+
+            if (process.env.GET_BRANCHES_RESULT !== 'success') {
+              core.setFailed(
+                `Target-branch discovery ${process.env.GET_BRANCHES_RESULT}; cannot evaluate release-line-caught-up.`,
+              );
+              return;
+            }
+
+            let branches;
+            try {
+              branches = JSON.parse(process.env.BRANCHES || '[]');
+            } catch (err) {
+              core.setFailed(`Invalid target-branch list: ${err}`);
+              return;
+            }
+            if (!Array.isArray(branches) || branches.length === 0) {
+              core.setFailed('No release target branches returned; refusing to pass the gate.');
+              return;
+            }
+
+            async function sleep() {
+              await new Promise((resolve) => setTimeout(resolve, pollMs));
+            }
+
+            async function mainSha() {
+              const { data } = await github.rest.repos.getBranch({
+                owner,
+                repo,
+                branch: 'main',
+              });
+              return data.commit.sha;
+            }
+
+            // Newest status wins (pending early, terminal only after pending job).
+            async function latestStatus(sha) {
+              const { data } = await github.rest.repos.listCommitStatusesForRef({
+                owner,
+                repo,
+                ref: sha,
+                per_page: 100,
+              });
+              const matches = data.filter((status) => status.context === contextName);
+              if (!matches.length) {
+                return null;
+              }
+              matches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              return matches[0].state;
+            }
+
+            // Authoritative producer-live: workflow on main contains the two-phase
+            // status producer, or the repo var is set. Do not infer solely from an
+            // already-created status (that races the first post-pending).
+            let cachedProducerLive =
+              String(process.env.RELEASE_LINE_PRODUCER_LIVE || '').toLowerCase() === 'true';
+            let probedWorkflow = false;
+
+            async function statusProducerIsLive() {
+              if (cachedProducerLive) {
+                return true;
+              }
+              if (probedWorkflow) {
+                return cachedProducerLive;
+              }
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: '.github/workflows/backport.yml',
+                  ref: 'main',
+                });
+                const content = Buffer.from(data.content, 'base64').toString('utf8');
+                // Only cache after a successful read — never cache probe failures.
+                probedWorkflow = true;
+                if (
+                  content.includes('post-pending:') &&
+                  content.includes('release-line-caught-up') &&
+                  content.includes('mark-caught-up:')
+                ) {
+                  cachedProducerLive = true;
+                  return true;
+                }
+                return false;
+              } catch (err) {
+                core.warning(
+                  `Could not read main backport.yml for producer-live probe (treating as live this poll): ${err}`,
+                );
+                // Unknown: fail closed (wait, do not tip-fallback); retry next poll.
+                return true;
+              }
+            }
+
+            async function unitTestRuns(sha) {
+              const params = {
+                owner,
+                repo,
+                workflow_id: workflowFile,
+                head_sha: sha,
+                event: 'push',
+                per_page: 10,
+              };
+              const actions = github.rest.actions;
+              const listRuns = actions.listWorkflowRunsForWorkflow || actions.listWorkflowRuns;
+              const { data } = await listRuns(params);
+              return data.workflow_runs || [];
+            }
+
+            function classifyRuns(runs) {
+              if (!runs.length) {
+                return 'missing';
+              }
+              const sorted = [...runs].sort(
+                (a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at),
+              );
+              const newest = sorted[0];
+              if (['in_progress', 'queued', 'waiting', 'pending'].includes(newest.status)) {
+                return 'pending';
+              }
+              if (newest.status === 'completed') {
+                if (newest.conclusion === 'success') {
+                  return 'success';
+                }
+                return `failed:${newest.conclusion}`;
+              }
+              return 'missing';
+            }
+
+            async function classifyTips() {
+              const results = [];
+              for (const branch of branches) {
+                const { data } = await github.rest.repos.getBranch({ owner, repo, branch });
+                const sha = data.commit.sha;
+                const result = classifyRuns(await unitTestRuns(sha));
+                results.push({ branch, sha, result });
+              }
+              if (results.every((item) => item.result === 'success')) {
+                return { state: 'success', results };
+              }
+              const failed = results.find((item) => item.result.startsWith('failed:'));
+              if (failed) {
+                return { state: 'failure', results };
+              }
+              return { state: 'pending', results };
+            }
+
+            function formatTips(results) {
+              return results
+                .map((item) => `${item.branch} @ ${item.sha.slice(0, 7)}: ${item.result}`)
+                .join('\n');
+            }
+
+            while (true) {
+              let sha = 'unknown';
+              try {
+                sha = await mainSha();
+                const status = await latestStatus(sha);
+
+                if (status === 'success') {
+                  core.info(`${contextName} succeeded on main @ ${sha.slice(0, 7)}`);
+                  return;
+                }
+                if (status === 'failure' || status === 'error') {
+                  core.setFailed(
+                    `${contextName} is ${status} on main @ ${sha.slice(0, 7)}. Fix the backport or release-branch Unit Tests before merging.`,
+                  );
+                  return;
+                }
+
+                if (!status) {
+                  const producerLive = await statusProducerIsLive();
+                  if (producerLive) {
+                    core.info(
+                      `No ${contextName} status on main @ ${sha.slice(0, 7)} yet (producer is live); waiting for pending/terminal.`,
+                    );
+                  } else {
+                    const tips = await classifyTips();
+                    if (tips.state === 'success') {
+                      core.info(
+                        `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}; all release tips have green Unit Tests.\n${formatTips(tips.results)}`,
+                      );
+                      return;
+                    }
+                    if (tips.state === 'failure') {
+                      core.setFailed(
+                        `Cutover fallback: no ${contextName} status on main @ ${sha.slice(0, 7)}, and a release tip failed Unit Tests:\n${formatTips(tips.results)}`,
+                      );
+                      return;
+                    }
+                    core.info(
+                      `Cutover fallback: waiting on release tip Unit Tests (no ${contextName} status yet):\n${formatTips(tips.results)}`,
+                    );
+                  }
+                } else {
+                  core.info(`${contextName} is ${status} on main @ ${sha.slice(0, 7)}`);
+                }
+
+                if (Date.now() >= deadline) {
+                  core.setFailed(
+                    `Timed out after ${process.env.WAIT_SECONDS}s waiting for ${contextName} on main @ ${sha.slice(0, 7)} (status=${status || 'missing'}).`,
+                  );
+                  return;
+                }
+              } catch (err) {
+                // Keep the required check pending on transient REST errors.
+                core.warning(`Transient release-line gate poll error: ${err}`);
+                if (Date.now() >= deadline) {
+                  core.setFailed(
+                    `Timed out after ${process.env.WAIT_SECONDS}s waiting for ${contextName} on main @ ${String(sha).slice(0, 7)} (last error: ${err}).`,
+                  );
+                  return;
+                }
+              }
+              await sleep();
+            }

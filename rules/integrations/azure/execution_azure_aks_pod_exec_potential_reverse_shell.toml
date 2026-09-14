@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2026/08/04"
+integration = ["azure"]
+maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/08/04"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful AKS pod exec sessions whose command resembles reverse-shell or bind-shell one-liner patterns,
+including /dev/tcp, /dev/udp and gawk /inet redirection, interactive invocation of any common shell, the netcat and ncat
+exec/listener forms, socat command-execution and listener addresses, mkfifo and mknod pipelines, socket idioms across
+Python, Perl, PHP, Ruby, Lua and Node, and tooling such as gsocket, openssl s_server and xterm. Legitimate debug
+sessions sometimes use similar building blocks, but together these patterns align with post-exploitation interactive
+access and command-and-control.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Azure AKS Pod Exec Potential Reverse Shell"
+note = """## Triage and analysis
+
+### Investigating Azure AKS Pod Exec Potential Reverse Shell
+
+AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree and share the ARM
+operation `event.action: Microsoft.ContainerService/managedClusters/diagnosticLogs/Read`.
+
+The rule reconstructs the executed command from the URL-encoded `requestURI` on `pods/exec` calls and matches reverse
+and bind shell idioms: `/dev/tcp` and `/dev/udp` redirection, interactive shell invocation, the netcat and socat
+families, named pipes, interpreter socket one-liners, and related tooling. It alerts only on established sessions,
+`responseStatus.code` of `101` at the `ResponseComplete` stage, so denied attempts and the duplicate `ResponseStarted`
+audit record are excluded.
+
+### Possible investigation steps
+
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ips` to determine whether the session originated from a
+  human identity (`kubectl`) or an automated principal, and correlate with nearby secret reads, RBAC changes, or
+  workload mutations by the same identity. `Esql.source_ips` retains the full array, so check the trailing entries for
+  the originating client behind any proxy hops.
+- Review `Esql.executed_command` for the decoded exec payload, and `Esql.namespace`/`Esql.pod_name` for the target
+  workload. This is the only place the command is recorded, since kube-audit does not populate `requestObject` for a
+  streaming subresource.
+
+### False positive analysis
+
+- Interactive debugging shells may look similar; validate command intent and destination. In validated
+  telemetry, the only identity performing `pods/exec` was a human `kubectl` session (`masterclient`); no
+  automated/platform identity issued exec calls, and `elastic-agent status`/`inspect` health checks did
+  not overlap with any reverse-shell indicator.
+- Security training/CTF-style images, vendor diagnostics, or observability/mesh sidecars using raw
+  sockets, `socat`, or named pipes (`mkfifo`) can resemble this pattern; baseline approved images and
+  validate container image/command lineage before escalating.
+
+### Response and remediation
+
+- If unauthorized, revoke the identity's credentials/kubeconfig, remove malicious objects, and rotate
+  any secrets or tokens that may have been accessed.
+- Terminate the exec session, isolate the workload or node, and revoke `pods/exec` for the abused
+  principal unless strictly required.
+- Harden RBAC to least privilege and review admission controls.
+"""
+references = [
+    "https://microsoft.github.io/Threat-Matrix-for-Kubernetes/",
+    "https://kubernetes.io/docs/reference/access-authn-authz/authorization/",
+    "https://cloudsecdocs.com/containers/offensive/attacks/techniques/reverse_shell/",
+]
+risk_score = 73
+rule_id = "eb56a087-c726-4683-8d49-8c0253ea63cf"
+setup = "The Azure Fleet integration collecting AKS diagnostic logs with the `kube-audit` category forwarded through Event Hub into the `azure.platformlogs` data stream is required for this rule."
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Kubernetes",
+    "Data Source: Azure",
+    "Data Source: Azure Platform Logs",
+    "Data Source: Kubernetes",
+    "Platform: Azure",
+    "Platform: Kubernetes",
+    "Rule Type: ESQL",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.platformlogs-* METADATA _id, _index, _version
+| WHERE data_stream.dataset == "azure.platformlogs"
+    AND event.action == "Microsoft.ContainerService/managedClusters/diagnosticLogs/Read"
+    AND azure.platformlogs.category == "kube-audit"
+| EVAL Esql.stage = FIELD_EXTRACT(azure.platformlogs.properties, "log.stage"),
+    Esql.resource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.resource"),
+    Esql.subresource = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.subresource"),
+    Esql.verb = FIELD_EXTRACT(azure.platformlogs.properties, "log.verb"),
+    Esql.requestURI = FIELD_EXTRACT(azure.platformlogs.properties, "log.requestURI"),
+    Esql.namespace = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.namespace"),
+    Esql.pod_name = FIELD_EXTRACT(azure.platformlogs.properties, "log.objectRef.name"),
+    Esql.username = FIELD_EXTRACT(azure.platformlogs.properties, "log.user.username"),
+    Esql.user_agent = FIELD_EXTRACT(azure.platformlogs.properties, "log.userAgent"),
+    Esql.source_ips = FIELD_EXTRACT(azure.platformlogs.properties, "log.sourceIPs"),
+    Esql.response_code = FIELD_EXTRACT(azure.platformlogs.properties, "log.responseStatus.code")
+| WHERE Esql.stage == "ResponseComplete"
+    AND Esql.resource == "pods"
+    AND Esql.subresource == "exec"
+    AND Esql.verb IN ("create", "get")
+    AND Esql.requestURI LIKE "*command=*"
+    AND Esql.response_code == "101"
+    AND Esql.username IS NOT NULL
+    AND NOT Esql.username RLIKE "system:node:.*|system:serviceaccount:kube-system:.*"
+    AND NOT Esql.username IN ("aksService", "hcpService", "readinessChecker", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
+| EVAL Esql.executed_command = TRIM(REPLACE(REPLACE(REPLACE(
+    URL_DECODE(Esql.requestURI),
+    """^[^?]*\?""", ""),
+    """&?(container|stderr|stdin|stdout|tty)=[^&]*""", ""),
+    """&?command=""", " "))
+| WHERE Esql.executed_command IS NOT NULL
+    // Split across several RLIKE clauses by tool family: a single combined pattern
+    // exceeds the Lucene regex determinization limit and is rejected at parse time.
+    AND (
+        Esql.executed_command RLIKE """.*(/dev/tcp/|/dev/udp/|/inet/tcp/|/inet/udp/|zsh/net/tcp|zsh/net/udp|ztcp\s|(\s|/)(ba|da|a|z|k|c|tc|mk|fi|tcl)?sh\s+-(i|il|li)|nc\s+-e|ncat\s+-e|netcat\s+-e|\s-e\s+/(usr/)?bin/[a-z]*sh|\s-c\s+/(usr/)?bin/[a-z]*sh|(nc|ncat|netcat)[a-z.]*\s+--(sh-)?exec|busybox\s+(nc|netcat|ncat)\s|mkfifo|mknod\s+/(tmp|var/tmp|dev/shm|run)/).*"""
+        OR Esql.executed_command RLIKE """(ba|da|a|z|k|c|tc|mk|fi|tcl)?sh\s+-(i|il|li).*"""
+        OR Esql.executed_command RLIKE """.*socat[0-9]?\s.*((EXEC|Exec|exec|SYSTEM|System|system):|(PTY|Pty|pty)|(OPENSSL|Openssl|openssl)|(UDP|Udp|udp)[0-9]?[-:]|(TCP|Tcp|tcp)-?(LISTEN|Listen|listen)).*"""
+        OR Esql.executed_command RLIKE """.*(socket\.create_connection\(|pty\.spawn\(|subprocess\.call\(|os\.dup2\(|Socket::INET|sockaddr_in\(|TCPSocket\.(new|open)|TCPServer\.new|ruby[0-9.]*\s+-rsocket|fsockopen|stream_socket_client\(|socket_connect\(|socket\.tcp\(|net\.(connect|createConnection|createServer)\(|openssl\s+s_server|stty\s+raw\s+-echo|gs-netcat|gs-sftp|gs-mount|gs-full-pipe|GSOCKET_ARGS=|GS_ARGS=|GS_NOINST=).*"""
+        OR Esql.executed_command RLIKE """.*(import\s+socket.*connect|socket\.socket.*connect|import\s+pty.*spawn|nc\s.*\s-c\s).*"""
+        OR Esql.executed_command RLIKE """.*(php[0-9.]*\s+-r.*(proc_open|pcntl_exec|shell_exec|passthru)\(|lua[0-9.]*\s+-e.*(io\.popen|os\.execute)).*"""
+        OR Esql.executed_command RLIKE """.*((vim|rvim|vimdiff|view|rview)\s+-c.*socket|xterm\s+-display\s+[0-9]).*"""
+    )
+    AND NOT Esql.executed_command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
+    AND NOT Esql.executed_command RLIKE """.*socat.*(UNIX-CONNECT|UNIX-LISTEN).*"""
+| KEEP Esql.*, event.action, data_stream.namespace, _id, _index, _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1095"
+name = "Non-Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1095/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
