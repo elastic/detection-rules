@@ -18,7 +18,7 @@ import pytest
 from marshmallow import ValidationError
 from semver import Version
 
-from detection_rules import utils
+from detection_rules import ecs, utils
 from detection_rules.config import load_current_package_version
 from detection_rules.custom_schemas import get_custom_schemas
 from detection_rules.esql_errors import EsqlSemanticError
@@ -870,6 +870,56 @@ class TestVersions(unittest.TestCase):
             self.assertEqual(get_custom_schemas(future_version), get_custom_schemas(newest_version))
         finally:
             get_custom_schemas.clear()
+
+
+class TestNonEcsSchemaFiles(unittest.TestCase):
+    """Test the split between the strictly non-ECS schema and the integration-emitted ECS schema."""
+
+    def test_integration_emitted_schema_holds_only_ecs_fields(self):
+        """Every field in integration-emitted-ecs-schema.json must be an ECS field; others belong in non-ecs-schema.json."""
+        ecs_fields = ecs.flatten_multi_fields(ecs.get_schema(ecs.get_max_version(), name="ecs_flat"))
+        emitted = ecs.get_integration_emitted_ecs_schema()
+        unknown = [
+            f"{index_pattern}: {field}"
+            for index_pattern, fields in emitted.items()
+            for field in ecs.flatten(fields)
+            if field not in ecs_fields
+        ]
+        self.assertEqual(unknown, [], "non-ECS fields found in integration-emitted-ecs-schema.json")
+
+    def test_non_ecs_schema_keeps_ecs_names_only_on_type_conflict(self):
+        """An ECS field stays in non-ecs-schema.json only when its type differs from ECS; otherwise it belongs in
+        integration-emitted-ecs-schema.json."""
+        ecs_fields = ecs.flatten_multi_fields(ecs.get_schema(ecs.get_max_version(), name="ecs_flat"))
+        strict = ecs.get_strict_non_ecs_schema()
+        misplaced = [
+            f"{index_pattern}: {field}"
+            for index_pattern, fields in strict.items()
+            for field, field_type in ecs.flatten(fields).items()
+            if field in ecs_fields and ecs_fields[field] == field_type
+        ]
+        self.assertEqual(misplaced, [], "ECS fields with ECS types belong in integration-emitted-ecs-schema.json")
+
+    def test_schema_files_do_not_overlap(self):
+        """A field must be tracked in exactly one of the two files for a given index pattern."""
+        strict = ecs.get_strict_non_ecs_schema()
+        emitted = ecs.get_integration_emitted_ecs_schema()
+        overlap = [
+            f"{index_pattern}: {field}"
+            for index_pattern in strict.keys() & emitted.keys()
+            for field in ecs.flatten(strict[index_pattern]).keys() & ecs.flatten(emitted[index_pattern]).keys()
+        ]
+        self.assertEqual(overlap, [], "fields present in both non-ecs and integration-emitted-ecs schema files")
+
+    def test_combined_schema_is_union_of_both_files(self):
+        """The combined loader used by validation must expose every entry from both files."""
+        strict = ecs.get_strict_non_ecs_schema()
+        emitted = ecs.get_integration_emitted_ecs_schema()
+        combined = ecs.get_non_ecs_schema()
+        self.assertEqual(set(combined), set(strict) | set(emitted))
+        for index_pattern, fields in combined.items():
+            expected = {**strict.get(index_pattern, {}), **emitted.get(index_pattern, {})}
+            self.assertEqual(fields, expected, index_pattern)
 
 
 class TestESQLValidation(unittest.TestCase):
