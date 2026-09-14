@@ -2,7 +2,7 @@
 creation_date = "2020/06/15"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -109,11 +109,12 @@ rule_id = "f772ec8a-e182-483c-91d2-72058f76a44c"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: Amazon CloudWatch",
-    "Resources: Investigation Guide",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS CloudWatch",
     "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -124,7 +125,7 @@ data_stream.dataset: "aws.cloudtrail"
   and event.action: "DeleteAlarms"
   and event.outcome: "success"
   and source.ip: *
-  and not user_agent.original : "AWS Internal"
+  and not user_agent.original : ("AWS Internal" or "dynamodb.application-autoscaling.amazonaws.com" or "application-autoscaling.amazonaws.com" or *Terraform* or *Pulumi*)
 '''
 
 

@@ -258,7 +258,7 @@ def import_rules_into_repo(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
         additional = ["index"] if not data_view_id else ["data_view_id"]
 
         # Use additional to store all available fields for the rule
-        additional += [key for key in contents if key not in additional and contents.get(key, None)]
+        additional += [key for key in contents if key not in additional and contents.get(key) is not None]
 
         # use default author if not provided
         contents["author"] = contents.get("author") or default_author or [contents.get("created_by")]

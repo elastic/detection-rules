@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/07/29"
+integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/08/03"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the use of Tailscaled to potentially tunnel network traffic. This can be used by attackers to enable
+routing of network packets that would otherwise not reach their intended destination, or to bypass network restrictions
+and/or hide traffic from network monitoring.
+"""
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*"
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Tunneling via Tailscaled"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential Tunneling via Tailscaled
+
+This rule flags Tailscaled starting with proxy or SOCKS tunneling options, which can turn an endpoint into a covert relay for traffic that bypasses segmentation, egress controls, and normal monitoring. An attacker with access to a Windows, Linux, or macOS host can launch tailscaled.exe with a local SOCKS5 listener, then route remote administration, reconnaissance, or data-transfer traffic through the encrypted overlay to reach systems that were not directly accessible.
+
+### Possible investigation steps
+
+- Determine whether the host is approved to run Tailscale by validating the user, device owner, recent change tickets, and any sanctioned remote-access or VPN use case.
+- Review the execution chain and security context, including the parent process, command lineage, account privileges, logon session, and whether a service, scheduled task, or startup item was created to keep the tunnel available.
+- Identify what the tunnel exposed by enumerating local listening ports, recent inbound and outbound connections, and any access to unusual internal subnets, administrative services, or blocked destinations after the process started.
+- Correlate Tailscale-specific artifacts such as the logged-in tailnet, device registration or approval events, peer list, and advertised routes or exit-node settings to determine whether the node was joined to an unauthorized overlay.
+- Hunt across the environment for the same user, tailnet, binary path, hash, or command pattern and review adjacent activity on the host for follow-on actions like remote administration, lateral movement, credential access, or data staging.
+
+### False positive analysis
+
+- An administrator or engineer may legitimately start tailscaled with `--socks5-server` or `--outbound-http-proxy-listen` on an approved remote-access, lab, or jump system for maintenance, so verify the user and host are authorized for Tailscale and that the command line, install path, and start time match a documented change or normal operating pattern.
+- A developer or IT user may temporarily enable these proxy options to troubleshoot connectivity between managed Windows, Linux, or macOS hosts, so confirm the activity with the asset owner and review resulting connections to ensure they were limited to expected internal destinations and business-related use.
+
+### Response and remediation
+
+- Isolate the affected host from the network, terminate the running `tailscaled` process, and block the observed local proxy listener and any active Tailscale peer connections to stop the tunnel.
+- Remove attacker persistence by uninstalling unauthorized Tailscale components and deleting related services, scheduled tasks, LaunchDaemons, systemd units, startup items, auth keys, and Tailscale state/config files left on the host.
+- Revoke the enrolled device from the tailnet, invalidate any Tailscale auth keys or SSO sessions used to register it, and reset passwords or tokens for accounts that logged on while the tunnel was active.
+- Restore the system to a known-good state by reimaging or recovering from a trusted backup if you cannot fully verify what the tunnel exposed or what changes were made after `tailscaled` was launched with proxy options.
+- Escalate to incident response immediately if the tunnel reached domain controllers, administrative jump hosts, sensitive data repositories, or if you identify the same tailnet, binary, or proxy command line on multiple endpoints.
+- Harden the environment by restricting Tailscale installation to approved systems, enforcing application control for `tailscaled`, limiting outbound access to Tailscale coordination or relay infrastructure where not required, and alerting on new proxy listeners or unauthorized tailnet enrollments.
+
+"""
+references = [
+    "https://huggingface.co/blog/agent-intrusion-technical-timeline",
+]
+risk_score = 47
+rule_id = "482a5584-4ce4-4838-b806-0839a39b004f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and
+process.name like~ ("tailscaled", "tailscaled.exe") and
+process.args like~ ("*--socks5-server*", "*--outbound-http-proxy-listen*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"

@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies Cassandra Query Language statements that create a JavaScript user-defined function. On vulnerable and
+dangerously configured Cassandra servers, adversaries can abuse scripted UDF creation to escape the JavaScript sandbox
+and execute operating-system commands, including through CVE-2021-44521.
+"""
+false_positives = [
+    """
+    Developers or database administrators may deploy approved JavaScript UDFs in environments where scripted functions
+    are intentionally enabled. Validate the function body, client address, Cassandra version, configuration, and change
+    window before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.cassandra-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Cassandra JavaScript UDF Creation"
+note = """## Triage and analysis
+
+### Investigating Cassandra JavaScript UDF Creation
+
+CVE-2021-44521 allows a JavaScript UDF to escape the Nashorn sandbox when Cassandra is vulnerable and scripted UDFs are enabled with unsafe thread settings. Even on patched systems, JavaScript UDF creation is a sensitive control-plane operation that should be rare and restricted to approved administrators.
+
+### Possible investigation steps
+
+- Review `client.ip`, `server.ip`, `network.community_id`, and `network_traffic.cassandra.request.query`.
+- Extract the function name, keyspace, declared language, and function body.
+- Look for Java interoperability, reflection, process execution, class loading, file access, or network-access strings in the UDF body.
+- Confirm the Cassandra version and the values of `enable_user_defined_functions`, `enable_scripted_user_defined_functions`, and `enable_user_defined_functions_threads`.
+- Correlate with Cassandra audit logs and endpoint telemetry for child processes, file creation, or outbound connections from the Cassandra service.
+
+### False positive analysis
+
+- Approved application deployments may create JavaScript UDFs, though this should be uncommon.
+- Scope exceptions to known deployment clients and reviewed function definitions rather than excluding UDF creation globally.
+
+### Response and remediation
+
+- Terminate unauthorized sessions and isolate the Cassandra node if code execution is suspected.
+- Disable scripted UDFs where they are not required and upgrade Cassandra to a version that fixes CVE-2021-44521.
+- Remove unauthorized functions, rotate affected credentials, and review role permissions and cluster-wide activity.
+"""
+references = [
+    "https://jfrog.com/blog/cve-2021-44521-exploiting-apache-cassandra-user-defined-functions-for-remote-code-execution/",
+    "https://nvd.nist.gov/vuln/detail/CVE-2021-44521",
+    "https://attack.mitre.org/techniques/T1059/007/",
+]
+risk_score = 73
+rule_id = "b3e2c2ad-9a81-4638-bf12-7ca2feed66a2"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the Cassandra protocol analyzer enabled and
+cleartext visibility into native CQL traffic. Prepared statements expose query text during `PREPARE`, while later
+`EXECUTE` frames may not repeat it. TLS-encrypted traffic is opaque. Use Cassandra audit logs and endpoint telemetry to
+confirm the database identity and execution outcome.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Execution",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where data_stream.dataset == "network_traffic.cassandra" and
+    network_traffic.cassandra.request.query like~ "*create*function*" and
+    network_traffic.cassandra.request.query like~ "*language*javascript*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

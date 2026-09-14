@@ -14,6 +14,7 @@ Here are the queries currently available:
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
 - [IAM Unusual Default Aviatrix Role Activity](./aws/docs/iam_unusual_default_aviatrix_role_activity.md) (ES|QL)
 - [IAM User Activity with No MFA Session](./aws/docs/iam_user_activity_with_no_mfa_session.md) (ES|QL)
+- [Java_Ghost Threat Actor Infrastructure and Identity Markers](./aws/docs/java_ghost_threat_actor_infrastructure_and_identity_markers.md) (ES|QL)
 - [Lambda Add Permissions for Write Actions to Function](./aws/docs/lambda_add_permissions_for_write_actions_to_function.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
@@ -31,6 +32,7 @@ Here are the queries currently available:
 
 
 ## azure
+- [AKS Kubelet nodes/proxy Command Execution from an External Source IP](./azure/docs/aks_kubelet_proxy_command_execution_from_external_source.md) (ES|QL)
 - [Azure Entra Authentication Attempts from Abused Hosting Service Providers](./azure/docs/entra_authentication_attempts_from_abused_hosting_service_providers.md) (ES|QL)
 - [Azure Entra Excessive Single-Factor Non-Interactive Sign-Ins](./azure/docs/entra_excessive_non_interactive_sfa_sign_ins_across_users.md) (ES|QL)
 - [Azure Entra Unusual Client App Authentication Requests on Behalf of Principal Users](./azure/docs/entra_unusual_client_app_auth_request_on_behalf_of_user.md) (ES|QL)

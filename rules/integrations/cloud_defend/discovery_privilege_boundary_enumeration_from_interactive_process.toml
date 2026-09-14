@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/03/24"
+updated_date = "2026/07/29"
 
 [rule]
 author = ["Elastic"]
@@ -26,15 +26,15 @@ index = ["logs-cloud_defend.process*"]
 interval = "5m"
 language = "eql"
 license = "Elastic License v2"
-name = "Interactive Privilege Boundary Enumeration Detected via Defend for Containers"
+name = "Privilege Boundary Enumeration Detected via Defend for Containers"
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Interactive Privilege Boundary Enumeration Detected via Defend for Containers
+### Investigating Privilege Boundary Enumeration Detected via Defend for Containers
 
-This detects an interactive session inside a Linux container running common identity and capability discovery tools (id, whoami, capsh, getcap, lsns) to map what privileges and namespace isolation the container actually has. This matters because attackers use this early in an intrusion to judge whether they can escalate within the container or pivot toward a host escape. A typical pattern is an attacker landing a shell through a vulnerable web service and immediately checking user context and Linux capabilities before attempting privilege abuse.
+This detects activity inside a Linux container running common identity and capability discovery tools (id, whoami, capsh, getcap, lsns) to map what privileges and namespace isolation the container actually has. This matters because attackers use this early in an intrusion to judge whether they can escalate within the container or pivot toward a host escape. A typical pattern is an attacker landing a shell through a vulnerable web service and immediately checking user context and Linux capabilities before attempting privilege abuse.
 
 ### Possible investigation steps
 
@@ -71,7 +71,7 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and process.interactive == true and (
+process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and (
   (process.name in ("id", "whoami", "capsh", "getcap", "lsns")) or
   (process.args in (
      "id", "/bin/id", "/usr/bin/id", "/usr/local/bin/id",

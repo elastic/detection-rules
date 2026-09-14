@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/07/30"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/07/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies multiple successful AMQP queue purge operations issued by the same client to the same broker within a short
+period. The AMQP queue.purge method removes all messages from a queue that are not awaiting acknowledgment. Purging
+several distinct queues can indicate deliberate message destruction or disruption after broker credentials are
+compromised.
+"""
+false_positives = [
+    """
+    Authorized administrators or automation may purge multiple queues during maintenance, testing, disaster recovery, or
+    application resets. Confirm the client, authenticated RabbitMQ user, affected queues, and change window before
+    escalating. Add exceptions for verified administrative sources rather than reducing the queue-cardinality threshold.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Successful AMQP Multi-Queue Purge Burst"
+note = """## Triage and analysis
+
+### Investigating Successful AMQP Multi-Queue Purge Burst
+
+The AMQP `queue.purge` method removes every ready message from the selected queue. This rule requires successful purge responses for at least three distinct queues from one client-to-broker pair, reducing noise from isolated administrative operations while identifying activity capable of causing broad message loss and application disruption.
+
+### Possible investigation steps
+
+- Review `client.ip`, `server.ip`, `Esql.purge_count`, `Esql.queue_count`, `Esql.queues`, `Esql.first_purge`, and `Esql.last_purge` to determine the scope and timing of the activity.
+- Search the underlying `logs-network_traffic.amqp-*` events and confirm that each transaction has `network_traffic.amqp.method: "queue.purge"`, `network_traffic.amqp.no-wait: false`, and `network_traffic.status: "OK"`. Together, these values indicate that Packetbeat observed the broker's `queue.purge-ok` response.
+- Use RabbitMQ audit and application logs to identify the authenticated user associated with the client connection. AMQP message properties are not authoritative authentication identities.
+- Determine whether the source is approved administration or maintenance automation and whether a documented change authorized purging all affected queues.
+- Assess message loss and application impact. Review queue-depth metrics, dead-letter queues, publisher errors, consumer lag, and service availability around the alert.
+- Correlate the client and account with `queue.delete`, `exchange.delete`, binding changes, unusual consumers, authentication anomalies, and endpoint alerts.
+
+### False positive analysis
+
+- Queue maintenance, integration testing, disaster-recovery exercises, and application reset workflows may intentionally purge several queues.
+- Treat confirmed recurring activity as a benign true positive and scope exceptions to approved client-to-broker pairs or queue names. Broadly excluding `queue.purge` would conceal the destructive behavior this rule is intended to detect.
+
+### Response and remediation
+
+- Revoke or restrict unauthorized RabbitMQ credentials and block the client if the purge was not approved.
+- Preserve broker, network, and application evidence before restarting affected services.
+- Restore or replay messages from upstream systems, backups, or dead-letter infrastructure where possible.
+- Review RabbitMQ permissions and remove unnecessary queue-configuration rights from application accounts.
+- Investigate the client host and associated account for credential theft and additional destructive activity.
+"""
+references = [
+    "https://www.rabbitmq.com/amqp-0-9-1-reference",
+    "https://attack.mitre.org/techniques/T1485/",
+]
+risk_score = 73
+rule_id = "286614ee-8b72-4ea5-a22d-e0d2ae59d0a9"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the AMQP protocol analyzer enabled and cleartext
+AMQP 0.9.1 visibility. AMQP header and method-argument parsing must remain enabled so the method, queue, and transaction
+status are populated. AMQP over TLS is opaque to passive capture. RabbitMQ audit logs are required to map the observed
+client connection to an authenticated broker identity.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-network_traffic.amqp-*
+| WHERE
+    data_stream.dataset == "network_traffic.amqp" AND
+    network_traffic.amqp.method == "queue.purge" AND
+    network_traffic.amqp.`no-wait` == false AND
+    network_traffic.status == "OK" AND
+    client.ip IS NOT NULL AND
+    server.ip IS NOT NULL AND
+    network_traffic.amqp.queue IS NOT NULL
+| STATS
+    Esql.purge_count = COUNT(*),
+    Esql.queue_count = COUNT_DISTINCT(network_traffic.amqp.queue),
+    Esql.queues = VALUES(network_traffic.amqp.queue),
+    Esql.first_purge = MIN(@timestamp),
+    Esql.last_purge = MAX(@timestamp)
+  BY client.ip, server.ip
+| WHERE Esql.purge_count >= 3 AND Esql.queue_count >= 3
+| SORT Esql.queue_count DESC, Esql.purge_count DESC
+| KEEP client.ip, server.ip, Esql.purge_count, Esql.queue_count, Esql.queues, Esql.first_purge, Esql.last_purge
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

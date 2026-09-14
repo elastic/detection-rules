@@ -2,6 +2,8 @@ name: ES|QL Validation
 on:
     pull_request:
       branches: [ "*" ]
+    merge_group:
+      branches: [ main ]
 
 permissions:
   contents: read
@@ -29,7 +31,8 @@ jobs:
             exit 0
           fi
 
-          MODIFIED_FILES=$(git diff --name-only --diff-filter=AM HEAD~1 | grep '^rules/.*\.toml$' || true)
+          BASE_SHA="${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.pull_request.base.sha }}"
+          MODIFIED_FILES=$(git diff --name-only --diff-filter=AM "$BASE_SHA" HEAD | grep '^rules/.*\.toml$' || true)
           if [ -z "$MODIFIED_FILES" ]; then
             echo "No modified or new .toml files found. Skipping workflow."
             echo "run_esql=false" >> $GITHUB_ENV

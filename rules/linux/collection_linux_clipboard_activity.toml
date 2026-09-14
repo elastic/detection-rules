@@ -2,7 +2,7 @@
 creation_date = "2023/07/27"
 integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/02"
+updated_date = "2026/08/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +21,7 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Linux Clipboard Activity Detected"
+references = ["https://www.trellix.com/blogs/research/when-agents-go-rogue-openclaw-supply-chain-crisis/"]
 risk_score = 21
 rule_id = "884e87cc-c67b-4c90-a4ed-e1e24a940c82"
 severity = "low"
@@ -40,7 +41,7 @@ type = "new_terms"
 query = '''
 event.category:process and host.os.type:"linux" and event.type:"start" and
 event.action:("exec" or "exec_event" or "executed" or "process_started" or "start") and
-process.name:("xclip" or "xsel" or "wl-clipboard" or "clipman" or "copyq") and
+process.name:("xclip" or "xsel" or "wl-clipboard" or "clipman" or "copyq" or "pbcopy" or "wl-copy") and
 not process.parent.name:("bwrap" or "micro")
 '''
 note = """## Triage and analysis

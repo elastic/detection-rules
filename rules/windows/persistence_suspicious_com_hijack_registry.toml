@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -130,6 +130,34 @@ registry where host.os.type == "windows" and event.type == "change" and
         "Vivaldi Technologies AS"
     )
   ) and 
+
+  /* excludes trusted applications registering their own COM components */
+  not (
+    process.code_signature.trusted == true and
+    (
+      (
+        process.name : "OneDrive.Sync.Service.exe" and
+        process.code_signature.subject_name == "Microsoft Corporation" and
+        registry.data.strings : (
+          "*\\Microsoft\\OneDrive\\*\\OneDrive.Sync.Service.exe*",
+          "*\\Microsoft\\OneDrive\\*\\OneDrive.Sync.Service.dll*"
+        )
+      ) or
+      (
+        process.executable : "?:\\Users\\*\\AppData\\Local\\Kingsoft\\WPS Office\\*\\office6\\ksomisc.exe" and
+        process.code_signature.subject_name == "WPS SOFTWARE PTE. LTD." and
+        registry.data.strings : "*\\Kingsoft\\WPS Office\\*"
+      ) or
+      (
+        process.name : "claude.exe" and
+        process.code_signature.subject_name == "Anthropic, PBC" and
+        registry.data.strings : (
+          "*\\Users\\*\\AppData\\Local\\AnthropicClaude\\app-*\\claude.exe*",
+          "*\\ProgramData\\*\\AnthropicClaude\\app-*\\claude.exe*"
+        )
+      )
+    )
+  ) and
 
   /* excludes Microsoft signed noisy processes */
   not

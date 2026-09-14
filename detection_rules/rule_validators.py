@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property, wraps
-from typing import Any
+from typing import Any, cast
 
 import eql  # type: ignore[reportMissingTypeStubs]
 import esql
@@ -37,8 +37,11 @@ from .esql import (
     collect_index_field_schemas,
     collect_package_fields_for_indices,
     get_esql_query_event_dataset_integrations,
+    get_esql_query_indices,
+    get_esql_query_source_groups,
     infer_packages_from_indices,
     normalize_dataset_package,
+    replace_esql_query_sources,
 )
 from .esql_errors import (
     EsqlSchemaError as DrEsqlSchemaError,
@@ -75,7 +78,7 @@ from .rule import (
     set_esql_config,
 )
 from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
-from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES, FROM_SOURCES_REGEX
+from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 
 EQL_ERROR_TYPES = (
     eql.EqlCompileError
@@ -102,6 +105,36 @@ class ValidationTarget:
     # Optional context about schema selection
     beat_types: list[str] | None = None
     integration_types: list[str] | None = None
+
+
+def deduplicate_validation_targets(targets: list[ValidationTarget]) -> list[ValidationTarget]:
+    """Keep only the first target for each distinct parser input."""
+    unique: list[ValidationTarget] = []
+    seen: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+
+    for target in targets:
+        schema = target.schema
+        if isinstance(schema, dict):
+            fields: dict[str, Any] | None = cast("dict[str, Any]", schema)
+        elif isinstance(schema, ecs.KqlSchema2Eql):
+            fields = schema.kql_schema
+        elif isinstance(schema, endgame.EndgameSchema):
+            fields = schema.endgame_schema
+        else:
+            unique.append(target)
+            continue
+
+        # Trailers / beat/integration metadata only affect error reporting.
+        schema_type = type(cast("object", schema))
+        key = (target.query_text, target.min_stack_version, schema_type)
+        schemas = seen.setdefault(key, [])
+        if fields in schemas:
+            continue
+
+        schemas.append(fields)
+        unique.append(target)
+
+    return unique
 
 
 class ExtendedTypeHint(Enum):
@@ -175,6 +208,16 @@ def custom_base_parse_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
 eql.parser._parse = custom_base_parse_decorator(base_parse)  # type: ignore[reportPrivateUsage] # noqa: SLF001
 
 
+# Integration targets do not union the full ECS schema (packages populate only a subset of it); the hint tells the
+# author where a field the package populates without declaring belongs.
+INTEGRATION_SCHEMA_HINT = (
+    "Only fields the package field files declare (plus the non-ecs-schema.json and integration-emitted-ecs-schema.json "
+    "entries for the rule's index patterns) are accepted; the full ECS schema is not unioned. Add genuinely populated "
+    "ECS fields to detection_rules/etc/integration-emitted-ecs-schema.json and fields outside ECS to "
+    "detection_rules/etc/non-ecs-schema.json"
+)
+
+
 class KQLValidator(QueryValidator):
     """Specific fields for KQL query event types."""
 
@@ -184,7 +227,7 @@ class KQLValidator(QueryValidator):
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethod]
-        return list({str(f) for f in self.ast if isinstance(f, kql.ast.Field)})  # type: ignore[reportUnknownVariableType]
+        return kql.get_field_names(self.ast)  # type: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     def auto_add_field(self, validation_checks_error: kql.errors.KqlParseError, index_or_dataview: str) -> None:
         """Auto add a missing field to the schema."""
@@ -244,6 +287,7 @@ class KQLValidator(QueryValidator):
                 err_trailer = (
                     "Try adding event.module or event.dataset to specify integration module\n\n"
                     f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -285,7 +329,7 @@ class KQLValidator(QueryValidator):
                     )
                 )
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: QueryRuleData, meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethod]
         """Validate the query using computed schema combinations, favoring integrations when present."""
@@ -449,7 +493,8 @@ class EQLValidator(QueryValidator):
                 stack_version = integ["stack_version"]
                 ecs_version = integ["ecs_version"]
                 package = integ["package"]
-                schema = integ["schema"]
+                # copy: the integration schema is memoized and shared across rules
+                schema = dict(integ["schema"])
                 # prepare with index/custom/endpoint fields
                 if data.index_or_dataview:
                     for index_name in data.index_or_dataview:  # type: ignore[reportArgumentType]
@@ -471,6 +516,7 @@ class EQLValidator(QueryValidator):
                 pkgs = ", ".join(sorted(pkgs_set))
                 err_trailer = (
                     f"{context}\nChecked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"{INTEGRATION_SCHEMA_HINT}\n"
                     f"rule: {data.name} - {data.rule_id}"
                 )
                 targets.append(
@@ -540,7 +586,8 @@ class EQLValidator(QueryValidator):
                         package_version = integ["package_version"]
                         stack_version = integ["stack_version"]
                         ecs_version = integ["ecs_version"]
-                        schema_dict = integ["schema"]
+                        # copy: the integration schema is memoized and shared across rules
+                        schema_dict = dict(integ["schema"])
 
                         # prepare schema
                         if data.index_or_dataview:
@@ -557,6 +604,7 @@ class EQLValidator(QueryValidator):
                             "Subquery schema mismatch. "
                             f"package: {package}, package_version: {package_version}, "
                             f"stack: {stack_version}, ecs: {ecs_version}\n"
+                            f"{INTEGRATION_SCHEMA_HINT}\n"
                             f"rule: {data.name} - {data.rule_id}"
                         )
                         targets.append(
@@ -612,7 +660,7 @@ class EQLValidator(QueryValidator):
         if need_stack_targets:
             add_stack_targets(self.query, include_endgame=True)
 
-        return targets
+        return deduplicate_validation_targets(targets)
 
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
@@ -814,20 +862,6 @@ class ESQLValidator(QueryValidator):
             return [field["name"] for field in remote]
         return list(esql.get_unique_fields(self.ast))
 
-    def get_esql_query_indices(self, query: str) -> tuple[str, list[str]]:
-        """Extract indices from an ES|QL query.
-
-        Returns the exact FROM-sources substring (for remote index replacement) and a
-        normalized list of patterns from the AST.
-        """
-        tree = self.ast if query == self.query else esql.parse_query(query)
-        sources = esql.get_from_sources(tree)
-        sources_list = [source.split(":", 1)[-1].strip() if ":" in source else source.strip() for source in sources]
-        # Preserve original formatting so remote validation can `query.replace(sources_str, …)`.
-        match = FROM_SOURCES_REGEX.search(query)
-        sources_str = match.group("sources") if match else ", ".join(sources)
-        return sources_str, sources_list
-
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
         esql_unique_fields = getattr(self, "esql_unique_fields", [])
@@ -850,7 +884,7 @@ class ESQLValidator(QueryValidator):
         if not package_integrations and event_datasets:
             package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
 
-        _, from_indices = self.get_esql_query_indices(self.query)
+        from_indices = get_esql_query_indices(self.query)
         # Infer Fleet packages from FROM patterns when metadata/datasets are absent
         # (e.g. metrics-* → system) so offline schemas match remote mapping prep.
         known_packages = {str(p.get("package")) for p in package_integrations if p.get("package")}
@@ -1071,7 +1105,7 @@ class ESQLValidator(QueryValidator):
         _warm_esql_offline_caches()
 
         # Unknown FROM patterns must fail offline (parity with remote prepare_mappings).
-        _, from_indices = self.get_esql_query_indices(self.query)
+        from_indices = get_esql_query_indices(self.query)
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
         stack_versions = rule_meta.get_validation_stack_versions()
         stack_version = (
@@ -1173,8 +1207,9 @@ class ESQLValidator(QueryValidator):
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        indices_str, indices = self.get_esql_query_indices(query)  # type: ignore[reportUnknownVariableType]
-        self.log(f"Extracted indices from query: {', '.join(indices)}")
+        source_groups = get_esql_query_source_groups(query)
+        if not source_groups:
+            raise ValueError("Failed to extract any index pattern from the query's FROM clause(s).")
 
         event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
         self.log(
@@ -1182,17 +1217,35 @@ class ESQLValidator(QueryValidator):
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
         )
 
-        existing_mappings, index_lookup, combined_mappings = prepare_mappings(
-            elastic_client, indices, event_dataset_integrations, metadata, stack_version, self.log
-        )
-        self.log(f"Collected mappings: {len(existing_mappings)}")
-        self.log(f"Combined mappings prepared: {len(combined_mappings)}")
+        # Each FROM clause is prepared against only the indices it reads, so a subquery cannot
+        # validate a field that exists solely in the index of one of its siblings
+        combined_mappings: dict[str, Any] = {}
+        source_replacements: dict[tuple[int, int], str] = {}
+        test_indices: list[str] = []
+        for position, group in enumerate(source_groups):
+            self.log(f"Extracted indices from query: {', '.join(group.indices)}")
 
-        full_index_str = create_remote_indices(elastic_client, existing_mappings, index_lookup, self.log)
+            # Get mappings for all matching existing index templates
+            existing_mappings, index_lookup, group_mappings = prepare_mappings(
+                elastic_client, group.indices, event_dataset_integrations, metadata, stack_version, self.log
+            )
+            self.log(f"Collected mappings: {len(existing_mappings)}")
+            self.log(f"Combined mappings prepared: {len(group_mappings)}")
+            utils.combine_dicts(combined_mappings, group_mappings)
 
-        query = query.replace(indices_str, full_index_str)  # type: ignore[reportUnknownVariableType]
+            # Create remote indices
+            full_index_str = create_remote_indices(
+                elastic_client, existing_mappings, index_lookup, self.log, name_suffix=f"-{position}"
+            )
+            source_replacements.update(dict.fromkeys(group.spans, full_index_str))
+            test_indices.extend(index.strip() for index in full_index_str.split(","))
 
-        query_columns, response = execute_query_against_indices(elastic_client, query, full_index_str, self.log)  # type: ignore[reportUnknownVariableType]
+        # Replace the sources of every FROM clause with the test indices prepared for it
+        query = replace_esql_query_sources(query, source_replacements)
+
+        # Deduplicated because the test indices are also the set the execution cleans up afterwards
+        all_index_str = ", ".join(dict.fromkeys(test_indices))
+        query_columns, response = execute_query_against_indices(elastic_client, query, all_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
         mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
@@ -1206,10 +1259,13 @@ class ESQLValidator(QueryValidator):
             version = str(parsed.replace(patch=max(parsed.patch, inferred_patch)))  # noqa: PLW2901
             if version in mappings_lookup:
                 continue
-            _, _, combined_mappings = prepare_mappings(
-                elastic_client, indices, event_dataset_integrations, metadata, version, self.log
-            )
-            mappings_lookup[version] = combined_mappings
+            version_mappings: dict[str, Any] = {}
+            for group in source_groups:
+                _, _, group_mappings = prepare_mappings(
+                    elastic_client, group.indices, event_dataset_integrations, metadata, version, self.log
+                )
+                utils.combine_dicts(version_mappings, group_mappings)
+            mappings_lookup[version] = version_mappings
 
         for version, mapping in mappings_lookup.items():
             self.log(f"Validating {rule_id} against {version} stack")

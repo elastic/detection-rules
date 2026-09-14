@@ -2,7 +2,7 @@
 creation_date = "2026/07/20"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/22"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -21,6 +21,37 @@ index = ["logs-endpoint.events.file*"]
 language = "eql"
 license = "Elastic License v2"
 name = "PHP File Creation in WordPress Plugin Directory"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating PHP File Creation in WordPress Plugin Directory
+
+This alert flags a new or modified PHP file under a WordPress plugin folder when it was written by a web server, PHP handler, shell, or download utility. That matters because attackers often hide webshells or rogue plugin code there to survive on a compromised site and run commands remotely. A common pattern is exploiting a vulnerable plugin to upload a backdoor into wp-content/plugins and then calling it from a browser.
+
+### Possible investigation steps
+
+- Determine whether the new PHP file is part of a legitimate plugin installation or update by comparing its path, filename, hash, and timestamp against the official plugin package and your deployment records.
+- Review the file contents for common webshell indicators such as obfuscation, eval or base64_decode chains, command execution functions, upload handlers, or hardcoded external URLs, and extract any indicators for broader searching.
+- Correlate the write time with web access logs and WordPress or PHP logs to identify the originating HTTP request, source IP, authenticated user, target endpoint, and any upload or admin action that preceded the file creation.
+- Trace the creating activity through parent and child processes, execution user, working directory, and any concurrent shell or download activity to separate expected maintenance from exploitation or post-compromise staging.
+- Inspect the rest of the WordPress environment for related signs of compromise, including other newly modified plugin or theme files, unexpected administrator accounts, suspicious scheduled tasks, dropped archives, or unusual outbound connections.
+
+### False positive analysis
+
+- A legitimate WordPress plugin installation or update can create or modify PHP files under `wp-content/plugins` through the normal web application update flow; verify the file path, name, hash, and timestamp match an approved plugin package and any recent administrator update activity.
+- Authorized maintenance such as restoring a plugin from backup or deploying plugin code with `bash`, `sh`, `curl`, or `wget` can also trigger this alert; verify the process lineage and maintenance records show an expected bulk file change rather than an isolated unfamiliar PHP file.
+
+### Response and remediation
+
+- Isolate the affected web server or container from the network and disable external access to the compromised WordPress site while preserving the malicious PHP file, related plugin directories, and relevant logs for evidence.
+- Remove attacker persistence by deleting the malicious PHP file and any companion backdoors, rogue plugins, modified `.htaccess` entries, cron jobs, systemd timers, SSH keys, or unauthorized WordPress administrator accounts created during the intrusion.
+- Reset exposed secrets by rotating WordPress admin passwords, hosting control panel credentials, SSH keys, database passwords, API tokens, and session cookies that may have been accessed from the compromised host.
+- Restore the site from a known-good backup or redeploy the affected plugin and WordPress core from trusted packages, then verify hashes and review `wp-content/plugins`, `wp-content/themes`, and `uploads` for any remaining unauthorized PHP files or recent modifications.
+- Escalate to incident response immediately if the webshell executed commands, multiple hosts show similar plugin-directory writes, sensitive data may have been accessed, or the attacker obtained root privileges, and expand scoping across reverse proxy, WAF, database, and authentication logs.
+- Harden the environment by patching the exploited plugin or WordPress version, removing unused plugins, enforcing least-privilege write access so the web server cannot write to plugin directories, enabling MFA for administrators, and adding monitoring for new executable files under web content.
+"""
 references = [
     "https://github.com/Icex0/wp2shell-poc",
 ]
@@ -59,7 +90,8 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Initial Access",
     "Use Case: Vulnerability",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide"
 ]
 timestamp_override = "event.ingested"
 type = "eql"

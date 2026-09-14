@@ -2,7 +2,7 @@
 creation_date = "2026/02/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/27"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,7 @@ endpoint security evasion, agent tampering, sensor disablement, service terminat
 interference with telemetry collection following detection.
 """
 false_positives = ["Misconfiguration, system reboot, network issues or expected uninstall of the Elastic Defend agent."]
-from = "now-9m"
+from = "now-14m"
 index = ["logs-endpoint.*"]
 language = "eql"
 license = "Elastic License v2"
@@ -67,11 +67,10 @@ tags = [
     "Rule Type: Higher-Order Rule",
     "Resources: Investigation Guide",
 ]
-timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5m
+sequence by host.id with maxspan=10m
  [any where data_stream.dataset == "endpoint.alerts"]
  ![any where event.category in ("process", "library", "registry", "network", "dns", "file")]
 '''

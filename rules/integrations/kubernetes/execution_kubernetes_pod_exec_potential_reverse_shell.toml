@@ -2,7 +2,7 @@
 creation_date = "2026/04/23"
 integration = ["kubernetes"]
 maturity = "production"
-updated_date = "2026/04/23"
+updated_date = "2026/08/18"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ note = """## Triage and analysis
 ### Investigating Kubernetes Pod Exec Potential Reverse Shell
 
 The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and 
-matches high-signal shell and socket idioms often used to obtain a allback shell from inside a container.
+matches high-signal shell and socket idioms often used to obtain a fallback shell from inside a container.
 
 ### Possible investigation steps
 
@@ -55,7 +55,9 @@ rule_id = "f1a2b3c4-d5e6-4789-a012-3456789abc01"
 severity = "high"
 tags = [
     "Data Source: Kubernetes",
+    "Data Source: Kubernetes API Server Audit Logs",
     "Domain: Kubernetes",
+    "Platform: Kubernetes",
     "Use Case: Threat Detection",
     "Tactic: Execution",
     "Tactic: Command and Control",
@@ -67,16 +69,15 @@ query = '''
 FROM logs-kubernetes.audit_logs-* metadata _id, _index, _version
 | WHERE kubernetes.audit.objectRef.subresource == "exec"
   AND kubernetes.audit.requestURI LIKE "*command=*"
-| EVAL decoded_uri = URL_DECODE(kubernetes.audit.requestURI)
-| GROK decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL Esql.decoded_uri = URL_DECODE(kubernetes.audit.requestURI)
+| GROK Esql.decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
 | EVAL command = REPLACE(raw_commands, "command=", "")
 | EVAL command = REPLACE(command, "&", " ")
 | EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
-| WHERE Esql.executed_command IS NOT NULL 
 | WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND 
- // local service health check patterns
+  // local service health check patterns
   NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
-| KEEP *
+| KEEP Esql.*, user.name, user_agent.original, event.*, source.ip, kubernetes.audit.*, _id, _version, _index, data_stream.namespace
 '''
 
 [[rule.threat]]

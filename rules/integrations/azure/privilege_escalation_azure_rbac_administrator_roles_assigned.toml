@@ -2,19 +2,22 @@
 creation_date = "2025/09/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator.
+Identifies when a user is assigned a built-in administrator role in Azure RBAC (Role-Based Access Control). These roles
+provide significant privileges and can be abused by attackers for lateral movement, persistence, or privilege
+escalation. The privileged built-in administrator roles include Owner, Contributor, User Access Administrator, Azure
+File Sync Administrator, Reservations Administrator, and Role Based Access Control Administrator.
 """
 from = "now-9m"
 index = ["filebeat-*", "logs-azure.activitylogs-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "Azure RBAC Built-In Administrator Roles Assigned"
-note = """## Triage and Analysis
+note = """## Triage and analysis
 
 ### Investigating Azure RBAC Built-In Administrator Roles Assigned
 
@@ -41,6 +44,8 @@ This rule identifies when a user is assigned a built-in administrator role in Az
 ### False positive analysis
 
 - Legitimate administrators may assign built-in administrator roles during routine operations, maintenance or as required for onboarding new staff.
+- Azure Kubernetes Service control-plane operations may assign the Contributor role to service principals. Assignments initiated by the Microsoft-owned AzureContainerService application are excluded.
+- Repeated writes for the same role assignment ID by the same initiating principal are suppressed for one hour.
 - Review internal tickets, change logs, or admin activity dashboards for approved operations.
 
 ### Response and remediation
@@ -60,17 +65,21 @@ This rule identifies when a user is assigned a built-in administrator role in Az
 references = [
     "https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles",
     "https://orca.security/resources/research-pod/azure-identity-access-management-iam-active-directory-ad/",
-    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/"
+    "https://www.microsoft.com/en-us/security/blog/2025/08/27/storm-0501s-evolving-techniques-lead-to-cloud-based-ransomware/",
 ]
 risk_score = 73
 rule_id = "1a1046f4-9257-11f0-9a42-f661ea17fbce"
 severity = "high"
 tags = [
     "Domain: Cloud",
+    "Domain: Identity",
     "Data Source: Azure",
     "Data Source: Azure Activity Logs",
+    "Platform: Azure",
+    "Rule Type: Custom Query (KQL)",
     "Use Case: Identity and Access Audit",
     "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -87,42 +96,57 @@ data_stream.dataset: azure.activitylogs and
       *8e3af657-a8ff-443c-a75c-2fe8c4bcb635* or
       *92b92042-07d9-4307-87f7-36a593fc5850* or
       *a8889054-8d42-49c9-bc1c-52486c10e7cd*
-  )
+    ) and not (
+        azure.activitylogs.identity.claims.appid: "7319c514-987d-4e9b-ac3d-d38c4f427f4c" and
+        azure.activitylogs.identity.authorization.evidence.role: "Service Owner role" and
+        azure.activitylogs.identity.authorization.evidence.principal_type: "ServicePrincipal" and
+        azure.activitylogs.properties.requestbody.properties.roleDefinitionId: *b24988ac-6180-42a0-ab88-20f7382dd24c*
+    )
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.003"
 name = "Additional Cloud Roles"
 reference = "https://attack.mitre.org/techniques/T1098/003/"
 
+
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = [
+    "azure.activitylogs.identity.authorization.evidence.role_assignment_id",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/07/06"
-integration = ["network_traffic"]
+integration = ["network_traffic", "panw", "fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/07/16"
+updated_date = "2026/08/26"
 
 [rule]
 author = ["Elastic"]
@@ -72,16 +72,20 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Domain: Endpoint",
+    "Rule Type: ESQL",
+    "Data Source: Fortinet",
+    "Data Source: PAN-OS",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-from packetbeat-*, filebeat-*, logs-network_traffic.* metadata _id, _version, _index
+from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos*, logs-fortinet_fortigate.log-* metadata _id, _version, _index
 | where (
     (event.category in ("network", "network_traffic") and network.protocol in ("tls", "http")) or
-    data_stream.dataset in ("network_traffic.tls", "network_traffic.http")
+    (data_stream.dataset == "panw.panos" and network.application in ("ssl", "web-browsing")) or
+    data_stream.dataset in ("network_traffic.tls", "network_traffic.http", "fortinet_fortigate.log")
   )
 | where destination.domain RLIKE "[a-z]{3}\\.stage\\.[0-9]{8}\\..*"
 | keep @timestamp, destination.domain, source.ip, destination.ip, network.protocol, data_stream.dataset, _id, _version, _index
