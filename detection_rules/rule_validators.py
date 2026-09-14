@@ -830,7 +830,7 @@ class ESQLValidator(QueryValidator):
     metadata: RuleMeta
     rule_id: str
     verbosity: int = 0
-    esql_unique_fields: list[dict[str, str]] = None  # type: ignore[assignment]
+    esql_unique_fields: list[dict[str, str]] | None = None
     _parsed_tree: Any | None = None
 
     def log(self, val: str) -> None:
@@ -864,7 +864,8 @@ class ESQLValidator(QueryValidator):
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
-        esql_unique_fields = getattr(self, "esql_unique_fields", [])
+        # Class default is None; getattr default only applies when the attr is missing.
+        esql_unique_fields = getattr(self, "esql_unique_fields", None) or []
         for field in esql_unique_fields:
             if field["name"] == field_name:
                 return field["type"]
