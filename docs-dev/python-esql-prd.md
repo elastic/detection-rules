@@ -26,10 +26,21 @@ Ship offline ES|QL parse + schema validation in detection-rules CI/authoring wit
 
 | Check | Result |
 | --- | --- |
-| `python-esql` `make ci` | Pass (83 tests) |
-| `pytest tests/test_esql_offline.py` | 12+ tests pass |
-| Full ES\|QL corpus via `scripts/e2e_detection_rules_corpus.py` | **226/226** |
-| Negative syntax / nested KQL failures | Fail as expected |
+| `python-esql` `make ci` | Pass |
+| `pytest tests/test_esql_offline.py` | Pass (nested uppercase KQL included) |
+| Full ES\|QL corpus (feature branch) | **226/226** |
+| Release branches (parse-only via `validate_release_branches.py`) | **8.19: 200/201**, **9.3: 215/215**, **9.4: 221/221**, **9.5: 225/225** |
+
+### Release-branch note
+
+The single 8.19 failure is `multiple_alerts_llm_by_user_entity.toml`: it uses `COMPLETION … WITH {…}` without `min_stack_version` on the 8.19 line (9.3+ required). On 9.3+ the same rule sets `min_stack_version = "9.3.0"` and passes. That is expected language gating, not a parser bug.
+
+## CI install (staging)
+
+`python-esql` is not yet on PyPI (token scoped to another project). Until publish:
+
+- Vendored snapshot at `lib/esql` (see `lib/esql/VENDOR.md`)
+- Pin: `python-esql @ file:./lib/esql` in `pyproject.toml`
 
 ## Bake-ins from recent DR ES|QL work
 
