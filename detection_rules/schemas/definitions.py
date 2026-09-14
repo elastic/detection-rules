@@ -288,6 +288,7 @@ EXPECTED_RULE_TAGS = [
     "Service: Azure Event Hubs",
     "Service: Azure Functions",
     "Service: Azure Key Vault",
+    "Service: Azure Kubernetes Service",
     "Service: Azure OpenAI",
     "Service: Azure Storage",
     "Service: GCP BigQuery",
