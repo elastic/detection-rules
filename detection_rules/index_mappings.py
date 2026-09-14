@@ -434,7 +434,7 @@ def validate_offline_esql_from_indices(
     return assert_known_esql_indices(indices, index_lookup)
 
 
-def get_filtered_index_schema(  # noqa: PLR0913
+def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     indices: list[str],
     index_lookup: dict[str, Any],
     ecs_schema: dict[str, Any],
@@ -712,7 +712,7 @@ def get_ecs_schema_mappings(
     return ecs_schema
 
 
-def prepare_mappings(  # noqa: PLR0913
+def prepare_mappings(  # noqa: PLR0912, PLR0913, PLR0917
     elastic_client: Elasticsearch,
     indices: list[str],
     event_dataset_integrations: list[EventDataset],

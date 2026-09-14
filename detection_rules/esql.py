@@ -16,6 +16,12 @@ import esql
 
 from . import ecs
 from .config import CUSTOM_RULES_DIR
+from .schemas.definitions import (
+    ESQL_COMMENTS_AND_LITERALS_REGEX,
+    ESQL_FROM_KEYWORD_REGEX,
+    ESQL_FROM_SOURCES_TERMINATOR_REGEX,
+    ESQL_INDEX_PATTERN_REGEX,
+)
 
 # Legacy / alternate dataset package prefixes → Fleet package names.
 DATASET_PACKAGE_ALIASES: dict[str, str] = {
@@ -24,13 +30,6 @@ DATASET_PACKAGE_ALIASES: dict[str, str] = {
 
 # logs-<package>.… / metrics-<package>.… / traces-<package>.…
 _INDEX_PACKAGE_RE = re.compile(r"^(?:logs|metrics|traces)-([a-zA-Z0-9_]+)", re.IGNORECASE)
-
-from .schemas.definitions import (
-    ESQL_COMMENTS_AND_LITERALS_REGEX,
-    ESQL_FROM_KEYWORD_REGEX,
-    ESQL_FROM_SOURCES_TERMINATOR_REGEX,
-    ESQL_INDEX_PATTERN_REGEX,
-)
 
 
 @dataclass
