@@ -2109,7 +2109,7 @@ def set_esql_config(min_stack_version_val: str) -> Any:
         # Nested KQL() inside ES|QL commonly uses uppercase operators (NOT/AND/OR).
         # Always normalize for Kibana parity; RULES_CONFIG.normalize_kql_keywords
         # only governs top-level kuery rule queries.
-        return kql.parse(text, normalize_kql_keywords=True)
+        return kql.parse(text, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
     cfg.context["kql_parse"] = _kql_parse
     return cfg
@@ -2130,6 +2130,8 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     if language == "esql":
         import esql  # local import: avoid cycle with rule_validators
 
+        if not isinstance(query, str):
+            raise TypeError("ES|QL rule query must be a string")
         cfg = set_esql_config(min_stack_version)
         with cfg, esql.Schema({}, allow_missing=True):
             tree = esql.parse_query(query)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import esql
 
@@ -162,19 +162,21 @@ def collect_package_fields_for_indices(
     for dataset, dataset_fields in package_schema.items():
         if dataset == "jobs" or not isinstance(dataset_fields, dict):
             continue
+        stream_fields = cast("dict[str, Any]", dataset_fields)
         if stream_matches_indices(package, dataset, indices):
             matched = True
-            fields.update(dataset_fields)
+            fields.update(stream_fields)
     if matched:
         return fields
     # Fallback: no stream key matched (e.g. unusual index shape) — keep prior
     # whole-package behavior rather than validating against an empty schema.
-    return {
-        field: value
-        for dataset, dataset_fields in package_schema.items()
-        if dataset != "jobs" and isinstance(dataset_fields, dict)
-        for field, value in dataset_fields.items()
-    }
+    fallback: dict[str, Any] = {}
+    for dataset, dataset_fields in package_schema.items():
+        if dataset == "jobs" or not isinstance(dataset_fields, dict):
+            continue
+        for field, value in cast("dict[str, Any]", dataset_fields).items():
+            fallback[str(field)] = value
+    return fallback
 
 
 def split_esql_source_list(sources: str) -> list[str]:

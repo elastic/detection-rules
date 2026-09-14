@@ -9,7 +9,7 @@ import re
 import time
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 
 from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
@@ -192,23 +192,27 @@ def combine_index_mappings(dest: dict[str, Any], src: dict[str, Any]) -> None:
     for key, value in src.items():
         existing = dest.get(key)
         if isinstance(existing, dict) and isinstance(value, dict):
-            src_type = value.get("type") if isinstance(value.get("type"), str) else None
-            dest_type = existing.get("type") if isinstance(existing.get("type"), str) else None
-            src_has_props = isinstance(value.get("properties"), dict)
-            dest_has_props = isinstance(existing.get("properties"), dict)
+            value_map = cast("dict[str, Any]", value)
+            existing_map = cast("dict[str, Any]", existing)
+            raw_src_type = value_map.get("type")
+            raw_dest_type = existing_map.get("type")
+            src_type = raw_src_type if isinstance(raw_src_type, str) else None
+            dest_type = raw_dest_type if isinstance(raw_dest_type, str) else None
+            src_has_props = isinstance(value_map.get("properties"), dict)
+            dest_has_props = isinstance(existing_map.get("properties"), dict)
 
             # Prefer object shapes over scalars (e.g. ECS keyword vs integration object).
             if src_has_props and not dest_has_props:
-                dest[key] = value
+                dest[key] = value_map
             elif dest_has_props and not src_has_props and src_type in _SCALAR_MAPPING_TYPES:
                 # Keep the richer object mapping already present.
                 continue
             elif (src_type in _SCALAR_MAPPING_TYPES and not src_has_props) or (
                 dest_type in _SCALAR_MAPPING_TYPES and src_has_props
             ):
-                dest[key] = value
+                dest[key] = value_map
             else:
-                combine_index_mappings(existing, value)
+                combine_index_mappings(existing_map, value_map)
         else:
             dest[key] = value
 
@@ -218,16 +222,17 @@ def prune_scalar_fields_with_subfields(mapping: dict[str, Any]) -> dict[str, Any
     for value in mapping.values():
         if not isinstance(value, dict):
             continue
-        field_type = value.get("type")
+        value_map = cast("dict[str, Any]", value)
+        field_type = value_map.get("type")
         if isinstance(field_type, str) and field_type in _SCALAR_MAPPING_TYPES:
-            value.pop("properties", None)
+            value_map.pop("properties", None)
             # Keep multi-fields on scalars; only drop nested object properties above.
-        nested = value.get("properties")
+        nested = value_map.get("properties")
         if isinstance(nested, dict):
-            prune_scalar_fields_with_subfields(nested)
-        fields = value.get("fields")
+            _ = prune_scalar_fields_with_subfields(cast("dict[str, Any]", nested))
+        fields = value_map.get("fields")
         if isinstance(fields, dict):
-            prune_scalar_fields_with_subfields(fields)
+            _ = prune_scalar_fields_with_subfields(cast("dict[str, Any]", fields))
     return mapping
 
 
@@ -822,7 +827,7 @@ def prepare_mappings(  # noqa: PLR0912, PLR0913, PLR0917
         if not isinstance(properties, dict):
             continue
         merged = deepcopy(ecs_schema)
-        combine_index_mappings(merged, deepcopy(properties))
+        combine_index_mappings(merged, cast("dict[str, Any]", deepcopy(properties)))
         index_lookup[key] = prune_scalar_fields_with_subfields(merged)
 
     return existing_mappings, index_lookup, combined_mappings

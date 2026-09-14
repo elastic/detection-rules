@@ -848,7 +848,7 @@ class ESQLValidator(QueryValidator):
             return esql.parse_query(self.query)
 
     @cached_property
-    def ast(self) -> Any:
+    def ast(self) -> Any:  # type: ignore[reportIncompatibleMethodOverride]
         """Return the AST of the ES|QL query."""
         if self._parsed_tree is None:
             self._parsed_tree = self._parse_tree()
@@ -890,7 +890,7 @@ class ESQLValidator(QueryValidator):
         known_packages = {str(p.get("package")) for p in package_integrations if p.get("package")}
         for package in infer_packages_from_indices(from_indices):
             if package not in known_packages:
-                package_integrations.append({"package": package, "integration": None})
+                package_integrations.append({"package": package, "integration": None})  # type: ignore[reportArgumentType]
                 known_packages.add(package)
         index_fields = collect_index_field_schemas(from_indices)
         pkg_key = tuple(
@@ -986,7 +986,9 @@ class ESQLValidator(QueryValidator):
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
                     raw_schema = ecs.get_schema(ecs_version)
-                    schema_dict = {k: (v.get("type") if isinstance(v, dict) else v) for k, v in raw_schema.items()}
+                    schema_dict: dict[str, Any] = {
+                        k: (v.get("type") if isinstance(v, dict) else v) for k, v in raw_schema.items()
+                    }
                     schema_dict.update(index_fields)
                     _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
                 err_trailer = f"stack: {stack_version}, ecs: {ecs_version}\nrule: {data.name} - {data.rule_id}"
@@ -1113,7 +1115,7 @@ class ESQLValidator(QueryValidator):
             if stack_versions
             else load_current_package_version()
         )
-        validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
+        _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
 
         # Always run offline plan (syntax + nested KQL + version gates)
         plan = self.build_validation_plan(data, rule_meta)
