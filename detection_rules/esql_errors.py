@@ -36,19 +36,20 @@ def cleanup_empty_indices(
 
 
 class EsqlKibanaBaseError(ClientError):
-    """Base class for ESQL exceptions with cleanup logic."""
+    """Base class for ESQL exceptions with optional remote cleanup logic."""
 
     def __init__(
         self,
         message: str,
-        elastic_client: Elasticsearch,
+        elastic_client: Elasticsearch | None = None,
     ) -> None:
-        cleanup_empty_indices(elastic_client)
+        if elastic_client is not None:
+            cleanup_empty_indices(elastic_client)
         super().__init__(message, original_error=self)
 
 
 class EsqlSchemaError(EsqlKibanaBaseError):
-    """Error in ESQL schema. Validated via Kibana until AST is available."""
+    """Error in ESQL schema (local python-esql or remote stack)."""
 
 
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
@@ -56,7 +57,7 @@ class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
 
 
 class EsqlSyntaxError(EsqlKibanaBaseError):
-    """Error with ESQL syntax."""
+    """Error with ESQL syntax (local python-esql or remote stack)."""
 
 
 class EsqlTypeMismatchError(ClientError):
