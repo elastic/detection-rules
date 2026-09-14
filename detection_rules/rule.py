@@ -2106,7 +2106,10 @@ def set_esql_config(min_stack_version_val: str) -> Any:
             cfg.context[name] = False
 
     def _kql_parse(text: str) -> Any:
-        return kql.parse(text, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)
+        # Nested KQL() inside ES|QL commonly uses uppercase operators (NOT/AND/OR).
+        # Always normalize for Kibana parity; RULES_CONFIG.normalize_kql_keywords
+        # only governs top-level kuery rule queries.
+        return kql.parse(text, normalize_kql_keywords=True)
 
     cfg.context["kql_parse"] = _kql_parse
     return cfg

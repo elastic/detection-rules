@@ -92,6 +92,18 @@ class TestEsqlOfflineSchemaFailures:
 class TestEsqlOfflineSchemaPasses:
     """Queries that must pass once schemas / defined columns are correct."""
 
+    def test_nested_kql_uppercase_operators_pass(self) -> None:
+        """Nested KQL() must accept uppercase NOT/AND/OR (Kibana parity)."""
+        rule = _sample_rule()
+        del rule["metadata"]["integration"]
+        rule["rule"]["query"] = '''
+        FROM .alerts-security.* METADATA _id, _version, _index
+        | WHERE KQL("""NOT kibana.alert.building_block_type : *""")
+        | KEEP kibana.alert.rule.name, _id, _version, _index
+        '''
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
     def test_alert_index_kibana_alert_fields_pass(self) -> None:
         rule = _sample_rule()
         del rule["metadata"]["integration"]
