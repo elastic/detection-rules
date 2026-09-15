@@ -1,0 +1,175 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of well-known cloud exploitation, enumeration, and attack-simulation frameworks on an endpoint.
+Adversaries install these after obtaining AWS credentials to map the compromised principal's effective permissions,
+discover privilege escalation paths, exfiltrate secrets, and pivot to the console. Pacu is tracked by MITRE as
+software S1091. Real-world use on compromised hosts is documented in the AWS customer incident catalog, where both the
+Unit 42 SugarCRM zero-day response and the AWS CIRT federated-user compromise record Pacu and ScoutSuite scanning from
+access keys found on EC2 hosts.
+
+Covered frameworks include: Pacu, CloudFox, ScoutSuite, PMapper, Stratus Red Team, WeirdAAL, enumerate-iam, Prowler,
+CloudMapper, CloudSplaining, cloud_enum, CloudBrute, SkyArk, Leonidas, Halberd, Barq, Cartography, Nimbostratus,
+AWSBucketDump, dsnap, Gitleaks, aws_consoler, Redboto, cloudjack, s3scanner, CloudSploit, aws-enumerator,
+iam-vulnerable, Endgame, and SmogCloud.
+
+Authorized red team and cloud audit activity uses the same tooling, so alerts should be correlated with known
+assessment windows and operators.
+"""
+false_positives = [
+    """
+    Authorized red team engagements and cloud security assessments use the same frameworks. Correlate with known
+    assessment windows, operator identities, and approved change records before escalating.
+    """,
+    """
+    Developers running local cloud security testing with tools such as Prowler or ScoutSuite for compliance reviews
+    may trigger this rule. Establish host or user allowlists for known security tooling environments.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Cloud Offensive Framework Execution"
+references = [
+    "https://www.uptycs.com/blog/threat-research-report-team/threat-actor-mitigation-with-cloud-security",
+    "https://github.com/ramimac/aws-customer-security-incidents",
+    "https://unit42.paloaltonetworks.com/sugarcrm-cloud-incident-black-hat/",
+    "https://github.com/RhinoSecurityLabs/pacu",
+    "https://github.com/BishopFox/cloudfox",
+    "https://github.com/nccgroup/ScoutSuite",
+    "https://github.com/nccgroup/PMapper",
+    "https://stratus-red-team.cloud/",
+    "https://github.com/duo-labs/cloudmapper",
+    "https://github.com/salesforce/cloudsplaining",
+    "https://github.com/cyberark/SkyArk",
+    "https://github.com/FSecureLABS/leonidas",
+    "https://github.com/vectra-ai-research/Halberd",
+    "https://github.com/prisma-cloud/dsnap",
+]
+risk_score = 47
+rule_id = "77c476eb-6a49-402a-a561-267ae66daa5e"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS IAM",
+    "Service: AWS EC2",
+    "Service: AWS S3",
+    "Tactic: Discovery",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : "process" and event.type : "start" and event.action : (start or exec) and
+(
+  process.name : (
+    pacu or pacu.exe or cloudfox or cloudfox.exe or
+    weirdaal or "enumerate-iam" or enumerate_iam or scoutsuite or pmapper or
+    prowler or prowler.exe or cloudmapper or cloudsplaining or cloud_enum or
+    cloudbrute or cartography or nimbostratus or "aws-enumerator" or
+    stratus or leonidas or halberd or barq or skyark or fog or fog.exe or
+    awsbucketdump or dsnap or gitleaks or gitleaks.exe or trufflehog or trufflehog.exe or aaia or
+    aws_consoler or awsconsoler or redboto or cloudjack or s3scanner or
+    cloudsploit or "iam-vulnerable" or endgame or smogcloud
+  ) or
+  (
+    process.name : (python* or python3* or pipx or uv or uvx or go or node) and
+    process.command_line : (
+      *cloudfox* or *enumerate_iam* or *enumerate-iam* or *weirdAAL* or *aws_consoler* or
+      *-m pacu* or *aws_escalate* or *cloudgoat* or *scoutsuite* or *pmapper* or
+      *cloudmapper* or *cloudsplaining* or *nimbostratus* or *leonidas-framework* or
+      *cloud_enum* or *halberd* or *skyark* or *awsbucketdump* or *gitleaks* or
+      *cartography* or *stratus-red-team*
+    )
+  )
+) and not process.command_line : (
+  *pip install* or *pip3 install* or *pipx install* or *uv pip install* or *uv tool install* or
+  *go get* or *go install* or *npm install* or *--help* or *--version* or *git clone* or
+  *pytest* or "*site-packages/pip*"
+) and not process.parent.name : (dpkg or rpm or apt or yum or dnf or brew or pip or pip3)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
