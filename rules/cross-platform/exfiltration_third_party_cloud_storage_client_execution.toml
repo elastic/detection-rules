@@ -84,31 +84,27 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category : "process" and event.type : "start" and event.action : (start or exec) and
-(
-  process.name : (
-    s3browser.exe or s3browser-con.exe or S3Browser.exe or
-    s5cmd or s5cmd.exe or s3cmd or s3cmd.exe or
-    cyberduck or duck or duck.exe or Cyberduck or
-    mc or mc.exe or rclone or rclone.exe or
-    s3fs or goofys or juicefs or "aws-shell"
-  ) or
-  process.name : (*s3browser* or *cloudberry* or *bucketexplorer*)
+event.category : "process" and event.type : "start" and event.action : (exec or start) and
+process.name : (
+  Cyberduck or S3Browser.exe or aws-shell or cyberduck or duck or duck.exe or
+  goofys or juicefs or mc or mc.exe or rclone or rclone.exe or
+  s3browser-con.exe or s3browser.exe or s3cmd or s3cmd.exe or s3fs or s5cmd or s5cmd.exe or
+  *bucketexplorer* or *cloudberry* or *s3browser*
 ) and not (
   process.name : (mc or mc.exe) and not
-  process.command_line : (*alias* or *cp * or *mirror* or *ls * or *rm * or *s3* or *http*)
+  process.command_line : (*alias* or *cp * or *http* or *ls * or *mirror* or *rm * or *s3*)
 ) and not process.executable : (
-  /opt/Elastic/Agent/* or /var/lib/amazon/ssm/* or /usr/lib/systemd/* or /nix/store/*
-) and not process.command_line : (*--version* or *--help* or * version* or *selfupdate*) and
+  /nix/store/* or /opt/Elastic/Agent/* or /usr/lib/systemd/* or /var/lib/amazon/ssm/*
+) and not process.command_line : (* version* or *--help* or *--version* or *selfupdate*) and
 (
-  process.parent.name : (python* or perl* or ruby* or php* or node or node.exe or bun or deno) or
+  process.parent.name : (bun or deno or node or node.exe or perl* or php* or python* or ruby*) or
   (
-    process.parent.name : (bash or dash or sh or zsh or ksh or fish or cmd.exe or powershell.exe or pwsh.exe) and
-    process.parent.args : ("-c" or "-lc" or "-ilc" or "/c" or "-Command")
+    process.parent.name : (bash or cmd.exe or dash or fish or ksh or powershell.exe or pwsh.exe or sh or zsh) and
+    process.parent.args : ("-Command" or "-c" or "-ilc" or "-lc" or "/c")
   ) or
   process.parent.executable : (
-    /tmp/* or /var/tmp/* or /dev/shm/* or /private/tmp/* or /Users/Shared/* or
-    *\\Users\\Public\\* or *\\Windows\\Temp\\* or *\\Users\\*\\AppData\\Local\\Temp\\*
+    *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\* or
+    /Users/Shared/* or /dev/shm/* or /private/tmp/* or /tmp/* or /var/tmp/*
   )
 )
 '''
