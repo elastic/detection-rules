@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a single authenticated user generating an unusually high number of denied Claude chat access attempts in a
+24-hour window. That pattern fits automated chat enumeration or attempts to reach conversations outside the actor's
+permissions. Unauthenticated shared-link actors lack user.id and are excluded.
+"""
+false_positives = [
+    """
+    Users browsing many stale or revoked shared chat links during incident response or legal review can produce bursts
+    of access failures. Confirm whether the activity matches an approved investigation before escalating.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Excessive Chat Access Failures"
+note = """## Triage and analysis
+
+### Investigating Anthropic Excessive Chat Access Failures
+
+This ES|QL rule fires when one authenticated user (`user.id` present) hits at least 10 `claude_chat_access_failed`
+events in a 24-hour lookback for the same organization. Matching `(user.id, organization.id)` pairs are suppressed for
+24 hours so hourly runs do not re-alert while the rolling window still contains the burst. Unauthenticated shared-link
+failures map `unauthenticated_email_address` to `user.email` but do not populate `user.id`, so they are out of scope.
+The alert document aggregates events, so pivot to raw `logs-anthropic.audit-*` logs for individual failures and
+targeted chat IDs. Grouping stays on the user rather than source IP, so NAT and VPN pools do not collapse unrelated
+actors and per-user enumeration remains the primary signal.
+
+#### Possible investigation steps
+
+- Pivot on `user.email`, `user.id`, `organization.id`, and the alert time window for
+  `event.action == "claude_chat_access_failed"`.
+- Review `Esql.anthropic_audit_claude_chat_id_values` (or raw `anthropic.audit.claude_chat_id` in Timeline).
+  Sequential or patterned IDs suggest scripted enumeration; scattered IDs are more likely shared-link browsing.
+- Compare failure volume to `claude_chat_viewed` events from the same actor in the same window. A high
+  failure-to-success ratio points at enumeration rather than casual link exploration.
+- Review `Esql.source_ip_values`, `Esql.user_agent_original_values`, and actor type for signs of automation or a
+  compromised session.
+- Correlate with IAM changes such as admin role grants, SSO weakening, or compliance key creation in the same period.
+- Check whether any failures were followed by successful `claude_chat_viewed` events for the same chat IDs.
+
+### False positive analysis
+
+- Legal, HR, or security teams reviewing large sets of revoked shared links can generate high failure counts.
+- Broken bookmarks or automation that retries expired shared URLs can look like enumeration.
+
+### Response and remediation
+
+- If unauthorized enumeration is confirmed, revoke active sessions for the actor and review recently accessed chats.
+- Decide whether exposed shared links should be rotated or org sharing policies tightened.
+- Correlate with data export or artifact sharing activity from the same user.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1526/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "a304c107-e0f0-4042-aa6c-5332ce6ca967"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action == "claude_chat_access_failed" and
+    user.id is not null
+| stats
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.anthropic_audit_claude_chat_id_values = values(anthropic.audit.claude_chat_id),
+    Esql.anthropic_audit_claude_project_id_values = values(anthropic.audit.claude_project_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.user_email_values = values(user.email),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.id, organization.id
+| where Esql.event_count >= 10
+| keep *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.alert_suppression]
+group_by = ["user.id", "organization.id"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "organization.id",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.user_email_values",
+    "Esql.anthropic_audit_claude_chat_id_values",
+    "Esql.anthropic_audit_claude_project_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]

@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Compliance-scoped API keys read organization audit activity and compliance data. Once an attacker has administrative
+access, creating one gives them programmatic read of chats, files, and membership without an interactive session. This
+is separate from admin API key creation, which covers organization administration rather than compliance read scopes.
+"""
+false_positives = [
+    """
+    Platform and security teams create compliance-scoped API keys when onboarding the Anthropic Fleet integration or
+    setting up SIEM ingestion. Verify the actor and confirm the key is in the approved credentials inventory.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Compliance API Key Created"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance API Key Created
+
+This rule matches `api_key_created` events where the new key carries compliance read scopes. Review
+`anthropic.audit.scopes` for the exact permissions granted.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.api_key_id`, `anthropic.audit.scopes`, and `anthropic.audit.actor.type`.
+- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
+- Pivot on `anthropic.audit.api_key_id` and look for later `compliance_api_accessed` events to confirm programmatic
+  use. There is no standalone production rule for that activity, so use it as a manual correlation pivot.
+- Confirm the creation matches an approved integration or investigation ticket.
+
+### False positive analysis
+
+- Fleet onboarding usually creates the first compliance-scoped key for an organization.
+
+### Response and remediation
+
+- If unauthorized, revoke the key and review Compliance API activity from the exposure window.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://attack.mitre.org/techniques/T1098/001/",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "b8c429a1-67f3-448c-a960-951807dd2cd8"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action == "api_key_created" and
+    (
+        mv_contains(anthropic.audit.scopes, "read:compliance_activities") or
+        mv_contains(anthropic.audit.scopes, "read:compliance_org_data")
+    )
+| keep *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.api_key_id",
+    "anthropic.audit.scopes",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
