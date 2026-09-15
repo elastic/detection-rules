@@ -69,6 +69,7 @@ type = "esql"
 query = '''
 FROM logs-endpoint.events.network-*
 | WHERE host.os.type == "linux"
+    AND event.action == "lookup_requested"
     AND host.id IS NOT NULL
     AND process.executable IS NOT NULL
     AND dns.question.name LIKE "*.*"
@@ -86,16 +87,18 @@ FROM logs-endpoint.events.network-*
     Esql.event_count = COUNT(*),
     Esql.host_name_values = VALUES(host.name),
     Esql.process_name_values = VALUES(process.name),
-    Esql.user_name_values = VALUES(user.name)
+    Esql.user_name_values = VALUES(user.name),
+    Esql.user_id_values = VALUES(user.id)
   BY host.id, process.executable, dns.question.name
-// New terms emulation: alert when the tuple occurs once in the 5-day history and was first seen recently.
+// New terms emulation: alert when the tuple was first seen recently within the 5-day history.
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
 | WHERE Esql.recent_minutes <= 6
 // Populate ECS fields for rule exceptions and triage.
 | EVAL host.name = MV_FIRST(Esql.host_name_values),
        process.name = MV_FIRST(Esql.process_name_values),
-       user.name = MV_FIRST(Esql.user_name_values)
-| KEEP host.id, host.name, process.executable, process.name, dns.question.name, user.name, Esql.*
+       user.name = MV_FIRST(Esql.user_name_values),
+       user.id = MV_FIRST(Esql.user_id_values)
+| KEEP host.id, host.name, process.executable, process.name, dns.question.name, user.name, user.id
 '''
 
 [[rule.threat]]
