@@ -2,6 +2,8 @@ name: ES|QL Validation
 on:
     pull_request:
       branches: [ "*" ]
+    merge_group:
+      branches: [ main ]
 
 permissions:
   contents: read
@@ -12,7 +14,7 @@ jobs:
 
     steps:
       - name: Setup Detection Rules
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
             fetch-depth: 0
             path: detection-rules
@@ -29,7 +31,8 @@ jobs:
             exit 0
           fi
 
-          MODIFIED_FILES=$(git diff --name-only --diff-filter=AM HEAD~1 | grep '^rules/.*\.toml$' || true)
+          BASE_SHA="${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.pull_request.base.sha }}"
+          MODIFIED_FILES=$(git diff --name-only --diff-filter=AM "$BASE_SHA" HEAD | grep '^rules/.*\.toml$' || true)
           if [ -z "$MODIFIED_FILES" ]; then
             echo "No modified or new .toml files found. Skipping workflow."
             echo "run_esql=false" >> $GITHUB_ENV
@@ -49,7 +52,7 @@ jobs:
           DR_CLOUD_ID: ${{ secrets.dr_cloud_id }}
           DR_API_KEY: ${{ secrets.dr_api_key }}
         if: ${{ !env.DR_CLOUD_ID && !env.DR_API_KEY && env.run_esql == 'true' }}
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           path: elastic-container
           repository: peasead/elastic-container
@@ -90,7 +93,7 @@ jobs:
 
       - name: Set up Python 3.13
         if: ${{ env.run_esql == 'true' }}
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
 
