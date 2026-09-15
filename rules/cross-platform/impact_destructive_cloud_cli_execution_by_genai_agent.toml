@@ -1,0 +1,163 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a GenAI coding agent spawning a cloud CLI command that destroys infrastructure or identities, such as
+terminating EC2 instances, removing S3 buckets, or deleting IAM users. A compromised or prompt-injected agent can be
+steered into wiping the developer's environment and cloud account. In July 2025 a malicious pull request shipped in
+Amazon Q Developer for VS Code v1.84.0 carried exactly this payload, instructing the agent to return the system to a
+factory state by deleting local files, S3 buckets, EC2 instances, and IAM users. Because the agent already holds the
+developer's AWS credentials, no separate credential theft step is required.
+"""
+false_positives = [
+    """
+    Authorized infrastructure teardown automation may legitimately invoke these commands. Correlate with change
+    management records and known deployment pipeline identities before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Destructive Cloud CLI Command Executed by GenAI Agent"
+references = [
+    "https://aws.amazon.com/security/security-bulletins/AWS-2025-015/",
+    "https://github.com/aws/aws-toolkit-vscode/security/advisories/GHSA-7g7f-ff96-5gcw",
+    "https://www.theregister.com/2025/07/24/amazon_q_ai_prompt/",
+    "https://www.pointguardai.com/blog/clean-to-factory-state-the-ai-prompt-that-nearly-wiped-aws-accounts",
+]
+risk_score = 73
+rule_id = "2635d2ba-51e7-404a-9b17-db413a1351d5"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS EC2",
+    "Service: AWS S3",
+    "Service: AWS IAM",
+    "Service: AWS RDS",
+    "Service: AWS Lambda",
+    "Tactic: Impact",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Query",
+    "Mitre Atlas: AML.T0051",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : "process" and event.type : "start" and event.action : (start or exec) and
+(
+  process.parent.name : (
+    qterm or qterm.exe or qchat or qchat.exe or
+    kiro or "kiro-cli" or "kiro-cli-chat" or "kiro-cli-term" or
+    kiro.exe or "kiro-cli.exe" or "kiro-cli-chat.exe" or "kiro-cli-term.exe" or
+    claude or "claude-bin" or claude.exe or codex or codex.exe or
+    copilot or copilot.exe or cursor or cursor.exe or
+    "gemini-cli" or "gemini-cli.exe" or windsurf or windsurf.exe or
+    aider or aider.exe or cline or goose or goose.exe or opencode or opencode.exe
+  ) or
+  process.parent.executable : (
+    */.local/bin/q or */usr/local/bin/q or
+    *\\Users\\*\\AppData\\Local\\Programs\\Amazon Q\\*\\q.exe or
+    *\\Program Files\\Amazon Q\\*\\q.exe
+  )
+) and
+(
+  (
+    process.name : (aws or aws.exe) and
+    process.command_line : (
+      *ec2 terminate-instances* or *ec2 delete-volume* or *ec2 delete-snapshot* or
+      *s3 rb* or *s3 rm*--recursive* or *s3api delete-bucket* or *s3api delete-objects* or
+      *iam delete-user* or *iam delete-role* or *iam delete-login-profile* or *iam delete-access-key* or
+      *rds delete-db-instance* or *rds delete-db-cluster* or *dynamodb delete-table* or
+      *efs delete-file-system* or *eks delete-cluster* or *ecs delete-cluster* or
+      *lambda delete-function* or *kms schedule-key-deletion* or
+      *cloudtrail delete-trail* or *cloudtrail stop-logging* or
+      *backup delete-recovery-point* or *organizations close-account*
+    )
+  ) or
+  (
+    process.name : (terraform or terraform.exe or tofu or tofu.exe) and
+    process.command_line : (*destroy*-auto-approve* or *destroy -auto-approve*)
+  ) or
+  (
+    process.name : (kubectl or kubectl.exe) and
+    process.command_line : (*delete*--all* or *delete namespace*)
+  )
+) and not process.command_line : (*--dry-run* or *help* or *--version*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
