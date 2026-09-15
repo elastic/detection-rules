@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import eql  # type: ignore[reportMissingTypeStubs]
+import esql
 import kql  # type: ignore[reportMissingTypeStubs]
 import marshmallow
 from marko.block import Document as MarkoDocument
@@ -29,7 +30,7 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
-from .esql import get_esql_query_event_dataset_integrations, normalize_dataset_package
+from .esql import get_esql_query_event_dataset_integrations, parse_esql_query
 from .esql_errors import EsqlSemanticError, EsqlSyntaxError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
@@ -1053,53 +1054,53 @@ class ESQLRuleData(QueryRuleData):
     @validates_schema
     def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
-        import esql  # type: ignore[reportMissingTypeStubs]
-
         if data.get("index"):
             raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
 
-        bypass_metadata = os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is not None
-        bypass_keep = os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is not None
-        if bypass_metadata and bypass_keep:
-            return
-
-        config = set_esql_config(load_current_package_version())
         try:
-            with config, esql.Schema({}, allow_missing=True):
-                tree = esql.parse_query(data["query"])
-
-            if not bypass_metadata and not bypass_keep:
-                esql.validate_detection_rule_query(tree, name=data["name"])
-            elif not bypass_metadata and not esql.is_aggregate_query(tree):
-                metadata = set(esql.get_metadata_fields(tree))
-                if not {"_id", "_version", "_index"}.issubset(metadata):
-                    raise esql.EsqlSemanticError(  # noqa: TRY301
-                        f"Rule: {data['name']} contains a non-aggregate query without metadata fields "
-                        "'_id', '_version', and '_index'."
-                    )
-            elif not bypass_keep:
-                if not esql.has_keep(tree):
-                    raise esql.EsqlSemanticError(  # noqa: TRY301
-                        f"Rule: {data['name']} does not contain a KEEP command."
-                    )
-                if not esql.is_aggregate_query(tree):
-                    keep_columns = set(esql.get_keep_columns(tree))
-                    if "*" not in keep_columns and not {"_id", "_version", "_index"}.issubset(keep_columns):
-                        raise esql.EsqlSemanticError(  # noqa: TRY301
-                            f"Rule: {data['name']} contains a KEEP command without metadata fields "
-                            "'_id', '_version', and '_index'."
-                        )
+            tree = parse_esql_query(data["query"])
         except esql.EsqlSyntaxError as exc:
             raise EsqlSyntaxError(str(exc)) from exc
-        except esql.EsqlSemanticError as exc:
-            # Both KEEP checks (missing command, missing metadata columns) mention "keep";
-            # only the FROM metadata check does not.
-            hint = (
-                " To bypass ES|QL `KEEP` validation, set `DR_BYPASS_ESQL_KEEP_VALIDATION`."
-                if "keep" in str(exc).lower()
-                else " To bypass ES|QL `FROM` metadata validation, set `DR_BYPASS_ESQL_METADATA_VALIDATION`."
+
+        required_metadata = {"_id", "_version", "_index"}
+
+        # Ensure that non-aggregate queries have metadata
+        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None and not esql.is_aggregate_query(tree):
+            bypass_metadata_hint = (
+                " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+                "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
             )
-            raise EsqlSemanticError(f"{exc}{hint}") from exc
+            if not required_metadata.issubset(set(esql.get_metadata_fields(tree))):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a non-aggregate query without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add 'metadata _id, _version, _index' to the from command or add an aggregate function."
+                    + bypass_metadata_hint
+                )
+
+        # Enforce KEEP command for ESQL rules and that METADATA fields are present in non-aggregate queries
+        if os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is None:
+            bypass_keep_hint = (
+                " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
+            )
+            if not esql.has_keep(tree):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
+                    + bypass_keep_hint
+                )
+
+            # Ensure that keep clause includes metadata fields on non-aggregate queries
+            keep_columns = set(esql.get_keep_columns(tree))
+            if (
+                not esql.is_aggregate_query(tree)
+                and "*" not in keep_columns
+                and not required_metadata.issubset(keep_columns)
+            ):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a keep clause without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
+                )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1756,17 +1757,16 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         if isinstance(rule_integrations, str):
             rule_integrations = [rule_integrations]
         for integration in rule_integrations:
-            package = normalize_dataset_package(integration)
             ml_packages_lower = set(map(str.lower, definitions.MACHINE_LEARNING_PACKAGES))
             if isinstance(data, MachineLearningRuleData):
-                packaged_integrations.append({"package": package, "integration": None})
-            elif package in definitions.NON_DATASET_PACKAGES:
-                if _metadata_package_row_needed(package, datasets):
-                    packaged_integrations.append({"package": package, "integration": None})
-            elif package.lower() in ml_packages_lower or (
-                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(package, datasets)
+                packaged_integrations.append({"package": integration, "integration": None})
+            elif integration in definitions.NON_DATASET_PACKAGES:
+                if _metadata_package_row_needed(integration, datasets):
+                    packaged_integrations.append({"package": integration, "integration": None})
+            elif integration.lower() in ml_packages_lower or (
+                isinstance(data, ESQLRuleData) and _metadata_package_row_needed(integration, datasets)
             ):
-                packaged_integrations.append({"package": package, "integration": None})
+                packaged_integrations.append({"package": integration, "integration": None})
 
         packaged_integrations.extend(parse_datasets(list(datasets), package_manifest))
 
@@ -2055,18 +2055,6 @@ def set_eql_config(min_stack_version_val: str) -> eql.parser.ParserConfig:
     return config
 
 
-def set_esql_config(min_stack_version_val: str) -> Any:
-    """Configure python-esql for a rule's minimum stack version."""
-    import esql  # type: ignore[reportMissingTypeStubs]
-
-    stack_version = min_stack_version_val or load_current_package_version()
-
-    def parse_nested_kql(text: str) -> Any:
-        return kql.parse(text, normalize_kql_keywords=RULES_CONFIG.normalize_kql_keywords)  # type: ignore[reportUnknownMemberType]
-
-    return esql.ParserConfig(min_stack_version=stack_version, kql_parse=parse_nested_kql)
-
-
 def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     """Get a list of unique fields used in a rule query from rule contents."""
     contents = rule.contents.to_api_format()
@@ -2082,14 +2070,9 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
         raise ValueError("Min stack version not found")
 
     if language == "esql":
-        import esql  # type: ignore[reportMissingTypeStubs]
-
         if not query:
             raise ValueError("ES|QL rule is missing a query")
-        cfg = set_esql_config(min_stack_version)
-        with cfg, esql.Schema({}, allow_missing=True):
-            parsed_esql = esql.parse_query(query)
-        return sorted(esql.get_unique_fields(parsed_esql))
+        return sorted(esql.get_unique_fields(parse_esql_query(query, min_stack_version)))
 
     cfg = set_eql_config(min_stack_version)
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:

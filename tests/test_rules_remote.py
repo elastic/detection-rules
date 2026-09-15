@@ -5,7 +5,6 @@
 
 import unittest
 from copy import deepcopy
-from types import SimpleNamespace
 
 import pytest
 
@@ -22,80 +21,10 @@ from detection_rules.misc import (
 )
 from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.rule_validators import ESQLValidator
 from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
-
-
-class TestESQLValidationPlanning(unittest.TestCase):
-    """Unit tests for stack-aware offline validation planning."""
-
-    def test_offline_validation_uses_integration_patch_floor(self):
-        """Offline schemas resolve package versions at patch-adjusted stack versions."""
-        query = """
-        FROM logs-pkg.new_ds-* metadata _id, _version, _index
-        | WHERE data_stream.dataset == "pkg.new_ds"
-        | KEEP _id, _version, _index
-        """
-        data = SimpleNamespace(name="Test rule", rule_id="test-rule")
-        metadata = SimpleNamespace(
-            get_validation_stack_versions=lambda: {
-                "9.2.0": {"ecs": "9.2.0"},
-                "9.3.0": {"ecs": "9.3.0"},
-            }
-        )
-        resolved_stack_versions: list[str] = []
-
-        def patch_floor_side_effect(packages, major, minor):
-            self.assertIn("pkg", packages)
-            return 4 if (major, minor) == (9, 2) else 0
-
-        def compatible_version_side_effect(_package, _integration, stack_version, *_args, **_kwargs):
-            resolved_stack_versions.append(str(stack_version))
-            return "1.0.0", []
-
-        validator = ESQLValidator(query)
-        with (
-            unittest.mock.patch(
-                "detection_rules.rule_validators.TOMLRuleContents.get_packaged_integrations",
-                return_value=[{"package": "pkg", "integration": "new_ds"}],
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.load_integrations_manifests",
-                return_value={"pkg": {"1.0.0": {}}},
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.load_integrations_schemas",
-                return_value={"pkg": {"1.0.0": {"new_ds": {"data_stream.dataset": "keyword"}}}},
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.collect_index_field_schemas",
-                return_value={},
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.prepare_mappings",
-                return_value=({}, {}, {}),
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.ecs.get_schema",
-                return_value={},
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
-                side_effect=patch_floor_side_effect,
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.find_latest_compatible_version",
-                side_effect=compatible_version_side_effect,
-            ),
-        ):
-            targets = validator.build_validation_plan(data, metadata)
-
-        self.assertEqual(len(targets), 2)
-        self.assertIn("9.2.4", resolved_stack_versions)
-        self.assertIn("9.3.0", resolved_stack_versions)
 
 
 @unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")

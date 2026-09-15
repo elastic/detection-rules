@@ -9,23 +9,13 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-import esql  # type: ignore[reportMissingTypeStubs]
-import kql  # type: ignore[reportMissingTypeStubs]
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
 from semver import Version
 
 from . import ecs, integrations, utils
 from .config import load_current_package_version
 from .esql import EventDataset, index_patterns_match, infer_packages_from_indices
-from .esql_errors import (
-    EsqlKibanaBaseError,
-    EsqlSchemaError,
-    EsqlSemanticError,
-    EsqlSyntaxError,
-    EsqlTypeMismatchError,
-    EsqlUnknownIndexError,
-    EsqlUnsupportedTypeError,
-)
+from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
@@ -300,106 +290,6 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     return combined_mappings, filtered_index_mapping
 
 
-def build_esql_parser_config(min_stack_version: str | None = None) -> "esql.ParserConfig":
-    """Build a python-esql ParserConfig with detection-rules nested-query hooks installed."""
-    # kql_parse validates nested KQL("""...""") payloads offline; errors surface as
-    # EsqlNestedQueryError from esql.parse_query. EQL() gets wired the same way once
-    # rules start using it.
-    return esql.ParserConfig(
-        min_stack_version=min_stack_version,
-        kql_parse=kql.parse,  # type: ignore[reportUnknownMemberType]
-    )
-
-
-def flatten_index_mapping(mapping: dict[str, Any], prefix: str = "") -> dict[str, str]:
-    """Flatten a nested ES index mapping into {dotted_field: type}.
-
-    Unlike a plain properties walk, this keeps a parent field's own type when it
-    also carries children — both multi-fields ({"type": "keyword", "fields": ...})
-    and the type+properties hybrids the ECS multi-field expansion produces — so
-    `user_agent.original` and `user_agent.original.text` both resolve.
-    """
-    flat: dict[str, str] = {}
-    for name, spec in mapping.items():
-        path = f"{prefix}.{name}" if prefix else name
-        if not isinstance(spec, dict):
-            continue
-        field_type = spec.get("type")  # type: ignore[reportUnknownMemberType]
-        if isinstance(field_type, str):
-            flat[path] = field_type
-        for children_key in ("properties", "fields"):
-            children = spec.get(children_key)  # type: ignore[reportUnknownMemberType]
-            if isinstance(children, dict):
-                flat.update(flatten_index_mapping(children, path))  # type: ignore[reportUnknownArgumentType]
-    return flat
-
-
-def get_query_columns(tree: "esql.ast.EsqlQuery", schema: "esql.Schema") -> list[dict[str, Any]]:
-    """Derive the query's columns with types, matching the ES|QL HTTP API column shape."""
-    # Referenced fields plus pipeline-defined columns (EVAL/STATS/...); types come from
-    # the schema or are inferred through the pipeline. This mirrors the columns the
-    # remote /_query response carried well enough for the downstream per-stack type
-    # checks, which skip any column name that does not appear in the query text.
-    column_types = esql.infer_column_types(tree, schema)
-    columns: list[dict[str, Any]] = []
-    for name in esql.get_field_names(tree, include_output=True):
-        col_type = column_types.get(name) or "unknown"
-        if schema.resolve_field(name) is None:
-            # Pipeline-defined column: offline function return types are approximate
-            # (e.g. LOCATE reports long where the engine returns integer), so emit the
-            # type family — the same normalization the per-stack column check applies.
-            col_type = kql.parser.elasticsearch_type_family(col_type) or col_type  # type: ignore[reportUnknownMemberType]
-        columns.append({"name": name, "type": col_type})
-    return columns
-
-
-def execute_query_against_indices(
-    elastic_client: Elasticsearch | None,
-    query: str,
-    indices: dict[str, dict[str, Any]],
-    log: Callable[[str], None],
-    min_stack_version: str | None = None,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Validate an ES|QL query locally via the python-esql parser."""
-    # indices: {pattern: {"properties": {...}}} for each FROM target. elastic_client
-    # is only forwarded to error classes for opportunistic cleanup of stale
-    # rule-test-* indices from older remote runs; no query is sent to the cluster.
-    # Returns (columns, response) — columns matches the ES|QL HTTP API shape; response
-    # is a dict with a top-level "columns" key so callers expecting that wrapper work.
-    log(f"Validating ES|QL query locally against {len(indices)} index pattern(s)")
-
-    # Flatten each pattern's mapping to {dotted_field: type} so multi-fields and
-    # type+properties hybrids resolve (python-esql's own nested walk drops a parent
-    # type once "properties" is present, and never descends into "fields").
-    flat_indices: dict[str, dict[str, str]] = {
-        pattern: flatten_index_mapping(mapping.get("properties", mapping)) for pattern, mapping in indices.items()
-    }
-    schema = esql.Schema(flat_indices, allow_missing=False)
-    config = build_esql_parser_config(min_stack_version)
-    try:
-        with config, schema:
-            tree = esql.parse_query(query)
-    # Map python-esql exceptions to the same detection-rules exception types the
-    # remote path raised, so existing callers (and error-classification logic
-    # upstream) work unchanged. Order matters: subclasses before their bases.
-    except esql.EsqlSyntaxError as e:
-        raise EsqlSyntaxError(str(e), elastic_client) from None
-    except esql.EsqlSchemaError as e:
-        raise EsqlSchemaError(str(e), elastic_client) from None
-    except esql.EsqlUnsupportedTypeError as e:
-        raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
-    except esql.EsqlTypeMismatchError as e:
-        raise EsqlTypeMismatchError(str(e), elastic_client) from None
-    except (esql.EsqlVersionError, esql.EsqlNestedQueryError, esql.EsqlSemanticError) as e:
-        raise EsqlSemanticError(str(e)) from None
-    except esql.EsqlError as e:
-        raise EsqlKibanaBaseError(str(e), elastic_client) from None
-
-    query_columns = get_query_columns(tree, schema)
-    log(f"Got query columns: {', '.join(c['name'] for c in query_columns)}")
-    return query_columns, {"columns": query_columns}
-
-
 def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any]:
     """Recursively search for nested multi-fields in Elasticsearch mappings."""
     nested_multifields = []
@@ -458,12 +348,6 @@ def get_ecs_schema_mappings(current_version: Version) -> dict[str, Any]:
         if info["type"] == "scaled_float":
             ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
         ecs_schema_flattened.update({index: info["type"]})
-        # Expand ECS multi-fields (e.g. process.command_line.text). The ECS flat
-        # schema records them under each field's "multi_fields", but the iteration
-        # above only copies "type" — without this step, queries that reference a
-        # subfield like `process.command_line.text` hit "Unknown column".
-        for sub in info.get("multi_fields", []):
-            ecs_schema_flattened[f"{index}.{sub['name']}"] = sub["type"]
     ecs_schema = utils.convert_to_nested_schema(ecs_schema_flattened)
     for index, info in ecs_schema_scaled_floats.items():
         parts = index.split(".")
@@ -522,11 +406,6 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
     # and also at a per index level as custom schemas can override non-ecs fields and/or indices
     non_ecs_schema = ecs.flatten(non_ecs_schema)
-    # Merge in Elastic Endpoint extension fields (process.Ext.*, file.Ext.*, dll.Ext.*, ...).
-    # The KQL/EQL paths in ecs.py already include these; ES|QL queries against
-    # logs-endpoint.* or .alerts-security.* legitimately reference them too and would
-    # otherwise hit "Unknown column" even though the field is valid on real indices.
-    non_ecs_schema.update(ecs.flatten(ecs.get_endpoint_schemas()))
     non_ecs_schema = utils.convert_to_nested_schema(non_ecs_schema)
     non_ecs_schema = prune_mappings_of_unsupported_types("non-ecs", non_ecs_schema, log)
 

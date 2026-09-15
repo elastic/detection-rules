@@ -5,11 +5,7 @@
 
 """ESQL exceptions."""
 
-from collections.abc import Sequence
-
-from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
-
-from .misc import ClientError, getdefault
+from .misc import ClientError
 
 __all__ = (
     "EsqlKibanaBaseError",
@@ -22,37 +18,15 @@ __all__ = (
 )
 
 
-def cleanup_empty_indices(
-    elastic_client: Elasticsearch, index_patterns: Sequence[str] = ("rule-test-*", "test-*")
-) -> None:
-    """Delete empty indices matching the given patterns."""
-    if getdefault("skip_empty_index_cleanup")():
-        return
-    for pattern in index_patterns:
-        indices = elastic_client.cat.indices(index=pattern, format="json")
-        empty_indices = [index["index"] for index in indices if index["docs.count"] == "0"]  # type: ignore[reportMissingTypeStubs]
-        for empty_index in empty_indices:
-            _ = elastic_client.indices.delete(index=empty_index)
-
-
 class EsqlKibanaBaseError(ClientError):
-    """Base class for ESQL exceptions with cleanup logic."""
+    """Base class for ESQL exceptions."""
 
-    # elastic_client is optional: it's only used to clean up stale rule-test-* /
-    # test-* indices from previous remote runs. Local-only callers pass None and
-    # the cleanup is skipped.
-    def __init__(
-        self,
-        message: str,
-        elastic_client: Elasticsearch | None = None,
-    ) -> None:
-        if elastic_client is not None:
-            cleanup_empty_indices(elastic_client)
+    def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlSchemaError(EsqlKibanaBaseError):
-    """Error in ESQL schema. Validated via Kibana until AST is available."""
+    """Error in ESQL schema."""
 
 
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
@@ -66,25 +40,19 @@ class EsqlSyntaxError(EsqlKibanaBaseError):
 class EsqlTypeMismatchError(ClientError):
     """Error when validating types in ESQL. Can occur in stack or local schema comparison."""
 
-    def __init__(
-        self,
-        message: str,
-        elastic_client: Elasticsearch | None = None,
-    ) -> None:
-        if elastic_client:
-            cleanup_empty_indices(elastic_client)
+    def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlSemanticError(ClientError):
-    """Error with ESQL semantics. Validated through regex enforcement."""
+    """Error with ESQL semantics."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlUnknownIndexError(ClientError):
-    """Error with ESQL Indices. Validated through regex enforcement."""
+    """Error with ESQL indices."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
