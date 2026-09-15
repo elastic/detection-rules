@@ -1,0 +1,177 @@
+[metadata]
+creation_date = "2026/08/19"
+integration = ["system", "windows"]
+maturity = "production"
+min_stack_comments = "FROM subquery support became generally available in 9.5.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/08/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a User Principal Name (UPN) being set to another account's sAMAccountName, followed by a password change for
+that other account. This pattern may indicate ResetNightmare (CVE-2026-27912), which allows an attacker who can write a
+UPN to reset another account's password and take over that account. Targeting a privileged identity can escalate a
+standard domain user to Domain Admin or equivalent control of the domain.
+"""
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential ResetNightmare UPN Account Takeover (CVE-2026-27912)"
+references = [
+    "https://www.semperis.com/blog/identity-crisis-novel-vulnerabilities-leading-to-kerberos-downgrade-dos-and-full-domain-takeover/",
+    "https://github.com/Semperis-Community/ResetNightmare",
+    "https://www.cve.org/CVERecord?id=CVE-2026-27912",
+]
+risk_score = 47
+rule_id = "6027a292-c929-452b-8529-f7c19041b926"
+setup = """## Setup
+
+Audit User Account Management must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-user-account-management
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Use Case: Active Directory Monitoring",
+    "Use Case: Vulnerability",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM (
+  FROM logs-system.security-*, logs-windows.forwarded-* METADATA _id, _index, _version
+  | WHERE event.code == "4738" AND event.outcome == "success"
+  /* 4738 TargetSid is the UPN object (actor); UserPrincipalName is the victim SAM. */
+  | EVAL Esql.stage = "upn_assignment",
+      Esql.actor_sid = winlog.event_data.TargetSid,
+      Esql.victim_name = TO_LOWER(winlog.event_data.UserPrincipalName),
+      Esql.computer_name = TO_LOWER(winlog.computer_name),
+      Esql.assignment_time = @timestamp
+  | WHERE Esql.victim_name NOT IN ("", "-", "<value not set>") AND
+      Esql.actor_sid IS NOT NULL AND
+      Esql.computer_name IS NOT NULL
+  | KEEP @timestamp, Esql.assignment_time, Esql.actor_sid, Esql.victim_name, Esql.computer_name,
+      Esql.stage, _id, _index, _version
+),
+(
+  FROM logs-system.security-*, logs-windows.forwarded-* METADATA _id, _index, _version
+  | WHERE event.code == "4723" AND event.outcome == "success"
+  /* 4723 Subject is the UPN object (actor); 4723 Target is the victim. */
+  | EVAL Esql.stage = "password_change",
+      Esql.actor_sid = winlog.event_data.SubjectUserSid,
+      Esql.victim_sid = winlog.event_data.TargetSid,
+      Esql.victim_name = TO_LOWER(winlog.event_data.TargetUserName),
+      Esql.computer_name = TO_LOWER(winlog.computer_name)
+  | WHERE Esql.victim_name IS NOT NULL AND
+      Esql.actor_sid IS NOT NULL AND
+      Esql.computer_name IS NOT NULL AND
+      Esql.actor_sid != Esql.victim_sid
+)
+
+| INLINE STATS
+    Esql.assignment_times = VALUES(Esql.assignment_time)
+      WHERE Esql.stage == "upn_assignment"
+  BY Esql.computer_name, Esql.actor_sid, Esql.victim_name
+
+| WHERE Esql.stage == "password_change" AND Esql.assignment_times IS NOT NULL
+
+| MV_EXPAND Esql.assignment_times
+| EVAL Esql.assignment_span_ms = DATE_DIFF(
+    "millisecond", Esql.assignment_times, @timestamp
+  )
+
+| WHERE Esql.assignment_span_ms > 0 AND
+    Esql.assignment_span_ms <= 300000
+
+/* Nearest preceding 4738 per 4723. */
+| SORT Esql.assignment_span_ms ASC,
+    Esql.assignment_times DESC,
+    _index ASC,
+    _id ASC
+| LIMIT 1 BY _index, _id
+| EVAL Esql.assignment_time = Esql.assignment_times
+
+| KEEP
+    @timestamp,
+    event.ingested,
+    event.code,
+    event.outcome,
+    Esql.*,
+    host.id,
+    host.name,
+    winlog.computer_name,
+    winlog.event_data.SubjectUserSid,
+    winlog.event_data.SubjectUserName,
+    winlog.event_data.SubjectDomainName,
+    winlog.event_data.TargetSid,
+    winlog.event_data.TargetUserName,
+    winlog.event_data.TargetDomainName,
+    winlog.record_id,
+    _id,
+    _index,
+    _version
+
+| SORT @timestamp DESC, _index ASC, _id ASC
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.code",
+    "host.name",
+    "winlog.computer_name",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.TargetUserName",
+    "winlog.event_data.TargetSid",
+    "Esql.actor_sid",
+    "Esql.victim_name",
+    "Esql.victim_sid",
+    "Esql.assignment_time",
+    "Esql.assignment_span_ms",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.002"
+name = "Domain Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/002/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
