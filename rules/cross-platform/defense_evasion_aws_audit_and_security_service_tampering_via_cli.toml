@@ -32,6 +32,33 @@ references = [
     "https://stratus-red-team.cloud/attack-techniques/AWS/aws.defense-evasion.cloudtrail-event-selectors/",
     "https://sysdig.com/blog/cloud-breach-terraform-data-theft/",
 ]
+note = """## Triage and analysis
+
+### Investigating AWS Audit or Security Service Tampering via CLI
+
+This rule detects use of the AWS CLI to disable, delete, or blind AWS audit logging and security monitoring services. Adversaries disable these controls early in an intrusion to prevent their subsequent actions from being recorded in CloudTrail or detected by GuardDuty and other services. Because this rule fires on the endpoint before the API call reaches AWS, it activates even when the resulting CloudTrail event is itself suppressed.
+
+### Possible investigation steps
+
+- Review the full AWS CLI command to identify which specific service and operation were targeted.
+- Identify the user account and session that executed the command and determine if it is an authorized administrator or an unexpected identity.
+- Check AWS CloudTrail for the corresponding API call and any subsequent activity that may have benefited from disabled logging.
+- Correlate with other alerts on the same host or from the same IAM identity to identify broader intrusion activity.
+- Determine whether the modification was part of an approved change window.
+
+### False positive analysis
+
+- Security teams running authorized cloud posture assessments or infrastructure cleanup may legitimately issue these commands. Correlate with change management windows and operator identity before escalating.
+- Automated compliance tools that periodically audit and reset security service configurations may trigger this rule.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Re-enable any disabled security services and restore their previous configuration.
+- Revoke the AWS credentials or session used to execute the command if compromise is confirmed.
+- Review the time window during which logging was disabled for unrecorded API activity using VPC flow logs or other sources.
+- Implement SCPs or permission boundaries to prevent disabling of critical security services in the future.
+"""
 risk_score = 73
 rule_id = "a495b1a1-69f1-423d-836b-08f13175eb49"
 setup = """## Setup
@@ -78,34 +105,36 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category : "process" and event.type : "start" and event.action : (start or exec) and
-process.name : (aws or aws.exe or aws2 or "aws-cli") and
+event.category : "process" and event.type : "start" and event.action : (exec or start) and
+process.name : (aws or aws-cli or aws.exe or aws2) and
 process.command_line : (
-  *cloudtrail stop-logging* or
-  *cloudtrail delete-trail* or
-  *cloudtrail delete-event-data-store* or
-  *cloudtrail put-event-selectors* or
-  *cloudtrail update-trail*--no-is-multi-region-trail* or
-  *cloudtrail update-trail*--no-include-global-service-events* or
-  *guardduty delete-detector* or
-  *guardduty update-detector*--no-enable* or
-  *guardduty create-filter* or
-  *guardduty delete-publishing-destination* or
-  *configservice stop-configuration-recorder* or
-  *configservice delete-configuration-recorder* or
-  *configservice delete-delivery-channel* or
-  *securityhub disable-security-hub* or
-  *securityhub batch-disable-standards* or
-  *accessanalyzer delete-analyzer* or
-  *macie2 disable-macie* or
-  *inspector2 disable* or
-  *detective delete-graph* or
-  *logs delete-log-group* or
-  *logs delete-log-stream* or
-  *logs put-retention-policy*--retention-in-days 1* or
-  *s3api delete-bucket-policy* or
-  *s3api put-bucket-logging*
-) and not process.command_line : (*--dry-run* or *help* or *--version* or *describe* or *list-* or *get-*)
+  (
+    *accessanalyzer delete-analyzer* or
+    *cloudtrail delete-event-data-store* or
+    *cloudtrail delete-trail* or
+    *cloudtrail put-event-selectors* or
+    *cloudtrail stop-logging* or
+    *cloudtrail update-trail*--no-include-global-service-events* or
+    *cloudtrail update-trail*--no-is-multi-region-trail* or
+    *configservice delete-configuration-recorder* or
+    *configservice delete-delivery-channel* or
+    *configservice stop-configuration-recorder* or
+    *detective delete-graph* or
+    *guardduty create-filter* or
+    *guardduty delete-detector* or
+    *guardduty delete-publishing-destination* or
+    *guardduty update-detector*--no-enable* or
+    *inspector2 disable* or
+    *logs delete-log-group* or
+    *logs delete-log-stream* or
+    *logs put-retention-policy*--retention-in-days 1* or
+    *macie2 disable-macie* or
+    *s3api delete-bucket-policy* or
+    *s3api put-bucket-logging* or
+    *securityhub batch-disable-standards* or
+    *securityhub disable-security-hub*
+  ) and not (*--dry-run* or *--version* or *describe* or *get-* or *help* or *list-*)
+)
 '''
 
 [[rule.threat]]
