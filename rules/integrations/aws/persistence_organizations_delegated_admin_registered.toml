@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/08/24"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/08/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when an AWS member account is registered as a delegated administrator for an AWS
+service via the RegisterDelegatedAdministrator API. Delegated administrators receive
+service-level administrative access across the entire organization without being the
+management account. An attacker who compromises a principal with organizations permissions
+can abuse overly permissive managed policies to register a member account they control as
+a delegated administrator, then use that privileged access to escalate privileges
+organization-wide and compromise all member accounts.
+"""
+false_positives = [
+    """
+    Legitimate cloud platform operations — enabling Security Hub, GuardDuty, or other
+    AWS services at the organization level — require registering a delegated administrator.
+    Validate the called service and target account against your organization's approved
+    delegated admin configuration and a corresponding change management record.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Organizations Delegated Administrator Registered"
+note = """## Triage and analysis
+
+### Investigating AWS Organizations Delegated Administrator Registered
+
+AWS allows organizations to delegate service-level administrative access to a member account via RegisterDelegatedAdministrator. The delegated account gains organization-wide administrative privileges for the specified service without being the management account. Adversaries who compromise a principal in the management account with overly permissive Organizations policies can register an attacker-controlled member account as a delegated administrator, then use that foothold to escalate privileges across all accounts in the organization.
+
+This technique was documented by Cymulate, who found that AmazonGuardDutyFullAccess v1 (before AWS corrected it) granted organizations:RegisterDelegatedAdministrator without resource restrictions, allowing any principal with that policy to elevate a member account to organization-wide admin for sensitive services such as Identity Center or CloudFormation StackSets.
+
+### Possible investigation steps
+
+- Identify the caller in aws.cloudtrail.user_identity.arn and user.name. Verify they are an authorized cloud platform administrator.
+- Review aws.cloudtrail.request_parameters for the servicePrincipal (which AWS service was delegated) and accountId (which member account was elevated). Confirm the member account belongs to your organization's account inventory.
+- Determine whether this delegation was planned. Compare against your organization's current delegated administrator configuration via organizations:ListDelegatedAdministrators.
+- Check whether the newly elevated member account subsequently made cross-account API calls or modified permission sets, IAM roles, or CloudFormation stacks.
+- Review which managed policies are attached to the calling principal. Policies with broad organizations:* grants without resource restrictions may be exploited for this technique.
+
+### Response and remediation
+
+- If unauthorized, deregister the delegated administrator with organizations:DeregisterDelegatedAdministrator.
+- Revoke active sessions for the calling identity and audit all management account activity.
+- Review and tighten IAM policies attached to principals in the management account — ensure organizations:RegisterDelegatedAdministrator is restricted to a dedicated, MFA-required role.
+- Enumerate all delegated administrators in the organization to identify any additional unauthorized delegations.
+"""
+references = [
+    "https://docs.aws.amazon.com/organizations/latest/APIReference/API_RegisterDelegatedAdministrator.html",
+    "https://cymulate.com/blog/aws-delegated-admin-org-takeover/",
+]
+risk_score = 47
+rule_id = "ad8ca41c-8e3d-49cd-b130-42af09d1eb42"
+setup = "The AWS integration must be ingesting management events into `logs-aws.cloudtrail-*`. Organizations management events are logged in the organization management account by default."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Organizations",
+    "Rule Type: Custom Query (KQL)",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "organizations.amazonaws.com"
+    and event.action: "RegisterDelegatedAdministrator"
+    and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "user.name",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.account.id",
+]
