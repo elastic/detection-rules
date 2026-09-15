@@ -32,6 +32,33 @@ references = [
 ]
 risk_score = 73
 rule_id = "5f366163-8de9-46ad-91d2-541deaf56864"
+note = """## Triage and analysis
+
+### Investigating Potential AWS SSM Agent Registered to External Account
+
+This rule detects the Amazon SSM Agent being re-registered with a hybrid activation code and ID on a Linux host. This is highly anomalous on EC2 instances that already run the SSM Agent, as it indicates an adversary is attempting to hijack the agent's persistent command channel to an attacker-controlled AWS account.
+
+### Possible investigation steps
+
+- Review the process arguments to identify the activation code, activation ID, and any region flag to determine which AWS account the agent was registered to.
+- Query AWS CloudTrail for `CreateActivation` and `RegisterManagedInstance` events around the same time to identify the attacker-controlled AWS account.
+- Investigate the parent process to understand how the registration command was initiated.
+- Determine if the user session that ran the command was interactive or came from an automated process.
+- Check whether the SSM Agent is currently reporting to an unexpected Fleet Manager endpoint.
+
+### False positive analysis
+
+- Hybrid activation is a legitimate operation when onboarding on-premises or non-EC2 hosts as managed nodes for the first time. On already-registered EC2 instances this sequence is anomalous.
+- Allowlist known provisioning automation identities if this fires in expected environments.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the affected host to prevent the attacker from issuing further SSM commands.
+- Re-register the SSM Agent with the correct organization-owned AWS account.
+- Rotate any instance credentials that may have been accessible to the attacker during the rogue registration window.
+- Review SSM Session Manager history for commands executed through the rogue registration.
+"""
 setup = """## Setup
 
 This rule requires data coming in from Elastic Defend.
@@ -76,7 +103,7 @@ query = '''
 event.category : "process" and host.os.type : linux and event.type : "start" and event.action : exec and
 process.name : ("amazon-ssm-agent" or "ssm-agent-worker" or "ssm-setup-cli") and
 process.args : "-register" and
-process.args : ("-code" or "-activation-code" or "-id" or "-activation-id")
+process.args : ("-activation-code" or "-activation-id" or "-code" or "-id")
 '''
 
 [[rule.threat]]
