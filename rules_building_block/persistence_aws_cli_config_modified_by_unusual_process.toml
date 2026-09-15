@@ -27,7 +27,8 @@ false_positives = [
     will also trigger this rule. Allowlist known script executable paths or parent processes as needed.
     """,
 ]
-from = "now-9m"
+from = "now-119m"
+interval = "60m"
 index = ["logs-endpoint.events.file*"]
 language = "kuery"
 license = "Elastic License v2"
@@ -86,28 +87,28 @@ type = "query"
 query = '''
 event.category : "file" and event.action : (creation or modification or overwrite or rename) and
 file.path : (
-  /home/*/.aws/config or /root/.aws/config or
-  /home/*/.aws/cli/alias or /root/.aws/cli/alias or
-  /Users/*/.aws/config or /Users/*/.aws/cli/alias or
-  *\\.aws\\config or *\\.aws\\cli\\alias
+  /root/.aws/cli/alias or /root/.aws/config or
+  *\\.aws\\cli\\alias or *\\.aws\\config or
+  /Users/*/.aws/cli/alias or /Users/*/.aws/config or
+  /home/*/.aws/cli/alias or /home/*/.aws/config
 ) and
-process.executable : * and
+process.executable : (* and not (
+  *\\Program Files*\\* or /Applications/* or /opt/Elastic/Agent/* or /opt/aws/* or
+  /usr/lib/python3*/dist-packages/ansible* or /usr/lib/python3*/dist-packages/cloud_init* or
+  /usr/lib/systemd/* or /usr/local/lib/python3*/site-packages/ansible* or
+  /usr/local/lib/python3*/site-packages/cloud_init* or /var/lib/amazon/ssm/*
+)) and
 not process.name : (
-  aws or aws.exe or aws_completer or "aws-vault" or "aws-vault.exe" or aws_signing_helper or
-  granted or assume or assumego or saml2aws or saml2aws.exe or "aws-sso-util" or "aws-sso" or
-  "gimme-aws-creds" or "okta-aws-cli" or leapp or "aws-google-auth" or "aws-azure-login" or "aws-mfa" or
-  vim or nvim or vi or nano or emacs or code or code.exe or Code or cursor or cursor.exe or
-  notepad.exe or "notepad++.exe" or gedit or kate or sublime_text or goland or pycharm or idea or
-  "cloud-init" or chezmoi or stow or yadm or puppet or "chef-client" or
-  terraform or terraform.exe or tofu or packer or helm or kubectl or
-  dpkg or rpm or apt or yum or dnf or brew or pip or pip3 or npm or conda or
-  git or git.exe or install or tar or unzip
-) and
-not process.executable : (
-  /opt/Elastic/Agent/* or /usr/lib/systemd/* or /var/lib/amazon/ssm/* or /opt/aws/* or
-  *\\Program Files*\\* or /Applications/* or
-  /usr/lib/python3*/dist-packages/ansible* or /usr/local/lib/python3*/site-packages/ansible* or
-  /usr/lib/python3*/dist-packages/cloud_init* or /usr/local/lib/python3*/site-packages/cloud_init*
+  Code or apt or assume or assumego or
+  aws or aws-azure-login or aws-google-auth or aws-mfa or aws-sso or aws-sso-util or
+  aws-vault or "aws-vault.exe" or aws.exe or aws_completer or aws_signing_helper or
+  brew or "chef-client" or chezmoi or "cloud-init" or code or code.exe or conda or
+  cursor or cursor.exe or dnf or dpkg or emacs or gedit or "gimme-aws-creds" or
+  git or git.exe or goland or granted or helm or idea or install or kate or kubectl or
+  leapp or nano or "notepad++.exe" or "notepad.exe" or npm or nvim or
+  "okta-aws-cli" or packer or pip or pip3 or puppet or pycharm or rpm or
+  saml2aws or saml2aws.exe or stow or sublime_text or tar or terraform or terraform.exe or
+  tofu or unzip or vi or vim or yadm or yum
 )
 '''
 
