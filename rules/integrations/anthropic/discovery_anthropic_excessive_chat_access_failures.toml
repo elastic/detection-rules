@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -26,13 +26,13 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Access Failures
 
-This ES|QL rule fires when one authenticated user (`user.id` present) hits at least 10 `claude_chat_access_failed`
-events in a 24-hour lookback for the same organization. Matching `(user.id, organization.id)` pairs are suppressed for
-24 hours so hourly runs do not re-alert while the rolling window still contains the burst. Unauthenticated shared-link
-failures map `unauthenticated_email_address` to `user.email` but do not populate `user.id`, so they are out of scope.
-The alert document aggregates events, so pivot to raw `logs-anthropic.audit-*` logs for individual failures and
-targeted chat IDs. Grouping stays on the user rather than source IP, so NAT and VPN pools do not collapse unrelated
-actors and per-user enumeration remains the primary signal.
+This ES|QL rule fires when one authenticated user (`user.id` present) hits at least 20 `claude_chat_access_failed`
+events in a 24-hour lookback for the same organization and source IP. Matching `(user.id, organization.id, source.ip)`
+triples are suppressed for 24 hours so hourly runs do not re-alert while the rolling window still contains the burst.
+Unauthenticated shared-link failures map `unauthenticated_email_address` to `user.email` but do not populate
+`user.id`, so they are out of scope. The alert document aggregates events, so pivot to raw `logs-anthropic.audit-*`
+logs for individual failures and targeted chat IDs. Grouping includes `source.ip` so failures spread across many IPs
+over a day (for example home and office browsing) do not accumulate into a single noisy count.
 
 #### Possible investigation steps
 
@@ -98,9 +98,9 @@ from logs-anthropic.audit-*
     Esql.user_email_values = values(user.email),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
-  by user.id, organization.id
-| where Esql.event_count >= 10
-| keep *
+  by user.id, organization.id, source.ip
+| where Esql.event_count >= 20
+| keep user.id, organization.id, source.ip, Esql.*
 '''
 
 
@@ -118,7 +118,7 @@ name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.alert_suppression]
-group_by = ["user.id", "organization.id"]
+group_by = ["user.id", "organization.id", "source.ip"]
 duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
@@ -126,6 +126,7 @@ missing_fields_strategy = "suppress"
 field_names = [
     "user.id",
     "organization.id",
+    "source.ip",
     "Esql.event_count",
     "Esql.event_id_values",
     "Esql.user_email_values",

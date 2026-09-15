@@ -51,11 +51,12 @@ The Anthropic Fleet integration, or similarly structured data from the Anthropic
 required to be compatible with this rule."""
 references = [
     "https://attack.mitre.org/techniques/T1530/",
+    "https://attack.mitre.org/techniques/T1567/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 47
+risk_score = 73
 rule_id = "00955b87-ed85-4977-8ab1-9140f85b9d6c"
-severity = "medium"
+severity = "high"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
@@ -63,6 +64,7 @@ tags = [
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Tactic: Collection",
+    "Tactic: Exfiltration",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -73,7 +75,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     data_stream.dataset == "anthropic.audit" and
     event.category == "file" and
     event.action == "org_data_export_accessed"
-| keep *
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
 
@@ -89,6 +91,19 @@ reference = "https://attack.mitre.org/techniques/T1530/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
 
 [rule.investigation_fields]
 field_names = [
