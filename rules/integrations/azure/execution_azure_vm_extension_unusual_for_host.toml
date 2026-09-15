@@ -2,7 +2,7 @@
 creation_date = "2026/06/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/06/15"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -117,10 +117,10 @@ FROM logs-azure.activitylogs-*
         Esql.source_country_values = VALUES(source.geo.country_name),
         Esql.subscription_id_values = VALUES(azure.subscription_id)
         BY Esql.vm_name, Esql.extension_name
-// new terms emulation: fire only when the (host, extension name) pair is the single occurrence in the
-// 7-day window (event_count == 1) and it is recent (within the schedule interval + ingest-lag buffer)
+// new terms emulation: fire when the (host, extension name) pair's first_seen falls in the
+// current interval (schedule + ingest-lag buffer), i.e. it was absent from the rest of the 7-day window
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
-| WHERE Esql.recent_minutes <= 10 AND Esql.event_count == 1
+| WHERE Esql.recent_minutes <= 10
 // surface real fields for the analyst and rule exceptions
 | EVAL azure.resource.name = MV_FIRST(Esql.resource_name_values),
        azure.resource.id = MV_FIRST(Esql.resource_id_values),
