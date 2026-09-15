@@ -89,7 +89,7 @@ FROM logs-endpoint.events.network-*
   BY host.id, process.executable, dns.question.name
 // New terms emulation: alert when the tuple occurs once in the 5-day history and was first seen recently.
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
-| WHERE Esql.recent_minutes <= 6 AND Esql.event_count == 1
+| WHERE Esql.recent_minutes <= 6
 // Populate ECS fields for rule exceptions and triage.
 | EVAL host.name = MV_FIRST(Esql.host_name_values),
        process.name = MV_FIRST(Esql.process_name_values),
