@@ -1,0 +1,144 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+building_block_type = "default"
+description = """
+Identifies modification of the AWS CLI configuration or alias files by a process that is not a known credential
+helper, editor, or provisioning tool. The AWS config file supports a credential_process directive that names an
+arbitrary local executable to source credentials from; an adversary who writes this directive redirects every
+subsequent AWS CLI and SDK call through a binary of their choosing, harvesting or substituting credentials without
+touching the credentials file itself. The CLI alias file offers a similar hijack primitive. This write-side abuse
+leaves no CloudTrail evidence and is substantially quieter than reading the credentials file.
+
+Common file-copy utilities (cp, mv, rsync) and general-purpose Python interpreters are intentionally not allowlisted,
+since an attacker copying a pre-staged malicious config or injecting a credential_process directive via script should
+produce a signal. Bootstrap and onboarding shell scripts that legitimately run aws configure are a common FP; allowlist
+their executable paths if needed.
+"""
+false_positives = [
+    """
+    Dotfile management tools (chezmoi, stow, yadm), provisioning systems (Ansible, cloud-init), and package
+    managers are allowlisted. Company onboarding and bootstrap shell scripts that run aws configure set commands
+    will also trigger this rule. Allowlist known script executable paths or parent processes as needed.
+    """,
+]
+from = "now-119m"
+interval = "60m"
+index = ["logs-endpoint.events.file*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS CLI Configuration Modified by Unusual Process"
+references = [
+    "https://docs.aws.amazon.com/cli/latest/topic/config-vars.html",
+    "https://docs.aws.amazon.com/sdkref/latest/guide/feature-process-credentials.html",
+    "https://hackingthe.cloud/aws/post_exploitation/iam_roles_anywhere_persistence/",
+]
+risk_score = 21
+rule_id = "665ca95a-2674-4541-b569-e0f363eb6bdc"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS IAM",
+    "Tactic: Persistence",
+    "Tactic: Credential Access",
+    "Data Source: Elastic Defend",
+    "Rule Type: BBR",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : "file" and event.action : (creation or modification or overwrite or rename) and
+file.path : (
+  /root/.aws/cli/alias or /root/.aws/config or
+  *\\.aws\\cli\\alias or *\\.aws\\config or
+  /Users/*/.aws/cli/alias or /Users/*/.aws/config or
+  /home/*/.aws/cli/alias or /home/*/.aws/config
+) and
+process.executable : (* and not (
+  *\\Program Files*\\* or /Applications/* or /opt/Elastic/Agent/* or /opt/aws/* or
+  /usr/lib/python3*/dist-packages/ansible* or /usr/lib/python3*/dist-packages/cloud_init* or
+  /usr/lib/systemd/* or /usr/local/lib/python3*/site-packages/ansible* or
+  /usr/local/lib/python3*/site-packages/cloud_init* or /var/lib/amazon/ssm/*
+)) and
+not process.name : (
+  Code or apt or assume or assumego or
+  aws or aws-azure-login or aws-google-auth or aws-mfa or aws-sso or aws-sso-util or
+  aws-vault or "aws-vault.exe" or aws.exe or aws_completer or aws_signing_helper or
+  brew or "chef-client" or chezmoi or "cloud-init" or code or code.exe or conda or
+  cursor or cursor.exe or dnf or dpkg or emacs or gedit or "gimme-aws-creds" or
+  git or git.exe or goland or granted or helm or idea or install or kate or kubectl or
+  leapp or nano or "notepad++.exe" or "notepad.exe" or npm or nvim or
+  "okta-aws-cli" or packer or pip or pip3 or puppet or pycharm or rpm or
+  saml2aws or saml2aws.exe or stow or sublime_text or tar or terraform or terraform.exe or
+  tofu or unzip or vi or vim or yadm or yum
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1552.001"
+name = "Credentials In Files"
+reference = "https://attack.mitre.org/techniques/T1552/001/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
