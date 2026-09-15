@@ -86,7 +86,7 @@ FROM logs-endpoint.events.network-*
     "biz", "live", "zone"
   )
 | STATS Esql.first_time_seen = MIN(@timestamp)
-  BY host.id, host.name, user.name, user.id, process.executable, dns.question.name
+  BY host.id, host.name, user.name, user.id, process.executable, dns.question.name, data_stream.namespace
 // New terms emulation: alert when the tuple was first seen recently within the 5-day history.
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
 | WHERE Esql.recent_minutes <= 6
