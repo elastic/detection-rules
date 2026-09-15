@@ -76,6 +76,7 @@ FROM logs-endpoint.events.network-*
     AND user.id IS NOT NULL
     AND process.executable IS NOT NULL
     AND dns.question.name LIKE "*.*"
+    AND process.executable != "/usr/lib/systemd/systemd-resolved"
 | EVAL Esql.dns_tld = MV_LAST(SPLIT(TO_LOWER(dns.question.name), "."))
 | WHERE Esql.dns_tld IN (
     "forum", "pro", "team", "lol", "kr", "ke", "nu", "space", "capital", "in", "cfd", "online",
