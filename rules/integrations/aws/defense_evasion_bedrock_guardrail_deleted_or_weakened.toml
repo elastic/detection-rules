@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/04"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -73,14 +73,13 @@ rule_id = "cdf7b922-909c-440c-8df0-0efe72aa7bea"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
-    "Data Source: AWS",
+    "Domain: GenAI",
+    "Platform: AWS",
     "Data Source: AWS CloudTrail",
-    "Data Source: Amazon Web Services",
-    "Data Source: Amazon Bedrock",
-    "Use Case: Threat Detection",
-    "Resources: Investigation Guide",
+    "Service: AWS Bedrock",
     "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -94,6 +93,7 @@ data_stream.dataset: "aws.cloudtrail"
         "DeleteEnforcedGuardrailConfiguration" or
         "PutEnforcedGuardrailConfiguration"
     ) and event.outcome: "success"
+    and not user_agent.original: (*Terraform*)
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -105,7 +105,6 @@ process where host.os.type == "windows" and event.type == "start" and
           "*[*Convert]*",
           "*.Compression.*",
           "*-join($*",
-          "*.replace*",
           "*MemoryStream*",
           "*WriteAllBytes*",
           "* -enc *",
@@ -158,6 +157,15 @@ process where host.os.type == "windows" and event.type == "start" and
           "*=iwr $*;iex $*",
           "*ServerXmlHttp*IEX*",
           "*XmlDocument*IEX*"
+    ) or
+
+    (
+      process.command_line : "*.replace*" and
+      /* exclude known process and network inventory collection patterns */
+      not process.command_line : (
+        "*Get-CimInstance -Class Win32_Process*ConvertTo-Csv*Select-Object*$_.Replace*",
+        "*function replace_unallowed*$s.replace*Get-Counter*Network Adapter*"
+      )
     ) or
 
     (process.args : "-c" and process.args : "&{'*") or

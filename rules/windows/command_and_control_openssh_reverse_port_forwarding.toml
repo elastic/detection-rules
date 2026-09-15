@@ -2,7 +2,7 @@
 creation_date = "2026/06/24"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/06/24"
+updated_date = "2026/08/03"
 
 [rule]
 author = ["Elastic"]
@@ -59,12 +59,12 @@ process where host.os.type == "windows" and event.type == "start" and
     ?process.pe.original_file_name : ("Plink", "plink.exe")
   ) and
   (
-    process.args : "-R*" or
+    process.args like "-R*" or
     process.args : "-oRemoteForward*" or
-    (process.args : "-o" and process.args : "*RemoteForward*") or
+    (process.args == "-o" and process.args : "*RemoteForward*") or
 
     /* -R can be combined with ~20 no-arg SSH flags (e.g. -NR, -fNR) */
-    process.command_line regex """.*\s-[A-Za-z]*R[^A-Za-z].*"""
+    process.args regex """-[46AaCfGgKkMNnqsTtVvXxYy]+R.*"""
   )
 '''
 

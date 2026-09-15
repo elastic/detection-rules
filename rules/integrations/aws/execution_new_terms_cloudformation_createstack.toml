@@ -2,7 +2,7 @@
 creation_date = "2024/07/25"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -30,11 +30,11 @@ rule_id = "0415258b-a7b2-48a6-891a-3367cd9d4d31"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: CloudFormation",
-    "Use Case: Asset Visibility",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS CloudFormation",
     "Tactic: Execution",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -44,6 +44,7 @@ query = '''
 data_stream.dataset:aws.cloudtrail and event.provider:cloudformation.amazonaws.com and
     event.action: (CreateStack or CreateStackInstances) 
     and event.outcome:success
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 note = """## Triage and analysis
 

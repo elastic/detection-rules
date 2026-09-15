@@ -1,0 +1,196 @@
+[metadata]
+creation_date = "2026/06/12"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/06/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects two ALPN-based denial-of-service patterns against TLS servers. The first identifies repeated stalled
+handshakes advertising the acme-tls/1 ALPN extension with no session established, indicating potential goroutine or
+worker exhaustion in reverse proxies. The second matches connections where a malformed ALPN extension triggers TLS
+alerts such as decode_error or illegal_parameter, consistent with zero-length ALPN list exploitation. Both patterns are
+anomalous outside of scheduled ACME TLS-ALPN-01 certificate validation activity.
+"""
+false_positives = [
+    """
+    Legitimate ACME certificate renewal agents (cert-manager, Certbot, Caddy) use acme-tls/1 during TLS-ALPN-01
+    challenges. A single incomplete challenge due to a network timeout can occur normally, but five or more incomplete
+    sessions from the same source within the detection window is abnormal even for misconfigured ACME clients. TLS
+    decode_error or illegal_parameter alerts can also be produced by buggy TLS clients or misconfigured load balancers.
+    Suppress by adding known ACME client source IPs or ACME CA validation IP ranges to an exception list.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+max_signals = 5
+name = "Repeated Stalled TLS Handshakes via ALPN acme-tls/1 Extension"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Repeated Stalled TLS Handshakes via ALPN acme-tls/1 Extension
+
+This rule fires when five or more TLS connections from the same source IP to the same destination IP
+are recorded where the ClientHello advertises `acme-tls/1` as an ALPN protocol, the handshake never
+completes (`tls.established: false`), or where malformed ALPN data produces a relevant TLS alert.
+Individually, an incomplete ACME challenge can be a transient network issue. In volume, this pattern is
+consistent with attempts to exhaust reverse proxy resources, including CVE-2026-22045, and cause a
+denial of service.
+
+Packetbeat TLS events describe the TLS handshake and do not include connection byte totals or reliable
+elapsed duration for an incomplete handshake. Use `network_traffic.flow` events correlated by
+`network.community_id` when byte counts or connection duration are required during investigation.
+
+`acme-tls/1` is legitimately used only by ACME certificate clients performing TLS-ALPN-01 domain
+validation. Repeated stalled sessions outside of scheduled certificate renewal windows are anomalous.
+
+### Possible investigation steps
+
+- Identify the source IP (`source.ip`) and verify whether it belongs to a known ACME certificate
+  authority (Let's Encrypt: 66.133.109.0/24, 172.65.32.248/28; ZeroSSL; Buypass) or an authorized
+  internal ACME renewal agent. Traffic from unexpected sources is the primary indicator of exploitation.
+- Pivot to `destination.ip` and `destination.port` to determine which TLS listener is targeted and
+  whether it is internet-exposed. Traefik, nginx, HAProxy, and similar reverse proxies are the
+  most likely targets.
+- Count total stalled events from the same `source.ip` over the past hour to understand the full
+  attack volume:
+  ```esql
+  FROM logs-network_traffic.tls*
+  | WHERE tls.detailed.client_hello.extensions.application_layer_protocol_negotiation == "acme-tls/1"
+    AND tls.established == false
+  | STATS count = COUNT(*) BY source.ip, destination.ip, destination.port
+  | SORT count DESC
+  ```
+- If flow reporting is enabled, correlate `logs-network_traffic.flow-*` events on `network.community_id`
+  to review `network.bytes`, `source.bytes`, `destination.bytes`, and `event.duration`.
+- Check server-side metrics on the destination host around the alert time: goroutine count for Go
+  services (Traefik, Caddy), worker or thread count for nginx or HAProxy, and TCP accept queue depth.
+  Saturation aligned with the alert window confirms impact.
+- Review whether the targeted service is patched for CVE-2026-22045. Traefik versions before the
+  fix did not enforce handshake timeouts on acme-tls/1 listeners, allowing indefinite goroutine hold.
+
+### False positive analysis
+
+- cert-manager, Certbot, or Caddy ACME clients produce `acme-tls/1` connections during certificate
+  renewal. These complete quickly under normal conditions; isolated stalled events from recognized
+  ACME client IPs are likely transient network issues, not attacks. The threshold of five events within
+  the detection window suppresses most one-off failures.
+- Load balancer health checks misconfigured to probe with TLS-ALPN-01 can generate this pattern;
+  identify the health check source IP and add it to the exception list.
+
+### Response and remediation
+
+- If the source IP is not a known ACME CA or authorized renewal agent, block it at the perimeter.
+- Upgrade Traefik to a version patched for CVE-2026-22045. Apply equivalent handshake-timeout
+  configurations on other reverse proxies (`ssl_handshake_timeout` in nginx).
+- Enforce a TLS handshake timeout at the listener level to bound how long any stalled connection
+  can hold a goroutine or worker slot.
+- Rate-limit inbound TLS connections per source IP at the network boundary to limit the blast radius
+  of connection-exhaustion attacks.
+- If service degradation is confirmed, restart the affected reverse proxy after applying timeout
+  mitigations to recover exhausted resources.
+"""
+references = [
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-22045",
+    "https://nvd.nist.gov/vuln/detail/CVE-2024-5535",
+    "https://www.rfc-editor.org/rfc/rfc8737",
+    "https://www.elastic.co/guide/en/beats/packetbeat/current/configuration-tls.html",
+]
+risk_score = 21
+rule_id = "581bd9b4-ee08-415a-97d7-756e6c53c264"
+setup = """## Setup
+
+This rule requires the Elastic Agent `network_traffic` integration with TLS protocol parsing enabled
+and `include_detailed_fields: true` (the default). Without this setting, the field
+`tls.detailed.client_hello.extensions.application_layer_protocol_negotiation` is not populated and
+the rule will not match.
+
+Verify your `network_traffic` integration configuration includes:
+
+```yaml
+packetbeat.protocols:
+  - type: tls
+    ports: [443, 8443, 9443]
+    include_detailed_fields: true
+    transaction_timeout: 30s
+```
+
+Adjust the port list to cover all TLS listeners in your environment that could be targeted, including
+reverse proxy listeners and custom TLS service ports. The `include_detailed_fields` key defaults to
+`true`; if it was explicitly disabled, re-enable it and restart the agent.
+
+Packetbeat's default TLS `transaction_timeout` is 10 seconds. Incomplete handshakes that remain idle
+beyond this timeout can expire without producing a `network_traffic.tls` event. Configure
+`transaction_timeout` to exceed the longest incomplete-handshake interval you intend to observe. The
+example above uses 30 seconds; increasing this value retains connection state longer and can increase
+memory usage on high-volume sensors.
+"""
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Vulnerability",
+    "Data Source: Network Traffic",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-network_traffic.tls*
+| where source.ip is not null and destination.ip is not null and (
+    (
+      tls.detailed.client_hello.extensions.application_layer_protocol_negotiation == "acme-tls/1" and
+      tls.established == false
+    ) or (
+      CONTAINS(TO_LOWER(tls.detailed.client_hello.extensions._unparsed_), "alpn") and
+      tls.detailed.alert_types in ("decode_error", "illegal_parameter")
+    )
+  )
+| stats
+    Esql.event_count = COUNT(*),
+    Esql.destination_port_values = MV_SLICE(MV_DEDUPE(TOP(destination.port, 10, "asc")), 0, 10),
+    Esql.network_community_id_values = MV_SLICE(MV_DEDUPE(TOP(network.community_id, 10, "asc")), 0, 10),
+    Esql.alpn_values = MV_SLICE(
+      MV_DEDUPE(TOP(tls.detailed.client_hello.extensions.application_layer_protocol_negotiation, 10, "asc")),
+      0,
+      10
+    ),
+    Esql.alert_type_values = MV_SLICE(MV_DEDUPE(TOP(tls.detailed.alert_types, 10, "asc")), 0, 10)
+  by source.ip, destination.ip
+| where Esql.event_count >= 5
+| keep
+    source.ip,
+    destination.ip,
+    Esql.event_count,
+    Esql.destination_port_values,
+    Esql.network_community_id_values,
+    Esql.alpn_values,
+    Esql.alert_type_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+[[rule.threat.technique.subtechnique]]
+id = "T1499.002"
+name = "Service Exhaustion Flood"
+reference = "https://attack.mitre.org/techniques/T1499/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+

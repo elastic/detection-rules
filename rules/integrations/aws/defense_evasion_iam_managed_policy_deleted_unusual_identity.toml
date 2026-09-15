@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/07/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time an AWS identity successfully deletes an IAM managed policy whose ARN contains
+guardrail-related keywords (for example Boundary, Deny, Restrict, Guard, SCP, Guardrail). Adversaries who have
+obtained elevated IAM privileges may delete policies to remove restrictive permissions boundaries,
+eliminate deny-based guardrails, or clean up after a privilege escalation operation. Infrastructure-as-code tools (Terraform, CloudFormation, Pulumi, and Ansible) are excluded because policy lifecycle management is a routine part of automated deployments. A policy deletion by an identity not seen performing this activity during the prior seven days may indicate newly compromised credentials being used to modify the account's permission structure.
+"""
+false_positives = [
+    """
+    New IAM administrator roles, recently provisioned automation accounts, or first-time
+    IaC deployments may legitimately delete policies for the first time. Validate that the
+    identity is an authorized IAM management role and that the deleted policy was obsolete
+    or replaced as part of a known change.
+    """,
+]
+from = "now-6m"
+index = ["logs-aws.cloudtrail-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS IAM Permission Boundary or Guardrail Policy Deleted by Unusual Identity"
+note = """## Triage and analysis
+
+### Investigating AWS IAM Permission Boundary or Guardrail Policy Deleted by Unusual Identity
+
+This rule fires the first time an identity deletes a customer-managed IAM policy in the prior 7 days. Policy deletion is a privilege-escalation or defense-evasion primitive: removing a deny-based policy or permissions boundary silently expands the effective access of every principal that policy applied to.
+
+### Possible investigation steps
+
+- Identify the deleting principal (`aws.cloudtrail.user_identity.arn`) and determine whether they have a history of IAM policy management in audit logs beyond the 7-day window.
+- Review `aws.cloudtrail.request_parameters` to identify the policy ARN that was deleted. Policies with names containing "Boundary", "Deny", or "Restrict" in the ARN are highest priority.
+- Check whether any principal previously had this policy attached as a permissions boundary — if so, those principals may now operate without that constraint.
+- Review the same identity's CloudTrail activity for other IAM privilege escalation indicators in the same session: `CreatePolicyVersion`, `SetDefaultPolicyVersion`, `AttachRolePolicy`, `UpdateAssumeRolePolicy`.
+- Determine whether this identity was recently assumed via `AssumeRole` from an unusual source IP.
+
+### False positive analysis
+
+- First-time IaC deployments (Terraform apply, CDK deploy) that manage IAM resources will appear as new identities performing policy deletions.
+- New service accounts introduced to handle IAM lifecycle management.
+
+### Response and remediation
+
+- If unauthorized, determine whether the deleted policy was a permissions boundary and re-apply it immediately to all affected principals.
+- Revoke or disable the credentials used to perform the deletion pending investigation.
+- Review all principals that had the policy attached and audit their current effective permissions.
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeletePolicy.html",
+]
+risk_score = 47
+rule_id = "f4a82031-9c8e-4b23-a7d5-6e1094b2c539"
+setup = "The AWS CloudTrail integration must be enabled and configured to collect IAM management events."
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS IAM",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "aws.cloudtrail"
+    and event.provider: "iam.amazonaws.com"
+    and event.action: "DeletePolicy"
+    and event.outcome: "success"
+    and not aws.cloudtrail.user_identity.type: "AWSService"
+    and aws.cloudtrail.request_parameters: (*Boundary* or *boundary* or *Deny* or *deny* or *Restrict* or *restrict* or *Guard* or *guard* or *SCP* or *Guardrail* or *guardrail*)
+    and not user_agent.original: (*Terraform* or *terraform* or "cloudformation.amazonaws.com" or *pulumi* or *Pulumi* or *ansible* or *Ansible*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["aws.cloudtrail.user_identity.arn"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.user_identity.session_context.session_issuer.arn",
+    "aws.cloudtrail.user_identity.type",
+    "event.action",
+    "event.outcome",
+    "aws.cloudtrail.request_parameters",
+    "source.ip",
+    "cloud.region",
+    "cloud.account.id",
+]

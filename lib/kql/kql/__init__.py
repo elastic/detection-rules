@@ -18,6 +18,7 @@ __all__ = (
     "ast",
     "from_eql",
     "get_evaluator",
+    "get_field_names",
     "KqlParseError",
     "KqlCompileError",
     "lint",
@@ -53,6 +54,37 @@ def parse(text, optimize: bool = True, schema: dict = None, normalize_kql_keywor
     converted = KqlParser(text, schema=schema, normalize_kql_keywords=normalize_kql_keywords).visit(lark_parsed)
 
     return converted.optimize(recursive=True) if optimize else converted
+
+
+def get_field_names(tree) -> list:
+    """Return absolute field paths from a KQL AST, resolving nested scopes."""
+    if not isinstance(tree, ast.KqlNode):
+        tree = parse(tree)
+
+    fields = set()
+
+    def collect(node, prefix=""):
+        if isinstance(node, ast.NestedQuery):
+            full_path = f"{prefix}.{node.field.name}" if prefix else node.field.name
+            fields.add(full_path)
+            collect(node.expr, full_path)
+            return
+
+        if isinstance(node, ast.Field):
+            fields.add(f"{prefix}.{node.name}" if prefix else node.name)
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                collect(item, prefix)
+            return
+
+        if isinstance(node, ast.KqlNode):
+            for _, child in node.iter_slots():
+                collect(child, prefix)
+
+    collect(tree)
+    return sorted(fields)
 
 
 def lint(text):

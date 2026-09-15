@@ -2,7 +2,7 @@
 creation_date = "2026/02/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -100,11 +100,11 @@ rule_id = "47403d72-3ee2-4752-a676-19dc8ff2b9d6"
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS IAM",
-    "Use Case: Identity and Access Audit",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM",
     "Tactic: Persistence",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -115,6 +115,7 @@ data_stream.dataset: "aws.cloudtrail"
     and event.provider: "iam.amazonaws.com"
     and event.action: "CreateOpenIDConnectProvider"
     and event.outcome: "success"
+    and not user_agent.original: (*Terraform* or *eksctl*)
 '''
 
 

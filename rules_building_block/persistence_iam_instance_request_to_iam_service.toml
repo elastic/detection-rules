@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2024/07/24"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2024/11/07"
+updated_date = "2026/08/05"
 
 [rule]
 author = ["Elastic"]
@@ -34,13 +34,12 @@ rule_id = "a44bcb58-5109-4870-a7c6-11f5fe7dd4b1"
 severity = "low"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS EC2",
-    "Data Source: AWS IAM",
-    "Use Case: Identity and Access Audit",
-    "Tactic: Privilege Escalation",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EC2",
+    "Service: AWS IAM",
     "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
     "Rule Type: BBR",
 ]
 timestamp_override = "event.ingested"
@@ -62,6 +61,7 @@ any where event.dataset == "aws.cloudtrail"
             or startsWith(event.action, "Put")
             or startsWith(event.action, "Tag")
     )
+    and not user_agent.original like~ ("*Terraform*", "*Pulumi*", "*Ansible*")
 '''
 
 [rule.investigation_fields]
