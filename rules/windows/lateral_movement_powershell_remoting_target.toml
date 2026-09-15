@@ -2,7 +2,7 @@
 creation_date = "2020/11/24"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,32 @@ sequence by host.id with maxspan = 30s
    [network where host.os.type == "windows" and network.direction : ("incoming", "ingress") and destination.port in (5985, 5986) and
     source.ip != "127.0.0.1" and source.ip != "::1"]
    [process where host.os.type == "windows" and
-    event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : "?:\\Windows\\System32\\conhost.exe"]
+    event.type == "start" and process.parent.name : "wsmprovhost.exe" and not process.executable : (
+      "?:\\Windows\\System32\\conhost.exe",
+      "?:\\Windows\\System32\\certreq.exe",
+      "?:\\Windows\\System32\\chcp.com",
+      "?:\\Windows\\System32\\DismHost.exe",
+      "?:\\Windows\\System32\\dsregcmd.exe",
+      "?:\\Windows\\System32\\gpupdate.exe",
+      "?:\\Windows\\System32\\HOSTNAME.EXE",
+      "?:\\Windows\\System32\\icacls.exe",
+      "?:\\Windows\\System32\\iisreset.exe",
+      "?:\\Windows\\System32\\inetsrv\\appcmd.exe",
+      "?:\\Windows\\System32\\msiexec.exe",
+      "?:\\Windows\\System32\\net.exe",
+      "?:\\Windows\\System32\\NETSTAT.EXE",
+      "?:\\Windows\\System32\\netsh.exe",
+      "?:\\Windows\\System32\\powercfg.exe",
+      "?:\\Windows\\System32\\quser.exe",
+      "?:\\Windows\\System32\\ROUTE.EXE",
+      "?:\\Windows\\System32\\sc.exe",
+      "?:\\Windows\\System32\\SecEdit.exe",
+      "?:\\Windows\\System32\\shutdown.exe",
+      "?:\\Windows\\System32\\w32tm.exe",
+      "?:\\Windows\\System32\\wbem\\WMIC.exe",
+      "?:\\Windows\\System32\\wuauclt.exe",
+      "?:\\Windows\\Microsoft.NET\\Framework*\\*\\csc.exe"
+    )]
 '''
 
 setup = """## Setup
