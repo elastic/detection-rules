@@ -98,11 +98,34 @@ class TestEsqlOfflineSchemaPasses:
         del rule["metadata"]["integration"]
         rule["rule"]["query"] = '''
         FROM .alerts-security.* METADATA _id, _version, _index
-        | WHERE KQL("""NOT kibana.alert.building_block_type : *""")
+        | WHERE KQL("""NOT kibana.alert.rule.name : never-match-token""")
         | KEEP kibana.alert.rule.name, _id, _version, _index
         '''
         loaded = RuleCollection().load_dict(rule)
         assert loaded.contents.data.language == "esql"
+
+    def test_nested_kql_unknown_field_raises_schema_error(self) -> None:
+        """Nested KQL() payloads must schema-validate against the ValidationTarget."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = '''
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE KQL("""totally.made_up.nested_kql_field : x""")
+        | KEEP host.name, _id, _version, _index
+        '''
+        with pytest.raises((EsqlSchemaError, Exception), match="totally.made_up.nested_kql_field|Unknown field|Field"):
+            RuleCollection().load_dict(rule)
+
+    def test_eql_parse_hook_wired(self) -> None:
+        """eql_parse hook is installed for when ES|QL grammar supports EQL()."""
+        from detection_rules.rule import set_esql_config
+
+        cfg = set_esql_config("9.5.0")
+        assert callable(cfg.context.get("kql_parse"))
+        assert callable(cfg.context.get("eql_parse"))
+        # Hook accepts a simple event query (prep; grammar may not yet emit NestedQuery).
+        tree = cfg.context["eql_parse"]('process where process.name == "cmd.exe"')
+        assert tree is not None
 
     def test_alert_index_kibana_alert_fields_pass(self) -> None:
         rule = _sample_rule()

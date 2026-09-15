@@ -860,7 +860,9 @@ class ESQLValidator(QueryValidator):
         remote = getattr(self, "esql_unique_fields", None)
         if remote:
             return [field["name"] for field in remote]
-        return list(esql.get_unique_fields(self.ast))
+        names = set(esql.get_unique_fields(self.ast))
+        names.update(self._nested_query_field_names(self.ast))
+        return sorted(names)
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
@@ -871,6 +873,96 @@ class ESQLValidator(QueryValidator):
         for field in fields:
             if field["name"] == field_name:
                 return field["type"]
+        return None
+
+    @staticmethod
+    def _flat_schema_dict(schema: Any) -> dict[str, Any]:
+        """Flatten an esql.Schema (or dict) for nested kql/eql schema checks."""
+        if isinstance(schema, esql.Schema):
+            return dict(schema._fields)  # noqa: SLF001 — intentional DR reuse of flat map
+        if isinstance(schema, dict):
+            return {str(k): (v if isinstance(v, str) else getattr(v, "get", lambda *_: None)("type") or v) for k, v in schema.items()}
+        return {}
+
+    @staticmethod
+    def _nested_query_field_names(tree: Any) -> set[str]:
+        """Union field names from nested KQL()/EQL() payloads (PRD §5.7 metadata merge)."""
+        names: set[str] = set()
+        for nested in esql.find_nested_queries(tree):
+            text = nested.text
+            if not text:
+                continue
+            try:
+                if nested.kind == "kql":
+                    parsed = kql.parse(text, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType]
+                    names.update(kql.get_field_names(parsed))  # type: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+                elif nested.kind == "eql":
+                    with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                        try:
+                            parsed_q = eql.parse_query(text)  # type: ignore[reportUnknownMemberType]
+                        except eql.EqlParseError:
+                            parsed_q = eql.parse_expression(text)  # type: ignore[reportUnknownMemberType]
+                    names.update(str(f) for f in parsed_q if isinstance(f, eql.ast.Field))  # type: ignore[reportUnknownVariableType]
+            except Exception:  # noqa: BLE001 — field merge is best-effort; schema path raises
+                continue
+        return names
+
+    def _validate_nested_queries_with_schema(  # noqa: PLR0911, PLR0912, PLR0913
+        self,
+        tree: Any,
+        schema: Any,
+        err_trailer: str,
+        min_stack_version: str,
+        beat_types: list[str] | None = None,
+        integration_types: list[str] | None = None,
+    ) -> Exception | None:
+        """Schema-validate nested KQL()/EQL() payloads against the ValidationTarget schema.
+
+        Syntax is handled by parse hooks in set_esql_config. This layer mirrors
+        KQLValidator / EQLValidator schema checks for the embedded string args.
+        """
+        nested_queries = esql.find_nested_queries(tree)
+        if not nested_queries:
+            return None
+
+        flat = self._flat_schema_dict(schema)
+        for nested in nested_queries:
+            kind = nested.kind
+            text = nested.text
+            if not text:
+                continue
+            locus = f"nested {kind.upper()}() at line {nested.line or '?'}, column {nested.column or '?'}"
+            trailer_parts = [locus]
+            if integration_types:
+                trailer_parts.append(f"integration_types: [{', '.join(integration_types)}]")
+            if beat_types:
+                trailer_parts.append(f"beat_types: [{', '.join(beat_types)}]")
+            if err_trailer:
+                trailer_parts.append(err_trailer)
+            trailer = "\n\n".join(trailer_parts)
+
+            if kind == "kql":
+                try:
+                    kql.parse(text, schema=flat, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType]
+                except kql.KqlParseError as exc:
+                    msg = f"{exc.error_msg}\n\n{trailer}"
+                    return DrEsqlSchemaError(msg) if "field" in str(exc.error_msg).lower() else DrEsqlSemanticError(msg)
+                except Exception as exc:  # noqa: BLE001
+                    return DrEsqlSemanticError(f"{exc}\n\n{trailer}")
+            elif kind == "eql":
+                eql_schema = ecs.KqlSchema2Eql(flat)
+                cfg = set_eql_config(min_stack_version)
+                try:
+                    with cfg, eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                        try:
+                            _ = eql.parse_query(text)  # type: ignore[reportUnknownMemberType]
+                        except eql.EqlParseError:
+                            _ = eql.parse_expression(text)  # type: ignore[reportUnknownMemberType]
+                except eql.EqlParseError as exc:
+                    msg = f"{exc.error_msg}\n\n{trailer}"
+                    return DrEsqlSchemaError(msg) if "field" in str(exc.error_msg).lower() else DrEsqlSemanticError(msg)
+                except Exception as exc:  # noqa: BLE001
+                    return DrEsqlSemanticError(f"{exc}\n\n{trailer}")
         return None
 
     def build_validation_plan(  # noqa: PLR0912, PLR0915
@@ -1063,6 +1155,16 @@ class ESQLValidator(QueryValidator):
         except Exception as exc:  # noqa: BLE001
             return exc, None
         else:
+            nested_exc = self._validate_nested_queries_with_schema(
+                tree,
+                schema_ctx,
+                err_trailer=err_trailer,
+                min_stack_version=min_stack_version,
+                beat_types=beat_types,
+                integration_types=integration_types,
+            )
+            if nested_exc is not None:
+                return nested_exc, None
             return None, None
 
     def validate_columns_index_mapping(

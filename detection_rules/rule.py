@@ -2111,7 +2111,18 @@ def set_esql_config(min_stack_version_val: str) -> Any:
         # only governs top-level kuery rule queries.
         return kql.parse(text, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
+    def _eql_parse(text: str) -> Any:
+        # Prep for nested EQL() when the ES|QL grammar lands (same hook model as KQL).
+        # Prefer full event queries; fall back to expression fragments.
+        eql_cfg = set_eql_config(str(min_stack_version))
+        with eql_cfg, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+            try:
+                return eql.parse_query(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            except eql.EqlParseError:
+                return eql.parse_expression(text)  # type: ignore[reportUnknownMemberType, reportUnknownVariableType]
+
     cfg.context["kql_parse"] = _kql_parse
+    cfg.context["eql_parse"] = _eql_parse
     return cfg
 
 
