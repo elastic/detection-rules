@@ -2,7 +2,7 @@
 creation_date = "2026/09/10"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/10"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +25,38 @@ index = [
 language = "kuery"
 license = "Elastic License v2"
 name = "Newly Seen Commonly Abused Network Scanner"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Newly Seen Commonly Abused Network Scanner
+
+This rule detects the first observed execution of commonly abused network-scanning tools on a Windows host, which can signal post-compromise discovery activity. After gaining a foothold, an attacker may run a portable scanner across the local subnet to identify live systems and exposed SMB or RDP services, then prioritize targets for lateral movement.
+
+### Possible investigation steps
+
+- Validate the executable’s path, digital signature, hash reputation, download origin, command line, parent process, user account, and prevalence across the environment to distinguish authorized software from a renamed or portable copy.
+- Correlate the execution with network telemetry to identify scanned address ranges, destination ports, connection volume, and whether sensitive systems or lateral-movement services such as SMB, RDP, WinRM, or SSH were targeted.
+- Review nearby endpoint and identity activity for initial-access or post-compromise indicators, including suspicious downloads, archive extraction, PowerShell execution, credential access, remote logons, service creation, and scheduled tasks.
+- Confirm with the host owner and IT teams whether the scanner and scope were approved, considering the user’s role, device purpose, execution time, and any related change or vulnerability-management activity.
+- If unauthorized, isolate the host, preserve the binary and relevant telemetry, block confirmed malicious indicators, reset potentially exposed credentials, and investigate contacted systems for follow-on access.
+
+### False positive analysis
+
+- An authorized administrator may run the scanner for network inventory or connectivity troubleshooting; verify the user’s role, executable path and signature, scanned range, and any associated change record.
+- An approved security assessment or vulnerability-management activity may execute the scanner on a newly provisioned or infrequently used Windows host; confirm the timing, source host, target scope, and authorization with the responsible team.
+
+### Response and remediation
+
+- Isolate the affected Windows host and restrict its access to scanned subnets and services such as SMB, RDP, WinRM, and SSH while preserving the scanner executable, command history, and relevant forensic evidence.
+- Remove unauthorized scanner binaries and attacker persistence, including suspicious scheduled tasks, services, startup entries, PowerShell scripts, remote-management tools, and newly created accounts.
+- Reset credentials used on the compromised host, revoke active sessions and tokens, and investigate contacted systems for remote logons, service creation, administrative shares, or other lateral-movement activity.
+- Escalate immediately to incident response if scanning reached sensitive systems, privileged credentials may be exposed, or follow-on access appears on another host, and expand containment to all affected accounts and endpoints.
+- Reimage or restore compromised systems from a verified known-good baseline, patch exploited weaknesses, and validate endpoint protection, logging, and business functionality before reconnecting them.
+- Block malicious file hashes and download sources, apply application control to unapproved portable scanners, restrict unnecessary east-west connectivity, and alert on future scanner execution or high-volume port probing.
+
+"""
 
 setup = """## Setup
 
@@ -67,6 +99,7 @@ tags = [
     "Data Source: Sysmon",
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
