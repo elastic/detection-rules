@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2026/09/07"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects when a web server process creates a file with a double extension, where the
+real extension is a non-web extension. This is a common technique used by attackers to bypass security
+measures and to hide the true nature of the file.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "File with Suspicious Double Extension Created by Web Server"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating File with Suspicious Double Extension Created by Web Server
+
+This rule identifies Linux web server processes creating files whose names combine a web-executable suffix with a misleading image, archive, script, or binary extension, a pattern often used to conceal malicious content and bypass upload controls. For example, an attacker exploiting an upload endpoint may write `shell.php.jpg` into a served directory, then rely on a permissive or manipulated server configuration to execute it as a web shell for persistent remote access.
+
+### Possible investigation steps
+
+- Record the file’s full path, ownership, permissions, timestamps, cryptographic hash, MIME type, and magic bytes, then safely inspect its contents for obfuscated code, command execution, credential theft, or web-shell functionality.
+- Review virtual-host, handler, rewrite, and directory configuration to determine whether the file is web-accessible or interpreted as executable content despite its final extension.
+- Correlate the creation time with HTTP access, application, proxy, and authentication logs to identify the originating request, source address, user session, upload endpoint, and related reconnaissance or exploitation attempts.
+- Examine the creating process lineage and subsequent activity for spawned shells, interpreters, system utilities, outbound connections, privilege escalation, persistence changes, or additional file writes.
+- Hunt across endpoints and web logs for the file hash, naming pattern, source address, request indicators, and similar artifacts, and isolate the server while preserving evidence if malicious activity is confirmed.
+
+### False positive analysis
+
+- A legitimate upload or content-management workflow may preserve a user-supplied filename such as `template.php.jpg`; verify the associated HTTP request, authenticated user, expected upload path, file MIME type, and application behavior.
+- A deployment, backup, or testing process run through a web application may generate files such as `page.jsp.zip` or `handler.cgi.sh`; verify the change record, process lineage, file contents, ownership, and whether the destination is expected and non-executable.
+
+### Response and remediation
+
+- Isolate the affected web server from untrusted networks, restrict administrative access, preserve the suspicious file and relevant logs, and block identified source addresses, hashes, domains, and URLs.
+- Remove the double-extension file and any related web shells, unauthorized accounts, SSH keys, cron jobs, systemd units, startup scripts, modified web-server handlers, and attacker-created files after preserving forensic copies.
+- Rotate exposed application, database, service-account, API, and administrative credentials, revoke active sessions and tokens, and replace potentially compromised TLS or SSH keys.
+- Escalate immediately to incident response if the web server spawned shells, made suspicious outbound connections, accessed credentials, gained elevated privileges, or produced evidence of lateral movement or additional compromised hosts.
+- Rebuild the server from a known-good image or restore verified clean application content and configuration, patch the exploited web application or server component, and validate integrity before returning it to service.
+- Prevent recurrence by enforcing upload allowlists and content validation, storing uploads outside executable web roots, disabling script execution in upload directories, applying least-privilege permissions, and monitoring for similar filenames and web-process child activity.
+"""
+risk_score = 73
+rule_id = "5fc7e978-4fa0-47e9-a8e0-bad853c8d09b"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide"
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action != "deletion" and
+(
+  process.name in (
+    "nginx", "apache2", "httpd", "caddy", "lighttpd", "httpd.worker", "httpd-worker", "httpd-prefork",
+    "php-cgi", "php-fcgi", "php-cgi.cagefs", "frankenphp", "lshttpd", "litespeed", "openlitespeed",
+    "fcgiwrap", "uwsgi", "daphne", "uvicorn", "hypercorn", "granian", "waitress-serve", "flask", "puma",
+    "unicorn", "unicorn_rails", "thin", "rackup", "mongrel_rails", "starman", "plackup", "twiggy",
+    "hypnotoad", "starlet", "unitd", "unitd-debug", "java", "node", "nodejs", "varnishd"
+  ) or
+  process.name like (
+    "php-fpm*", "lsphp*", "gunicorn*", "*.cgi", "*.fcgi", "mono*", "xsp*", "mod-mono-server*",
+    "fastcgi-mono-server*", "python*", "ruby*", "perl*", "lua*"
+  )
+) and
+file.name like~ (
+  "*.php.*", "*.php3.*", "*.php4.*", "*.php5.*", "*.php7.*", "*.php8.*", "*.phtml.*", "*.pht.*",
+  "*.asp.*", "*.aspx.*", "*.ashx.*", "*.asmx.*", "*.jsp.*", "*.jspx.*", "*.cfm.*", "*.cfc.*",
+  "*.cshtml.*", "*.razor.*", "*.cgi.*", "*.fcgi.*", "*.php;*", "*.asp;*", "*.aspx;*", "*.jsp;*"
+) and
+file.extension in~ (
+  "jpg", "jpeg", "png", "gif", "webp", "bmp", "ico", "tif", "tiff", "svg", "zip",
+  "sh", "elf"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Persistence"
+  id = "TA0003"
+  reference = "https://attack.mitre.org/tactics/TA0003/"
+
+  [[rule.threat.technique]]
+  id = "T1505"
+  name = "Server Software Component"
+  reference = "https://attack.mitre.org/techniques/T1505/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1505.003"
+    name = "Web Shell"
+    reference = "https://attack.mitre.org/techniques/T1505/003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  name = "Initial Access"
+  id = "TA0001"
+  reference = "https://attack.mitre.org/tactics/TA0001/"
+
+  [[rule.threat.technique]]
+  name = "Exploit Public-Facing Application"
+  id = "T1190"
+  reference = "https://attack.mitre.org/techniques/T1190/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [[rule.threat.technique]]
+  id = "T1210"
+  name = "Exploitation of Remote Services"
+  reference = "https://attack.mitre.org/techniques/T1210/"
+
+  [rule.threat.tactic]
+  id = "TA0008"
+  name = "Lateral Movement"
+  reference = "https://attack.mitre.org/tactics/TA0008/"
