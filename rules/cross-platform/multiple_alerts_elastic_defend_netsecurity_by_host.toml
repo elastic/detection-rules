@@ -2,13 +2,13 @@
 creation_date = "2025/11/18"
 integration = ["endpoint", "panw", "fortinet_fortigate", "suricata"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
 description = """
 This rule correlate any Elastic Defend alert with a set of suspicious events from Network security devices like Palo Alto
-Networks (PANW) and Fortinet Fortigate by host.ip and source.ip. This may indicate that this host is compromised and
+Networks (PANW), Fortinet Fortigate and Suricata by host.ip and source.ip. This may indicate that this host is compromised and
 triggering multi-datasource alerts.
 """
 from = "now-60m"
@@ -33,7 +33,8 @@ tags = [
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
     "Data Source: Fortinet",
-    "Data Source: PAN-OS"
+    "Data Source: PAN-OS",
+    "Data Source: Suricata"
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -55,13 +56,13 @@ FROM logs-* metadata _id
         // Suricata
         (data_stream.dataset == "suricata.eve" and message in ("Command and Control Traffic", "Potentially Bad Traffic", "A Network Trojan was detected", "Detection of a Network Scan", "Domain Observed Used for C2 Detected", "Malware Command and Control Activity Detected"))
 
-// extract source.ip from PANW or Fortigate events and host.ip from Elastic Defend alert
-|eval fw_alert_source_ip = CASE(data_stream.dataset in ("panw.panos", "fortinet_fortigate.log"), source.ip, null),
+// extract source.ip from PANW, Fortigate or Suricata events and host.ip from Elastic Defend alert
+|eval fw_alert_source_ip = CASE(data_stream.dataset in ("panw.panos", "fortinet_fortigate.log", "suricata.eve"), source.ip, null),
       elastic_defend_alert_host_ip = CASE(event.module == "endpoint" and data_stream.dataset == "endpoint.alerts", host.ip, null)
 | eval Esql.source_ip = COALESCE(fw_alert_source_ip, elastic_defend_alert_host_ip)
 | where Esql.source_ip is not null
 
-// group by host_source_ip shared between FG/PANW and Elastic Defend
+// group by host_source_ip shared between FG/PANW/Suricata and Elastic Defend
 | stats Esql.alerts_count = COUNT(*),
         Esql.event_module_distinct_count = COUNT_DISTINCT(event.module),
         Esql.message_values_distinct_count = COUNT_DISTINCT(message),
