@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of a third-party S3 or object-storage client such as S3 Browser, s5cmd, the MinIO client, or
+Cyberduck. After obtaining AWS credentials, adversaries frequently switch from the AWS CLI to a GUI or bulk-transfer
+client to enumerate and drain buckets faster. S3 Browser specifically was the tool used to exfiltrate and then delete
+bucket contents in the Unit 42 mass .env extortion campaign that touched more than 100,000 domains, and in the DarkLab
+Jenkins-RCE case study.
+
+These tools are legitimately installed on both servers and client machines by developers, data engineers, and ops
+teams, so execution is only flagged when driven by a script interpreter, a shell one-liner, or a process running from
+a temporary or user-writable path - the contexts that characterise post-exploitation automation rather than interactive
+use. Note: rclone is included here for Linux and macOS coverage; Windows rclone abuse already has a dedicated rule
+(windows/exfiltration_rclone_abuse), so some Windows overlap is expected and intentional.
+"""
+false_positives = [
+    """
+    Data engineers and DevOps teams legitimately use rclone, s5cmd, and s3cmd for bulk data transfers. This rule
+    gates on a scripted parent to suppress interactive use, but automation pipelines that shell out to these tools
+    may still trigger alerts. The 7-day new-terms window suppresses recurring pipeline invocations after the first
+    alert per host. Allowlist known pipeline executor paths if additional tuning is needed.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential Third-Party Cloud Storage Client Execution"
+references = [
+    "https://github.com/ramimac/aws-customer-security-incidents",
+    "https://unit42.paloaltonetworks.com/large-scale-cloud-extortion-operation/",
+    "https://blog.darklab.hk/2021/07/06/trouble-in-paradise/",
+]
+risk_score = 47
+rule_id = "ab05c807-e12b-4ec1-8380-844a65c9fef1"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS S3",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : "process" and event.type : "start" and event.action : (start or exec) and
+(
+  process.name : (
+    s3browser.exe or s3browser-con.exe or S3Browser.exe or
+    s5cmd or s5cmd.exe or s3cmd or s3cmd.exe or
+    cyberduck or duck or duck.exe or Cyberduck or
+    mc or mc.exe or rclone or rclone.exe or
+    s3fs or goofys or juicefs or "aws-shell"
+  ) or
+  process.name : (*s3browser* or *cloudberry* or *bucketexplorer*)
+) and not (
+  process.name : (mc or mc.exe) and not
+  process.command_line : (*alias* or *cp * or *mirror* or *ls * or *rm * or *s3* or *http*)
+) and not process.executable : (
+  /opt/Elastic/Agent/* or /var/lib/amazon/ssm/* or /usr/lib/systemd/* or /nix/store/*
+) and not process.command_line : (*--version* or *--help* or * version* or *selfupdate*) and
+(
+  process.parent.name : (python* or perl* or ruby* or php* or node or node.exe or bun or deno) or
+  (
+    process.parent.name : (bash or dash or sh or zsh or ksh or fish or cmd.exe or powershell.exe or pwsh.exe) and
+    process.parent.args : ("-c" or "-lc" or "-ilc" or "/c" or "-Command")
+  ) or
+  process.parent.executable : (
+    /tmp/* or /var/tmp/* or /dev/shm/* or /private/tmp/* or /Users/Shared/* or
+    *\\Users\\Public\\* or *\\Windows\\Temp\\* or *\\Users\\*\\AppData\\Local\\Temp\\*
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1567.002"
+name = "Exfiltration to Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1567/002/"
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
