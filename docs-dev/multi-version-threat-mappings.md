@@ -68,6 +68,29 @@ Because the baseline hash path strips `threat_mappings` and skips emit transform
 hashes. Package stacks that apply transforms record a separate `stack_emit` epoch in
 `version.lock.json` so 9.5+ can version independently of ≤9.4.
 
+## MITRE ATLAS
+
+ATLAS is a separate framework from ATT&CK. Author ATLAS mappings as additional
+`[[rule.threat_mappings]]` blocks (`framework = "MITRE ATLAS"`, `version` = the content
+version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** put ATLAS
+entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
+
+- **Stack < 9.6** (8.19 / 9.4 / 9.5 packages) — ATLAS entries are stripped and never
+  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. This gate
+  lives in `apply_emit_transforms` and does **not** create a new `stack_emit` epoch,
+  so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
+- **Stack ≥ 9.6** — `apply_emit_transforms` appends ATLAS `threat_mappings` onto the
+  shipped `threat` array alongside ATT&CK.
+
+Refresh ATLAS data the same way as ATT&CK:
+
+```bash
+python -m detection_rules dev atlas refresh-data
+```
+
+This writes `detection_rules/etc/atlas-v<content-version>.json.gz` from the MITRE ATLAS
+manifest (`dist/v6/ATLAS-*.yaml`) without deleting older versioned files.
+
 ## `stack_emit` (version lock)
 
 The shared, backported `version.lock.json` may include optional emit epochs per rule:
@@ -87,7 +110,8 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- Building 9.6 with the same transforms **reuses** `stack_emit["9.5"]` — no new lock row.
+- 9.5 is the ATT&CK v19 epoch. ATLAS shipping is stack-gated in `apply_emit_transforms`
+  and does **not** add a `9.6` epoch, so 9.6 packages keep inheriting `stack_emit["9.5"]`.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 
