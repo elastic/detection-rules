@@ -221,13 +221,40 @@ def get_esql_query_source_groups(query: str) -> list[EsqlSourceGroup]:
     return list(groups.values())
 
 
-def get_esql_query_indices(query: str) -> list[str]:
-    """Extract the unique index patterns from every FROM clause in an ES|QL query."""
+def _indices_from_source_groups(query: str) -> list[str]:
+    """Unique index patterns from regex source groups (nested FROM / unparseable fragments)."""
     indices: list[str] = []
     for group in get_esql_query_source_groups(query):
         for index in group.indices:
             if index not in indices:
                 indices.append(index)
+    return indices
+
+
+def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
+    """Extract unique FROM/TS index patterns (CCS cluster prefix stripped).
+
+    Prefers the ES|QL AST via ``esql.get_from_sources``. Falls back to
+    ``get_esql_query_source_groups`` when the query does not parse, or when FROM
+    sources are nested subqueries (AST currently stringifies those without
+    preserving inner FromCommand nodes). Span-accurate rewrites for remote
+    validation still use get_esql_query_source_groups directly.
+    """
+    try:
+        parsed = tree if tree is not None else esql.parse_query(query)
+    except Exception:  # noqa: BLE001 — incomplete fragments still need index lists
+        return _indices_from_source_groups(query)
+
+    sources = [str(source) for source in esql.get_from_sources(parsed)]
+    # Nested subquery FORMs are opaque source strings like "(FROMlogs-a-*...)".
+    if any(source.lstrip().startswith("(") for source in sources):
+        return _indices_from_source_groups(query)
+
+    indices: list[str] = []
+    for source in sources:
+        index = source.split(":", 1)[-1].strip()
+        if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in indices:
+            indices.append(index)
     return indices
 
 

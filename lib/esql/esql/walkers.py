@@ -153,12 +153,67 @@ def get_field_names(tree: ast.EsqlQuery, *, include_output: bool = True) -> list
 
 def get_unique_fields(tree: ast.EsqlQuery) -> list[str]:
     skip_prefixes = ("Esql.", "Esql_priv.", "?")
-    fields = [
+    fields = {
         name
         for name in get_field_names(tree, include_output=False)
         if not name.startswith(skip_prefixes) and name not in {"_id", "_version", "_index"}
-    ]
-    return sorted(set(fields))
+    }
+    # PRD §5.7 — union nested KQL()/EQL() fields when hooks / optional libs allow.
+    fields.update(_nested_query_field_names(tree))
+    return sorted(fields)
+
+
+def _nested_query_field_names(tree: ast.EsqlQuery) -> set[str]:
+    """Best-effort field names from nested KQL()/EQL() payloads."""
+    names: set[str] = set()
+    for nested in find_nested_queries(tree):
+        names.update(_fields_from_nested_payload(nested))
+    return names
+
+
+def _fields_from_nested_payload(nested: ast.NestedQuery) -> set[str]:
+    """Extract field names from a nested payload using parse hooks or optional deps."""
+    from .utils import get_config_value
+
+    text = (nested.text or "").strip()
+    if not text:
+        return set()
+
+    if nested.kind == "kql":
+        hook = get_config_value("kql_parse")
+        try:
+            if hook is not None:
+                parsed = hook(text)
+            else:
+                import kql  # type: ignore[import-untyped]
+
+                parsed = kql.parse(text, normalize_kql_keywords=True)
+            import kql as kql_mod  # type: ignore[import-untyped]
+
+            return {str(n) for n in kql_mod.get_field_names(parsed)}
+        except Exception:  # noqa: BLE001 — optional nested merge
+            return set()
+
+    if nested.kind == "eql":
+        hook = get_config_value("eql_parse")
+        try:
+            if hook is not None:
+                parsed = hook(text)
+            else:
+                import eql  # type: ignore[import-untyped]
+
+                with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                    try:
+                        parsed = eql.parse_query(text)
+                    except eql.EqlParseError:
+                        parsed = eql.parse_expression(text)
+            import eql  # type: ignore[import-untyped]
+
+            return {str(f) for f in parsed if isinstance(f, eql.ast.Field)}
+        except Exception:  # noqa: BLE001
+            return set()
+
+    return set()
 
 
 def get_keep_columns(tree: ast.EsqlQuery) -> list[str]:

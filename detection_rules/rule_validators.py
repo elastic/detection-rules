@@ -979,7 +979,7 @@ class ESQLValidator(QueryValidator):
         if not package_integrations and event_datasets:
             package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
 
-        from_indices = get_esql_query_indices(self.query)
+        from_indices = get_esql_query_indices(self.query, tree=self.ast)
         # Infer Fleet packages from FROM patterns when metadata/datasets are absent
         # (e.g. metrics-* → system) so offline schemas match remote mapping prep.
         known_packages = {str(p.get("package")) for p in package_integrations if p.get("package")}
@@ -1208,7 +1208,28 @@ class ESQLValidator(QueryValidator):
 
         return True
 
-    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
+    def auto_add_field(self, field_name: str, index_or_dataview: str) -> None:
+        """Auto add a missing field to the custom schema (parity with KQL/EQL validators)."""
+        if not field_name:
+            raise ValueError("No field name found")
+        field_type = ecs.get_all_flattened_schema().get(field_name)
+        update_auto_generated_schema(index_or_dataview, field_name, field_type)
+        # Offline plan caches schemas; rebuild after custom schema mutates.
+        _ESQL_SCHEMA_DICT_CACHE.clear()
+
+    @staticmethod
+    def _unknown_field_from_error(exc: Exception) -> str | None:
+        """Extract an unknown field name from an ES|QL schema error message."""
+        match = re.search(r"Unknown field ['\"]([^'\"]+)['\"]", str(exc))
+        return match.group(1) if match else None
+
+    def validate(  # type: ignore[reportIncompatibleMethodOverride]
+        self,
+        data: "QueryRuleData",
+        rule_meta: RuleMeta,
+        force_remote_validation: bool = False,
+        max_attempts: int = 10,
+    ) -> None:
         """Validate an ESQL query: local python-esql by default; optional remote fidelity."""
         if rule_meta.query_schema_validation is False or rule_meta.maturity == "deprecated":
             return
@@ -1216,7 +1237,7 @@ class ESQLValidator(QueryValidator):
         _warm_esql_offline_caches()
 
         # Unknown FROM patterns must fail offline (parity with remote prepare_mappings).
-        from_indices = get_esql_query_indices(self.query)
+        from_indices = get_esql_query_indices(self.query, tree=self.ast)
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
         stack_versions = rule_meta.get_validation_stack_versions()
         stack_version = (
@@ -1226,35 +1247,57 @@ class ESQLValidator(QueryValidator):
         )
         _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
 
-        # Always run offline plan (syntax + nested KQL + version gates)
-        plan = self.build_validation_plan(data, rule_meta)
-        if not plan:
-            # Still parse once for AST / unique_fields
-            _ = self.ast
-
         # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
         from esql.grammar_registry import resolve_grammar_key
 
-        trees_by_grammar: dict[str, Any] = {}
-        for target in plan:
-            gkey = resolve_grammar_key(target.min_stack_version)
-            tree = trees_by_grammar.get(gkey)
-            if tree is None:
-                cfg = set_esql_config(target.min_stack_version)
-                with cfg, esql.Schema({}, allow_missing=True):
-                    tree = esql.parse_query(target.query_text)
-                trees_by_grammar[gkey] = tree
-            exc, _ = self.validate_query_text_with_schema(
-                target.query_text,
-                target.schema,
-                err_trailer=target.err_trailer,
-                min_stack_version=target.min_stack_version,
-                beat_types=target.beat_types,
-                integration_types=target.integration_types,
-                tree=tree,
-            )
-            if exc is not None:
-                raise exc
+        schema_index = (data.index_or_dataview or from_indices or [None])[0]
+
+        for _ in range(max_attempts):
+            plan = self.build_validation_plan(data, rule_meta)
+            if not plan:
+                # Still parse once for AST / unique_fields
+                _ = self.ast
+                break
+
+            trees_by_grammar: dict[str, Any] = {}
+            first_error: Exception | None = None
+            for target in plan:
+                gkey = resolve_grammar_key(target.min_stack_version)
+                tree = trees_by_grammar.get(gkey)
+                if tree is None:
+                    cfg = set_esql_config(target.min_stack_version)
+                    with cfg, esql.Schema({}, allow_missing=True):
+                        tree = esql.parse_query(target.query_text)
+                    trees_by_grammar[gkey] = tree
+                exc, _ = self.validate_query_text_with_schema(
+                    target.query_text,
+                    target.schema,
+                    err_trailer=target.err_trailer,
+                    min_stack_version=target.min_stack_version,
+                    beat_types=target.beat_types,
+                    integration_types=target.integration_types,
+                    tree=tree,
+                )
+                if exc is not None:
+                    first_error = exc
+                    break
+
+            if first_error is None:
+                break
+
+            unknown_field = self._unknown_field_from_error(first_error)
+            if (
+                isinstance(first_error, DrEsqlSchemaError)
+                and unknown_field
+                and RULES_CONFIG.auto_gen_schema_file
+                and schema_index
+            ):
+                self.auto_add_field(unknown_field, schema_index)
+                continue
+
+            raise first_error
+        else:
+            raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
 
         if misc.getdefault("remote_esql_validation")() or force_remote_validation:
             resolved_kibana_options = {
