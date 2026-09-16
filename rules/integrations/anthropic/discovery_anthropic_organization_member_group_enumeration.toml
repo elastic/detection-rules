@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a single user performing at least two distinct organization discovery actions within a 10-minute window: listing
+users, exporting members, or viewing groups. Chaining these read actions maps membership and group structure and
+commonly precedes targeted role grants, invites, or data collection against high-value accounts.
+"""
+false_positives = [
+    """
+    Organization administrators, identity teams, and compliance reviewers may list users, export members, and view
+    groups during audits, access reviews, or offboarding. Confirm the actor and change ticket before escalating.
+    """,
+]
+from = "now-11m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Organization Member and Group Enumeration"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Member and Group Enumeration
+
+This ES|QL rule fires when one `user.email` in an organization records at least two distinct discovery actions among
+`org_users_listed`, `org_members_exported`, and `group_list_viewed` within the rolling ~10-minute lookback.
+`Esql.event_action_values` shows which actions appeared. Matching `(user.email, organization.id)` pairs are suppressed
+for 10 minutes so overlapping runs do not re-alert while the same activity remains in the window.
+
+#### Possible investigation steps
+
+- Review `user.email`, `organization.id`, `Esql.event_action_count_distinct`, and `Esql.event_action_values`.
+- Inspect `Esql.source_ip_values`, `Esql.user_agent_original_values`, and `Esql.anthropic_audit_actor_type_values` for
+  automation or unfamiliar clients.
+- Pivot on the same actor and organization for follow-on activity: admin or project role grants, invites, SSO changes,
+  or data exports.
+- Compare timing against approved access reviews or identity audits.
+- Note that `org_members_exported` events without a user email (for example some `anthropic_actor` cases) are out of
+  scope for this rule.
+
+### False positive analysis
+
+- Scheduled membership exports or console browsing during onboarding can combine two of these actions in a short
+  window for legitimate admins.
+
+### Response and remediation
+
+- If unauthorized, revoke active sessions for the actor, review recent role and invite changes, and tighten least
+  privilege on organization identity read actions where possible.
+"""
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
+risk_score = 47
+rule_id = "7767d7b7-e8b0-4bb1-88c2-00f576642fb3"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: ESQL",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action in ("org_members_exported", "org_users_listed", "group_list_viewed") and
+    user.email is not null
+| stats
+    Esql.event_action_count_distinct = count_distinct(event.action),
+    Esql.event_action_values = values(event.action),
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.user_id_values = values(user.id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email, organization.id
+| where Esql.event_action_count_distinct >= 2
+| keep user.email, organization.id, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "organization.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "organization.id",
+    "Esql.event_action_count_distinct",
+    "Esql.event_action_values",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.user_id_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 10
+
