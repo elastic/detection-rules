@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies use of the AWS CLI to disable, delete, or blind AWS audit logging and security monitoring services,
+including CloudTrail trails and event data stores, GuardDuty detectors, AWS Config recorders, Security Hub, Access
+Analyzer, Macie, and Inspector. Adversaries disable these controls early in a cloud intrusion so that subsequent
+credential abuse, data theft, and destruction go unrecorded. Because the endpoint sees the command before the API call
+reaches AWS, this fires even when the resulting CloudTrail event is itself suppressed.
+"""
+false_positives = [
+    """
+    Security teams running authorized cloud posture assessments or infrastructure cleanup may legitimately issue
+    these commands. Correlate with change management windows and operator identity before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Audit or Security Service Tampering via CLI"
+references = [
+    "https://socprime.com/active-threats/aws-guardduty-detector-disabled/",
+    "https://securitylabs.datadoghq.com/cloud-security-atlas/attacks/stopping-cloudtrail-trail/",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.defense-evasion.cloudtrail-stop/",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.defense-evasion.cloudtrail-delete/",
+    "https://stratus-red-team.cloud/attack-techniques/AWS/aws.defense-evasion.cloudtrail-event-selectors/",
+    "https://sysdig.com/blog/cloud-breach-terraform-data-theft/",
+]
+note = """## Triage and analysis
+
+### Investigating AWS Audit or Security Service Tampering via CLI
+
+This rule detects use of the AWS CLI to disable, delete, or blind AWS audit logging and security monitoring services. Adversaries disable these controls early in an intrusion to prevent their subsequent actions from being recorded in CloudTrail or detected by GuardDuty and other services. Because this rule fires on the endpoint before the API call reaches AWS, it activates even when the resulting CloudTrail event is itself suppressed.
+
+### Possible investigation steps
+
+- Review the full AWS CLI command to identify which specific service and operation were targeted.
+- Identify the user account and session that executed the command and determine if it is an authorized administrator or an unexpected identity.
+- Check AWS CloudTrail for the corresponding API call and any subsequent activity that may have benefited from disabled logging.
+- Correlate with other alerts on the same host or from the same IAM identity to identify broader intrusion activity.
+- Determine whether the modification was part of an approved change window.
+
+### False positive analysis
+
+- Security teams running authorized cloud posture assessments or infrastructure cleanup may legitimately issue these commands. Correlate with change management windows and operator identity before escalating.
+- Automated compliance tools that periodically audit and reset security service configurations may trigger this rule.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Re-enable any disabled security services and restore their previous configuration.
+- Revoke the AWS credentials or session used to execute the command if compromise is confirmed.
+- Review the time window during which logging was disabled for unrecorded API activity using VPC flow logs or other sources.
+- Implement SCPs or permission boundaries to prevent disabling of critical security services in the future.
+"""
+risk_score = 73
+rule_id = "a495b1a1-69f1-423d-836b-08f13175eb49"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS GuardDuty",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : "process" and event.type : "start" and event.action : (exec or start) and
+process.name : (aws or aws-cli or aws.exe or aws2) and
+process.command_line : (
+  (
+    *accessanalyzer delete-analyzer* or
+    *cloudtrail delete-event-data-store* or
+    *cloudtrail delete-trail* or
+    *cloudtrail put-event-selectors* or
+    *cloudtrail stop-logging* or
+    *cloudtrail update-trail*--no-include-global-service-events* or
+    *cloudtrail update-trail*--no-is-multi-region-trail* or
+    *configservice delete-configuration-recorder* or
+    *configservice delete-delivery-channel* or
+    *configservice stop-configuration-recorder* or
+    *detective delete-graph* or
+    *guardduty create-filter* or
+    *guardduty delete-detector* or
+    *guardduty delete-publishing-destination* or
+    *guardduty update-detector*--no-enable* or
+    *inspector2 disable* or
+    *logs delete-log-group* or
+    *logs delete-log-stream* or
+    *logs put-retention-policy*--retention-in-days 1* or
+    *macie2 disable-macie* or
+    *s3api delete-bucket-policy* or
+    *s3api put-bucket-logging* or
+    *securityhub batch-disable-standards* or
+    *securityhub disable-security-hub*
+  ) and not (*--dry-run* or *--version* or *describe* or *get-* or *help* or *list-*)
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
