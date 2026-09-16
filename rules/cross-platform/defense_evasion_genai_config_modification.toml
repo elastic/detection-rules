@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/06"
+updated_date = "2026/08/07"
 
 [rule]
 author = ["Elastic"]
@@ -58,6 +58,7 @@ rule_id = "590fc62d-7386-4c75-92b0-af4517018da1"
 severity = "medium"
 tags = [
     "Domain: Endpoint",
+    "OS: Linux",
     "OS: macOS",
     "OS: Windows",
     "Use Case: Threat Detection",
@@ -71,7 +72,7 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-event.category : "file" and event.action : ("modification" or "overwrite") and
+event.category : "file" and event.action : ("creation" or "modification" or "overwrite") and
 file.path : (
     */.cursor/mcp.json or */.cursor/settings.json or */AppData/Roaming/Cursor/*mcp* or
     */.claude/* or */claude_desktop_config.json or */AppData/Roaming/Claude/* or
@@ -81,6 +82,7 @@ file.path : (
     */.gemini/* or */AppData/Roaming/gemini-cli/* or
     */.grok/* or */AppData/Roaming/Grok/* or
     */.windsurf/* or */AppData/Roaming/Windsurf/* or
+    */.kiro/settings/mcp.json or *\\.kiro\\settings\\mcp.json or
     */.vscode/extensions/*mcp* or
     */.openclaw/* or */AppData/Roaming/OpenClaw/* or
     */.moltbot/* or */AppData/Roaming/Moltbot/* or
