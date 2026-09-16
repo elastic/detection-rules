@@ -117,6 +117,8 @@ Here are the queries currently available:
 
 
 ## network
+- [Cisco Secure FMC Authentication Bypass HTTP Exploit Artifacts](./network/docs/initial_access_cisco_fmc_authentication_bypass_http_exploit_artifacts.md) (ES|QL)
+- [Cisco Secure FMC Possible Exploitation via License Package Processing](./network/docs/initial_access_cisco_fmc_possible_exploitation_via_license_package_processing.md) (ES|QL)
 - [Mythic C2 TLS Certificate Observed in Cisco SD-WAN Exploitation](./network/docs/command_and_control_cisco_sdwan_mythic_c2_tls_cert.md) (ES|QL)
 
 
