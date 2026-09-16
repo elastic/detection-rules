@@ -1303,13 +1303,13 @@ class ESQLValidator(QueryValidator):
             resolved_kibana_options = {
                 str(option.name): option.default() if callable(option.default) else option.default
                 for option in misc.kibana_options
-                if option.name is not None
+                if option.name
             }
 
             resolved_elastic_options = {
                 option.name: option.default() if callable(option.default) else option.default
                 for option in misc.elasticsearch_options
-                if option.name is not None
+                if option.name
             }
 
             with (

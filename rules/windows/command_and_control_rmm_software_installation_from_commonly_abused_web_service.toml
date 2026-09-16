@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "FROM subquery support became generally available in 9.5.0"
 min_stack_version = "9.5.0"
-updated_date = "2026/08/10"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -26,6 +26,37 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "RMM Software Installation from a Commonly Abused Web Service"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RMM Software Installation from a Commonly Abused Web Service
+
+This rule detects a Windows MSI downloaded from a commonly abused hosting service, executed shortly afterward, and followed by installation of a recognized remote management tool, a sequence that can establish covert remote access. An attacker may send a phishing link to a file-sharing site, persuade the user to run the downloaded installer, and deploy an unattended remote-control agent for persistent system access.
+
+### Possible investigation steps
+
+- Validate the MSI’s digital signature, publisher, SHA-256 reputation, download URL, and referrer to distinguish an official vendor package from a repackaged or impersonated installer.
+- Review the user’s browser, email, chat, and recent authentication activity to determine how the download was initiated and whether the RMM installation was authorized by IT.
+- Reconstruct the execution chain around the installer, including its parent process, command-line options, privilege elevation, and any scripts or utilities launched immediately before or after installation.
+- Examine the installed RMM product’s services, scheduled tasks, registry entries, configuration files, enrollment identifiers, and outbound connections for unattended access or linkage to an unknown tenant.
+- Hunt across the environment for the same MSI hash, source URL, RMM executable, publisher, destination infrastructure, or enrollment details, and isolate affected hosts if the deployment is unauthorized.
+
+### False positive analysis
+
+- An authorized administrator may install an approved RMM package hosted on a listed source-code, cloud-storage, or file-sharing domain; confirm the user, host, MSI signature and hash, source URL, and deployment timing against an approved change record.
+- A user may install an approved remote-support client from a legitimate shared download link during a scheduled support session; verify the session with the user or support team and confirm the installed agent is enrolled in the organization’s expected tenant.
+
+### Response and remediation
+
+- Isolate affected Windows hosts from the network while preserving management access, and block the malicious MSI hash, download URL, and identified RMM destination infrastructure.
+- Terminate active RMM sessions and processes, uninstall the unauthorized agent, remove its services, scheduled tasks, startup registry entries, configuration files, enrollment identifiers, and downloaded MSI, and verify that none are recreated.
+- Disable or reset the affected user and RMM-associated accounts, revoke active sessions and tokens, rotate exposed privileged credentials, and review remote logons for unauthorized access.
+- Escalate immediately to incident response if the RMM agent ran with administrative privileges, appears on multiple hosts, used an unknown tenant, enabled lateral movement, or accessed sensitive systems or data.
+- Reimage hosts from a trusted baseline when system integrity cannot be established, restore only validated data, patch the system, and confirm the unauthorized RMM executable and persistence mechanisms are absent before reconnecting it.
+- Prevent recurrence by allowlisting approved RMM products and tenants, restricting MSI execution and unapproved remote-access tools, filtering known malicious hosting URLs, and requiring documented authorization for remote-support installations.
+"""
 references = [
     "https://www.proofpoint.com/us/blog/threat-insight/remote-monitoring-and-management-rmm-tooling-increasingly-attackers-first-choice",
     "https://www.securonix.com/blog/smoke-screen-screenconnect-rmm-abuse-cloudflare-tunnels/",
@@ -56,6 +87,7 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
