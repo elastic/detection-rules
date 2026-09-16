@@ -79,10 +79,9 @@ data_stream.dataset: "aws.cloudtrail"
     and event.provider: "lambda.amazonaws.com"
     and event.action: (DeleteFunction or DeleteFunction20*)
     and event.outcome: "success"
-    and user.name: *
+    and user.name: (* and not AWSServiceRoleForLambdaReplicator)
     and aws.cloudtrail.flattened.request_parameters.functionName: *
-    and not user.name: AWSServiceRoleForLambdaReplicator
-    and not user_agent.original: (*Terraform* or *Pulumi*)
+    and not user_agent.original: (*Pulumi* or *Terraform*)
 '''
 
 
