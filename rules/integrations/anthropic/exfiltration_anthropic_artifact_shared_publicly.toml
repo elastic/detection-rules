@@ -4,7 +4,7 @@ integration = ["anthropic"]
 maturity = "production"
 min_stack_comments = "FIELD_EXTRACT for flattened fields requires 9.5.0"
 min_stack_version = "9.5.0"
-updated_date = "2026/09/15"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
@@ -36,8 +36,8 @@ so publishing multiple artifacts in succession produces one alert per artifact (
 #### Possible investigation steps
 
 - Review `anthropic.audit.claude_artifact_id`, `anthropic.audit.audience`, and `anthropic.audit.actor.type`. The
-  integration maps `audience` as a flattened field; use `FIELD_EXTRACT(anthropic.audit.audience, "type")` or inspect
-  `event.original` to confirm the audience is `anyone_with_link` rather than `organization` or other scoped types.
+  integration maps `audience` as a flattened field; use `FIELD_EXTRACT` plus `mv_contains` (or inspect
+  `event.original`) to confirm the audience includes `anyone_with_link` rather than only scoped types.
 - If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
 - Confirm whether the artifact contains credentials, customer data, or proprietary content.
 - Look for related chat access failures or data exports involving the same actor.
@@ -57,9 +57,9 @@ risk_score = 47
 rule_id = "14290b38-a8dd-474d-bfd7-cce282f4f745"
 severity = "medium"
 tags = [
-    "Domain: Cloud",
-    "Domain: LLM",
-    "Data Source: Anthropic",
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Rule Type: ESQL",
@@ -73,9 +73,10 @@ from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
     event.category == "configuration" and
-    event.action == "claude_artifact_sharing_updated" and
-    FIELD_EXTRACT(anthropic.audit.audience, "type") == "anyone_with_link"
-| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+    event.action == "claude_artifact_sharing_updated"
+| eval Esql.audience_types = FIELD_EXTRACT(anthropic.audit.audience, "type")
+| where Esql.audience_types is not null and mv_contains(Esql.audience_types, "anyone_with_link")
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*, Esql.audience_types
 '''
 
 

@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/16"
 
 [rule]
 author = ["Elastic"]
@@ -27,9 +27,11 @@ note = """## Triage and analysis
 ### Investigating Anthropic Compliance Logging Disabled Followed by Sensitive Admin Action
 
 This ES|QL rule correlates a compliance API logging disable with a high-risk follow-on in the same organization within
-24 hours. Events are aggregated by `organization.id`, so the disable and the follow-on may be different actors. The
-alert document is a stats row (`Esql.*` fields); pivot to raw `logs-anthropic.audit-*` logs for individual events. If
-logging stays disabled, the follow-on may be the last activity visible in this data source.
+24 hours. Settings updates that re-enable logging are included so a disable, re-enable, then later admin action does
+not satisfy the sequence. The latest settings event before the follow-on must still be a disable. Events are aggregated
+by `organization.id`, so the disable and the follow-on may be different actors. The alert document is a stats row
+(`Esql.*` fields); pivot to raw `logs-anthropic.audit-*` logs for individual events. If logging stays disabled, the
+follow-on may be the last activity visible in this data source.
 
 #### Possible investigation steps
 
@@ -63,14 +65,14 @@ risk_score = 99
 rule_id = "07f7966d-37f8-4b1c-805e-943b050727c9"
 severity = "critical"
 tags = [
-    "Domain: Cloud",
-    "Domain: LLM",
-    "Data Source: Anthropic",
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
     "Use Case: Log Auditing",
     "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
     "Rule Type: Higher-Order Rule",
     "Rule Type: ESQL",
-    "Resources: Investigation Guide",
     "Tactic: Defense Evasion",
     "Tactic: Persistence",
 ]
@@ -81,7 +83,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where data_stream.dataset == "anthropic.audit"
 | where (
-    (event.action == "org_compliance_api_settings_updated" and anthropic.audit.compliance_api_logging_enabled == false)
+    event.action == "org_compliance_api_settings_updated"
     or
     event.action in (
       "admin_api_key_created",
@@ -96,12 +98,22 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     event.action == "org_compliance_api_settings_updated" and anthropic.audit.compliance_api_logging_enabled == false,
     1, 0
   )
+| eval is_enable_event = case(
+    event.action == "org_compliance_api_settings_updated" and anthropic.audit.compliance_api_logging_enabled == true,
+    1, 0
+  )
+| eval is_followon_event = case(
+    event.action != "org_compliance_api_settings_updated",
+    1, 0
+  )
 | stats
     Esql.disable_count = count(case(is_disable_event == 1, 1, null)),
-    Esql.followon_count = count(case(is_disable_event == 0, 1, null)),
+    Esql.followon_count = count(case(is_followon_event == 1, 1, null)),
     Esql.disable_time = min(case(is_disable_event == 1, @timestamp, null)),
-    Esql.latest_followon = max(case(is_disable_event == 0, @timestamp, null)),
-    Esql.event_action_values = values(case(is_disable_event == 0, event.action, null)),
+    Esql.last_disable_time = max(case(is_disable_event == 1, @timestamp, null)),
+    Esql.last_enable_time = max(case(is_enable_event == 1, @timestamp, null)),
+    Esql.latest_followon = max(case(is_followon_event == 1, @timestamp, null)),
+    Esql.event_action_values = values(case(is_followon_event == 1, event.action, null)),
     Esql.event_id_values = values(event.id),
     Esql.user_email_values = values(user.email),
     Esql.user_id_values = values(user.id),
@@ -111,6 +123,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
 | where Esql.disable_count >= 1 and Esql.followon_count >= 1
 | where Esql.latest_followon > Esql.disable_time
 | where date_diff("hours", Esql.disable_time, Esql.latest_followon) <= 24
+| where Esql.last_enable_time is null or Esql.last_enable_time < Esql.last_disable_time or Esql.last_enable_time > Esql.latest_followon
 | sort Esql.latest_followon desc
 | keep organization.id, Esql.*
 '''
@@ -157,6 +170,8 @@ field_names = [
     "Esql.disable_count",
     "Esql.followon_count",
     "Esql.disable_time",
+    "Esql.last_disable_time",
+    "Esql.last_enable_time",
     "Esql.latest_followon",
     "Esql.event_action_values",
     "Esql.event_id_values",

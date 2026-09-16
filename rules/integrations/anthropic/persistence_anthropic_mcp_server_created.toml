@@ -2,16 +2,16 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects the first successful creation of a Model Context Protocol (MCP) server integration name in an Anthropic
 organization within the rule history window. MCP servers add external data pathways into Claude and can expose
-organizational data to third-party infrastructure. This is a New Terms rule keyed on `anthropic.audit.mcp_server_name`
-so routine re-creation or rollout noise for the same connector name does not alert on every event—only when a server
-name appears for the first time in the lookback period.
+organizational data to third-party infrastructure. This is a New Terms rule keyed on `organization.id` and
+`anthropic.audit.mcp_server_name` so the same connector name can still alert in another tenant, while routine
+re-creation of an already-seen name in the same organization does not.
 """
 false_positives = [
     """
@@ -28,10 +28,10 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic MCP Server Created
 
-This is a first-seen (new_terms) signal keyed on **`anthropic.audit.mcp_server_name`** for successful
-`mcp_server_created` events. Each alert means that MCP server name was not observed in the rule history window before
-this creation. Pair with data export, public artifact sharing, or privilege changes from the same actor or
-organization when the name or actor is unexpected.
+This is a first-seen (new_terms) signal keyed on **`organization.id`** plus
+**`anthropic.audit.mcp_server_name`** for successful `mcp_server_created` events. Each alert means that MCP
+server name was not observed in this organization during the rule history window. Pair with data export, public
+artifact sharing, or privilege changes from the same actor or organization when the name or actor is unexpected.
 
 #### Possible investigation steps
 
@@ -57,13 +57,13 @@ risk_score = 47
 rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
 severity = "medium"
 tags = [
-    "Domain: Cloud",
-    "Domain: LLM",
-    "Data Source: Anthropic",
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
     "Use Case: Threat Detection",
     "Use Case: UEBA",
-    "Rule Type: New Terms",
     "Resources: Investigation Guide",
+    "Rule Type: New Terms",
     "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
@@ -108,7 +108,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["anthropic.audit.mcp_server_name"]
+value = ["organization.id", "anthropic.audit.mcp_server_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
