@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/12"
 
 [rule]
 author = ["Elastic"]
@@ -52,9 +52,9 @@ risk_score = 73
 rule_id = "b8c429a1-67f3-448c-a960-951807dd2cd8"
 severity = "high"
 tags = [
-    "Domain: Cloud",
-    "Domain: LLM",
-    "Data Source: Anthropic",
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
     "Use Case: Identity and Access Audit",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
@@ -70,6 +70,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     data_stream.dataset == "anthropic.audit" and
     event.action == "api_key_created" and
     event.outcome == "success" and
+    anthropic.audit.scopes is not null and
     (
         mv_contains(anthropic.audit.scopes, "read:compliance_activities") or
         mv_contains(anthropic.audit.scopes, "read:compliance_org_data")

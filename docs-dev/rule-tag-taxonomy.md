@@ -49,7 +49,8 @@ Do **not** invent domains for storage, web/app servers, or threat intelligence â
 ## Platform values
 
 `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`,
-`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
+`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`,
+`Anthropic`.
 
 ## Data Source values
 
@@ -65,7 +66,7 @@ still required by index-based unit tests (for example AWS rules still need both
 
 **SaaS:** `M365 Audit Logs`, `Microsoft Graph Activity Logs`,
 `Google Workspace Audit Logs`, `GitHub Audit Logs`, `GitHub Code Scanning Logs`,
-`Zoom Webhook Events`
+`Zoom Webhook Events`, `Anthropic Audit Logs`
 
 **Endpoint:** `Elastic Defend`, `Elastic Endgame`, `Elastic Defend for Containers`,
 `Windows Security Event Logs`, `Windows System Event Logs`, `Windows Sysmon Logs`,
