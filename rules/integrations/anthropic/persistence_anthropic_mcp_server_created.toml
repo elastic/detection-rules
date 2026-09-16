@@ -1,18 +1,17 @@
 [metadata]
-bypass_bbr_timing = true
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
-building_block_type = "default"
 description = """
-Detects creation of a Model Context Protocol (MCP) server integration in an Anthropic organization. MCP servers add
-external data pathways into Claude and can expose organizational data to third-party infrastructure. This building block
-is for correlation with exports, artifact sharing, or privilege changes, not standalone escalation. Routine Claude
-rollouts commonly create approved connectors.
+Detects the first successful creation of a Model Context Protocol (MCP) server integration name in an Anthropic
+organization within the rule history window. MCP servers add external data pathways into Claude and can expose
+organizational data to third-party infrastructure. This is a New Terms rule keyed on `anthropic.audit.mcp_server_name`
+so routine re-creation or rollout noise for the same connector name does not alert on every event—only when a server
+name appears for the first time in the lookback period.
 """
 false_positives = [
     """
@@ -21,28 +20,31 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-language = "esql"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
 license = "Elastic License v2"
 name = "Anthropic MCP Server Created"
 note = """## Triage and analysis
 
 ### Investigating Anthropic MCP Server Created
 
-This building block alerts on `mcp_server_created` events. It is intended for hunt and correlation workflows, not
-standalone escalation. Pair with data export, public artifact sharing, or admin role grants from the same actor or
-organization.
+This is a first-seen (new_terms) signal keyed on **`anthropic.audit.mcp_server_name`** for successful
+`mcp_server_created` events. Each alert means that MCP server name was not observed in the rule history window before
+this creation. Pair with data export, public artifact sharing, or privilege changes from the same actor or
+organization when the name or actor is unexpected.
 
 #### Possible investigation steps
 
 - Review `anthropic.audit.mcp_server_name`, `anthropic.audit.mcp_server_id`, and `anthropic.audit.actor.type`.
 - When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Determine whether the actor has created MCP servers before or is an external contractor.
+- Determine whether the actor has created other MCP servers before or is an external contractor.
 - Search for related `mcp_server_updated` or `mcp_server_deleted` events for the same `anthropic.audit.mcp_server_id`.
 - Search for related data exports, artifact sharing changes, or admin role grants in the same window.
 
 ### False positive analysis
 
-- MCP adoption during Claude pilots commonly produces new server creation events from platform or integration teams.
+- MCP adoption during Claude pilots commonly produces first-seen server names from platform or integration teams.
+- Confirm the connector name against approved integration inventory before escalating.
 
 ### Response and remediation
 
@@ -53,46 +55,45 @@ organization.
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1567/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 21
+risk_score = 47
 rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
-severity = "low"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
     "Data Source: Anthropic",
     "Use Case: Threat Detection",
-    "Rule Type: BBR",
+    "Use Case: UEBA",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
-    "Tactic: Exfiltration",
+    "Tactic: Persistence",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "new_terms"
 
 query = '''
-from logs-anthropic.audit-* metadata _id, _version, _index
-| where
-    data_stream.dataset == "anthropic.audit" and
-    event.category == "configuration" and
-    event.action == "mcp_server_created"
-| keep *
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "mcp_server_created" and
+    event.outcome: "success"
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1567"
-name = "Exfiltration Over Web Service"
-reference = "https://attack.mitre.org/techniques/T1567/"
+id = "T1176"
+name = "Software Extensions"
+reference = "https://attack.mitre.org/techniques/T1176/"
+
 
 
 [rule.threat.tactic]
-id = "TA0010"
-name = "Exfiltration"
-reference = "https://attack.mitre.org/tactics/TA0010/"
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.investigation_fields]
 field_names = [
@@ -108,3 +109,10 @@ field_names = [
     "source.ip",
     "user_agent.original",
 ]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["anthropic.audit.mcp_server_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

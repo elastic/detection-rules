@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,6 @@ be rare and is often preceded by formal approval outside the application.
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1098/003/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -77,8 +76,9 @@ from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
     event.category == "iam" and
-    event.action == "primary_owner_transferred"
-| keep *
+    event.action == "primary_owner_transferred" and
+    event.outcome == "success"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
 

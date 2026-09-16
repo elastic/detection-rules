@@ -51,7 +51,6 @@ creation, role grants, and logging changes in the same window.
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1531/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 47
@@ -75,7 +74,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     data_stream.dataset == "anthropic.audit" and
     event.category == "iam" and
     event.action == "admin_api_key_deleted"
-| keep *
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
 

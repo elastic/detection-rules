@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -51,7 +51,6 @@ domain was verified, added, removed, or claimed.
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1098/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
 risk_score = 73
@@ -80,7 +79,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
         "org_domain_add_initiated",
         "domain_claim_initiated"
     )
-| keep *
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
 

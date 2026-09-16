@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -55,13 +55,11 @@ early signal; recovery options shrink as the action progresses to bulk delete co
 The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
 required to be compatible with this rule."""
 references = [
-    "https://attack.mitre.org/techniques/T1485/",
-    "https://attack.mitre.org/techniques/T1531/",
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
-risk_score = 73
+risk_score = 99
 rule_id = "11347993-e71f-4659-a903-e9a0e8bd55de"
-severity = "high"
+severity = "critical"
 tags = [
     "Domain: Cloud",
     "Domain: LLM",
@@ -79,7 +77,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     data_stream.dataset == "anthropic.audit" and
     event.category == "configuration" and
     event.action in ("org_deletion_requested", "org_bulk_delete_initiated", "org_deleted_via_bulk")
-| keep *
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
 
