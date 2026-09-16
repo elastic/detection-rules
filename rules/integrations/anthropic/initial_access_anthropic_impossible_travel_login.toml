@@ -38,9 +38,12 @@ Timeline events before concluding impossible travel. Alerts require at least two
 
 #### Possible investigation steps
 
-- Review `Esql.distance_km`, `Esql.event_count`, `Esql.source_ip_values`, and `Esql.source_geo_country_name_values`.
-- Sort raw authentication events for the user by `@timestamp` and compare each `source.ip`, `source.geo.country_name`,
-  and `user_agent.original`.
+- Review `Esql.distance_km`, `Esql.event_count`, `Esql.source_ip_values`,
+  `Esql.source_geo_country_name_values`, `Esql.source_geo_city_name_values`, `Esql.min_lat`,
+  `Esql.max_lat`, `Esql.min_lon`, and `Esql.max_lon`.
+- Sort raw authentication events for the user by `@timestamp` and compare each `source.ip`,
+  ingest `source.geo.country_name` / `source.geo.city_name`, and `user_agent.original` against
+  the IP_LOCATION-derived bounding box on the alert.
 - Pair with **Anthropic Multiple Authentication Failures** or SSO weakening rules when takeover is suspected.
 - Confirm with the user whether distant sign-ins are expected (travel, VPN) or unauthorized.
 
@@ -54,11 +57,7 @@ Timeline events before concluding impossible travel. Alerts require at least two
 
 - If compromise is suspected, revoke sessions, reset credentials and MFA, and review admin or data-access activity
   after the distant sign-in.
-
-## Setup
-
-The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
-required to be compatible with this rule."""
+"""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
@@ -73,6 +72,7 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
+    "Rule Type: ESQL",
     "Tactic: Initial Access",
 ]
 timestamp_override = "event.ingested"
@@ -150,6 +150,10 @@ field_names = [
     "Esql.source_ip_values",
     "Esql.source_geo_country_name_values",
     "Esql.source_geo_city_name_values",
+    "Esql.min_lat",
+    "Esql.max_lat",
+    "Esql.min_lon",
+    "Esql.max_lon",
     "Esql.user_agent_original_values",
     "Esql.anthropic_audit_actor_type_values",
     "Esql.timestamp_first_seen",

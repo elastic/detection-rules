@@ -27,9 +27,7 @@ note = """## Triage and analysis
 ### Investigating Anthropic Excessive Chat Creation
 
 This ES|QL rule fires when one `user.email` records at least 20 `claude_chat_created` events within the same UTC day
-bucket in a rolling 24-hour lookback. Grouping uses `user.email` because authentication failure workflows sometimes omit
-`user.id`, while chat creation events from user actors include `user.email` in compliance payloads. Matching pairs
-`(user.email, Esql.time_bucket)` are suppressed for 24 hours.
+bucket in a rolling 24-hour lookback. Matching pairs `(user.email, Esql.time_bucket)` are suppressed for 24 hours.
 
 #### Possible investigation steps
 
@@ -48,11 +46,7 @@ bucket in a rolling 24-hour lookback. Grouping uses `user.email` because authent
 
 - If abuse is confirmed, revoke sessions, review project membership, and consider rate limits or policy changes for
   the actor.
-
-## Setup
-
-The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
-required to be compatible with this rule."""
+"""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
@@ -66,6 +60,7 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: UEBA",
     "Resources: Investigation Guide",
+    "Rule Type: ESQL",
     "Tactic: Impact",
 ]
 timestamp_override = "event.ingested"

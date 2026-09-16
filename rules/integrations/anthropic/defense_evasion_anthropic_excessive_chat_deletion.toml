@@ -27,9 +27,8 @@ note = """## Triage and analysis
 ### Investigating Anthropic Excessive Chat Deletion
 
 This ES|QL rule fires when one `user.email` records at least 30 `claude_chat_deleted` events within the same UTC day
-bucket in a rolling 24-hour lookback. Grouping uses `user.email` for consistency with other Anthropic UEBA rules where
-`user.id` may be absent on some authentication-related events. Matching pairs `(user.email, Esql.time_bucket)` are
-suppressed for 24 hours. Pivot to raw logs because deleted chat IDs may no longer be viewable in the product UI.
+bucket in a rolling 24-hour lookback. Matching pairs `(user.email, Esql.time_bucket)` are suppressed for 24 hours.
+Pivot to raw logs because deleted chat IDs may no longer be viewable in the product UI.
 
 #### Possible investigation steps
 
@@ -48,11 +47,7 @@ suppressed for 24 hours. Pivot to raw logs because deleted chat IDs may no longe
 
 - If malicious, preserve remaining audit exports, revoke sessions, and investigate whether sensitive content was
   uploaded or shared before deletion.
-
-## Setup
-
-The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
-required to be compatible with this rule."""
+"""
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
 ]
@@ -66,6 +61,7 @@ tags = [
     "Use Case: Threat Detection",
     "Use Case: UEBA",
     "Resources: Investigation Guide",
+    "Rule Type: ESQL",
     "Tactic: Defense Evasion",
 ]
 timestamp_override = "event.ingested"
