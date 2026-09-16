@@ -1,0 +1,157 @@
+[metadata]
+creation_date = "2026/09/15"
+integration = ["anthropic"]
+maturity = "production"
+min_stack_comments = "ES|QL IP_LOCATION requires 9.5.0. st_distance and spatial functions used for distance require 9.4.0+."
+min_stack_version = "9.5.0"
+updated_date = "2026/09/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Anthropic magic link or SSO sign-ins for the same user email from source IP addresses whose
+geo-locations are separated by at least 1,000 km within a 24-hour window. That pattern can indicate account sharing,
+VPN or proxy egress mismatches, or an adversary authenticating from a geography far from the legitimate user's
+baseline.
+"""
+false_positives = [
+    """
+    Users on VPN or proxy egress that geo-resolves through a region distant from the user's physical location. Mobile
+    clients on cellular networks that peer through regional hubs may geo-resolve differently than the user's location.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Impossible Travel Login"
+note = """## Triage and analysis
+
+### Investigating Anthropic Impossible Travel Login
+
+This ES|QL rule resolves each successful `magic_link_login_succeeded` or `sso_login_succeeded` event to a geo point
+with `IP_LOCATION`, then measures the great-circle distance between the minimum and maximum latitude and longitude
+observed for the same `user.email` in a rolling 24-hour window. That min/max corner pair is a bounding-box proxy for
+separation between login locations—it is not the path distance between consecutive sign-ins, so validate with raw
+Timeline events before concluding impossible travel. Alerts require at least two successful sign-ins and
+`Esql.distance_km` >= 1,000.
+
+#### Possible investigation steps
+
+- Review `Esql.distance_km`, `Esql.event_count`, `Esql.source_ip_values`, and `Esql.source_geo_country_name_values`.
+- Sort raw authentication events for the user by `@timestamp` and compare each `source.ip`, `source.geo.country_name`,
+  and `user_agent.original`.
+- Pair with **Anthropic Multiple Authentication Failures** or SSO weakening rules when takeover is suspected.
+- Confirm with the user whether distant sign-ins are expected (travel, VPN) or unauthorized.
+
+### False positive analysis
+
+- Corporate VPN pools that geo-resolve to a single distant region can inflate bbox distance when home and office IPs
+  both appear in the window.
+- Geo databases can mislocate satellite or anycast egress; corroborate with ASN and user agent before escalating.
+
+### Response and remediation
+
+- If compromise is suspected, revoke sessions, reset credentials and MFA, and review admin or data-access activity
+  after the distant sign-in.
+
+## Setup
+
+The Anthropic Fleet integration, or similarly structured data from the Anthropic compliance activities API, is
+required to be compatible with this rule."""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "f6716814-e314-49fd-9d09-0e60c77c3b6a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Domain: LLM",
+    "Data Source: Anthropic",
+    "Use Case: Threat Detection",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Initial Access",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.category == "authentication" and
+    event.outcome == "success" and
+    event.action in ("magic_link_login_succeeded", "sso_login_succeeded") and
+    user.email is not null and
+    source.ip is not null
+| IP_LOCATION Esql.source_geo = source.ip
+| eval
+    Esql.source_geo_lat = st_y(Esql.source_geo),
+    Esql.source_geo_lon = st_x(Esql.source_geo)
+| where Esql.source_geo_lat is not null and Esql.source_geo_lon is not null
+| stats
+    Esql.min_lat = min(Esql.source_geo_lat),
+    Esql.max_lat = max(Esql.source_geo_lat),
+    Esql.min_lon = min(Esql.source_geo_lon),
+    Esql.max_lon = max(Esql.source_geo_lon),
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.event_action_values = values(event.action),
+    Esql.source_ip_values = values(source.ip),
+    Esql.source_geo_country_name_values = values(source.geo.country_name),
+    Esql.source_geo_city_name_values = values(source.geo.city_name),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email
+| where Esql.event_count >= 2
+| eval
+    Esql.p1 = to_geopoint(concat("POINT(", to_string(Esql.min_lon), " ", to_string(Esql.min_lat), ")")),
+    Esql.p2 = to_geopoint(concat("POINT(", to_string(Esql.max_lon), " ", to_string(Esql.max_lat), ")"))
+| eval Esql.distance_km = round(st_distance(Esql.p1, Esql.p2) / 1000.0, 0)
+| where Esql.distance_km >= 1000
+| keep user.email, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["user.email"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "Esql.distance_km",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.event_action_values",
+    "Esql.source_ip_values",
+    "Esql.source_geo_country_name_values",
+    "Esql.source_geo_city_name_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
