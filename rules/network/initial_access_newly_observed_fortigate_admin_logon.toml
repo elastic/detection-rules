@@ -2,7 +2,7 @@
 creation_date = "2026/01/28"
 integration = ["fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/05/06"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -93,7 +93,7 @@ FROM logs-fortinet_fortigate.*, filebeat-* metadata _id
 
 // first time seen is within 6m of the rule execution time and for the last 5d of events history
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
-| where Esql.recent <= 6 and Esql.logon_count == 1
+| where Esql.recent <= 6
 
 // move dynamic fields to ECS equivalent for rule exceptions
 | eval source.ip = MV_FIRST(Esql.source_ip_values)
