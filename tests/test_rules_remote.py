@@ -294,7 +294,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-aws.cloudtrail* metadata _id, _version, _index
         | where @timestamp > now() - 30 minutes
-        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and data_stream.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.arn is not null
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
@@ -355,7 +355,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-aws.cloudtrail* metadata _id, _version, _index
         | where @timestamp > now() - 30 minutes
-        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and data_stream.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.type == 5
         | keep
         aws.cloudtrail.user_identity.type, _id, _version, _index

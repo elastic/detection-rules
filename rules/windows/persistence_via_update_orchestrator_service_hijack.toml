@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/17"
-integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "system"]
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -16,7 +16,6 @@ index = [
     "logs-endpoint.events.process-*",
     "logs-m365_defender.event-*",
     "logs-sentinel_one_cloud_funnel.*",
-    "logs-system.security*",
     "logs-windows.forwarded*",
     "logs-windows.sysmon_operational-*",
     "winlogbeat-*",
@@ -39,7 +38,6 @@ tags = [
     "Data Source: Elastic Defend",
     "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
-    "Data Source: Windows Security Event Logs",
     "Data Source: SentinelOne",
 ]
 timestamp_override = "event.ingested"
@@ -49,19 +47,16 @@ query = '''
 process where host.os.type == "windows" and event.type == "start" and
   process.parent.executable : "C:\\Windows\\System32\\svchost.exe" and
   process.parent.args : "UsoSvc" and
-  not process.executable :
-          ("?:\\ProgramData\\Microsoft\\Windows\\UUS\\Packages\\*\\amd64\\MoUsoCoreWorker.exe",
+  not process.executable : (
           "?:\\Windows\\System32\\UsoClient.exe",
           "?:\\Windows\\System32\\MusNotification.exe",
           "?:\\Windows\\System32\\MusNotificationUx.exe",
           "?:\\Windows\\System32\\MusNotifyIcon.exe",
           "?:\\Windows\\System32\\WerFault.exe",
           "?:\\Windows\\System32\\WerMgr.exe",
-          "?:\\Windows\\UUS\\amd64\\MoUsoCoreWorker.exe",
-          "?:\\Windows\\System32\\MoUsoCoreWorker.exe",
           "?:\\Windows\\UUS\\amd64\\UsoCoreWorker.exe",
-          "?:\\Windows\\System32\\UsoCoreWorker.exe",
-          "?:\\Program Files\\Common Files\\microsoft shared\\ClickToRun\\OfficeC2RClient.exe") and
+          "?:\\Windows\\System32\\UsoCoreWorker.exe"
+  ) and
   not process.name : ("MoUsoCoreWorker.exe", "OfficeC2RClient.exe")
 '''
 
@@ -138,7 +133,6 @@ This rule also supports the following third-party data sources. For setup instru
 - [Microsoft Defender XDR](https://ela.st/m365-defender)
 - [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
 - [Sysmon Event ID 1 - Process Creation](https://ela.st/sysmon-event-1-setup)
-- [Windows Process Creation Logs](https://ela.st/audit-process-creation)
 """
 
 [rule.investigation_fields]

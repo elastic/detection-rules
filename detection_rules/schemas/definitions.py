@@ -123,7 +123,7 @@ SUBTECHNIQUE_URL = (
 )
 MACHINE_LEARNING = "machine_learning"
 QUERY = "query"
-QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text"]
+QUERY_FIELD_OP_EXCEPTIONS = ["powershell.file.script_block_text", "o365.audit.Members"]
 
 # we had a bad rule ID make it in before tightening up the pattern, and so we have to let it bypass
 KNOWN_BAD_RULE_IDS = Literal["119c8877-8613-416d-a98a-96b6664ee73a5", "7eb54028-ca72-4eb7-8185-b6864572347db"]
@@ -189,6 +189,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Kubernetes API Server Audit Logs",
     "Data Source: Linux Auditd Logs",
     "Data Source: Linux Sysmon Logs",
+    "Data Source: macOS Security Events",
     "Data Source: M365 Audit Logs",
     "Data Source: Microsoft 365",
     "Data Source: Microsoft Defender for Cloud Alerts",
