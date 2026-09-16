@@ -2,16 +2,19 @@
 creation_date = "2026/06/26"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/26"
+updated_date = "2026/09/16"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies deletion of an AWS Backup recovery point via DeleteRecoveryPoint. A recovery point is a stored backup of a
-protected resource (EBS, RDS, DynamoDB, EFS, S3, and others). Deleting recovery points removes the ability to restore
-the associated data and is a core anti-recovery technique used in ransomware and data-destruction attacks to ensure
-victims cannot recover without paying or rebuilding. Routine lifecycle expirations are performed by the AWS Backup
-service itself; deletion by a non-service principal is rare and should be reviewed.
+Identifies when an unusual user deletes an AWS Backup recovery point via DeleteRecoveryPoint. A recovery point is a
+stored backup of a protected resource (EBS, RDS, DynamoDB, EFS, S3, and others). Deleting recovery points removes the
+ability to restore the associated data and is a core anti-recovery technique used in ransomware and data-destruction
+attacks to ensure victims cannot recover without paying or rebuilding. Routine lifecycle expirations are performed by
+the AWS Backup service itself; deletion by a non-service principal is rare and should be reviewed. This is a New Terms
+rule that uses "cloud.account.id", "user.name", and "aws.cloudtrail.flattened.request_parameters.backupVaultName" to 
+alert on the first time a given identity in an account successfully deletes a recovery point from a specific backup vault 
+within the history window.
 """
 false_positives = [
     """
@@ -25,17 +28,19 @@ from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "AWS Backup Recovery Point Deleted"
+name = "AWS Backup Recovery Point Deleted by Unusual User"
 note = """## Triage and analysis
 
-### Investigating AWS Backup Recovery Point Deleted
+### Investigating AWS Backup Recovery Point Deleted by Unusual User
 
 AWS Backup recovery points are the restorable copies of protected resources. "DeleteRecoveryPoint" permanently removes a recovery point from its vault, eliminating the ability to restore that backup. Adversaries delete recovery points to inhibit recovery after data destruction or encryption, maximizing the impact of ransomware or sabotage. Because scheduled expirations are carried out by the AWS Backup service itself (excluded by this rule), a deletion by a user or role principal is uncommon and high-signal, especially when several recovery points are removed in a short window.
+
+This rule uses a New Terms approach to detect the first time a given identity in an account successfully deletes a recovery point from a specific backup vault.
 
 ### Possible investigation steps
 
 - Identify the actor in "aws.cloudtrail.user_identity.arn" and "aws.cloudtrail.user_identity.type", and review "source.ip", "source.as.organization.name", and "user_agent.original" for an unexpected origin.
-- Identify the affected recovery point and vault from "aws.cloudtrail.request_parameters", and determine which resource and data it protected.
+- Identify the affected recovery point and vault from "aws.cloudtrail.request_parameters" and "aws.cloudtrail.flattened.request_parameters.backupVaultName", and determine which resource and data it protected.
 - Determine whether multiple recovery points or vaults were affected in the same window, indicating a broader anti-recovery effort.
 - Correlate with adjacent destructive or evasion activity by the same principal, such as DeleteBackupVault, Vault Lock removal, KMS key deletion, or resource deletions.
 
@@ -47,11 +52,6 @@ AWS Backup recovery points are the restorable copies of protected resources. "De
 
 - If the deletion is unauthorized, treat it as a potential precursor to or part of a destructive attack: preserve remaining backups, enable Vault Lock where possible, and engage incident response.
 - Rotate or restrict credentials for the principal if compromise is suspected, and restrict "backup:DeleteRecoveryPoint" to a small set of trusted administrators via IAM and SCPs.
-
-### Additional information
-
-- [DeleteRecoveryPoint API](https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteRecoveryPoint.html)
-- [AWS Backup Vault Lock](https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html)
 """
 references = [
     "https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DeleteRecoveryPoint.html",
@@ -63,21 +63,23 @@ setup = """This rule requires AWS CloudTrail management events for AWS Backup an
 severity = "high"
 tags = [
     "Domain: Cloud",
-    "Data Source: AWS",
-    "Data Source: Amazon Web Services",
-    "Data Source: AWS Backup",
-    "Use Case: Threat Detection",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Backup",
     "Tactic: Impact",
+    "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "new_terms"
 
 query = '''
 data_stream.dataset: "aws.cloudtrail"
     and event.provider: "backup.amazonaws.com"
     and event.action: "DeleteRecoveryPoint"
     and event.outcome: "success"
+    and user.name: *
+    and aws.cloudtrail.flattened.request_parameters.backupVaultName: *
     and not aws.cloudtrail.user_identity.type: "AWSService"
 '''
 
@@ -111,6 +113,14 @@ field_names = [
     "cloud.account.id",
     "cloud.region",
     "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.flattened.request_parameters.backupVaultName",
     "aws.cloudtrail.response_elements",
 ]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["cloud.account.id", "user.name", "aws.cloudtrail.flattened.request_parameters.backupVaultName"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
 

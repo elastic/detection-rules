@@ -265,6 +265,7 @@ EXPECTED_RULE_TAGS = [
     "Rule Type: New Terms",
     "Rule Type: Threshold",
     "Rule Type: Threat Match",
+    "Service: AWS Backup",
     "Service: AWS Bedrock",
     "Service: AWS CloudFormation",
     "Service: AWS DynamoDB",
