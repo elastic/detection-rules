@@ -2,7 +2,7 @@
 creation_date = "2020/09/02"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/05/04"
+updated_date = "2026/09/16"
 
 [transform]
 [[transform.osquery]]
@@ -160,15 +160,37 @@ sequence by process.entity_id with maxspan=1m
        process.parent.executable : ("C:\\Program Files (x86)\\Bentley\\*.exe",
                                     "C:\\Program Files\\Bentley\\*.exe",
                                     "C:\\Program Files (x86)\\Amazon\\Amazon Assistant\\amazonAssistantService.exe",
-                                    "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe"))
+                                    "C:\\Users\\*\\AppData\\Local\\Temp\\TeamViewer\\TeamViewer.exe")) and
+
+  /* wscript.exe launched by logon scripts, GPO scripts, or scheduled tasks */
+  not (process.name : "wscript.exe" and
+       process.parent.executable : ("C:\\Windows\\System32\\userinit.exe",
+                                    "C:\\Windows\\System32\\gpscript.exe",
+                                    "C:\\Windows\\System32\\svchost.exe")) and
+
+  /* msiexec.exe launched by Windows Installer service or self-spawned */
+  not (process.name : "msiexec.exe" and
+       process.parent.executable : ("C:\\Windows\\System32\\services.exe",
+                                    "C:\\Windows\\System32\\msiexec.exe"))
   ]
   [network where dns.question.name != null and
-      not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com", 
-        "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com", 
-        "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com", 
+      not dns.question.name : ("localhost", "setup.officetimeline.com", "us.deployment.endpoint.ingress.rapid7.com",
+        "ctldl.windowsupdate.com", "crl?.digicert.com", "ocsp.digicert.com", "addon-cms-asl.eu.goskope.com", "crls.ssl.com",
+        "evcs-ocsp.ws.symantec.com", "s.symcd.com", "s?.symcb.com", "crl.verisign.com", "oneocsp.microsoft.com", "crl.verisign.com",
         "aka.ms", "crl.comodoca.com", "acroipm2.adobe.com", "sv.symcd.com", "_ldap._tcp.*", "..localmachine", "secure.globalsign.com",
         "acroipm2.adobe.com", "www.ssl.com", "ocsp.digicert.com", "ocsp.verisign.com", "ocsp.comodoca.com", "ocsp.entrust.net", "ocsp.usertrust.com",
-        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local") and
+        "ocsp.godaddy.com", "ocsp.camerfirma.com", "ocsp.globalsign.com", "ocsp.sectigo.com", "*.local",
+        /* Microsoft infrastructure */
+        "wpad", "www.microsoft.com", "crl.microsoft.com", "wer.microsoft.com",
+        /* Visual Studio / MSBuild developer tool domains */
+        "json.schemastore.org", "*.services.visualstudio.com", "telemetry.visualstudio.microsoft.com",
+        "dc.services.visualstudio.com", "api.nuget.org",
+        /* Adobe legitimate domains */
+        "genuine.adobe.com", "*.services.adobe.com",
+        /* Additional CRL / OCSP certificate validation */
+        "crl?.globalsign.com", "ocsp?.globalsign.com", "crl.sectigo.com", "crl.usertrust.com", "crl.entrust.net",
+        "cacerts.digicert.com", "*.certum.com", "evcs-crl.ws.symantec.com", "ocsps.ssl.com",
+        "collect.installeranalytics.com", "desktop.gonitro.com") and
 
       not (process.name : "mshta.exe" and
            dns.question.name : ("client.teamviewer.com", "www.teamviewer.com", "images-na.ssl-images-amazon.com", "searcherbar.tilda.ws")) and
