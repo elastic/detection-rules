@@ -20,6 +20,7 @@ __all__ = (
     "DepthFirstWalker",
     "ConfigurableWalker",
     "get_from_sources",
+    "get_from_source_groups",
     "get_metadata_fields",
     "get_field_names",
     "get_unique_fields",
@@ -38,6 +39,14 @@ __all__ = (
 class EventDataset:
     package: str
     integration: str
+
+
+@dataclass
+class FromSourceGroup:
+    """FROM/TS clauses that read the same index patterns, with rewrite spans."""
+
+    indices: list[str]
+    spans: list[tuple[int, int]]
 
 
 class Walker:
@@ -126,12 +135,37 @@ def _iter_commands(tree: ast.EsqlQuery) -> Iterator[ast.Command]:
     yield from tree.commands
 
 
+def _local_index(pattern: str) -> str:
+    """Strip CCS cluster prefix (``cluster:index`` → ``index``)."""
+    return pattern.split(":", 1)[-1].strip()
+
+
 def get_from_sources(tree: ast.EsqlQuery) -> list[str]:
+    """Index patterns from every FROM/TS command, including nested subquery FORMs."""
     sources: list[str] = []
-    for cmd in _iter_commands(tree):
-        if isinstance(cmd, ast.FromCommand):
-            sources.extend(cmd.sources)
+    for node in tree:
+        if isinstance(node, ast.FromCommand):
+            sources.extend(node.index_patterns)
     return sources
+
+
+def get_from_source_groups(tree: ast.EsqlQuery) -> list[FromSourceGroup]:
+    """Group FROM/TS clauses by local index patterns; collect rewrite spans.
+
+    Outer FORMs that only wrap subqueries contribute no group (same as the
+    historical regex path). Nested subquery FORMs with real index patterns do.
+    """
+    groups: dict[tuple[str, ...], FromSourceGroup] = {}
+    for node in tree:
+        if not isinstance(node, ast.FromCommand):
+            continue
+        indices = [_local_index(p) for p in node.index_patterns if _local_index(p)]
+        if not indices or node.sources_span is None:
+            continue
+        key = tuple(indices)
+        group = groups.setdefault(key, FromSourceGroup(indices=list(indices), spans=[]))
+        group.spans.append(node.sources_span)
+    return list(groups.values())
 
 
 def get_metadata_fields(tree: ast.EsqlQuery) -> list[str]:

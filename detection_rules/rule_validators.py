@@ -1361,11 +1361,11 @@ class ESQLValidator(QueryValidator):
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        source_groups = get_esql_query_source_groups(query)
+        source_groups = get_esql_query_source_groups(query, tree=self.ast)
         if not source_groups:
             raise ValueError("Failed to extract any index pattern from the query's FROM clause(s).")
 
-        event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
+        event_dataset_integrations = get_esql_query_event_dataset_integrations(query, tree=self.ast)
         self.log(
             "Extracted Event Dataset integrations from query: "
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"

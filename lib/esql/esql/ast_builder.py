@@ -32,6 +32,13 @@ def _line_col(ctx: Any) -> tuple[int | None, int | None]:
     return ctx.start.line - 1, ctx.start.column
 
 
+def _char_span(ctx: Any) -> tuple[int, int] | None:
+    """Half-open [start, end) character offsets into the original query text."""
+    if ctx is None or getattr(ctx, "start", None) is None or getattr(ctx, "stop", None) is None:
+        return None
+    return int(ctx.start.start), int(ctx.stop.stop) + 1
+
+
 def _text(node: Any) -> str:
     if node is None:
         return ""
@@ -129,39 +136,61 @@ class AstBuilder(ParseTreeVisitor):
 
     def visitFromCommand(self, ctx: Any) -> ast.FromCommand:
         line, col = _line_col(ctx)
-        sources, metadata = self._extract_from_sources_and_metadata(ctx)
-        return ast.FromCommand(sources=sources, metadata=metadata, kind="from", line=line, column=col)
+        sources, metadata, sources_span = self._extract_from_sources_and_metadata(ctx)
+        return ast.FromCommand(
+            sources=sources, metadata=metadata, kind="from", sources_span=sources_span, line=line, column=col
+        )
 
     def visitTimeSeriesCommand(self, ctx: Any) -> ast.FromCommand:
         line, col = _line_col(ctx)
-        sources, metadata = self._extract_from_sources_and_metadata(ctx)
-        return ast.FromCommand(sources=sources, metadata=metadata, kind="ts", line=line, column=col)
+        sources, metadata, sources_span = self._extract_from_sources_and_metadata(ctx)
+        return ast.FromCommand(
+            sources=sources, metadata=metadata, kind="ts", sources_span=sources_span, line=line, column=col
+        )
 
-    def _extract_from_sources_and_metadata(self, ctx: Any) -> tuple[list[str], list[str]]:
+    def _extract_from_sources_and_metadata(
+        self, ctx: Any
+    ) -> tuple[list[str | ast.EsqlQuery], list[str], tuple[int, int] | None]:
         """Support both 8.19 (flat indexPattern*) and 9.3+ (indexPatternAndMetadataFields)."""
-        sources: list[str] = []
+        sources: list[str | ast.EsqlQuery] = []
         metadata: list[str] = []
+        index_spans: list[tuple[int, int]] = []
 
         # 9.3+ wrapped form
         idx = getattr(ctx, "indexPatternAndMetadataFields", lambda: None)()
         if idx is not None:
             for pattern_ctx in getattr(idx, "indexPatternOrSubquery", lambda: [])() or []:
-                src = self._visit_index_pattern(pattern_ctx)
-                if src:
-                    sources.append(src)
+                item, span = self._visit_index_pattern_or_subquery(pattern_ctx)
+                if item is None:
+                    continue
+                sources.append(item)
+                if isinstance(item, str) and span is not None:
+                    index_spans.append(span)
             # Some grammars still expose indexPattern() under the wrapper
             if not sources:
                 for pattern_ctx in getattr(idx, "indexPattern", lambda: [])() or []:
-                    sources.append(_text(pattern_ctx).strip("`"))
+                    text = _text(pattern_ctx).strip("`")
+                    if text:
+                        sources.append(text)
+                        span = _char_span(pattern_ctx)
+                        if span is not None:
+                            index_spans.append(span)
             meta_ctx = getattr(idx, "metadata", lambda: None)()
             metadata.extend(self._extract_metadata_names(meta_ctx))
-            return sources, metadata
+            sources_span = (index_spans[0][0], index_spans[-1][1]) if index_spans else None
+            return sources, metadata, sources_span
 
         # 8.19 flat form: FROM indexPattern (COMMA indexPattern)* metadata?
         for pattern_ctx in getattr(ctx, "indexPattern", lambda: [])() or []:
-            sources.append(_text(pattern_ctx).strip("`"))
+            text = _text(pattern_ctx).strip("`")
+            if text:
+                sources.append(text)
+                span = _char_span(pattern_ctx)
+                if span is not None:
+                    index_spans.append(span)
         metadata.extend(self._extract_metadata_names(getattr(ctx, "metadata", lambda: None)()))
-        return sources, metadata
+        sources_span = (index_spans[0][0], index_spans[-1][1]) if index_spans else None
+        return sources, metadata, sources_span
 
     def _extract_metadata_names(self, meta_ctx: Any) -> list[str]:
         if meta_ctx is None:
@@ -565,6 +594,24 @@ class AstBuilder(ParseTreeVisitor):
         if isinstance(result, ast.Command):
             return ast.EsqlQuery(commands=[result])
         return ast.EsqlQuery()
+
+    def visitSubquery(self, ctx: Any) -> ast.EsqlQuery:
+        """FROM/TS subquery: ( sourceCommand [| processingCommand]* )."""
+        commands: list[ast.Command] = []
+        src_ctx = getattr(ctx, "subquerySourceCommand", lambda: None)()
+        if src_ctx is not None:
+            for meth in ("fromCommand", "timeSeriesCommand", "rowCommand"):
+                child = getattr(src_ctx, meth, lambda: None)()
+                if child is not None:
+                    result = self.visit(child)
+                    if isinstance(result, ast.Command):
+                        commands.append(result)
+                    break
+        for proc in getattr(ctx, "processingCommand", lambda: [])() or []:
+            result = self.visit(proc)
+            if isinstance(result, ast.Command):
+                commands.append(result)
+        return ast.EsqlQuery(commands=commands)
 
     def visitExternalCommand(self, ctx: Any) -> ast.ExternalCommand:
         line, col = _line_col(ctx)
@@ -1061,14 +1108,25 @@ class AstBuilder(ParseTreeVisitor):
 
     # --- helpers ---
 
-    def _visit_index_pattern(self, ctx: Any) -> str:
-        pattern_ctx = ctx.indexPattern()
+    def _visit_index_pattern_or_subquery(self, ctx: Any) -> tuple[str | ast.EsqlQuery | None, tuple[int, int] | None]:
+        """Return an index pattern string or nested EsqlQuery plus its char span."""
+        pattern_ctx = getattr(ctx, "indexPattern", lambda: None)()
         if pattern_ctx is not None:
-            return _text(pattern_ctx).strip("`")
-        sub_ctx = ctx.subquery()
+            text = _text(pattern_ctx).strip("`")
+            return (text or None), _char_span(pattern_ctx)
+        sub_ctx = getattr(ctx, "subquery", lambda: None)()
         if sub_ctx is not None:
-            return _text(sub_ctx)
-        return _text(ctx).strip("`")
+            result = self.visit(sub_ctx)
+            if isinstance(result, ast.EsqlQuery):
+                return result, _char_span(sub_ctx)
+            return None, None
+        text = _text(ctx).strip("`")
+        return (text or None), _char_span(ctx)
+
+    def _visit_index_pattern(self, ctx: Any) -> str:
+        """Legacy helper — index pattern text only (subqueries discarded)."""
+        item, _ = self._visit_index_pattern_or_subquery(ctx)
+        return item if isinstance(item, str) else ""
 
     def _visit_name_patterns(self, ctx: Any | None) -> tuple[list[str], list[str]]:
         columns: list[str] = []

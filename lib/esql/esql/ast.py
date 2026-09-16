@@ -209,16 +209,31 @@ class ProcessingCommand(Command):
 class FromCommand(SourceCommand):
     def __init__(
         self,
-        sources: list[str] | None = None,
+        sources: list[str | EsqlQuery] | None = None,
         metadata: list[str] | None = None,
         kind: str = "from",
+        sources_span: tuple[int, int] | None = None,
         line: int | None = None,
         column: int | None = None,
     ) -> None:
         super().__init__(line, column)
-        self.sources = sources or []
+        # Index pattern strings and/or nested subquery EsqlQuery nodes.
+        self.sources: list[str | EsqlQuery] = list(sources or [])
         self.metadata = metadata or []
         self.kind = kind  # "from" | "ts"
+        # Half-open [start, end) char offsets of contiguous index-pattern sources
+        # in the original query (None when this FROM only has subquery sources).
+        self.sources_span = sources_span
+
+    def iter_children(self) -> Iterator[BaseNode]:
+        for src in self.sources:
+            if isinstance(src, EsqlQuery):
+                yield src
+
+    @property
+    def index_patterns(self) -> list[str]:
+        """Index pattern strings on this FROM only (excludes nested subquery sources)."""
+        return [src for src in self.sources if isinstance(src, str)]
 
 
 class RowCommand(SourceCommand):

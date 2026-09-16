@@ -141,7 +141,13 @@ def render(tree: ast.EsqlQuery) -> str:
     parts: list[str] = []
     for cmd in tree.commands:
         if isinstance(cmd, ast.FromCommand):
-            chunk = "FROM " + ", ".join(cmd.sources)
+            rendered_sources: list[str] = []
+            for src in cmd.sources:
+                if isinstance(src, str):
+                    rendered_sources.append(src)
+                else:
+                    rendered_sources.append(f"({render(src)})")
+            chunk = "FROM " + ", ".join(rendered_sources)
             if cmd.metadata:
                 chunk += " METADATA " + ", ".join(cmd.metadata)
             parts.append(chunk)

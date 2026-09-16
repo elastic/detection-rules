@@ -17,9 +17,6 @@ import esql
 from . import ecs
 from .config import CUSTOM_RULES_DIR
 from .schemas.definitions import (
-    ESQL_COMMENTS_AND_LITERALS_REGEX,
-    ESQL_FROM_KEYWORD_REGEX,
-    ESQL_FROM_SOURCES_TERMINATOR_REGEX,
     ESQL_INDEX_PATTERN_REGEX,
 )
 
@@ -190,68 +187,35 @@ def split_esql_source_list(sources: str) -> list[str]:
     return indices
 
 
-def get_esql_query_source_groups(query: str) -> list[EsqlSourceGroup]:
-    """Group the FROM clauses of an ES|QL query by the index patterns they read."""
+def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[EsqlSourceGroup]:
+    """Group FROM/TS clauses by index patterns using the ES|QL AST (with rewrite spans).
 
-    def blank(match: re.Match[str]) -> str:
-        return "".join("\n" if char == "\n" else " " for char in match.group(0))
-
-    # Blanked in place, preserving offsets, so that the FROM keyword or something shaped like an
-    # index pattern is never read out of a comment or a query value
-    scannable = ESQL_COMMENTS_AND_LITERALS_REGEX.sub(blank, query)
-
-    groups: dict[tuple[str, ...], EsqlSourceGroup] = {}
-    for match in ESQL_FROM_KEYWORD_REGEX.finditer(scannable):
-        start = match.end()
-        # The outer FROM of a subquery union takes subqueries rather than index patterns,
-        # so it has no source list of its own and only each subquery's FROM clause is grouped
-        if scannable[start:].lstrip().startswith("("):
-            continue
-        terminator = ESQL_FROM_SOURCES_TERMINATOR_REGEX.search(scannable, start)
-        end = terminator.start() if terminator else len(scannable)
-        sources = scannable[start:end]
-        indices = split_esql_source_list(sources)
-        # Guards against a FROM keyword that is part of an expression rather than a source clause
-        if not indices:
-            continue
-        # Clauses reading the same sources share a group, so they also share prepared test indices
-        group = groups.setdefault(tuple(indices), EsqlSourceGroup(indices=indices, spans=[]))
-        group.spans.append((start, start + len(sources.rstrip())))
-
-    return list(groups.values())
-
-
-def _indices_from_source_groups(query: str) -> list[str]:
-    """Unique index patterns from regex source groups (nested FROM / unparseable fragments)."""
-    indices: list[str] = []
-    for group in get_esql_query_source_groups(query):
-        for index in group.indices:
-            if index not in indices:
-                indices.append(index)
-    return indices
-
-
-def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
-    """Extract unique FROM/TS index patterns (CCS cluster prefix stripped).
-
-    Prefers the ES|QL AST via ``esql.get_from_sources``. Falls back to
-    ``get_esql_query_source_groups`` when the query does not parse, or when FROM
-    sources are nested subqueries (AST currently stringifies those without
-    preserving inner FromCommand nodes). Span-accurate rewrites for remote
-    validation still use get_esql_query_source_groups directly.
+    One parse yields indices for schema selection and character spans for remote
+    index rewriting — no separate regex pass. Unparseable fragments return [].
     """
     try:
         parsed = tree if tree is not None else esql.parse_query(query)
-    except Exception:  # noqa: BLE001 — incomplete fragments still need index lists
-        return _indices_from_source_groups(query)
+    except Exception:  # noqa: BLE001 — incomplete fragments have no FROM groups
+        return []
+    return [
+        EsqlSourceGroup(indices=list(group.indices), spans=list(group.spans))
+        for group in esql.get_from_source_groups(parsed)
+    ]
 
-    sources = [str(source) for source in esql.get_from_sources(parsed)]
-    # Nested subquery FORMs are opaque source strings like "(FROMlogs-a-*...)".
-    if any(source.lstrip().startswith("(") for source in sources):
-        return _indices_from_source_groups(query)
+
+def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
+    """Extract unique FROM/TS index patterns via the ES|QL AST (CCS prefix stripped).
+
+    Call with ``tree=`` after the offline allow_missing parse so schema planning
+    reuses that AST instead of parsing again.
+    """
+    try:
+        parsed = tree if tree is not None else esql.parse_query(query)
+    except Exception:  # noqa: BLE001 — incomplete fragments yield no indices
+        return []
 
     indices: list[str] = []
-    for source in sources:
+    for source in esql.get_from_sources(parsed):
         index = source.split(":", 1)[-1].strip()
         if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in indices:
             indices.append(index)
