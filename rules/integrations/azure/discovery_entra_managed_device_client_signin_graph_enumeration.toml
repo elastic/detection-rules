@@ -1,0 +1,314 @@
+[metadata]
+creation_date = "2026/09/17"
+integration = ["azure"]
+maturity = "production"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful non-interactive Microsoft Entra ID client sign-in for Microsoft Graph that carries managed,
+joined device context and reports an Edge client when the exact access token is subsequently used by a scripted client
+to query at least three distinct Microsoft Graph directory-enumeration paths.
+The rule correlates the Entra sign-in token identifier with Microsoft Graph activity rather than relying on the broader
+session identifier, which can be shared by legitimate application activity and multiple tokens.
+"""
+false_positives = [
+    """
+Administrators and developers may legitimately acquire tokens and use them with PowerShell, command-line tools, or
+custom scripts to query Microsoft Graph. Confirm that the client application, account, enumeration target, and timing
+are expected before escalating.
+    """,
+]
+from = "now-60m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Managed Device Client Sign-In to Graph Enumeration"
+note = """## Triage and analysis
+
+### Investigating Entra ID Managed Device Client Sign-In to Graph Enumeration
+
+This rule joins a non-interactive Entra sign-in to Microsoft Graph activity using the exact token identifier:
+`azure.signinlogs.properties.unique_token_identifier` on the sign-in and `token.id` on Graph activity. The shared
+session ID, user ID, and application ID provide supporting context but are not sufficient correlation keys by
+themselves.
+
+The sign-in half requires an `Azure AD joined` trust type, a non-empty device ID, managed device status, an incoming
+refresh token or Primary Refresh Token, the Microsoft Graph resource, a mobile or desktop client, and a parsed Edge
+user agent. These values describe the device and client context asserted in the sign-in; they do not prove the request
+originated from that physical device or that WAM/WinRT generated it.
+
+### Possible investigation steps
+
+- Review `Esql.token_id`, `Esql.signin_ids`, and `Esql.graph_operation_ids` to pivot to the original events.
+- Compare `Esql.signin_user_agents` with `Esql.graph_user_agents`. A client sign-in followed by PowerShell, Python,
+  AzureHound, a generic HTTP library, or another scripted Graph client using the same token can indicate unauthorized
+  access-token use.
+- A browser-like Graph user agent does not clear the activity. GraphRunner and Graphpython can forge browser strings;
+  this rule intentionally avoids matching broad Mozilla, Chrome, Edge, or Safari values because they are too noisy.
+- Review `Esql.graph_urls` and `Esql.graph_paths` to determine what identities, groups, applications, service
+  principals, roles, or tenant metadata were enumerated. `Esql.distinct_graph_paths` must be at least three; query
+  parameters and pagination do not increase this count.
+- Validate `Esql.app_id`, `Esql.user_id`, `Esql.session_id`, source addresses, and the device associated with the
+  sign-in.
+- Review adjacent Endpoint telemetry for unusual access to
+  `Microsoft\\TokenBroker\\Cache\\*.tbres`, WAM-related call stacks, or untrusted processes loading `vaultcli.dll`.
+- Do not require `azure.graphactivitylogs.properties.token_issued_at` to equal the sign-in time. Access-token issue
+  times can be backdated for clock-skew tolerance; the token identifier is the precise join key.
+
+### False positive analysis
+
+- First-party Microsoft desktop applications commonly satisfy the sign-in half of this rule. The suspicious behavior
+  is the same access token subsequently appearing from a scripted client against a directory-enumeration path.
+- Confirm whether the user routinely uses Microsoft Graph PowerShell, custom administration scripts, or development
+  tools that acquire and use delegated access tokens.
+- Determine whether the requested paths align with an approved administrative workflow.
+- Prefer narrowly scoped exceptions for reviewed user and application combinations rather than excluding a scripted
+  user agent globally.
+
+### Response and remediation
+
+- Revoke active user sessions and refresh tokens if the activity is unauthorized.
+- Review all Graph activity associated with the token ID and session ID for additional discovery or data access.
+- Investigate the originating endpoint for token theft, export, or unauthorized scripted use.
+- Review Conditional Access and token-protection controls for the affected user and application.
+"""
+references = [
+    "https://github.com/dirkjanm/askWAM",
+    "https://github.com/SpecterOps/AzureHound",
+    "https://github.com/dafthack/GraphRunner",
+    "https://github.com/mlcsec/Graphpython",
+]
+risk_score = 47
+rule_id = "8d5d35b3-8c52-4229-964f-df3bab3e2cb5"
+setup = """#### Required Microsoft Entra ID and Microsoft Graph logs
+
+Enable Microsoft Entra ID sign-in logs and Microsoft Graph activity logs through the Azure integration. The rule
+requires `azure.signinlogs.properties.unique_token_identifier` and the normalized Graph `token.id` field so it can
+join issuance and use of the same access token.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Graph Activity Logs",
+    "Platform: Entra ID",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ESQL",
+    "Tactic: Defense Evasion",
+    "Tactic: Discovery",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* METADATA _id, _version, _index
+
+// normalize the token, user, app, device and session ids
+| EVAL
+    Esql.token_id = COALESCE(azure.signinlogs.properties.unique_token_identifier, token.id),
+    Esql.session_id = COALESCE(
+        azure.signinlogs.properties.session_id,
+        azure.graphactivitylogs.properties.c_sid
+    ),
+    Esql.user_id = COALESCE(
+        azure.signinlogs.properties.user_id,
+        azure.graphactivitylogs.properties.user_principal_object_id
+    ),
+    Esql.app_id = COALESCE(
+        azure.signinlogs.properties.app_id,
+        azure.graphactivitylogs.properties.app_id
+    ),
+    Esql.device_id = COALESCE(
+        azure.signinlogs.properties.device_detail.device_id,
+        azure.graphactivitylogs.properties.c_device_id,
+        device.id
+    ),
+    Esql.user_agent_lower = TO_LOWER(user_agent.original),
+    Esql.graph_path_lower = TO_LOWER(url.path)
+
+// filter for Entra ID client sign-in and token acquisition context
+| WHERE
+    Esql.token_id IS NOT NULL AND
+    Esql.session_id IS NOT NULL AND
+    Esql.user_id IS NOT NULL AND
+    Esql.app_id IS NOT NULL AND
+    Esql.device_id IS NOT NULL AND
+    Esql.device_id != ""
+| EVAL Esql.is_client_signin =
+    event.dataset == "azure.signinlogs" AND
+    azure.signinlogs.properties.status.error_code == 0 AND
+    azure.signinlogs.properties.device_detail.trust_type == "Azure AD joined" AND
+    azure.signinlogs.properties.device_detail.device_id IS NOT NULL AND
+    azure.signinlogs.properties.device_detail.device_id != "" AND
+    azure.signinlogs.properties.device_detail.is_managed == true AND
+    azure.signinlogs.properties.is_interactive == false AND
+    azure.signinlogs.properties.incoming_token_type IN ("refreshToken", "primaryRefreshToken") AND
+    azure.signinlogs.properties.client_app_used == "Mobile Apps and Desktop clients" AND
+    azure.signinlogs.properties.resource_id == "00000003-0000-0000-c000-000000000000" AND
+    user_agent.name == "Edge"
+
+// filter for scripted Graph enumeration for a user identity
+// based on red teaming tooling and in-the-wild observations
+| EVAL Esql.is_scripted_graph_enum =
+    event.dataset == "azure.graphactivitylogs" AND
+    azure.graphactivitylogs.properties.c_idtyp == "user" AND
+    azure.graphactivitylogs.properties.client_auth_method == 0 AND
+    http.request.method == "GET" AND
+    (
+        Esql.user_agent_lower LIKE "*powershell*" OR
+        Esql.user_agent_lower LIKE "*python-requests/*" OR
+        Esql.user_agent_lower LIKE "*python-httpx/*" OR
+        Esql.user_agent_lower LIKE "*curl/*" OR
+        Esql.user_agent_lower LIKE "*aiohttp/*" OR
+        Esql.user_agent_lower LIKE "*fasthttp*" OR
+        Esql.user_agent_lower LIKE "*go-http-client/*" OR
+        Esql.user_agent_lower LIKE "*go-resty/*" OR
+        Esql.user_agent_lower LIKE "*okhttp/*" OR
+        Esql.user_agent_lower LIKE "*restsharp/*" OR
+        Esql.user_agent_lower LIKE "*postmanruntime/*" OR
+        Esql.user_agent_lower LIKE "*axios/*" OR
+        Esql.user_agent_lower == "node" OR
+        Esql.user_agent_lower LIKE "*node-fetch/*" OR
+        Esql.user_agent_lower LIKE "*undici*" OR
+        Esql.user_agent_lower LIKE "*azurehound/*" OR
+        Esql.user_agent_lower LIKE "*sharphound/*" OR
+        Esql.user_agent_lower LIKE "*bloodhound/*" OR
+        Esql.user_agent_lower LIKE "*aadinternals*" OR
+        Esql.user_agent_lower LIKE "*bav2ropc*" OR
+        Esql.user_agent_lower LIKE "*roadtools*" OR
+        Esql.user_agent_lower LIKE "*roadrecon*" OR
+        Esql.user_agent_lower LIKE "*roadtx*" OR
+        Esql.user_agent_lower LIKE "*graphpython*" OR
+        Esql.user_agent_lower LIKE "*msgraphx*"
+    ) AND
+    (
+        // Documented collection reads. Query parameters are not part of url.path.
+        Esql.graph_path_lower IN (
+            "/v1.0/users",
+            "/beta/users",
+            "/v1.0/groups",
+            "/beta/groups",
+            "/v1.0/applications",
+            "/beta/applications",
+            "/v1.0/serviceprincipals",
+            "/beta/serviceprincipals",
+            "/v1.0/devices",
+            "/beta/devices",
+            "/v1.0/directoryroles",
+            "/beta/directoryroles",
+            "/v1.0/organization",
+            "/beta/organization",
+            "/v1.0/subscribedskus",
+            "/beta/subscribedskus",
+            "/v1.0/rolemanagement/directory/roledefinitions",
+            "/beta/rolemanagement/directory/roledefinitions",
+            "/v1.0/rolemanagement/directory/roleassignments",
+            "/beta/rolemanagement/directory/roleassignments",
+            "/v1.0/rolemanagement/directory/roleeligibilityschedules",
+            "/beta/rolemanagement/directory/roleeligibilityschedules",
+            "/v1.0/rolemanagement/directory/roleeligibilityscheduleinstances",
+            "/beta/rolemanagement/directory/roleeligibilityscheduleinstances"
+        )
+    )
+| WHERE Esql.is_client_signin OR Esql.is_scripted_graph_enum
+
+// aggregate the events for the rule by session, user, app, device, token and tenant
+| STATS
+    Esql.client_signin_events = COUNT_DISTINCT(azure.signinlogs.properties.id) WHERE Esql.is_client_signin,
+    Esql.scripted_graph_enum_events = COUNT_DISTINCT(
+        azure.graphactivitylogs.properties.operation_id
+    ) WHERE Esql.is_scripted_graph_enum,
+    Esql.distinct_graph_paths = COUNT_DISTINCT(url.path) WHERE Esql.is_scripted_graph_enum,
+    Esql.signin_time_min = MIN(CASE(Esql.is_client_signin, @timestamp, NULL)),
+    Esql.graph_time_min = MIN(CASE(Esql.is_scripted_graph_enum, @timestamp, NULL)),
+    Esql.signin_user_agents = VALUES(user_agent.original) WHERE Esql.is_client_signin,
+    Esql.graph_user_agents = VALUES(user_agent.original) WHERE Esql.is_scripted_graph_enum,
+    Esql.graph_paths = VALUES(url.path) WHERE Esql.is_scripted_graph_enum,
+    Esql.graph_urls = VALUES(url.original) WHERE Esql.is_scripted_graph_enum,
+    Esql.source_ips = VALUES(source.ip),
+    Esql.signin_ids = VALUES(azure.signinlogs.properties.id) WHERE Esql.is_client_signin,
+    Esql.graph_operation_ids = VALUES(
+        azure.graphactivitylogs.properties.operation_id
+    ) WHERE Esql.is_scripted_graph_enum,
+    Esql.app_display_names = VALUES(
+        azure.signinlogs.properties.app_display_name
+    ) WHERE Esql.is_client_signin,
+    Esql.user_principal_names = VALUES(
+        azure.signinlogs.properties.user_principal_name
+    ) WHERE Esql.is_client_signin
+  BY Esql.token_id, Esql.session_id, Esql.user_id, Esql.app_id, Esql.device_id, azure.tenant_id
+
+// filter by client sign-in and scripted Graph enumeration events
+| WHERE
+    Esql.client_signin_events > 0 AND
+    Esql.scripted_graph_enum_events > 0 AND
+    Esql.distinct_graph_paths >= 3 AND
+    Esql.signin_time_min IS NOT NULL AND
+    Esql.graph_time_min IS NOT NULL AND
+    Esql.graph_time_min >= Esql.signin_time_min
+| KEEP Esql.*, azure.tenant_id
+'''
+
+[rule.alert_suppression]
+group_by = ["Esql.token_id", "azure.tenant_id"]
+duration = {value = 75, unit = "m"}
+missing_fields_strategy = "suppress"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1087.004"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1087/004/"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.token_id",
+    "Esql.session_id",
+    "Esql.user_id",
+    "Esql.user_principal_names",
+    "Esql.app_id",
+    "Esql.app_display_names",
+    "Esql.signin_user_agents",
+    "Esql.graph_user_agents",
+    "Esql.graph_urls",
+    "Esql.source_ips",
+    "Esql.device_id",
+]
