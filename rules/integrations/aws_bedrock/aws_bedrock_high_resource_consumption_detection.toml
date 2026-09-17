@@ -2,7 +2,7 @@
 creation_date = "2024/05/04"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2025/09/25"
+updated_date = "2026/09/09"
 
 [rule]
 author = ["Elastic"]
@@ -67,14 +67,17 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS Bedrock",
     "Data Source: Amazon Web Services",
     "Data Source: AWS S3",
     "Use Case: Potential Overload",
     "Use Case: Resource Exhaustion",
-    "Mitre Atlas: LLM04",
     "Resources: Investigation Guide",
+    "Domain: Cloud",
+    "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0029",
+    "Mitre Atlas: AML.T0034",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -115,3 +118,21 @@ from logs-aws_bedrock.invocation-*
 | sort Esql.ml_risk_score desc
 '''
 
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0029"
+name = "Denial of AI Service"
+reference = "https://atlas.mitre.org/techniques/AML.T0029/"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0034"
+name = "Cost Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0034/"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
