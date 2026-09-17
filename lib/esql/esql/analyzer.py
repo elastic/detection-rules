@@ -12,6 +12,8 @@ arithmetic, comparisons (`==` / ordering), `IN`, and string predicates
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from . import ast
 from .errors import EsqlSchemaError, EsqlSemanticError, EsqlTypeMismatchError
 from .functions import get_signature
@@ -65,27 +67,25 @@ _FUNC_RETURN_TYPES: dict[str, str] = {
 
 def analyze(tree: ast.EsqlQuery, schema: Schema) -> None:
     """Validate column references, command shape, and schema-aware type checks."""
-    defined = get_defined_columns(tree)
-    column_types = infer_column_types(tree, schema)
-    for name, line, column in _iter_field_refs(tree):
-        if name in _SKIP_FIELDS or name in defined:
-            continue
-        if any(name.startswith(prefix) for prefix in _SKIP_PREFIXES):
-            continue
-        if "*" in name:
-            # Wildcard projections (e.g. KEEP aws.*) are not resolved offline.
-            continue
-        if not schema.has_field(name) and not schema.allow_missing:
-            raise EsqlSchemaError(
-                f"Unknown field {name!r}",
-                line=line or 0,
-                column=column or 0,
-                source=name,
-            )
+    # Nested FROM/TS subqueries and FORK branches are independent pipelines.
+    for cmd in tree.commands:
+        if isinstance(cmd, ast.FromCommand):
+            for src in cmd.sources:
+                if isinstance(src, ast.EsqlQuery):
+                    analyze(src, schema)
+        elif isinstance(cmd, ast.ForkCommand):
+            for branch in cmd.branches:
+                analyze(branch, schema)
+
+    # Walk the pipe in order so KEEP/DROP/STATS narrow (or replace) available
+    # columns for later commands — matching ES|QL runtime column visibility.
+    _validate_pipeline_columns(tree, schema)
 
     if schema.allow_missing:
         return
 
+    defined = get_defined_columns(tree)
+    column_types = infer_column_types(tree, schema)
     _check_commands(tree, schema, defined)
     _check_expression_types(tree, schema, column_types)
 
@@ -118,6 +118,9 @@ def infer_column_types(tree: ast.EsqlQuery, schema: Schema) -> dict[str, str]:
         elif isinstance(cmd, ast.RenameCommand):
             for old, new in cmd.renames:
                 env[new] = env.pop(old, env.get(old, "unknown"))
+        elif isinstance(cmd, ast.JoinCommand) and cmd.target:
+            for name, field_type in schema.lookup_fields(cmd.target).items():
+                env.setdefault(name, field_type if isinstance(field_type, str) else "unknown")
         elif isinstance(cmd, (ast.GrokCommand, ast.DissectCommand, ast.EnrichCommand)):
             for name in cmd.outputs:
                 env.setdefault(name, "keyword")
@@ -142,19 +145,286 @@ def _schema_field_type(schema: Schema, name: str) -> str | None:
     return schema.resolve_field(name)
 
 
-def _iter_field_refs(tree: ast.EsqlQuery) -> list[tuple[str, int | None, int | None]]:
-    """Yield field names from ColumnRef nodes and KEEP/DROP column lists."""
+def _validate_pipeline_columns(tree: ast.EsqlQuery, schema: Schema) -> None:
+    """Validate field refs against schema *and* post-KEEP/DROP/STATS visibility.
+
+    ES|QL projects columns through the pipe: after ``KEEP a, b``, later commands
+    may only reference ``a``/``b`` (plus pipeline-defined aliases). After
+    ``STATS … BY x``, only the aggregate/grouping outputs remain. This mirrors
+    that narrowing instead of checking every ref against the full index schema.
+    """
+    # None = open (any schema field / prior alias); set = explicit projection.
+    projected: set[str] | None = None
+    keep_wildcards: list[str] = []
+    dropped: set[str] = set()
+    extras: set[str] = set(_SKIP_FIELDS)
+
+    for cmd in tree.commands:
+        if isinstance(cmd, ast.FromCommand):
+            extras.update(cmd.metadata)
+            # Nested subquery outputs are opaque here; parent refs still use schema.
+            continue
+
+        for name, line, column in _command_input_refs(cmd):
+            _assert_column_available(
+                name,
+                line,
+                column,
+                schema=schema,
+                projected=projected,
+                keep_wildcards=keep_wildcards,
+                dropped=dropped,
+                extras=extras,
+            )
+
+        projected, keep_wildcards, dropped, extras = _apply_command_projection(
+            cmd,
+            schema=schema,
+            projected=projected,
+            keep_wildcards=keep_wildcards,
+            dropped=dropped,
+            extras=extras,
+        )
+
+
+def _command_input_refs(cmd: ast.BaseNode) -> list[tuple[str, int | None, int | None]]:
+    """Column names this command *reads* (not names it newly defines)."""
     refs: list[tuple[str, int | None, int | None]] = []
-    for node in tree:
+
+    if isinstance(cmd, ast.KeepCommand):
+        for name in cmd.columns:
+            refs.append((name, cmd.line, cmd.column))
+        return refs
+    if isinstance(cmd, ast.DropCommand):
+        for name in cmd.columns:
+            refs.append((name, cmd.line, cmd.column))
+        return refs
+    if isinstance(cmd, ast.RenameCommand):
+        for old, _new in cmd.renames:
+            refs.append((old, cmd.line, cmd.column))
+        return refs
+    if isinstance(cmd, (ast.GrokCommand, ast.DissectCommand)) and cmd.input_field:
+        refs.append((cmd.input_field, cmd.line, cmd.column))
+        return refs
+    if isinstance(cmd, ast.EnrichCommand) and cmd.match_field:
+        refs.append((cmd.match_field, cmd.line, cmd.column))
+        # WITH outputs are definitions; ON match is the input.
+        return refs
+    if isinstance(cmd, ast.JoinCommand):
+        for field in cmd.on_fields:
+            if field:
+                refs.append((field, cmd.line, cmd.column))
+        return refs
+
+    # Expression-bearing commands: collect ColumnRefs, but skip alias *targets*
+    # being defined (EVAL x = …, STATS x = COUNT(), BY b = BUCKET(...)).
+    defining = _command_defining_names(cmd)
+    for node in cmd:
         if isinstance(node, ast.ColumnRef):
-            refs.append((str(node), node.line, node.column))
-        elif isinstance(node, ast.KeepCommand):
-            for name in node.columns:
-                refs.append((name, node.line, node.column))
-        elif isinstance(node, ast.DropCommand):
-            for name in node.columns:
-                refs.append((name, node.line, node.column))
+            name = str(node)
+            if name in defining:
+                continue
+            refs.append((name, node.line, node.column))
+    if isinstance(cmd, ast.StatsCommand):
+        for group in cmd.grouping:
+            if group not in defining:
+                refs.append((group, cmd.line, cmd.column))
     return refs
+
+
+def _command_defining_names(cmd: ast.BaseNode) -> set[str]:
+    names: set[str] = set()
+    if isinstance(cmd, ast.EvalCommand):
+        names.update(a.name for a in cmd.assignments)
+    elif isinstance(cmd, ast.StatsCommand):
+        names.update(a.name for a in cmd.aggregates)
+        names.update(a.name for a in cmd.grouping_aliases)
+    elif isinstance(cmd, ast.RenameCommand):
+        names.update(new for _old, new in cmd.renames)
+    elif isinstance(cmd, (ast.GrokCommand, ast.DissectCommand, ast.EnrichCommand)):
+        names.update(cmd.outputs)
+    elif isinstance(cmd, ast.CompletionCommand) and cmd.target_field:
+        names.add(cmd.target_field)
+    elif isinstance(cmd, ast.AssignFieldCommand) and cmd.target:
+        names.add(cmd.target)
+    elif isinstance(cmd, ast.ChangePointCommand):
+        if cmd.target_type:
+            names.add(cmd.target_type)
+        if cmd.target_pvalue:
+            names.add(cmd.target_pvalue)
+    elif isinstance(cmd, ast.RerankCommand) and cmd.target_field:
+        names.add(cmd.target_field)
+    elif isinstance(cmd, ast.GenericCommand):
+        names.update(cmd.outputs)
+    return names
+
+
+def _wildcard_matches(name: str, patterns: list[str]) -> bool:
+    for pattern in patterns:
+        if pattern == "*":
+            return True
+        if pattern.endswith(".*") and name.startswith(pattern[:-1]):
+            return True
+        if pattern.endswith("*") and name.startswith(pattern[:-1]):
+            return True
+    return False
+
+
+def _assert_column_available(
+    name: str,
+    line: int | None,
+    column: int | None,
+    *,
+    schema: Schema,
+    projected: set[str] | None,
+    keep_wildcards: list[str],
+    dropped: set[str],
+    extras: set[str],
+) -> None:
+    if name in _SKIP_FIELDS or name in extras:
+        return
+    if any(name.startswith(prefix) for prefix in _SKIP_PREFIXES):
+        return
+    if "*" in name:
+        # Wildcard projections are not resolved offline.
+        return
+
+    if projected is not None:
+        if name in projected or _wildcard_matches(name, keep_wildcards):
+            return
+        raise EsqlSchemaError(
+            f"Unknown column {name!r}",
+            line=line or 0,
+            column=column or 0,
+            source=name,
+        )
+
+    if name in dropped:
+        raise EsqlSchemaError(
+            f"Unknown column {name!r}",
+            line=line or 0,
+            column=column or 0,
+            source=name,
+        )
+
+    if schema.allow_missing:
+        return
+    if not schema.has_field(name):
+        raise EsqlSchemaError(
+            f"Unknown field {name!r}",
+            line=line or 0,
+            column=column or 0,
+            source=name,
+        )
+
+
+def _opaque_command_outputs(
+    projected: set[str] | None,
+    keep_wildcards: list[str],
+    dropped: set[str],
+    extras: set[str],
+) -> tuple[set[str] | None, list[str], set[str], set[str]]:
+    """Widen a closed KEEP projection when a command injects unnamed fields.
+
+    ENRICH without WITH and LOOKUP JOIN without a lookup schema add columns
+    that cannot be named offline. A ``*`` keep-wildcard matches later refs.
+    """
+    if projected is not None:
+        return projected, [*keep_wildcards, "*"], dropped, extras
+    return None, keep_wildcards, dropped, extras
+
+
+def _apply_command_projection(
+    cmd: ast.BaseNode,
+    *,
+    schema: Schema,
+    projected: set[str] | None,
+    keep_wildcards: list[str],
+    dropped: set[str],
+    extras: set[str],
+) -> tuple[set[str] | None, list[str], set[str], set[str]]:
+    """Return updated (projected, keep_wildcards, dropped, extras) after *cmd*."""
+    if isinstance(cmd, ast.JoinCommand) and cmd.target:
+        added = set(schema.lookup_fields(cmd.target))
+        if added:
+            new_extras = extras | added
+            if projected is not None:
+                return projected | added, keep_wildcards, dropped, new_extras
+            return None, keep_wildcards, dropped, new_extras
+        return _opaque_command_outputs(projected, keep_wildcards, dropped, extras)
+
+    if isinstance(cmd, ast.EnrichCommand):
+        added = set(cmd.outputs)
+        if added:
+            new_extras = extras | added
+            if projected is not None:
+                return projected | added, keep_wildcards, dropped, new_extras
+            return None, keep_wildcards, dropped, new_extras
+        return _opaque_command_outputs(projected, keep_wildcards, dropped, extras)
+
+    if isinstance(cmd, ast.KeepCommand):
+        new_projected = set(cmd.columns)
+        new_wildcards = list(cmd.wildcards)
+        # Metadata / skip fields named explicitly stay; others must be re-kept.
+        new_extras = {name for name in extras if name in new_projected or name in _SKIP_FIELDS}
+        return new_projected, new_wildcards, set(), new_extras
+
+    if isinstance(cmd, ast.DropCommand):
+        drop = set(cmd.columns)
+        if projected is not None:
+            return projected - drop, keep_wildcards, dropped, extras - drop
+        return None, keep_wildcards, dropped | drop, extras - drop
+
+    if isinstance(cmd, ast.RenameCommand):
+        new_projected = set(projected) if projected is not None else None
+        new_extras = set(extras)
+        for old, new in cmd.renames:
+            if new_projected is not None and old in new_projected:
+                new_projected.discard(old)
+                new_projected.add(new)
+            new_extras.discard(old)
+            new_extras.add(new)
+            dropped.discard(new)
+            if old in dropped:
+                dropped.discard(old)
+        return new_projected, keep_wildcards, dropped, new_extras
+
+    if isinstance(cmd, ast.StatsCommand):
+        outputs = {a.name for a in cmd.aggregates} | set(cmd.grouping)
+        if cmd.inline:
+            if projected is not None:
+                return projected | outputs, keep_wildcards, dropped, extras | outputs
+            return None, keep_wildcards, dropped, extras | outputs
+        # Non-inline STATS replaces the working set.
+        return outputs, [], set(), set(_SKIP_FIELDS)
+
+    defined = _command_defining_names(cmd)
+    if not defined:
+        return projected, keep_wildcards, dropped, extras
+
+    new_extras = extras | defined
+    if projected is not None:
+        return projected | defined, keep_wildcards, dropped, new_extras
+    return None, keep_wildcards, dropped - defined, new_extras
+
+
+def _iter_pipeline_nodes(tree: ast.EsqlQuery) -> Iterator[ast.BaseNode]:
+    """Walk this query's pipeline, skipping nested FROM/TS subquery trees.
+
+    Nested subquery EsqlQuery nodes are analyzed independently via ``analyze``.
+    """
+    yield tree
+    for cmd in tree.commands:
+        yield from _walk_skip_nested_from_queries(cmd)
+
+
+def _walk_skip_nested_from_queries(node: ast.BaseNode) -> Iterator[ast.BaseNode]:
+    yield node
+    if isinstance(node, ast.FromCommand):
+        return
+    for child in node.iter_children():
+        if isinstance(child, ast.BaseNode):
+            yield from _walk_skip_nested_from_queries(child)
 
 
 def _check_commands(tree: ast.EsqlQuery, schema: Schema, defined: set[str]) -> None:
@@ -204,7 +474,7 @@ def _check_expression_types(
         if isinstance(cmd, ast.WhereCommand) and cmd.predicate is not None:
             _require_boolean_context(cmd.predicate, schema, column_types, "WHERE")
 
-    for node in tree:
+    for node in _iter_pipeline_nodes(tree):
         if isinstance(node, ast.BinaryExpr):
             op = str(node.op).strip().lower()
             if op in _BOOL_OPS:

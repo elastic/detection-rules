@@ -88,6 +88,46 @@ class TestEsqlOfflineSchemaFailures:
         with pytest.raises(EsqlSchemaError):
             RuleCollection().load_dict(rule)
 
+    def test_keyword_compared_to_number_raises_type_mismatch(self) -> None:
+        """Parity with remote test_esql_type_mismatch_error (keyword == number)."""
+        from detection_rules.esql_errors import EsqlTypeMismatchError
+
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["aws"]
+        rule["rule"]["query"] = """
+        FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+        | WHERE aws.cloudtrail.user_identity.type == 5
+        | KEEP aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            RuleCollection().load_dict(rule)
+
+    def test_long_field_like_string_raises_type_mismatch(self) -> None:
+        from detection_rules.esql_errors import EsqlTypeMismatchError
+
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE process.pid LIKE "1*"
+        | KEEP process.pid, _id, _version, _index
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            RuleCollection().load_dict(rule)
+
+    def test_long_ordered_against_string_raises_type_mismatch(self) -> None:
+        from detection_rules.esql_errors import EsqlTypeMismatchError
+
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE process.pid > "10"
+        | KEEP process.pid, _id, _version, _index
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            RuleCollection().load_dict(rule)
+
 
 class TestEsqlOfflineSchemaPasses:
     """Queries that must pass once schemas / defined columns are correct."""
@@ -113,7 +153,10 @@ class TestEsqlOfflineSchemaPasses:
         | WHERE KQL("""totally.made_up.nested_kql_field : x""")
         | KEEP host.name, _id, _version, _index
         '''
-        with pytest.raises((EsqlSchemaError, Exception), match="totally.made_up.nested_kql_field|Unknown field|Field"):
+        with pytest.raises(
+            (EsqlSchemaError, Exception),
+            match=r"totally\.made_up\.nested_kql_field|Unknown field|Field",
+        ):
             RuleCollection().load_dict(rule)
 
     def test_eql_parse_hook_wired(self) -> None:
@@ -126,6 +169,60 @@ class TestEsqlOfflineSchemaPasses:
         # Hook accepts a simple event query (prep; grammar may not yet emit NestedQuery).
         tree = cfg.context["eql_parse"]('process where process.name == "cmd.exe"')
         assert tree is not None
+
+    def test_set_esql_config_features_map_gates_kql(self) -> None:
+        """set_esql_config must put a features dict that verify_features honors."""
+        import esql
+
+        from detection_rules.rule import set_esql_config
+
+        cfg = set_esql_config("8.14.0")
+        flags = cfg.context.get("features")
+        assert isinstance(flags, dict)
+        assert flags.get("kql_function") is False
+
+        with cfg, esql.Schema({}, allow_missing=True), pytest.raises(esql.EsqlVersionError, match=r"KQL\(\)"):
+            esql.parse_query('FROM logs-* | WHERE KQL("a:b") | KEEP _id')
+
+        cfg_ok = set_esql_config("8.15.0")
+        assert cfg_ok.context["features"]["kql_function"] is True
+        with cfg_ok, esql.Schema({}, allow_missing=True):
+            esql.parse_query('FROM logs-* | WHERE KQL("a:b") | KEEP _id')
+
+    def test_completion_query_requires_9_3_grammar(self) -> None:
+        """Modern COMPLETION … WITH { } must fail on 8.19 and pass from 9.3."""
+        import esql
+
+        from detection_rules.rule import set_esql_config
+
+        query = """
+        FROM .alerts-security.* METADATA _id, _version, _index
+        | COMPLETION triage_result = "x" WITH { "inference_id": ".anthropic-claude-4.6-sonnet-completion"}
+        | KEEP triage_result, _id, _version, _index
+        """
+        with set_esql_config("8.19.0"), esql.Schema({}, allow_missing=True), pytest.raises(esql.EsqlSyntaxError):
+            esql.parse_query(query)
+        with set_esql_config("9.3.0"), esql.Schema({}, allow_missing=True):
+            tree = esql.parse_query(query)
+        assert any(isinstance(c, esql.ast.CompletionCommand) for c in tree.commands)
+
+    def test_ast_reuse_across_same_grammar_targets(self) -> None:
+        """validate() must reuse self.ast for the current-package grammar key."""
+        from detection_rules.rule_validators import ESQLValidator
+
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE process.name == "cmd.exe"
+        | KEEP process.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        validator = ESQLValidator(loaded.contents.data.query)
+        first = id(validator.ast)
+        validator.validate(loaded.contents.data, loaded.contents.metadata, force_remote_validation=False)
+        # Same grammar → same tree object still referenced after validate
+        assert id(validator.ast) == first
 
     def test_alert_index_kibana_alert_fields_pass(self) -> None:
         rule = _sample_rule()
@@ -152,6 +249,29 @@ class TestEsqlOfflineSchemaPasses:
         assert "script_b64" in loaded.contents.data.query
 
 
+class TestEsqlCorpusOffline:
+    """Re-validate every production ES|QL rule offline (remote replacement path)."""
+
+    def test_all_production_esql_rules_validate_offline(self) -> None:
+        from detection_rules.rule_validators import ESQLValidator
+
+        collection = RuleCollection.default()
+        esql_rules = [r for r in collection.rules if getattr(r.contents.data, "language", None) == "esql"]
+        assert len(esql_rules) >= 200, f"expected a full ES|QL corpus, got {len(esql_rules)}"
+
+        failures: list[str] = []
+        for rule in esql_rules:
+            data = rule.contents.data
+            meta = rule.contents.metadata
+            name = str(getattr(rule, "path", None) or data.rule_id)
+            try:
+                ESQLValidator(data.query).validate(data, meta, force_remote_validation=False)
+            except Exception as exc:  # noqa: BLE001 — collect all failures
+                failures.append(f"{name}: {type(exc).__name__}: {exc}")
+
+        assert not failures, "Offline ES|QL validation failures:\n" + "\n".join(failures[:40])
+
+
 class TestEsqlSchemaHelpers:
     def test_googlecloud_aliases_to_gcp(self) -> None:
         assert normalize_dataset_package("googlecloud") == "gcp"
@@ -170,6 +290,8 @@ class TestEsqlSchemaHelpers:
         fields = collect_index_field_schemas([".alerts-security.*"])
         assert fields.get("kibana.alert.rule.name") == "keyword"
         assert fields.get("kibana.alert.risk_score") == "long"
+        assert fields.get("kibana.alert.building_block_type") == "keyword"
+        assert fields.get("kibana.alert.rule.tags") == "keyword"
 
     def test_combine_index_mappings_prefers_object_over_scalar(self) -> None:
         dest = {"model": {"type": "keyword"}}

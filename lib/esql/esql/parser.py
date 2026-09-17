@@ -99,7 +99,9 @@ def parse_query(text: str) -> ast.EsqlQuery:
     result = build_ast(tree)
     verify_features(result, get_config_value("min_stack_version"))
     schema = get_config_value("schema")
-    if isinstance(schema, Schema) and not schema.allow_missing:
+    if isinstance(schema, Schema):
+        # Always analyze under a Schema: allow_missing only relaxes index-field
+        # lookups; KEEP/DROP/STATS column visibility still applies.
         analyze(result, schema)
     validate_nested_queries(result)
     return result

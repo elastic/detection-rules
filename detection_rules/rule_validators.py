@@ -823,7 +823,7 @@ def _warm_esql_offline_caches() -> None:
 
 
 class ESQLValidator(QueryValidator):
-    """Validate ES|QL queries offline via python-esql (optional remote fidelity)."""
+    """Validate ES|QL queries offline via esql-detection-rules-py (optional remote fidelity)."""
 
     kibana_client: Kibana
     elastic_client: Elasticsearch
@@ -840,7 +840,7 @@ class ESQLValidator(QueryValidator):
             print(f"{getattr(self, 'rule_id', '')}:", val)
 
     def _parse_tree(self, min_stack_version: str | None = None) -> Any:
-        """Parse query with python-esql under the given stack config."""
+        """Parse query with esql-detection-rules-py under the given stack config."""
         stack = min_stack_version or load_current_package_version()
         cfg = set_esql_config(stack)
         # Empty schema for AST-only parse; field checks run in validate() with plan schemas.
@@ -879,9 +879,15 @@ class ESQLValidator(QueryValidator):
     def _flat_schema_dict(schema: Any) -> dict[str, Any]:
         """Flatten an esql.Schema (or dict) for nested kql/eql schema checks."""
         if isinstance(schema, esql.Schema):
-            return dict(schema._fields)  # noqa: SLF001 — intentional DR reuse of flat map
+            return dict(schema._fields)
         if isinstance(schema, dict):
-            return {str(k): (v if isinstance(v, str) else getattr(v, "get", lambda *_: None)("type") or v) for k, v in schema.items()}
+            flat: dict[str, Any] = {}
+            for key, value in schema.items():
+                if isinstance(value, str):
+                    flat[str(key)] = value
+                else:
+                    flat[str(key)] = getattr(value, "get", lambda *_: None)("type") or value
+            return flat
         return {}
 
     @staticmethod
@@ -903,11 +909,11 @@ class ESQLValidator(QueryValidator):
                         except eql.EqlParseError:
                             parsed_q = eql.parse_expression(text)  # type: ignore[reportUnknownMemberType]
                     names.update(str(f) for f in parsed_q if isinstance(f, eql.ast.Field))  # type: ignore[reportUnknownVariableType]
-            except Exception:  # noqa: BLE001 — field merge is best-effort; schema path raises
+            except Exception:  # noqa: BLE001, S112 — field merge best-effort; schema path raises
                 continue
         return names
 
-    def _validate_nested_queries_with_schema(  # noqa: PLR0911, PLR0912, PLR0913
+    def _validate_nested_queries_with_schema(  # noqa: PLR0912, PLR0913, PLR0917
         self,
         tree: Any,
         schema: Any,
@@ -1109,11 +1115,11 @@ class ESQLValidator(QueryValidator):
         schema: Any,
         err_trailer: str,
         min_stack_version: str,
-        beat_types: list[str] | None = None,  # noqa: ARG002
-        integration_types: list[str] | None = None,  # noqa: ARG002
+        beat_types: list[str] | None = None,
+        integration_types: list[str] | None = None,
         tree: Any | None = None,
     ) -> tuple[Exception | None, str | None]:
-        """Validate ES|QL query text with python-esql under Schema + ParserConfig."""
+        """Validate ES|QL query text with esql-detection-rules-py under Schema + ParserConfig."""
         try:
             cfg = set_esql_config(min_stack_version)
             schema_ctx = schema if isinstance(schema, esql.Schema) else esql.Schema(schema or {}, allow_missing=False)
@@ -1230,7 +1236,7 @@ class ESQLValidator(QueryValidator):
         force_remote_validation: bool = False,
         max_attempts: int = 10,
     ) -> None:
-        """Validate an ESQL query: local python-esql by default; optional remote fidelity."""
+        """Validate an ESQL query: local esql-detection-rules-py by default; optional remote fidelity."""
         if rule_meta.query_schema_validation is False or rule_meta.maturity == "deprecated":
             return
 
@@ -1248,9 +1254,12 @@ class ESQLValidator(QueryValidator):
         _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
 
         # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
+        # self.ast is already parsed (for FROM indices) under the current package
+        # grammar — seed the cache so the matching plan target does not re-parse.
         from esql.grammar_registry import resolve_grammar_key
 
         schema_index = (data.index_or_dataview or from_indices or [None])[0]
+        package_grammar_key = resolve_grammar_key(load_current_package_version())
 
         for _ in range(max_attempts):
             plan = self.build_validation_plan(data, rule_meta)
@@ -1259,7 +1268,7 @@ class ESQLValidator(QueryValidator):
                 _ = self.ast
                 break
 
-            trees_by_grammar: dict[str, Any] = {}
+            trees_by_grammar: dict[str, Any] = {package_grammar_key: self.ast}
             first_error: Exception | None = None
             for target in plan:
                 gkey = resolve_grammar_key(target.min_stack_version)

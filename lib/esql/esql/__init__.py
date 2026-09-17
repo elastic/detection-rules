@@ -3,7 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-"""Offline ES|QL parser for Elastic Security detection rules."""
+"""Offline ES|QL parser and AST for Elastic Security detection-rules."""
 
 from . import ast
 from .analyzer import analyze, infer_column_types
@@ -43,8 +43,8 @@ from .walkers import (
     get_defined_columns,
     get_event_datasets,
     get_field_names,
-    get_from_sources,
     get_from_source_groups,
+    get_from_sources,
     get_keep_columns,
     get_metadata_fields,
     get_stats_grouping_fields,
@@ -53,7 +53,7 @@ from .walkers import (
     is_aggregate_query,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.0"
 # Derived from esql/_antlr/*/provenance.json — do not hardcode; CI enforces sync.
 __es_compat__ = format_es_compat()
 

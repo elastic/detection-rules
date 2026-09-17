@@ -1,8 +1,8 @@
-# PRD — Offline ES|QL validation (`python-esql`)
+# PRD — Offline ES|QL validation (`esql-detection-rules-py`)
 
-Status: **implementation in progress** via [detection-rules#6499](https://github.com/elastic/detection-rules/pull/6499) + [elastic/python-esql](https://github.com/elastic/python-esql).
+Status: **implementation in progress** via [detection-rules#6499](https://github.com/elastic/detection-rules/pull/6499) + [elastic/esql-detection-rules-py](https://github.com/elastic/esql-detection-rules-py).
 
-Canonical locked decisions + architecture: see the full PRD artifact / canvas **Requirements** tab (source: initial `python-esql` PRD §0–§17).
+Canonical locked decisions + architecture: see the full PRD artifact / canvas **Requirements** tab (source: initial ES|QL parser PRD §0–§17).
 
 ## Goal
 
@@ -13,7 +13,7 @@ Ship offline ES|QL parse + schema validation in detection-rules CI/authoring wit
 | Item | Value |
 | --- | --- |
 | Import | `import esql` (required, not optional) |
-| Pin | `python-esql==0.1.1` from PyPI when published (staging: `file:./lib/esql`) |
+| Pin | `esql-detection-rules-py==0.1.0` from PyPI when published (staging: `file:./lib/esql`) |
 | Grammar host | Versioned modules **inside** the parser (`esql/_antlr/v8_19_0` … `v9_5_0` + `vlatest`) |
 | Stack floors | Current window: 8.19, 9.3, 9.4, 9.5 (+ tip); follow `stack-schema-map.yaml` |
 | Nested languages | `KQL()` / `EQL()`: parse hooks + **schema checks** via native `kql`/`eql`; `QSTR` / `PROMQL` opaque |
@@ -34,22 +34,21 @@ Two layers (MVP for KQL; EQL hook ready for grammar):
 - `ESQLValidator` = default offline path; remote optional (`DR_REMOTE_ESQL_VALIDATION`).
 - Unset `min_stack_version` → validate full supported window.
 
-## Validation evidence (2026-09-14+)
+## Validation evidence (2026-09-17)
 
 | Check | Result |
 | --- | --- |
-| `python-esql` `make ci` | Pass |
-| `pytest tests/test_esql_offline.py` | Pass (nested KQL + eql hook prep) |
-| Full ES\|QL corpus (feature branch) | **226/226** |
-| Release branches (parse-only) | **8.19: 200/201**, **9.3–9.5: green** |
+| `esql-detection-rules-py` full pytest | **203 passed** (nested + offline parity + feature gates + ENRICH KEEP) |
+| `pytest tests/test_esql_offline.py tests/test_hunt_data.py` | **31 passed** |
+| Full ES\|QL corpus (offline load + re-validate) | **228/228** |
+| Release branches (parse + feature floors) | **8.19 198, 9.3 214, 9.4 220, 9.5 224 — all green, 0 hygiene** (#6829 dropped 8.19 COMPLETION) |
 
-## Remaining (tracked on canvas Requirements tab)
+## Remaining (tracked on canvas)
 
-- Publish PyPI `python-esql==0.1.1` and drop vendored `file:` pin.
-- Complete regex → AST retirement where still present.
-- Analyzer depth / remote fidelity golden diffs (optional).
-- OSS filing (WG Read, Green List, public-repo issue) — files staged, do not file yet.
-- When ES grammar adds `EQL()`, enable NestedQuery extraction + fixtures.
+- Publish PyPI `esql-detection-rules-py==0.1.0` and drop vendored `file:` pin.
+- OSS filing (WG Read, Green List, public-repo issue) — do not file yet.
+- When ES grammar adds `EQL()`, enable NestedQuery extraction + fixtures; EQL source command is separate (ES #154780).
+- LOOKUP JOIN: parser `Schema(lookups=)` exists; DR does not yet pass lookup-index mappings.
 
 ## Non-goals (v1)
 

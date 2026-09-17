@@ -2082,7 +2082,7 @@ def set_eql_config(min_stack_version_val: str) -> eql.parser.ParserConfig:
 
 
 def set_esql_config(min_stack_version_val: str) -> Any:
-    """Enable ES|QL features for this stack version (python-esql + DR overrides)."""
+    """Enable ES|QL features for this stack version (esql-detection-rules-py + DR overrides)."""
     import esql  # local import: rule.py loads validators at module end
 
     if min_stack_version_val:
@@ -2090,8 +2090,10 @@ def set_esql_config(min_stack_version_val: str) -> Any:
     else:
         min_stack_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
 
+    # Merge package defaults with optional DR overrides, then materialize a bool map
+    # under context["features"] — the key verify_features() reads (not top-level names).
     features = {**esql.ESQL_FEATURES, **(definitions.ELASTICSEARCH_ESQL_FEATURES or {})}
-    cfg = esql.ParserConfig(min_stack_version=str(min_stack_version))
+    feature_flags: dict[str, bool] = {}
     for name, version_range in features.items():
         lo, hi = version_range
         lo_v = Version.parse(str(lo), optional_minor_and_patch=True) if not isinstance(lo, Version) else lo
@@ -2100,10 +2102,8 @@ def set_esql_config(min_stack_version_val: str) -> Any:
             if hi is None
             else (Version.parse(str(hi), optional_minor_and_patch=True) if not isinstance(hi, Version) else hi)
         )
-        if lo_v <= min_stack_version <= (hi_v or min_stack_version):
-            cfg.context[name] = True
-        else:
-            cfg.context[name] = False
+        feature_flags[name] = lo_v <= min_stack_version <= (hi_v or min_stack_version)
+    cfg = esql.ParserConfig(min_stack_version=str(min_stack_version), features=feature_flags)
 
     def _kql_parse(text: str) -> Any:
         # Nested KQL() inside ES|QL commonly uses uppercase operators (NOT/AND/OR).

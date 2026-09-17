@@ -49,7 +49,7 @@ class EsqlKibanaBaseError(ClientError):
 
 
 class EsqlSchemaError(EsqlKibanaBaseError):
-    """Error in ESQL schema (local python-esql or remote stack)."""
+    """Error in ESQL schema (local esql-detection-rules-py or remote stack)."""
 
 
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
@@ -57,7 +57,7 @@ class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
 
 
 class EsqlSyntaxError(EsqlKibanaBaseError):
-    """Error with ESQL syntax (local python-esql or remote stack)."""
+    """Error with ESQL syntax (local esql-detection-rules-py or remote stack)."""
 
 
 class EsqlTypeMismatchError(ClientError):

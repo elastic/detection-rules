@@ -34,9 +34,10 @@ def _command_feature_name(cmd: ast.Command) -> str | None:
         return "inline_stats"
     if isinstance(cmd, ast.FromCommand) and cmd.kind == "ts":
         return "time_series"
+    if isinstance(cmd, ast.JoinCommand):
+        return "lookup_join" if (cmd.kind or "").lower() == "lookup" else "join"
     mapping = {
         ast.ForkCommand: "fork",
-        ast.JoinCommand: "join",
         ast.CompletionCommand: "completion",
         ast.GrokCommand: "grok",
         ast.DissectCommand: "dissect",
@@ -71,20 +72,26 @@ def verify_features(tree: ast.EsqlQuery, min_stack_version: str | Version | None
 
     for cmd in tree.commands:
         feature = _command_feature_name(cmd)
-        if feature is None:
-            continue
-        enabled = overrides.get(feature)
-        if enabled is None:
-            enabled = feature_available(feature, version_str)
-        if not enabled:
-            spec = ESQL_FEATURES.get(feature)
-            intro = spec.introduced if spec else Version(0, 0)
-            raise EsqlVersionError(
-                f"Feature {feature!r} is not available for stack version {version_str} (introduced {intro})",
-                line=cmd.line or 0,
-                column=cmd.column or 0,
-                source=feature,
-            )
+        if feature is not None:
+            enabled = overrides.get(feature)
+            if enabled is None:
+                enabled = feature_available(feature, version_str)
+            if not enabled:
+                spec = ESQL_FEATURES.get(feature)
+                intro = spec.introduced if spec else Version(0, 0)
+                raise EsqlVersionError(
+                    f"Feature {feature!r} is not available for stack version {version_str} (introduced {intro})",
+                    line=cmd.line or 0,
+                    column=cmd.column or 0,
+                    source=feature,
+                )
+        if isinstance(cmd, ast.FromCommand):
+            for src in cmd.sources:
+                if isinstance(src, ast.EsqlQuery):
+                    verify_features(src, min_stack_version)
+        elif isinstance(cmd, ast.ForkCommand):
+            for branch in cmd.branches:
+                verify_features(branch, min_stack_version)
 
     for node in tree:
         if isinstance(node, ast.FunctionCall):

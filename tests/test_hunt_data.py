@@ -82,6 +82,49 @@ class TestHunt(unittest.TestCase):
             )
 
 
+class TestHuntEsqlValidation(unittest.TestCase):
+    """Hunt ES|QL checks that do not depend on loading the full corpus."""
+
+    def test_esql_hunt_rejects_stats_by_column_dropped_by_keep(self):
+        """KEEP projection must apply to hunts (no integration schema required)."""
+        with self.assertRaises(ValueError) as ctx:
+            Hunt(
+                author="Elastic",
+                description="Projection check",
+                integration=["okta"],
+                uuid="00000000-0000-0000-0000-000000000000",
+                name="Keep drop",
+                language=["ES|QL"],
+                license="Elastic License v2",
+                query=[
+                    """from logs-okta.system*
+| keep actor
+| stats c = count(*) by dropped_field
+"""
+                ],
+            )
+        self.assertIn("Unknown column", str(ctx.exception))
+
+    def test_esql_hunt_enrich_without_with_allows_policy_fields(self):
+        """ENRICH without WITH injects policy columns (KEEP then WHERE native)."""
+        Hunt(
+            author="Elastic",
+            description="Enrich policy fields",
+            integration=["endpoint"],
+            uuid="00000000-0000-0000-0000-000000000001",
+            name="Enrich keep",
+            language=["ES|QL"],
+            license="Elastic License v2",
+            query=[
+                """from logs-endpoint.events.library-*
+| keep dll.name, host.id
+| ENRICH libs-policy-defend
+| where native == "yes"
+"""
+            ],
+        )
+
+
 class TestHuntIndex(unittest.TestCase):
     """Test the hunting index.yml file."""
 

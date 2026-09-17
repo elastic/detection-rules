@@ -54,8 +54,11 @@ class Hunt:
             return
 
         try:
-            tree = esql.parse_query(query)
-        except Exception as exc:  # noqa: BLE001 — surface parse failures as hunt errors
+            # allow_missing skips index-field completeness; KEEP/DROP/STATS
+            # column visibility still runs (same analyzer as rules).
+            with esql.Schema({}, allow_missing=True):
+                tree = esql.parse_query(query)
+        except Exception as exc:
             raise ValueError(f"Hunt: {self.name} contains an invalid ES|QL query: {exc}") from exc
 
         if not (esql.has_keep(tree) or esql.is_aggregate_query(tree)):

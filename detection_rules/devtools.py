@@ -838,7 +838,7 @@ def integrations_pr(  # noqa: PLR0913, PLR0915, PLR0917
 def license_check(ctx: click.Context, ignore_directory: list[str]) -> None:
     """Check that all code files contain a valid license."""
     ignore_directory += ("env", ".venv", "venv")
-    # Generated / build trees (vendored python-esql ANTLR output, setuptools build).
+    # Generated / build trees (vendored esql-detection-rules-py ANTLR output, setuptools build).
     ignore_path_parts = {"_antlr", "build", "__pycache__"}
     failed = False
 

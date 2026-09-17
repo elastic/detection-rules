@@ -29,6 +29,10 @@ class Schema(ParserConfig):
     - nested Elasticsearch `{properties: ...}` mapping
     - multi-index `{pattern: mapping}` — patterns are **unioned** (or filtered
       by `index_pattern` when provided)
+
+    ``lookups`` is a separate map of LOOKUP JOIN target index → field schema.
+    Those fields are not on the primary index; the analyzer adds them only
+    after the matching ``LOOKUP JOIN``.
     """
 
     def __init__(
@@ -37,11 +41,28 @@ class Schema(ParserConfig):
         *,
         allow_missing: bool = False,
         index_pattern: str | None = None,
+        lookups: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         self.allow_missing = allow_missing
         self.index_pattern = index_pattern
         self._fields = self._flatten_mapping(mapping, index_pattern=index_pattern)
+        self._lookups: dict[str, dict[str, str]] = {
+            name: self._flatten_mapping(nested) for name, nested in (lookups or {}).items()
+        }
         super().__init__(schema=self)
+
+    def lookup_fields(self, index_name: str | None) -> dict[str, str]:
+        """Return the field schema for a LOOKUP JOIN target, or empty."""
+        if not index_name:
+            return {}
+        name = index_name.strip("`")
+        if name in self._lookups:
+            return self._lookups[name]
+        matched: dict[str, str] = {}
+        for pattern, fields in self._lookups.items():
+            if fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(pattern, name):
+                matched.update(fields)
+        return matched
 
     @staticmethod
     def _flatten_mapping(

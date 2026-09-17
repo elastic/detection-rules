@@ -12,7 +12,7 @@ else:
 # or more contributor license agreements. Licensed under the Elastic License
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
-# Adapted for python-esql from Elasticsearch antlr sources.
+# Adapted for esql-detection-rules-py from Elasticsearch antlr sources.
 
 
 if "." in __name__:
