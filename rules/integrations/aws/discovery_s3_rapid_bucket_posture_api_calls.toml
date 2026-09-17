@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "Changing min stack to 9.3.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.3.0"
-updated_date = "2026/07/20"
+updated_date = "2026/09/17"
 
 [rule]
 author = ["Elastic"]
@@ -117,7 +117,7 @@ from logs-aws.cloudtrail-* metadata _id, _version, _index
       "GetBucketPolicyStatus",
       "GetBucketVersioning"
     )
-    and aws.cloudtrail.user_identity.type != "AWSService"
+    and (aws.cloudtrail.user_identity.type is null or aws.cloudtrail.user_identity.type != "AWSService")
     and source.ip IS NOT NULL
     and aws.cloudtrail.resources.arn IS NOT NULL
     and aws.cloudtrail.user_identity.arn IS NOT NULL

@@ -2,7 +2,7 @@
 creation_date = "2026/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/06/29"
+updated_date = "2026/09/17"
 
 [rule]
 author = ["Elastic"]
@@ -72,7 +72,7 @@ FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | WHERE event.provider == "sagemaker.amazonaws.com"
   AND event.action IN ("CreateNotebookInstanceLifecycleConfig", "UpdateNotebookInstanceLifecycleConfig")
   AND event.outcome == "success"
-  AND aws.cloudtrail.user_identity.type != "AWSService"
+  AND (aws.cloudtrail.user_identity.type IS NULL OR aws.cloudtrail.user_identity.type != "AWSService")
 | GROK aws.cloudtrail.request_parameters "[Cc]ontent=(?<script_b64>[A-Za-z0-9+/=]+)"
 | EVAL Esql_priv.aws_cloudtrail_lifecycle_script = FROM_BASE64(script_b64)
 | WHERE TO_LOWER(Esql_priv.aws_cloudtrail_lifecycle_script) RLIKE """.*(/dev/tcp/|/dev/udp/|bash -i|sh -i|nc -e|ncat |socat |mkfifo|169\.254\.169\.254|/latest/meta-data/|/latest/api/token|\| ?sh|\| ?bash|base64 -d|import socket|pty\.spawn|perl -e|ruby -rsocket|php -r|xmrig|minerd|stratum\+|authorized_keys|/etc/cron|crontab ).*"""

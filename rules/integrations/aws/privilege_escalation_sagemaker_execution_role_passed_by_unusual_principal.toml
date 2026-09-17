@@ -2,7 +2,7 @@
 creation_date = "2026/07/13"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/13"
+updated_date = "2026/09/17"
 
 [rule]
 author = ["Elastic"]
@@ -95,7 +95,7 @@ FROM logs-aws.cloudtrail-*
       "CreatePipeline"
     )
     AND event.outcome == "success"
-    AND aws.cloudtrail.user_identity.type != "AWSService"
+    AND (aws.cloudtrail.user_identity.type IS NULL OR aws.cloudtrail.user_identity.type != "AWSService")
 | GROK aws.cloudtrail.request_parameters """.*roleArn=(?<Esql.aws_cloudtrail_request_parameters_role_arn>arn:aws[a-z-]*:iam::[0-9]{12}:role/[^,}]+).*"""
 | WHERE Esql.aws_cloudtrail_request_parameters_role_arn IS NOT NULL
 | EVAL Esql.principal_arn = COALESCE(

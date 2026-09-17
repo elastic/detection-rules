@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure", "endpoint"]
 maturity = "production"
-updated_date = "2026/05/20"
+updated_date = "2026/09/17"
 
 [rule]
 author = ["Elastic"]
@@ -76,7 +76,7 @@ FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _ve
     event.category == "process" AND KQL("event.action:start")
     AND process.parent.name == "powershell.exe"
     AND process.parent.command_line LIKE "powershell  -ExecutionPolicy Unrestricted -File script?.ps1"
-    AND process.name != "conhost.exe"
+    AND (process.name != "conhost.exe" OR process.name IS NULL)
   ) OR
   (
     KQL("event.category:process and event.action:exec and process.parent.name:(dash or bash or sh) and process.parent.args:/var/lib/waagent/run-command/download/*/script.sh")
