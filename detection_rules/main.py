@@ -33,7 +33,6 @@ from .exception import TOMLException, TOMLExceptionContents, build_exception_obj
 from .generic_loader import GenericCollection
 from .misc import (
     add_client,
-    getdefault,
     nested_set,
     parse_user_config,
     raise_client_error,
@@ -495,21 +494,23 @@ def mass_update(
 @root.command("view-rule")
 @click.argument("rule-file", type=Path)
 @click.option("--api-format/--rule-format", default=True, help="Print the rule in final api or rule format")
-@click.option("--esql-remote-validation", is_flag=True, default=False, help="Enable remote validation for the rule")
+@click.option(
+    "--esql-validation",
+    is_flag=True,
+    default=False,
+    help="Run local ES|QL schema and stack-version validation.",
+)
 @click.pass_context
-def view_rule(
-    _: click.Context, rule_file: Path, api_format: str, esql_remote_validation: bool
-) -> TOMLRule | DeprecatedRule:
+def view_rule(_: click.Context, rule_file: Path, api_format: str, esql_validation: bool) -> TOMLRule | DeprecatedRule:
     """View an internal rule or specified rule file."""
     rule = RuleCollection().load_file(rule_file)
     if (
-        esql_remote_validation
+        esql_validation
         and isinstance(rule.contents.data, ESQLRuleData)
         and isinstance(rule.contents.data.validator, ESQLValidator)
         and isinstance(rule.contents.metadata, RuleMeta)
-        and not getdefault("remote_esql_validation")()
     ):
-        rule.contents.data.validator.validate(rule.contents.data, rule.contents.metadata, force_remote_validation=True)
+        rule.contents.data.validator.validate(rule.contents.data, rule.contents.metadata, force_validation=True)
 
     if api_format:
         click.echo(json.dumps(rule.contents.to_api_format(), indent=2, sort_keys=True))

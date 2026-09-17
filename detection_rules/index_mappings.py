@@ -6,35 +6,23 @@
 """Validation logic for rules containing queries."""
 
 import re
-import time
 from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
-from elasticsearch.exceptions import BadRequestError
 from semver import Version
 
-from . import ecs, integrations, misc, utils
+from . import ecs, integrations, utils
 from .config import load_current_package_version
-from .esql import EventDataset
-from .esql_errors import (
-    EsqlKibanaBaseError,
-    EsqlSchemaError,
-    EsqlSyntaxError,
-    EsqlTypeMismatchError,
-    EsqlUnknownIndexError,
-    EsqlUnsupportedTypeError,
-    cleanup_empty_indices,
-)
+from .esql import EventDataset, index_patterns_match, infer_packages_from_indices
+from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
 )
 from .rule import RuleMeta
 from .schemas import get_stack_schemas
-from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
 from .utils import combine_dicts
 
 
@@ -98,47 +86,16 @@ def get_rule_integrations(metadata: RuleMeta) -> list[str]:
     return rule_integrations
 
 
-def create_index_with_index_mapping(
-    elastic_client: Elasticsearch, index_name: str, mappings: dict[str, Any]
-) -> ObjectApiResponse[Any] | None:
-    """Create an index with the specified mappings and settings to support large number of fields and nested objects."""
-    try:
-        return elastic_client.indices.create(
-            index=index_name,
-            mappings={"properties": mappings},
-            settings={
-                "index.mapping.total_fields.limit": 10000,
-                "index.mapping.nested_fields.limit": 500,
-                "index.mapping.nested_objects.limit": 10000,
-            },
-        )
-    except BadRequestError as e:
-        error_message = str(e)
-        if (
-            e.status_code == HTTP_STATUS_BAD_REQUEST
-            and "validation_exception" in error_message
-            and "Validation Failed: 1: this action would add [2] shards" in error_message
-        ):
-            cleanup_empty_indices(elastic_client)
-            try:
-                return elastic_client.indices.create(
-                    index=index_name,
-                    mappings={"properties": mappings},
-                    settings={
-                        "index.mapping.total_fields.limit": 10000,
-                        "index.mapping.nested_fields.limit": 500,
-                        "index.mapping.nested_objects.limit": 10000,
-                    },
-                )
-            except BadRequestError as retry_error:
-                raise EsqlSchemaError(str(retry_error), elastic_client) from retry_error
-        raise EsqlSchemaError(error_message, elastic_client) from e
-
-
-def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+def get_existing_mappings(
+    elastic_client: Elasticsearch | None, indices: list[str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Retrieve mappings for all matching existing index templates."""
+    # When elastic_client is None we skip simulate_index_template entirely; callers
+    # fall back to local integration / ECS / custom schemas.
     existing_mappings: dict[str, Any] = {}
     index_lookup: dict[str, Any] = {}
+    if elastic_client is None:
+        return existing_mappings, index_lookup
     for index in indices:
         index_tmpl_mappings = get_simulated_index_template_mappings(elastic_client, index)
         index_lookup[index] = index_tmpl_mappings
@@ -311,17 +268,20 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
     filtered_keys.update(non_ecs_indices.keys())
     filtered_keys.update(custom_indices.keys())
     filtered_keys.add("logs-endpoint.alerts-*")
+    filtered_keys.add("packetbeat-*")
 
     matches: list[str] = []
+    unknown_indices: list[str] = []
     for index in indices:
-        # Escaped rather than substituted so that an unexpected source, e.g. a parenthesis picked up
-        # from a subquery, raises EsqlUnknownIndexError below instead of an invalid pattern error
-        pattern = re.compile(re.escape(index.rstrip("-")).replace(r"\*", ".*"))
-        matches.extend([key for key in filtered_keys if pattern.fullmatch(key)])
+        index_matches = [key for key in filtered_keys if index_patterns_match(index, key)]
+        if not index_matches:
+            unknown_indices.append(index)
+        matches.extend(index_matches)
 
-    if not matches:
+    if unknown_indices:
+        known_patterns = ", ".join(sorted(filtered_keys))
         raise EsqlUnknownIndexError(
-            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(filtered_keys)}"
+            f"Unknown index pattern(s): {', '.join(unknown_indices)}. Known patterns: {known_patterns}"
         )
 
     if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
@@ -362,67 +322,6 @@ def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
             filtered_index_mapping[match] = filtered_index_lookup.get(match, {})
 
     return combined_mappings, filtered_index_mapping
-
-
-def create_remote_indices(
-    elastic_client: Elasticsearch,
-    existing_mappings: dict[str, Any],
-    index_lookup: dict[str, Any],
-    log: Callable[[str], None],
-    name_suffix: str = "",
-) -> str:
-    """Create remote indices for validation and return the index string."""
-
-    # A rule prepares one set of indices per FROM clause, and those sets can be created within the
-    # same millisecond, so the caller passes a suffix to keep the index names distinct
-    suffix = f"{int(time.time() * 1000)}{name_suffix}"
-    test_index = f"rule-test-index-{suffix}"
-    response = create_index_with_index_mapping(elastic_client, test_index, existing_mappings)
-    log(f"Index `{test_index}` created: {response}")
-    full_index_str = test_index
-
-    # create all integration indices
-    for index, properties in index_lookup.items():
-        ind_index_str = f"test-{index.rstrip('*')}{suffix}"
-        response = create_index_with_index_mapping(elastic_client, ind_index_str, properties)
-        log(f"Index `{ind_index_str}` created: {response}")
-        full_index_str = f"{full_index_str}, {ind_index_str}"
-
-    return full_index_str
-
-
-def execute_query_against_indices(
-    elastic_client: Elasticsearch,
-    query: str,
-    test_index_str: str,
-    log: Callable[[str], None],
-    delete_indices: bool = True,
-) -> tuple[list[Any], ObjectApiResponse[Any]]:
-    """Execute the ESQL query against the test indices on a remote Stack and return the columns."""
-    try:
-        log(f"Executing a query against `{test_index_str}`")
-        response = elastic_client.esql.query(query=query)
-        log(f"Got query response: {response}")
-        query_columns = response.get("columns", [])
-    except BadRequestError as e:
-        error_msg = str(e)
-        if "parsing_exception" in error_msg:
-            raise EsqlSyntaxError(str(e), elastic_client) from None
-        if "Unknown column" in error_msg:
-            raise EsqlSchemaError(str(e), elastic_client) from None
-        if "verification_exception" in error_msg and "unsupported type" in error_msg:
-            raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
-        if "verification_exception" in error_msg:
-            raise EsqlTypeMismatchError(str(e), elastic_client) from None
-        raise EsqlKibanaBaseError(str(e), elastic_client) from None
-    if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
-        for index_str in test_index_str.split(","):
-            response = elastic_client.indices.delete(index=index_str.strip())
-            log(f"Test index `{index_str}` deleted: {response}")
-
-    query_column_names = [c["name"] for c in query_columns]
-    log(f"Got query columns: {', '.join(query_column_names)}")
-    return query_columns, response
 
 
 def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any]:
@@ -594,7 +493,7 @@ def get_ecs_schema_mappings(
 
 
 def prepare_mappings(  # noqa: PLR0913, PLR0917
-    elastic_client: Elasticsearch,
+    elastic_client: Elasticsearch | None,
     indices: list[str],
     event_dataset_integrations: list[EventDataset],
     metadata: RuleMeta,
@@ -602,10 +501,15 @@ def prepare_mappings(  # noqa: PLR0913, PLR0917
     log: Callable[[str], None],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Prepare index mappings for the given indices and rule integrations."""
+    # When elastic_client is None, get_existing_mappings returns empty and we rely
+    # solely on local integration, ECS, non-ECS and custom schemas below.
     existing_mappings, index_lookup = get_existing_mappings(elastic_client, indices)
 
     # Collect mappings for the integrations
     rule_integrations = get_rule_integrations(metadata)
+    for package in infer_packages_from_indices(indices):
+        if package not in rule_integrations:
+            rule_integrations.append(package)
 
     # Collect mappings for all relevant integrations for the given stack version
     package_manifests = load_integrations_manifests()

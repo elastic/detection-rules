@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import eql  # type: ignore[reportMissingTypeStubs]
+import esql
 import kql  # type: ignore[reportMissingTypeStubs]
 import marshmallow
 from marko.block import Document as MarkoDocument
@@ -29,8 +30,8 @@ from semver import Version
 
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
-from .esql import get_esql_query_event_dataset_integrations
-from .esql_errors import EsqlSemanticError
+from .esql import get_esql_query_event_dataset_integrations, parse_esql_query
+from .esql_errors import EsqlSemanticError, EsqlSyntaxError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     IntegrationVersionNotFoundError,
@@ -1052,27 +1053,20 @@ class ESQLRuleData(QueryRuleData):
         if data.get("index"):
             raise EsqlSemanticError("Index is not a valid field for ES|QL rule type.")
 
-        # Convert the query string to lowercase to handle case insensitivity
-        query_lower = data["query"].lower()
+        try:
+            tree = parse_esql_query(data["query"])
+        except esql.EsqlSyntaxError as exc:
+            raise EsqlSyntaxError(str(exc)) from exc
 
-        # Combine both patterns using an OR operator and compile the regex.
-        # The first part matches the metadata fields in the from clause by allowing one or
-        # multiple indices and any order of the metadata fields
-        # The second part matches the stats command with the by clause
-        combined_pattern = re.compile(
-            r"(from\s+(?:\S+\s*,\s*)*\S+\s+metadata\s+"
-            r"(?:_id|_version|_index)(?:,\s*(?:_id|_version|_index)){2})"
-            r"|(\bstats\b.*?\bby\b)",
-            re.DOTALL,
-        )
+        required_metadata = {"_id", "_version", "_index"}
 
         # Ensure that non-aggregate queries have metadata
-        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None:
+        if os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is None and not esql.is_aggregate_query(tree):
             bypass_metadata_hint = (
                 " To bypass ES|QL `FROM` metadata validation, set the environment variable "
                 "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
             )
-            if not combined_pattern.search(query_lower):
+            if not required_metadata.issubset(set(esql.get_metadata_fields(tree))):
                 raise EsqlSemanticError(
                     f"Rule: {data['name']} contains a non-aggregate query without"
                     f" metadata fields '_id', '_version', and '_index' ->"
@@ -1085,31 +1079,24 @@ class ESQLRuleData(QueryRuleData):
             bypass_keep_hint = (
                 " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
             )
-            # Match | followed by optional whitespace/newlines and then 'keep'
-            keep_pattern = re.compile(r"\|\s*keep\b\s+([^\|]+)", re.IGNORECASE | re.DOTALL)
-            keep_matches = list(keep_pattern.finditer(query_lower))
-            if not keep_matches:
+            if not esql.has_keep(tree):
                 raise EsqlSemanticError(
                     f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
                     + bypass_keep_hint
                 )
 
             # Ensure that keep clause includes metadata fields on non-aggregate queries
-            aggregate_pattern = re.compile(
-                r"\|\s*stats\b(?:\s+([^\|]+?))?(?:\s+by\s+([^\|]+))?", re.IGNORECASE | re.DOTALL
-            )
-            if not aggregate_pattern.search(query_lower):
-                for keep_match in keep_matches:
-                    raw_keep = re.sub(r"//.*", "", keep_match.group(1))
-                    keep_fields = [field.strip() for field in raw_keep.split(",") if field.strip()]
-                    if "*" not in keep_fields:
-                        required_metadata = {"_id", "_version", "_index"}
-                        if not required_metadata.issubset(set(map(str.strip, keep_fields))):
-                            raise EsqlSemanticError(
-                                f"Rule: {data['name']} contains a keep clause without"
-                                f" metadata fields '_id', '_version', and '_index' ->"
-                                f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
-                            )
+            keep_columns = set(esql.get_keep_columns(tree))
+            if (
+                not esql.is_aggregate_query(tree)
+                and "*" not in keep_columns
+                and not required_metadata.issubset(keep_columns)
+            ):
+                raise EsqlSemanticError(
+                    f"Rule: {data['name']} contains a keep clause without"
+                    f" metadata fields '_id', '_version', and '_index' ->"
+                    f" Add '_id', '_version', '_index' to the keep command." + bypass_keep_hint
+                )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -2095,7 +2082,7 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     contents = rule.contents.to_api_format()
     language = contents.get("language")
     query = contents.get("query")
-    if language not in ("kuery", "eql"):
+    if language not in ("kuery", "eql", "esql"):
         return None
 
     # remove once py-eql supports ipv6 for cidrmatch
@@ -2103,6 +2090,12 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     min_stack_version = rule.contents.metadata.get("min_stack_version")
     if not min_stack_version:
         raise ValueError("Min stack version not found")
+
+    if language == "esql":
+        if not query:
+            raise ValueError("ES|QL rule is missing a query")
+        return sorted(esql.get_unique_fields(parse_esql_query(query, min_stack_version)))
+
     cfg = set_eql_config(min_stack_version)
     with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions, eql.parser.skip_optimizations, cfg:
         if language == "kuery":
