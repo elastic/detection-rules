@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/09/18"
+integration = ["endpoint", "auditd_manager", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/09/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects on-host compilation of eBPF bytecode via clang targeting the BPF backend. This covers both the two-token form
+(`-target bpf`) and the single-token forms (`--target=bpf`, `-target=bpf`), as well as the little-endian (`bpfel`) and
+big-endian (`bpfeb`) variants. eBPF-based rootkits and reconnaissance tooling commonly compile their kernel-side
+component directly on the victim host rather than shipping a prebuilt object file, making on-host BPF compilation a
+useful signal for detecting compile-after-delivery activity. While legitimate observability and networking tooling also
+compiles eBPF programs on-host, unexpected compilation outside of known CI/CD or development workflows may warrant
+investigation.
+"""
+false_positives = [
+    """
+    Legitimate eBPF-based observability or networking agents (e.g., Cilium, Falco, bcc tools) may compile BPF programs
+    on first run or after upgrades. Verify whether the process is part of a known, approved tooling stack.
+    """,
+    """
+    CI/CD build systems or developer workstations where eBPF development is expected. Exclude specific hosts, users, or
+    parent processes associated with authorized build pipelines.
+    """,
+    """
+    Kernel or eBPF developers compiling and testing BPF programs as part of their normal workflow. Consider excluding
+    known development user accounts or working directories.
+    """,
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-auditd_manager.auditd-*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "On-Host eBPF Bytecode Compilation"
+note = """## Triage and analysis
+
+### Investigating On-Host eBPF Bytecode Compilation
+
+This rule detects `clang` invocations that target the BPF backend, which compiles C source code into eBPF bytecode object files. Adversaries use this technique to build kernel-side eBPF components directly on a compromised host, avoiding detection of prebuilt binaries by hash or signature. The compiled object is typically loaded into the kernel via `bpf()` syscall or `bpftool` to implement rootkit functionality, traffic manipulation, or stealthy data collection.
+
+The rule covers both the two-token argument form (`-target bpf`) and the single-token forms (`--target=bpf`, `-target=bpf`), as well as the `bpfel` (little-endian) and `bpfeb` (big-endian) target variants. This breadth is important because all three forms are accepted by clang, and a rule matching only one form would miss the others.
+
+### Possible investigation steps
+
+- Review the full command line, parent process, user context, and working directory to determine whether compilation was part of an authorized development or build workflow or an unexpected interactive session.
+- Identify the source file being compiled (the `.bpf.c` or `.c` file in the arguments) and retrieve its contents for analysis to assess whether the BPF program is benign observability tooling or potentially malicious.
+- Check for follow-on activity such as `bpftool prog load`, `bpf()` syscall invocations, or writes to `/sys/fs/bpf` that would indicate the compiled object was loaded into the kernel.
+- Correlate with file creation events for `.bpf.o` or `.o` output files in the same working directory and check whether those files were subsequently executed or loaded.
+- Investigate whether the host has legitimate eBPF tooling installed (Cilium, Falco, bcc, libbpf) and whether the compilation is consistent with those tools' expected behavior.
+
+### False positive analysis
+
+- A system running eBPF-based observability or CNI networking (e.g., Cilium, Calico with eBPF, Falco) may compile BPF programs during initial deployment, upgrades, or configuration changes. Validate against the host's known role and installed packages.
+- Developer workstations or CI/CD runners building eBPF projects will trigger this rule as expected. Exclude these hosts or users if compilation is a routine, authorized activity.
+
+### Response and remediation
+
+- Immediately isolate the host from the network if on-host eBPF compilation is unexpected, and preserve the source file, compiled object, and full process tree for forensic analysis.
+- Check for loaded eBPF programs using `bpftool prog show` and `bpftool link show`, and inspect pinned objects under `/sys/fs/bpf` to determine whether the compiled program was loaded into the kernel.
+- Remove any suspicious compiled `.bpf.o` files and their source code, detach and unpin any loaded programs, and verify that no persistence mechanism (systemd unit, cron, init script) would reload them after cleanup.
+- Escalate to incident response if the compiled BPF program attaches to security-relevant hooks (kprobes, tracepoints, LSM, XDP, TC) or if the source code implements rootkit-like behavior such as process hiding, file hiding, or network traffic interception.
+- Harden by restricting `clang` and BPF development toolchain availability on production hosts, enforcing least-privilege for `CAP_BPF`/`CAP_SYS_ADMIN`, and requiring signed or managed eBPF loaders."""
+references = [
+    "https://clang.llvm.org/docs/CommandGuide/clang.html",
+    "https://ebpf.io/what-is-ebpf/",
+    "https://attack.mitre.org/techniques/T1027/004/",
+]
+risk_score = 47
+rule_id = "f2e78c1a-8b6d-4a0e-b9a5-3d7c6e8f1a2b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Rootkit",
+    "Data Source: Elastic Endgame",
+    "Data Source: Elastic Defend",
+    "Data Source: Auditd Manager",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.name like "clang*" and (
+  (process.args == "-target" and process.args in ("bpf", "bpfel", "bpfeb")) or
+  process.args like ("*-target=bpf", "*-target=bpf-*", "*-target=bpfel", "*-target=bpfel-*", "*-target=bpfeb", "*-target=bpfeb-*")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1014"
+name = "Rootkit"
+reference = "https://attack.mitre.org/techniques/T1014/"
+
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1027.004"
+name = "Compile After Delivery"
+reference = "https://attack.mitre.org/techniques/T1027/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
