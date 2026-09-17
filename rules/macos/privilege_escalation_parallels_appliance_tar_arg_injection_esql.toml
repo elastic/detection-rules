@@ -1,0 +1,99 @@
+[metadata]
+creation_date = "2026/09/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the Parallels Desktop root dispatcher (prl_disp_service) spawning tar/bsdtar with an external program flag (--use-compress-program or -I).
+On macOS this flag causes tar to execute an arbitrary program as root. The legitimate appliance-extract flow never passes it,
+so its presence under this parent indicates argument injection and local privilege escalation (CVE-2026-90894, Parallels Desktop < 27.0.0).
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Privilege Escalation via Parallels Appliance Extract Argument Injection (ES|QL)"
+note = """## Triage and analysis
+
+### Investigating Privilege Escalation via Parallels Appliance Extract Argument Injection
+
+Parallels Desktop runs prl_disp_service as root and exposes a world-writable socket that any local account can
+reach without admin rights. On builds before 27.0.0 the appliance-install path re-tokenizes a tar command
+string, letting an attacker-controlled folder name inject additional tar flags. A --use-compress-program value
+pointing at an attacker-writable path (commonly /tmp) is executed as root.
+
+- Review process.args for the injected flag and the program it points to; a path under /tmp, /var/tmp, or a
+user-writable location is a strong signal of exploitation.
+- Inspect the child process the injected program spawned (parent tar/bsdtar, running as root) and any files it
+created or modified.
+- Confirm the host's Parallels version; builds on the 26.x line remain affected.
+
+### Response and remediation
+
+- Isolate the host and terminate the injected program and any root children it spawned.
+- Upgrade Parallels Desktop to 27.0.0 or later; on hosts still on 26.x, restrict local login as an interim
+control since any local account can reach the dispatcher socket.
+"""
+references = [
+    "https://research.jfrog.com/vulnerabilities/parallels-desktop-is-vulnerable-to-a-local-privilege-escalation-via-appliance-extract-argument-injection-cve-2026-90894/",
+    "https://www.cve.org/CVERecord?id=CVE-2026-90894",
+]
+risk_score = 73
+rule_id = "448dbe05-07b1-46bb-b3e3-ac9790387948"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Use Case: Vulnerability",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.* metadata _id, _version, _index
+| WHERE host.os.type == "macos"
+    AND process.parent.name == "prl_disp_service"
+    AND process.name IN ("tar", "bsdtar")
+| EVAL action_str = MV_CONCAT(event.action, ","), args_str = MV_CONCAT(process.args, " ")
+| WHERE action_str LIKE "*exec*"
+    AND (
+      args_str LIKE "*--use-compress-program*"
+      OR args_str LIKE "* -I *"
+      OR args_str LIKE "* -I"
+    )
+| KEEP _id, _version, _index, @timestamp, host.name, user.name, process.name, process.parent.name, process.executable, process.args, event.action
+| SORT @timestamp DESC
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1068"
+name = "Exploitation for Privilege Escalation"
+reference = "https://attack.mitre.org/techniques/T1068/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1202"
+name = "Indirect Command Execution"
+reference = "https://attack.mitre.org/techniques/T1202/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
