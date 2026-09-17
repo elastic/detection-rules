@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "pfsense", "zeek"]
 maturity = "production"
-updated_date = "2026/09/03"
+updated_date = "2026/09/17"
 
 [rule]
 author = ["Elastic"]
@@ -65,7 +65,7 @@ FROM packetbeat-*, auditbeat-*, filebeat-*, logs-network_traffic.flow-*, logs-pa
     data_stream.dataset IS NULL
     OR data_stream.dataset != "panw.panos"
     OR event.action IS NULL
-    OR event.action NOT IN ("flow_dropped", "flow_denied")
+    OR event.action NOT IN ("flow_dropped", "flow_denied", "flow_terminated")
   )
 | EVAL Esql.dataset = COALESCE(data_stream.dataset, event.dataset)
 | STATS
@@ -150,4 +150,3 @@ reference = "https://attack.mitre.org/techniques/T1573/"
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
-
