@@ -13,7 +13,7 @@ from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
 
 from . import ast
-from .analyzer import analyze
+from .analyzer import analyze, check_catalog_names
 from .ast_builder import build_ast
 from .errors import EsqlNestedQueryError, EsqlSyntaxError
 from .grammar_registry import build_esql_config, get_grammar_module
@@ -101,8 +101,11 @@ def parse_query(text: str) -> ast.EsqlQuery:
     schema = get_config_value("schema")
     if isinstance(schema, Schema):
         # Always analyze under a Schema: allow_missing only relaxes index-field
-        # lookups; KEEP/DROP/STATS column visibility still applies.
+        # lookups; KEEP/DROP/STATS column visibility still applies. Function
+        # name/arity still run when a real ES catalog exists for this stack.
         analyze(result, schema)
+    else:
+        check_catalog_names(result)
     validate_nested_queries(result)
     return result
 

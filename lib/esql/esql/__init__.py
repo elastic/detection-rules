@@ -6,7 +6,7 @@
 """Offline ES|QL parser and AST for Elastic Security detection-rules."""
 
 from . import ast
-from .analyzer import analyze, infer_column_types
+from .analyzer import analyze, check_catalog_names, infer_column_types
 from .errors import (
     EsqlError,
     EsqlNestedQueryError,
@@ -23,6 +23,8 @@ from .functions import (
     NESTED_QUERY_FUNCTIONS,
     FunctionSignature,
     get_signature,
+    has_function_catalog,
+    is_known_command,
     is_known_function,
 )
 from .parser import parse_expression, parse_query, render, validate_nested_queries
@@ -80,9 +82,12 @@ __all__ = (
     "Schema",
     "Walker",
     "analyze",
+    "check_catalog_names",
     "comparison_family",
     "get_signature",
+    "has_function_catalog",
     "infer_column_types",
+    "is_known_command",
     "is_known_function",
     "ast",
     "types_comparable",

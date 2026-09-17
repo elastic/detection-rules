@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 __all__ = (
-    "EXTRA_KNOWN_FUNCTIONS",
+    "FUNCTION_ALIASES",
     "NESTED_QUERY_FUNCTION_NAMES",
     "SIGNATURE_OVERRIDE_SPECS",
 )
@@ -25,9 +25,18 @@ __all__ = (
 # Force nested-query treatment regardless of generated metadata.
 NESTED_QUERY_FUNCTION_NAMES: frozenset[str] = frozenset({"kql", "eql"})
 
-# Names treated as known even when absent from a given stack's generated map
-# (constants / legacy aliases).
-EXTRA_KNOWN_FUNCTIONS: frozenset[str] = frozenset({"e", "pi", "point", "host"})
+# Engine aliases omitted from kibana/generated canonical names. Map to the
+# catalog entry; do not invent a second signature.
+FUNCTION_ALIASES: dict[str, str] = {
+    "to_int": "to_integer",
+    "to_bool": "to_boolean",
+    "to_str": "to_string",
+    "to_char": "to_string",
+    "to_dt": "to_datetime",
+    "to_ul": "to_unsigned_long",
+    "to_ulong": "to_unsigned_long",
+    "to_ver": "to_version",
+}
 
 # Intentional arity / family tweaks. `eql` is not always in kibana/generated.
 SIGNATURE_OVERRIDE_SPECS: dict[str, dict[str, Any]] = {

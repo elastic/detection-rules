@@ -5,9 +5,9 @@
 
 """Semantic analysis: schema validation, column tracking, and type checks.
 
-When `Schema(allow_missing=False)` is active, expression types are checked for
-arithmetic, comparisons (`==` / ordering), `IN`, and string predicates
-(`LIKE` / `RLIKE` / `MATCH`).
+`allow_missing=True` only relaxes index-field lookups. Function name/arity and
+unrecognized commands still run when this stack has a real ES catalog.
+Argument types and unknown fields require `allow_missing=False`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from collections.abc import Iterator
 
 from . import ast
 from .errors import EsqlSchemaError, EsqlSemanticError, EsqlTypeMismatchError
-from .functions import get_signature
+from .functions import get_signature, has_function_catalog, is_known_command, is_known_function
 from .schema import Schema
 from .types import (
     comparison_family,
@@ -29,7 +29,7 @@ from .types import (
 )
 from .walkers import get_defined_columns
 
-__all__ = ("analyze", "infer_column_types")
+__all__ = ("analyze", "check_catalog_names", "infer_column_types")
 
 _SKIP_FIELDS = frozenset({"_id", "_version", "_index", "_source", "_ignored", "_score"})
 _SKIP_PREFIXES = ("Esql.", "Esql_priv.", "?")
@@ -37,7 +37,7 @@ _ARITH_OPS = frozenset({"+", "-", "*", "/", "%"})
 _EQ_OPS = frozenset({"==", "!=", "is", "is not"})
 _ORDER_OPS = frozenset({"<", "<=", ">", ">="})
 _IN_OPS = frozenset({"in", "not_in"})
-_STRING_PREDICATES = frozenset({"like", "rlike", "match"})
+_STRING_PREDICATES = frozenset({"like", "rlike", "match", "not_like", "not_rlike", "not_match"})
 _BOOL_OPS = frozenset({"and", "or"})
 _BOOLEAN_GROUPS = frozenset({"boolean"})
 
@@ -80,6 +80,7 @@ def analyze(tree: ast.EsqlQuery, schema: Schema) -> None:
     # Walk the pipe in order so KEEP/DROP/STATS narrow (or replace) available
     # columns for later commands — matching ES|QL runtime column visibility.
     _validate_pipeline_columns(tree, schema)
+    check_catalog_names(tree)
 
     if schema.allow_missing:
         return
@@ -427,15 +428,43 @@ def _walk_skip_nested_from_queries(node: ast.BaseNode) -> Iterator[ast.BaseNode]
             yield from _walk_skip_nested_from_queries(child)
 
 
+def check_catalog_names(tree: ast.EsqlQuery) -> None:
+    """Reject unknown functions/commands when this stack has a real ES catalog.
+
+    Missing-catalog stacks (no kibana/generated at that ref) skip these checks
+    rather than inherit another stack's map.
+    """
+    for cmd in tree.commands:
+        if isinstance(cmd, ast.GenericCommand):
+            _check_generic_command(cmd)
+        if isinstance(cmd, ast.FromCommand):
+            for src in cmd.sources:
+                if isinstance(src, ast.EsqlQuery):
+                    check_catalog_names(src)
+        elif isinstance(cmd, ast.ForkCommand):
+            for branch in cmd.branches:
+                check_catalog_names(branch)
+
+    if not has_function_catalog():
+        return
+    for node in _iter_pipeline_nodes(tree):
+        if isinstance(node, ast.FunctionCall):
+            _check_function_name_and_arity(node, check_arg_types=False)
+
+
+def _check_generic_command(cmd: ast.GenericCommand) -> None:
+    name = (cmd.name or "").lower()
+    if name in {"", "unknown"} or not is_known_command(name):
+        raise EsqlSemanticError(
+            f"Unsupported or unrecognized command {cmd.name!r}",
+            line=cmd.line or 0,
+            column=cmd.column or 0,
+            source=cmd.name,
+        )
+
+
 def _check_commands(tree: ast.EsqlQuery, schema: Schema, defined: set[str]) -> None:
     for cmd in tree.commands:
-        if isinstance(cmd, ast.GenericCommand) and cmd.name in {"", "unknown"}:
-            raise EsqlSemanticError(
-                f"Unsupported or unrecognized command {cmd.name!r}",
-                line=cmd.line or 0,
-                column=cmd.column or 0,
-                source=cmd.name,
-            )
         if isinstance(cmd, ast.EnrichCommand) and cmd.match_field:
             _require_known_field(cmd.match_field, schema, defined, cmd.line, cmd.column)
         if isinstance(cmd, ast.JoinCommand):
@@ -487,7 +516,7 @@ def _check_expression_types(
                 _require_boolean_context(node.args[0], schema, column_types, "NOT")
             if fname in _STRING_PREDICATES:
                 _check_string_predicate(node, schema, column_types)
-            _check_function_signature(node, schema, column_types)
+            _check_function_name_and_arity(node, check_arg_types=True, schema=schema, column_types=column_types)
 
 
 def _require_boolean_context(
@@ -508,17 +537,28 @@ def _require_boolean_context(
         )
 
 
-def _check_function_signature(
+def _check_function_name_and_arity(
     node: ast.FunctionCall,
-    schema: Schema,
-    column_types: dict[str, str],
+    *,
+    check_arg_types: bool,
+    schema: Schema | None = None,
+    column_types: dict[str, str] | None = None,
 ) -> None:
     fname = node.name.lower()
     if fname in {"__values__", "is_null", "is_not_null", "not"} or fname in _STRING_PREDICATES:
         return
+    if not has_function_catalog():
+        return
     sig = get_signature(fname)
     if sig is None:
-        return
+        if is_known_function(fname):
+            return
+        raise EsqlSemanticError(
+            f"Unknown function {fname.upper()}()",
+            line=node.line or 0,
+            column=node.column or 0,
+            source=fname,
+        )
     argc = len(node.args)
     if argc < sig.min_args:
         raise EsqlTypeMismatchError(
@@ -534,7 +574,7 @@ def _check_function_signature(
             column=node.column or 0,
             source=fname,
         )
-    if not sig.arg_groups:
+    if not check_arg_types or schema is None or column_types is None or not sig.arg_groups:
         return
     for index, arg in enumerate(node.args):
         group_index = min(index, len(sig.arg_groups) - 1)

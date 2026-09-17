@@ -44,11 +44,15 @@ ESQL_FEATURES: dict[str, FeatureRange] = {
 
 
 def feature_available(name: str, stack_version: str | Version) -> bool:
-    """Return True when *name* is available at *stack_version*."""
+    """Return True when *name* is in `ESQL_FEATURES` and in range for *stack_version*.
+
+    Unknown feature names are unavailable (fail closed). Add the name to
+    `ESQL_FEATURES` before mapping a command to it.
+    """
     version = Version.parse(stack_version)
     spec = ESQL_FEATURES.get(name)
     if spec is None:
-        return True
+        return False
     if version < spec.introduced:
         return False
     if spec.removed is not None and version >= spec.removed:
