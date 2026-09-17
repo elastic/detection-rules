@@ -57,18 +57,15 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-endpoint.events.* metadata _id, _version, _index
+FROM logs-endpoint.events.process-* metadata _id, _version, _index
 | WHERE host.os.type == "macos"
     AND process.parent.name == "prl_disp_service"
     AND process.name IN ("tar", "bsdtar")
-| EVAL action_str = MV_CONCAT(event.action, ","), args_str = MV_CONCAT(process.args, " ")
-| WHERE action_str LIKE "*exec*"
-    AND (
-      args_str LIKE "*--use-compress-program*"
-      OR args_str LIKE "* -I *"
-      OR args_str LIKE "* -I"
-    )
-| KEEP _id, _version, _index, @timestamp, host.name, user.name, process.name, process.parent.name, process.executable, process.args, event.action
+| MV_EXPAND event.action
+| WHERE event.action == "exec"
+| MV_EXPAND process.args
+| WHERE process.args LIKE "--use-compress-program*" OR process.args == "-I"
+| KEEP _id, _version, _index, @timestamp, host.name, user.name, process.name, process.parent.name, process.args
 | SORT @timestamp DESC
 '''
 
