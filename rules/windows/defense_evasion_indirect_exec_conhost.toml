@@ -2,7 +2,7 @@
 creation_date = "2025/08/21"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/04/29"
+updated_date = "2026/09/15"
 
 [rule]
 author = ["Elastic"]
@@ -55,14 +55,14 @@ process where host.os.type == "windows" and event.type == "start" and
   ) and
   not (
     /* Winget-AutoUpdate via ServiceUI */
-    process.parent.executable : "?:\\Program Files\\winget-autoupdate*\\serviceui.exe" or
+    ?process.parent.executable : "?:\\Program Files\\winget-autoupdate*\\serviceui.exe" or
     /* Winget-AutoUpdate notification via Task Scheduler */
     (
-      process.parent.executable : "?:\\Windows\\System32\\svchost.exe" and process.parent.args : "-s" and
-      process.parent.args : "Schedule" and process.command_line : "*WAU-Notify.ps1*"
+      ?process.parent.executable : "?:\\Windows\\System32\\svchost.exe" and ?process.parent.args : "-s" and
+      ?process.parent.args : "Schedule" and process.command_line : "*WAU-Notify.ps1*"
     ) or
     /* Windows OpenSSH console host — SSH-specific detection handled by 8cd49fbc-a35a-4418-8688-133cc3a1e548 */
-    process.parent.executable : (
+    ?process.parent.executable : (
       "?:\\Windows\\System32\\OpenSSH\\sshd.exe",
       "?:\\Windows\\System32\\OpenSSH\\sshd-session.exe",
       "?:\\Program Files\\OpenSSH*\\sshd.exe",
