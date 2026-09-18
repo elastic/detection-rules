@@ -9,8 +9,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from detection_rules.attack import CURRENT_ATTACK_VERSION
-from detection_rules.navigator import Navigator, NavigatorBuilder, sanitize_navigator_name
+from detection_rules.navigator import NavigatorBuilder, sanitize_navigator_name
 
 
 class TestNavigatorNames(unittest.TestCase):
@@ -27,16 +26,14 @@ class TestNavigatorNames(unittest.TestCase):
         )
 
     def test_save_slash_tag_does_not_create_nested_directory(self) -> None:
-        built = Navigator.from_dict(
-            {
-                "name": "Elastic-detection-rules-tags-lnk/shortcut-abuse",
-                "techniques": [],
-                "versions": {"attack": CURRENT_ATTACK_VERSION},
-            }
-        )
+        builder = NavigatorBuilder([])
+        builder.layers["tags"]["lnk/shortcut-abuse"]["defense evasion"]["T1204"] = {
+            "metadata": [{"name": "test", "value": "id"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
         with TemporaryDirectory() as tmp:
             directory = Path(tmp)
-            path = NavigatorBuilder._save(built, directory, verbose=False)
+            path, _built = builder.save_layer("tags", directory, layer_key="lnk/shortcut-abuse", verbose=False)
             self.assertEqual(path.parent, directory)
             self.assertEqual(path.name, "Elastic-detection-rules-tags-lnk-shortcut-abuse.json")
             self.assertTrue(path.is_file())
