@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/12"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first successful creation of a Model Context Protocol (MCP) server integration name in an Anthropic
+organization within the rule history window. MCP servers add external data pathways into Claude and can expose
+organizational data to third-party infrastructure. This is a New Terms rule keyed on `organization.id` and
+`anthropic.audit.mcp_server_name` so the same connector name can still alert in another tenant, while routine
+re-creation of an already-seen name in the same organization does not.
+"""
+false_positives = [
+    """
+    Teams enable approved MCP connectors for data platforms, ticketing systems, and internal tools during Claude
+    rollouts. Validate the server name, actor, and whether the integration matches an approved request.
+    """,
+]
+from = "now-9m"
+index = ["logs-anthropic.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Anthropic MCP Server Created"
+note = """## Triage and analysis
+
+### Investigating Anthropic MCP Server Created
+
+This is a first-seen (new_terms) signal keyed on **`organization.id`** plus
+**`anthropic.audit.mcp_server_name`** for successful `mcp_server_created` events. Each alert means that MCP
+server name was not observed in this organization during the rule history window. Pair with data export, public
+artifact sharing, or privilege changes from the same actor or organization when the name or actor is unexpected.
+
+#### Possible investigation steps
+
+- Review `anthropic.audit.mcp_server_name`, `anthropic.audit.mcp_server_id`, and `anthropic.audit.actor.type`.
+- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
+- Determine whether the actor has created other MCP servers before or is an external contractor.
+- Search for related `mcp_server_updated` or `mcp_server_deleted` events for the same `anthropic.audit.mcp_server_id`.
+- Search for related data exports, artifact sharing changes, or admin role grants in the same window.
+
+### False positive analysis
+
+- MCP adoption during Claude pilots commonly produces first-seen server names from platform or integration teams.
+- Confirm the connector name against approved integration inventory before escalating.
+
+### Response and remediation
+
+- If unauthorized, remove the MCP server and review data accessed through the connector.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "e3acc6d4-cd6e-4748-baeb-1c57a0f37635"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Tactic: Persistence",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "anthropic.audit" and
+    event.category: "configuration" and
+    event.action: "mcp_server_created" and
+    event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1176"
+name = "Software Extensions"
+reference = "https://attack.mitre.org/techniques/T1176/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.mcp_server_id",
+    "anthropic.audit.mcp_server_name",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["organization.id", "anthropic.audit.mcp_server_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
