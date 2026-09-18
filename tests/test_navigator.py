@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from detection_rules.navigator import NavigatorBuilder, sanitize_navigator_name
+from detection_rules.navigator import NavigatorBuilder, navigator_layer_path, sanitize_navigator_name
 
 
 class TestNavigatorNames(unittest.TestCase):
@@ -53,3 +53,30 @@ class TestNavigatorNames(unittest.TestCase):
             builder.save_all(Path(tmp), verbose=False)
         self.assertIn("collide after sanitization", str(ctx.exception))
         self.assertIn("lnk-shortcut-abuse.json", str(ctx.exception))
+
+    def test_save_dotted_index_keeps_full_name(self) -> None:
+        builder = NavigatorBuilder([])
+        technique = {
+            "metadata": [{"name": "test", "value": "id"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
+        builder.layers["indexes"]["logs-endpoint.events.*"]["defense evasion"]["T1204"] = technique
+        builder.layers["indexes"]["logs-endpoint.events.process-*"]["defense evasion"]["T1204"] = {
+            "metadata": [{"name": "other", "value": "id2"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            paths = builder.save_all(directory, verbose=False)
+            names = {path.name for path in paths}
+            wildcard = "Elastic-detection-rules-indexes-logs-endpoint.events.WILDCARD.json"
+            process = "Elastic-detection-rules-indexes-logs-endpoint.events.process-WILDCARD.json"
+            self.assertEqual(names, {wildcard, process})
+            self.assertTrue((directory / wildcard).is_file())
+            self.assertTrue((directory / process).is_file())
+
+    def test_layer_path_appends_json_after_dots(self) -> None:
+        dotted = "Elastic-detection-rules-indexes-logs-endpoint.events.WILDCARD"
+        path = navigator_layer_path(Path("/tmp"), dotted)
+        self.assertEqual(path.name, f"{dotted}.json")
+        self.assertNotEqual(Path(dotted).with_suffix(".json").name, path.name)

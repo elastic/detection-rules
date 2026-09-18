@@ -134,6 +134,11 @@ def sanitize_navigator_name(name: str) -> str:
     return name.replace("*", "WILDCARD").replace("/", "-").replace("\\", "-")
 
 
+def navigator_layer_path(directory: Path, name: str) -> Path:
+    """Build a layer JSON path without treating dots in the name as a suffix."""
+    return directory / f"{sanitize_navigator_name(name)}.json"
+
+
 class NavigatorBuilder:
     """Rule navigator mappings and management."""
 
@@ -268,7 +273,7 @@ class NavigatorBuilder:
 
     @staticmethod
     def _save(built: Navigator, directory: Path, verbose: bool = True) -> Path:
-        path = directory.joinpath(sanitize_navigator_name(built.name)).with_suffix(".json")
+        path = navigator_layer_path(directory, built.name)
         path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(json.dumps(built.to_dict(), indent=2))
 
@@ -291,7 +296,7 @@ class NavigatorBuilder:
         built_layers = self.build_all()
         output_names: dict[str, list[str]] = {}
         for built in built_layers:
-            filename = f"{sanitize_navigator_name(built.name)}.json"
+            filename = navigator_layer_path(directory, built.name).name
             output_names.setdefault(filename, []).append(built.name)
 
         collisions = {name: originals for name, originals in output_names.items() if len(originals) > 1}
