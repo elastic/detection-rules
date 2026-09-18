@@ -214,6 +214,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Rapid7 Threat Command",
     "Data Source: SentinelOne",
     "Data Source: SonicWall",
+    "Data Source: SonicWall Firewall Logs",
     "Data Source: Splunk",
     "Data Source: Suricata",
     "Data Source: Sysmon",
