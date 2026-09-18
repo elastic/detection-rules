@@ -1076,10 +1076,7 @@ def update_navigator_gists(
                 error_message,
                 exc=exc,
             ) from exc
-        detail = ""
-        if exc.response is not None and exc.response.text:
-            detail = f" {exc.response.text.strip()}"
-        raise raise_client_error(f"Gist update failed: {exc}{detail}", exc=exc) from exc
+        raise raise_client_error(f"Gist update failed: {exc}", exc=exc) from exc
 
     response_data = response.json()
     raw_urls = {name: raw_permalink(data["raw_url"]) for name, data in response_data["files"].items()}

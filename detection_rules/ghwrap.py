@@ -110,23 +110,21 @@ def update_gist(  # noqa: PLR0913, PLR0917
     }
 
     if pre_purge:
-        # retrieve all existing file names which are not in the file_map and overwrite them to empty to delete files
+        # GitHub deletes a gist file when its PATCH value is JSON null, not an empty object.
         response = requests.get(url, headers=headers, timeout=30)
         _raise_for_status_with_body(response)
         data = response.json()
         existing_files = data["files"]
         keep_names = {path.name for path in file_map}
-        deletions: dict[str, dict[str, Any]] = {str(name): {} for name in existing_files if str(name) not in keep_names}
+        deletions: dict[str, None] = {str(name): None for name in existing_files if str(name) not in keep_names}
         for chunk in batch_gist_files(deletions, _GIST_PATCH_FILE_LIMIT):
-            body["files"] = chunk
-            response = requests.patch(url, headers=headers, json=body, timeout=60)
+            response = requests.patch(url, headers=headers, json={**body, "files": chunk}, timeout=60)
             _raise_for_status_with_body(response)
 
     uploads = {path.name: {"content": contents} for path, contents in file_map.items()}
     response = None
     for chunk in batch_gist_files(uploads, _GIST_PATCH_FILE_LIMIT):
-        body["files"] = chunk
-        response = requests.patch(url, headers=headers, json=body, timeout=60)
+        response = requests.patch(url, headers=headers, json={**body, "files": chunk}, timeout=60)
         _raise_for_status_with_body(response)
     if response is None:
         raise ValueError("Cannot update gist with an empty file map")
