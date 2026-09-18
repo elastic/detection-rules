@@ -13,7 +13,7 @@ Ship offline ES|QL parse + schema validation in detection-rules CI/authoring wit
 | Item | Value |
 | --- | --- |
 | Import | `import esql` (required, not optional) |
-| Pin | `esql-detection-rules-py==0.1.0` from PyPI when published (staging: `file:./lib/esql`) |
+| Pin | `esql-detection-rules-py==0.1.0` (same pattern as `eql==1.0.1`; unpublished until the parser is public) |
 | Grammar host | Versioned modules **inside** the parser (`esql/_antlr/v8_19_0` … `v9_5_0` + `vlatest`) |
 | Stack floors | Current window: 8.19, 9.3, 9.4, 9.5 (+ tip); follow `stack-schema-map.yaml` |
 | Nested languages | `KQL()` / `EQL()`: parse hooks + **schema checks** via native `kql`/`eql`; `QSTR` / `PROMQL` opaque |
@@ -45,7 +45,7 @@ Two layers (MVP for KQL; EQL hook ready for grammar):
 
 ## Remaining (tracked on canvas)
 
-- Publish PyPI `esql-detection-rules-py==0.1.0` and drop vendored `file:` pin.
+- Publish `esql-detection-rules-py==0.1.0` to PyPI so CI can install it.
 - OSS filing (WG Read, Green List, public-repo issue) — do not file yet.
 - When ES grammar adds `EQL()`, enable NestedQuery extraction + fixtures; EQL source command is separate (ES #154780).
 - LOOKUP JOIN: parser `Schema(lookups=)` exists; DR does not yet pass lookup-index mappings.
