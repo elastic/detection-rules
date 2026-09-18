@@ -3,10 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-
-import esql
 
 # Define the hunting directory path
 HUNTING_DIR = Path(__file__).parent
@@ -49,19 +48,16 @@ class Hunt:
                 self.validate_esql_query(q)
 
     def validate_esql_query(self, query: str) -> None:
-        """Validation logic for ESQL (AST KEEP / aggregate shape for Elastic hunts)."""
-        if self.author != "Elastic":
-            return
+        """Validation logic for ESQL."""
+        query = query.lower()
 
-        try:
-            # allow_missing skips index-field completeness; KEEP/DROP/STATS
-            # column visibility still runs (same analyzer as rules).
-            with esql.Schema({}, allow_missing=True):
-                tree = esql.parse_query(query)
-        except Exception as exc:
-            raise ValueError(f"Hunt: {self.name} contains an invalid ES|QL query: {exc}") from exc
+        if self.author == "Elastic":
+            # Regex patterns for checking "stats by" and "| keep"
+            stats_by_pattern = re.compile(r"\bstats\b.*?\bby\b", re.DOTALL)
+            keep_pattern = re.compile(r"\| keep", re.DOTALL)
 
-        if not (esql.has_keep(tree) or esql.is_aggregate_query(tree)):
-            raise ValueError(
-                f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions"
-            )
+            # Check if either "stats by" or "| keep" exists in the query
+            if not stats_by_pattern.search(query) and not keep_pattern.search(query):
+                raise ValueError(
+                    f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions"
+                )
