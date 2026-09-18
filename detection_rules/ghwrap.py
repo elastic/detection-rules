@@ -93,6 +93,13 @@ def download_gh_asset(url: str, path: str, overwrite: bool = False) -> None:
 _GIST_PATCH_FILE_LIMIT = 50
 
 
+def _patch_gist_files(url: str, headers: dict[str, str], body: dict[str, Any], files: dict[str, Any]) -> Response:
+    """PATCH gist files and include GitHub's response body on failure."""
+    response = requests.patch(url, headers=headers, json={**body, "files": files}, timeout=60)
+    _raise_for_status_with_body(response)
+    return response
+
+
 def update_gist(  # noqa: PLR0913, PLR0917
     token: str,
     file_map: dict[Path, str],
@@ -108,24 +115,33 @@ def update_gist(  # noqa: PLR0913, PLR0917
         "description": description,
         "public": public,
     }
+    uploads = {path.name: {"content": contents} for path, contents in file_map.items()}
+    if not uploads:
+        raise ValueError("Cannot update gist with an empty file map")
 
+    deletions: dict[str, None] = {}
+    existing_keep = False
     if pre_purge:
         # GitHub deletes a gist file when its PATCH value is JSON null, not an empty object.
-        response = requests.get(url, headers=headers, timeout=30)
-        _raise_for_status_with_body(response)
-        data = response.json()
-        existing_files = data["files"]
-        keep_names = {path.name for path in file_map}
-        deletions: dict[str, None] = {str(name): None for name in existing_files if str(name) not in keep_names}
-        for chunk in batch_gist_files(deletions, _GIST_PATCH_FILE_LIMIT):
-            response = requests.patch(url, headers=headers, json={**body, "files": chunk}, timeout=60)
-            _raise_for_status_with_body(response)
+        # Deleting every remaining file 422s, so seed a keep file first when none exist yet.
+        get_response = requests.get(url, headers=headers, timeout=30)
+        _raise_for_status_with_body(get_response)
+        existing_names = {str(name) for name in get_response.json()["files"]}
+        keep_names = set(uploads)
+        deletions = {name: None for name in existing_names if name not in keep_names}
+        existing_keep = bool(keep_names & existing_names)
 
-    uploads = {path.name: {"content": contents} for path, contents in file_map.items()}
-    response = None
-    for chunk in batch_gist_files(uploads, _GIST_PATCH_FILE_LIMIT):
-        response = requests.patch(url, headers=headers, json={**body, "files": chunk}, timeout=60)
-        _raise_for_status_with_body(response)
+    remaining_uploads = dict(uploads)
+    response: Response | None = None
+    if deletions and not existing_keep:
+        seed_name, seed_body = next(iter(uploads.items()))
+        response = _patch_gist_files(url, headers, body, {seed_name: seed_body})
+        remaining_uploads = {name: payload for name, payload in uploads.items() if name != seed_name}
+
+    for chunk in batch_gist_files(deletions, _GIST_PATCH_FILE_LIMIT):
+        response = _patch_gist_files(url, headers, body, chunk)
+    for chunk in batch_gist_files(remaining_uploads, _GIST_PATCH_FILE_LIMIT):
+        response = _patch_gist_files(url, headers, body, chunk)
     if response is None:
         raise ValueError("Cannot update gist with an empty file map")
     return response

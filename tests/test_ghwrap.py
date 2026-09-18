@@ -69,3 +69,57 @@ class TestGistBatching(unittest.TestCase):
         uploaded = {name: body["content"] for files in upload_payloads for name, body in files.items()}
         self.assertEqual(set(uploaded), set(keep_names))
         self.assertNotIn(keep_names[0], {name for files in delete_payloads for name in files})
+        self._assert_gist_never_empty(set(existing), payloads)
+
+    def test_update_gist_seeds_keep_file_before_purging_all_stale_files(self) -> None:
+        stale_names = [f"stale-{index}.json" for index in range(3)]
+        keep_names = [
+            "Elastic-detection-rules-all.json",
+            "Elastic-detection-rules-platforms.json",
+        ]
+        existing = {name: {"raw_url": "https://example.invalid"} for name in stale_names}
+        get_response = MagicMock()
+        get_response.json.return_value = {"files": existing}
+        patch_response = MagicMock()
+        patch_response.json.return_value = {
+            "files": {name: {"raw_url": "https://example.invalid"} for name in keep_names}
+        }
+
+        with (
+            TemporaryDirectory() as tmp,
+            patch("detection_rules.ghwrap.requests.get", return_value=get_response),
+            patch("detection_rules.ghwrap.requests.patch", return_value=patch_response) as patch_mock,
+            patch("detection_rules.ghwrap._GIST_PATCH_FILE_LIMIT", 2),
+        ):
+            file_map = {}
+            directory = Path(tmp)
+            for name in keep_names:
+                path = directory / name
+                path.write_text(f'{{"name": "{name}"}}')
+                file_map[path] = path.read_text()
+            update_gist("x", file_map, "ATT&CK Navigator layer files.", "gist-id", pre_purge=True)
+
+        payloads: list[dict[str, Any]] = [call.kwargs["json"]["files"] for call in patch_mock.call_args_list]
+        first = payloads[0]
+        self.assertTrue(any(isinstance(value, dict) and "content" in value for value in first.values()))
+        self.assertFalse(all(value is None for value in first.values()))
+        deleted = {name for files in payloads for name, value in files.items() if value is None}
+        uploaded = {
+            name
+            for files in payloads
+            for name, value in files.items()
+            if isinstance(value, dict) and "content" in value
+        }
+        self.assertEqual(deleted, set(stale_names))
+        self.assertEqual(uploaded, set(keep_names))
+        self._assert_gist_never_empty(set(existing), payloads)
+
+    def _assert_gist_never_empty(self, initial: set[str], payloads: list[dict[str, Any]]) -> None:
+        remaining = set(initial)
+        for files in payloads:
+            for name, value in files.items():
+                if value is None:
+                    remaining.discard(name)
+                else:
+                    remaining.add(name)
+            self.assertTrue(remaining, "gist PATCH would leave zero files")
