@@ -271,6 +271,7 @@ EXPECTED_RULE_TAGS = [
     "Service: AWS EC2",
     "Service: AWS GuardDuty",
     "Service: AWS IAM",
+    "Service: AWS IoT",
     "Service: AWS KMS",
     "Service: AWS Lambda",
     "Service: AWS RDS",

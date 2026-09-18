@@ -1,0 +1,172 @@
+[metadata]
+creation_date = "2026/09/18"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
+min_stack_version = "9.3.0"
+updated_date = "2026/09/18"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies destination-mode AWS IoT Secure Tunneling localproxy that resolves the data-plane hostname, dials outbound
+443, and then connects to a loopback service. Destination mode opens no listener; after AWS joins the tunnel the proxy
+forwards streams to a local mapping such as SSH on 127.0.0.1:22. The sequence is the victim-side pattern from public
+red-team research: unexplained localproxy, DNS/443 to data.tunneling.iot.<region>.amazonaws.com, and a new client
+connection to a local service. A dummy or expired token typically stops after the 443 handshake and will not match.
+OpenTunnel and access tokens live in the operator's AWS account, not the victim's.
+"""
+false_positives = [
+    """
+    Support engineers and IoT operators may run localproxy on field devices or jump hosts that legitimately use AWS IoT
+    Secure Tunneling. Confirm the host is an approved device-management asset, the parent process and binary path are
+    expected, and the destination mapping points at an authorized local service. Allowlist by host, user, or signed
+    install path where that use is documented.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.network-*", "logs-endpoint.events.process-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential Tunneling via AWS IoT Secure Tunneling Localproxy"
+note = """## Triage and analysis
+
+### Investigating Potential Tunneling via AWS IoT Secure Tunneling Localproxy
+
+AWS IoT Secure Tunneling's open-source `localproxy` creates a bidirectional relay through AWS-managed infrastructure. Destination mode (typical on the victim) makes an outbound connection to `data.tunneling.iot.<region>.amazonaws.com` on 443 using WebSocket subprotocol `aws.iot.securetunneling-3.0` and then connects to a local service (`-d localhost:22`, `-d SSH=localhost:22`, or a Unix socket). Source mode opens a loopback listener on the operator workstation, not on the compromised host. `OpenTunnel` is written to the operator's CloudTrail, not the target's.
+
+This is post-exploitation C2 / remote access after code execution, not initial access. The official binary is the expected implant. This rule requires four events from the same process: destination mode (`-d` / `--destination-app`), DNS to the Secure Tunneling data plane, TCP/443 egress, and a follow-on TCP client connection to loopback. Elastic Defend often leaves `destination.domain` empty on the 443 flow, so the third event keys on port 443. The fourth event is the local forward (typically SSH on `127.0.0.1:22`); a dummy or expired token that only fails the WebSocket will not reach it. Source mode (`-s`) is the operator workstation. Unix sockets and forwards to non-loopback internal hosts are not in this sequence.
+
+### Possible investigation steps
+
+- Confirm destination mode from the command line: `-d` / `--destination-app` is the victim-side pattern. Short flags are case-sensitive (`-d` is not `sshd -D`).
+- Event 2 is DNS to `data.tunneling.iot.<region>.amazonaws.com`. Event 3 is TCP/443 from the same `process.entity_id` (`destination.domain` may be empty). Event 4 is a TCP client to `127.0.0.1` or `::1`. On a live SSH mapping that is `connection_attempted` to `127.0.0.1:22` with `network.direction: egress`.
+- Treat `-t` / `--access-token` on the command line as a leaked one-time tunnel token. `AWSIOT_TUNNEL_ACCESS_TOKEN` is often passed via the environment and is not present on the `localproxy` start event (`process.env_vars` is typically empty).
+- Review the parent process, user, and binary path. The AWS-published proxy is not statically linked and is commonly dropped as `localproxy` / `localproxy.exe`, run from a user-writable directory, or launched from `public.ecr.aws/aws-iot-securetunneling-localproxy/*`.
+- Hunt for the same hash, path, argument pattern, or tunneling hostname on other hosts. A renamed binary still often carries `-d` plus an AWS region or `*tunneling.iot*` endpoint. If this sequence did not fire, hunt DNS to `data.tunneling.iot.<region>.amazonaws.com` and TCP/443 from the same process (dummy or expired tokens often stop there).
+- Do not expect `iotsecuretunneling:OpenTunnel` in the victim account. If the host is in AWS, VPC flow logs and resolver query logs may still show egress to the tunneling endpoint.
+
+### False positive analysis
+
+- Approved AWS IoT device troubleshooting uses this exact binary and flags. Restrict exceptions to known device fleets or jump hosts rather than the process name alone.
+- Lab or red-team use of the aws-samples localproxy will look identical to abuse. Confirm against engagement records.
+
+### Response and remediation
+
+- If unauthorized: isolate the host, terminate `localproxy`, and block `*.tunneling.iot.*.amazonaws.com` at DNS or egress. That hostname is specific to Secure Tunneling and does not break IoT Core MQTT, Jobs, or Greengrass.
+- Remove dropped binaries, container images, config files (`--config`, `--config-dir`), and any persistence that relaunches the proxy. Tokens are one-time and expire with the tunnel (published maximum 12 hours).
+- Hunt for what rode the tunnel (SSH, other mapped services) using local connection history during the process lifetime.
+- Organizations that do not use Secure Tunneling should block the data-plane hostname and keep this rule enabled without exceptions.
+"""
+references = [
+    "https://hackerhermanos.com/posts/aws-iot-secure-tunneling-red-teamer/",
+    "https://github.com/aws-samples/aws-iot-securetunneling-localproxy",
+    "https://docs.aws.amazon.com/iot/latest/developerguide/local-proxy.html",
+]
+risk_score = 73
+rule_id = "deab559f-f3ab-4ce3-b17c-8f70c4169fd6"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+Linux DNS events from Elastic Defend require Elastic Stack 9.3.0 or later.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Network",
+    "Domain: OT/IoT",
+    "OS: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "Platform: Windows",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: AWS",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Service: AWS IoT",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=5m
+  [process where event.type == "start" and event.action in ("exec", "exec_event", "start") and
+    process.args in ("-d", "--destination-app") and
+    (
+      /* Official binary, container image path, or Windows original filename */
+      (
+        process.name like~ ("localproxy", "localproxy.exe") or
+        ?process.pe.original_file_name like~ "localproxy.exe" or
+        process.executable like~ "*aws-iot-securetunneling-localproxy*"
+      ) or
+      /* Renamed binary: dest mode plus AWS region or tunneling endpoint */
+      (
+        (
+          process.args regex """[a-z]{2}(-[a-z]+)+-[0-9]+""" or
+          process.args in ("--proxy-endpoint") or
+          process.args like "*tunneling.iot*"
+        ) and
+        process.args in (
+          "-t", "--access-token",
+          "-c", "--capath",
+          "-b", "--local-bind-address",
+          "-m", "--mode"
+        ) and
+        not process.name like~ (
+          "timeout", "time", "env", "nice", "nohup", "stdbuf",
+          "bash", "dash", "sh", "zsh", "sudo", "sshd", "useradd"
+        )
+      )
+    )]
+  [network where event.action in ("lookup_requested", "lookup_result") and
+    dns.question.name like~ (
+      "data.tunneling.iot.*.amazonaws.com",
+      "data.tunneling.iot.*.amazonaws.com.cn"
+    )]
+  [network where event.action == "connection_attempted" and destination.port == 443]
+  [network where event.action == "connection_attempted" and
+    destination.port != 443 and
+    destination.address in ("127.0.0.1", "::1")]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+[[rule.threat.technique]]
+id = "T1090"
+name = "Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/"
+[[rule.threat.technique.subtechnique]]
+id = "T1090.002"
+name = "External Proxy"
+reference = "https://attack.mitre.org/techniques/T1090/002/"
+
+
+[[rule.threat.technique]]
+id = "T1572"
+name = "Protocol Tunneling"
+reference = "https://attack.mitre.org/techniques/T1572/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
