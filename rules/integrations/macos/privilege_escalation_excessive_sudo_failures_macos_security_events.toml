@@ -88,14 +88,14 @@ FROM logs-macos.authentication-*
 | WHERE data_stream.dataset == "macos.authentication" and event.category == "authentication" and
     macos.process.image_path LIKE "*/sudo" and
     macos.event.message.description LIKE "*incorrect password attempt*"
-| GROK macos.event.message.description "%{NOTSPACE:Esql.user_name} : %{NUMBER:Esql.attempt_count:int} incorrect password attempt%{DATA} ; TTY=%{NOTSPACE:Esql.tty} ; PWD=%{DATA:Esql.pwd} ; USER=%{NOTSPACE:Esql.target_user} ; COMMAND=%{GREEDYDATA:Esql.command}"
+| GROK macos.event.message.description "%{NOTSPACE:user_name} : %{NUMBER:attempt_count:int} incorrect password attempt%{DATA} ; TTY=%{NOTSPACE:tty} ; PWD=%{DATA:pwd} ; USER=%{NOTSPACE:target_user} ; COMMAND=%{GREEDYDATA:command}"
 | STATS
     Esql.failure_event_count = COUNT(*),
-    Esql.attempt_total = SUM(Esql.attempt_count),
-    Esql.user_name_values = VALUES(Esql.user_name),
-    Esql.target_user_values = VALUES(Esql.target_user),
-    Esql.tty_values = VALUES(Esql.tty),
-    Esql.command_values = VALUES(Esql.command)
+    Esql.attempt_total = SUM(attempt_count),
+    Esql.user_name_values = VALUES(user_name),
+    Esql.target_user_values = VALUES(target_user),
+    Esql.tty_values = VALUES(tty),
+    Esql.command_values = VALUES(command)
   BY host.id, host.name
 | WHERE Esql.attempt_total >= 10
 | KEEP host.id, host.name, Esql.failure_event_count, Esql.attempt_total, Esql.user_name_values, Esql.target_user_values, Esql.tty_values, Esql.command_values
