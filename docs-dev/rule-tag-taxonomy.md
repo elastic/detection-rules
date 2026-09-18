@@ -136,7 +136,7 @@ Route 53, Bedrock, EKS, EFS, EventBridge, Organizations, Backup, Sign-In
 Two complementary uses of `Threat:` (both allowed; multi-label OK):
 
 1. **Named exploit / campaign / malware** on rules that specifically target that entity
-   (legacy examples: `Threat: Log4Shell`, `Threat: SolarWinds`, `Threat: Cobalt Strike`).
+   (legacy examples: `Threat: Log4Shell`, `Threat: Cobalt Strike`).
    Do **not** invent adversary-group or malware-family tags on generic behavioral rules.
 2. **Operational threat categories** from the managed catalog (fleet tagging pipeline), e.g.
    `Threat: Brute Force`, `Threat: Living off the Land`, `Threat: Ransomware`,

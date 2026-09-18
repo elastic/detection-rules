@@ -374,7 +374,6 @@ EXPECTED_RULE_TAGS = [
     "Threat: Reverse Shell",
     "Threat: Rootkit",
     "Threat: Script-Based Execution",
-    "Threat: SolarWinds",
     "Threat: Supply Chain",
     "Threat: Suspicious TLD",
     "Threat: TripleCross",
