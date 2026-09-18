@@ -20,7 +20,7 @@ These guidelines serve as a reminder set of considerations when proposing a new 
 - [ ] `integration` should align with the `index`. If the integration is newly introduced, ensure the manifest, schemas, and `new_rule.yaml` template are updated.
 - [ ] `setup` should include the necessary steps to configure the integration.
 - [ ] `note` should include any additional information (e.g. Triage and analysis investigation guides, timeline templates).
-- [ ] `tags` should follow `docs-dev/rule-tag-taxonomy.md` and be added to `EXPECTED_RULE_TAGS`. Add new taxonomy tags without removing legacy tags customers may already filter on.
+- [ ] `tags` should be relevant to the threat and align/added to the `EXPECTED_RULE_TAGS` in the definitions.py file.
 - [ ] `threat`, `techniques`, and `subtechniques` should map to ATT&CK always if possible.
 
 #### New BBR Rules
