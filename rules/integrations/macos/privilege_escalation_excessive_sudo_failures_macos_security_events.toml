@@ -85,7 +85,7 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 FROM logs-macos.authentication-*
-| WHERE data_stream.dataset == "macos.authentication" and event.category == "authentication" and
+| WHERE data_stream.dataset == "macos.authentication" and
     macos.process.image_path LIKE "*/sudo" and
     macos.event.message.description LIKE "*incorrect password attempt*"
 | GROK macos.event.message.description "%{NOTSPACE:user_name} : %{NUMBER:attempt_count:int} incorrect password attempt%{DATA} ; TTY=%{NOTSPACE:tty} ; PWD=%{DATA:pwd} ; USER=%{NOTSPACE:target_user} ; COMMAND=%{GREEDYDATA:command}"
