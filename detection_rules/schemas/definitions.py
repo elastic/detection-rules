@@ -253,7 +253,7 @@ EXPECTED_RULE_TAGS = [
     "Promotion: External Alerts",
     "Resources: Investigation Guide",
     "Resources: LLM",
-    "Resources: OS Query",
+    "Resources: Osquery",
     "Resources: Workflow",
     "Rule Type: BBR",
     "Rule Type: Custom Query (KQL)",

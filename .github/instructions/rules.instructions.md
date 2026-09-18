@@ -80,7 +80,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `Vuln: CVE-YYYY-NNNNN` — only when the rule targets exploitation of a specific CVE.
   - `Threat:` — either (a) a named exploit/campaign/malware the rule specifically targets (e.g. `Threat: Log4Shell`, `Threat: Cobalt Strike`), or (b) a managed operational category from `EXPECTED_RULE_TAGS` when the match is clear (e.g. `Threat: Brute Force`, `Threat: Living off the Land`, `Threat: Vulnerable Driver`). Do **not** invent adversary-group or malware-family tags on generic behavioral rules, and do not invent near-synonyms of catalog values. Do **not** use a targeted company's name as a threat tag.
   - `Profile: Beta` when the rule is explicitly beta. Do **not** invent `Profile: Recommended` / `Profile: Aggressive`, `Noise:*`, or `Performance:*` — those are fleet-telemetry derived.
-  - `Resources: Workflow` / `Resources: OS Query` when those artifacts are present.
+  - `Resources: Workflow` / `Resources: Osquery` when those artifacts are present.
 
   **Do not suggest:**
   - Untagged free-text keywords or prefixes outside the taxonomy.

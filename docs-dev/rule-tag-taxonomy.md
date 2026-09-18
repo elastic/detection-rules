@@ -12,7 +12,7 @@ This file mirrors that list.
 | Noise | High, Low, Medium, Unknown |
 | Performance | Fast, Normal, Slow, Unknown, Very Slow |
 | Profile | Aggressive, Beta, Recommended |
-| Resources | Investigation Guide, LLM, OS Query, Workflow |
+| Resources | Investigation Guide, LLM, Osquery, Workflow |
 | Promotion | External Alerts |
 | Mitre Atlas | `*` (technique IDs) |
 | Use Case | Active Directory Monitoring, Asset Visibility, Configuration Audit, Guided Onboarding, Identity and Access Audit, Log Auditing, Network Security Monitoring, Threat Detection, UEBA, Vulnerability |
