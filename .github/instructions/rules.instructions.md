@@ -56,10 +56,10 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
   **Required (suggest if missing):**
   - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Container` (legacy; prefer keeping this until migration), `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
-  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
+  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`, `FortiGate`. Do not use `Platform: Elastic`.
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
-    - `esql` → `Rule Type: ESQL`
+    - `esql` → `Rule Type: ES|QL`
     - `query` / KQL → `Rule Type: Custom Query (KQL)`
     - `saved_query` → `Rule Type: Custom Query (KQL)`
     - `eql` → `Rule Type: Event Correlation (EQL)`
@@ -70,7 +70,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
     - Building blocks → `Rule Type: BBR`
     - Higher-order / signal-correlating → `Rule Type: Higher-Order` (legacy spelling `Higher-Order Rule` is still valid)
   - `OS:` — required when the rule lives under `rules/windows|linux|macos/` or is endpoint-scoped: `OS: Windows`, `OS: Linux`, `OS: macOS`.
-  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services). Use spellings from `EXPECTED_RULE_TAGS` / `docs-dev/rule-tag-taxonomy.md`. Do not suggest `AWS CloudTrail` or `Entra ID Sign-In Logs` casing changes until those are normalized (existing rules use mixed `Cloudtrail` / `Sign-in` variants).
+  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`, `Data Source: AWS CloudTrail`, `Data Source: Entra ID Sign-In Logs`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services, `Data Source: Crowdstrike`, `Data Source: SentinelOne`, `Data Source: Sysmon`). Use spellings from `EXPECTED_RULE_TAGS`. **Do not** suggest a second tag that only appends `Logs` (`SentinelOne Logs`, `Windows Sysmon Logs`) or `CrowdStrike Falcon Logs` — CrowdStrike stays `Crowdstrike` or `CrowdStrike Falcon`, never `… Falcon Logs`.
   - `Resources: Investigation Guide` if `note` contains an investigation guide.
   - `Resources: LLM` if the query uses the ES|QL `COMPLETION` command.
   - `Mitre Atlas: Txxxx` for GenAI-domain rules when an ATLAS technique applies.
@@ -86,6 +86,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - Untagged free-text keywords or prefixes outside the taxonomy.
   - Using `Domain:` for storage, middleware/web servers, or threat intel (use `Service:` / `Rule Type:` instead).
   - Treating `Platform:` and `Data Source:` as interchangeable.
+  - A second `Data Source:` that only appends `Logs` to an existing vendor tag (`SentinelOne Logs`, `Windows Sysmon Logs`, `CrowdStrike Falcon Logs`). Keep `SentinelOne`, `Sysmon`, `Crowdstrike` / `CrowdStrike Falcon`.
   - Hand-authoring `Noise:`, `Performance:`, or `Profile: Recommended|Aggressive` without the telemetry pipeline.
 - `index` patterns should be neither too specific nor too vague — they must accurately match the relevant data stream (e.g., `logs-endpoint.events.process-*` for process events, not `logs-endpoint.events.*` unless multiple event types are needed).
 - `from` and `interval` should not create gaps. The lookback window (`from`) must cover at least the `interval` period. The default `interval` period, if not explicitly changed, is 5 minutes. 

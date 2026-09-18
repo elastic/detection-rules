@@ -41,9 +41,6 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 | Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, OS Query |
 
 Legacy prefixes such as `Use Case:` and `Promotion:` remain valid during migration.
-This first bulk pass is **additive only**: new `Platform:`, `Service:`, `Rule Type:`,
-`Vuln:`, and canonical `Data Source:` tags are appended; existing customer-facing
-tags are not removed.
 
 ## Domain values
 
@@ -56,7 +53,10 @@ Do **not** invent domains for storage, web/app servers, or threat intelligence �
 ## Platform values
 
 `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`,
-`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
+`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`, `FortiGate`.
+
+`Platform:` is the target ecosystem, not the vendor that authored the rule and not
+where telemetry is stored. Do not tag `Platform: Elastic`.
 
 ## Data Source values
 
@@ -64,39 +64,37 @@ Prefer the concrete telemetry name over the vendor alone. Preserve dual/legacy t
 still required by index-based unit tests (for example AWS rules still need both
 `Data Source: AWS` and `Data Source: Amazon Web Services`).
 
-**Cloud:** `AWS VPC Flow Logs`, `AWS Bedrock Invocation Logs`, `Azure Activity Logs`,
-`Azure Platform Logs`, `Azure OpenAI Logs`, `GCP Audit Logs`
+**Do not append `Logs` to a vendor/product already used as a data source.** Existing
+rules keep `SentinelOne`, `Sysmon`, and `Crowdstrike`. Do not add `SentinelOne Logs`
+or `Windows Sysmon Logs`. If the CrowdStrike name is expanded, use `CrowdStrike Falcon`
+— never `CrowdStrike Falcon Logs`. `Logs` belongs only on distinct *stream* names
+(`Windows Security Event Logs`, `Entra ID Sign-In Logs`, `AWS VPC Flow Logs`).
 
-**Identity:** `Entra ID Audit Logs`, `Entra ID Protection Logs`, `Okta System Logs`,
-`Active Directory Logs`
+**Cloud:** `AWS CloudTrail`, `AWS VPC Flow Logs`, `AWS Sign-In`, `AWS Bedrock`,
+`Azure Activity Logs`, `Azure Platform Logs`, `Azure OpenAI`, `GCP`
 
-**SaaS:** `M365 Audit Logs`, `Microsoft Graph Activity Logs`,
-`Google Workspace Audit Logs`, `GitHub Audit Logs`, `GitHub Code Scanning Logs`,
-`Zoom Webhook Events`
+**Identity:** `Entra ID Audit Logs`, `Entra ID Protection Logs`,
+`Entra ID Sign-In Logs`, `Okta`, `Active Directory`.
+Existing rules may also carry `Data Source: Microsoft Entra ID Sign-In Logs` or
+`Data Source: Entra ID Sign-In` (no "Logs"); keep those spellings.
+
+**SaaS:** `Microsoft 365`, `Microsoft Graph`,
+`Google Workspace`, `Google Workspace User Log Events`,
+`Github`, `GitHub Code Scanning Logs`, `Zoom`
 
 **Endpoint:** `Elastic Defend`, `Elastic Endgame`, `Elastic Defend for Containers`,
-`Windows Security Event Logs`, `Windows System Event Logs`, `Windows Sysmon Logs`,
-`PowerShell Logs`, `Linux Auditd Logs`, `File Integrity Monitoring`,
-`CrowdStrike Falcon Logs`, `SentinelOne Logs`, `Jamf Protect Event Logs`,
-`Microsoft Defender for Endpoint Logs`
+`Windows Security Event Logs`, `Windows System Event Logs`, `Sysmon`,
+`PowerShell Logs`, `Auditd Manager`, `File Integrity Monitoring`,
+`Crowdstrike` (same source as `CrowdStrike Falcon`; do not use both), `SentinelOne`,
+`Jamf Protect`, `Microsoft Defender XDR`
 
-**Network:** `Network Packet Capture`, `Suricata Logs`, `PAN-OS Logs`,
-`Fortinet FortiGate Logs`, `SonicWall Firewall Logs`
+**Network:** `Network Traffic`, `Network Packet Capture`, `Suricata`, `PAN-OS`,
+`Fortinet`, `SonicWall`
 
 **Email / security tools / other:** `Microsoft Exchange Online Logs`,
-`Microsoft Defender for Office 365 Logs`, `Check Point Harmony Email Logs`,
-`Microsoft Purview Logs`, `Microsoft Defender for Cloud Alerts`,
-`Microsoft Defender for Identity Alerts`, `Microsoft Sentinel Forwarded Events`,
-`Splunk Forwarded Events`, `Wiz Findings`, `Rapid7 Threat Command Feeds`,
-`Google SecOps Forwarded Events`, `Elastic APM Logs`,
-`Kubernetes API Server Audit Logs`
-
-### Deferred (casing conflicts in existing rules)
-
-Do **not** add these to `EXPECTED_RULE_TAGS` until rules are normalized:
-
-- `Data Source: AWS CloudTrail` (conflicts with `AWS Cloudtrail`)
-- `Data Source: Entra ID Sign-In Logs` (conflicts with `Sign-in Logs` / `Sign-in logs`)
+`Microsoft Defender for Office 365`, `Check Point Harmony Email Logs`,
+`Microsoft Purview`, `Microsoft Defender for Identity`, `Microsoft Sentinel`,
+`Splunk`, `Wiz`, `Rapid7 Threat Command`, `Google SecOps`, `APM`, `Kubernetes`
 
 ## Service values
 
@@ -120,7 +118,7 @@ Route 53, Bedrock, EKS, EFS, EventBridge, Organizations, Backup, Sign-In
 
 | Rule `type` / case | Tag(s) |
 | --- | --- |
-| `esql` | `Rule Type: ESQL` |
+| `esql` | `Rule Type: ES|QL` |
 | `query` (KQL) | `Rule Type: Custom Query (KQL)` |
 | `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
 | `eql` | `Rule Type: Event Correlation (EQL)` |
@@ -258,5 +256,6 @@ Rules that are neither Recommended nor Aggressive receive **no** `Profile:` tag
   now; do **not** invent `Noise:` / `Performance:` / `Profile: Recommended|Aggressive`
   without telemetry. Required enforcement for those categories will land with broader
   rule remapping.
-- Taxonomy names may differ from legacy short tags still present on rules
-  (e.g. `SentinelOne` vs `SentinelOne Logs`); both remain valid until migration.
+- Do not add a `Data Source:` that only appends `Logs` (or `Falcon Logs`) to a
+  vendor tag already on the rule. `Crowdstrike` / `CrowdStrike Falcon`, `SentinelOne`,
+  and `Sysmon` are the product names; they are not `… Logs` tags.
