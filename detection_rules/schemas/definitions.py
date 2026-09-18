@@ -246,7 +246,6 @@ EXPECTED_RULE_TAGS = [
     "Platform: AWS",
     "Platform: Azure",
     "Platform: Entra ID",
-    "Platform: FortiGate",
     "Platform: GCP",
     "Platform: GitHub",
     "Platform: Google Workspace",

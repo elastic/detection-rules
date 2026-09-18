@@ -53,10 +53,12 @@ Do **not** invent domains for storage, web/app servers, or threat intelligence â
 ## Platform values
 
 `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`,
-`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`, `FortiGate`.
+`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`.
 
-`Platform:` is the target ecosystem, not the vendor that authored the rule and not
-where telemetry is stored. Do not tag `Platform: Elastic`.
+`Platform:` is the target ecosystem (OS or cloud/SaaS control plane), not a
+firewall/EDR product and not where telemetry is stored. FortiGate, PAN-OS, and
+similar vendors are `Data Source:` tags (`Data Source: Fortinet`). Do not tag
+`Platform: Elastic` or `Platform: FortiGate`.
 
 ## Data Source values
 
