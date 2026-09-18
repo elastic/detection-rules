@@ -223,13 +223,28 @@ High + Low noise + Fast can reach 7 without a Threat tag.
 
 #### Profile: Aggressive
 
-Assigned when `Noise: High`, **or** when the score is very low (`score < 2`) after
-the low-severity gate. Intended for environments that accept higher alert volume or
-are tuning aggressively.
+Rules tagged `Profile: Aggressive` are detections that are usually **not** suitable
+as a default broad-enable set. They either generate high alert volume in fleet
+telemetry, or score poorly on the same signal-vs-cost model used for Recommended
+(weak severity/threat coverage and/or high operational cost such as Slow
+performance).
+
+A rule is tagged **Aggressive** when **either**:
+
+1. **`Noise: High`** — always Aggressive, regardless of score (hard gate); or
+2. **`profile score < 2`** — and severity is not `low` (low severity never gets a
+   Profile tag; it stays mid-band even if the numeric score is low).
+
+Example of (2): medium severity (+1) + Medium noise (+1) + Slow performance (−1) +
+no Threat tag (0) → score **1** → Aggressive (even though noise is not High).
+
+Intended for environments that accept higher alert volume, slower queries, or are
+tuning coverage aggressively — not as the first wave of enablement.
 
 #### Mid band
 
-Rules that are neither Recommended nor Aggressive receive **no** `Profile:` tag.
+Rules that are neither Recommended nor Aggressive receive **no** `Profile:` tag
+(including all `severity: low` rules that are not High noise).
 
 ## Compatibility notes
 
