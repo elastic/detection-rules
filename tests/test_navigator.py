@@ -49,8 +49,7 @@ class TestNavigatorNames(unittest.TestCase):
             "metadata": [{"name": "other", "value": "id2"}],
             "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
         }
-        with TemporaryDirectory() as tmp:
-            with self.assertRaises(ValueError) as ctx:
-                builder.save_all(Path(tmp), verbose=False)
+        with TemporaryDirectory() as tmp, self.assertRaises(ValueError) as ctx:
+            builder.save_all(Path(tmp), verbose=False)
         self.assertIn("collide after sanitization", str(ctx.exception))
         self.assertIn("lnk-shortcut-abuse.json", str(ctx.exception))
