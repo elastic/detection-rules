@@ -129,6 +129,11 @@ def technique_dict() -> dict[str, Any]:
     return {"metadata": [], "links": []}
 
 
+def sanitize_navigator_name(name: str) -> str:
+    """Make a navigator layer name safe as a single-path filename."""
+    return name.replace("*", "WILDCARD").replace("/", "-").replace("\\", "-")
+
+
 class NavigatorBuilder:
     """Rule navigator mappings and management."""
 
@@ -188,7 +193,7 @@ class NavigatorBuilder:
             value = rule.id
             expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
             tag = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, _tag).lstrip()  # type: ignore[reportUnknownMemberType]
-            layer_key = tag.replace(" ", "-").lower()  # type: ignore[reportUnknownVariableType]
+            layer_key = sanitize_navigator_name(tag.replace(" ", "-").lower())  # type: ignore[reportUnknownVariableType]
             self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)  # type: ignore[reportUnknownArgumentType]
 
     def add_rule_to_technique(  # noqa: PLR0913, PLR0917
@@ -231,8 +236,7 @@ class NavigatorBuilder:
         populated_techniques: list[dict[str, Any]] = []
         layer = self.get_layer(layer_name, layer_key)
         base_name = f"{layer_name}-{layer_key}" if layer_key else layer_name
-        base_name = base_name.replace("*", "WILDCARD")
-        name = f"Elastic-detection-rules-{base_name}"
+        name = f"Elastic-detection-rules-{sanitize_navigator_name(base_name)}"
 
         for tactic, techniques in layer.items():
             tactic_normalized = "-".join(tactic.lower().split())
@@ -264,7 +268,8 @@ class NavigatorBuilder:
 
     @staticmethod
     def _save(built: Navigator, directory: Path, verbose: bool = True) -> Path:
-        path = directory.joinpath(built.name).with_suffix(".json")
+        path = directory.joinpath(sanitize_navigator_name(built.name)).with_suffix(".json")
+        path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(json.dumps(built.to_dict(), indent=2))
 
         if verbose:
