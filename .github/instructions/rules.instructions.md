@@ -78,14 +78,15 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   **Optional (suggest when clearly applicable):**
   - `Service:` — specific component (prefix cloud services with vendor): e.g. `Service: AWS S3`, `Service: Azure Key Vault`, `Service: AWS Bedrock`, `Service: GitHub Actions`, `Service: IIS`, `Service: Nginx`.
   - `Vuln: CVE-YYYY-NNNNN` — only when the rule targets exploitation of a specific CVE.
-  - `Threat:` — named exploit or campaign only (e.g. `Threat: Log4Shell`, `Threat: SolarWinds`). Do **not** suggest adversary group or malware-family tags on generic behavioral rules.
-  - `Profile:` — `Recommended`, `Aggressive`, or `Beta` when fidelity/deployment posture is clear.
+  - `Threat:` — either (a) a named exploit/campaign/malware the rule specifically targets (e.g. `Threat: Log4Shell`, `Threat: SolarWinds`), or (b) a managed operational category from `EXPECTED_RULE_TAGS` when the match is clear (e.g. `Threat: Brute Force`, `Threat: Living off the Land`, `Threat: Vulnerable Driver`). Do **not** invent adversary-group or malware-family tags on generic behavioral rules, and do not invent near-synonyms of catalog values.
+  - `Profile: Beta` when the rule is explicitly beta. Do **not** invent `Profile: Recommended` / `Profile: Aggressive`, `Noise:*`, or `Performance:*` — those are fleet-telemetry derived.
   - `Resources: Workflow` / `Resources: OS Query` when those artifacts are present.
 
   **Do not suggest:**
   - Untagged free-text keywords or prefixes outside the taxonomy.
   - Using `Domain:` for storage, middleware/web servers, or threat intel (use `Service:` / `Rule Type:` instead).
   - Treating `Platform:` and `Data Source:` as interchangeable.
+  - Hand-authoring `Noise:`, `Performance:`, or `Profile: Recommended|Aggressive` without the telemetry pipeline.
 - `index` patterns should be neither too specific nor too vague — they must accurately match the relevant data stream (e.g., `logs-endpoint.events.process-*` for process events, not `logs-endpoint.events.*` unless multiple event types are needed).
 - `from` and `interval` should not create gaps. The lookback window (`from`) must cover at least the `interval` period. The default `interval` period, if not explicitly changed, is 5 minutes. 
 - `timestamp_override` should be set to `"event.ingested"` for most rules to avoid ingestion delay issues.
