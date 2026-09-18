@@ -220,7 +220,6 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Wiz",
     "Data Source: Zoom",
     "Domain: Cloud",
-    "Domain: Container",
     "Domain: Containers",
     "Domain: Email",
     "Domain: Endpoint",

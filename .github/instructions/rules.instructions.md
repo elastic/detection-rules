@@ -52,10 +52,10 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `critical` → 99
 - `tags` must follow the XDR/SIEM tag taxonomy (`Category: Value`). Review tags against the checklist below and suggest missing or incorrect tags. Keep suggestions to 1–2 sentences; list concrete tag strings to add/fix.
   - See also `docs-dev/rule-tag-taxonomy.md` for the full vocabulary and design notes.
-  - **Compatibility:** Keep currently enforced tags that unit tests require (for example `Domain: Container`, dual AWS data-source tags). Prefer additive suggestions for new categories (`Platform:`, `Service:`, `Vuln:`, `Profile:`) rather than renaming legacy values mid-migration.
+  - **Compatibility:** Keep currently enforced tags that unit tests require (for example `Domain: Containers`, dual AWS data-source tags). Prefer additive suggestions for new categories (`Platform:`, `Service:`, `Vuln:`, `Profile:`) rather than renaming legacy values mid-migration.
 
   **Required (suggest if missing):**
-  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Container` (legacy; prefer keeping this until migration), `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
+  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
   - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`. Do not use `Platform: Elastic` or `Platform: FortiGate` (Fortinet is `Data Source: Fortinet`).
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:

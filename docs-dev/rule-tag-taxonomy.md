@@ -5,7 +5,7 @@ This file mirrors that list.
 
 | Prefix | Values |
 | --- | --- |
-| Domain | Cloud, Container, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
+| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
 | Platform | AWS, Azure, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
 | OS | Linux, Windows, macOS |
 | Rule Type | BBR, Custom Query (KQL), ES\|QL, Event Correlation (EQL), Higher-Order, Higher-Order Rule, Indicator Match, ML, Machine Learning, New Terms, Threshold, Threat Match |
