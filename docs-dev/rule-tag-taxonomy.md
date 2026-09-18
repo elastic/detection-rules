@@ -156,7 +156,7 @@ Fleet alert volume over a telemetry window (typically **30 days**).
 | `global_noise` | Mean over days-with-alerts of `alerts / distinct clusters that day` |
 
 **Percentile cuts** on `global_noise` among rules that fired: Low cut ≈ **p25**, High cut
-≈ **p85**. For `windows` / `linux` / `macos` / `cloud` with enough firing rules (≥30),
+≈ **p85**. For `windows` / `linux` / `macos` / `aws` / `azure` / `gcp` / `google workspace` / `microsoft 365` / `okta` / `github`  with enough firing rules (≥30),
 cuts are **per-platform**; other platforms use a shared fleet fallback.
 
 | Tag | When (defaults) |
