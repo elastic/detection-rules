@@ -97,11 +97,11 @@ query = '''
 from logs-azure.signinlogs-*, logs-azure.graphactivitylogs-* metadata _id, _version, _index
 | where
     (data_stream.dataset == "azure.signinlogs"
-     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
+     and (source.`as`.organization.name is null or source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK")
      and azure.signinlogs.properties.session_id is not null)
     or
     (data_stream.dataset == "azure.graphactivitylogs"
-     and source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK"
+     and (source.`as`.organization.name is null or source.`as`.organization.name != "MICROSOFT-CORP-MSN-AS-BLOCK")
      and azure.graphactivitylogs.properties.c_sid is not null)
 
 | eval

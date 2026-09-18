@@ -71,7 +71,7 @@ FROM logs-wiz.vulnerability-*
         wiz.vulnerability.vulnerable_asset.id is not null
 | stats Esql.count_distinct_vuln_id = COUNT_DISTINCT(wiz.vulnerability.id),
         Esql.count_distinct_vuln_severity = COUNT_DISTINCT(wiz.vulnerability.cvss_severity),
-        Esql.count_has_exploit = COUNT(wiz.vulnerability.has_exploit),
+        Esql.count_has_exploit = COUNT(*) WHERE wiz.vulnerability.has_exploit == true,
         Esql.vuln_id_values = VALUES(wiz.vulnerability.id),
         Esql.vuln_severity_values = VALUES(wiz.vulnerability.cvss_severity) by wiz.vulnerability.vulnerable_asset.name, wiz.vulnerability.vulnerable_asset.id
 | eval concat_vuln_severity_values = MV_CONCAT(Esql.vuln_severity_values, ",")

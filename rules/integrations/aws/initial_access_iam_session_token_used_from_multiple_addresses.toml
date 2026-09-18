@@ -92,15 +92,17 @@ from logs-aws.cloudtrail* metadata _id, _version, _index
   and aws.cloudtrail.user_identity.type == "IAMUser"
   and source.ip is not null
   and aws.cloudtrail.user_identity.access_key_id is not null
-  and not aws.cloudtrail.session_credential_from_console == "true"
+  and aws.cloudtrail.session_credential_from_console is null
   and not (
     user_agent.original like "*Terraform*" or
     user_agent.original like "*Ansible*" or
     user_agent.original like "*Pulumi*"
   )
-  and `source.as.organization.name` != "AMAZON-AES"
-  and not ((
-    `source.as.organization.name` == "AMAZON-02" and aws.cloudtrail.event_category == "Data"))
+  and (`source.as.organization.name` is null or `source.as.organization.name` != "AMAZON-AES")
+  and (
+    `source.as.organization.name` is null
+    or not (`source.as.organization.name` == "AMAZON-02" and aws.cloudtrail.event_category == "Data")
+  )
   and event.provider not in (
     "health.amazonaws.com", "monitoring.amazonaws.com", "notifications.amazonaws.com",
     "ce.amazonaws.com", "cost-optimization-hub.amazonaws.com",

@@ -103,7 +103,7 @@ query = '''
 FROM logs-aws.cloudtrail-* 
 | WHERE event.provider == "ec2.amazonaws.com" 
     and event.outcome == "success"
-    and aws.cloudtrail.user_identity.type != "AWSService"
+    and (aws.cloudtrail.user_identity.type is null or aws.cloudtrail.user_identity.type != "AWSService")
     and not (
       user_agent.original like "*Terraform*"
       or user_agent.original like "*Ansible*"
