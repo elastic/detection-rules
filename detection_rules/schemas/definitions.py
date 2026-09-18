@@ -147,16 +147,7 @@ TIMELINE_TEMPLATES: Final[dict[str, str]] = {
     "4434b91a-94ca-4a89-83cb-a37cdc0532b7": "Alerts Involving a Single Host Timeline",
 }
 
-# Controlled tag vocabulary and allowed prefixes for unit-test casing/prefix checks.
-# Includes the XDR/SIEM taxonomy (Platform/Service/Vuln/Profile/etc.).
-#
-# Data Source naming:
-#   Use the vendor/product name already on rules (Sysmon, SentinelOne, Crowdstrike).
-#   Do NOT mint a second tag by appending "Logs" (SentinelOne Logs, Windows Sysmon Logs)
-#   or extra product+Logs (CrowdStrike Falcon Logs). If the CrowdStrike name is expanded,
-#   use "CrowdStrike Falcon" — never "CrowdStrike Falcon Logs".
-#   "Logs" is OK only when it is the stream's own name, not a suffix on a vendor tag
-#   (Windows Security Event Logs, Entra ID Sign-In Logs, AWS VPC Flow Logs).
+# Controlled tag vocabulary for unit-test casing/prefix checks.
 EXPECTED_RULE_TAGS = [
     "Data Source: APM",
     "Data Source: AWS",
