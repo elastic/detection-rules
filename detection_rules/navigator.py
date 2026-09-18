@@ -288,8 +288,18 @@ class NavigatorBuilder:
 
     def save_all(self, directory: Path, verbose: bool = True) -> dict[Path, Navigator]:
         paths: dict[Path, Navigator] = {}
+        built_layers = self.build_all()
+        output_names: dict[str, list[str]] = {}
+        for built in built_layers:
+            filename = f"{sanitize_navigator_name(built.name)}.json"
+            output_names.setdefault(filename, []).append(built.name)
 
-        for built in self.build_all():
+        collisions = {name: originals for name, originals in output_names.items() if len(originals) > 1}
+        if collisions:
+            details = "; ".join(f"{name} <= {originals}" for name, originals in sorted(collisions.items()))
+            raise ValueError(f"Navigator layer filenames collide after sanitization: {details}")
+
+        for built in built_layers:
             path = self._save(built, directory, verbose)
             paths[path] = built
 

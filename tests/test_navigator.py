@@ -37,3 +37,20 @@ class TestNavigatorNames(unittest.TestCase):
             self.assertEqual(path.parent, directory)
             self.assertEqual(path.name, "Elastic-detection-rules-tags-lnk-shortcut-abuse.json")
             self.assertTrue(path.is_file())
+
+    def test_save_all_raises_on_sanitized_filename_collision(self) -> None:
+        builder = NavigatorBuilder([])
+        technique = {
+            "metadata": [{"name": "test", "value": "id"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
+        builder.layers["tags"]["lnk/shortcut-abuse"]["defense evasion"]["T1204"] = technique
+        builder.layers["tags"]["lnk-shortcut-abuse"]["defense evasion"]["T1204"] = {
+            "metadata": [{"name": "other", "value": "id2"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
+        with TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError) as ctx:
+                builder.save_all(Path(tmp), verbose=False)
+        self.assertIn("collide after sanitization", str(ctx.exception))
+        self.assertIn("lnk-shortcut-abuse.json", str(ctx.exception))
