@@ -9,7 +9,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from detection_rules.navigator import NavigatorBuilder, navigator_layer_path, sanitize_navigator_name
+from detection_rules.navigator import (
+    NavigatorBuilder,
+    navigator_layer_label,
+    navigator_layer_path,
+    navigator_tag_layer_key,
+    sanitize_navigator_name,
+)
 
 
 class TestNavigatorNames(unittest.TestCase):
@@ -81,3 +87,26 @@ class TestNavigatorNames(unittest.TestCase):
             path = navigator_layer_path(Path(tmp), dotted)
             self.assertEqual(path.name, f"{dotted}.json")
             self.assertNotEqual(Path(dotted).with_suffix(".json").name, path.name)
+
+    def test_layer_label_keeps_dotted_name(self) -> None:
+        name = "Elastic-detection-rules-indexes-logs-endpoint.events.WILDCARD.json"
+        self.assertEqual(
+            navigator_layer_label(name),
+            "Elastic-detection-rules-indexes-logs-endpoint.events.WILDCARD",
+        )
+        self.assertNotEqual(name.split(".", maxsplit=1)[0], navigator_layer_label(name))
+
+    def test_tag_layer_keys_stay_distinct_until_filename_sanitize(self) -> None:
+        slash_key = navigator_tag_layer_key("Tactic: LNK/Shortcut Abuse")
+        dash_key = navigator_tag_layer_key("Tactic: LNK-Shortcut Abuse")
+        self.assertEqual(slash_key, "lnk/shortcut-abuse")
+        self.assertEqual(dash_key, "lnk-shortcut-abuse")
+        self.assertNotEqual(slash_key, dash_key)
+        self.assertEqual(sanitize_navigator_name(slash_key), sanitize_navigator_name(dash_key))
+
+        star_key = navigator_tag_layer_key("Tactic: Foo*")
+        wildcard_key = navigator_tag_layer_key("Tactic: FooWILDCARD")
+        self.assertEqual(star_key, "foo*")
+        self.assertEqual(wildcard_key, "foowildcard")
+        self.assertNotEqual(star_key, wildcard_key)
+        self.assertEqual(sanitize_navigator_name(star_key), "fooWILDCARD")

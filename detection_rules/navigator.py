@@ -139,6 +139,18 @@ def navigator_layer_path(directory: Path, name: str) -> Path:
     return directory / f"{sanitize_navigator_name(name)}.json"
 
 
+def navigator_layer_label(filename: str) -> str:
+    """Display name for a layer file: drop only the final .json suffix."""
+    return filename.removesuffix(".json")
+
+
+def navigator_tag_layer_key(tag: str) -> str:
+    """Layer dict key for a rule tag. Sanitize only when writing filenames."""
+    expected_prefixes = {t.split(":")[0] + ":" for t in definitions.EXPECTED_RULE_TAGS}
+    stripped = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, tag).lstrip()
+    return stripped.replace(" ", "-").lower()
+
+
 class NavigatorBuilder:
     """Rule navigator mappings and management."""
 
@@ -196,10 +208,8 @@ class NavigatorBuilder:
     def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         for _tag in rule.contents.data.get("tags") or []:  # type: ignore[reportUnknownVariableType]
             value = rule.id
-            expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
-            tag = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, _tag).lstrip()  # type: ignore[reportUnknownMemberType]
-            layer_key = sanitize_navigator_name(tag.replace(" ", "-").lower())  # type: ignore[reportUnknownVariableType]
-            self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)  # type: ignore[reportUnknownArgumentType]
+            layer_key = navigator_tag_layer_key(_tag)  # type: ignore[reportUnknownArgumentType]
+            self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)
 
     def add_rule_to_technique(  # noqa: PLR0913, PLR0917
         self,
