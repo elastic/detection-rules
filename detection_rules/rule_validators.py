@@ -14,6 +14,7 @@ from functools import cached_property, wraps
 from typing import Any, cast
 
 import eql  # type: ignore[reportMissingTypeStubs]
+import esql
 import kql  # type: ignore[reportMissingTypeStubs]
 from elastic_transport import ObjectApiResponse
 from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
@@ -33,9 +34,26 @@ from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
 from .esql import (
+    collect_index_field_schemas,
+    collect_lookup_index_field_schemas,
+    collect_package_fields_for_indices,
+    get_esql_lookup_join_targets,
     get_esql_query_event_dataset_integrations,
+    get_esql_query_indices,
     get_esql_query_source_groups,
+    infer_packages_from_indices,
+    lookup_index_uses_ecs,
+    normalize_dataset_package,
     replace_esql_query_sources,
+)
+from .esql_errors import (
+    EsqlSchemaError as DrEsqlSchemaError,
+)
+from .esql_errors import (
+    EsqlSemanticError as DrEsqlSemanticError,
+)
+from .esql_errors import (
+    EsqlSyntaxError as DrEsqlSyntaxError,
 )
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
@@ -43,14 +61,25 @@ from .index_mappings import (
     execute_query_against_indices,
     get_rule_integrations,
     prepare_mappings,
+    validate_offline_esql_from_indices,
 )
 from .integrations import (
+    find_latest_compatible_version,
     find_latest_integration_patch_for_minor,
     get_integration_schema_data,
     load_integrations_manifests,
+    load_integrations_schemas,
     parse_datasets,
 )
-from .rule import EQLRuleData, QueryRuleData, QueryValidator, RuleMeta, TOMLRuleContents, set_eql_config
+from .rule import (
+    EQLRuleData,
+    QueryRuleData,
+    QueryValidator,
+    RuleMeta,
+    TOMLRuleContents,
+    set_eql_config,
+    set_esql_config,
+)
 from .schemas import get_latest_stack_version, get_stack_schemas, get_stack_versions
 from .schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 
@@ -782,43 +811,435 @@ class EQLValidator(QueryValidator):
         return configured, any(f not in schema for f in configured)
 
 
+# Cross-rule caches for offline ES|QL validation (M6).
+_ESQL_SCHEMA_DICT_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
+_ESQL_WARM_STATE = {"warmed": False}
+
+
+def _warm_esql_offline_caches() -> None:
+    """Load heavy integration/ECS artifacts once per process."""
+    if _ESQL_WARM_STATE["warmed"]:
+        return
+    load_integrations_manifests()
+    load_integrations_schemas()
+    _ESQL_WARM_STATE["warmed"] = True
+
+
+def _integration_fields_for_indices(
+    package_integrations: list[Any],
+    indices: list[str],
+    min_stack: Version,
+    packages_manifest: dict[str, Any],
+    integrations_schemas: dict[str, Any],
+) -> tuple[dict[str, Any], set[str]]:
+    """Collect Fleet stream fields that match *indices* for the given packages."""
+    fields: dict[str, Any] = {}
+    packages: set[str] = set()
+    for pk_int in package_integrations:
+        package = normalize_dataset_package(str(pk_int["package"]))
+        integration = pk_int.get("integration")
+        package_schemas = integrations_schemas.get(package, {})
+        try:
+            package_version, _ = find_latest_compatible_version(
+                package,
+                integration or "",
+                min_stack,
+                packages_manifest,
+                package_schemas=package_schemas if integration else None,
+            )
+        except ValueError:
+            continue
+        if package not in integrations_schemas or package_version not in integrations_schemas[package]:
+            continue
+        package_schema = integrations_schemas[package][package_version]
+        stream_fields = collect_package_fields_for_indices(package_schema, package, indices, integration)
+        for field_name, field_type in stream_fields.items():
+            fields[field_name] = kql.parser.elasticsearch_type_family(field_type)
+        packages.add(package)
+    return fields, packages
+
+
+def _lookup_join_schemas_for_stack(
+    lookup_targets: list[str],
+    stack_version: str,
+    ecs_version: str,
+    packages_manifest: dict[str, Any],
+    integrations_schemas: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Build ``Schema(lookups=)`` maps without dumping FROM packages onto lookup indices."""
+    if not lookup_targets:
+        return {}
+    parsed_stack = Version.parse(str(stack_version))
+    lookup_pkgs = set(infer_packages_from_indices(lookup_targets))
+    patch_floor = find_latest_integration_patch_for_minor(lookup_pkgs, parsed_stack.major, parsed_stack.minor)
+    min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
+    ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+    lookup_index_fields = collect_lookup_index_field_schemas(lookup_targets)
+    lookups: dict[str, dict[str, Any]] = {}
+    for target in lookup_targets:
+        fields: dict[str, Any] = {}
+        if lookup_index_uses_ecs(target):
+            fields.update(ecs_flat)
+        fields.update(lookup_index_fields.get(target, {}))
+        inferred = [{"package": pkg, "integration": None} for pkg in infer_packages_from_indices([target])]
+        pkg_fields, _ = _integration_fields_for_indices(
+            inferred, [target], min_stack, packages_manifest, integrations_schemas
+        )
+        fields.update(pkg_fields)
+        if fields:
+            lookups[target] = fields
+    return lookups
+
+
+def _strict_esql_schema(schema_dict: dict[str, Any], lookups: dict[str, dict[str, Any]] | None = None) -> esql.Schema:
+    if lookups:
+        return esql.Schema(schema_dict, allow_missing=False, lookups=lookups)
+    return esql.Schema(schema_dict, allow_missing=False)
+
+
 class ESQLValidator(QueryValidator):
-    """Validate specific fields for ESQL query event types."""
+    """Validate ES|QL queries offline via esql-detection-rules-py (optional remote fidelity)."""
 
     kibana_client: Kibana
     elastic_client: Elasticsearch
     metadata: RuleMeta
     rule_id: str
-    verbosity: int
-    esql_unique_fields: list[dict[str, str]]
+    verbosity: int = 0
+    esql_unique_fields: list[dict[str, str]] | None = None
+    _parsed_tree: Any | None = None
 
     def log(self, val: str) -> None:
         """Log if verbosity is 1 or greater (1 corresponds to `-v` in pytest)"""
         unit_test_verbose_level = 1
-        if self.verbosity >= unit_test_verbose_level:
-            print(f"{self.rule_id}:", val)
+        if getattr(self, "verbosity", 0) >= unit_test_verbose_level:
+            print(f"{getattr(self, 'rule_id', '')}:", val)
 
-    @property
-    def ast(self) -> Any:
-        """Return the AST of the ESQL query. Dependant on an ESQL parser, which is not implemented"""
-        # Needs to return none to prevent not implemented error
-        return None
+    def _parse_tree(self, min_stack_version: str | None = None) -> Any:
+        """Parse query with esql-detection-rules-py under the given stack config."""
+        stack = min_stack_version or load_current_package_version()
+        cfg = set_esql_config(stack)
+        # Empty schema for AST-only parse; field checks run in validate() with plan schemas.
+        with cfg, esql.Schema({}, allow_missing=True):
+            return esql.parse_query(self.query)
+
+    @cached_property
+    def ast(self) -> Any:  # type: ignore[reportIncompatibleMethodOverride]
+        """Return the AST of the ES|QL query."""
+        if self._parsed_tree is None:
+            self._parsed_tree = self._parse_tree()
+        return self._parsed_tree
 
     @cached_property
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
-        """Return a list of unique fields in the query. Requires remote validation to have occurred."""
-        esql_unique_fields = getattr(self, "esql_unique_fields", None)
-        if esql_unique_fields:
-            return [field["name"] for field in self.esql_unique_fields]
-        return []
+        """Return unique field names from the AST (or remote columns when present)."""
+        remote = getattr(self, "esql_unique_fields", None)
+        if remote:
+            return [field["name"] for field in remote]
+        names = set(esql.get_unique_fields(self.ast))
+        names.update(self._nested_query_field_names(self.ast))
+        return sorted(names)
 
     def get_unique_field_type(self, field_name: str) -> str | None:  # type: ignore[reportIncompatibleMethodOverride]
         """Get the type of the unique field. Requires remote validation to have occurred."""
-        esql_unique_fields = getattr(self, "esql_unique_fields", [])
-        for field in esql_unique_fields:
+        # Class default is None until remote validation populates columns.
+        fields = self.esql_unique_fields
+        if not fields:
+            return None
+        for field in fields:
             if field["name"] == field_name:
                 return field["type"]
         return None
+
+    @staticmethod
+    def _flat_schema_dict(schema: Any) -> dict[str, Any]:
+        """Flatten an esql.Schema (or dict) for nested kql/eql schema checks."""
+        if isinstance(schema, esql.Schema):
+            return dict(schema._fields)
+        if isinstance(schema, dict):
+            flat: dict[str, Any] = {}
+            for key, value in schema.items():
+                if isinstance(value, str):
+                    flat[str(key)] = value
+                else:
+                    flat[str(key)] = getattr(value, "get", lambda *_: None)("type") or value
+            return flat
+        return {}
+
+    @staticmethod
+    def _nested_query_field_names(tree: Any) -> set[str]:
+        """Union field names from nested KQL()/EQL() payloads (PRD §5.7 metadata merge)."""
+        names: set[str] = set()
+        for nested in esql.find_nested_queries(tree):
+            text = nested.text
+            if not text:
+                continue
+            try:
+                if nested.kind == "kql":
+                    parsed = kql.parse(text, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType]
+                    names.update(kql.get_field_names(parsed))  # type: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+                elif nested.kind == "eql":
+                    with eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                        try:
+                            parsed_q = eql.parse_query(text)  # type: ignore[reportUnknownMemberType]
+                        except eql.EqlParseError:
+                            parsed_q = eql.parse_expression(text)  # type: ignore[reportUnknownMemberType]
+                    names.update(str(f) for f in parsed_q if isinstance(f, eql.ast.Field))  # type: ignore[reportUnknownVariableType]
+            except Exception:  # noqa: BLE001, S112 — field merge best-effort; schema path raises
+                continue
+        return names
+
+    def _validate_nested_queries_with_schema(  # noqa: PLR0912, PLR0913, PLR0917
+        self,
+        tree: Any,
+        schema: Any,
+        err_trailer: str,
+        min_stack_version: str,
+        beat_types: list[str] | None = None,
+        integration_types: list[str] | None = None,
+    ) -> Exception | None:
+        """Schema-validate nested KQL()/EQL() payloads against the ValidationTarget schema.
+
+        Syntax is handled by parse hooks in set_esql_config. This layer mirrors
+        KQLValidator / EQLValidator schema checks for the embedded string args.
+        """
+        nested_queries = esql.find_nested_queries(tree)
+        if not nested_queries:
+            return None
+
+        flat = self._flat_schema_dict(schema)
+        for nested in nested_queries:
+            kind = nested.kind
+            text = nested.text
+            if not text:
+                continue
+            locus = f"nested {kind.upper()}() at line {nested.line or '?'}, column {nested.column or '?'}"
+            trailer_parts = [locus]
+            if integration_types:
+                trailer_parts.append(f"integration_types: [{', '.join(integration_types)}]")
+            if beat_types:
+                trailer_parts.append(f"beat_types: [{', '.join(beat_types)}]")
+            if err_trailer:
+                trailer_parts.append(err_trailer)
+            trailer = "\n\n".join(trailer_parts)
+
+            if kind == "kql":
+                try:
+                    kql.parse(text, schema=flat, normalize_kql_keywords=True)  # type: ignore[reportUnknownMemberType]
+                except kql.KqlParseError as exc:
+                    msg = f"{exc.error_msg}\n\n{trailer}"
+                    return DrEsqlSchemaError(msg) if "field" in str(exc.error_msg).lower() else DrEsqlSemanticError(msg)
+                except Exception as exc:  # noqa: BLE001
+                    return DrEsqlSemanticError(f"{exc}\n\n{trailer}")
+            elif kind == "eql":
+                eql_schema = ecs.KqlSchema2Eql(flat)
+                cfg = set_eql_config(min_stack_version)
+                try:
+                    with cfg, eql_schema, eql.parser.elasticsearch_syntax, eql.parser.ignore_missing_functions:
+                        try:
+                            _ = eql.parse_query(text)  # type: ignore[reportUnknownMemberType]
+                        except eql.EqlParseError:
+                            _ = eql.parse_expression(text)  # type: ignore[reportUnknownMemberType]
+                except eql.EqlParseError as exc:
+                    msg = f"{exc.error_msg}\n\n{trailer}"
+                    return DrEsqlSchemaError(msg) if "field" in str(exc.error_msg).lower() else DrEsqlSemanticError(msg)
+                except Exception as exc:  # noqa: BLE001
+                    return DrEsqlSemanticError(f"{exc}\n\n{trailer}")
+        return None
+
+    def build_validation_plan(  # noqa: PLR0912, PLR0915
+        self, data: "QueryRuleData", meta: RuleMeta
+    ) -> list[ValidationTarget]:
+        """Build offline validation targets across the release-window stack map."""
+        _warm_esql_offline_caches()
+        targets: list[ValidationTarget] = []
+        packages_manifest = load_integrations_manifests()
+        integrations_schemas = load_integrations_schemas()
+        package_integrations = TOMLRuleContents.get_packaged_integrations(data, meta, packages_manifest) or []
+
+        event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
+        if not package_integrations and event_datasets:
+            package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
+
+        from_indices = get_esql_query_indices(self.query, tree=self.ast)
+        lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
+        # Infer Fleet packages from FROM patterns when metadata/datasets are absent
+        # (e.g. metrics-* → system) so offline schemas match remote mapping prep.
+        # Lookup-index packages stay off this list so they are not unioned into FROM.
+        known_packages = {str(p.get("package")) for p in package_integrations if p.get("package")}
+        for package in infer_packages_from_indices(from_indices):
+            if package not in known_packages:
+                package_integrations.append({"package": package, "integration": None})  # type: ignore[reportArgumentType]
+                known_packages.add(package)
+        index_fields = collect_index_field_schemas(from_indices)
+        pkg_key = tuple(
+            sorted(
+                (normalize_dataset_package(str(p["package"])), p.get("integration"))
+                for p in package_integrations
+                if p.get("package")
+            )
+        )
+        indices_key = tuple(sorted(from_indices))
+
+        def lookups_for(stack_version: str, ecs_version: str) -> dict[str, dict[str, Any]] | None:
+            built = _lookup_join_schemas_for_stack(
+                lookup_targets,
+                str(stack_version),
+                str(ecs_version),
+                packages_manifest,
+                integrations_schemas,
+            )
+            return built or None
+
+        stack_versions = meta.get_validation_stack_versions()
+        if package_integrations:
+            # Combine packages per stack, but only Fleet streams that match FROM indices
+            # (parity with remote prepare_mappings / get_filtered_index_schema).
+            combined_by_stack: dict[str, dict[str, Any]] = {}
+            ecs_by_stack: dict[str, str] = {}
+            packages_by_stack: dict[str, set[str]] = {}
+
+            for stack_version, mapping in stack_versions.items():
+                ecs_version = mapping["ecs"]
+                ecs_by_stack[stack_version] = ecs_version
+                cache_key = (pkg_key, indices_key, str(stack_version), str(ecs_version))
+                cached_schema = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
+                if cached_schema is not None:
+                    combined_by_stack[stack_version] = cached_schema
+                    packages_by_stack[stack_version] = {
+                        normalize_dataset_package(str(p["package"])) for p in package_integrations if p.get("package")
+                    }
+                    continue
+
+                parsed_stack = Version.parse(stack_version)
+                patch_floor = find_latest_integration_patch_for_minor(
+                    {normalize_dataset_package(str(p["package"])) for p in package_integrations if p.get("package")},
+                    parsed_stack.major,
+                    parsed_stack.minor,
+                )
+                min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
+                ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+                schema_dict = dict(ecs_flat)
+                schema_dict.update(index_fields)
+                stream_fields, pkgs = _integration_fields_for_indices(
+                    package_integrations, from_indices, min_stack, packages_manifest, integrations_schemas
+                )
+                schema_dict.update(stream_fields)
+                packages_by_stack.setdefault(stack_version, set()).update(pkgs)
+
+                combined_by_stack[stack_version] = schema_dict
+                _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
+
+            for stack_version, schema_dict in combined_by_stack.items():
+                ecs_version = ecs_by_stack.get(stack_version, "unknown")
+                pkgs = ", ".join(sorted(p for p in packages_by_stack.get(stack_version, set()) if p))
+                err_trailer = (
+                    "Try adding event.module or event.dataset to specify integration module\n\n"
+                    f"Checked against packages [{pkgs}]; stack: {stack_version}; ecs: {ecs_version}\n"
+                    f"rule: {data.name} - {data.rule_id}"
+                )
+                targets.append(
+                    ValidationTarget(
+                        query_text=self.query,
+                        schema=_strict_esql_schema(schema_dict, lookups_for(str(stack_version), ecs_version)),
+                        err_trailer=err_trailer,
+                        min_stack_version=stack_version,
+                        kind="integration",
+                        integration_types=sorted(packages_by_stack.get(stack_version, set())),
+                    )
+                )
+
+        if not targets:
+            for stack_version, mapping in stack_versions.items():
+                ecs_version = mapping["ecs"]
+                cache_key = (("__stack__",), indices_key, str(stack_version), str(ecs_version))
+                schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
+                if schema_dict is None:
+                    raw_schema = cast("dict[str, Any]", ecs.get_schema(ecs_version))
+                    built: dict[str, Any] = {}
+                    for key, value in raw_schema.items():
+                        if isinstance(value, dict):
+                            built[str(key)] = cast("dict[str, Any]", value).get("type")
+                        else:
+                            built[str(key)] = value
+                    built.update(index_fields)
+                    _ESQL_SCHEMA_DICT_CACHE[cache_key] = built
+                    schema_dict = built
+                err_trailer = f"stack: {stack_version}, ecs: {ecs_version}\nrule: {data.name} - {data.rule_id}"
+                targets.append(
+                    ValidationTarget(
+                        query_text=self.query,
+                        schema=_strict_esql_schema(schema_dict, lookups_for(str(stack_version), str(ecs_version))),
+                        err_trailer=err_trailer,
+                        min_stack_version=str(stack_version),
+                        kind="stack",
+                    )
+                )
+
+        return targets
+
+    def validate_query_text_with_schema(  # noqa: PLR0911, PLR0912, PLR0913, PLR0917
+        self,
+        query_text: str,
+        schema: Any,
+        err_trailer: str,
+        min_stack_version: str,
+        beat_types: list[str] | None = None,
+        integration_types: list[str] | None = None,
+        tree: Any | None = None,
+    ) -> tuple[Exception | None, str | None]:
+        """Validate ES|QL query text with esql-detection-rules-py under Schema + ParserConfig."""
+        try:
+            cfg = set_esql_config(min_stack_version)
+            schema_ctx = schema if isinstance(schema, esql.Schema) else esql.Schema(schema or {}, allow_missing=False)
+            if tree is not None:
+                # Reuse a parse from the same grammar; re-check features + schema.
+                with cfg:
+                    esql.verify_features(tree, min_stack_version)
+                    esql.analyze(tree, schema_ctx)
+                self._parsed_tree = tree
+            else:
+                with cfg, schema_ctx:
+                    tree = esql.parse_query(query_text)
+                self._parsed_tree = tree
+        except esql.EsqlSyntaxError as exc:
+            msg = str(exc)
+            if err_trailer:
+                msg = f"{msg}\n\n{err_trailer}"
+            return DrEsqlSyntaxError(msg), None
+        except esql.EsqlNestedQueryError as exc:
+            msg = str(exc)
+            if err_trailer:
+                msg = f"{msg}\n\n{err_trailer}"
+            return DrEsqlSemanticError(msg), None
+        except esql.EsqlSchemaError as exc:
+            msg = str(exc)
+            if err_trailer:
+                msg = f"{msg}\n\n{err_trailer}"
+            return DrEsqlSchemaError(msg), None
+        except esql.EsqlTypeMismatchError as exc:
+            msg = str(exc)
+            if err_trailer:
+                msg = f"{msg}\n\n{err_trailer}"
+            return EsqlTypeMismatchError(msg), None
+        except esql.EsqlSemanticError as exc:
+            msg = str(exc)
+            if err_trailer:
+                msg = f"{msg}\n\n{err_trailer}"
+            return DrEsqlSemanticError(msg), None
+        except Exception as exc:  # noqa: BLE001
+            return exc, None
+        else:
+            nested_exc = self._validate_nested_queries_with_schema(
+                tree,
+                schema_ctx,
+                err_trailer=err_trailer,
+                min_stack_version=min_stack_version,
+                beat_types=beat_types,
+                integration_types=integration_types,
+            )
+            if nested_exc is not None:
+                return nested_exc, None
+            return None, None
 
     def validate_columns_index_mapping(
         self, query_columns: list[dict[str, str]], combined_mappings: dict[str, Any], version: str = "", query: str = ""
@@ -828,30 +1249,22 @@ class ESQLValidator(QueryValidator):
 
         for column in query_columns:
             column_name = column["name"]
-            # Skip Dynamic fields
             if column_name.startswith(ESQL_DYNAMIC_FIELD_PREFIXES):
                 continue
-            # Skip internal fields
             if column_name in ("_id", "_version", "_index"):
                 continue
-            # Skip implicit fields
             if column_name not in query:
                 continue
             column_type = column["type"]
 
-            # Check if the column exists in combined_mappings or a valid field generated from a function or operator
             keys = column_name.split(".")
             schema_type = utils.get_column_from_index_mapping_schema(keys, combined_mappings)
             schema_type = kql.parser.elasticsearch_type_family(schema_type) if schema_type else None
 
-            # If it is in the schema, but Kibana returns unsupported
             if schema_type and column_type == "unsupported":
                 continue
 
-            # Validate the type
             if not schema_type or column_type != schema_type:
-                # Attempt reverse mapping as for our purposes they are equivalent.
-                # We are generally concerned about the operators for the types not the values themselves.
                 reverse_col_type = kql.parser.elasticsearch_type_family(column_type) if column_type else None
                 if reverse_col_type is not None and schema_type is not None and reverse_col_type == schema_type:
                     continue
@@ -869,8 +1282,104 @@ class ESQLValidator(QueryValidator):
 
         return True
 
-    def validate(self, data: "QueryRuleData", rule_meta: RuleMeta, force_remote_validation: bool = False) -> None:  # type: ignore[reportIncompatibleMethodOverride]
-        """Validate an ESQL query while checking TOMLRule."""
+    def auto_add_field(self, field_name: str, index_or_dataview: str) -> None:
+        """Auto add a missing field to the custom schema (parity with KQL/EQL validators)."""
+        if not field_name:
+            raise ValueError("No field name found")
+        field_type = ecs.get_all_flattened_schema().get(field_name)
+        update_auto_generated_schema(index_or_dataview, field_name, field_type)
+        # Offline plan caches schemas; rebuild after custom schema mutates.
+        _ESQL_SCHEMA_DICT_CACHE.clear()
+
+    @staticmethod
+    def _unknown_field_from_error(exc: Exception) -> str | None:
+        """Extract an unknown field name from an ES|QL schema error message."""
+        match = re.search(r"Unknown field ['\"]([^'\"]+)['\"]", str(exc))
+        return match.group(1) if match else None
+
+    def validate(  # type: ignore[reportIncompatibleMethodOverride]
+        self,
+        data: "QueryRuleData",
+        rule_meta: RuleMeta,
+        force_remote_validation: bool = False,
+        max_attempts: int = 10,
+    ) -> None:
+        """Validate an ESQL query: local esql-detection-rules-py by default; optional remote fidelity."""
+        if rule_meta.query_schema_validation is False or rule_meta.maturity == "deprecated":
+            return
+
+        _warm_esql_offline_caches()
+
+        # Unknown FROM / LOOKUP JOIN patterns must fail offline (parity with remote prepare_mappings).
+        from_indices = get_esql_query_indices(self.query, tree=self.ast)
+        lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
+        event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
+        stack_versions = rule_meta.get_validation_stack_versions()
+        stack_version = (
+            max(stack_versions.keys(), key=lambda v: Version.parse(str(v), optional_minor_and_patch=True))
+            if stack_versions
+            else load_current_package_version()
+        )
+        _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
+        if lookup_targets:
+            # Do not pass query event.dataset restrictions: they describe FROM, not lookup indices.
+            _ = validate_offline_esql_from_indices(lookup_targets, rule_meta, [], str(stack_version))
+
+        # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
+        # self.ast is already parsed (for FROM indices) under the current package
+        # grammar — seed the cache so the matching plan target does not re-parse.
+        from esql.grammar_registry import resolve_grammar_key
+
+        schema_index = (data.index_or_dataview or from_indices or [None])[0]
+        package_grammar_key = resolve_grammar_key(load_current_package_version())
+
+        for _ in range(max_attempts):
+            plan = self.build_validation_plan(data, rule_meta)
+            if not plan:
+                # Still parse once for AST / unique_fields
+                _ = self.ast
+                break
+
+            trees_by_grammar: dict[str, Any] = {package_grammar_key: self.ast}
+            first_error: Exception | None = None
+            for target in plan:
+                gkey = resolve_grammar_key(target.min_stack_version)
+                tree = trees_by_grammar.get(gkey)
+                if tree is None:
+                    cfg = set_esql_config(target.min_stack_version)
+                    with cfg, esql.Schema({}, allow_missing=True):
+                        tree = esql.parse_query(target.query_text)
+                    trees_by_grammar[gkey] = tree
+                exc, _ = self.validate_query_text_with_schema(
+                    target.query_text,
+                    target.schema,
+                    err_trailer=target.err_trailer,
+                    min_stack_version=target.min_stack_version,
+                    beat_types=target.beat_types,
+                    integration_types=target.integration_types,
+                    tree=tree,
+                )
+                if exc is not None:
+                    first_error = exc
+                    break
+
+            if first_error is None:
+                break
+
+            unknown_field = self._unknown_field_from_error(first_error)
+            if (
+                isinstance(first_error, DrEsqlSchemaError)
+                and unknown_field
+                and RULES_CONFIG.auto_gen_schema_file
+                and schema_index
+            ):
+                self.auto_add_field(unknown_field, schema_index)
+                continue
+
+            raise first_error
+        else:
+            raise ValueError(f"Maximum validation attempts exceeded for {data.rule_id} - {data.name}")
+
         if misc.getdefault("remote_esql_validation")() or force_remote_validation:
             resolved_kibana_options = {
                 str(option.name): option.default() if callable(option.default) else option.default
@@ -889,7 +1398,6 @@ class ESQLValidator(QueryValidator):
                 misc.get_elasticsearch_client(**resolved_elastic_options) as elastic_client,  # type: ignore[reportUnknownVariableType]
             ):
                 query = data.query
-                # QueryRuleData permits None for custom filter-only KQL rules; ES|QL still requires a query.
                 if query is None:
                     raise ValueError("ES|QL remote validation requires a query.")
 
@@ -928,19 +1436,17 @@ class ESQLValidator(QueryValidator):
         self.rule_id = rule_id
         self.verbosity = verbosity
 
-        # Validate that all fields (columns) are either dynamic fields or correctly mapped
-        # against the combined mapping of all the indices
         kibana_details: dict[str, Any] = kibana_client.get("/api/status", {})  # type: ignore[reportUnknownVariableType]
         if "version" not in kibana_details:
             raise ValueError("Failed to retrieve Kibana details.")
         stack_version = get_latest_stack_version()
 
         self.log(f"Validating against {stack_version} stack")
-        source_groups = get_esql_query_source_groups(query)
+        source_groups = get_esql_query_source_groups(query, tree=self.ast)
         if not source_groups:
             raise ValueError("Failed to extract any index pattern from the query's FROM clause(s).")
 
-        event_dataset_integrations = get_esql_query_event_dataset_integrations(query)
+        event_dataset_integrations = get_esql_query_event_dataset_integrations(query, tree=self.ast)
         self.log(
             "Extracted Event Dataset integrations from query: "
             f"{', '.join(str(integration) for integration in event_dataset_integrations)}"
@@ -977,16 +1483,8 @@ class ESQLValidator(QueryValidator):
         query_columns, response = execute_query_against_indices(elastic_client, query, all_index_str, self.log)  # type: ignore[reportUnknownVariableType]
         self.esql_unique_fields = query_columns
 
-        # Build a mapping lookup for all stack versions to validate against.
-        # We only need to check against the schemas locally for the type
-        # mismatch error, as the EsqlSchemaError and EsqlSyntaxError errors from the stack
-        # will not be impacted by the difference in schema type mapping.
         mappings_lookup: dict[str, dict[str, Any]] = {stack_version: combined_mappings}
 
-        # The schema-map keys stacks at MAJOR.MINOR.0, but an integration may gate its data stream
-        # behind a later patch (e.g. azure ~8.19.10). Validating at the literal .0 resolves an older
-        # package that predates the stream, so for each minor use the latest patch the rule's own
-        # integrations gate on. Only the rule's packages are inspected, not the full manifest.
         rule_packages = set(get_rule_integrations(metadata))
         rule_packages.update(integration.package for integration in event_dataset_integrations)
 

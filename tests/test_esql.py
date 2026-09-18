@@ -8,6 +8,7 @@
 import unittest
 
 from detection_rules.esql import (
+    get_esql_lookup_join_targets,
     get_esql_query_indices,
     get_esql_query_source_groups,
     replace_esql_query_sources,
@@ -87,3 +88,8 @@ class TestESQLQuerySources(unittest.TestCase):
         """Test that a query with no FROM clause yields no groups."""
         self.assertListEqual(get_esql_query_source_groups("| WHERE x == 1"), [])
         self.assertListEqual(get_esql_query_indices("| WHERE x == 1"), [])
+
+    def test_lookup_join_targets_are_not_from_sources(self):
+        query = "FROM logs-a-* METADATA _id\n| LOOKUP JOIN threat_list ON host.name\n| WHERE x == 1"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
+        self.assertListEqual(get_esql_lookup_join_targets(query), ["threat_list"])
