@@ -33,6 +33,8 @@ _DEFAULT_PLATFORMS = [
     "Windows",
 ]
 _DEFAULT_NAVIGATOR_LINKS = {"label": "repo", "url": "https://github.com/elastic/detection-rules"}
+# Layers published to the ATT&CK navigator gist. Tag/index layers exceed GitHub's gist limits.
+PUBLISHED_NAVIGATOR_LAYERS = ("all", "platforms")
 
 
 @dataclass
@@ -142,6 +144,21 @@ def navigator_layer_path(directory: Path, name: str) -> Path:
 def navigator_layer_label(filename: str) -> str:
     """Display name for a layer file: drop only the final .json suffix."""
     return filename.removesuffix(".json")
+
+
+def navigator_gist_filename(layer_name: str) -> str:
+    """Gist filename for a published navigator layer."""
+    return f"Elastic-detection-rules-{sanitize_navigator_name(layer_name)}.json"
+
+
+def select_navigator_gist_files(directory: Path) -> dict[Path, str]:
+    """Return only the navigator layers published to the ATT&CK gist."""
+    allowed = {navigator_gist_filename(name) for name in PUBLISHED_NAVIGATOR_LAYERS}
+    selected = {path: path.read_text() for path in sorted(directory.glob("*.json")) if path.name in allowed}
+    missing = sorted(allowed - {path.name for path in selected})
+    if missing:
+        raise FileNotFoundError(f"Missing navigator gist layers in {directory}: {', '.join(missing)}")
+    return selected
 
 
 def navigator_tag_layer_key(tag: str) -> str:
@@ -268,10 +285,11 @@ class NavigatorBuilder:
         }
         return Navigator.from_dict(base_nav_obj)
 
-    def build_all(self) -> list[Navigator]:
+    def build_all(self, layer_names: tuple[str, ...] | None = None) -> list[Navigator]:
         built: list[Navigator] = []
+        layers = {name: self.layers[name] for name in layer_names} if layer_names is not None else self.layers
 
-        for layer_name, data in self.layers.items():
+        for layer_name, data in layers.items():
             # this is a single layer
             if "defense evasion" in data:
                 built.append(self.build_navigator(layer_name))
@@ -301,9 +319,14 @@ class NavigatorBuilder:
         built = self.build_navigator(layer_name, layer_key)
         return self._save(built, directory, verbose), built
 
-    def save_all(self, directory: Path, verbose: bool = True) -> dict[Path, Navigator]:
+    def save_all(
+        self,
+        directory: Path,
+        verbose: bool = True,
+        layer_names: tuple[str, ...] | None = None,
+    ) -> dict[Path, Navigator]:
         paths: dict[Path, Navigator] = {}
-        built_layers = self.build_all()
+        built_layers = self.build_all(layer_names)
         output_names: dict[str, list[str]] = {}
         for built in built_layers:
             filename = navigator_layer_path(directory, built.name).name
