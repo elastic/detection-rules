@@ -77,6 +77,7 @@ class TestNavigatorNames(unittest.TestCase):
 
     def test_layer_path_appends_json_after_dots(self) -> None:
         dotted = "Elastic-detection-rules-indexes-logs-endpoint.events.WILDCARD"
-        path = navigator_layer_path(Path("/tmp"), dotted)
-        self.assertEqual(path.name, f"{dotted}.json")
-        self.assertNotEqual(Path(dotted).with_suffix(".json").name, path.name)
+        with TemporaryDirectory() as tmp:
+            path = navigator_layer_path(Path(tmp), dotted)
+            self.assertEqual(path.name, f"{dotted}.json")
+            self.assertNotEqual(Path(dotted).with_suffix(".json").name, path.name)
