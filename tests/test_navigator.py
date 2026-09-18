@@ -10,11 +10,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from detection_rules.navigator import (
+    PUBLISHED_NAVIGATOR_LAYERS,
     NavigatorBuilder,
     navigator_layer_label,
     navigator_layer_path,
     navigator_tag_layer_key,
     sanitize_navigator_name,
+    select_navigator_gist_files,
 )
 
 
@@ -110,3 +112,45 @@ class TestNavigatorNames(unittest.TestCase):
         self.assertEqual(wildcard_key, "foowildcard")
         self.assertNotEqual(star_key, wildcard_key)
         self.assertEqual(sanitize_navigator_name(star_key), "fooWILDCARD")
+
+    def test_save_all_can_limit_to_published_layers(self) -> None:
+        builder = NavigatorBuilder([])
+        technique = {
+            "metadata": [{"name": "test", "value": "id"}],
+            "links": [{"label": "repo", "url": "https://github.com/elastic/detection-rules"}],
+        }
+        builder.layers["all"]["defense evasion"]["T1204"] = technique
+        builder.layers["platforms"]["defense evasion"]["T1204"] = technique
+        builder.layers["tags"]["aws"]["defense evasion"]["T1204"] = technique
+        builder.layers["indexes"]["logs-aws.cloudtrail-*"]["defense evasion"]["T1204"] = technique
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            paths = builder.save_all(directory, verbose=False, layer_names=PUBLISHED_NAVIGATOR_LAYERS)
+            names = {path.name for path in paths}
+            self.assertEqual(
+                names,
+                {
+                    "Elastic-detection-rules-all.json",
+                    "Elastic-detection-rules-platforms.json",
+                },
+            )
+            self.assertEqual(list(directory.glob("*tags*")), [])
+            self.assertEqual(list(directory.glob("*indexes*")), [])
+
+    def test_select_navigator_gist_files_ignores_tag_and_index_layers(self) -> None:
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            all_layer = directory / "Elastic-detection-rules-all.json"
+            platforms_layer = directory / "Elastic-detection-rules-platforms.json"
+            (directory / "Elastic-detection-rules-tags-aws.json").write_text("{}")
+            (directory / "Elastic-detection-rules-indexes-logs-aws.json").write_text("{}")
+            all_layer.write_text("{}")
+            platforms_layer.write_text("{}")
+            selected = select_navigator_gist_files(directory)
+            self.assertEqual({path.name for path in selected}, {all_layer.name, platforms_layer.name})
+
+    def test_select_navigator_gist_files_requires_published_layers(self) -> None:
+        with TemporaryDirectory() as tmp, self.assertRaises(FileNotFoundError) as ctx:
+            select_navigator_gist_files(Path(tmp))
+        self.assertIn("Elastic-detection-rules-all.json", str(ctx.exception))
+        self.assertIn("Elastic-detection-rules-platforms.json", str(ctx.exception))
