@@ -65,7 +65,7 @@ from .misc import (
     get_default_kibana_client,
     raise_client_error,
 )
-from .navigator import navigator_layer_label
+from .navigator import select_navigator_gist_files
 from .packaging import CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package
 from .rule import (
     AnyRuleData,
@@ -1030,7 +1030,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
     "--directory",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path),
     default=CURRENT_RELEASE_PATH.joinpath("extras", "navigator_layers"),
-    help="Directory containing only navigator files.",
+    help="Directory containing navigator layer JSON files.",
 )
 @click.option(
     "--token",
@@ -1057,17 +1057,17 @@ def update_navigator_gists(
         prefix, _, suffix = raw_link.rsplit("/", 2)
         return f"{prefix}/{suffix}"
 
-    file_map = {f: f.read_text() for f in directory.glob("*.json")}
+    file_map = select_navigator_gist_files(directory)
     try:
         response = update_gist(
             token, file_map, description="ATT&CK Navigator layer files.", gist_id=gist_id, pre_purge=True
         )
     except requests.exceptions.HTTPError as exc:
-        if exc.response.status_code == requests.status_codes.codes.not_found:
+        if exc.response is not None and exc.response.status_code == requests.status_codes.codes.not_found:
             raise raise_client_error(
                 "Gist not found: verify the gist_id exists and the token has access to it", exc=exc
             ) from exc
-        if exc.response.status_code == requests.status_codes.codes.unauthorized:
+        if exc.response is not None and exc.response.status_code == requests.status_codes.codes.unauthorized:
             text = json.loads(exc.response.text).get(
                 "message", "verify the token is valid and has the necessary permissions"
             )
@@ -1076,34 +1076,23 @@ def update_navigator_gists(
                 error_message,
                 exc=exc,
             ) from exc
-        raise
+        detail = ""
+        if exc.response is not None and exc.response.text:
+            detail = f" {exc.response.text.strip()}"
+        raise raise_client_error(f"Gist update failed: {exc}{detail}", exc=exc) from exc
 
     response_data = response.json()
     raw_urls = {name: raw_permalink(data["raw_url"]) for name, data in response_data["files"].items()}
 
     base_url = "https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false"
-
-    # pull out full and platform coverage to print on top of markdown table
-    all_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop("Elastic-detection-rules-all.json")))
-    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop("Elastic-detection-rules-platforms.json")))
+    all_url = base_url.format(urllib.parse.quote_plus(raw_urls["Elastic-detection-rules-all.json"]))
+    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls["Elastic-detection-rules-platforms.json"]))
 
     generated_urls = [all_url, platforms_url]
-    markdown_links: list[str] = []
-    for name, gist_url in raw_urls.items():
-        query = urllib.parse.quote_plus(gist_url)
-        url = f"https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false"
-        generated_urls.append(url)
-        link_name = navigator_layer_label(name)
-        markdown_links.append(f"|[{link_name}]({url})|")
-
     markdown = [
         f"**Full coverage**: {NAVIGATOR_BADGE}",
         "\n",
         f"**Coverage by platform**: [navigator]({platforms_url})",
-        "\n",
-        "| other navigator links by rule attributes |",
-        "|------------------------------------------|",
-        *markdown_links,
     ]
 
     if print_markdown:
@@ -1114,11 +1103,10 @@ def update_navigator_gists(
         header_lines = textwrap.dedent("""# Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or
-`python -m detection-rules`.This also means they can be downloaded from all successful builds.
+`python -m detection-rules`. This also means they can be downloaded from all successful builds.
 
-These files can be used to pass to a custom navigator session. For convenience, the links are
-generated below. You can also include multiple across tabs in a single session, though it is not
-advisable to upload _all_ of them as it will likely overload your browsers resources.
+Published gist links cover the full rule set and coverage by platform. Additional tag and index
+layer files are not uploaded to the gist because they exceed GitHub gist size limits.
 
 ## Current rule coverage
 
