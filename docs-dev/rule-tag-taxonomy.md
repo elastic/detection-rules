@@ -41,6 +41,9 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 | Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, OS Query |
 
 Legacy prefixes such as `Use Case:` and `Promotion:` remain valid during migration.
+This first bulk pass is **additive only**: new `Platform:`, `Service:`, `Rule Type:`,
+`Vuln:`, and canonical `Data Source:` tags are appended; existing customer-facing
+tags are not removed.
 
 ## Domain values
 
@@ -100,7 +103,8 @@ Do **not** add these to `EXPECTED_RULE_TAGS` until rules are normalized:
 Prefix cloud services with the vendor. Web/app servers usually need no vendor prefix.
 
 **AWS:** S3, Lambda, DynamoDB, IAM, EC2, RDS, KMS, STS, SES, SNS, SQS, SSM,
-Secrets Manager, CloudFormation, GuardDuty, WAF, Route 53, Bedrock
+Secrets Manager, CloudFormation, CloudWatch, Config, Detective, GuardDuty, WAF,
+Route 53, Bedrock, EKS, EFS, EventBridge, Organizations, Backup, Sign-In
 
 **Azure:** Key Vault, Storage, Functions, Event Hubs, OpenAI
 

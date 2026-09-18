@@ -157,7 +157,7 @@ Some of the required metadata captured in a rule file:
 | **risk_score**       |          | Integer to rank the risk relative to other rules. Leave blank if unknown        |
 | **rule_id**          |     ✓    | Automatically generated UUID for the rule                                       |
 | **severity**         |     ✓    | Severity of the matching results (e.g., `low`, `medium`, `high`, `critical`)     |
-| **tags**             |          | Array of tags for grouping the rule (e.g., `APM`, `Linux`, `Packetbeat`, ...)    |
+| **tags**             |          | Array of `Category: Value` tags. Follow `docs-dev/rule-tag-taxonomy.md` and add values to `EXPECTED_RULE_TAGS`. Do not remove legacy tags during the additive migration. |
 | **threat**           |     ✓    | Mapping to a threat framework, such as MITRE ATT&CK®                            |
 | **to**               |          | Relative end time of a rule (e.g. `now`)                                        |
 | **type**             |     ✓    | Execution type of the rule (`query` or `machine_learning`)                      |
