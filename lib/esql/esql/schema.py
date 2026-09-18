@@ -45,11 +45,46 @@ class Schema(ParserConfig):
     ) -> None:
         self.allow_missing = allow_missing
         self.index_pattern = index_pattern
+        self._mapping = mapping
+        self._lookup_mappings = lookups or {}
         self._fields = self._flatten_mapping(mapping, index_pattern=index_pattern)
         self._lookups: dict[str, dict[str, str]] = {
-            name: self._flatten_mapping(nested) for name, nested in (lookups or {}).items()
+            name: self._flatten_mapping(nested) for name, nested in self._lookup_mappings.items()
         }
         super().__init__(schema=self)
+
+    @staticmethod
+    def _is_multi_index_mapping(mapping: Any) -> bool:
+        if (
+            not isinstance(mapping, dict)
+            or not mapping
+            or not all(isinstance(value, dict) for value in mapping.values())
+        ):
+            return False
+        if any(key in mapping for key in ("properties", "type")):
+            return False
+        if all("type" in value or "fields" in value for value in mapping.values()):
+            return False
+        return any("*" in key for key in mapping) or all("properties" in value for value in mapping.values())
+
+    def for_index_patterns(self, patterns: list[str]) -> Schema:
+        """Return this schema narrowed to matching index mappings."""
+        if not self._is_multi_index_mapping(self._mapping) or not patterns:
+            return self
+        selected = {
+            mapped_pattern: mapping
+            for mapped_pattern, mapping in self._mapping.items()
+            if any(
+                fnmatch.fnmatch(pattern.strip("`"), mapped_pattern)
+                or fnmatch.fnmatch(mapped_pattern, pattern.strip("`"))
+                for pattern in patterns
+            )
+        }
+        if not selected:
+            return self
+        scoped = Schema(selected, allow_missing=self.allow_missing, lookups=self._lookup_mappings)
+        scoped._mapping = self._mapping
+        return scoped
 
     def lookup_fields(self, index_name: str | None) -> dict[str, str]:
         """Return the field schema for a LOOKUP JOIN target, or empty."""
@@ -75,19 +110,15 @@ class Schema(ParserConfig):
             return {}
 
         # Multi-index: values look like nested mappings keyed by index pattern.
-        if prefix == "" and mapping and all(isinstance(v, dict) for v in mapping.values()):
-            if not any(k in mapping for k in ("properties", "type")):
-                # Heuristic: pattern-like keys, or every value shaped like an index
-                # mapping (bare index names carry no ``*``/``.``).
-                if any("*" in k or "." in k for k in mapping) or all("properties" in v for v in mapping.values()):
-                    fields: dict[str, str] = {}
-                    for pattern, nested in mapping.items():
-                        if index_pattern is not None and not (
-                            fnmatch.fnmatch(index_pattern, pattern) or fnmatch.fnmatch(pattern, index_pattern)
-                        ):
-                            continue
-                        fields.update(Schema._flatten_mapping(nested, prefix))
-                    return fields
+        if prefix == "" and Schema._is_multi_index_mapping(mapping):
+            fields: dict[str, str] = {}
+            for pattern, nested in mapping.items():
+                if index_pattern is not None and not (
+                    fnmatch.fnmatch(index_pattern, pattern) or fnmatch.fnmatch(pattern, index_pattern)
+                ):
+                    continue
+                fields.update(Schema._flatten_mapping(nested, prefix))
+            return fields
 
         fields = {}
 

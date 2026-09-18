@@ -56,6 +56,7 @@ __all__ = (
     "Literal",
     "BinaryExpr",
     "FunctionCall",
+    "InlineCast",
     "Wildcard",
     "Alias",
     "NestedQuery",
@@ -155,8 +156,24 @@ class BinaryExpr(Expression):
         yield self.right
 
 
+class InlineCast(Expression):
+    def __init__(
+        self,
+        expr: Expression,
+        target_type: str,
+        line: int | None = None,
+        column: int | None = None,
+    ) -> None:
+        super().__init__(line, column)
+        self.expr = expr
+        self.target_type = target_type
+
+    def iter_children(self) -> Iterator[BaseNode]:
+        yield self.expr
+
+
 class NestedQuery(Expression):
-    """Nested query payload (KQL/EQL validated; subquery/PROMQL opaque)."""
+    """Nested query payload, optionally retaining a parsed ES|QL subquery."""
 
     def __init__(
         self,
@@ -165,6 +182,7 @@ class NestedQuery(Expression):
         locus: Locus | None = None,
         line: int | None = None,
         column: int | None = None,
+        query: EsqlQuery | None = None,
     ) -> None:
         if locus is not None:
             line = line if line is not None else locus.line
@@ -172,6 +190,11 @@ class NestedQuery(Expression):
         super().__init__(line, column)
         self.kind = kind
         self.text = text
+        self.query = query
+
+    def iter_children(self) -> Iterator[BaseNode]:
+        if self.query is not None:
+            yield self.query
 
 
 class FunctionCall(Expression):
@@ -357,9 +380,11 @@ class DropCommand(ProcessingCommand):
         columns: list[str] | None = None,
         line: int | None = None,
         column: int | None = None,
+        wildcards: list[str] | None = None,
     ) -> None:
         super().__init__(line, column)
         self.columns = columns or []
+        self.wildcards = wildcards or []
 
 
 class EvalCommand(ProcessingCommand):
@@ -622,6 +647,38 @@ class FuseCommand(ProcessingCommand):
         self.text = text
 
 
+# Documented `prefix.component` columns (the prefix itself is not a column).
+_ASSIGN_FIELD_SUFFIXES: dict[str, tuple[str, ...]] = {
+    "uri_parts": (
+        "domain",
+        "fragment",
+        "path",
+        "extension",
+        "port",
+        "query",
+        "scheme",
+        "user_info",
+        "username",
+        "password",
+    ),
+    "registered_domain": ("domain", "registered_domain", "top_level_domain", "subdomain"),
+    "user_agent": ("name", "version", "os.name", "os.version", "os.full", "device.name"),
+    "ip_location": (
+        "country_iso_code",
+        "country_name",
+        "continent_name",
+        "region_iso_code",
+        "region_name",
+        "city_name",
+        "location",
+    ),
+}
+_ASSIGN_FIELD_TYPES: dict[tuple[str, str], str] = {
+    ("uri_parts", "port"): "integer",
+    ("ip_location", "location"): "geo_point",
+}
+
+
 class AssignFieldCommand(ProcessingCommand):
     """URI_PARTS / REGISTERED_DOMAIN / USER_AGENT / IP_LOCATION."""
 
@@ -637,6 +694,15 @@ class AssignFieldCommand(ProcessingCommand):
         self.command = command
         self.target = target
         self.source = source
+
+    def output_fields(self) -> dict[str, str]:
+        """Return `{prefix.component: type}` columns this command adds."""
+        if not self.target:
+            return {}
+        fields: dict[str, str] = {}
+        for suffix in _ASSIGN_FIELD_SUFFIXES.get(self.command, ()):
+            fields[f"{self.target}.{suffix}"] = _ASSIGN_FIELD_TYPES.get((self.command, suffix), "keyword")
+        return fields
 
     def iter_children(self) -> Iterator[BaseNode]:
         if self.source is not None:

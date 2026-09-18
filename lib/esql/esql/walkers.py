@@ -286,15 +286,15 @@ def get_defined_columns(tree: ast.EsqlQuery) -> set[str]:
             defined.update(cmd.outputs)
         elif isinstance(cmd, ast.EnrichCommand):
             defined.update(cmd.outputs)
-        elif isinstance(cmd, ast.CompletionCommand) and cmd.target_field:
-            defined.add(cmd.target_field)
-        elif isinstance(cmd, ast.AssignFieldCommand) and cmd.target:
-            defined.add(cmd.target)
+        elif isinstance(cmd, ast.CompletionCommand):
+            defined.add(cmd.target_field or "completion")
+        elif isinstance(cmd, ast.AssignFieldCommand):
+            defined.update(cmd.output_fields())
         elif isinstance(cmd, ast.ChangePointCommand):
-            if cmd.target_type:
-                defined.add(cmd.target_type)
-            if cmd.target_pvalue:
-                defined.add(cmd.target_pvalue)
+            defined.add(cmd.target_type or "type")
+            defined.add(cmd.target_pvalue or "pvalue")
+        elif isinstance(cmd, ast.ForkCommand):
+            defined.add("_fork")
         elif isinstance(cmd, ast.RerankCommand) and cmd.target_field:
             defined.add(cmd.target_field)
         elif isinstance(cmd, ast.GenericCommand):

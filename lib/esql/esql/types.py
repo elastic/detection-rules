@@ -137,6 +137,8 @@ def types_comparable(left: str | None, right: str | None) -> bool:
     right_g = comparison_family(right)
     if left_g == "unknown" or right_g == "unknown":
         return True
+    if normalize_type(left) in {"object", "nested"} or normalize_type(right) in {"object", "nested"}:
+        return False
     if left_g == right_g:
         return True
     # Date literals are often strings in ES|QL.

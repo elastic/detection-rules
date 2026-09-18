@@ -12,6 +12,7 @@ Argument types and unknown fields require `allow_missing=False`.
 
 from __future__ import annotations
 
+import fnmatch
 from collections.abc import Iterator
 
 from . import ast
@@ -67,7 +68,8 @@ _FUNC_RETURN_TYPES: dict[str, str] = {
 
 def analyze(tree: ast.EsqlQuery, schema: Schema) -> None:
     """Validate column references, command shape, and schema-aware type checks."""
-    # Nested FROM/TS subqueries and FORK branches are independent pipelines.
+    local_schema = _schema_for_query(tree, schema)
+    # Nested FROM/TS, IN, and FORK subqueries are independent pipelines.
     for cmd in tree.commands:
         if isinstance(cmd, ast.FromCommand):
             for src in cmd.sources:
@@ -75,7 +77,12 @@ def analyze(tree: ast.EsqlQuery, schema: Schema) -> None:
                     analyze(src, schema)
         elif isinstance(cmd, ast.ForkCommand):
             for branch in cmd.branches:
-                analyze(branch, schema)
+                analyze(branch, local_schema)
+    for node in _iter_pipeline_nodes(tree):
+        if isinstance(node, ast.NestedQuery) and node.query is not None:
+            analyze(node.query, schema)
+
+    schema = local_schema
 
     # Walk the pipe in order so KEEP/DROP/STATS narrow (or replace) available
     # columns for later commands — matching ES|QL runtime column visibility.
@@ -86,13 +93,23 @@ def analyze(tree: ast.EsqlQuery, schema: Schema) -> None:
         return
 
     defined = get_defined_columns(tree)
-    column_types = infer_column_types(tree, schema)
+    column_types = _infer_column_types(tree, schema, respect_projection=False)
     _check_commands(tree, schema, defined)
     _check_expression_types(tree, schema, column_types)
 
 
 def infer_column_types(tree: ast.EsqlQuery, schema: Schema) -> dict[str, str]:
     """Infer types for schema fields and pipeline-defined columns (EVAL/STATS/…)."""
+    return _infer_column_types(tree, schema, respect_projection=True)
+
+
+def _infer_column_types(
+    tree: ast.EsqlQuery,
+    schema: Schema,
+    *,
+    respect_projection: bool,
+) -> dict[str, str]:
+    schema = _schema_for_query(tree, schema)
     env: dict[str, str] = {}
     for name in _SKIP_FIELDS:
         env[name] = "keyword"
@@ -101,7 +118,21 @@ def infer_column_types(tree: ast.EsqlQuery, schema: Schema) -> dict[str, str]:
         env[field_name] = field_type if isinstance(field_type, str) else elasticsearch_type_family(field_type)
 
     for cmd in tree.commands:
-        if isinstance(cmd, ast.EvalCommand):
+        if isinstance(cmd, ast.FromCommand):
+            nested = [source for source in cmd.sources if isinstance(source, ast.EsqlQuery)]
+            if nested:
+                nested_env: dict[str, str] = {}
+                for source in nested:
+                    nested_env.update(_infer_column_types(source, schema, respect_projection=respect_projection))
+                if cmd.index_patterns:
+                    env.update(nested_env)
+                else:
+                    env = nested_env
+            for name in cmd.metadata:
+                env[name] = "keyword"
+        elif isinstance(cmd, ast.RowCommand):
+            env = {alias.name: _expr_type(alias.expr, schema, env) or "unknown" for alias in cmd.fields}
+        elif isinstance(cmd, ast.EvalCommand):
             for alias in cmd.assignments:
                 env[alias.name] = _expr_type(alias.expr, schema, env) or "unknown"
         elif isinstance(cmd, ast.StatsCommand):
@@ -115,31 +146,56 @@ def infer_column_types(tree: ast.EsqlQuery, schema: Schema) -> dict[str, str]:
                 next_env[group] = env.get(group) or _schema_field_type(schema, group) or "unknown"
             for alias in cmd.aggregates:
                 next_env[alias.name] = _expr_type(alias.expr, schema, env) or "unknown"
-            env = next_env
+            # INLINE STATS widens (keep prior columns); STATS replaces the env.
+            if cmd.inline:
+                env.update(next_env)
+            else:
+                env = next_env
         elif isinstance(cmd, ast.RenameCommand):
             for old, new in cmd.renames:
                 env[new] = env.pop(old, env.get(old, "unknown"))
+        elif respect_projection and isinstance(cmd, ast.KeepCommand):
+            env = {
+                name: field_type
+                for name, field_type in env.items()
+                if name in _SKIP_FIELDS or name in cmd.columns or _wildcard_matches(name, cmd.wildcards)
+            }
+        elif respect_projection and isinstance(cmd, ast.DropCommand):
+            env = {
+                name: field_type
+                for name, field_type in env.items()
+                if name not in cmd.columns and not _wildcard_matches(name, cmd.wildcards)
+            }
         elif isinstance(cmd, ast.JoinCommand) and cmd.target:
             for name, field_type in schema.lookup_fields(cmd.target).items():
-                env.setdefault(name, field_type if isinstance(field_type, str) else "unknown")
+                env[name] = field_type if isinstance(field_type, str) else "unknown"
         elif isinstance(cmd, (ast.GrokCommand, ast.DissectCommand, ast.EnrichCommand)):
             for name in cmd.outputs:
-                env.setdefault(name, "keyword")
-        elif isinstance(cmd, ast.CompletionCommand) and cmd.target_field:
-            env[cmd.target_field] = "keyword"
-        elif isinstance(cmd, ast.AssignFieldCommand) and cmd.target:
-            env[cmd.target] = "keyword"
+                env[name] = "keyword"
+        elif isinstance(cmd, ast.CompletionCommand):
+            env[cmd.target_field or "completion"] = "keyword"
+        elif isinstance(cmd, ast.AssignFieldCommand):
+            env.update(cmd.output_fields())
         elif isinstance(cmd, ast.ChangePointCommand):
-            if cmd.target_type:
-                env[cmd.target_type] = "keyword"
-            if cmd.target_pvalue:
-                env[cmd.target_pvalue] = "double"
+            env[cmd.target_type or "type"] = "keyword"
+            env[cmd.target_pvalue or "pvalue"] = "double"
+        elif isinstance(cmd, ast.ForkCommand):
+            env["_fork"] = "keyword"
+            for branch in cmd.branches:
+                env.update(_infer_column_types(branch, schema, respect_projection=respect_projection))
         elif isinstance(cmd, ast.RerankCommand) and cmd.target_field:
             env[cmd.target_field] = "double"
         elif isinstance(cmd, ast.GenericCommand):
             for name in cmd.outputs:
                 env.setdefault(name, "keyword")
     return env
+
+
+def _schema_for_query(tree: ast.EsqlQuery, schema: Schema) -> Schema:
+    source = tree.source
+    if isinstance(source, ast.FromCommand):
+        return schema.for_index_patterns(source.index_patterns)
+    return schema
 
 
 def _schema_field_type(schema: Schema, name: str) -> str | None:
@@ -163,7 +219,14 @@ def _validate_pipeline_columns(tree: ast.EsqlQuery, schema: Schema) -> None:
     for cmd in tree.commands:
         if isinstance(cmd, ast.FromCommand):
             extras.update(cmd.metadata)
-            # Nested subquery outputs are opaque here; parent refs still use schema.
+            nested = [source for source in cmd.sources if isinstance(source, ast.EsqlQuery)]
+            if nested and not schema.allow_missing:
+                nested_cols = set().union(
+                    *(set(infer_column_types(source, schema)) - _SKIP_FIELDS for source in nested)
+                )
+                extras |= nested_cols
+                if not cmd.index_patterns:
+                    projected = nested_cols
             continue
 
         for name, line, column in _command_input_refs(cmd):
@@ -177,6 +240,25 @@ def _validate_pipeline_columns(tree: ast.EsqlQuery, schema: Schema) -> None:
                 dropped=dropped,
                 extras=extras,
             )
+
+        # Glob existence is only checkable against a populated strict schema.
+        # KEEP aws.* / DROP nosuch.* are valid ES|QL when this offline map is empty.
+        if (
+            isinstance(cmd, (ast.KeepCommand, ast.DropCommand))
+            and not schema.allow_missing
+            and getattr(schema, "_fields", {})
+        ):
+            known = set(schema._fields) | extras
+            if projected is not None:
+                known |= projected
+            for pattern in cmd.wildcards:
+                if pattern != "*" and not any(fnmatch.fnmatchcase(name, pattern) for name in known):
+                    raise EsqlSchemaError(
+                        f"Wildcard {pattern!r} does not match any available field",
+                        line=cmd.line or 0,
+                        column=cmd.column or 0,
+                        source=pattern,
+                    )
 
         projected, keep_wildcards, dropped, extras = _apply_command_projection(
             cmd,
@@ -235,7 +317,9 @@ def _command_input_refs(cmd: ast.BaseNode) -> list[tuple[str, int | None, int | 
 
 def _command_defining_names(cmd: ast.BaseNode) -> set[str]:
     names: set[str] = set()
-    if isinstance(cmd, ast.EvalCommand):
+    if isinstance(cmd, ast.RowCommand):
+        names.update(a.name for a in cmd.fields)
+    elif isinstance(cmd, ast.EvalCommand):
         names.update(a.name for a in cmd.assignments)
     elif isinstance(cmd, ast.StatsCommand):
         names.update(a.name for a in cmd.aggregates)
@@ -244,15 +328,20 @@ def _command_defining_names(cmd: ast.BaseNode) -> set[str]:
         names.update(new for _old, new in cmd.renames)
     elif isinstance(cmd, (ast.GrokCommand, ast.DissectCommand, ast.EnrichCommand)):
         names.update(cmd.outputs)
-    elif isinstance(cmd, ast.CompletionCommand) and cmd.target_field:
-        names.add(cmd.target_field)
-    elif isinstance(cmd, ast.AssignFieldCommand) and cmd.target:
-        names.add(cmd.target)
+    elif isinstance(cmd, ast.CompletionCommand):
+        names.add(cmd.target_field or "completion")
+    elif isinstance(cmd, ast.AssignFieldCommand):
+        names.update(cmd.output_fields())
     elif isinstance(cmd, ast.ChangePointCommand):
-        if cmd.target_type:
-            names.add(cmd.target_type)
-        if cmd.target_pvalue:
-            names.add(cmd.target_pvalue)
+        names.add(cmd.target_type or "type")
+        names.add(cmd.target_pvalue or "pvalue")
+    elif isinstance(cmd, ast.ForkCommand):
+        names.add("_fork")
+        for branch in cmd.branches:
+            for bcmd in branch.commands:
+                names.update(_command_defining_names(bcmd))
+                if isinstance(bcmd, ast.KeepCommand):
+                    names.update(bcmd.columns)
     elif isinstance(cmd, ast.RerankCommand) and cmd.target_field:
         names.add(cmd.target_field)
     elif isinstance(cmd, ast.GenericCommand):
@@ -261,14 +350,7 @@ def _command_defining_names(cmd: ast.BaseNode) -> set[str]:
 
 
 def _wildcard_matches(name: str, patterns: list[str]) -> bool:
-    for pattern in patterns:
-        if pattern == "*":
-            return True
-        if pattern.endswith(".*") and name.startswith(pattern[:-1]):
-            return True
-        if pattern.endswith("*") and name.startswith(pattern[:-1]):
-            return True
-    return False
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in patterns)
 
 
 def _assert_column_available(
@@ -291,16 +373,15 @@ def _assert_column_available(
         return
 
     if projected is not None:
-        if name in projected or _wildcard_matches(name, keep_wildcards):
-            return
-        raise EsqlSchemaError(
-            f"Unknown column {name!r}",
-            line=line or 0,
-            column=column or 0,
-            source=name,
-        )
+        if name not in projected and not _wildcard_matches(name, keep_wildcards):
+            raise EsqlSchemaError(
+                f"Unknown column {name!r}",
+                line=line or 0,
+                column=column or 0,
+                source=name,
+            )
 
-    if name in dropped:
+    if name in dropped or _wildcard_matches(name, list(dropped)):
         raise EsqlSchemaError(
             f"Unknown column {name!r}",
             line=line or 0,
@@ -345,6 +426,13 @@ def _apply_command_projection(
     extras: set[str],
 ) -> tuple[set[str] | None, list[str], set[str], set[str]]:
     """Return updated (projected, keep_wildcards, dropped, extras) after *cmd*."""
+    if isinstance(cmd, ast.ForkCommand):
+        added = _command_defining_names(cmd)
+        new_extras = extras | added
+        if projected is not None:
+            return projected | added, keep_wildcards, dropped, new_extras
+        return None, keep_wildcards, dropped, new_extras
+
     if isinstance(cmd, ast.JoinCommand) and cmd.target:
         added = set(schema.lookup_fields(cmd.target))
         if added:
@@ -371,10 +459,15 @@ def _apply_command_projection(
         return new_projected, new_wildcards, set(), new_extras
 
     if isinstance(cmd, ast.DropCommand):
-        drop = set(cmd.columns)
+        drop = set(cmd.columns) | set(cmd.wildcards)
         if projected is not None:
-            return projected - drop, keep_wildcards, dropped, extras - drop
+            projected = {name for name in projected if name not in drop and not _wildcard_matches(name, cmd.wildcards)}
+            return projected, keep_wildcards, dropped | drop, extras - drop
         return None, keep_wildcards, dropped | drop, extras - drop
+
+    if isinstance(cmd, ast.RowCommand):
+        names = {alias.name for alias in cmd.fields}
+        return names, [], set(), set(_SKIP_FIELDS) | names
 
     if isinstance(cmd, ast.RenameCommand):
         new_projected = set(projected) if projected is not None else None
@@ -397,7 +490,7 @@ def _apply_command_projection(
                 return projected | outputs, keep_wildcards, dropped, extras | outputs
             return None, keep_wildcards, dropped, extras | outputs
         # Non-inline STATS replaces the working set.
-        return outputs, [], set(), set(_SKIP_FIELDS)
+        return outputs, [], set(), set(_SKIP_FIELDS) | outputs
 
     defined = _command_defining_names(cmd)
     if not defined:
@@ -421,7 +514,7 @@ def _iter_pipeline_nodes(tree: ast.EsqlQuery) -> Iterator[ast.BaseNode]:
 
 def _walk_skip_nested_from_queries(node: ast.BaseNode) -> Iterator[ast.BaseNode]:
     yield node
-    if isinstance(node, ast.FromCommand):
+    if isinstance(node, (ast.FromCommand, ast.NestedQuery)):
         return
     for child in node.iter_children():
         if isinstance(child, ast.BaseNode):
@@ -468,9 +561,17 @@ def _check_commands(tree: ast.EsqlQuery, schema: Schema, defined: set[str]) -> N
         if isinstance(cmd, ast.EnrichCommand) and cmd.match_field:
             _require_known_field(cmd.match_field, schema, defined, cmd.line, cmd.column)
         if isinstance(cmd, ast.JoinCommand):
+            lookup_fields = schema.lookup_fields(cmd.target) if (cmd.kind or "").lower() == "lookup" else {}
             for field in cmd.on_fields:
                 if field and all(ch.isalnum() or ch in "._" for ch in field):
                     _require_known_field(field, schema, defined, cmd.line, cmd.column)
+                    if lookup_fields and field not in lookup_fields:
+                        raise EsqlSchemaError(
+                            f"Unknown lookup field {field!r} on {cmd.target!r}",
+                            line=cmd.line or 0,
+                            column=cmd.column or 0,
+                            source=field,
+                        )
 
 
 def _require_known_field(
@@ -650,8 +751,28 @@ def _check_in_expr(
     column_types: dict[str, str],
 ) -> None:
     right = node.right
-    # IN (subquery) — NestedQuery is opaque; BinaryExpr still yields boolean.
+    # IN (subquery) must return exactly one column of a comparable type.
     if isinstance(right, ast.NestedQuery):
+        if right.query is None:
+            return
+        inner = infer_column_types(right.query, schema)
+        outputs = {name: field_type for name, field_type in inner.items() if name not in _SKIP_FIELDS}
+        if len(outputs) != 1:
+            raise EsqlSchemaError(
+                f"IN subquery must return exactly one column, got {len(outputs)}",
+                line=node.line or 0,
+                column=node.column or 0,
+                source="in",
+            )
+        _, inner_type = next(iter(outputs.items()))
+        if not types_comparable(left_type, inner_type):
+            raise EsqlTypeMismatchError(
+                f"Cannot compare types {comparison_family(left_type)!r} and "
+                f"{comparison_family(inner_type)!r} with 'in'",
+                line=node.line or 0,
+                column=node.column or 0,
+                source="in",
+            )
         return
     values: list[ast.Expression] = []
     if isinstance(right, ast.FunctionCall) and right.name == "__values__":
@@ -735,6 +856,8 @@ def _expr_type(
         if fname in {"min", "max"} and expr.args:
             return _expr_type(expr.args[0], schema, column_types) or "double"
         return "unknown"
+    if isinstance(expr, ast.InlineCast):
+        return expr.target_type
     if isinstance(expr, ast.BinaryExpr):
         op = str(expr.op).strip().lower()
         if op in _ARITH_OPS:

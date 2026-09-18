@@ -246,8 +246,8 @@ class AstBuilder(ParseTreeVisitor):
 
     def visitDropCommand(self, ctx: Any) -> ast.DropCommand:
         line, col = _line_col(ctx)
-        columns, _ = self._visit_name_patterns(ctx.qualifiedNamePatterns())
-        return ast.DropCommand(columns=columns, line=line, column=col)
+        columns, wildcards = self._visit_name_patterns(ctx.qualifiedNamePatterns())
+        return ast.DropCommand(columns=columns, wildcards=wildcards, line=line, column=col)
 
     def visitEvalCommand(self, ctx: Any) -> ast.EvalCommand:
         line, col = _line_col(ctx)
@@ -397,11 +397,21 @@ class AstBuilder(ParseTreeVisitor):
         if with_clauses is not None:
             clauses = with_clauses if isinstance(with_clauses, list) else [with_clauses]
             for clause in clauses:
+                # WITH new = old → only `new` is an output column.
+                new_ctx = getattr(clause, "newName", None)
+                field_ctx = getattr(clause, "enrichField", None)
+                chosen = new_ctx if new_ctx is not None else field_ctx
+                if chosen is not None:
+                    name = _text(chosen)
+                    if name:
+                        outputs.append(name)
+                    continue
                 patterns = clause.qualifiedNamePattern() if hasattr(clause, "qualifiedNamePattern") else None
                 if patterns is None:
                     continue
-                for pattern in patterns if isinstance(patterns, list) else [patterns]:
-                    name = _text(pattern)
+                pattern_list = patterns if isinstance(patterns, list) else [patterns]
+                if pattern_list:
+                    name = _text(pattern_list[0])
                     if name:
                         outputs.append(name)
         return ast.EnrichCommand(policy=policy, match_field=match_field, outputs=outputs, line=line, column=col)
@@ -807,7 +817,9 @@ class AstBuilder(ParseTreeVisitor):
         left = self.visit(value_ctx) if value_ctx is not None else None
         sub_ctx = getattr(ctx, "subquery", lambda: None)()
         text = _text(sub_ctx) if sub_ctx is not None else _text(ctx)
-        right = ast.NestedQuery(kind="subquery", text=text, line=line, column=col)
+        parsed = self.visit(sub_ctx) if sub_ctx is not None else None
+        query = parsed if isinstance(parsed, ast.EsqlQuery) else None
+        right = ast.NestedQuery(kind="subquery", text=text, query=query, line=line, column=col)
         op = "not_in" if getattr(ctx, "NOT", lambda: None)() is not None else "in"
         if isinstance(left, ast.Expression):
             return ast.BinaryExpr(op=op, left=left, right=right, line=line, column=col)
@@ -964,7 +976,12 @@ class AstBuilder(ParseTreeVisitor):
 
     def visitInlineCast(self, ctx: Any) -> ast.Expression | None:
         pe = ctx.primaryExpression()
-        return self.visit(pe) if pe is not None else None
+        expr = self.visit(pe) if pe is not None else None
+        data_type = getattr(ctx, "dataType", lambda: None)()
+        if isinstance(expr, ast.Expression) and data_type is not None:
+            line, col = _line_col(ctx)
+            return ast.InlineCast(expr, _text(data_type).replace("`", "").lower(), line, col)
+        return expr if isinstance(expr, ast.Expression) else None
 
     def visitNullLiteral(self, ctx: Any) -> ast.Literal | None:
         line, col = _line_col(ctx)
