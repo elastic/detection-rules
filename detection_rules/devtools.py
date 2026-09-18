@@ -65,6 +65,7 @@ from .misc import (
     get_default_kibana_client,
     raise_client_error,
 )
+from .navigator import navigator_layer_label
 from .packaging import CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package
 from .rule import (
     AnyRuleData,
@@ -1092,7 +1093,7 @@ def update_navigator_gists(
         query = urllib.parse.quote_plus(gist_url)
         url = f"https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false"
         generated_urls.append(url)
-        link_name = name.split(".")[0]
+        link_name = navigator_layer_label(name)
         markdown_links.append(f"|[{link_name}]({url})|")
 
     markdown = [
