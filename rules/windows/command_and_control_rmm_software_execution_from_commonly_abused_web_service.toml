@@ -1,0 +1,207 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL FROM subqueries require Elastic Stack 9.5.0 or later."
+min_stack_version = "9.5.0"
+updated_date = "2026/09/16"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of software whose reported code-signature subject matches a known remote monitoring and management
+(RMM) publisher with a download origin on a commonly abused web service. Adversaries use these services to deliver
+remote-access software during social engineering and intrusion campaigns.
+"""
+false_positives = [
+    "Publishers in the maintained signer list may also sign scanners, backup clients, or other non-RMM software. Confirm the actual product and purpose from executable, command-line, hash, and deployment evidence.",
+    "IT or managed service providers may distribute RMM binaries through public hosting or shared download links. Confirm the package, host, operator, timing, and enrollment destination against a change record or support ticket.",
+]
+from = "now-25m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential RMM Execution from a Commonly Abused Web Service"
+references = [
+    "https://www.huntress.com/blog/series-of-unfortunate-rmm-events",
+    "https://www.cloudflare.com/cloudforce-one/research/report/vercel-hosted-rmm-abuse-campaign-evolves-with-telegram-c2-for-victim-filtering/",
+    "https://www.cloudflare.com/cloudforce-one/research/new-ssa-themed-phishing-campaign-installs-trojanized-screenconnect/",
+    "https://www.forescout.com/blog/from-urls-to-malware-how-threat-actors-abuse-domain-security-in-2025/",
+]
+risk_score = 21
+rule_id = "e06df914-e526-4a52-ab9d-0fd10d8015dd"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Platform: Windows",
+    "Rule Type: ESQL",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+// Union file and process rows. Then INLINE STATS attaches file-origin context for the host and path.
+// File-origin fallback correlation is only used when process.origin_url is missing or empty.
+FROM
+(
+  FROM logs-endpoint.events.file-*
+  | WHERE KQL("event.action: creation") AND file.origin_url IS NOT NULL
+  // Strip the terminal :Zone.Identifier ADS suffix and optional :$DATA stream type from the file path so we can correlate with the process event.
+  | EVAL is_execution = false, origin_url = file.origin_url,
+      executable_path = REPLACE(TO_LOWER(file.path), ":zone[.]identifier(:[$]data)?$", "")
+),
+(
+  FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+  | WHERE host.os.type == "windows" AND KQL("event.type: start")
+  | WHERE process.code_signature.subject_name IN (
+      "Action1 Corporation", "Aeroadmin LLC", "AeroAdmin LLC", "AmidaWare LLC", "Ammyy LLC", "AnyDesk Software GmbH",
+      "AOMEI International Network Limited", "Atera Networks Ltd", "AWERAY PTE. LTD.", "BeamYourScreen GmbH",
+      "Bomgar Corporation", "BreakingSecurity.net", "ConnectWise, Inc.", "ConnectWise, LLC", "Connectwise, LLC",
+      "Devolutions Inc", "Devolutions inc.", "DOMOTZ INC.", "DUC FABULOUS CO.,LTD", "DWSNET OÜ", "DWSNET srl",
+      "Electronic Team, Inc.", "Famatech Corp.", "FleetDeck Inc", "FLEETDECK INC.", "GlavSoft LLC", "GlavSoft LLC.",
+      "GoTo Technologies USA, LLC", "Hefei Pingbo Network Technology Co. Ltd", "IDrive, Inc.",
+      "Impero Solutions Limited", "IMPERO SOLUTIONS LIMITED", "Instant Housecall", "ISL Online Ltd.", "JumpCloud Inc",
+      "Level Software, Inc.", "LogMeIn, Inc.", "LUNIXAR SAS DE CV", "MMSOFT Design Ltd.", "Monitoring Client",
+      "MSPBytes Corp", "MSPBytes, Corp.", "N-ABLE TECHNOLOGIES LTD", "Nanosystems S.r.l.", "NetSupport Ltd",
+      "NetSupport Ltd.", "NETSUPPORT LTD.", "NinjaOne LLC", "NinjaRMM, LLC", "Open Source Developer, Huabing Zhou",
+      "Parallels International GmbH", "philandro Software GmbH", "Pro Softnet Corporation", "PURSLANE", "RealVNC",
+      "RealVNC Limited", "REMOTE UTILITIES PTE. LTD.", "Remote Utilities LLC", "Rocket Software, Inc.",
+      "Rsupport Co., Ltd.", "SAFIB", "ScreenConnect Client", "Servably, Inc.", "Servably Inc.", "ShowMyPC INC",
+      "SimpleHelp Ltd", "Splashtop Inc.", "Superops Inc.", "Tailscale Inc.", "TeamViewer", "TeamViewer GmbH",
+      "TeamViewer Germany GmbH", "Techinline Limited", "uvnc bvba", "Yakhnovets Denis Aleksandrovich IP",
+      "Zhou Huabing", "ZOHO Corporation Private Limited"
+    )
+  | EVAL is_execution = true, origin_url = process.origin_url, executable_path = TO_LOWER(process.executable)
+)
+
+// Both process.origin_url and file.origin_url are copied to the common origin_url variable in the subqueries.
+// So we can use the same logic for both the primary and fallback origin_url.
+| URI_PARTS origin = origin_url
+
+// Preserve executions with null/empty origin URLs so they can fall back to file origin if needed.
+| WHERE (is_execution AND (origin_url IS NULL OR origin_url == "")) OR
+    // Source code and developer artifact hosting.
+    TO_LOWER(origin.domain) LIKE (
+      "api.bitbucket.org", "bitbucket.org", "api.github.com", "gist.githubusercontent.com", "github.com",
+      "github-releases.githubusercontent.com", "objects.githubusercontent.com", "raw.githack.com",
+      "raw.githubusercontent.com", "rawcdn.githack.com", "release-assets.githubusercontent.com", "gitlab.com",
+      "*.gitlab.com", "notabug.org", "sourceforge.net", "*.sourceforge.net"
+    ) OR
+    // AWS S3 object storage.
+    TO_LOWER(origin.domain) LIKE (
+      "s3.amazonaws.com", "*.s3.amazonaws.com", "s3.*.amazonaws.com", "*.s3.*.amazonaws.com", "s3-*.amazonaws.com",
+      "*.s3-*.amazonaws.com", "*.s3express-*.amazonaws.com"
+    ) OR
+    // Azure, Cloudflare R2, Discord, and Dropbox.
+    TO_LOWER(origin.domain) LIKE (
+      "*.azurewebsites.net", "*.azurestaticapps.net", "*.azurecontainerapps.io", "*.blob.core.windows.net",
+      "*.blob.storage.azure.net", "*.web.core.windows.net", "*.web.storage.azure.net", "*.file.core.windows.net",
+      "*.azurefd.net", "*.azureedge.net", "*.r2.dev", "cdn.discordapp.com", "dropbox.com", "*.dropbox.com",
+      "dropboxusercontent.com", "*.dropboxusercontent.com"
+    ) OR
+    // Firebase Storage, Google Drive, and Cloud Storage.
+    TO_LOWER(origin.domain) LIKE (
+      "*.googleusercontent.com", "content-storage.googleapis.com", "firebasestorage.googleapis.com", "docs.google.com",
+      "drive.google.com", "drive.usercontent.google.com", "storage-download.googleapis.com", "storage.googleapis.com",
+      "*.storage.googleapis.com", "www.googleapis.com"
+    ) OR
+    // OneDrive, SharePoint, Onehub, OnlyOffice, pCloud, Slack, Supabase, and Wasabi.
+    TO_LOWER(origin.domain) LIKE (
+      "api.onedrive.com", "files.1drv.com", "*.files.1drv.com", "onedrive.live.com", "*.onedrive.live.com",
+      "sharepoint.com", "*.sharepoint.com", "storage.live.com", "*.storage.live.com", "onehub.com", "*.onehub.com",
+      "onlyoffice.com", "*.onlyoffice.com", "pcloud.com", "*.pcloud.com", "files.slack.com", "slack-files.com",
+      "*.supabase.co", "s3.wasabisys.com", "*.s3.wasabisys.com", "s3.*.wasabisys.com", "*.s3.*.wasabisys.com"
+    ) OR
+    // Developer tunnels, reverse proxies, automation, and webhooks.
+    TO_LOWER(origin.domain) LIKE (
+      "devtunnels.ms", "*.devtunnels.ms", "localtunnel.me", "*.localtunnel.me", "n8n.cloud", "*.n8n.cloud",
+      "*.ngrok.app", "*.ngrok.dev", "*.ngrok-free.app", "*.ngrok-free.dev", "*.ngrok.io", "*.ngrok.pizza",
+      "*.ngrok.pro", "pagekite.me", "*.pagekite.me", "serveo.net", "*.serveo.net", "trycloudflare.com",
+      "*.trycloudflare.com", "webhook.site"
+    ) OR
+    // File-sharing and transfer services.
+    TO_LOWER(origin.domain) LIKE (
+      "4shared.com", "*.4shared.com", "*.4sync.com", "bashupload.com", "*.bashupload.com", "catbox.moe", "*.catbox.moe",
+      "easyupload.io", "*.easyupload.io", "file.io", "filebin.net", "filecloud.me", "files.fm", "*.files.fm",
+      "filetransfer.io", "*.filetransfer.io", "gofile.io", "*.gofile.io", "limewire.com", "*.limewire.com",
+      "mediafire.com", "*.mediafire.com", "mega.co.nz", "*.mega.co.nz", "mega.nz", "*.mega.nz", "pixeldrain.com",
+      "*.pixeldrain.com", "send.cm", "*.send.cm", "send.now", "*.send.now", "sendit.sh", "*.sendit.sh", "sendspace.com",
+      "*.sendspace.com", "share.riseup.net", "temp.sh", "tempsend.com", "transfer.sh", "ufile.io", "*.ufile.io",
+      "upload.ee", "*.upload.ee", "we.tl", "wetransfer.com", "*.wetransfer.com", "*.wetransfer.net", "workupload.com"
+    ) OR
+    // CDN, paste, and public hosting services.
+    TO_LOWER(origin.domain) LIKE (
+      "*.alwaysdata.net", "blogspot.com", "*.blogspot.com", "b-cdn.net", "*.b-cdn.net", "cdnmegafiles.com",
+      "*.cdnmegafiles.com", "infinityfreeapp.com", "*.infinityfreeapp.com", "free.keep.sh", "*.netlify.app", "paste.ee",
+      "publicvm.com", "*.publicvm.com", "*.vercel.app", "*.*.workers.dev"
+    ) OR
+    // Decentralized and content-addressed storage.
+    TO_LOWER(origin.domain) LIKE (
+      "ar.io", "*.ar.io", "arweave.net", "*.arweave.net", "ic0.app", "*.ic0.app", "icp0.io", "*.icp0.io", "dweb.link",
+      "*.dweb.link", "gateway.pinata.cloud", "ipfs.io", "*.ipfs.io", "mypinata.cloud", "*.mypinata.cloud",
+      "nftstorage.link", "*.nftstorage.link", "storjshare.io", "*.storjshare.io", "web3.storage", "*.web3.storage"
+    )
+
+// For events where process.origin_url is missing or empty, we can look for file.origin_url values on the same host and path.
+| INLINE STATS Esql.file_origin_time = MIN(@timestamp) WHERE is_execution == false,
+    Esql.file_origin_urls = VALUES(origin_url) WHERE is_execution == false
+  BY host.id, executable_path
+// For fallback, at least one qualifying file event must happen at or before the process event.
+| WHERE is_execution AND (
+    (origin_url IS NOT NULL AND origin_url != "") OR @timestamp >= Esql.file_origin_time
+  )
+
+| KEEP @timestamp, _id, _version, _index, event.type, host.id, host.name, user.name,
+    process.entity_id, process.executable, process.command_line, process.hash.sha256,
+    process.code_signature.subject_name, process.code_signature.trusted, process.origin_url,
+    Esql.file_origin_time, Esql.file_origin_urls
+| SORT @timestamp DESC, _index ASC, _id ASC
+'''
+
+setup = """## Setup
+
+This rule requires Elastic Defend on Windows with process and file event collection, process code-signature metadata, and executable-origin URLs on process events or file creation events.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "host.name",
+    "user.name",
+    "process.executable",
+    "process.command_line",
+    "process.code_signature.subject_name",
+    "process.code_signature.trusted",
+    "process.hash.sha256",
+    "process.origin_url",
+    "Esql.file_origin_urls",
+    "Esql.file_origin_time",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
