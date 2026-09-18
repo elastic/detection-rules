@@ -14,7 +14,10 @@ import pytest
 
 from detection_rules.esql import (
     collect_index_field_schemas,
+    collect_lookup_index_field_schemas,
+    get_esql_lookup_join_targets,
     infer_packages_from_indices,
+    lookup_index_uses_ecs,
     normalize_dataset_package,
 )
 from detection_rules.esql_errors import EsqlSchemaError, EsqlUnknownIndexError
@@ -305,3 +308,87 @@ class TestEsqlSchemaHelpers:
         pruned = prune_scalar_fields_with_subfields(mapping)
         assert pruned["data"]["type"] == "keyword"
         assert "properties" not in pruned["data"]
+
+
+class TestEsqlLookupJoin:
+    """LOOKUP JOIN schemas are passed via Schema(lookups=), not dumped into FROM."""
+
+    def test_extract_lookup_targets(self) -> None:
+        query = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | LOOKUP JOIN logs-aws.cloudtrail-* ON host.name
+        | KEEP host.name, _id, _version, _index
+        """
+        assert get_esql_lookup_join_targets(query) == ["logs-aws.cloudtrail-*"]
+
+    def test_lookup_index_uses_ecs_for_datastreams_not_named_tables(self) -> None:
+        assert lookup_index_uses_ecs("logs-aws.cloudtrail-*") is True
+        assert lookup_index_uses_ecs("threat_list") is False
+
+    def test_collect_lookup_index_field_schemas_does_not_dump_endpoint(self) -> None:
+        fields = collect_lookup_index_field_schemas(["logs-aws.cloudtrail-*"])
+        aws_fields = fields["logs-aws.cloudtrail-*"]
+        assert "aws.cloudtrail.flattened.request_parameters.key" in aws_fields
+        assert "process.Ext.api.name" not in aws_fields
+
+    def test_unknown_lookup_index_raises_offline(self) -> None:
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | LOOKUP JOIN totally-unknown-lookup-index ON host.name
+        | KEEP host.name, _id, _version, _index
+        """
+        with pytest.raises(EsqlUnknownIndexError, match="totally-unknown-lookup-index"):
+            RuleCollection().load_dict(rule)
+
+    def test_lookup_join_fields_available_after_join(self) -> None:
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | LOOKUP JOIN logs-aws.cloudtrail-* ON host.name
+        | KEEP host.name, aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_lookup_join_fields_not_available_before_join(self) -> None:
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE aws.cloudtrail.user_identity.type == "IAMUser"
+        | LOOKUP JOIN logs-aws.cloudtrail-* ON host.name
+        | KEEP host.name, aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("aws.cloudtrail.user_identity.type")):
+            RuleCollection().load_dict(rule)
+
+    def test_lookup_join_does_not_add_lookup_package_to_from_schema(self) -> None:
+        """LOOKUP JOIN must not mutate metadata.integration into extra FROM packages."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | LOOKUP JOIN logs-aws.cloudtrail-* ON host.name
+        | KEEP host.name, aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.metadata.integration == ["endpoint"]
+
+    def test_unknown_field_on_lookup_index_raises_schema_error(self) -> None:
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | LOOKUP JOIN logs-aws.cloudtrail-* ON host.name
+        | KEEP host.name, totally.made_up.lookup_field, _id, _version, _index
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("totally.made_up.lookup_field")):
+            RuleCollection().load_dict(rule)

@@ -88,14 +88,16 @@ def flat_schema_to_index_mapping(flat_schema: dict[str, str]) -> dict[str, Any]:
 
 
 def get_rule_integrations(metadata: RuleMeta) -> list[str]:
-    """Retrieve rule integrations from metadata."""
+    """Retrieve rule integrations from metadata.
+
+    Always return a shallow copy so callers can append inferred packages without
+    mutating ``metadata.integration`` (LOOKUP JOIN targets must not become FROM packages).
+    """
     if metadata.integration:
-        rule_integrations: list[str] = (
-            metadata.integration if isinstance(metadata.integration, list) else [metadata.integration]
-        )
-    else:
-        rule_integrations: list[str] = []
-    return rule_integrations
+        if isinstance(metadata.integration, list):
+            return list(metadata.integration)
+        return [metadata.integration]
+    return []
 
 
 def create_index_with_index_mapping(

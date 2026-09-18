@@ -35,11 +35,14 @@ from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_
 from .custom_schemas import update_auto_generated_schema
 from .esql import (
     collect_index_field_schemas,
+    collect_lookup_index_field_schemas,
     collect_package_fields_for_indices,
+    get_esql_lookup_join_targets,
     get_esql_query_event_dataset_integrations,
     get_esql_query_indices,
     get_esql_query_source_groups,
     infer_packages_from_indices,
+    lookup_index_uses_ecs,
     normalize_dataset_package,
     replace_esql_query_sources,
 )
@@ -822,6 +825,78 @@ def _warm_esql_offline_caches() -> None:
     _ESQL_WARM_STATE["warmed"] = True
 
 
+def _integration_fields_for_indices(
+    package_integrations: list[Any],
+    indices: list[str],
+    min_stack: Version,
+    packages_manifest: dict[str, Any],
+    integrations_schemas: dict[str, Any],
+) -> tuple[dict[str, Any], set[str]]:
+    """Collect Fleet stream fields that match *indices* for the given packages."""
+    fields: dict[str, Any] = {}
+    packages: set[str] = set()
+    for pk_int in package_integrations:
+        package = normalize_dataset_package(str(pk_int["package"]))
+        integration = pk_int.get("integration")
+        package_schemas = integrations_schemas.get(package, {})
+        try:
+            package_version, _ = find_latest_compatible_version(
+                package,
+                integration or "",
+                min_stack,
+                packages_manifest,
+                package_schemas=package_schemas if integration else None,
+            )
+        except ValueError:
+            continue
+        if package not in integrations_schemas or package_version not in integrations_schemas[package]:
+            continue
+        package_schema = integrations_schemas[package][package_version]
+        stream_fields = collect_package_fields_for_indices(package_schema, package, indices, integration)
+        for field_name, field_type in stream_fields.items():
+            fields[field_name] = kql.parser.elasticsearch_type_family(field_type)
+        packages.add(package)
+    return fields, packages
+
+
+def _lookup_join_schemas_for_stack(
+    lookup_targets: list[str],
+    stack_version: str,
+    ecs_version: str,
+    packages_manifest: dict[str, Any],
+    integrations_schemas: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Build ``Schema(lookups=)`` maps without dumping FROM packages onto lookup indices."""
+    if not lookup_targets:
+        return {}
+    parsed_stack = Version.parse(str(stack_version))
+    lookup_pkgs = set(infer_packages_from_indices(lookup_targets))
+    patch_floor = find_latest_integration_patch_for_minor(lookup_pkgs, parsed_stack.major, parsed_stack.minor)
+    min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
+    ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+    lookup_index_fields = collect_lookup_index_field_schemas(lookup_targets)
+    lookups: dict[str, dict[str, Any]] = {}
+    for target in lookup_targets:
+        fields: dict[str, Any] = {}
+        if lookup_index_uses_ecs(target):
+            fields.update(ecs_flat)
+        fields.update(lookup_index_fields.get(target, {}))
+        inferred = [{"package": pkg, "integration": None} for pkg in infer_packages_from_indices([target])]
+        pkg_fields, _ = _integration_fields_for_indices(
+            inferred, [target], min_stack, packages_manifest, integrations_schemas
+        )
+        fields.update(pkg_fields)
+        if fields:
+            lookups[target] = fields
+    return lookups
+
+
+def _strict_esql_schema(schema_dict: dict[str, Any], lookups: dict[str, dict[str, Any]] | None = None) -> esql.Schema:
+    if lookups:
+        return esql.Schema(schema_dict, allow_missing=False, lookups=lookups)
+    return esql.Schema(schema_dict, allow_missing=False)
+
+
 class ESQLValidator(QueryValidator):
     """Validate ES|QL queries offline via esql-detection-rules-py (optional remote fidelity)."""
 
@@ -986,8 +1061,10 @@ class ESQLValidator(QueryValidator):
             package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
 
         from_indices = get_esql_query_indices(self.query, tree=self.ast)
+        lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
         # Infer Fleet packages from FROM patterns when metadata/datasets are absent
         # (e.g. metrics-* → system) so offline schemas match remote mapping prep.
+        # Lookup-index packages stay off this list so they are not unioned into FROM.
         known_packages = {str(p.get("package")) for p in package_integrations if p.get("package")}
         for package in infer_packages_from_indices(from_indices):
             if package not in known_packages:
@@ -1002,6 +1079,16 @@ class ESQLValidator(QueryValidator):
             )
         )
         indices_key = tuple(sorted(from_indices))
+
+        def lookups_for(stack_version: str, ecs_version: str) -> dict[str, dict[str, Any]] | None:
+            built = _lookup_join_schemas_for_stack(
+                lookup_targets,
+                str(stack_version),
+                str(ecs_version),
+                packages_manifest,
+                integrations_schemas,
+            )
+            return built or None
 
         stack_versions = meta.get_validation_stack_versions()
         if package_integrations:
@@ -1033,30 +1120,11 @@ class ESQLValidator(QueryValidator):
                 ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
                 schema_dict = dict(ecs_flat)
                 schema_dict.update(index_fields)
-
-                for pk_int in package_integrations:
-                    package = normalize_dataset_package(str(pk_int["package"]))
-                    integration = pk_int.get("integration")
-                    package_schemas = integrations_schemas.get(package, {})
-                    try:
-                        package_version, _ = find_latest_compatible_version(
-                            package,
-                            integration or "",
-                            min_stack,
-                            packages_manifest,
-                            package_schemas=package_schemas if integration else None,
-                        )
-                    except ValueError:
-                        continue
-                    if package not in integrations_schemas or package_version not in integrations_schemas[package]:
-                        continue
-                    package_schema = integrations_schemas[package][package_version]
-                    stream_fields = collect_package_fields_for_indices(
-                        package_schema, package, from_indices, integration
-                    )
-                    for field_name, field_type in stream_fields.items():
-                        schema_dict[field_name] = kql.parser.elasticsearch_type_family(field_type)
-                    packages_by_stack.setdefault(stack_version, set()).add(package)
+                stream_fields, pkgs = _integration_fields_for_indices(
+                    package_integrations, from_indices, min_stack, packages_manifest, integrations_schemas
+                )
+                schema_dict.update(stream_fields)
+                packages_by_stack.setdefault(stack_version, set()).update(pkgs)
 
                 combined_by_stack[stack_version] = schema_dict
                 _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
@@ -1072,7 +1140,7 @@ class ESQLValidator(QueryValidator):
                 targets.append(
                     ValidationTarget(
                         query_text=self.query,
-                        schema=esql.Schema(schema_dict, allow_missing=False),
+                        schema=_strict_esql_schema(schema_dict, lookups_for(str(stack_version), ecs_version)),
                         err_trailer=err_trailer,
                         min_stack_version=stack_version,
                         kind="integration",
@@ -1100,7 +1168,7 @@ class ESQLValidator(QueryValidator):
                 targets.append(
                     ValidationTarget(
                         query_text=self.query,
-                        schema=esql.Schema(schema_dict, allow_missing=False),
+                        schema=_strict_esql_schema(schema_dict, lookups_for(str(stack_version), str(ecs_version))),
                         err_trailer=err_trailer,
                         min_stack_version=str(stack_version),
                         kind="stack",
@@ -1242,8 +1310,9 @@ class ESQLValidator(QueryValidator):
 
         _warm_esql_offline_caches()
 
-        # Unknown FROM patterns must fail offline (parity with remote prepare_mappings).
+        # Unknown FROM / LOOKUP JOIN patterns must fail offline (parity with remote prepare_mappings).
         from_indices = get_esql_query_indices(self.query, tree=self.ast)
+        lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
         stack_versions = rule_meta.get_validation_stack_versions()
         stack_version = (
@@ -1252,6 +1321,9 @@ class ESQLValidator(QueryValidator):
             else load_current_package_version()
         )
         _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
+        if lookup_targets:
+            # Do not pass query event.dataset restrictions: they describe FROM, not lookup indices.
+            _ = validate_offline_esql_from_indices(lookup_targets, rule_meta, [], str(stack_version))
 
         # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
         # self.ast is already parsed (for FROM indices) under the current package

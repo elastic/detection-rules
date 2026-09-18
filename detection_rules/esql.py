@@ -117,6 +117,37 @@ def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
     return fields
 
 
+def collect_lookup_index_field_schemas(indices: list[str]) -> dict[str, dict[str, Any]]:
+    """Per-LOOKUP-JOIN-target field maps (no blanket endpoint union).
+
+    Named lookup tables only receive custom / non-ECS fields that match that
+    index. Fleet datastreams used as lookup targets still get their matching
+    non-ECS rows here; ECS and package streams are merged by the validator.
+    """
+    non_ecs = ecs.get_non_ecs_schema()
+    result: dict[str, dict[str, Any]] = {}
+    for index in indices:
+        fields: dict[str, Any] = {}
+        fields.update(**ecs.flatten(ecs.get_index_schema(index)))
+        for key, index_fields in non_ecs.items():
+            if index_patterns_match(index, key):
+                fields.update(index_fields)
+        if CUSTOM_RULES_DIR:
+            fields.update(**ecs.flatten(ecs.get_custom_index_schema(index)))
+        result[index] = fields
+    return result
+
+
+def lookup_index_uses_ecs(index: str) -> bool:
+    """Return True when a LOOKUP JOIN target is a datastream/beat, not a named table."""
+    cleaned = index.replace("::", ":").split(":")[-1].strip().strip("`")
+    if _INDEX_PACKAGE_RE.match(cleaned):
+        return True
+    return cleaned.startswith(
+        ("logs-", "metrics-", "traces-", ".alerts-", "auditbeat-", "filebeat-", "winlogbeat-", "endgame-")
+    )
+
+
 def stream_matches_indices(package: str, dataset: str, indices: list[str]) -> bool:
     """Return True when a Fleet package stream could back any FROM index pattern."""
     if not indices:
@@ -220,6 +251,21 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
         if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in indices:
             indices.append(index)
     return indices
+
+
+def get_esql_lookup_join_targets(query: str, tree: Any | None = None) -> list[str]:
+    """Extract unique LOOKUP JOIN target index names (CCS prefix stripped)."""
+    try:
+        parsed = tree if tree is not None else esql.parse_query(query)
+    except Exception:  # noqa: BLE001 — incomplete fragments yield no lookup targets
+        return []
+
+    targets: list[str] = []
+    for source in esql.get_lookup_join_targets(parsed):
+        index = source.split(":", 1)[-1].strip().strip("`")
+        if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in targets:
+            targets.append(index)
+    return targets
 
 
 def replace_esql_query_sources(query: str, replacements: dict[tuple[int, int], str]) -> str:
