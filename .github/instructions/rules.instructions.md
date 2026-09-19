@@ -56,7 +56,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 
   **Required (suggest if missing):**
   - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
-  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`. Do not use `Platform: Elastic` or `Platform: FortiGate` (Fortinet is `Data Source: Fortinet`).
+  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`.
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
     - `esql` → `Rule Type: ES|QL`
