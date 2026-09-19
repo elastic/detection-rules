@@ -1,0 +1,250 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL FROM subqueries require Elastic Stack 9.5.0 or later."
+min_stack_version = "9.5.0"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies native Elastic Defend alerts for Windows processes whose ancestry includes a process with a recognized
+RMM-related signer subject, when that ancestor was observed starting within the last 12 hours. This relationship can
+indicate that an attacker used legitimate remote-management software to execute behavior detected by Elastic Defend.
+"""
+false_positives = [
+    """
+    Authorized IT or managed service provider activity can produce this relationship when legitimate support actions
+    trigger an Endpoint protection alert. Validate the underlying alert, complete process lineage, and RMM session or
+    operator authorization before closing the alert.
+    """,
+]
+from = "now-12h"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Elastic Defend Alert from an RMM Process Descendant"
+references = [
+    "https://www.huntress.com/blog/rogue-screenconnect-installations",
+    "https://www.trendaisecurity.com/en/resources-insights/trendai-security-blog/screenconnect-abuse",
+    "https://thedfirreport.com/2023/10/30/netsupport-intrusion-results-in-domain-compromise/",
+    "https://attack.mitre.org/techniques/T1219/002/",
+]
+risk_score = 73
+rule_id = "773017cd-3457-49c2-b4f1-365b37914808"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Rule Type: Higher-Order Rule",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM (
+  FROM logs-endpoint.events.process-* METADATA _id, _index, _version
+  | WHERE @timestamp >= NOW() - 12 hours AND
+      @timestamp < NOW() AND
+      host.os.type == "windows" AND
+      MV_CONTAINS(event.type, "start") AND
+      process.code_signature.subject_name IN (
+        "Action1 Corporation", "Aeroadmin LLC", "AeroAdmin LLC", "AmidaWare LLC", "Ammyy LLC", "AnyDesk Software GmbH",
+        "AOMEI International Network Limited", "Atera Networks Ltd", "AWERAY PTE. LTD.", "BeamYourScreen GmbH",
+        "Bomgar Corporation", "BreakingSecurity.net", "ConnectWise, Inc.", "ConnectWise, LLC", "Connectwise, LLC",
+        "Devolutions Inc", "Devolutions inc.", "DOMOTZ INC.", "DUC FABULOUS CO.,LTD", "DWSNET OÜ", "DWSNET srl",
+        "Electronic Team, Inc.", "Famatech Corp.", "FleetDeck Inc", "GlavSoft LLC", "GlavSoft LLC.",
+        "GoTo Technologies USA, LLC", "Hefei Pingbo Network Technology Co. Ltd", "IDrive, Inc.",
+        "Impero Solutions Limited", "IMPERO SOLUTIONS LIMITED", "Instant Housecall", "ISL Online Ltd.", "JumpCloud Inc",
+        "Level Software, Inc.", "LogMeIn, Inc.", "LUNIXAR SAS DE CV", "MMSOFT Design Ltd.", "Monitoring Client",
+        "MSPBytes Corp", "MSPBytes, Corp.", "N-ABLE TECHNOLOGIES LTD", "Nanosystems S.r.l.", "NetSupport Ltd",
+        "NetSupport Ltd.", "NETSUPPORT LTD.", "NinjaOne LLC", "NinjaRMM, LLC", "Open Source Developer, Huabing Zhou",
+        "Parallels International GmbH", "philandro Software GmbH", "Pro Softnet Corporation", "PURSLANE", "RealVNC",
+        "RealVNC Limited", "REMOTE UTILITIES PTE. LTD.", "Remote Utilities LLC", "Rocket Software, Inc.",
+        "Rsupport Co., Ltd.", "SAFIB", "ScreenConnect Client", "Servably, Inc.", "Servably Inc.", "ShowMyPC INC",
+        "SimpleHelp Ltd", "Splashtop Inc.", "Superops Inc.", "Tailscale Inc.", "TeamViewer", "TeamViewer GmbH",
+        "TeamViewer Germany GmbH", "Techinline Limited", "uvnc bvba", "Yakhnovets Denis Aleksandrovich IP",
+        "Zhou Huabing", "ZOHO Corporation Private Limited"
+      )
+  | EVAL
+      Esql.stage = "rmm_support",
+      Esql.lineage_entity_id = process.entity_id,
+      Esql.rmm_support_start = @timestamp,
+      Esql.rmm_support_process_name = process.name,
+      Esql.rmm_support_executable = process.executable,
+      Esql.rmm_support_signer = process.code_signature.subject_name
+  | KEEP host.id, Esql.stage, Esql.lineage_entity_id, Esql.rmm_support_start, Esql.rmm_support_process_name,
+    Esql.rmm_support_executable, Esql.rmm_support_signer, _id, _index, _version
+),
+(
+  FROM logs-endpoint.alerts-* METADATA _id, _index, _version
+  | WHERE @timestamp >= NOW() - 10 minutes AND
+      @timestamp < NOW() AND
+      host.os.type == "windows" AND
+      process.Ext.ancestry IS NOT NULL
+  | KEEP
+      @timestamp, event.category, event.type, event.action, _id, _index, _version, agent.id, host.id, host.name,
+      user.id, user.name, process.entity_id, process.name, process.executable, process.command_line,
+      process.parent.entity_id, process.parent.name, process.Ext.ancestry, rule.id, rule.name, message
+  | EVAL
+      Esql.stage = "endpoint_alert",
+      Esql.lineage_entity_id = process.Ext.ancestry
+
+  // Expand copied ancestry so each candidate has one entity key; preserve the original ancestry.
+  | MV_EXPAND Esql.lineage_entity_id
+  | WHERE Esql.lineage_entity_id IS NOT NULL AND
+      Esql.lineage_entity_id != ""
+)
+
+// The value sets summarize that entity, not one source-event tuple.
+| INLINE STATS
+    Esql.matched_rmm_start = MAX(Esql.rmm_support_start),
+    Esql.matched_rmm_process_names = VALUES(Esql.rmm_support_process_name),
+    Esql.matched_rmm_executables = VALUES(Esql.rmm_support_executable),
+    Esql.matched_rmm_signers = VALUES(Esql.rmm_support_signer)
+  BY host.id, Esql.lineage_entity_id
+| WHERE Esql.stage == "endpoint_alert" AND
+    Esql.matched_rmm_start IS NOT NULL
+| EVAL Esql.matched_rmm_direct_parent =
+    COALESCE(process.parent.entity_id == Esql.lineage_entity_id, false)
+
+// Select the direct parent first, then the newest RMM start, then entity ID as a stable tiebreaker.
+| SORT
+    Esql.matched_rmm_direct_parent DESC,
+    Esql.matched_rmm_start DESC,
+    Esql.lineage_entity_id ASC
+| LIMIT 1 BY _index, _id
+
+// Preserve the original Endpoint alert identity for recovery from the higher-order alert.
+| EVAL
+    Esql.source_endpoint_alert_index = _index,
+    Esql.source_endpoint_alert_id = _id,
+    Esql.source_endpoint_alert_timestamp = @timestamp
+| RENAME
+    Esql.lineage_entity_id AS Esql.rmm_selected_entity_id,
+    Esql.matched_rmm_start AS Esql.rmm_selected_start,
+    Esql.matched_rmm_process_names AS Esql.rmm_selected_process_names,
+    Esql.matched_rmm_executables AS Esql.rmm_selected_executables,
+    Esql.matched_rmm_signers AS Esql.rmm_selected_signers
+| KEEP
+    @timestamp, event.category, event.type, event.action, _id, _index, _version,
+    agent.id, host.id, host.name, user.id, user.name, process.entity_id, process.name,
+    process.executable, process.command_line, process.parent.entity_id, process.parent.name,
+    process.Ext.ancestry, rule.id, rule.name, message,
+    Esql.source_endpoint_alert_index, Esql.source_endpoint_alert_id, Esql.source_endpoint_alert_timestamp,
+    Esql.rmm_selected_entity_id, Esql.rmm_selected_start,
+    Esql.rmm_selected_process_names, Esql.rmm_selected_executables, Esql.rmm_selected_signers
+| SORT @timestamp DESC, _index ASC, _id ASC
+'''
+
+setup = """## Setup
+
+This rule requires Windows process events and native Endpoint alerts from
+[Elastic Defend](https://www.elastic.co/security/endpoint-security). Configure Elastic Defend to collect process events
+and enable the Endpoint protections appropriate for the monitored Windows systems.
+
+Elastic Defend setup instructions: https://ela.st/install-elastic-defend
+"""
+
+note = """## Triage and analysis
+
+### Investigating Elastic Defend Alert from an RMM Process Descendant
+
+#### Possible investigation steps
+
+- What did the underlying native Endpoint alert detect?
+  - Focus: Treat `Esql.source_endpoint_alert_index`, `Esql.source_endpoint_alert_id`, and `Esql.source_endpoint_alert_timestamp` as pointers to the original Endpoint alert.
+  - Hint: Recover that alert and review `rule.name` or `message` when `rule.name` is empty, plus `event.category`, `event.type`, and `event.action`, then inspect the alerted process and surrounding source events.
+  - Implication: A prevented or detected malicious behavior supports concern; an expected support workflow lowers concern only when the alert evidence and RMM context agree.
+
+- What binary did the selected RMM entity represent?
+  - Focus: Treat `Esql.rmm_selected_entity_id`, `Esql.rmm_selected_start`, `Esql.rmm_selected_process_names`, `Esql.rmm_selected_executables`, and `Esql.rmm_selected_signers` as summaries for the selected RMM process entity. The value sets are independent and do not describe one exact process-start event.
+  - Hint: Recover process-start events on the same `host.id` using `process.entity_id` = `Esql.rmm_selected_entity_id`; `Esql.rmm_selected_start` is the latest start in the 12-hour window this alert used, and an older start is outside what this alert proved. Inspect individual events to associate the executable and signer, then verify `process.hash.sha256`, `process.code_signature.status`, and `process.code_signature.thumbprint_sha256`. A signer-subject match does not establish signature trust; missing source events leave identity verification unresolved.
+  - Implication: A coherent vendor name, installed path, hash, and signer establish identity but not benignity; path or metadata mismatches, hash drift, or an invalid or revoked signature increase concern.
+
+- Does the recovered process tree confirm RMM-mediated execution?
+  - Focus: Compare `Esql.rmm_selected_entity_id` with the alerted process's `process.Ext.ancestry` and `process.parent.entity_id`; equality with the parent ID identifies a direct parent. Reconstruct intervening processes from `process.entity_id` and `process.parent.entity_id` on the same host.
+  - Implication: Shells, scripting engines, credential utilities, security-control changes, or unexplained re-parenting between the RMM process and alerted process strengthen the relationship; a stable vendor helper chain is more explainable but does not clear the source alert.
+
+- What behavior caused the Endpoint alert?
+  - Focus: Inspect the original alert and related process, file, Registry, library, and network events for the alerted `process.entity_id`; review the full command line and any descendant activity.
+  - Implication: Credential access, payload execution, defense impairment, injection, persistence, or destructive behavior corroborates abuse; activity confined to the exact task identified in the recovered source evidence weakens that conclusion.
+
+- Which account and session launched the RMM-backed chain?
+  - Focus: Recover `process.Ext.authentication_id` from the RMM and descendant process events, then bridge it on the same `host.id` to `winlog.logon.id` or `winlog.event_data.TargetLogonId`.
+  - Hint: Use `winlog.event_data.TargetUserName`, `source.ip`, and `winlog.logon.type` to identify the authenticated account and session origin; compare product audit records when available.
+  - Implication: An unusual remote source, unexpected account, explicit-credential use, or elevated session increases concern. Missing RMM audit or Windows Security telemetry is unresolved, not benign.
+
+- Did the descendant stage additional files or tooling?
+  - Focus: Scope file events by `host.id` and the recovered descendant process entities; review `event.action`, `file.path`, and `file.origin_url`, then determine whether written content was executed.
+  - Implication: Credential stores, dumps, archives, executable or script content in user-writable paths, and rapid write-then-execute behavior corroborate abuse; routine vendor cache and update artifacts should match the recovered RMM identity and workflow. Missing file telemetry is unresolved, not benign.
+
+- Did the descendant contact infrastructure outside the expected RMM channel?
+  - Focus: Scope DNS and connection events by `host.id` and the recovered process entities; use `dns.question.name` for DNS and `destination.ip` and `destination.port` for connections.
+  - Implication: Destinations unrelated to the RMM vendor or support task, direct public-IP connections, or transfer activity after the alerted behavior increase concern. Vendor control-plane traffic may be expected; missing network telemetry is unresolved, not benign.
+
+- If local findings remain suspicious or unresolved, does the same pattern affect other assets or identities?
+  - Focus: Search related alerts and process events using the source `rule.name` or `message` when `rule.name` is empty, recovered RMM `process.hash.sha256` or `process.code_signature.thumbprint_sha256`, and the involved `host.id` or `user.id`.
+  - Implication: The same abnormal descendant behavior, binary identity, or account across unrelated hosts broadens containment scope; an isolated match bounds only the observed scope and does not establish benignity.
+
+Escalate when the native Endpoint alert is corroborated by lineage, session, artifact, or network evidence. Close only when
+the source evidence, complete process chain, and RMM records align with one authorized support workflow. Preserve relevant
+artifacts and escalate when findings conflict or required telemetry is missing.
+
+### False positive analysis
+
+- Authorized IT or managed service provider activity can trigger this rule during software deployment, account recovery, maintenance, support, or controlled security testing. Confirm the exact Endpoint behavior, RMM operator and session records, ticket or change record, host, account, time, and complete process chain.
+- Do not create an exception from the signer subject alone: a legitimately signed RMM application can still be abused. Prefer the narrow combination of executable path and hash or certificate thumbprint, managed host or user scope, RMM session context, and the specific benign source-alert workflow.
+
+### Response and remediation
+
+- If confirmed benign, document the source alert, RMM session and operator, process lineage, and organizational record. Tune with the narrow stable anchors above, preferably at the source behavior when it alone caused the false positive.
+- If suspicious but unconfirmed, export the alert and source evidence to the case and preserve volatile RMM-session state, relevant process memory, and staged files before cleanup. Suspend the remote session or apply temporary destination restrictions first; isolate the host if harmful activity remains active and its role permits isolation.
+- If confirmed malicious, use Elastic Defend response actions to isolate the endpoint when available, then terminate the RMM session and malicious descendants after evidence collection. If direct response is unavailable, escalate with the source-alert IDs, process lineage, session details, and artifacts to the team that can contain the host.
+- Disable or revoke abused RMM operator accounts, access tokens, and unattended-access credentials; reset affected credentials; block confirmed malicious hashes, certificates, domains, and IPs; review related hosts and identities before removing unauthorized RMM software or other artifacts.
+- Harden remote-management access with an inventory of permitted products, MFA, least-privilege operator roles, restricted unattended access, application control where practical, and retained RMM audit logs.
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "rule.name",
+    "message",
+    "process.name",
+    "process.command_line",
+    "process.parent.name",
+    "Esql.source_endpoint_alert_index",
+    "Esql.source_endpoint_alert_id",
+    "Esql.rmm_selected_entity_id",
+    "Esql.rmm_selected_start",
+    "Esql.rmm_selected_process_names",
+    "Esql.rmm_selected_executables",
+    "Esql.rmm_selected_signers",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
