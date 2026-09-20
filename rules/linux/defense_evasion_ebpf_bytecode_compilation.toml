@@ -7,9 +7,10 @@ updated_date = "2026/09/18"
 [rule]
 author = ["Elastic"]
 description = """
-Detects on-host compilation of eBPF bytecode via clang targeting the BPF backend. This covers both the two-token form
-(`-target bpf`) and the single-token forms (`--target=bpf`, `-target=bpf`), as well as the little-endian (`bpfel`) and
-big-endian (`bpfeb`) variants. eBPF-based rootkits and reconnaissance tooling commonly compile their kernel-side
+Detects on-host compilation of eBPF bytecode via clang targeting the BPF backend. This covers the two-token form
+(`-target bpf`) as well as the little-endian (`bpfel`) and big-endian (`bpfeb`) variants. It also matches the
+single-token forms (`--target=bpf`, `-target=bpf`), which are not accepted by clang but will still be audited by execve
+as an attempted compilation. eBPF-based rootkits and reconnaissance tooling commonly compile their kernel-side
 component directly on the victim host rather than shipping a prebuilt object file, making on-host BPF compilation a
 useful signal for detecting compile-after-delivery activity. While legitimate observability and networking tooling also
 compiles eBPF programs on-host, unexpected compilation outside of known CI/CD or development workflows may warrant
@@ -47,7 +48,12 @@ note = """## Triage and analysis
 
 This rule detects `clang` invocations that target the BPF backend, which compiles C source code into eBPF bytecode object files. Adversaries use this technique to build kernel-side eBPF components directly on a compromised host, avoiding detection of prebuilt binaries by hash or signature. The compiled object is typically loaded into the kernel via `bpf()` syscall or `bpftool` to implement rootkit functionality, traffic manipulation, or stealthy data collection.
 
-The rule covers both the two-token argument form (`-target bpf`) and the single-token forms (`--target=bpf`, `-target=bpf`), as well as the `bpfel` (little-endian) and `bpfeb` (big-endian) target variants. This breadth is important because all three forms are accepted by clang, and a rule matching only one form would miss the others.
+The rule covers the two-token argument form (`-target bpf`) as well as the `bpfel` (little-endian) and `bpfeb` (big-endian) target variants and full triples like `bpf-unknown-none`. It also matches single-token forms (`--target=bpf`, `-target=bpf`), which are rejected by clang but will still be audited by `execve` as attempted compilations. This breadth ensures that all valid syntaxes, as well as common typos that still generate audit events, are captured.
+
+### Rule limitations
+
+- eBPF bytecode can be produced without a BPF token on the `clang` command line by emitting LLVM IR and compiling it with `llc` (e.g., `clang -emit-llvm -c toy.bpf.c -o toy.ll` followed by `llc -march=bpf -filetype=obj toy.ll`). This path is not covered by this rule.
+- A direct `clang -cc1 -triple bpf` execution (which is what the clang driver spawns internally) is not detected directly by this rule, but the parent `clang -target bpf` process will be.
 
 ### Possible investigation steps
 
@@ -89,6 +95,10 @@ tags = [
     "Data Source: SentinelOne",
     "Data Source: Crowdstrike",
     "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -97,7 +107,7 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name like "clang*" and (
-  (process.args == "-target" and process.args in ("bpf", "bpfel", "bpfeb")) or
+  (process.args == "-target" and process.args like ("bpf", "bpf-*", "bpfel", "bpfel-*", "bpfeb", "bpfeb-*")) or
   process.args like ("*-target=bpf", "*-target=bpf-*", "*-target=bpfel", "*-target=bpfel-*", "*-target=bpfeb", "*-target=bpfeb-*")
 )
 '''
