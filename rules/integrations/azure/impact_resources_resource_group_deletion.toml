@@ -111,15 +111,7 @@ FROM logs-azure.activitylogs-*
 // (schedule + ingest-lag buffer), i.e. it was absent from the rest of the 7-day window
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
 | WHERE Esql.recent_minutes <= 10
-// surface real fields for the analyst and rule exceptions
-| EVAL azure.resource.group = MV_FIRST(Esql.resource_group_values),
-       azure.resource.name = MV_FIRST(Esql.resource_name_values),
-       azure.resource.id = MV_FIRST(Esql.resource_id_values),
-       azure.activitylogs.identity.claims_initiated_by_user.name = MV_FIRST(Esql.initiated_by_user_values),
-       azure.activitylogs.identity.claims.sid = MV_FIRST(Esql.session_id_values),
-       azure.correlation_id = MV_FIRST(Esql.correlation_id_values),
-       source.ip = MV_FIRST(Esql.source_ip_values)
-| KEEP azure.*, source.ip, Esql.*
+| KEEP azure.*, Esql.*
 '''
 
 
