@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -28,27 +28,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic MCP Server Created
 
-This is a first-seen (new_terms) signal keyed on **`organization.id`** plus
-**`anthropic.audit.mcp_server_name`** for successful `mcp_server_created` events. Each alert means that MCP
-server name was not observed in this organization during the rule history window. Pair with data export, public
-artifact sharing, or privilege changes from the same actor or organization when the name or actor is unexpected.
+First-seen MCP server name for this `organization.id` within the rule history window. MCP connectors add external
+data pathways into Claude.
+
+Unauthorized = server name not on approved integration inventory, actor is unexpected/contractor without a request,
+or creation pairs with data export / public artifact sharing / privilege changes. Close as FP when inventory and
+pilot/onboarding ticket match.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.mcp_server_name`, `anthropic.audit.mcp_server_id`, and `anthropic.audit.actor.type`.
-- When the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Determine whether the actor has created other MCP servers before or is an external contractor.
-- Search for related `mcp_server_updated` or `mcp_server_deleted` events for the same `anthropic.audit.mcp_server_id`.
-- Search for related data exports, artifact sharing changes, or admin role grants in the same window.
+- Record `anthropic.audit.mcp_server_name` / `mcp_server_id` and actor. For `user_actor`, validate email/IP/UA
+  against platform admins.
+- Search `mcp_server_updated` / `mcp_server_deleted` for the same server ID; look for exports, artifact sharing, or
+  admin role grants in the same window.
+- Close as FP when inventory + pilot ticket match the name; escalate unknown connector names immediately.
 
 ### False positive analysis
 
-- MCP adoption during Claude pilots commonly produces first-seen server names from platform or integration teams.
-- Confirm the connector name against approved integration inventory before escalating.
+- Claude pilots commonly introduce first-seen approved connector names from platform teams.
 
 ### Response and remediation
 
-- If unauthorized, remove the MCP server and review data accessed through the connector.
+- On unauthorized creation: remove the MCP server and review data accessed through the connector during the exposure
+  window.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

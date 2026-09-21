@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,29 +26,31 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Organization IP Restriction Deleted
 
-IP restrictions are a network-layer guardrail on administrative access to Anthropic organization settings. Removing
-them widens where a compromised admin session or API key can be used. The delete event often only identifies the
-organization and actor type, not the removed range.
+IP allowlists limit where admin sessions and admin API keys can be used. Deleting a restriction widens that surface.
+The delete event often lacks the removed CIDR — recover it from nearby create/update events.
+
+Unauthorized = no network/security change ticket for allowlist work, no replacement `org_ip_restriction_created` /
+`org_ip_restriction_updated` in the same window, or deletion paired with admin key creation / SSO weakening.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.actor.type` and `organization.id`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- If the actor is `anthropic_actor`, pivot on `organization.id` for nearby `org_ip_restriction_created` or
-  `org_ip_restriction_updated` events to recover the restriction details.
-- Look for related `org_ip_restriction_created` or `org_ip_restriction_updated` events before or after the deletion.
-- Correlate with admin role grants, admin API key creation, SSO changes, or exports in the same window.
-- Confirm with the network or security team whether an IP allowlist change was planned.
+- Identify actor type. For `user_actor`, check admin identity via `user.email`, `source.ip`, and UA. For
+  `anthropic_actor`, pivot on `organization.id` only.
+- Search the same org for `org_ip_restriction_created` / `org_ip_restriction_updated` before/after the delete to
+  recover ranges and see if this was a replace vs a standalone removal.
+- Correlate ±hours for admin role grants, admin API key creation, SSO changes, or data exports — common follow-ons
+  after network controls drop.
+- Close as FP when a ticket names the migration and a replacement restriction appears promptly. Escalate when deletion
+  stands alone or admin activity from non-corporate IPs follows.
 
 ### False positive analysis
 
-- Planned migrations sometimes require temporarily removing outdated IP restrictions before new ranges are applied.
+- Office moves and VPN redesigns often remove old ranges before new ones are applied.
 
 ### Response and remediation
 
-- If unauthorized, restore the required IP restrictions and review administrative activity from non-corporate source
-  IPs.
-- Rotate admin credentials and API keys used during the exposure window.
+- On unauthorized deletion: restore required IP restrictions, review admin activity from non-corporate `source.ip`
+  during the open window, and rotate admin credentials / API keys used in that period.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

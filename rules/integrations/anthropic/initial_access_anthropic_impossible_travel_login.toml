@@ -4,7 +4,7 @@ integration = ["anthropic"]
 maturity = "production"
 min_stack_comments = "ES|QL IP_LOCATION requires 9.5.0+. FIRST/LAST aggregations and st_distance require 9.4.0+."
 min_stack_version = "9.5.0"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -29,33 +29,34 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Impossible Travel Login
 
-This ES|QL rule resolves each successful `magic_link_login_succeeded` or `sso_login_succeeded` event to a geo
-point with `IP_LOCATION` on `source.ip`, then measures great-circle distance and implied speed between the first
-and last sign-in for the same `user.email` in a rolling 24-hour window. Alerts require at least two successful
-sign-ins, `Esql.distance_km` >= 1,000, and `Esql.travel_kmh` >= 800. An A-B-A pattern that returns to the first
-location may not alert because first and last coordinates can be close; review raw Timeline events before
-concluding impossible travel.
+Two successful magic-link or SSO sign-ins for the same `user.email` appear too far apart, too quickly, to be physical
+travel. That can be account sharing, VPN/proxy geo mismatch, or adversary authentication from a distant egress.
+
+Note: an A-B-A return to the first location may not alert (first/last coords can be close) — always sort raw Timeline
+auth events before concluding.
+
+Unauthorized / escalate when the distant IP/UA is unfamiliar, the user denies travel/VPN use, or failures / SSO
+weakening sit nearby. Close as FP when the user confirms known travel, split home/office VPN, or geo DB noise with
+matching corporate ASN/UA.
 
 #### Possible investigation steps
 
-- Review `Esql.distance_km`, `Esql.travel_kmh`, `Esql.window_minutes`, `Esql.event_count`,
-  `Esql.source_ip_values`, `Esql.source_geo_country_name_values`, and `Esql.source_geo_city_name_values`.
-- Sort raw authentication events for the user by `@timestamp` and compare each `source.ip`,
-  IP_LOCATION-derived country/city on the alert (`Esql.source_geo_country_name_values` /
-  `Esql.source_geo_city_name_values`), and `user_agent.original` against the first and last coordinates.
-- Pair with **Anthropic Multiple Authentication Failures** or SSO weakening rules when takeover is suspected.
-- Confirm with the user whether distant sign-ins are expected (travel, VPN) or unauthorized.
+- Read `Esql.distance_km`, `Esql.travel_kmh`, `Esql.window_minutes`, and the geo/IP value lists — high speed with a
+  country change is stronger than a same-region VPN hop.
+- Timeline-sort successful logins; compare each `source.ip`, geo, and `user_agent.original`. A browser→curl/python
+  shift on the distant hop is higher priority than two similar corporate browsers.
+- Pair with **Anthropic Multiple Authentication Failures** or SSO / magic-link second-factor changes when takeover is
+  plausible.
+- Ask the user only after geo/UA triage: expected travel or VPN egress vs unrecognized location.
 
 ### False positive analysis
 
-- Corporate VPN pools that geo-resolve far from the user's physical location can produce high implied speed when
-  home and office IPs both appear in a short window.
-- Geo databases can mislocate satellite or anycast egress; corroborate with ASN and user agent before escalating.
+- VPN pools and anycast/satellite geo misplacements commonly inflate implied speed — corroborate ASN and UA first.
 
 ### Response and remediation
 
-- If compromise is suspected, revoke sessions, reset credentials and MFA, and review admin or data-access activity
-  after the distant sign-in.
+- On suspected compromise: revoke sessions, reset credentials/MFA, and review admin or data-access activity after the
+  distant sign-in.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

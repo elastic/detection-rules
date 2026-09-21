@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,25 +26,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Magic Link Second Factor Disabled
 
-Turning off magic link second factor lowers authentication assurance for anyone signing in with a magic link. Review
-this alongside other identity control changes in the same period. The query matches the post-change state where
-`anthropic.audit.enabled` is false.
+Magic link second factor is an extra step on passwordless sign-in. Disabling it means anyone who can receive the
+mailbox's magic link can authenticate without that second check — a useful fallback if an attacker also weakens SSO.
+
+Treat as unauthorized unless identity has a change ticket / maintenance window that names this control, or the setting
+was re-enabled (or replaced with equivalent MFA) within the same change window.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.enabled`, `anthropic.audit.actor.type`, and `organization.id`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Look for related SSO deactivation, admin role grants, or `magic_link_login_succeeded` activity for the organization.
-- Confirm with the identity team whether an authentication policy change was authorized.
+- Identify the actor (`anthropic.audit.actor.type`). For `user_actor`, check whether `user.email`, `source.ip`, and
+  `user_agent.original` match a known admin; a scripting UA or unfamiliar IP raises priority.
+- In the same `organization.id` and ±hours window, look for SSO disable/deactivate/delete, admin role grants, or a
+  burst of `magic_link_login_succeeded` after the change.
+- Close as FP when the ticket matches the actor and time, and second factor (or equivalent IdP MFA) was restored.
+  Escalate when there is no ticket, the actor is unexpected, or sibling auth-weakening events appear.
 
 ### False positive analysis
 
-- Planned authentication migrations sometimes disable magic link second factor during testing.
+- Auth migrations and troubleshooting sometimes disable this briefly; require a ticket and restoration evidence.
 
 ### Response and remediation
 
-- If unauthorized, re-enable magic link second factor and review recent magic link sign-ins.
-- Correlate with other weakened authentication settings in the same window.
+- On unauthorized disable: re-enable magic link second factor, review magic-link sign-ins since the change, and
+  investigate concurrent SSO / admin IAM events for the same organization.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

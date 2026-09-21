@@ -2,7 +2,7 @@
 creation_date = "2026/09/16"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -27,30 +27,28 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Snapshot Creation
 
-This ES|QL rule fires when one `user.email` records at least 10 successful `claude_chat_snapshot_created` events in a
-rolling 24-hour lookback. Source IP and user agent are retained as `VALUES` for investigation but are not grouping
-keys, so activity spread across multiple egress IPs still accumulates. Matching `user.email` values are suppressed for
-24 hours so hourly runs do not re-alert while the window still contains the burst.
+One mailbox created many chat snapshots in 24 hours. Snapshots can package conversation content for handoff — or for
+exfiltration staging. Source IP/UA are investigation fields, not grouping keys, so multi-IP bursts still accumulate.
+
+Escalate when scripting UA, concurrent file uploads / public artifact sharing / data exports / chat deletions appear,
+or snapshots span many unrelated chats. Close as FP for documented knowledge handoffs, training packaging, or
+compliance archival automation.
 
 #### Possible investigation steps
 
-- Review `Esql.event_count`, `Esql.anthropic_audit_claude_chat_snapshot_id_values`, and
-  `Esql.anthropic_audit_claude_chat_id_values`.
-- Inspect `Esql.source_ip_values` and `Esql.user_agent_original_values` for automation or unfamiliar clients.
-- Correlate with high file uploads, artifact public sharing, data exports, or chat deletions from the same email.
-- Determine whether the actor is a service account or human user via `Esql.anthropic_audit_actor_type_values`.
-- Pivot on `Esql.organization_id_values` if the same email appears across organizations.
+- Review event count and snapshot/chat ID lists — many distinct chats is stronger than repeated snapshots of one chat.
+- Inspect IP/UA values for automation. Correlate with uploads, public artifact sharing, exports, or deletions from
+  the same email.
+- Note actor type and whether the same email appears across organizations (`organization_id` values).
 
 ### False positive analysis
 
-- Bulk snapshot creation during knowledge handoffs, training material packaging, or project archival can exceed the
-  threshold from a single power-user seat.
-- Automation that snapshots chats for compliance archival may look like exfiltration staging.
+- Power-user archival and compliance snapshot jobs commonly exceed the threshold.
 
 ### Response and remediation
 
-- If unauthorized, revoke sessions, review snapshot destinations and shared links, and tighten chat sharing or export
-  policies for the actor.
+- On unauthorized staging: revoke sessions, review snapshot destinations and shared links, and tighten chat sharing
+  or export policy for the actor.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

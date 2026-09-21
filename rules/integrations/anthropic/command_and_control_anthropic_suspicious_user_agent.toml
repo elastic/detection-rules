@@ -2,7 +2,7 @@
 creation_date = "2026/09/16"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -33,34 +33,32 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Activity from a Suspicious User Agent
 
-Successful Anthropic audit events normally come from browser or first-party Claude clients. This rule flags successful
-activity whose `user_agent.original` matches scripting HTTP clients, scanners, or automation libraries. User agents are
-spoofable, so treat this as a corroborating indicator and pivot on the actor, source IP, and `event.action`.
+Successful Anthropic audit events normally come from browser or first-party Claude clients. This rule flags scripting
+HTTP clients, scanners, or automation libraries on successful activity. UAs are spoofable — corroborate with actor,
+IP, and `event.action`.
 
-Benign automation that uses axios or Go HTTP clients for `platform_file_*`, `claude_file_uploaded`,
-`trusted_device_enrolled`, or `environment_created` is excluded.
+Benign automation using axios or Go HTTP clients is already excluded for `platform_file_uploaded`,
+`platform_file_deleted`, `claude_file_uploaded`, `trusted_device_enrolled`, and `environment_created`.
+
+Unauthorized / escalate when a normally browser-bound user suddenly uses curl/python/Go-http-client on privileged
+actions (IAM, exports, SSO, keys). Close as FP for approved SDK/CI identities on expected actions.
 
 #### Possible investigation steps
 
-- Review `user.email`, `source.ip`, `user_agent.original`, `event.action`, and `anthropic.audit.actor.type`.
-- Confirm whether the user agent and action match approved automation or an unexpected scripting client.
-- Pivot on the same `user.email` and `source.ip` for authentication failures, impossible travel, role changes, exports,
-  or compliance logging changes.
-- Compare with the user's typical browsers and devices. A sudden shift to curl, python-requests, or Go-http-client on
-  privileged actions is higher priority.
+- Compare `user_agent.original` and `event.action` to the user's baseline. A shift to curl, python-requests, or
+  Go-http-client on admin/export actions is higher priority than the same UA on already-allowlisted file ops.
+- Branch `anthropic.audit.actor.type` and check `user.email` / `source.ip` against approved automation inventory.
+- Pivot the same email/IP for auth failures, impossible travel, role changes, exports, or compliance logging changes.
 
 ### False positive analysis
 
-- Internal tooling and GenAI SDK traffic can present `openai*`, `anthropic-sdk*`, `langchain*`, or similar agents.
-  Exclude stable service identities after review rather than dropping the entire pattern family.
-- File and environment automation that uses Go-http-client or axios is already excluded for a short action allowlist;
-  extend that allowlist only with evidence of additional benign actions.
+- Internal GenAI SDKs (`openai*`, `anthropic-sdk*`, `langchain*`) and CI jobs match — exclude stable identities, not
+  entire UA families. Extend the Go/axios action allowlist only with evidence of additional benign actions.
 
 ### Response and remediation
 
-- If unauthorized, revoke sessions for the user, rotate credentials and MFA, and review admin, export, and data-access
-  activity around the alert.
-- Hunt for concurrent sessions and other scripting-user-agent activity from the same `source.ip` or `user.email`.
+- On unauthorized scripting access: revoke sessions, rotate credentials/MFA, review admin/export activity around the
+  alert, and hunt other scripting-UA activity from the same IP or email.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

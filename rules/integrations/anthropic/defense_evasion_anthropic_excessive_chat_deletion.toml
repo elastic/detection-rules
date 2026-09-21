@@ -2,7 +2,7 @@
 creation_date = "2026/09/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,27 +26,27 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Deletion
 
-This ES|QL rule fires when one `user.email` records at least 30 `claude_chat_deleted` events within the same UTC day
-bucket in a rolling 24-hour lookback. Matching pairs `(user.email, Esql.time_bucket)` are suppressed for 24 hours.
-Pivot to raw logs because deleted chat IDs may no longer be viewable in the product UI.
+One mailbox deleted many chats in a UTC day bucket. Deleted content may no longer be viewable in the product UI —
+preserve audit history early.
+
+Escalate when deletions follow uploads/exports/sharing, UA looks scripted, or compliance logging was disabled nearby.
+Close as FP for scheduled retention cleanup or migration tooling with a ticket.
 
 #### Possible investigation steps
 
-- Review `Esql.event_count`, `Esql.anthropic_audit_claude_chat_id_values`, and
-  `Esql.anthropic_audit_claude_project_id_values` while they remain in audit history.
-- Compare deletion volume to prior `claude_chat_created` or `claude_file_uploaded` activity from the same email.
-- Inspect `Esql.source_ip_values` and `Esql.user_agent_original_values` for scripted deletion patterns.
-- Correlate with compliance logging disablement, SSO changes, or data exports in the same window.
+- Capture chat/project ID values from the alert while they remain in audit history.
+- Compare deletion volume to prior `claude_chat_created` / `claude_file_uploaded` from the same email — delete-after-
+  upload is higher priority than cleanup of empty chats.
+- Inspect IP/UA for scripted patterns; correlate with logging disablement, SSO changes, or data exports.
 
 ### False positive analysis
 
-- Scheduled retention or manual bulk cleanup after project closure commonly produces many deletions in one session.
-- Migration tooling that recreates chats may delete stale copies in bulk.
+- Project closure cleanup and migration tooling often bulk-delete in one session.
 
 ### Response and remediation
 
-- If malicious, preserve remaining audit exports, revoke sessions, and investigate whether sensitive content was
-  uploaded or shared before deletion.
+- On malicious deletion: preserve remaining audit exports, revoke sessions, and investigate whether sensitive content
+  was uploaded or shared before deletion.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,26 +25,28 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Admin API Key Deleted
 
-Unexpected admin API key deletion can break logging pipelines and administrative automation. Correlate with key
-creation, role grants, and logging changes in the same window.
+Deleting an admin API key can break Fleet/compliance ingestion or admin automation — or remove a defender-owned key
+after an attacker creates a replacement they control.
+
+Unauthorized = deletion without a matching nearby `admin_api_key_created` (rotation) or decommission ticket, or
+deletion by an unexpected actor paired with logging disablement / exports / SSO changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.actor.type`, `anthropic.audit.admin_api_key_id`, and `organization.id`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id` and whether that key was
-  recently created.
-- Look for a nearby `admin_api_key_created` event to tell rotation apart from standalone deletion.
-- Confirm whether the deletion broke Fleet ingestion or other compliance logging integrations.
-- Correlate with compliance logging changes, exports, or SSO modifications in the same period.
+- Note deleted `anthropic.audit.admin_api_key_id` and actor. For `user_actor`, validate admin identity (email/IP/UA).
+  For `admin_api_key_actor`, check whether the deleting key (`actor.admin_api_key_id`) was itself recently created.
+- Distinguish rotation (create+delete same window, same actor) from standalone deletion.
+- Check whether Fleet/compliance ingestion stopped after the delete; correlate with compliance logging changes,
+  exports, or SSO modifications.
 
 ### False positive analysis
 
-- Key rotation usually pairs deletion with creation by the same actor during maintenance windows.
+- Scheduled rotation pairs delete with create during maintenance — ticket + sibling create event closes as FP.
 
 ### Response and remediation
 
-- If unauthorized, restore required integrations with new keys and review other administrative changes by the actor.
+- On unauthorized deletion: restore required integrations with new keys, verify audit ingestion, and review other
+  admin changes by the same actor in the exposure window.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

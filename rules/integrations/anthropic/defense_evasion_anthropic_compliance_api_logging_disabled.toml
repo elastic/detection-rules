@@ -27,27 +27,30 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance API Logging Disabled
 
-Compliance API logging feeds the `logs-anthropic.audit-*` indices that Anthropic audit detections run against.
-Disabling it hides later administrative activity from this data source, even if other logging remains in place.
+Compliance API logging feeds `logs-anthropic.audit-*`. Disabling it creates a **blind window**: later admin actions
+may not appear in this data source even if other logging remains. Do not assume the timeline after disable is complete.
+
+Unauthorized = no platform/security ticket for Fleet/integration work, and logging was not re-enabled promptly — or
+disable is paired with role grants, key creation, exports, or SSO changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.actor.type`, `organization.id`, and `anthropic.audit.compliance_api_logging_enabled`. This
-  rule matches when logging is disabled (`compliance_api_logging_enabled == false`).
-  `anthropic.audit.compliance_api_enabled` is a separate control for whether the Compliance API itself is enabled.
-- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Pivot on the same `organization.id` for admin role grants, admin API key creation, exports, or SSO changes.
-- Confirm whether a change ticket or integration project authorized the update.
+- Confirm `anthropic.audit.compliance_api_logging_enabled == false`. Do not confuse with
+  `compliance_api_enabled` (whether the Compliance API itself is on).
+- Branch actor: `admin_api_key_actor` → which key (`anthropic.audit.actor.admin_api_key_id`); `user_actor` →
+  email/IP/UA vs known admins.
+- Pivot the same `organization.id` for admin grants, key creation, exports, or SSO changes **before** the disable
+  (still visible) and note the blind window start time.
+- Gate re-enable: treat the case as open until logging is back on and fresh events appear in `logs-anthropic.audit-*`.
 
 ### False positive analysis
 
-- Confirm planned integration work with the team that manages the Anthropic Fleet policy.
+- Integration testing / pipeline migrations can disable logging briefly — require a ticket and verify re-enable.
 
 ### Response and remediation
 
-- Re-enable compliance API logging and confirm events resume ingestion into `logs-anthropic.audit-*`.
-- Review configuration changes made between logging disable and re-enable.
+- Re-enable compliance API logging first and confirm ingestion resumes. Then reconstruct the blind window via any
+  prior exports, Anthropic support, or other data sources, and review configuration changes around the disable.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

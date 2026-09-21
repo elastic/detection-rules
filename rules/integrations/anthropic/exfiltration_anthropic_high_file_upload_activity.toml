@@ -27,27 +27,31 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic High File Upload Activity
 
-This ES|QL rule fires when one `user.email` and `source.ip` pair records at least 100 `claude_file_uploaded` events
-within a rolling 24-hour lookback. Matching pairs `(user.email, source.ip)` are suppressed for 24 hours so hourly runs
-do not re-alert while the window still contains the burst. Pivot to raw `logs-anthropic.audit-*` logs for individual
-filenames and chat or project identifiers.
+One `user.email` + `source.ip` pair uploaded a large volume of Claude files in 24 hours — possible staging for later
+retrieval, automated ingestion, or abuse of org Claude access.
+
+Unauthorized / escalate when filenames look sensitive, uploads target shared/sensitive projects, UA looks automated
+(curl/python vs browser), or artifact sharing / exports follow. Close as FP for documented migrations, RAG pilots, or
+batch attach jobs with expected project IDs.
 
 #### Possible investigation steps
 
-- Review `Esql.event_count`, `Esql.file_name_values`, and `Esql.anthropic_audit_claude_chat_id_values`.
-- Inspect `Esql.anthropic_audit_claude_project_id_values` for whether uploads target shared or sensitive projects.
-- Compare upload volume to `claude_file_viewed` or chat activity from the same actor in the same window.
-- Correlate with artifact sharing changes, data exports, or compliance key creation from the same user.
+- Start with `Esql.event_count`, `Esql.file_name_values`, and chat/project ID lists — sensitive names or shared
+  project IDs raise priority.
+- Triage `user_agent` on raw uploads: browser-like vs scripting clients. Scripting UAs with many distinct file IDs
+  look more like automation than interactive work.
+- Pivot raw `logs-anthropic.audit-*` for individual `anthropic.audit.claude_file_id` / filenames and whether
+  `claude_file_viewed` or chat activity matches the upload volume.
+- Correlate with artifact sharing, data exports, or compliance key creation from the same user.
 
 ### False positive analysis
 
-- Document migration or RAG indexing pilots often produce high upload counts from one analyst seat.
-- Automation that attaches files to many chats in a batch can look like exfiltration staging.
+- Document migrations and RAG indexing from one seat commonly exceed the threshold.
 
 ### Response and remediation
 
-- If unauthorized, revoke the actor's sessions, review uploaded file names for sensitive content, and tighten project
-  sharing or upload policies.
+- On unauthorized staging: revoke sessions, review uploaded names/file IDs for sensitive content, and tighten project
+  sharing or upload policy for the actor.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

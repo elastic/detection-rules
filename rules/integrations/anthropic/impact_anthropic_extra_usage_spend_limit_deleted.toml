@@ -2,7 +2,7 @@
 creation_date = "2026/09/16"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,29 +25,32 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Extra Usage Spend Limit Deleted
 
-This rule matches `extra_usage_spend_limit_deleted` configuration events. The deletion removes a spend cap rather than
-creating spend by itself. Treat it as an early signal and look for follow-on high-volume API or chat activity.
+Deleting an extra-usage spend limit removes a billing guardrail; it does not create spend by itself. Treat it as an
+early signal for follow-on quota burn or automated workloads.
+
+Unauthorized = no finance/platform ticket to redesign billing, and no nearby `extra_usage_spend_limit_created` /
+`extra_usage_spend_limit_updated` that replaces the deleted limit — especially if high chat creation or file uploads
+follow.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.spend_limit_id`, `organization.id`, and `anthropic.audit.actor.type`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- If the actor is an `api_actor`, review `anthropic.audit.actor.api_key_id`, `source.ip`, and `user_agent.original`.
-- Look for nearby `extra_usage_spend_limit_created` or `extra_usage_spend_limit_updated` events that indicate planned
-  replacement versus a standalone deletion.
-- Correlate with high chat creation, file uploads, or other high-volume activity from the same organization after the
+- Branch on actor: `user_actor` → `user.email` / `source.ip` / UA; `api_actor` → `anthropic.audit.actor.api_key_id`
+  and whether that key is in inventory.
+- Check for create/update of a replacement limit within the same change window (planned redesign) vs standalone
   deletion.
-- Confirm with finance or platform owners whether a billing policy change was scheduled.
+- After the delete, look for elevated `claude_chat_created`, file uploads, or other high-volume activity on the same
+  `organization.id`.
+- Close as FP when a finance/platform ticket names the redesign and a replacement create/update exists. Escalate when
+  deletion is orphaned or usage spikes afterward.
 
 ### False positive analysis
 
-- Planned spend-limit redesigns often delete an old limit shortly before creating a replacement.
+- Billing consolidations often delete an old limit shortly before creating a new one.
 
 ### Response and remediation
 
-- If unauthorized, restore an appropriate spend limit and review API keys and admin sessions active during the exposure
-  window.
-- Investigate whether significant extra usage accrued after the deletion.
+- On unauthorized deletion: restore an appropriate spend limit, review API keys and admin sessions active during the
+  exposure window, and quantify extra usage accrued after the change.
 """
 references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47

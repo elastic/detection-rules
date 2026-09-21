@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,25 +26,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Admin API Key Created
 
-Admin API keys can read compliance activity and manage organization settings, depending on the scopes assigned at
-creation.
+Admin API keys provide durable programmatic org/compliance access that survives interactive session revocation.
+Scopes at creation determine blast radius.
+
+Unauthorized = key not in the approved credentials inventory, no integration/onboarding ticket, or creation by an
+actor who just received admin / ownership and immediately mints a key — especially before exports or SSO changes.
 
 #### Possible investigation steps
 
-- Review `user.email`, `anthropic.audit.actor.type`, `source.ip`, and `anthropic.audit.scopes`.
-- Note `anthropic.audit.admin_api_key_id` for correlation with later API activity and `admin_api_key_deleted` events.
-- Check whether the actor recently received admin privileges or transferred primary ownership.
-- Look for exports, SSO changes, compliance logging changes, or other configuration updates from the same organization
-  in the same window.
-- Confirm the key appears in the approved credentials inventory.
+- Record `anthropic.audit.admin_api_key_id` and `anthropic.audit.scopes` for later revoke and correlation.
+- Branch actor: `user_actor` → is `user.email` / `source.ip` / UA a known platform admin? Scripting UA is higher
+  priority than a normal browser admin console session.
+- Check whether the actor recently gained admin or primary ownership; look ±hours for exports, SSO changes, or
+  compliance logging changes from the same org.
+- Close as FP when inventory + ticket match. Escalate when the key is unknown or precedes control-plane abuse.
 
 ### False positive analysis
 
-- Key creation is expected when standing up logging or security monitoring for a new Anthropic organization.
+- Fleet / SIEM onboarding and scheduled rotation routinely create admin keys — require inventory evidence.
 
 ### Response and remediation
 
-- If unauthorized, revoke the key through Anthropic administration and rotate other administrative credentials.
+- On unauthorized creation: revoke the key in Anthropic admin, rotate other admin credentials, and review API activity
+  attributable to that `anthropic.audit.admin_api_key_id` during the exposure window.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,25 +25,26 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance API Key Created
 
-This rule matches `api_key_created` events where the new key carries compliance read scopes. Review
-`anthropic.audit.scopes` for the exact permissions granted.
+A new API key was created with compliance read scopes (audit/compliance data), distinct from admin API keys used for
+org administration. Review `anthropic.audit.scopes` for exact permissions.
+
+Unauthorized = key not in approved inventory / no Fleet or investigation ticket, or creation by an unexpected actor
+followed by `compliance_api_accessed` / audit export activity.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.api_key_id`, `anthropic.audit.scopes`, and `anthropic.audit.actor.type`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- If the actor is an `admin_api_key_actor`, review `anthropic.audit.actor.admin_api_key_id`.
-- Pivot on `anthropic.audit.api_key_id` and look for later `compliance_api_accessed` events from the same key to
-  confirm programmatic use.
-- Confirm the creation matches an approved integration or investigation ticket.
+- Record `anthropic.audit.api_key_id` and scopes. Branch actor (`user_actor` vs `admin_api_key_actor`) and validate
+  against known platform admins or parent admin keys.
+- Pivot on that `api_key_id` for later `compliance_api_accessed` (programmatic use of the new key).
+- Correlate ±hours for admin role grants, logging disablement, or data exports — recon before further intrusion.
 
 ### False positive analysis
 
-- Fleet onboarding usually creates the first compliance-scoped key for an organization.
+- First Fleet onboarding key for an org is expected — require inventory / ticket evidence.
 
 ### Response and remediation
 
-- If unauthorized, revoke the key and review Compliance API activity from the exposure window.
+- On unauthorized creation: revoke the key and review Compliance API / export activity during the exposure window.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

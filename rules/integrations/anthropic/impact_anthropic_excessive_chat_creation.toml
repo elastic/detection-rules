@@ -26,26 +26,26 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Creation
 
-This ES|QL rule fires when one `user.email` records at least 20 `claude_chat_created` events within a rolling 24-hour
-lookback. Matching `user.email` values are suppressed for 24 hours.
+One mailbox created a large burst of Claude chats in 24 hours — fits automation, quota burn, or scripted parallel
+workflows.
+
+True-positive signals: scripting UA (curl/python/Go-http-client), many distinct project IDs, concurrent file uploads
+or deletions, or follow-on exports. False-positive signals: known eval/load-test accounts, onboarding templates from
+one admin with browser UA and no data-access follow-ons.
 
 #### Possible investigation steps
 
-- Review `Esql.event_count`, `Esql.anthropic_audit_claude_chat_id_values`, and
-  `Esql.anthropic_audit_claude_project_id_values`.
-- Inspect `Esql.source_ip_values` and `Esql.user_agent_original_values` for automation or API-like clients.
-- Correlate with high file uploads, chat deletions, or data export activity from the same email.
-- Determine whether the actor is a service account or human user via `Esql.anthropic_audit_actor_type_values`.
+- Prefer alerts with scripting UA and/or many distinct project IDs over browser UA confined to one known project.
+- Correlate with high file uploads, chat deletions, or org data export from the same email in the same window.
 
 ### False positive analysis
 
-- Load testing or batch automation that spins up many chats for summarization pipelines can trigger this rule.
-- Onboarding exercises that create template chats for each team member may cluster on one admin account.
+- Known eval/load-test seats and onboarding template creators with browser UA and no data-access follow-ons are FP.
 
 ### Response and remediation
 
-- If abuse is confirmed, revoke sessions, review project membership, and consider rate limits or policy changes for
-  the actor.
+- When TP signals hold: revoke sessions, review project membership, and apply rate limits or policy changes for the
+  actor.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

@@ -2,7 +2,7 @@
 creation_date = "2026/09/16"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,31 +26,28 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Member and Group Enumeration
 
-This ES|QL rule fires when one `user.email` in an organization records at least two distinct discovery actions among
-`org_users_listed`, `org_members_exported`, and `group_list_viewed` within the rolling ~10-minute lookback.
-`Esql.event_action_values` shows which actions appeared. Matching `(user.email, organization.id)` pairs are suppressed
-for 10 minutes so overlapping runs do not re-alert while the same activity remains in the window.
+One email performed at least two distinct discovery actions among `org_users_listed`, `org_members_exported`, and
+`group_list_viewed` in a short window — reconnaissance of who is in the tenant.
+
+Escalate when scripting UA, follow-on invites/role grants/SSO changes/exports appear, or the actor is not an identity
+admin. Close as FP for scheduled access reviews or onboarding console browsing with a ticket.
 
 #### Possible investigation steps
 
-- Review `user.email`, `organization.id`, `Esql.event_action_count_distinct`, and `Esql.event_action_values`.
-- Inspect `Esql.source_ip_values`, `Esql.user_agent_original_values`, and `Esql.anthropic_audit_actor_type_values` for
-  automation or unfamiliar clients.
-- Pivot on the same actor and organization for follow-on activity: admin or project role grants, invites, SSO changes,
-  or data exports.
-- Compare timing against approved access reviews or identity audits.
-- Note that `org_members_exported` events without a user email (for example some `anthropic_actor` cases) are out of
-  scope for this rule.
+- Read `Esql.event_action_values` to see which discovery actions combined; all three in one window is stronger than
+  two.
+- Inspect IP/UA/actor type for automation or unfamiliar clients.
+- Pivot the same actor/org for follow-on admin or project role grants, invites, SSO changes, or data exports.
+- Note: some `org_members_exported` without user email (e.g. certain `anthropic_actor` cases) are out of scope.
 
 ### False positive analysis
 
-- Scheduled membership exports or console browsing during onboarding can combine two of these actions in a short
-  window for legitimate admins.
+- Membership exports during access reviews commonly combine two of these actions briefly.
 
 ### Response and remediation
 
-- If unauthorized, revoke active sessions for the actor, review recent role and invite changes, and tighten least
-  privilege on organization identity read actions where possible.
+- On unauthorized recon: revoke sessions, review recent role and invite changes, and tighten least privilege on
+  identity read actions where possible.
 """
 references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47

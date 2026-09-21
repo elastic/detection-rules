@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -30,35 +30,35 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic SSO Disabled or Connection Removed
 
-SSO changes affect how every user in the organization authenticates to Claude. Review unexpected toggles, deactivations,
-and deletions alongside other identity changes in the same period. Connection deletion is more severe than deactivation
-because the IdP binding must be re-established, not just re-enabled.
+SSO is the primary path that enforces corporate IdP MFA and session policy. Turning SSO off, or deactivating/deleting
+a connection, pushes users onto alternate sign-in (password / magic link) the attacker may control.
 
-Many organizations receive these events from `scim_directory_sync_actor` during routine IdP directory sync rather than
-from an interactive administrator session.
+Severity by action: `org_sso_connection_deleted` (must re-bind IdP) > `org_sso_connection_deactivated` >
+`org_sso_toggled` with `anthropic.audit.enabled: false`.
+
+Unauthorized = no IdP change ticket / maintenance window for this `anthropic.audit.connection_id`, or a `user_actor`
+change outside known admins, especially with sibling magic-link second-factor disablement or admin role grants.
+SCIM-driven events during a documented connector sync are usually FP.
 
 #### Possible investigation steps
 
-- Review `event.action`, `anthropic.audit.actor.type`, `anthropic.audit.connection_id`, `anthropic.audit.enabled`, and
-  `organization.id`. This rule matches three paths:
-  - `org_sso_toggled` with `anthropic.audit.enabled: false`: SSO turned off org-wide.
-  - `org_sso_connection_deactivated`: a specific IdP connection was deactivated.
-  - `org_sso_connection_deleted`: a specific IdP connection was removed.
-- If the actor is `scim_directory_sync_actor`, review `anthropic.audit.actor.directory_id`,
-  `anthropic.audit.actor.workos_event_id`, and `anthropic.audit.actor.idp_connection_type`, then confirm with the IdP
-  team whether directory sync or connector maintenance caused the change.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Look for related events such as admin role grants, magic link second factor changes, or invite link changes.
-- Confirm with the identity team that an IdP migration or maintenance window was scheduled.
+- Branch on `anthropic.audit.actor.type`:
+  - `scim_directory_sync_actor`: check `anthropic.audit.directory_id` / `workos_event_id` / `idp_connection_type`
+    against IdP sync or certificate rotation windows before escalating.
+  - `user_actor`: compare `user.email`, `source.ip`, and `user_agent.original` to expected admins; scripting UA or
+    new IP is higher priority.
+- Note `event.action`, `anthropic.audit.connection_id`, and `organization.id`. Check whether SSO was restored
+  afterward.
+- Correlate ±hours for magic link second factor changes, admin role grants, invites, or admin API key creation.
 
 ### False positive analysis
 
-- Planned IdP work often includes temporarily deactivating or removing a connection before a replacement is
-  configured.
+- IdP migrations often deactivate or delete a connection before the replacement is live — match ticket and restore.
 
 ### Response and remediation
 
-- If unauthorized, restore or reconfigure SSO and review accounts that signed in while SSO was unavailable.
+- On unauthorized change: restore or reconfigure SSO immediately, then review accounts that authenticated while SSO
+  was unavailable and rotate credentials for any suspicious successful logins in that window.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

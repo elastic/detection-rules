@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,29 +26,30 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Organization Deletion
 
-This rule matches organization deletion requests and bulk delete activity. Treat `org_deletion_requested` as an urgent
-early signal; recovery options shrink as the action progresses to bulk delete completion.
+Organization deletion / bulk delete removes tenant data, projects, and member access. Treat early actions as urgent —
+recovery options shrink as the workflow progresses.
+
+Unauthorized = no offboarding / lab-teardown ticket naming this org and actor, or deletion preceded by owner transfer,
+admin grants, key creation, or data exports without a matching business project.
 
 #### Possible investigation steps
 
-- Identify the actor using `anthropic.audit.actor.type` and `organization.id`.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Review the action value and urgency:
-  - `org_deletion_requested`: deletion was requested. Intervene immediately if unauthorized.
-  - `org_bulk_delete_initiated`: bulk delete started.
-  - `org_deleted_via_bulk`: bulk delete completed. Prioritize evidence preservation outside the tenant.
-- Look for preceding admin role grants, primary owner transfers, admin API key creation, or data exports.
-- Confirm with platform owners whether offboarding or decommissioning was scheduled.
+- Identify actor (`user_actor` → email/IP/UA) and `organization.id`.
+- Urgency by action:
+  - `org_deletion_requested`: intervene immediately if unauthorized.
+  - `org_bulk_delete_initiated`: bulk delete started — escalate IR now.
+  - `org_deleted_via_bulk`: completed — prioritize evidence preservation outside the tenant.
+- Look for preceding primary owner transfer, admin grants, admin API key creation, or data exports.
+- Close as FP only when platform owners confirm scheduled decommission with matching ticket/time/actor.
 
 ### False positive analysis
 
-- Match the event time and actor to an approved offboarding or lab teardown project.
+- Sandbox teardown and contract termination are valid — require change management or offboarding records.
 
 ### Response and remediation
 
-- If the activity was unauthorized, engage Anthropic support and internal incident response immediately.
-- Preserve remaining audit logs (including any prior exports) and rotate administrative credentials for the
-  organization.
+- On unauthorized activity: engage Anthropic support and internal IR immediately, preserve remaining audit logs
+  (including prior exports), and rotate administrative credentials for the organization.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

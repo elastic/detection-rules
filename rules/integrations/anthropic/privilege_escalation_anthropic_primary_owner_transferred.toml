@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,28 +26,32 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Primary Owner Transferred
 
-Primary ownership is the highest level of administrative control in an Anthropic organization. This change should
-be rare and is often preceded by formal approval outside the application.
+Primary ownership is the highest Anthropic org authority (billing, membership, org-wide settings). Transfers should
+be rare and ticketed. Actor fields identify who initiated the transfer — not the new owner
+(`anthropic.audit.previous_owner_id` / `new_owner_id`).
+
+Unauthorized = no HR/IT offboarding or ownership-change ticket naming both parties, or the new owner was recently
+invited / granted admin and immediately received ownership, especially with follow-on SSO/key/export changes.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.previous_owner_id`, `anthropic.audit.new_owner_id`, and `organization.id`.
-- Identify the actor who initiated the transfer using `anthropic.audit.actor.type`. When the actor is a `user_actor`,
-  review `user.email`, `user.id`, `source.ip`, and `user_agent.original`. These actor fields are not the new owner.
-- Determine whether the new owner recently received admin privileges or accepted a new invite.
-- Search for related events from the same actor, including admin API key creation, exports, or SSO changes.
-- Review whether the new owner account had recent `role_assignment_granted` with `user.target.roles: admin` or invite
-  activity before the transfer.
-- Contact the previous owner and the new owner to confirm the transfer was expected.
+- Map `anthropic.audit.previous_owner_id` → `new_owner_id` and resolve initiator (`actor.type`; for `user_actor`
+  check email/IP/UA).
+- Before the transfer: look for `role_assignment_granted` with `user.target.roles: admin`, invite accept, or admin API
+  key creation for the new owner path.
+- After the transfer: look for SSO changes, exports, compliance logging disablement, or IP restriction deletes by the
+  new owner.
+- Contact previous and new owners only after ticket/timeline triage; escalate when ticket is missing or the new owner
+  chain looks staged.
 
 ### False positive analysis
 
-- Validate the transfer against HR records, offboarding plans, or IT change tickets.
+- Reorgs and admin departures are valid — require matching change management / HR records.
 
 ### Response and remediation
 
-- If unauthorized, work with Anthropic support and internal IT to recover ownership and review all changes made by
-  the new owner account.
+- On unauthorized transfer: engage Anthropic support and internal IT to recover ownership, revoke the new owner's
+  sessions/keys, and review every admin change made under the new owner account.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

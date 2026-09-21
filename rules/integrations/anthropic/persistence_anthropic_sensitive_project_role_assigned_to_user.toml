@@ -2,7 +2,7 @@
 creation_date = "2026/09/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -33,38 +33,29 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Sensitive Claude Project Role Assigned to User
 
-This is a first-seen (new_terms) signal keyed on **`organization.id`** and **`anthropic.audit.resource_id`**
-for `role_assignment_granted` events where `user.target.roles` is `chat_project:owner` or `chat_project:editor`.
-Organization-wide `admin` grants use the same action with `user.target.roles` equal to `admin` and are covered by
-**Anthropic Admin Role Assigned to User**. Admin grants through `rbac_role_assigned` use `anthropic.audit.role_id`
-instead of `user.target.roles` and are not matched here.
+First-seen grant of `chat_project:owner` or `chat_project:editor` on a Claude project (`organization.id` +
+`anthropic.audit.resource_id`). Org-wide `admin` grants are covered by **Anthropic Admin Role Assigned to User**.
+Self-assignment at project creation is common; `user.id` may be absent for `anthropic_actor`.
 
-The rule tracks the first sensitive project-role grant on a Claude project in an organization, not first-seen
-assigners. `user.id` is often absent when `anthropic.audit.actor.type` is `anthropic_actor`. Self-assignment at
-project creation is common. When a grantee is present, review **`user.target.id`**, **`anthropic.audit.target_id`**,
-**`anthropic.audit.target_type`**, and **`related.user`**.
+Unauthorized = grant to an unexpected collaborator (especially external), no project onboarding ticket, or followed
+by export / public artifact sharing / logging changes on the same project. Close as FP for known team staffing with
+ticket or a recurring collaborator baseline on that project.
 
 #### Possible investigation steps
 
-- Identify the assigner using `user.id`, `user.email`, `source.ip`, and `user_agent.original` when
-  `anthropic.audit.actor.type` is `user_actor`.
-- Review `user.target.roles`, `anthropic.audit.resource_type`, `anthropic.audit.resource_id`, and
-  `anthropic.audit.actor.type` for the affected Claude project.
-- If grantee context is needed, inspect `anthropic.audit.target_id`, `anthropic.audit.target_type`, and
-  `related.user`; correlate with org membership changes in the same window.
-- Determine whether the assigner or project had other IAM, export, or sharing changes recently.
-- Correlate with data export, artifact sharing, or compliance logging changes involving the same project or users.
+- When `user_actor`, identify assigner via email/IP/UA. Review role, `anthropic.audit.resource_id`, and grantee fields
+  (`anthropic.audit.target_id` / `target_type` / `related.user`) when present.
+- Correlate with org membership changes, exports, or artifact sharing involving the same project or users.
+- Escalate when the grantee is new/external or privileged data access follows; close when ticket/baseline matches.
 
 ### False positive analysis
 
-- Confirm with the project or organization administrator that the assignment was intentional.
-- Baseline recurring collaborators and internal project onboarding patterns before escalating.
+- Routine project staffing and self-assignment at creation are expected — baseline recurring collaborators.
 
 ### Response and remediation
 
-- If unauthorized, revoke the project role on the affected resource and review other changes on the same
-  `anthropic.audit.resource_id` and `organization.id`.
-- Audit project content access and recent exports for the affected resource.
+- On unauthorized grant: revoke the project role on that `anthropic.audit.resource_id`, review other changes on the
+  same project/org, and audit project content access and recent exports.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",

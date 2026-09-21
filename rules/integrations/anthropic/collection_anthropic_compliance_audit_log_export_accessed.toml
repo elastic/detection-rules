@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -25,28 +25,28 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Compliance Audit Log Export Accessed
 
-The audit export archive was accessed or downloaded. Correlate with `audit_log_export_started` for the same
-`organization.id` to see who requested the export and when.
+An audit-log export archive was downloaded. Attackers use this to see what defenders can observe or to stage before
+further control-plane changes. Correlate with `audit_log_export_started` for the same org.
+
+Unauthorized = no security/compliance ticket, export window covering recent IAM/logging changes without investigation
+context, or download followed by compliance logging disablement / SSO changes / data exports.
 
 #### Possible investigation steps
 
-- Review `anthropic.audit.from_date`, `anthropic.audit.to_date`, `anthropic.audit.actor.type`, and `organization.id`.
-  The export window shows which administrative activity the actor reviewed.
-- If the actor is a `user_actor`, review `user.email`, `user.id`, `source.ip`, and `user_agent.original`.
-- Look for a preceding `audit_log_export_started` event, and check whether the export window covers recent IAM or
-  logging changes.
-- Check whether the download preceded compliance logging changes, SSO changes, or data exports. That sequence is a
-  common recon step before further intrusion.
-- Correlate with compliance logging changes, admin role grants, or data exports in the same period.
+- Use `anthropic.audit.from_date` / `to_date` to see which admin activity the actor pulled; match actor email/IP/UA to
+  known IR/compliance staff.
+- Find preceding `audit_log_export_started`. Flag if the window covers recent IAM or logging changes the actor then
+  altered.
+- Sequence check: download → logging disable / SSO change / org data export is a common recon-then-abuse pattern.
 
 ### False positive analysis
 
-- Planned audit exports for compliance reviews or SIEM onboarding are expected in some environments.
+- SIEM validation and regulatory requests are expected — require an approved ticket.
 
 ### Response and remediation
 
-- If unauthorized, revoke access for the actor and determine whether the exported audit data left the organization.
-- Review whether compliance API logging was disabled or modified around the same time.
+- On unauthorized access: revoke actor access, determine whether export data left the org, and review whether
+  compliance logging was disabled or modified around the same time.
 """
 references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47

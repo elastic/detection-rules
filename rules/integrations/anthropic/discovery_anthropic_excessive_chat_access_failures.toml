@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/12"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -26,37 +26,31 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Access Failures
 
-This ES|QL rule fires when one authenticated user (`user.id` present) hits at least 20 `claude_chat_access_failed`
-events in a 24-hour lookback for the same organization and source IP. Matching `(user.id, organization.id, source.ip)`
-triples are suppressed for 24 hours so hourly runs do not re-alert while the rolling window still contains the burst.
-Unauthenticated shared-link failures map `unauthenticated_email_address` to `user.email` but do not populate
-`user.id`, so they are out of scope. The alert document aggregates events, so pivot to raw `logs-anthropic.audit-*`
-logs for individual failures and targeted chat IDs. Grouping includes `source.ip` so failures spread across many IPs
-over a day (for example home and office browsing) do not accumulate into a single noisy count.
+Alert keys: `user.id`, `organization.id`, and `source.ip` (plus `user.email` when present). The rule aggregates ≥20
+`claude_chat_access_failed` events for one authenticated user in that org/IP over 24 hours. Unauthenticated
+shared-link failures lack `user.id` and are out of scope.
+
+True positive: high failure-to-`claude_chat_viewed` ratio, sequential/patterned chat IDs, scripting UA. False
+positive: legal/IR link review or broken bookmarks with scattered IDs and many successful views nearby.
 
 #### Possible investigation steps
 
-- Pivot on `user.email`, `user.id`, `organization.id`, and the alert time window for
-  `event.action == "claude_chat_access_failed"`.
-- Review `Esql.anthropic_audit_claude_chat_id_values` (or raw `anthropic.audit.claude_chat_id` in Timeline).
-  Sequential or patterned IDs suggest scripted enumeration; scattered IDs are more likely shared-link browsing.
-- Compare failure volume to `claude_chat_viewed` events from the same actor in the same window. A high
-  failure-to-success ratio points at enumeration rather than casual link exploration.
-- Review `Esql.source_ip_values`, `Esql.user_agent_original_values`, and actor type for signs of automation or a
-  compromised session.
-- Correlate with IAM changes such as admin role grants, SSO weakening, or compliance key creation in the same period.
-- Check whether any failures were followed by successful `claude_chat_viewed` events for the same chat IDs.
+- Start from the alert keys (`user.id` / `organization.id` / `source.ip`) and the time window; pivot raw
+  `claude_chat_access_failed` events.
+- Review chat ID lists: sequential or patterned IDs suggest enumeration; scattered IDs fit shared-link browsing.
+- Compare failure volume to `claude_chat_viewed` from the same actor. High failure-to-success ratio → enumeration.
+- Check UA/automation signals and whether any failed chat IDs later succeed. Correlate with IAM/SSO/compliance key
+  changes in the same period.
 
 ### False positive analysis
 
-- Legal, HR, or security teams reviewing large sets of revoked shared links can generate high failure counts.
-- Broken bookmarks or automation that retries expired shared URLs can look like enumeration.
+- Large revoked-link reviews and retrying expired URLs are FP when IDs are scattered and many `claude_chat_viewed`
+  successes sit nearby (legal/IR ticket optional corroboration).
 
 ### Response and remediation
 
-- If unauthorized enumeration is confirmed, revoke active sessions for the actor and review recently accessed chats.
-- Decide whether exposed shared links should be rotated or org sharing policies tightened.
-- Correlate with data export or artifact sharing activity from the same user.
+- On confirmed enumeration: revoke sessions, review recently accessed chats, rotate exposed shared links if needed,
+  and check for data export or artifact sharing by the same user.
 """
 references = [
     "https://platform.claude.com/docs/en/api/compliance/activities/list",
