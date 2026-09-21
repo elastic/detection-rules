@@ -96,8 +96,10 @@ FROM logs-azure.activitylogs-*, filebeat-*
 | STATS Esql.first_time_seen = MIN(@timestamp),
         Esql.last_time_seen = MAX(@timestamp),
         Esql.event_count = COUNT(*),
+        Esql.event_action_values = VALUES(event.action),
         Esql.resource_name_values = VALUES(azure.resource.name),
         Esql.resource_id_values = VALUES(azure.resource.id),
+        Esql.resource_provider_values = VALUES(azure.resource.provider),
         Esql.principal_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_id),
         Esql.principal_type_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_type),
         Esql.initiated_by_user_values = VALUES(azure.activitylogs.identity.claims_initiated_by_user.name),
@@ -107,6 +109,8 @@ FROM logs-azure.activitylogs-*, filebeat-*
         Esql.correlation_id_values = VALUES(azure.correlation_id),
         Esql.role_values = VALUES(azure.activitylogs.identity.authorization.evidence.role),
         Esql.role_assignment_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.role_assignment_id),
+        Esql.role_assignment_scope_values = VALUES(azure.activitylogs.identity.authorization.evidence.role_assignment_scope),
+        Esql.entity_values = VALUES(azure.activitylogs.properties.entity),
         Esql.source_ip_values = VALUES(source.ip),
         Esql.source_country_values = VALUES(source.geo.country_name),
         Esql.source_as_number_values = VALUES(source.`as`.number),
@@ -142,4 +146,29 @@ reference = "https://attack.mitre.org/techniques/T1562/008/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "azure.resource.group",
+    "Esql.first_time_seen",
+    "Esql.event_action_values",
+    "Esql.source_ip_values",
+    "Esql.principal_type_values",
+    "Esql.role_assignment_scope_values",
+    "Esql.entity_values",
+    "Esql.appid_values",
+    "Esql.resource_name_values",
+    "Esql.resource_provider_values",
+    "Esql.principal_id_values",
+    "Esql.initiated_by_user_values",
+    "Esql.resource_id_values",
+    "Esql.session_id_values",
+    "Esql.unique_token_id_values",
+    "Esql.correlation_id_values",
+    "Esql.role_values",
+    "Esql.role_assignment_id_values",
+    "Esql.source_country_values",
+    "Esql.source_as_number_values",
+    "Esql.subscription_id_values",
+]
 
