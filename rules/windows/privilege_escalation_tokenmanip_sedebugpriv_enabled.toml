@@ -2,7 +2,7 @@
 creation_date = "2022/10/20"
 integration = ["windows", "system"]
 maturity = "production"
-updated_date = "2026/08/13"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -70,6 +70,11 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Windows Security Event Logs",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -87,10 +92,12 @@ any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Secur
         "?:\\Program Files (x86)\\*",
         "?:\\Program Files\\*",
         "?:\\Users\\*\\AppData\\Local\\Temp\\*-*\\DismHost.exe",
-        "?:\\Windows\\CCM\\SCNotification.exe",
-        "?:\\Windows\\explorer.exe",
+        "?:\\Windows\\AdminArsenal\\*",
+        "?:\\Windows\\CCM\\*",
+        "?:\\Windows\\LTSvc\\*",
         "?:\\Windows\\System32\\auditpol.exe",
         "?:\\Windows\\System32\\AutoModeDetect.exe",
+        "?:\\Windows\\System32\\BitLockerWizardElev.exe",
         "?:\\Windows\\System32\\cleanmgr.exe",
         "?:\\Windows\\System32\\dllhost.exe",
         "?:\\Windows\\System32\\inetsrv\\w3wp.exe",
@@ -100,6 +107,8 @@ any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Secur
         "?:\\Windows\\System32\\msiexec.exe",
         "?:\\Windows\\System32\\NETSTAT.EXE",
         "?:\\Windows\\System32\\netsh.exe",
+        "?:\\Windows\\System32\\qprocess.exe",
+        "?:\\Windows\\System32\\RuntimeBroker.exe",
         "?:\\Windows\\System32\\sdiagnhost.exe",
         "?:\\Windows\\System32\\ServerManager.exe",
         "?:\\Windows\\System32\\SystemPropertiesAdvanced.exe",
@@ -108,13 +117,20 @@ any where host.os.type == "windows" and event.provider: "Microsoft-Windows-Secur
         "?:\\Windows\\System32\\tasklist.exe",
         "?:\\Windows\\System32\\wbem\\WmiPrvSe.exe",
         "?:\\Windows\\System32\\WerFault.exe",
+        "?:\\Windows\\System32\\whoami.exe",
+        "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "?:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
         "?:\\Windows\\System32\\wsmprovhost.exe",
+        "?:\\Windows\\SysWOW64\\inetsrv\\w3wp.exe",
         "?:\\Windows\\SysWOW64\\msiexec.exe",
+        "?:\\Windows\\SysWOW64\\netsh.exe",
         "?:\\Windows\\SysWOW64\\taskkill.exe",
+        "?:\\Windows\\SysWOW64\\tasklist.exe",
         "?:\\Windows\\SysWOW64\\wbem\\WmiPrvSe.exe",
         "?:\\Windows\\SysWOW64\\WerFault.exe",
-        "?:\\Windows\\WinSxS\\*"
+        "?:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "?:\\Windows\\WinSxS\\*",
+        "?:\\$WINDOWS.~BT\\*"
     )
 '''
 
