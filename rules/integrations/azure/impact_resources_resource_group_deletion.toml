@@ -2,63 +2,60 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of a resource group in Azure, which includes all resources within the group. Deletion is
-permanent and irreversible. An adversary may delete a resource group in an attempt to evade defenses or intentionally
-destroy data.
+Identifies Azure resource group deletions by a principal that has not performed this operation in the prior 7 days.
+Deletion of a resource group is permanent and removes all resources in the group. This rule uses an ES|QL first-seen
+(new terms) approach keyed on the acting principal so routine infrastructure-as-code teardown is suppressed after the
+first occurrence, while still surfacing first-time or unusual identities performing the delete.
 """
 false_positives = [
     """
-    Deletion of a resource group may be done by a system or network administrator. Verify whether the username,
-    hostname, and/or resource name should be making changes in your environment. Resource group deletions from
-    unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted
-    from the rule.
+    Infrastructure-as-code, CI/CD, and platform automation (for example Crossplane, Terraform, ARM/Bicep, AKS control
+    plane) commonly delete resource groups during environment teardown. The first occurrence per principal will alert;
+    baseline expected service principals and exclude them if the activity is authorized.
+    """,
+    """
+    Administrators may delete resource groups during decommissioning, lab cleanup, or organizational restructuring.
+    Verify the actor, change ticket, and whether the deleted group was non-production before treating the event as
+    malicious.
     """,
 ]
-from = "now-9m"
-index = ["logs-azure.activitylogs-*", "filebeat-*"]
-language = "kuery"
+from = "now-7d"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
-name = "Azure Resource Group Deleted"
+name = "Azure Resource Group Deleted by Unusual Principal"
 note = """## Triage and analysis
 
-> **Disclaimer**:
-> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+### Investigating Azure Resource Group Deleted by Unusual Principal
 
-### Investigating Azure Resource Group Deleted
-
-Azure Resource Groups are containers that hold related resources for an Azure solution, enabling efficient management and organization. Adversaries may exploit this by deleting entire groups to disrupt services or erase data, causing significant impact. The detection rule monitors Azure activity logs for successful deletion operations, flagging potential malicious actions for further investigation.
+Azure Resource Groups contain related resources for a solution. Deleting a group is irreversible and removes every resource in it. This rule aggregates successful `RESOURCEGROUPS/DELETE` operations over a 7-day lookback and alerts when a principal's first delete in that window falls in the current schedule interval. Repeat deletes by the same automation identity are suppressed; a newly seen user or service principal is not.
 
 ### Possible investigation steps
 
-- Review the Azure activity logs to confirm the deletion event by checking for the operation name "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE" and ensure the event outcome is marked as "Success" or "success".
-- Identify the user or service principal responsible for the deletion by examining the associated user identity or service principal ID in the activity logs.
-- Check the timestamp of the deletion event to determine when the resource group was deleted and correlate this with any other suspicious activities around the same time.
-- Investigate the resources contained within the deleted resource group to assess the potential impact, including any critical services or data that may have been affected.
-- Review any recent changes in permissions or roles assigned to the user or service principal involved in the deletion to identify potential privilege escalation or misuse.
-- Examine any related alerts or logs for unusual activities or patterns that might indicate a broader attack or compromise within the Azure environment.
+- Identify the acting principal from `azure.activitylogs.identity.authorization.evidence.principal_id` and check `Esql.principal_type_values` (User vs ServicePrincipal vs Group).
+- Review `Esql.appid_values` and `Esql.role_values` to distinguish first-party / IaC identities from interactive clients such as Azure Portal or Azure CLI.
+- Inspect `Esql.resource_group_values` and `azure.resource.name` for the groups that were deleted and whether they look like lab, ephemeral, or production naming.
+- Check `Esql.source_ip_values` and correlate Entra ID sign-in logs for the same principal around `Esql.first_time_seen`.
+- Look for related activity by the same principal: role assignments, lock removal, mass resource deletes, or snapshot/backup deletion.
+- Confirm whether the delete was ticketed or matches a known pipeline / GitOps controller.
 
 ### False positive analysis
 
-- Routine maintenance activities by IT teams may trigger alerts when resource groups are intentionally deleted as part of regular updates or infrastructure changes. To manage this, create exceptions for known maintenance windows or specific user accounts responsible for these tasks.
-- Automated scripts or deployment tools that manage resource lifecycles might delete resource groups as part of their normal operation. Identify these scripts and exclude their activity from alerts by filtering based on the service principal or automation account used.
-- Testing environments often involve frequent creation and deletion of resource groups. Exclude these environments from alerts by tagging them appropriately and configuring the detection rule to ignore actions on tagged resources.
-- Mergers or organizational restructuring can lead to legitimate resource group deletions. Coordinate with relevant departments to anticipate these changes and temporarily adjust monitoring rules to prevent false positives.
-- Ensure that any third-party services or consultants with access to your Azure environment are accounted for, as their activities might include resource group deletions. Establish clear communication channels to verify their actions and adjust monitoring rules accordingly.
+- Crossplane, Terraform, GitHub Actions, and similar automation will alert on the first resource-group delete per principal in 7 days, then go quiet. Exclude verified automation principals after review.
+- AKS and other Microsoft-owned control-plane identities may delete managed node resource groups as part of cluster lifecycle.
+- Newly provisioned automation identities performing expected teardown will fire once; do not allowlist by tenant or user GUID.
 
 ### Response and remediation
 
-- Immediately isolate the affected Azure subscription to prevent further unauthorized actions. This can be done by temporarily disabling access or applying strict access controls.
-- Review and revoke any suspicious or unauthorized access permissions associated with the affected resource group to prevent further exploitation.
-- Restore the deleted resources from backups if available. Ensure that backup and recovery processes are validated and functioning correctly.
-- Conduct a thorough audit of recent Azure activity logs to identify any other potentially malicious actions or compromised accounts.
-- Escalate the incident to the security operations team for a detailed investigation and to determine if there are broader implications or related threats.
-- Implement additional monitoring and alerting for similar deletion activities across all Azure subscriptions to enhance early detection of such threats.
-- Review and strengthen access management policies, ensuring that only authorized personnel have the necessary permissions to delete resource groups.
+- If unauthorized, disable the principal, revoke standing Contributor/Owner on the subscription, and place resource locks on remaining critical groups.
+- Restore from backup or IaC state if the deleted group hosted production resources.
+- Audit other deletes and RBAC changes by the same principal during the same window.
+- Require privileged delete operations to go through PIM or a change-control pipeline.
 
 ## Setup
 
@@ -75,33 +72,52 @@ tags = [
     "Use Case: Log Auditing",
     "Tactic: Impact",
     "Resources: Investigation Guide",
-    "Noise: Medium",
+    "Noise: Low",
     "Performance: Fast",
     "Profile: Recommended",
-    "Threat: Ransomware",
-    "Rule Type: Custom Query (KQL)",
+    "Rule Type: ES|QL",
     "Platform: Azure",
     "Data Source: Azure Activity Logs",
+    "Service: Azure Resource Manager",
 ]
 timestamp_override = "event.ingested"
-type = "query"
+type = "esql"
 
 query = '''
-data_stream.dataset:azure.activitylogs and azure.activitylogs.operation_name:"MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE" and event.outcome:(Success or success)
+FROM logs-azure.activitylogs-*
+| WHERE event.dataset == "azure.activitylogs"
+    AND event.action == "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS/DELETE"
+    AND event.outcome IN ("success", "Success")
+    AND azure.activitylogs.identity.authorization.evidence.principal_id IS NOT NULL
+| STATS Esql.first_time_seen = MIN(@timestamp),
+        Esql.last_time_seen = MAX(@timestamp),
+        Esql.event_count = COUNT(*),
+        Esql.resource_group_values = VALUES(azure.resource.group),
+        Esql.resource_name_values = VALUES(azure.resource.name),
+        Esql.principal_type_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_type),
+        Esql.appid_values = VALUES(azure.activitylogs.identity.claims.appid),
+        Esql.role_values = VALUES(azure.activitylogs.identity.authorization.evidence.role),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.subscription_id_values = VALUES(azure.subscription_id)
+        BY azure.activitylogs.identity.authorization.evidence.principal_id
+// new terms emulation: fire when this principal's first_seen falls in the current interval
+// (schedule + ingest-lag buffer), i.e. it was absent from the rest of the 7-day window
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent_minutes <= 10
+// surface real fields for the analyst and rule exceptions
+| EVAL azure.resource.group = MV_FIRST(Esql.resource_group_values),
+       azure.resource.name = MV_FIRST(Esql.resource_name_values),
+       source.ip = MV_FIRST(Esql.source_ip_values)
+| KEEP azure.activitylogs.identity.authorization.evidence.principal_id, azure.resource.group, azure.resource.name, source.ip, Esql.*
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
-id = "T1529"
-name = "System Shutdown/Reboot"
-reference = "https://attack.mitre.org/techniques/T1529/"
-
-[[rule.threat.technique]]
-id = "T1490"
-name = "Inhibit System Recovery"
-reference = "https://attack.mitre.org/techniques/T1490/"
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
 
 [[rule.threat.technique]]
 id = "T1489"
@@ -109,9 +125,9 @@ name = "Service Stop"
 reference = "https://attack.mitre.org/techniques/T1489/"
 
 [[rule.threat.technique]]
-id = "T1485"
-name = "Data Destruction"
-reference = "https://attack.mitre.org/techniques/T1485/"
+id = "T1529"
+name = "System Shutdown/Reboot"
+reference = "https://attack.mitre.org/techniques/T1529/"
 
 
 [rule.threat.tactic]
@@ -124,14 +140,23 @@ framework = "MITRE ATT&CK"
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["azure.activitylogs.identity.authorization.evidence.principal_id"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60
+
