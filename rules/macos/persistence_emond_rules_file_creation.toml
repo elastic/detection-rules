@@ -2,10 +2,10 @@
 creation_date = "2021/01/11"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/09/18"
 
 [rule]
-author = ["Elastic"]
+author = ["Elastic", "Massimo Bertocchi"]
 description = """
 Identifies the creation or modification of the Event Monitor Daemon (emond) rules. Adversaries may abuse this service by
 writing a rule to execute commands when a defined event occurs, such as system start up or user authentication.
@@ -54,13 +54,17 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Fast",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
 file where host.os.type == "macos" and event.action == "modification" and
- file.path like ("/private/etc/emond.d/rules/*.plist", "/etc/emon.d/rules/*.plist", "/private/var/db/emondClients/*")
+ file.path like ("/private/etc/emond.d/rules/*.plist", "/etc/emond.d/rules/*.plist", "/private/var/db/emondClients/*")
 '''
 note = """## Triage and analysis
 

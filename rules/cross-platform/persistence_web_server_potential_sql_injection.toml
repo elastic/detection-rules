@@ -2,7 +2,7 @@
 creation_date = "2025/11/19"
 integration = ["nginx", "apache", "apache_tomcat", "iis", "traefik", "zeek"]
 maturity = "production"
-updated_date = "2026/07/01"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -40,8 +40,17 @@ tags = [
     "Data Source: Apache Tomcat",
     "Data Source: IIS",
     "Data Source: Traefik",
-    "Data Source: Zeek", 
-    "Resources: Investigation Guide"
+    "Data Source: Zeek",
+    "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Web Application Attack",
+    "Rule Type: Event Correlation (EQL)",
+    "Service: Nginx",
+    "Service: IIS",
+    "Service: Apache Tomcat",
+    "Service: Apache HTTP Server",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -106,6 +115,11 @@ url.original like~ (
     "*select @@version*", "*select user()*", "*select current_user()*", "*select database()*",
     "*sp_executesql*exec*", "*xp_dirtree*"
   )
+) and
+not user_agent.original like~ (
+    "*Nessus*", "*Qualys*", "*Acunetix*",  "*Tenable*", "*CensysInspect*", "*Detectify*",
+    "*Assetnote*", "*ExposureScan*", "*RecordedFuture*", "*AppSpider*", "*WebInspect*",
+    "*Rapid7*", "*InsightVM*", "*Probely*"
 )
 '''
 note = """## Triage and analysis

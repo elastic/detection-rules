@@ -11,6 +11,7 @@ from typing import Any
 
 import eql  # type: ignore[reportMissingTypeStubs]
 from eql import load_dump, save_dump  # type: ignore[reportMissingTypeStubs]
+from semver import Version
 
 from .config import parse_rules_config
 from .utils import cached, clear_caches
@@ -24,12 +25,18 @@ def get_custom_schemas(stack_version: str | None = None) -> dict[str, Any]:
     """Load custom schemas if present."""
     custom_schema_dump: dict[str, Any] = {}
 
-    stack_versions = [stack_version] if stack_version else RULES_CONFIG.stack_schema_map.keys()
+    stack_schema_map = RULES_CONFIG.stack_schema_map
+    stack_versions = [stack_version] if stack_version else stack_schema_map.keys()
+
+    # fall back to the newest mapped release, matching get_stack_schemas()
+    latest_version_map: dict[str, Any] = (
+        stack_schema_map[max(stack_schema_map, key=Version.parse)] if stack_schema_map else {}
+    )
 
     for version in stack_versions:
-        stack_schema_map = RULES_CONFIG.stack_schema_map[version]
+        version_map = stack_schema_map.get(version) or latest_version_map
 
-        for schema, value in stack_schema_map.items():
+        for schema, value in version_map.items():
             if schema not in RESERVED_SCHEMA_NAMES:
                 schema_path = Path(value)
                 if not schema_path.is_absolute():

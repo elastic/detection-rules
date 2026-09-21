@@ -5,11 +5,13 @@
 
 """Tests for multi-version threat mappings (e.g. MITRE ATT&CK v18/v19) support."""
 
+import contextlib
 import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, ClassVar
+from unittest import mock
 
 from marshmallow import ValidationError
 
@@ -18,6 +20,8 @@ from detection_rules.config import (
     THREAT_MAPPING_VERSION_ENV,
 )
 from detection_rules.rule_loader import RuleCollection
+from detection_rules.schemas import get_stack_schemas
+from detection_rules.stack_emit import MITRE_V19_MIN_STACK
 
 TACTIC = {
     "id": "TA0001",
@@ -57,6 +61,25 @@ def _rule(threat_mappings: list[dict[str, Any]] | None = None) -> dict[str, Any]
     if threat_mappings is not None:
         rule["threat_mappings"] = threat_mappings
     return rule
+
+
+@contextlib.contextmanager
+def _pin_v19_stack() -> Any:
+    """Pin the emit stack to the v19 gate so stack-gated transforms apply on release branches (< 9.5)."""
+    # `load_current_package_version` is imported by name into both the rule module and the schemas
+    # module. Pinning only the rule module makes `get_required_fields` ask `get_stack_schemas()` for a
+    # version the schemas module (still reading the real package) never lists on a < 9.5 branch. Pin
+    # both, and drop the memoized `get_stack_schemas` result so it is rebuilt for the pinned version.
+    pinned = str(MITRE_V19_MIN_STACK)
+    get_stack_schemas.clear()
+    try:
+        with (
+            mock.patch("detection_rules.rule.load_current_package_version", return_value=pinned),
+            mock.patch("detection_rules.schemas.load_current_package_version", return_value=pinned),
+        ):
+            yield
+    finally:
+        get_stack_schemas.clear()
 
 
 def _v19_block(technique: dict[str, Any] = TECH_V19) -> dict[str, Any]:
@@ -160,7 +183,7 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
     def test_selects_v19_when_configured(self) -> None:
         """Assert that v19 output emits the v19 threat block when configured."""
         rule = self._load(_rule(threat_mappings=[_v19_block()]))
-        with ThreatMappingEnv("19"):
+        with ThreatMappingEnv("19"), _pin_v19_stack():
             api = rule.contents.to_api_format()
         self.assertNotIn("threat_mappings", api)
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Valid Accounts (v19)")
@@ -181,7 +204,7 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
     def test_auto_converts_when_no_threat_mappings_block(self) -> None:
         """Assert that v19 output auto-converts from baseline when no threat_mappings exist."""
         rule = self._load(_rule())
-        with ThreatMappingEnv("19"):
+        with ThreatMappingEnv("19"), _pin_v19_stack():
             api = rule.contents.to_api_format(apply_emit_transforms=True)
         self.assertNotIn("threat_mappings", api)
         self.assertTrue(api.get("threat"))
@@ -218,7 +241,7 @@ class TestVersionedThreatMappingSchema(unittest.TestCase):
             "threat": [{"framework": "MITRE ATT&CK", "tactic": custom_tactic, "technique": [custom_tech]}],
         }
         rule = self._load(_rule(threat_mappings=[override_block]))
-        with ThreatMappingEnv("19"):
+        with ThreatMappingEnv("19"), _pin_v19_stack():
             api = rule.contents.to_api_format()
         self.assertEqual(api["threat"][0]["tactic"]["name"], "Custom Name Override")
         self.assertEqual(api["threat"][0]["technique"][0]["name"], "Custom Tech Name")

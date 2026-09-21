@@ -33,6 +33,8 @@ _DEFAULT_PLATFORMS = [
     "Windows",
 ]
 _DEFAULT_NAVIGATOR_LINKS = {"label": "repo", "url": "https://github.com/elastic/detection-rules"}
+# Layers published to the ATT&CK navigator gist. Tag/index layers exceed GitHub's gist limits.
+PUBLISHED_NAVIGATOR_LAYERS = ("all", "platforms")
 
 
 @dataclass
@@ -129,6 +131,43 @@ def technique_dict() -> dict[str, Any]:
     return {"metadata": [], "links": []}
 
 
+def sanitize_navigator_name(name: str) -> str:
+    """Make a navigator layer name safe as a single-path filename."""
+    return name.replace("*", "WILDCARD").replace("/", "-").replace("\\", "-")
+
+
+def navigator_layer_path(directory: Path, name: str) -> Path:
+    """Build a layer JSON path without treating dots in the name as a suffix."""
+    return directory / f"{sanitize_navigator_name(name)}.json"
+
+
+def navigator_layer_label(filename: str) -> str:
+    """Display name for a layer file: drop only the final .json suffix."""
+    return filename.removesuffix(".json")
+
+
+def navigator_gist_filename(layer_name: str) -> str:
+    """Gist filename for a published navigator layer."""
+    return f"Elastic-detection-rules-{sanitize_navigator_name(layer_name)}.json"
+
+
+def select_navigator_gist_files(directory: Path) -> dict[Path, str]:
+    """Return only the navigator layers published to the ATT&CK gist."""
+    allowed = {navigator_gist_filename(name) for name in PUBLISHED_NAVIGATOR_LAYERS}
+    selected = {path: path.read_text() for path in sorted(directory.glob("*.json")) if path.name in allowed}
+    missing = sorted(allowed - {path.name for path in selected})
+    if missing:
+        raise FileNotFoundError(f"Missing navigator gist layers in {directory}: {', '.join(missing)}")
+    return selected
+
+
+def navigator_tag_layer_key(tag: str) -> str:
+    """Layer dict key for a rule tag. Sanitize only when writing filenames."""
+    expected_prefixes = {t.split(":")[0] + ":" for t in definitions.EXPECTED_RULE_TAGS}
+    stripped = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, tag).lstrip()
+    return stripped.replace(" ", "-").lower()
+
+
 class NavigatorBuilder:
     """Rule navigator mappings and management."""
 
@@ -186,12 +225,10 @@ class NavigatorBuilder:
     def _update_tags(self, rule: TOMLRule, tactic: str, technique_id: str) -> None:
         for _tag in rule.contents.data.get("tags") or []:  # type: ignore[reportUnknownVariableType]
             value = rule.id
-            expected_prefixes = {tag.split(":")[0] + ":" for tag in definitions.EXPECTED_RULE_TAGS}
-            tag = reduce(lambda s, substr: s.replace(substr, ""), expected_prefixes, _tag).lstrip()  # type: ignore[reportUnknownMemberType]
-            layer_key = tag.replace(" ", "-").lower()  # type: ignore[reportUnknownVariableType]
-            self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)  # type: ignore[reportUnknownArgumentType]
+            layer_key = navigator_tag_layer_key(_tag)  # type: ignore[reportUnknownArgumentType]
+            self.add_rule_to_technique(rule, "tags", tactic, technique_id, value, layer_key=layer_key)
 
-    def add_rule_to_technique(  # noqa: PLR0913
+    def add_rule_to_technique(  # noqa: PLR0913, PLR0917
         self,
         rule: TOMLRule,
         layer_name: str,
@@ -231,8 +268,7 @@ class NavigatorBuilder:
         populated_techniques: list[dict[str, Any]] = []
         layer = self.get_layer(layer_name, layer_key)
         base_name = f"{layer_name}-{layer_key}" if layer_key else layer_name
-        base_name = base_name.replace("*", "WILDCARD")
-        name = f"Elastic-detection-rules-{base_name}"
+        name = f"Elastic-detection-rules-{sanitize_navigator_name(base_name)}"
 
         for tactic, techniques in layer.items():
             tactic_normalized = "-".join(tactic.lower().split())
@@ -249,10 +285,11 @@ class NavigatorBuilder:
         }
         return Navigator.from_dict(base_nav_obj)
 
-    def build_all(self) -> list[Navigator]:
+    def build_all(self, layer_names: tuple[str, ...] | None = None) -> list[Navigator]:
         built: list[Navigator] = []
+        layers = {name: self.layers[name] for name in layer_names} if layer_names is not None else self.layers
 
-        for layer_name, data in self.layers.items():
+        for layer_name, data in layers.items():
             # this is a single layer
             if "defense evasion" in data:
                 built.append(self.build_navigator(layer_name))
@@ -264,7 +301,8 @@ class NavigatorBuilder:
 
     @staticmethod
     def _save(built: Navigator, directory: Path, verbose: bool = True) -> Path:
-        path = directory.joinpath(built.name).with_suffix(".json")
+        path = navigator_layer_path(directory, built.name)
+        path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(json.dumps(built.to_dict(), indent=2))
 
         if verbose:
@@ -281,10 +319,25 @@ class NavigatorBuilder:
         built = self.build_navigator(layer_name, layer_key)
         return self._save(built, directory, verbose), built
 
-    def save_all(self, directory: Path, verbose: bool = True) -> dict[Path, Navigator]:
+    def save_all(
+        self,
+        directory: Path,
+        verbose: bool = True,
+        layer_names: tuple[str, ...] | None = None,
+    ) -> dict[Path, Navigator]:
         paths: dict[Path, Navigator] = {}
+        built_layers = self.build_all(layer_names)
+        output_names: dict[str, list[str]] = {}
+        for built in built_layers:
+            filename = navigator_layer_path(directory, built.name).name
+            output_names.setdefault(filename, []).append(built.name)
 
-        for built in self.build_all():
+        collisions = {name: originals for name, originals in output_names.items() if len(originals) > 1}
+        if collisions:
+            details = "; ".join(f"{name} <= {originals}" for name, originals in sorted(collisions.items()))
+            raise ValueError(f"Navigator layer filenames collide after sanitization: {details}")
+
+        for built in built_layers:
             path = self._save(built, directory, verbose)
             paths[path] = built
 

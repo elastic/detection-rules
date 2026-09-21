@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/01/27"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -33,7 +33,7 @@ note = """ ## Triage and analysis
 
 ### Investigating Tool Enumeration Detected via Defend for Containers
 
-Detects interactive use of which inside a Linux container to list installed networking, container-control, compiler, and scanning utilities. Adversaries do this to quickly assess built-in tools for living-off-the-land actions like payload download, cluster manipulation, or reconnaissance without dropping new binaries. Example: after compromising a Kubernetes pod, an operator runs which curl wget kubectl nmap python to decide how to transfer data, interact with the API, or probe the network.
+Detects use of which inside a Linux container to list installed networking, container-control, compiler, and scanning utilities. Adversaries do this to quickly assess built-in tools for living-off-the-land actions like payload download, cluster manipulation, or reconnaissance without dropping new binaries. Example: after compromising a Kubernetes pod, an operator runs which curl wget kubectl nmap python to decide how to transfer data, interact with the API, or probe the network.
 
 ### Possible investigation steps
 
@@ -62,11 +62,16 @@ rule_id = "b84264aa-37a3-49f8-8bbc-60acbe9d4f86"
 severity = "low"
 tags = [
     "Data Source: Elastic Defend for Containers",
-    "Domain: Container",
+    "Domain: Containers",
     "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Discovery",
     "Resources: Investigation Guide",
+    "Noise: Unknown",
+    "Performance: Fast",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Platform: Kubernetes",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -103,7 +108,7 @@ process.args in (
   "nmap", "zenmap", "nuclei", "netdiscover", "legion", "masscan", "zmap", "zgrab", "ngrep", "telnet", "mitmproxy", "zmap",
   "masscan", "zgrab"
 ) and
-process.interactive == true and container.id like "*"
+container.id like "*"
 '''
 
 [[rule.threat]]

@@ -138,7 +138,7 @@ def parse_action_connector_results_from_api(
     return action_results, non_action_results
 
 
-def build_action_connector_objects(  # noqa: PLR0913
+def build_action_connector_objects(  # noqa: PLR0913, PLR0917
     action_connectors: list[dict[str, Any]],
     action_connector_rule_table: dict[str, Any],
     action_connectors_directory: Path | None,

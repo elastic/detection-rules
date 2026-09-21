@@ -588,7 +588,7 @@ def convert_threat_to_version(  # noqa: PLR0912, PLR0913, PLR0915
     framework: str,
     *,
     vmap: AttackVersionMap | None = None,
-    target_lookups: AttackLookups | None | object = _LOOKUPS_AUTO,
+    target_lookups: AttackLookups | object | None = _LOOKUPS_AUTO,
     dropped: list[str] | None = None,
     moved: list[str] | None = None,
 ) -> list[dict[str, Any]]:

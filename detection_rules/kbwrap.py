@@ -270,7 +270,7 @@ def kibana_import_rules(  # noqa: PLR0915
     ),
 )
 @click.pass_context
-def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
+def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915, PLR0917
     ctx: click.Context,
     directory: Path,
     action_connectors_directory: Path | None,
@@ -553,7 +553,7 @@ def kibana_export_rules(  # noqa: PLR0912, PLR0913, PLR0915
 @click.option("--extend", "-e", is_flag=True, help="If columns are specified, extend the original columns")
 @click.option("--max-count", "-m", default=100, help="The max number of alerts to return")
 @click.pass_context
-def search_alerts(  # noqa: PLR0913
+def search_alerts(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     query: str,
     date_range: tuple[str, str],

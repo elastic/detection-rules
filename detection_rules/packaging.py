@@ -21,7 +21,7 @@ from semver import Version
 
 from .config import load_current_package_version, parse_rules_config
 from .misc import JS_LICENSE, cached
-from .navigator import Navigator, NavigatorBuilder
+from .navigator import PUBLISHED_NAVIGATOR_LAYERS, Navigator, NavigatorBuilder
 from .rule import QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .schemas import definitions
@@ -132,7 +132,7 @@ CURRENT_RELEASE_PATH = RELEASE_DIR / load_current_package_version()
 class Package:
     """Packaging object for siem rules and releases."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         rules: RuleCollection,
         name: str,
@@ -488,7 +488,7 @@ class Package:
         save_dir = path / "navigator_layers"
         save_dir.mkdir()
         lb = NavigatorBuilder(self.rules.rules)
-        return lb.save_all(save_dir, verbose=False)
+        return lb.save_all(save_dir, verbose=False, layer_names=PUBLISHED_NAVIGATOR_LAYERS)
 
     def generate_xslx(self, path: str) -> None:
         """Generate a detailed breakdown of a package in an excel file."""

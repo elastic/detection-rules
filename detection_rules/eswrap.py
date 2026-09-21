@@ -159,7 +159,7 @@ class CollectEvents:
         mappings = self.client.indices.get_mapping(index=index)
         return {n: m["mappings"].get("properties", {}).get("@timestamp", {}) for n, m in mappings.items()}
 
-    def _get_last_event_time(self, index: str, dsl: dict[str, Any] | None = None) -> None | str:
+    def _get_last_event_time(self, index: str, dsl: dict[str, Any] | None = None) -> str | None:
         """Get timestamp of most recent event."""
         last_event = self.client.search(query=dsl, index=index, size=1, sort="@timestamp:desc")["hits"]["hits"]
         if not last_event:
@@ -217,7 +217,7 @@ class CollectEvents:
 
         return index_str, formatted_dsl, lucene_query
 
-    def search(  # noqa: PLR0913
+    def search(  # noqa: PLR0913, PLR0917
         self,
         query: str | dict[str, Any],
         language: str,
@@ -490,7 +490,7 @@ def es_group(ctx: click.Context, **kwargs: Any) -> None:
 @click.option("--rule-id", help="Updates rule mapping in rule-mapping.yaml file (requires --rta-name)")
 @click.option("--view-events", is_flag=True, help="Print events after saving")
 @click.pass_context
-def collect_events(  # noqa: PLR0913
+def collect_events(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
     host_id: str,
     query: str,
