@@ -37,10 +37,12 @@ Azure Resource Groups contain related resources for a solution. Deleting a group
 
 ### Possible investigation steps
 
-- Identify the acting principal from `azure.activitylogs.identity.authorization.evidence.principal_id` and check `Esql.principal_type_values` (User vs ServicePrincipal vs Group).
-- Review `Esql.appid_values` and `Esql.role_values` to distinguish first-party / IaC identities from interactive clients such as Azure Portal or Azure CLI.
-- Inspect `Esql.resource_group_values` and `azure.resource.name` for the groups that were deleted and whether they look like lab, ephemeral, or production naming.
-- Check `Esql.source_ip_values` and correlate Entra ID sign-in logs for the same principal around `Esql.first_time_seen`.
+- Identify the acting principal from `azure.activitylogs.identity.authorization.evidence.principal_id` and check `Esql.principal_type_values` (User vs ServicePrincipal vs Group). Resolve the human-readable name from `Esql.initiated_by_user_values`.
+- Review `Esql.appid_values` and `Esql.role_values` to distinguish first-party / IaC identities from interactive clients such as Azure Portal or Azure CLI. `Esql.role_assignment_id_values` shows which assignment granted delete.
+- Pivot on `Esql.session_id_values` (`azure.activitylogs.identity.claims.sid`) and `Esql.unique_token_id_values` to Entra sign-in logs and Microsoft Graph activity for the same session.
+- Use `Esql.correlation_id_values` to find related ARM operations (lock removal, mass deletes, RBAC changes) in the same activity-log transaction.
+- Inspect `Esql.resource_group_values` and `Esql.resource_id_values` for the groups that were deleted and whether they look like lab, ephemeral, or production naming.
+- Check `Esql.source_ip_values`, `Esql.source_country_values`, and `Esql.source_as_number_values`, then correlate Entra ID sign-in logs for the same principal around `Esql.first_time_seen`.
 - Look for related activity by the same principal: role assignments, lock removal, mass resource deletes, or snapshot/backup deletion.
 - Confirm whether the delete was ticketed or matches a known pipeline / GitOps controller.
 
@@ -56,10 +58,7 @@ Azure Resource Groups contain related resources for a solution. Deleting a group
 - Restore from backup or IaC state if the deleted group hosted production resources.
 - Audit other deletes and RBAC changes by the same principal during the same window.
 - Require privileged delete operations to go through PIM or a change-control pipeline.
-
-## Setup
-
-The Azure Fleet integration, Filebeat module, or similarly structured data is required to be compatible with this rule."""
+"""
 references = [
     "https://docs.microsoft.com/en-us/azure/azure-resource-manager/management/manage-resource-groups-portal",
 ]
@@ -94,10 +93,18 @@ FROM logs-azure.activitylogs-*
         Esql.event_count = COUNT(*),
         Esql.resource_group_values = VALUES(azure.resource.group),
         Esql.resource_name_values = VALUES(azure.resource.name),
+        Esql.resource_id_values = VALUES(azure.resource.id),
         Esql.principal_type_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_type),
+        Esql.initiated_by_user_values = VALUES(azure.activitylogs.identity.claims_initiated_by_user.name),
         Esql.appid_values = VALUES(azure.activitylogs.identity.claims.appid),
+        Esql.session_id_values = VALUES(azure.activitylogs.identity.claims.sid),
+        Esql.unique_token_id_values = VALUES(azure.activitylogs.identity.claims.uti),
+        Esql.correlation_id_values = VALUES(azure.correlation_id),
         Esql.role_values = VALUES(azure.activitylogs.identity.authorization.evidence.role),
+        Esql.role_assignment_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.role_assignment_id),
         Esql.source_ip_values = VALUES(source.ip),
+        Esql.source_country_values = VALUES(source.geo.country_name),
+        Esql.source_as_number_values = VALUES(source.`as`.number),
         Esql.subscription_id_values = VALUES(azure.subscription_id)
         BY azure.activitylogs.identity.authorization.evidence.principal_id
 // new terms emulation: fire when this principal's first_seen falls in the current interval
@@ -107,8 +114,12 @@ FROM logs-azure.activitylogs-*
 // surface real fields for the analyst and rule exceptions
 | EVAL azure.resource.group = MV_FIRST(Esql.resource_group_values),
        azure.resource.name = MV_FIRST(Esql.resource_name_values),
+       azure.resource.id = MV_FIRST(Esql.resource_id_values),
+       azure.activitylogs.identity.claims_initiated_by_user.name = MV_FIRST(Esql.initiated_by_user_values),
+       azure.activitylogs.identity.claims.sid = MV_FIRST(Esql.session_id_values),
+       azure.correlation_id = MV_FIRST(Esql.correlation_id_values),
        source.ip = MV_FIRST(Esql.source_ip_values)
-| KEEP azure.activitylogs.identity.authorization.evidence.principal_id, azure.resource.group, azure.resource.name, source.ip, Esql.*
+| KEEP azure.*, source.ip, Esql.*
 '''
 
 
