@@ -2,60 +2,62 @@
 creation_date = "2020/08/17"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the deletion of diagnostic settings in Azure, which send platform logs and metrics to different destinations.
-An adversary may delete diagnostic settings in an attempt to evade defenses.
+Identifies deletion of Azure diagnostic settings for a resource group that has not had this operation in the prior 7
+days. Diagnostic settings send platform logs and metrics to Log Analytics, Event Hubs, or storage; removing them blinds
+monitoring and detection. This rule uses an ES|QL first-seen (new terms) approach keyed on the resource group so groups
+that constantly churn logging configuration are suppressed after the first occurrence, while a newly seen group still
+alerts.
 """
 false_positives = [
     """
-    Deletion of diagnostic settings may be done by a system or network administrator. Verify whether the username,
-    hostname, and/or resource name should be making changes in your environment. Diagnostic settings deletion from
-    unfamiliar users or hosts should be investigated. If known behavior is causing false positives, it can be exempted
-    from the rule.
+    Infrastructure-as-code, CI/CD, and platform automation (for example Crossplane, Terraform, ARM/Bicep) commonly
+    delete diagnostic settings during environment teardown or redeploy. The first occurrence per resource group in 7
+    days will alert; groups that are rebuilt often will then go quiet.
+    """,
+    """
+    Microsoft-owned resource providers (for example Azure Cosmos DB networking) may remove diagnostic settings as part
+    of private-endpoint or control-plane lifecycle. Confirm the actor, app, and whether the group is non-production
+    before treating the event as malicious.
     """,
 ]
-from = "now-9m"
-index = ["logs-azure.activitylogs-*", "filebeat-*"]
-language = "kuery"
+from = "now-7d"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
 name = "Azure Diagnostic Settings Deleted"
 note = """## Triage and analysis
 
 ### Investigating Azure Diagnostic Settings Deleted
 
-Azure Diagnostic Settings are crucial for monitoring and logging platform activities, sending data to various destinations for analysis. Adversaries may delete these settings to hinder detection and analysis of their activities, effectively evading defenses. The detection rule identifies such deletions by monitoring specific Azure activity logs for successful deletion operations, flagging potential defense evasion attempts.
+Azure Diagnostic Settings stream platform logs and metrics to a destination for detection and investigation. Deleting them for a resource group that does not normally change logging configuration is a high-signal defense-evasion step. This rule aggregates successful `DIAGNOSTICSETTINGS/DELETE` operations over a 7-day lookback and alerts when a resource group's first delete in that window falls in the current schedule interval. Repeat deletes against the same group are suppressed; a newly seen group is not.
 
 ### Possible investigation steps
 
-- Identify the user or service principal responsible for the deletion by examining the associated user identity or service principal ID in the activity logs.
-- If this is a service principal, determine which application is associated with it and examine credential use with authentication sources to identify potential compromise.
-- Examine the resource group and subscription context to understand the scope of the deletion and whether it affects critical resources.
-- Check the timestamp of the deletion event to determine when the diagnostic settings were removed and correlate this with other security events or alerts around the same time.
-- Investigate the affected resources by identifying which diagnostic settings were deleted and assess the potential impact on monitoring and logging capabilities.
-- Review any recent changes or activities performed by the identified user or service principal to determine if there are other suspicious actions that might indicate malicious intent.
-- Assess the current security posture by ensuring that diagnostic settings are reconfigured and that logging and monitoring are restored to maintain visibility into platform activities.
+- Confirm the resource group from `azure.resource.group` and whether it looks like production, lab, or ephemeral naming. Inspect `Esql.resource_name_values` and `Esql.resource_id_values` for which diagnostic settings were removed.
+- Identify the actor from `Esql.principal_id_values` and `Esql.principal_type_values` (User vs ServicePrincipal). Resolve the human-readable name from `Esql.initiated_by_user_values`.
+- Review `Esql.appid_values` and `Esql.role_values` to distinguish first-party / IaC identities from interactive clients such as Azure Portal or Azure CLI. `Esql.role_assignment_id_values` shows which assignment granted the delete.
+- Pivot on `Esql.session_id_values` (`azure.activitylogs.identity.claims.sid`) and `Esql.unique_token_id_values` to Entra sign-in logs and Microsoft Graph activity for the same session.
+- Use `Esql.correlation_id_values` to find related ARM operations (lock removal, activity-log disable, mass deletes) in the same activity-log transaction.
+- Check `Esql.source_ip_values`, `Esql.source_country_values`, and `Esql.source_as_number_values` around `Esql.first_time_seen`.
+- Verify whether logging was restored, and whether other detection-blinding changes occurred in the same window.
 
 ### False positive analysis
 
-- Examine the service principal or user account involved in the deletion to determine if it is part of an automated process or legitimate administrative activity.
-- Automated scripts or tools used for managing Azure resources might delete diagnostic settings as part of their operation. Review and whitelist these scripts if they are verified as non-threatening.
-- Changes in organizational policy or compliance requirements could lead to legitimate deletions. Confirm with relevant teams if such policy changes are in effect.
-- Test environments often undergo frequent configuration changes, including the deletion of diagnostic settings. Consider excluding these environments from the rule or adjusting the rule to account for their unique behavior.
-- Ensure that any third-party integrations or services with access to Azure resources are reviewed, as they might inadvertently delete diagnostic settings during their operations.
+- Crossplane, Terraform, GitHub Actions, and similar automation will alert on the first diagnostic-settings delete per resource group in 7 days, then go quiet for that group. Frequently rebuilt lab groups are expected.
+- Microsoft-owned control-plane identities (for example Cosmos DB virtual-network resource provider) may delete diagnostic settings during private-endpoint lifecycle.
+- Newly provisioned resource groups whose first logging teardown is authorized will fire once; do not allowlist by tenant or user GUID.
 
 ### Response and remediation
 
-- Immediately isolate affected Azure resources to prevent further unauthorized changes or deletions. This may involve temporarily restricting access to the affected subscriptions or resource groups.
-- Review the Azure activity logs to identify the source of the deletion request, including the user account, service principal and IP address involved. This will help determine if the action was authorized or malicious.
-- Recreate the deleted diagnostic settings as soon as possible to restore logging and monitoring capabilities. Ensure that logs are being sent to secure and appropriate destinations.
-- Conduct a thorough investigation of the user account or service principal involved in the deletion. If the account is compromised, reset credentials, and review permissions to ensure they are appropriate and follow the principle of least privilege.
-- Escalate the incident to the security operations team for further analysis and to determine if additional resources or expertise are needed to address the threat.
-- Implement additional monitoring and alerting for similar deletion activities to ensure rapid detection and response to future attempts.
-- Review and update access controls and policies related to diagnostic settings to prevent unauthorized deletions, ensuring that only trusted and necessary personnel have the ability to modify these settings.
+- If unauthorized, disable the principal, restore the diagnostic settings, and place resource locks on remaining critical groups.
+- Confirm logs resume flowing to the intended Log Analytics workspace, Event Hub, or storage account.
+- Audit other deletes and RBAC changes by the same principal during the same window.
+- Require privileged diagnostic-settings changes to go through PIM or a change-control pipeline.
 """
 references = [
     "https://docs.microsoft.com/en-us/azure/azure-monitor/platform/diagnostic-settings",
@@ -71,18 +73,46 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
-    "Noise: Medium",
+    "Noise: Low",
     "Performance: Normal",
-    "Rule Type: New Terms",
+    "Profile: Recommended",
+    "Rule Type: ES|QL",
     "Platform: Azure",
+    "Service: Azure Resource Manager",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "esql"
 
 query = '''
-data_stream.dataset:azure.activitylogs
-    and azure.activitylogs.operation_name:"MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE"
-    and event.outcome:(Success or success)
+FROM logs-azure.activitylogs-*
+| WHERE event.dataset == "azure.activitylogs"
+    AND event.action == "MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE"
+    AND event.outcome IN ("success", "Success")
+    AND azure.resource.group IS NOT NULL
+| STATS Esql.first_time_seen = MIN(@timestamp),
+        Esql.last_time_seen = MAX(@timestamp),
+        Esql.event_count = COUNT(*),
+        Esql.resource_name_values = VALUES(azure.resource.name),
+        Esql.resource_id_values = VALUES(azure.resource.id),
+        Esql.principal_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_id),
+        Esql.principal_type_values = VALUES(azure.activitylogs.identity.authorization.evidence.principal_type),
+        Esql.initiated_by_user_values = VALUES(azure.activitylogs.identity.claims_initiated_by_user.name),
+        Esql.appid_values = VALUES(azure.activitylogs.identity.claims.appid),
+        Esql.session_id_values = VALUES(azure.activitylogs.identity.claims.sid),
+        Esql.unique_token_id_values = VALUES(azure.activitylogs.identity.claims.uti),
+        Esql.correlation_id_values = VALUES(azure.correlation_id),
+        Esql.role_values = VALUES(azure.activitylogs.identity.authorization.evidence.role),
+        Esql.role_assignment_id_values = VALUES(azure.activitylogs.identity.authorization.evidence.role_assignment_id),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.source_country_values = VALUES(source.geo.country_name),
+        Esql.source_as_number_values = VALUES(source.`as`.number),
+        Esql.subscription_id_values = VALUES(azure.subscription_id)
+        BY azure.resource.group
+// new terms emulation: fire when this resource group's first_seen falls in the current interval
+// (schedule + ingest-lag buffer), i.e. it was absent from the rest of the 7-day window
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent_minutes <= 10
+| KEEP azure.*, Esql.*
 '''
 
 
@@ -109,24 +139,11 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "event.action",
-    "source.ip",
-    "azure.activitylogs.identity.authorization.evidence.principal_type",
-    "azure.activitylogs.identity.authorization.evidence.role_assignment_scope",
-    "azure.activitylogs.properties.entity",
-    "azure.activitylogs.identity.claims.appid",
-    "azure.resource.name",
-    "azure.resource.provider",
-]
+[rule.alert_suppression]
+group_by = ["azure.resource.group"]
+missing_fields_strategy = "suppress"
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["azure.resource.group"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60
 
