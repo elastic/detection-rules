@@ -2,7 +2,7 @@
 creation_date = "2026/06/10"
 integration = ["corelight", "network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -119,6 +119,10 @@ query = '''
     or "::1"
     or "FE80::/10"
     or "FF00::/8"
+  ) and
+  not (
+    data_stream.dataset:panw.panos and
+    network.application:("incomplete" or "insufficient-data" or "not-applicable")
   )
 '''
 
