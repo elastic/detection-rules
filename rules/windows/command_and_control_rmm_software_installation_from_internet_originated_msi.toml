@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "FROM subquery support became generally available in 9.5.0"
 min_stack_version = "9.5.0"
-updated_date = "2026/08/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -25,6 +25,37 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "RMM Software Installation from an Internet-Originated MSI"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating RMM Software Installation from an Internet-Originated MSI
+
+This rule detects when a recently downloaded MSI runs through Windows Installer and creates a recognized remote monitoring or management executable, a sequence that can establish persistent remote control. An attacker may use a phishing lure or fake support interaction to convince a Windows user to install the package, then operate the resulting remote-access agent for command execution, surveillance, or additional payload delivery.
+
+### Possible investigation steps
+
+- Assess the download URL, referrer, domain age and reputation, and surrounding proxy or browser activity to determine how the user obtained the installer.
+- Validate the MSI hash, digital signature, certificate chain, product metadata, and expected vendor distribution channel, and compare them with approved software inventory and threat intelligence.
+- Reconstruct the user and process timeline around the download and execution, including email or chat lures, browser activity, support interactions, and whether IT authorized the installation.
+- Examine installer logs and subsequent host changes for new services, scheduled tasks, startup entries, RMM configuration or tenant identifiers, unattended-access settings, and suspicious child processes.
+- Review post-install network connections and RMM session activity for remote commands, file transfers, credential access, or additional payloads, then scope matching hashes, domains, and agent identifiers across the environment and isolate unauthorized systems.
+
+### False positive analysis
+
+- Authorized IT staff may install an approved RMM agent from its official internet distribution site, so confirm the source domain, MSI signature and hash, target host, and associated change record.
+- A user may install an RMM package during a legitimate support session, so verify the support request, user confirmation, expected executable, and whether unattended access was authorized.
+
+### Response and remediation
+
+- Isolate affected systems from the network, terminate active RMM sessions and processes, and block the MSI hash, source domain, download URL, and identified RMM infrastructure.
+- Uninstall the unauthorized RMM agent and remove its services, scheduled tasks, startup entries, unattended-access configuration, dropped executables, installer cache, and downloaded MSI.
+- Escalate immediately to incident response if the RMM agent established a remote session, executed commands, transferred files, accessed credentials, installed additional payloads, or appears on multiple systems.
+- Reset credentials and revoke active sessions for affected users and privileged accounts used on the host, then review adjacent systems for reuse of the MSI hash, RMM executable, tenant identifier, or source domain.
+- Reimage systems from a known-good baseline when integrity cannot be established, restore validated data, patch the operating system and applications, and verify that no unauthorized RMM connectivity or persistence remains.
+- Prevent recurrence by allowlisting approved RMM products and tenant identifiers, restricting MSI execution and software installation to managed deployment channels, applying application control, and blocking unapproved remote-access tools and download sources.
+"""
 references = [
     "https://www.proofpoint.com/us/blog/threat-insight/remote-monitoring-and-management-rmm-tooling-increasingly-attackers-first-choice",
     "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-131a",
@@ -45,11 +76,12 @@ tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "Platform: Windows",
-    "Rule Type: ESQL",
+    "Rule Type: ES|QL",
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"

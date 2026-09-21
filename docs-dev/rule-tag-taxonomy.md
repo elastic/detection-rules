@@ -1,134 +1,27 @@
 # XDR / SIEM Rule Tag Taxonomy
 
-Governed `Category: Value` tags for prebuilt detection rules. Used by Copilot PR review
-(`.github/instructions/rules.instructions.md`), Kibana faceted search, and agentic workflows.
+Canonical values are `EXPECTED_RULE_TAGS` in `detection_rules/schemas/definitions.py`.
+This file mirrors that list.
 
-The casing-canonical vocabulary lives in `EXPECTED_RULE_TAGS`
-(`detection_rules/schemas/definitions.py`). Full required-tag enforcement for new
-categories is deferred; listing a tag there enables prefix/casing checks only.
-
-## Mental model
-
-| Question | Tag |
+| Prefix | Values |
 | --- | --- |
-| Where in the XDR stack? | `Domain:` |
-| Which ecosystem is in scope? | `Platform:` |
-| Which telemetry / log stream? | `Data Source:` |
-| Which product or component? | `Service:` (optional) |
+| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
+| Platform | AWS, Azure, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
+| OS | Linux, Windows, macOS |
+| Rule Type | BBR, Custom Query (KQL), ES\|QL, Event Correlation (EQL), Higher-Order, Higher-Order Rule, Indicator Match, ML, Machine Learning, New Terms, Threshold, Threat Match |
+| Noise | High, Low, Medium, Unknown |
+| Performance | Fast, Normal, Slow, Unknown, Very Slow |
+| Profile | Aggressive, Beta, Recommended |
+| Resources | Investigation Guide, LLM, Osquery, Workflow |
+| Promotion | External Alerts |
+| Mitre Atlas | `*` (technique IDs) |
+| Use Case | Active Directory Monitoring, Asset Visibility, Configuration Audit, Guided Onboarding, Identity and Access Audit, Log Auditing, Network Security Monitoring, Threat Detection, UEBA, Vulnerability |
+| Tactic | Collection, Command and Control, Credential Access, Defense Evasion, Defense Impairment, Discovery, Execution, Exfiltration, Impact, Initial Access, Lateral Movement, Persistence, Privilege Escalation, Reconnaissance, Resource Development, Stealth |
 
-Also tag how the rule is built (`Rule Type:`), ATT&CK tactics (`Tactic:`), OS when
-endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
+**Data Source:** APM, AWS, AWS Bedrock, AWS CloudTrail, AWS Sign-In, AWS VPC Flow Logs, Active Directory, Amazon Bedrock, Amazon Web Services, Auditd Manager, Azure, Azure Activity Logs, Azure OpenAI, Azure Platform Logs, Check Point Harmony Email Logs, CrowdStrike Falcon, Crowdstrike, CyberArk PAS, Elastic Defend, Elastic Defend for Containers, Elastic Endgame, Entra Audit Logs, Entra ID Audit Logs, Entra ID Protection Logs, Entra ID Sign-In, Entra ID Sign-In Logs, File Integrity Monitoring, Fortinet, Fortinet FortiGate, GCP, GCP Audit Logs, GitHub Audit Logs, GitHub Code Scanning Logs, Github, Google Cloud Platform, Google SecOps, Google Workspace, Google Workspace Audit Logs, Google Workspace Device Logs, Google Workspace User Log Events, Jamf Protect, Kubernetes, Kubernetes API Server Audit Logs, Linux Sysmon Logs, macOS Security Events, Microsoft 365, Microsoft Defender XDR, Microsoft Defender for Cloud Alerts, Microsoft Defender for Identity, Microsoft Defender for Office 365, Microsoft Entra ID Sign-In Logs, Microsoft Exchange Online Logs, Microsoft Graph, Microsoft Graph Activity Logs, Microsoft Purview, Microsoft Sentinel, Network Packet Capture, Network Traffic, Okta, Okta System Logs, PAN-OS, PowerShell Logs, Rapid7 Threat Command, SentinelOne, SonicWall, SonicWall Firewall Logs, Splunk, Suricata, Sysmon, Windows Security Event Logs, Windows System Event Logs, Wiz, Zoom
 
-## Categories
+**Service:** AWS Backup, AWS Bedrock, AWS CloudFormation, AWS CloudWatch, AWS Config, AWS Detective, AWS DynamoDB, AWS EC2, AWS EFS, AWS EKS, AWS EventBridge, AWS GuardDuty, AWS IAM, AWS KMS, AWS Lambda, AWS Organizations, AWS RDS, AWS Route 53, AWS S3, AWS SES, AWS Sign-In, AWS SNS, AWS SQS, AWS SSM, AWS STS, AWS Secrets Manager, AWS WAF, AWS Security Hub, Apache HTTP Server, Apache Tomcat, Azure Event Hubs, Azure Functions, Azure Key Vault, Azure OpenAI, Azure Storage, GCP BigQuery, GCP Cloud Functions, GCP Cloud Storage, GCP Compute Engine, GCP Secret Manager, GitHub Actions, GitHub Code Scanning, IIS, Microsoft Exchange Online, Microsoft OneDrive, Microsoft Purview, Microsoft SharePoint, Microsoft Teams, Nginx
 
-| Category | Prefix | Required? | Notes |
-| --- | --- | --- | --- |
-| Domain | `Domain:` | Yes (≥1) | Attack surface; multi-domain allowed |
-| Platform | `Platform:` | Yes (≥1) | Target ecosystem; not the log source |
-| Data Source | `Data Source:` | Yes (when telemetry-bound) | Specific stream; one canonical spelling |
-| OS | `OS:` | Endpoint / OS dirs | `Windows`, `Linux`, `macOS` |
-| Tactic | `Tactic:` | Yes | Must match `[[rule.threat]]` |
-| Rule Type | `Rule Type:` | Yes (≥1) | Engine / construction type |
-| Service | `Service:` | Optional | Prefer when a specific service is targeted |
-| Vulnerability | `Vuln:` | Optional | `CVE-YYYY-NNNNN` when exploit-specific |
-| Threat | `Threat:` | Optional | Named exploit/campaign only — not actors/malware families on generic rules |
-| MITRE ATLAS | `Mitre Atlas:` | GenAI when applicable | Technique IDs (e.g. `T0051`) |
-| Profile | `Profile:` | Optional | `Recommended`, `Aggressive`, `Beta` |
-| Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, OS Query |
+**Threat:** AiTM Phishing, BPFDoor, Browser Extension Abuse, Brute Force, ClickFix, Cloud VM Execution, Cobalt Strike, Container Escape, Cryptomining, Device Code Phishing, DLL Side-Load, Download Tool Abuse, Dynamic DNS, Encoding-Based Obfuscation, IMDS Credential Theft, Impossible Travel, Information Stealer, Installer Abuse, Lightning Framework, Living off the Land, LLMjacking, LNK/Shortcut Abuse, Log4Shell, Masquerading, OAuth App Consent, Orbit, Protocol Tunneling, Ransomware, React2Shell, Remote Management Tool Abuse, Reverse Shell, Rootkit, Script-Based Execution, Supply Chain, Suspicious TLD, TripleCross, Unauthorized AI Usage, Vulnerability Exploit, Vulnerable Driver, Web Application Attack, Web Service Abuse, Web Shell, WebDAV Abuse
 
-Legacy prefixes such as `Use Case:` and `Promotion:` remain valid during migration.
-
-## Domain values
-
-`Endpoint`, `Cloud`, `Container` (legacy enforced spelling), `Containers`, `Network`,
-`Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`.
-
-Do **not** invent domains for storage, web/app servers, or threat intelligence — use
-`Service:` or `Rule Type:` instead.
-
-## Platform values
-
-`AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`,
-`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
-
-## Data Source values
-
-Prefer the concrete telemetry name over the vendor alone. Preserve dual/legacy tags
-still required by index-based unit tests (for example AWS rules still need both
-`Data Source: AWS` and `Data Source: Amazon Web Services`).
-
-**Cloud:** `AWS VPC Flow Logs`, `AWS Bedrock Invocation Logs`, `Azure Activity Logs`,
-`Azure Platform Logs`, `Azure OpenAI Logs`, `GCP Audit Logs`
-
-**Identity:** `Entra ID Audit Logs`, `Entra ID Protection Logs`, `Okta System Logs`,
-`Active Directory Logs`
-
-**SaaS:** `M365 Audit Logs`, `Microsoft Graph Activity Logs`,
-`Google Workspace Audit Logs`, `GitHub Audit Logs`, `GitHub Code Scanning Logs`,
-`Zoom Webhook Events`
-
-**Endpoint:** `Elastic Defend`, `Elastic Endgame`, `Elastic Defend for Containers`,
-`Windows Security Event Logs`, `Windows System Event Logs`, `Windows Sysmon Logs`,
-`PowerShell Logs`, `Linux Auditd Logs`, `File Integrity Monitoring`,
-`CrowdStrike Falcon Logs`, `SentinelOne Logs`, `Jamf Protect Event Logs`,
-`Microsoft Defender for Endpoint Logs`
-
-**Network:** `Network Packet Capture`, `Suricata Logs`, `PAN-OS Logs`,
-`Fortinet FortiGate Logs`, `SonicWall Firewall Logs`
-
-**Email / security tools / other:** `Microsoft Exchange Online Logs`,
-`Microsoft Defender for Office 365 Logs`, `Check Point Harmony Email Logs`,
-`Microsoft Purview Logs`, `Microsoft Defender for Cloud Alerts`,
-`Microsoft Defender for Identity Alerts`, `Microsoft Sentinel Forwarded Events`,
-`Splunk Forwarded Events`, `Wiz Findings`, `Rapid7 Threat Command Feeds`,
-`Google SecOps Forwarded Events`, `Elastic APM Logs`,
-`Kubernetes API Server Audit Logs`
-
-### Deferred (casing conflicts in existing rules)
-
-Do **not** add these to `EXPECTED_RULE_TAGS` until rules are normalized:
-
-- `Data Source: AWS CloudTrail` (conflicts with `AWS Cloudtrail`)
-- `Data Source: Entra ID Sign-In Logs` (conflicts with `Sign-in Logs` / `Sign-in logs`)
-
-## Service values
-
-Prefix cloud services with the vendor. Web/app servers usually need no vendor prefix.
-
-**AWS:** S3, Lambda, DynamoDB, IAM, EC2, RDS, KMS, STS, SES, SNS, SQS, SSM,
-Secrets Manager, CloudFormation, GuardDuty, WAF, Route 53, Bedrock
-
-**Azure:** Key Vault, Storage, Functions, Event Hubs, OpenAI
-
-**GCP:** BigQuery, Cloud Functions, Cloud Storage, Compute Engine
-
-**GitHub:** Actions, Code Scanning
-
-**Microsoft 365:** Teams, SharePoint, OneDrive, Exchange Online, Purview
-
-**Web / app servers:** IIS, Nginx, Apache HTTP Server, Apache Tomcat
-
-## Rule Type mapping
-
-| Rule `type` / case | Tag(s) |
-| --- | --- |
-| `esql` | `Rule Type: ESQL` |
-| `query` (KQL) | `Rule Type: Custom Query (KQL)` |
-| `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
-| `eql` | `Rule Type: Event Correlation (EQL)` |
-| `threat_match` | Prefer `Rule Type: Indicator Match` (taxonomy). Legacy `Rule Type: Threat Match` remains valid on existing rules; Copilot may flag for rename but does not fail unit tests. |
-| `threshold` | `Rule Type: Threshold` |
-| `new_terms` | `Rule Type: New Terms` |
-| `machine_learning` | `Rule Type: Machine Learning` **and** `Rule Type: ML` |
-| Building block | `Rule Type: BBR` |
-| Higher-order | `Rule Type: Higher-Order` (legacy `Higher-Order Rule` still valid) |
-
-## Compatibility notes
-
-- Keep `Domain: Container` on rules that unit tests already require until a coordinated
-  rename to `Domain: Containers`.
-- Copilot may suggest additive `Platform:` / `Service:` / `Vuln:` / `Profile:` tags now;
-  required enforcement for those categories will land in a follow-up with broader rule
-  remapping.
-- Taxonomy names may differ from legacy short tags still present on rules
-  (e.g. `SentinelOne` vs `SentinelOne Logs`); both remain valid until migration.
+**Vuln:** `CVE-*` entries listed in `EXPECTED_RULE_TAGS`.
