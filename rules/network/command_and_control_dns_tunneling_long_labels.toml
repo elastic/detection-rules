@@ -22,10 +22,10 @@ false_positives = [
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "Potential DNS Tunneling via Long and Unique Subdomains"
+name = "Potential DNS Tunneling via NULL or Long DNS Queries"
 note = """## Triage and analysis
 
-### Investigating Potential DNS Tunneling via Long and Unique Subdomains
+### Investigating Potential DNS Tunneling via NULL or Long DNS Queries
 
 DNS tunneling encodes data in query labels and often produces many unique, unusually long subdomains under a single apex
 domain. Some tunneling tools also use rare NULL queries or long TXT query names. This rule aggregates network DNS
@@ -35,9 +35,9 @@ Compare overlapping apex domains against the machine learning **DNS Tunneling** 
 
 ### Possible investigation steps
 
-- Review `Esql.dns_registered_domain`, `Esql.dns_question_type_values`, `Esql.count_distinct_names`,
-  `Esql.unique_name_ratio`, `Esql.max_question_name_length`, `Esql.max_subdomain_length`, and sample values in
-  `Esql.sample_names`.
+- Review `Esql.dns_registered_domain`, `Esql.dns_question_type_values`, `Esql.total_qualifying_queries`,
+  `Esql.count_distinct_names`, `Esql.unique_name_ratio`, `Esql.max_question_name_length`,
+  `Esql.max_subdomain_length`, and sample values in `Esql.sample_names`.
 - NULL alerts require at least three queries and two distinct names. Long-TXT alerts require at least five distinct
   names longer than 100 characters. The general long-subdomain branch retains the original threshold of 25 queries and
   15 distinct names across all query types.
@@ -149,6 +149,7 @@ from logs-network_traffic.dns-*, logs-fortinet_fortigate.log-*, logs-zeek.dns-*,
     )
 | eval Esql.time_window = DATE_TRUNC(5 minutes, @timestamp)
 | stats
+    Esql.total_qualifying_queries = COUNT(*),
     Esql.count_queries = COUNT(Esql.long_subdomain_query_name),
     Esql.count_distinct_names = COUNT_DISTINCT(Esql.long_subdomain_query_name),
     Esql.null_query_count = COUNT(Esql.null_query_name),
@@ -234,6 +235,7 @@ field_names = [
     "Esql.client_ip",
     "Esql.dns_registered_domain",
     "Esql.time_window",
+    "Esql.total_qualifying_queries",
     "Esql.count_queries",
     "Esql.count_distinct_names",
     "Esql.unique_name_ratio",
