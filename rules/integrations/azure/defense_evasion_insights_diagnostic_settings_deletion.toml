@@ -33,30 +33,35 @@ note = """## Triage and analysis
 
 ### Investigating Azure Diagnostic Settings Deleted
 
-Azure Diagnostic Settings stream platform logs and metrics to a destination for detection and investigation. Deleting them for a resource group that does not normally change logging configuration is a high-signal defense-evasion step. This rule aggregates successful `DIAGNOSTICSETTINGS/DELETE` operations over a 7-day lookback and alerts when a resource group's first delete in that window falls in the current schedule interval. Repeat deletes against the same group are suppressed; a newly seen group is not.
+Azure Diagnostic Settings are crucial for monitoring and logging platform activities, sending data to various destinations for analysis. Adversaries may delete these settings to hinder detection and analysis of their activities, effectively evading defenses. The detection rule identifies such deletions by aggregating successful `DIAGNOSTICSETTINGS/DELETE` operations over a 7-day lookback and alerting when a resource group's first delete in that window falls in the current schedule interval.
 
 ### Possible investigation steps
 
-- Confirm the resource group from `azure.resource.group` and whether it looks like production, lab, or ephemeral naming. Inspect `Esql.resource_name_values` and `Esql.resource_id_values` for which diagnostic settings were removed.
-- Identify the actor from `Esql.principal_id_values` and `Esql.principal_type_values` (User vs ServicePrincipal). Resolve the human-readable name from `Esql.initiated_by_user_values`.
-- Review `Esql.appid_values` and `Esql.role_values` to distinguish first-party / IaC identities from interactive clients such as Azure Portal or Azure CLI. `Esql.role_assignment_id_values` shows which assignment granted the delete.
-- Pivot on `Esql.session_id_values` (`azure.activitylogs.identity.claims.sid`) and `Esql.unique_token_id_values` to Entra sign-in logs and Microsoft Graph activity for the same session.
-- Use `Esql.correlation_id_values` to find related ARM operations (lock removal, activity-log disable, mass deletes) in the same activity-log transaction.
-- Check `Esql.source_ip_values`, `Esql.source_country_values`, and `Esql.source_as_number_values` around `Esql.first_time_seen`.
-- Verify whether logging was restored, and whether other detection-blinding changes occurred in the same window.
+- Identify the user or service principal responsible for the deletion from `Esql.principal_id_values` and `Esql.principal_type_values`. Resolve the human-readable name from `Esql.initiated_by_user_values`.
+- If this is a service principal, determine which application is associated with it via `Esql.appid_values` and examine credential use with authentication sources to identify potential compromise.
+- Examine the resource group (`azure.resource.group`) and subscription (`Esql.subscription_id_values`) context to understand the scope of the deletion and whether it affects critical resources.
+- Check `Esql.first_time_seen` to determine when the diagnostic settings were removed and correlate this with other security events or alerts around the same time. Pivot on `Esql.session_id_values`, `Esql.unique_token_id_values`, and `Esql.correlation_id_values`.
+- Investigate the affected resources by identifying which diagnostic settings were deleted (`Esql.resource_name_values`, `Esql.resource_id_values`) and assess the potential impact on monitoring and logging capabilities.
+- Review any recent changes or activities performed by the identified user or service principal to determine if there are other suspicious actions that might indicate malicious intent. Review `Esql.role_values` and `Esql.role_assignment_id_values`.
+- Assess the current security posture by ensuring that diagnostic settings are reconfigured and that logging and monitoring are restored to maintain visibility into platform activities.
 
 ### False positive analysis
 
-- Crossplane, Terraform, GitHub Actions, and similar automation will alert on the first diagnostic-settings delete per resource group in 7 days, then go quiet for that group. Frequently rebuilt lab groups are expected.
-- Microsoft-owned control-plane identities (for example Cosmos DB virtual-network resource provider) may delete diagnostic settings during private-endpoint lifecycle.
-- Newly provisioned resource groups whose first logging teardown is authorized will fire once; do not allowlist by tenant or user GUID.
+- Examine the service principal or user account involved in the deletion to determine if it is part of an automated process or legitimate administrative activity.
+- Automated scripts or tools used for managing Azure resources might delete diagnostic settings as part of their operation. Review and whitelist these scripts if they are verified as non-threatening.
+- Changes in organizational policy or compliance requirements could lead to legitimate deletions. Confirm with relevant teams if such policy changes are in effect.
+- Test environments often undergo frequent configuration changes, including the deletion of diagnostic settings. Consider excluding these environments from the rule or adjusting the rule to account for their unique behavior.
+- Ensure that any third-party integrations or services with access to Azure resources are reviewed, as they might inadvertently delete diagnostic settings during their operations.
 
 ### Response and remediation
 
-- If unauthorized, disable the principal, restore the diagnostic settings, and place resource locks on remaining critical groups.
-- Confirm logs resume flowing to the intended Log Analytics workspace, Event Hub, or storage account.
-- Audit other deletes and RBAC changes by the same principal during the same window.
-- Require privileged diagnostic-settings changes to go through PIM or a change-control pipeline.
+- Immediately isolate affected Azure resources to prevent further unauthorized changes or deletions. This may involve temporarily restricting access to the affected subscriptions or resource groups.
+- Review the Azure activity logs to identify the source of the deletion request, including the user account, service principal and IP address involved. This will help determine if the action was authorized or malicious.
+- Recreate the deleted diagnostic settings as soon as possible to restore logging and monitoring capabilities. Ensure that logs are being sent to secure and appropriate destinations.
+- Conduct a thorough investigation of the user account or service principal involved in the deletion. If the account is compromised, reset credentials, and review permissions to ensure they are appropriate and follow the principle of least privilege.
+- Escalate the incident to the security operations team for further analysis and to determine if additional resources or expertise are needed to address the threat.
+- Implement additional monitoring and alerting for similar deletion activities to ensure rapid detection and response to future attempts.
+- Review and update access controls and policies related to diagnostic settings to prevent unauthorized deletions, ensuring that only trusted and necessary personnel have the ability to modify these settings.
 """
 references = [
     "https://docs.microsoft.com/en-us/azure/azure-monitor/platform/diagnostic-settings",
@@ -83,8 +88,8 @@ timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
-FROM logs-azure.activitylogs-*
-| WHERE event.dataset == "azure.activitylogs"
+FROM logs-azure.activitylogs-*, filebeat-*
+| WHERE data_stream.dataset == "azure.activitylogs"
     AND event.action == "MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE"
     AND event.outcome IN ("success", "Success")
     AND azure.resource.group IS NOT NULL
@@ -137,12 +142,4 @@ reference = "https://attack.mitre.org/techniques/T1562/008/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
-[rule.alert_suppression]
-group_by = ["azure.resource.group"]
-missing_fields_strategy = "suppress"
-
-[rule.alert_suppression.duration]
-unit = "m"
-value = 60
 
