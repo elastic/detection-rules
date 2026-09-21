@@ -113,7 +113,7 @@ Secrets Manager, CloudFormation, GuardDuty, WAF, Route 53, Bedrock
 
 | Rule `type` / case | Tag(s) |
 | --- | --- |
-| `esql` | `Rule Type: ESQL` |
+| `esql` | Prefer `Rule Type: ES|QL` (taxonomy). Legacy `Rule Type: ESQL` remains valid on existing rules. |
 | `query` (KQL) | `Rule Type: Custom Query (KQL)` |
 | `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
 | `eql` | `Rule Type: Event Correlation (EQL)` |

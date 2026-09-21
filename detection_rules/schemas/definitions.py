@@ -258,6 +258,7 @@ EXPECTED_RULE_TAGS = [
     "Resources: Workflow",
     "Rule Type: BBR",
     "Rule Type: Custom Query (KQL)",
+    "Rule Type: ES|QL",
     "Rule Type: ESQL",
     "Rule Type: Event Correlation (EQL)",
     "Rule Type: Higher-Order",

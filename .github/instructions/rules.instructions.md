@@ -59,7 +59,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
-    - `esql` → `Rule Type: ESQL`
+    - `esql` → `Rule Type: ES|QL` (legacy `Rule Type: ESQL` still valid on older rules)
     - `query` / KQL → `Rule Type: Custom Query (KQL)`
     - `saved_query` → `Rule Type: Custom Query (KQL)`
     - `eql` → `Rule Type: Event Correlation (EQL)`
