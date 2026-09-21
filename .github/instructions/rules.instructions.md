@@ -52,14 +52,14 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `critical` → 99
 - `tags` must follow the XDR/SIEM tag taxonomy (`Category: Value`). Review tags against the checklist below and suggest missing or incorrect tags. Keep suggestions to 1–2 sentences; list concrete tag strings to add/fix.
   - See also `docs-dev/rule-tag-taxonomy.md` for the full vocabulary and design notes.
-  - **Compatibility:** Keep currently enforced tags that unit tests require (for example `Domain: Container`, dual AWS data-source tags). Prefer additive suggestions for new categories (`Platform:`, `Service:`, `Vuln:`, `Profile:`) rather than renaming legacy values mid-migration.
+  - **Compatibility:** Keep currently enforced tags that unit tests require (for example `Domain: Containers`, dual AWS data-source tags). Prefer additive suggestions for new categories (`Platform:`, `Service:`, `Vuln:`, `Profile:`) rather than renaming legacy values mid-migration.
 
   **Required (suggest if missing):**
-  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Container` (legacy; prefer keeping this until migration), `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
-  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Elastic`, `Wiz`, `FortiGate`.
+  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
+  - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`.
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
-    - `esql` → `Rule Type: ES|QL` (legacy `Rule Type: ESQL` still valid on older rules)
+    - `esql` → `Rule Type: ES|QL`
     - `query` / KQL → `Rule Type: Custom Query (KQL)`
     - `saved_query` → `Rule Type: Custom Query (KQL)`
     - `eql` → `Rule Type: Event Correlation (EQL)`
@@ -70,7 +70,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
     - Building blocks → `Rule Type: BBR`
     - Higher-order / signal-correlating → `Rule Type: Higher-Order` (legacy spelling `Higher-Order Rule` is still valid)
   - `OS:` — required when the rule lives under `rules/windows|linux|macos/` or is endpoint-scoped: `OS: Windows`, `OS: Linux`, `OS: macOS`.
-  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services). Use spellings from `EXPECTED_RULE_TAGS` / `docs-dev/rule-tag-taxonomy.md`. Do not suggest `AWS CloudTrail` or `Entra ID Sign-In Logs` casing changes until those are normalized (existing rules use mixed `Cloudtrail` / `Sign-in` variants).
+  - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`, `Data Source: AWS CloudTrail`, `Data Source: Entra ID Sign-In Logs`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services, `Data Source: Crowdstrike`, `Data Source: SentinelOne`, `Data Source: Sysmon`). Use spellings from `EXPECTED_RULE_TAGS`. **Do not** suggest a second tag that only appends `Logs` (`SentinelOne Logs`, `Windows Sysmon Logs`) or `CrowdStrike Falcon Logs` — CrowdStrike stays `Crowdstrike` or `CrowdStrike Falcon`, never `… Falcon Logs`.
   - `Resources: Investigation Guide` if `note` contains an investigation guide.
   - `Resources: LLM` if the query uses the ES|QL `COMPLETION` command.
   - `Mitre Atlas: Txxxx` for GenAI-domain rules when an ATLAS technique applies.
@@ -78,14 +78,16 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   **Optional (suggest when clearly applicable):**
   - `Service:` — specific component (prefix cloud services with vendor): e.g. `Service: AWS S3`, `Service: Azure Key Vault`, `Service: AWS Bedrock`, `Service: GitHub Actions`, `Service: IIS`, `Service: Nginx`.
   - `Vuln: CVE-YYYY-NNNNN` — only when the rule targets exploitation of a specific CVE.
-  - `Threat:` — named exploit or campaign only (e.g. `Threat: Log4Shell`, `Threat: SolarWinds`). Do **not** suggest adversary group or malware-family tags on generic behavioral rules.
-  - `Profile:` — `Recommended`, `Aggressive`, or `Beta` when fidelity/deployment posture is clear.
-  - `Resources: Workflow` / `Resources: OS Query` when those artifacts are present.
+  - `Threat:` — either (a) a named exploit/campaign/malware the rule specifically targets (e.g. `Threat: Log4Shell`, `Threat: Cobalt Strike`), or (b) a managed operational category from `EXPECTED_RULE_TAGS` when the match is clear (e.g. `Threat: Brute Force`, `Threat: Living off the Land`, `Threat: Vulnerable Driver`). Do **not** invent adversary-group or malware-family tags on generic behavioral rules, and do not invent near-synonyms of catalog values. Do **not** use a targeted company's name as a threat tag.
+  - `Profile: Beta` when the rule is explicitly beta. Do **not** invent `Profile: Recommended` / `Profile: Aggressive`, `Noise:*`, or `Performance:*` — those are fleet-telemetry derived.
+  - `Resources: Workflow` / `Resources: Osquery` when those artifacts are present.
 
   **Do not suggest:**
   - Untagged free-text keywords or prefixes outside the taxonomy.
   - Using `Domain:` for storage, middleware/web servers, or threat intel (use `Service:` / `Rule Type:` instead).
   - Treating `Platform:` and `Data Source:` as interchangeable.
+  - A second `Data Source:` that only appends `Logs` to an existing vendor tag (`SentinelOne Logs`, `Windows Sysmon Logs`, `CrowdStrike Falcon Logs`). Keep `SentinelOne`, `Sysmon`, `Crowdstrike` / `CrowdStrike Falcon`.
+  - Hand-authoring `Noise:`, `Performance:`, or `Profile: Recommended|Aggressive` without the telemetry pipeline.
 - `index` patterns should be neither too specific nor too vague — they must accurately match the relevant data stream (e.g., `logs-endpoint.events.process-*` for process events, not `logs-endpoint.events.*` unless multiple event types are needed).
 - `from` and `interval` should not create gaps. The lookback window (`from`) must cover at least the `interval` period. The default `interval` period, if not explicitly changed, is 5 minutes. 
 - `timestamp_override` should be set to `"event.ingested"` for most rules to avoid ingestion delay issues.
