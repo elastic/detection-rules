@@ -35,8 +35,8 @@ Detects successful Microsoft 365 portal logins from a country and region the use
 
 ### Possible investigation steps
 
-- Identify the user in `o365.audit.UserId` and the new geographic combination: `source.geo.country_name`,
-  `source.geo.region_name`, and `Esql.source_geo_city_name_values`.
+- Identify the user in `o365.audit.UserId` and the new geographic combination: `source.geo.country_name`
+  and `source.geo.region_name`.
 - Review `Esql.first_seen` to confirm when this geographic combination first appeared and correlate with the
   user's known activity.
 - Inspect `Esql.source_as_organization_name_values` for the originating ASN. Corporate ISPs and known CASB
@@ -158,7 +158,6 @@ FROM logs-o365.audit-*
     Esql.last_seen = MAX(@timestamp),
     Esql.event_count = COUNT(*),
     Esql.source_as_organization_name_values = VALUES(source.`as`.organization.name),
-    Esql.source_geo_city_name_values = VALUES(source.geo.city_name),
     Esql.source_ip_values = VALUES(source.ip),
     Esql.user_agent_original_values = VALUES(user_agent.original),
     Esql.application_id_values = VALUES(o365.audit.ApplicationId),
@@ -205,7 +204,6 @@ field_names = [
     "Esql.source_ip_values",
     "Esql.actor_ip_values",
     "Esql.source_as_organization_name_values",
-    "Esql.source_geo_city_name_values",
     "Esql.user_agent_original_values",
     "Esql.application_id_values",
     "Esql.object_id_values",
