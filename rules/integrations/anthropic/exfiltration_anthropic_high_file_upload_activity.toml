@@ -2,15 +2,15 @@
 creation_date = "2026/09/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high volume of Claude file uploads from the same user email and source IP within a single
-calendar day. Sustained upload activity can indicate staging of sensitive documents in Claude chats for later retrieval,
-automated ingestion of data into LLM workflows, or abuse of organizational Claude access to move files into the cloud
-service.
+Detects an unusually high volume of Claude file uploads from the same user email and source IP within a rolling
+24-hour period. Sustained upload activity can indicate staging of sensitive documents in Claude chats for later
+retrieval, automated ingestion of data into LLM workflows, or abuse of organizational Claude access to move files into
+the cloud service.
 """
 false_positives = [
     """
@@ -28,9 +28,9 @@ note = """## Triage and analysis
 ### Investigating Anthropic High File Upload Activity
 
 This ES|QL rule fires when one `user.email` and `source.ip` pair records at least 100 `claude_file_uploaded` events
-within the same UTC day bucket in a rolling 24-hour lookback. Matching triples `(user.email, source.ip,
-Esql.time_bucket)` are suppressed for 24 hours so hourly runs do not re-alert while the window still contains the
-burst. Pivot to raw `logs-anthropic.audit-*` logs for individual filenames and chat or project identifiers.
+within a rolling 24-hour lookback. Matching pairs `(user.email, source.ip)` are suppressed for 24 hours so hourly runs
+do not re-alert while the window still contains the burst. Pivot to raw `logs-anthropic.audit-*` logs for individual
+filenames and chat or project identifiers.
 
 #### Possible investigation steps
 
@@ -76,7 +76,6 @@ from logs-anthropic.audit-*
     event.outcome == "success" and
     user.email is not null and
     source.ip is not null
-| eval Esql.time_bucket = DATE_TRUNC(1 day, @timestamp)
 | stats
     Esql.event_count = count(*),
     Esql.event_id_values = values(event.id),
@@ -88,7 +87,7 @@ from logs-anthropic.audit-*
     Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
-  by user.email, source.ip, Esql.time_bucket
+  by user.email, source.ip
 | where Esql.event_count >= 100
 | keep user.email, source.ip, Esql.*
 '''
@@ -108,7 +107,7 @@ name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
 
 [rule.alert_suppression]
-group_by = ["user.email", "source.ip", "Esql.time_bucket"]
+group_by = ["user.email", "source.ip"]
 duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
@@ -116,7 +115,6 @@ missing_fields_strategy = "suppress"
 field_names = [
     "user.email",
     "source.ip",
-    "Esql.time_bucket",
     "Esql.event_count",
     "Esql.event_id_values",
     "Esql.file_name_values",

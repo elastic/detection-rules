@@ -2,19 +2,19 @@
 creation_date = "2026/09/15"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high number of Claude chat creation events for the same user email within a single calendar day.
+Detects an unusually high number of Claude chat creation events for the same user email within a 24-hour period.
 Burst chat creation can indicate automated LLM abuse, resource hijacking to burn organizational quotas, or scripted
 workflows used to stage many parallel conversations for data processing or prompt-injection campaigns.
 """
 false_positives = [
     """
     Power users, automation engineers, or evaluation scripts that create many short-lived chats during testing can exceed
-    the daily threshold without malicious intent.
+    the threshold without malicious intent.
     """,
 ]
 from = "now-24h"
@@ -26,8 +26,8 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Excessive Chat Creation
 
-This ES|QL rule fires when one `user.email` records at least 20 `claude_chat_created` events within the same UTC day
-bucket in a rolling 24-hour lookback. Matching pairs `(user.email, Esql.time_bucket)` are suppressed for 24 hours.
+This ES|QL rule fires when one `user.email` records at least 20 `claude_chat_created` events within a rolling 24-hour
+lookback. Matching `user.email` values are suppressed for 24 hours.
 
 #### Possible investigation steps
 
@@ -73,7 +73,6 @@ from logs-anthropic.audit-*
     event.action == "claude_chat_created" and
     event.outcome == "success" and
     user.email is not null
-| eval Esql.time_bucket = DATE_TRUNC(1 day, @timestamp)
 | stats
     Esql.event_count = count(*),
     Esql.event_id_values = values(event.id),
@@ -85,7 +84,7 @@ from logs-anthropic.audit-*
     Esql.user_id_values = values(user.id),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
-  by user.email, Esql.time_bucket
+  by user.email
 | where Esql.event_count >= 20
 | keep user.email, Esql.*
 '''
@@ -105,14 +104,13 @@ name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
 
 [rule.alert_suppression]
-group_by = ["user.email", "Esql.time_bucket"]
+group_by = ["user.email"]
 duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
 field_names = [
     "user.email",
-    "Esql.time_bucket",
     "Esql.event_count",
     "Esql.event_id_values",
     "Esql.anthropic_audit_claude_chat_id_values",
