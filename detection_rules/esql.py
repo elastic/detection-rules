@@ -139,18 +139,16 @@ def replace_esql_query_sources(query: str, replacements: dict[tuple[int, int], s
 
 
 def get_esql_multivalued_field_comparisons(query: str, multivalued_fields: Collection[str] | None = None) -> list[str]:
-    """Return the fields that can hold more than one value and are compared directly with a single-valued operator.
-
-    `event.category == "process"` returns null, not false, when the document has more than one category, so the
-    row is dropped and the rule silently stops matching. Fields defaults to the ECS array fields, see
-    `ecs.get_multivalued_fields`. A field the query has `MV_EXPAND`ed is single-valued afterwards and is skipped.
-    """
+    """Extract the multivalued fields an ES|QL query compares directly with a single-valued operator."""
+    # A single-valued operator on a field holding more than one value returns null rather than a boolean, so
+    # `event.category == "process"` silently drops the row. Defaults to the fields ECS declares as arrays.
     fields = (
         get_multivalued_fields() if multivalued_fields is None else frozenset(f.lower() for f in multivalued_fields)
     )
     # Literals are replaced with quotes rather than blanks so a keyword before one, e.g. `WHERE "x" == field`,
     # is not read as the left operand
     scannable = ESQL_COMMENTS_AND_LITERALS_REGEX.sub(lambda match: '"' * len(match.group(0)), query)
+    # A field that has been MV_EXPANDed holds a single value afterwards
     expanded = {match.lower() for match in re.findall(r"\bMV_EXPAND\s+`?([\w.@]+)`?", scannable, re.IGNORECASE)}
 
     name = r"`?([A-Za-z_@][\w.@]*)`?"

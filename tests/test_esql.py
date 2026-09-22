@@ -92,18 +92,18 @@ class TestESQLQuerySources(unittest.TestCase):
 
 
 class TestESQLMultivaluedFieldComparisons(unittest.TestCase):
-    """Tests for detecting single-valued operators applied directly to fields that can hold more than one value."""
+    """Test detection of single-valued operators applied directly to multivalued fields in ES|QL queries."""
 
     FIELDS = ("event.category", "event.type", "process.args")
 
     def test_ecs_array_fields_are_multivalued(self) -> None:
-        """Test that fields ECS normalizes as arrays are multivalued and scalar fields are not."""
+        """Test that ECS array fields are multivalued and scalar fields are not."""
         multivalued = get_multivalued_fields()
         self.assertTrue({"event.category", "event.type", "process.args"} <= multivalued)
         self.assertFalse({"event.action", "host.os.type", "process.name"} & multivalued)
 
     def test_direct_comparisons_are_reported(self) -> None:
-        """Test that each single-valued operator applied directly to a multivalued field is reported."""
+        """Test that each single-valued operator on a multivalued field is reported."""
         for expression in (
             'event.category == "iam"',
             '"iam" == event.category',
@@ -121,7 +121,7 @@ class TestESQLMultivaluedFieldComparisons(unittest.TestCase):
                 self.assertEqual(len(hits), 1)
 
     def test_multivalue_aware_usage_is_not_reported(self) -> None:
-        """Test that MV_ functions, null checks, MV_EXPAND and single-valued fields are not reported."""
+        """Test that MV_ functions, null checks, MV_EXPAND, and single-valued fields are not reported."""
         for query in (
             'FROM logs-* | WHERE MV_CONTAINS(event.category, "iam")',
             'FROM logs-* | WHERE MV_FIRST(event.category) == "iam" AND "iam" == MV_FIRST(event.category)',
@@ -134,7 +134,7 @@ class TestESQLMultivaluedFieldComparisons(unittest.TestCase):
                 self.assertListEqual(get_esql_multivalued_field_comparisons(query, self.FIELDS), [])
 
     def test_only_the_offending_fields_are_reported(self) -> None:
-        """Test that a query mixing safe and unsafe usage reports only the fields compared directly."""
+        """Test that only the fields compared directly are reported."""
         query = """
         FROM logs-* METADATA _id
         | MV_EXPAND event.type

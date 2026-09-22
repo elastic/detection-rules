@@ -1752,10 +1752,10 @@ class TestAlertSuppression(BaseRuleTest):
 
 
 class TestESQLMultivaluedFields(BaseRuleTest):
-    """Test that ES|QL rules do not apply single-valued operators directly to fields that can hold more than one value."""
+    """Test that ES|QL rules handle fields that can hold more than one value."""
 
     def test_no_direct_comparison_on_multivalued_fields(self):
-        """Ensure ES|QL rules use MV_ functions or MV_EXPAND on multivalued fields instead of comparing them directly."""
+        """Ensure that ES|QL rules do not compare multivalued fields directly with single-valued operators."""
         failures: list[str] = []
         for rule in self.all_rules:
             if rule.contents.data.type != "esql":

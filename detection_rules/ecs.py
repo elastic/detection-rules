@@ -109,7 +109,8 @@ def get_schema(version: str | None = None, name: str = "ecs_flat") -> dict[str, 
 
 @cached
 def get_multivalued_fields(version: str | None = None) -> frozenset[str]:
-    """Return the ECS fields that can hold more than one value, i.e. those declared with `normalize: ["array"]`."""
+    """Get the ECS fields that can hold more than one value."""
+    # ECS declares these with `normalize: ["array"]`
     schema: dict[str, Any] = get_schema(version, name="ecs_flat")
     return frozenset(name.lower() for name, info in schema.items() if "array" in (info.get("normalize") or []))
 
