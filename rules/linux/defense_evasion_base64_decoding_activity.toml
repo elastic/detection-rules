@@ -112,21 +112,13 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
         (
             process.name == "openssl" and
             process.args == "enc" and
-            (
-                process.command_line like "* -d*" or
-                process.command_line like "* -base64*" or
-                process.command_line like "* -a*"
-            )
+            process.args in ("-d", "-base64", "-a")
         ) or
         (
             process.name like "python*" and (
                 (
                     process.args == "base64" and
-                    (
-                        process.command_line like "* -d*" or
-                        process.command_line like "* -u*" or
-                        process.command_line like "* -t*"
-                    )
+                    process.args in ("-d", "-u", "-t")
                 ) or
                 (
                     process.args == "-c" and
@@ -163,7 +155,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
     data_stream.dataset,
     data_stream.namespace
 | stats
-    Esql.event_count = count_distinct(_id),
+    Esql.event_count = count(),
     Esql.process_parent_name_values = values(process.parent.name),
     Esql.process_parent_command_line_values = values(process.parent.command_line),
     Esql.agent_id_count_distinct = count_distinct(agent.id),
