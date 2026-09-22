@@ -73,7 +73,7 @@ query = '''
 from logs-anthropic.audit-*
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "configuration" and
+    mv_contains(event.category, "file") and
     event.action == "claude_chat_snapshot_created" and
     event.outcome == "success" and
     user.email is not null

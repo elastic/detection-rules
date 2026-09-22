@@ -72,7 +72,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "configuration" and
+    mv_contains(event.category, "configuration") and
     event.action == "extra_usage_spend_limit_deleted"
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''

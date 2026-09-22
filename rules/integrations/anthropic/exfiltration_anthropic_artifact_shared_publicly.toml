@@ -73,7 +73,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "configuration" and
+    mv_contains(event.category, "configuration") and
     event.action == "claude_artifact_sharing_updated"
 | eval Esql.audience_types = FIELD_EXTRACT(anthropic.audit.audience, "type")
 | where Esql.audience_types is not null and mv_contains(Esql.audience_types, "anyone_with_link")

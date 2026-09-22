@@ -71,7 +71,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "iam" and
+    mv_contains(event.category, "iam") and
     event.action == "admin_api_key_deleted"
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''

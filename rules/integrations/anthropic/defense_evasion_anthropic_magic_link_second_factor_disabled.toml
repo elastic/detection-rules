@@ -74,7 +74,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "configuration" and
+    mv_contains(event.category, "configuration") and
     event.action == "org_magic_link_second_factor_toggled" and
     anthropic.audit.enabled == false
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*

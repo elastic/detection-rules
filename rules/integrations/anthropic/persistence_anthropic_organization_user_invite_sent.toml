@@ -75,7 +75,7 @@ query = '''
 from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "iam" and
+    mv_contains(event.category, "iam") and
     event.action == "org_user_invite_sent" and
     event.outcome == "success"
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, related.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*

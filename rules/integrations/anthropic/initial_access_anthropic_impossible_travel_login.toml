@@ -82,7 +82,7 @@ query = '''
 from logs-anthropic.audit-*
 | where
     data_stream.dataset == "anthropic.audit" and
-    event.category == "authentication" and
+    mv_contains(event.category, "authentication") and
     event.outcome == "success" and
     event.action in ("magic_link_login_succeeded", "sso_login_succeeded") and
     user.email is not null and
