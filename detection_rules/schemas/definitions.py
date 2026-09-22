@@ -86,6 +86,9 @@ ESQL_FROM_KEYWORD_REGEX = re.compile(r"\bFROM\b\s+", re.IGNORECASE)
 ESQL_FROM_SOURCES_TERMINATOR_REGEX = re.compile(r"\||\)|\bMETADATA\b", re.IGNORECASE)
 ESQL_INDEX_PATTERN_REGEX = re.compile(r"^[\w.*\-]+$")
 ESQL_DYNAMIC_FIELD_PREFIXES = ("Esql.", "Esql_priv.")
+# Single-valued ES|QL operators: applied to a field holding more than one value they return null, so
+# a `WHERE` on them silently drops the row. See functions-operators/operators in the ES|QL reference.
+ESQL_SINGLE_VALUE_OPERATOR_REGEX = r"==|!=|<=|>=|<|>|\b(?:not\s+)?(?:in|like|rlike)\b"
 BRANCH_PATTERN = f"{VERSION_PATTERN}|^master$"
 ELASTICSEARCH_EQL_FEATURES = {
     "allow_negation": (Version.parse("8.9.0"), None),

@@ -6,13 +6,16 @@
 """ESQL Query Parsing Classes."""
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 
+from .ecs import get_multivalued_fields
 from .schemas.definitions import (
     ESQL_COMMENTS_AND_LITERALS_REGEX,
     ESQL_FROM_KEYWORD_REGEX,
     ESQL_FROM_SOURCES_TERMINATOR_REGEX,
     ESQL_INDEX_PATTERN_REGEX,
+    ESQL_SINGLE_VALUE_OPERATOR_REGEX,
 )
 
 
@@ -133,3 +136,27 @@ def replace_esql_query_sources(query: str, replacements: dict[tuple[int, int], s
     for (start, end), replacement in sorted(replacements.items(), reverse=True):
         query = query[:start] + replacement + query[end:]
     return query
+
+
+def get_esql_multivalued_field_comparisons(query: str, multivalued_fields: Collection[str] | None = None) -> list[str]:
+    """Return the fields that can hold more than one value and are compared directly with a single-valued operator.
+
+    `event.category == "process"` returns null, not false, when the document has more than one category, so the
+    row is dropped and the rule silently stops matching. Fields defaults to the ECS array fields, see
+    `ecs.get_multivalued_fields`. A field the query has `MV_EXPAND`ed is single-valued afterwards and is skipped.
+    """
+    fields = (
+        get_multivalued_fields() if multivalued_fields is None else frozenset(f.lower() for f in multivalued_fields)
+    )
+    # Literals are replaced with quotes rather than blanks so a keyword before one, e.g. `WHERE "x" == field`,
+    # is not read as the left operand
+    scannable = ESQL_COMMENTS_AND_LITERALS_REGEX.sub(lambda match: '"' * len(match.group(0)), query)
+    expanded = {match.lower() for match in re.findall(r"\bMV_EXPAND\s+`?([\w.@]+)`?", scannable, re.IGNORECASE)}
+
+    name = r"`?([A-Za-z_@][\w.@]*)`?"
+    operator = f"(?:{ESQL_SINGLE_VALUE_OPERATOR_REGEX})"
+    # A field name adjacent to the operator on either side, so `MV_FIRST(event.category) == "x"` is not matched
+    compared = re.compile(rf"(?<![\w.`]){name}\s*{operator}|{operator}\s*{name}(?!\s*\()", re.IGNORECASE)
+
+    found = {(left or right).lower() for left, right in compared.findall(scannable)}
+    return sorted(field for field in found if field in fields and field not in expanded)

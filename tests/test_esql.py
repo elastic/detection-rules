@@ -7,7 +7,9 @@
 
 import unittest
 
+from detection_rules.ecs import get_multivalued_fields
 from detection_rules.esql import (
+    get_esql_multivalued_field_comparisons,
     get_esql_query_indices,
     get_esql_query_source_groups,
     replace_esql_query_sources,
@@ -87,3 +89,55 @@ class TestESQLQuerySources(unittest.TestCase):
         """Test that a query with no FROM clause yields no groups."""
         self.assertListEqual(get_esql_query_source_groups("| WHERE x == 1"), [])
         self.assertListEqual(get_esql_query_indices("| WHERE x == 1"), [])
+
+
+class TestESQLMultivaluedFieldComparisons(unittest.TestCase):
+    """Tests for detecting single-valued operators applied directly to fields that can hold more than one value."""
+
+    FIELDS = ("event.category", "event.type", "process.args")
+
+    def test_ecs_array_fields_are_multivalued(self) -> None:
+        """Test that fields ECS normalizes as arrays are multivalued and scalar fields are not."""
+        multivalued = get_multivalued_fields()
+        self.assertTrue({"event.category", "event.type", "process.args"} <= multivalued)
+        self.assertFalse({"event.action", "host.os.type", "process.name"} & multivalued)
+
+    def test_direct_comparisons_are_reported(self) -> None:
+        """Test that each single-valued operator applied directly to a multivalued field is reported."""
+        for expression in (
+            'event.category == "iam"',
+            '"iam" == event.category',
+            'event.type != "start"',
+            "event.type < 1 OR event.type > 1 OR event.type <= 1 OR event.type >= 1",
+            'event.type IN ("start", "end")',
+            'event.type NOT IN ("start")',
+            'event.type LIKE "sta*"',
+            'event.type RLIKE "sta.*"',
+            '`event.type` == "start"',
+            'CASE(event.type == "start", 1, 0) == 1',
+        ):
+            with self.subTest(expression=expression):
+                hits = get_esql_multivalued_field_comparisons(f"FROM logs-* | WHERE {expression}", self.FIELDS)
+                self.assertEqual(len(hits), 1)
+
+    def test_multivalue_aware_usage_is_not_reported(self) -> None:
+        """Test that MV_ functions, null checks, MV_EXPAND and single-valued fields are not reported."""
+        for query in (
+            'FROM logs-* | WHERE MV_CONTAINS(event.category, "iam")',
+            'FROM logs-* | WHERE MV_FIRST(event.category) == "iam" AND "iam" == MV_FIRST(event.category)',
+            "FROM logs-* | WHERE MV_COUNT(process.args) > 1 AND event.category IS NOT NULL",
+            'FROM logs-* | MV_EXPAND event.category | WHERE event.category == "iam"',
+            'FROM logs-* | WHERE host.os.type == "linux" AND event.action == "exec"',
+            'FROM logs-* // event.category == "iam"\n| WHERE message == "event.type == start"',
+        ):
+            with self.subTest(query=query):
+                self.assertListEqual(get_esql_multivalued_field_comparisons(query, self.FIELDS), [])
+
+    def test_only_the_offending_fields_are_reported(self) -> None:
+        """Test that a query mixing safe and unsafe usage reports only the fields compared directly."""
+        query = """
+        FROM logs-* METADATA _id
+        | MV_EXPAND event.type
+        | WHERE event.type == "start" AND event.category == "process" AND MV_CONTAINS(process.args, "-d")
+        """
+        self.assertListEqual(get_esql_multivalued_field_comparisons(query, self.FIELDS), ["event.category"])
