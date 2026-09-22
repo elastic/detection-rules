@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "sonicwall_firewall", "suricata"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -109,6 +109,10 @@ query = '''
         flow_terminated or network_flow or server-rst or timeout)
     and not (event.action:netflow_flow and not network.packets > 1)
     and not network.application:(stretchoid-scanning or traceroute)
+    and not (
+        data_stream.dataset:panw.panos and
+        network.application:("incomplete" or "insufficient-data" or "not-applicable")
+    )
     and destination.port:23
     and (network.protocol:(telnet or not *) or data_stream.dataset:fortinet_fortigate.log)
 '''
