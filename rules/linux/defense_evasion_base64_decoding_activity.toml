@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -110,17 +110,25 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
         ) or
         (
             process.name == "openssl" and
-            process.args == "enc" and
-            process.args in ("-d", "-base64", "-a")
+            mv_contains(process.args, "enc") and
+            (
+                mv_contains(process.args, "-d") or
+                mv_contains(process.args, "-base64") or
+                mv_contains(process.args, "-a")
+            )
         ) or
         (
             process.name like "python*" and (
                 (
-                    process.args == "base64" and
-                    process.args in ("-d", "-u", "-t")
+                    mv_contains(process.args, "base64") and
+                    (
+                        mv_contains(process.args, "-d") or
+                        mv_contains(process.args, "-u") or
+                        mv_contains(process.args, "-t")
+                    )
                 ) or
                 (
-                    process.args == "-c" and
+                    mv_contains(process.args, "-c") and
                     process.command_line like "*base64*" and
                     process.command_line like "*b64decode*"
                 )
@@ -132,7 +140,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
         ) or
         (
             process.name like "ruby*" and
-            process.args == "-e" and
+            mv_contains(process.args, "-e") and
             process.command_line like "*Base64.decode64*"
         )
     )
