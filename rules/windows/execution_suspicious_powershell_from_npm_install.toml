@@ -1,0 +1,224 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects PowerShell launched with an encoded command or a download cradle whose process ancestry includes a Node.js
+npm package execution (`npx-cli.js` with a scoped or versioned package). Malicious npm packages and supply-chain
+compromises commonly run this from install or postinstall scripts to fetch and execute a second stage.
+"""
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Suspicious PowerShell from npm Package Install"
+note = """## Triage and analysis
+
+### Investigating Suspicious PowerShell from npm Package Install
+
+PowerShell with an encoded command or a download cradle (`DownloadString`, `Invoke-WebRequest`, `Invoke-Expression`,
+BITS) ran in a process tree that includes Node.js executing an npm package via `npx-cli.js`. That pattern is common
+in malicious npm packages and compromised dependencies.
+
+### Possible investigation steps
+
+- Review `all_pkg_cmdline` for the `npx-cli.js` invocation and identify the package name, scope, and version.
+- Inspect `process.command_line` and whether `is_encoded_powershell` or `is_download_cradle` is true. Decode any
+  `-EncodedCommand` payload and extract URLs, file paths, and follow-on commands.
+- Correlate the same `host.id` and `user.name` for new files, outbound connections, and additional child processes
+  from the Node.js or PowerShell tree.
+- Check recent npm installs, `package.json` lifecycle scripts, and lockfile changes on the host for the package in
+  `all_pkg_cmdline`.
+
+### False positive analysis
+
+- Some legitimate packages download helpers or build tools with PowerShell during install. Confirm the package,
+  publisher, and destination URL before excluding.
+- Scope exceptions to a known package command line, host, or user. Do not broadly exclude `npx` or `powershell.exe`.
+
+### Response and remediation
+
+- If malicious, isolate the host, stop the Node.js and PowerShell process tree, and remove the package and any
+  dropped files.
+- Rotate credentials and tokens available to that user or build environment, including npm tokens and cloud keys.
+- Block the package and related domains, and hunt for the same `all_pkg_cmdline` and PowerShell command line on
+  other hosts.
+"""
+references = ["https://www.elastic.co/blog/shai-hulud-worm-npm-supply-chain-compromise"]
+risk_score = 73
+rule_id = "c4e8a1d7-2b6f-4e93-8a15-7d0c3f9b6e42"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Threat: Supply Chain",
+    "Threat: Script-Based Execution",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+
+| EVAL is_pkg_install = CASE(
+    // npm
+    process.parent.name == "node.exe" AND
+      process.parent.command_line LIKE "*npx-cli.js*@*", true,
+    false
+  )
+
+| EVAL cmdline_lower = TO_LOWER(process.command_line)
+
+| EVAL is_encoded_powershell = CASE(
+    TO_LOWER(process.name) == "powershell.exe" AND (
+        cmdline_lower LIKE "*-encodedcommand*" OR
+        cmdline_lower LIKE "*-encodedcomman*" OR
+        cmdline_lower LIKE "*-encodedcomma*" OR
+        cmdline_lower LIKE "*-encodedcomm*" OR
+        cmdline_lower LIKE "*-encodedcom*" OR
+        cmdline_lower LIKE "*-encodedco*" OR
+        cmdline_lower LIKE "*-encodedc*" OR
+        cmdline_lower LIKE "*-encoded*" OR
+        cmdline_lower LIKE "*-encode*" OR
+        cmdline_lower LIKE "*-encod*" OR
+        cmdline_lower LIKE "*-enco*" OR
+        cmdline_lower LIKE "*-enc*" OR
+        cmdline_lower LIKE "*-en *" OR
+        cmdline_lower LIKE "*-ec *" OR
+        cmdline_lower LIKE "*-ec:*"
+     ), true, false
+  )
+
+// plain -Command / dot-sourced / no-flag download cradles that skip -EncodedCommand entirely
+| EVAL is_download_cradle = CASE(
+     process.name == "powershell.exe" AND (
+        cmdline_lower LIKE "*downloadstring*" OR
+        cmdline_lower LIKE "*downloadfile*" OR
+        cmdline_lower LIKE "*downloaddata*" OR
+        cmdline_lower LIKE "*net.webclient*" OR
+        cmdline_lower LIKE "*new-object*webclient*" OR
+        cmdline_lower LIKE "*invoke-webrequest*" OR
+        cmdline_lower LIKE "* iwr *" OR
+        cmdline_lower LIKE "* iwr(*" OR
+        cmdline_lower LIKE "*invoke-restmethod*" OR
+        cmdline_lower LIKE "* irm *" OR
+        cmdline_lower LIKE "* irm(*" OR
+        cmdline_lower LIKE "*invoke-expression*" OR
+        cmdline_lower LIKE "* iex *" OR
+        cmdline_lower LIKE "* iex(*" OR
+        cmdline_lower LIKE "*start-bitstransfer*" OR
+        cmdline_lower LIKE "*bitstransfer*" OR
+        cmdline_lower LIKE "*system.net.webclient*"
+     ), true, false
+  )
+
+| EVAL is_susp_powershell = CASE(is_encoded_powershell OR is_download_cradle, true, false)
+
+| WHERE process.Ext.ancestry IS NOT NULL AND (is_susp_powershell OR is_pkg_install)
+
+// Capture entity_ids for package install parent processes
+| EVAL all_entity_id = CASE(is_pkg_install, process.parent.entity_id, "null")
+
+// Collect all package install entity_ids globally
+| INLINE STATS all_pkg_entity_ids = VALUES(all_entity_id), all_pkg_cmdline = VALUES(process.parent.command_line) WHERE all_entity_id != "null"
+
+// Find which package install entity_ids appear in this process's ancestry
+| EVAL Esql.pkg_ancestor_ids = MV_INTERSECTION(all_pkg_entity_ids, process.Ext.ancestry)
+
+// susp powershell (encoded or download cradle) and descended from an npm package install process
+| WHERE Esql.pkg_ancestor_ids IS NOT NULL AND is_susp_powershell
+
+| KEEP _id, _version, _index, data_stream.namespace, host.id, host.name, user.name, process.entity_id, process.executable, process.command_line, process.parent.executable, all_pkg_cmdline,
+       is_encoded_powershell, is_download_cradle
+'''
+
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "host.id",
+    "host.name",
+    "user.name",
+    "process.executable",
+    "process.command_line",
+    "process.parent.executable",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1195"
+name = "Supply Chain Compromise"
+reference = "https://attack.mitre.org/techniques/T1195/"
+[[rule.threat.technique.subtechnique]]
+id = "T1195.002"
+name = "Compromise Software Supply Chain"
+reference = "https://attack.mitre.org/techniques/T1195/002/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique.subtechnique]]
+id = "T1027.010"
+name = "Command Obfuscation"
+reference = "https://attack.mitre.org/techniques/T1027/010/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
