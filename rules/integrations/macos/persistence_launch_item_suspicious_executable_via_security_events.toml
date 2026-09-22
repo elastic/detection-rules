@@ -78,7 +78,7 @@ FROM logs-macos.process_execution_monitoring-* metadata _id, _version, _index
 | GROK macos.event.message.description "type=%{DATA:Esql.item_type},"
 | GROK macos.event.message.description "BTMConfigExecutablePath = \"%{DATA:Esql.executable}\""
 | WHERE Esql.executable RLIKE "/(private/)?(tmp|var/tmp|var/folders)/.*|/Users/Shared/.*|/Users/[^/]+/(Downloads|Public|Library/Caches)/.*"
-| KEEP host.name, Esql.executable, Esql.plist_path, Esql.item_type, macos.event.message.description
+| KEEP _id, _version, _index, @timestamp, host.name, Esql.executable, Esql.plist_path, Esql.item_type, macos.event.message.description
 '''
 
 [[rule.threat]]

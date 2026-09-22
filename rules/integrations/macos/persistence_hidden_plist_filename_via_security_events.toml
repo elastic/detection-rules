@@ -80,7 +80,7 @@ FROM logs-macos.process_execution_monitoring-* metadata _id, _version, _index
 | GROK macos.event.message.description "type=%{DATA:Esql.item_type},"
 | GROK macos.event.message.description "BTMConfigExecutablePath = \"%{DATA:Esql.executable}\""
 | WHERE Esql.plist_path RLIKE ".*/Library/Launch(Agents|Daemons)/\\..*\\.plist"
-| KEEP host.name, Esql.plist_path, Esql.item_type, Esql.executable, macos.event.message.description
+| KEEP _id, _version, _index, @timestamp, host.name, Esql.plist_path, Esql.item_type, Esql.executable, macos.event.message.description
 '''
 
 [[rule.threat]]
