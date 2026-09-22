@@ -1,0 +1,202 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a Windows Installer install from a remote MSI URL, followed by execution of known remote monitoring and
+management (RMM) tools. Attackers may use this mechanism to install RMM tools and establish or persist remote access.
+"""
+false_positives = [
+    """
+    The correlation here is temporal, not causal. An unrelated restart of an existing RMM process within the same host
+    and time window may also satisfy the sequence.
+    """,
+]
+from = "now-10m"
+index = ["logs-endpoint.events.process-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Potential RMM Installation from a Remote MSI URL"
+references = [
+    "https://www.huntress.com/blog/velociraptor-misuse-part-two-eye-of-the-storm",
+    "https://www.huntress.com/blog/series-of-unfortunate-rmm-events",
+    "https://gist.github.com/MHaggis/8e9afce52acf08663465e83459874cdc",
+]
+risk_score = 21
+rule_id = "8efdba98-7f62-46aa-94fc-dbed1e43e705"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Threat: Installer Abuse",
+    "Threat: Remote Management Tool Abuse",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by host.id with maxspan=5m
+  [process where host.os.type == "windows" and
+    event.type == "start" and process.name : "msiexec.exe" and
+    process.args : ("/i", "-i", "/package", "-package") and
+    process.args : ("http://*", "https://*")]
+  [process where host.os.type == "windows" and
+    event.type == "start" and
+    process.name : (
+      "acroniscyberprotectconnectagent.exe", "action1_agent.exe", "action1_remote.exe", "aeroadmin.exe", "agentmon.exe",
+      "ammyy_admin.exe", "anydesk.exe", "apc_admin.exe", "apc_host.exe", "ateraagent.exe", "awesun.exe", "b4-service.exe",
+      "basupsrvc.exe", "bomgar-scc.exe", "remote support.exe", "cagservice.exe", "client32.exe", "cloudracmd.exe",
+      "cloudrasd.exe", "cloudraservice.exe", "domotzagent.exe", "domotz-windows-x64-10.exe", "dwagsvc.exe", "dwrcc.exe",
+      "dwrcs.exe", "dwrcst.exe", "g2aservice.exe", "getscreen.exe", "gotoassistservice.exe", "gotohttp.exe",
+      "gotoresolveprocesschecker.exe", "gotoresolveremotecontrol.exe", "gotoresolveservice.exe", "gotoresolveterminal.exe",
+      "gotoresolveunattended.exe", "helpwire.exe", "immyagent.exe", "immybot.agent.ephemeral.exe", "immyupdater.exe",
+      "imperoclientsvc.exe", "imperoserversvc.exe", "isllight.exe", "isllightclient.exe", "jumpcloud-agent.exe",
+      "komari.exe", "komari-agent.exe", "level.exe", "lmi_rescue.exe", "lmi_rescue_srv.exe", "lmiignition.exe",
+      "logmein.exe", "ltsvc.exe", "ltsvcmon.exe", "lttray.exe", "lunixar.exe", "lunixarremote.exe", "lunixarupdater.exe",
+      "lvagent.exe", "manageengine_remote_access_plus.exe", "meshagent.exe", "mikogo-service.exe", "nezha-agent.exe",
+      "ninjarmmagent.exe", "ninjarmmagentpatcher.exe", "ninjarmm-cli.exe", "parsec.exe", "pcictlui.exe",
+      "pdq-connect-agent.exe", "pdq-connect-updater.exe", "pservice.exe", "r_server.exe", "radmin.exe", "radmin3.exe",
+      "rserver3.exe", "rcengmgru.exe", "rcclient.exe", "rcmgrsvc.exe", "rcservice.exe", "remotedesktopmanager.exe",
+      "remotely_agent.exe", "remotely_desktop.exe", "remotepc.exe", "remotepcdesktop.exe", "remotepcservice.exe",
+      "remoteview.exe", "rfusclient.exe", "rmm.agent.exe", "romserver.exe", "romviewer.exe", "rpcsuite.exe",
+      "rustdesk.exe", "rutserv.exe", "rutview.exe", "rvagent.exe", "rvagtray.exe", "saazapsc.exe", "session_win.exe",
+      "simplegatewayservice.exe", "simplehelpcustomer.exe", "smpcview.exe", "spclink.exe", "splashtop-streamer.exe",
+      "splashtopsos.exe", "spsrv.exe", "sragent.exe", "srmanager.exe", "srserver.exe", "srservice.exe", "strwinclt.exe",
+      "supremo.exe", "supremoservice.exe", "syncro.app.runner.exe", "syncro.installer.exe", "syncro.overmind.service.exe",
+      "syncro.service.exe", "syncrolive.agent.exe", "syncrolive.agent.runner.exe", "syncrolive.service.exe",
+      "tacticalrmm.exe", "tailscale.exe", "tailscaled.exe", "teamviewer.exe", "teamviewer_desktop.exe",
+      "teamviewer_service.exe", "tiagent.exe", "ticlientcore.exe", "todesk_service.exe", "toolsiq.exe", "tsclient.exe",
+      "tvn.exe", "tvnserver.exe", "tvnviewer.exe", "twingate.exe", "velociraptor.exe", "vncserver.exe", "vncviewer.exe",
+      "winvnc.exe", "winwvc.exe", "za_access.exe", "za_connect.exe", "zaservice.exe", "zmagent.exe", "zohomeeting.exe",
+      "zohotray.exe", "zohours.exe", "zohoursservice.exe", "aa_v*.exe", "aweray_remote*.exe", "fleetdeck_commander*.exe",
+      "screenconnect*.exe", "ultravnc*.exe", "ultraviewer*.exe"
+    ) and
+    process.code_signature.subject_name : (
+      "Action1 Corporation", "Aeroadmin LLC", "AmidaWare LLC", "Ammyy LLC", "AnyDesk Software GmbH",
+      "AOMEI International Network Limited", "Atera Networks Ltd", "AWERAY PTE. LTD.", "BeamYourScreen GmbH",
+      "Bomgar Corporation", "BreakingSecurity.net", "ConnectWise, Inc.", "ConnectWise, LLC", "Devolutions Inc",
+      "Devolutions inc.", "DOMOTZ INC.", "DUC FABULOUS CO.,LTD", "DWSNET OÜ", "DWSNET srl", "Electronic Team, Inc.",
+      "Famatech Corp.", "FleetDeck Inc", "FleetDeck Inc.", "GlavSoft LLC", "GlavSoft LLC.",
+      "GoTo Technologies USA, LLC", "Hefei Pingbo Network Technology Co. Ltd", "IDrive, Inc.",
+      "Impero Solutions Limited", "Instant Housecall", "ISL Online Ltd.", "JumpCloud Inc", "Level Software, Inc.",
+      "LogMeIn, Inc.", "LUNIXAR SAS DE CV", "MMSOFT Design Ltd.", "Monitoring Client", "MSPBytes Corp",
+      "MSPBytes, Corp.", "N-ABLE TECHNOLOGIES LTD", "Nanosystems S.r.l.", "NetSupport Ltd", "NetSupport Ltd.",
+      "NinjaOne LLC", "NinjaRMM, LLC", "Open Source Developer, Huabing Zhou", "Parallels International GmbH",
+      "PDQ.com Corporation", "philandro Software GmbH", "Pro Softnet Corporation", "PURSLANE", "Rapid7 LLC", "RealVNC",
+      "RealVNC Limited", "REMOTE UTILITIES PTE. LTD.", "Remote Utilities LLC", "Rocket Software, Inc.",
+      "Rsupport Co., Ltd.", "SAFIB", "ScreenConnect Client", "Servably, Inc.", "Servably Inc.", "ShowMyPC INC",
+      "SimpleHelp Ltd", "Splashtop Inc.", "Superops Inc.", "Tailscale Inc.", "TeamViewer", "TeamViewer GmbH",
+      "TeamViewer Germany GmbH", "Techinline Limited", "uvnc bvba", "Yakhnovets Denis Aleksandrovich IP",
+      "Zhou Huabing", "ZOHO Corporation Private Limited"
+    )]
+'''
+
+setup = """
+## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+"""
+
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential RMM Installation from a Remote MSI URL
+
+#### Possible investigation steps
+
+- What relationship do the two source process events actually establish?
+  - Why: sequence alerts can expose only shared fields at the alert level, while the installer and RMM stages describe different processes.
+  - Focus: use the **Investigate in timeline** button and inspect both process-start events on the same `host.id`; capture each `@timestamp` and `process.entity_id`, the installer `process.command_line` and `process.args`, and the later `process.code_signature.subject_name`.
+  - Implication: the sequence supports concern when the HTTP/S value is the MSI package operand; by itself it does not distinguish a newly installed runtime from a restart of an existing RMM instance, and concern weakens when the HTTP/S argument is not the package operand or the runtime predates the installer.
+
+- Does the remote package source and installer launch context fit a legitimate deployment path?
+  - Focus: the installer member's URL in `process.args`, `process.parent.executable`, `process.parent.command_line`, `user.id`, and affected `host.id` cohort.
+  - Implication: public file hosting, look-alike vendor infrastructure, an interactive shell, or a launcher unrelated to software deployment increases concern; a vendor or internal distribution URL under a recognized management parent is more explainable but still requires organizational confirmation.
+
+- Does the later process have a coherent RMM identity and expected launch path?
+  - Focus: the RMM member's `process.executable`, `process.pe.original_file_name`, `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.hash.sha256`.
+  - Implication: mismatched names, a user-writable path, missing trust, or an unfamiliar hash supports escalation; a matching reported signer subject identifies the claimed publisher but does not establish signature trust, installer causality, or authorization.
+
+- Did the RMM process exhibit remote-control or follow-on execution behavior?
+  - Focus: child starts where `process.parent.entity_id` matches the recovered RMM `process.entity_id`; for network activity, match network-event `process.entity_id` to that recovered RMM identity, then inspect `dns.question.name`, `destination.ip`, and `destination.port`; inspect child `process.command_line` for operator activity.
+  - Implication: interactive shells, scripts, file-transfer tooling, credential access, or unexpected public destinations indicate likely abuse; an idle or expected vendor connection lowers urgency only when the deployment is otherwise confirmed. Missing network telemetry is unresolved, not benign.
+
+- If local evidence remains suspicious or unresolved, is the installer source or RMM artifact present on other hosts?
+  - Focus: search the recovered URL pattern from `process.command_line`, RMM `process.hash.sha256`, and `process.code_signature.subject_name` across distinct `host.id` values.
+  - Hint: for sibling processes this rule misses, compare `process.name`, `process.pe.original_file_name`, and `process.code_signature.exists`.
+  - Implication: repeated delivery or the same artifact beyond the recurring `host.id` cohort associated with the same package source and `process.parent.executable` broadens incident scope; concentration in a deployment cohort confirmed by change or support records supports a narrower response but does not clear contradictory local behavior.
+
+- Escalate when package source, launch context, RMM identity, or follow-on behavior lacks a bounded legitimate explanation; close only when the URL, installer lineage, RMM identity, host cohort, and change or support record align; preserve artifacts and escalate when evidence or visibility is mixed or incomplete.
+
+### False positive analysis
+
+- Legitimate IT and managed service provider workflows may install RMM agents directly from vendor or organization-controlled MSI URLs. Confirm the exact package source in `process.args`, managed `process.parent.executable`, expected `user.id` and `host.id` cohort, RMM `process.code_signature.subject_name`, `process.code_signature.trusted`, and `process.hash.sha256`, and the corresponding change or support record before closing the alert.
+- An established RMM service can restart by coincidence after an unrelated remote MSI request. Confirm that the same service, `process.executable`, and `process.hash.sha256` existed before the installer event and that the remote package in `process.args` belongs to a different recognized workflow.
+- Scope exceptions to the installer event's `process.name`, exact URL or domain pattern in `process.args`, `process.parent.executable`, and the managed `host.id` or `user.id` cohort. Do not suppress on the RMM filename, signer subject, domain, user, or host alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and document the package URL from `process.args`, installer `process.parent.executable`, RMM `process.executable`, `process.code_signature.subject_name`, `process.hash.sha256`, affected `host.id` cohort, and validating change or support record. Apply only the narrow exception described above when recurrence is expected.
+- If suspicious but unconfirmed, export the alert and Timeline sequence to the case and preserve any cached MSI, installed RMM binary and configuration, active remote sessions, and volatile process state before termination. Apply reversible containment to confirmed delivery or control infrastructure, and escalate to host isolation when active remote access remains plausible and the asset can tolerate it.
+- If confirmed malicious, use endpoint response to isolate the host, terminate unauthorized RMM sessions, and block the confirmed package URL from `process.args`, RMM `process.hash.sha256`, and control infrastructure from `dns.question.name` or `destination.ip`. If direct endpoint response is unavailable, escalate with the preserved package, binary, configuration, session, and scope evidence to the team that can act.
+- Before uninstalling software or deleting artifacts, scope the same package source from `process.args`, RMM `process.hash.sha256`, `process.code_signature.subject_name`, configuration, and control infrastructure across other hosts and users. Then remove unauthorized services and persistence, rotate credentials exposed during the remote session, revoke active sessions, and address the delivery or software-control gap that permitted the installation.
+"""
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
