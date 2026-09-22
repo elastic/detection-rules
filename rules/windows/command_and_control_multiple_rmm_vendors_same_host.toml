@@ -2,7 +2,7 @@
 creation_date = "2026/03/23"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender", "system", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -92,8 +92,8 @@ type = "esql"
 query = '''
 from logs-endpoint.events.process-*, logs-crowdstrike.fdr*, logs-m365_defender.event-*, logs-sentinel_one_cloud_funnel.*, logs-system.security*, logs-windows.sysmon_operational-*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
 | where (host.os.type == "windows" or host.os.family == "windows")
-    and event.category == "process"
-    and event.type == "start"
+    and mv_contains(event.category, "process")
+    and mv_contains(event.type, "start")
     and process.name is not null
 | eval Esql.rmm_vendor = case(
     process.name.caseless like "aa_v*.exe", "AnyAssist",

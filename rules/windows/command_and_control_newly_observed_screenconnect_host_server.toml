@@ -2,7 +2,7 @@
 creation_date = "2026/03/09"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -40,7 +40,7 @@ type = "esql"
 
 query = '''
 from logs-endpoint.events.process-*
-| where event.category == "process" and event.type == "start" and (process.name == "ScreenConnect.ClientService.exe" or process.code_signature.subject_name == "ConnectWise, LLC")
+| where mv_contains(event.category, "process") and mv_contains(event.type, "start") and (process.name == "ScreenConnect.ClientService.exe" or process.code_signature.subject_name == "ConnectWise, LLC")
 | grok process.command_line """e=Access&y=Guest&h=(?<Esql.screenconnect_server>[^&]+)&p"""
 | where Esql.screenconnect_server is not null and not Esql.screenconnect_server like "*.screenconnect.com"
 | stats Esql.count_distinct_host_id = count_distinct(host.id),

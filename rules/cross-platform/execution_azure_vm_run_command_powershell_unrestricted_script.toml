@@ -2,7 +2,7 @@
 creation_date = "2026/05/20"
 integration = ["azure", "endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -80,7 +80,7 @@ query = '''
 FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _version, _index
 | WHERE 
   (
-    event.category == "process" AND KQL("event.action:start")
+    MV_CONTAINS(event.category, "process") AND KQL("event.action:start")
     AND process.parent.name == "powershell.exe"
     AND process.parent.command_line LIKE "powershell  -ExecutionPolicy Unrestricted -File script?.ps1"
     AND process.name != "conhost.exe"
@@ -100,9 +100,9 @@ FROM logs-azure.activitylogs-*, logs-endpoint.events.process-* METADATA _id, _ve
     TO_LOWER(azure.resource.name)
   )
 | EVAL ts_runcommand = CASE(event.module == "azure", @timestamp, null)
-| EVAL ts_endpoint = CASE(event.category == "process", @timestamp, null)
+| EVAL ts_endpoint = CASE(MV_CONTAINS(event.category, "process"), @timestamp, null)
 | EVAL is_runcommand = CASE(event.module == "azure", 1, null)
-| EVAL is_endpoint = CASE(event.category == "process", 1, null)
+| EVAL is_endpoint = CASE(MV_CONTAINS(event.category, "process"), 1, null)
 | EVAL Esql.time_bucket = DATE_TRUNC(2 minutes, @timestamp)
 | STATS
     runcommand_count = COUNT(is_runcommand),

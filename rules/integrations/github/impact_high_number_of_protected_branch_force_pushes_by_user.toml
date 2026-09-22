@@ -4,7 +4,7 @@ integration = ["github"]
 maturity = "production"
 min_stack_comments = "Changing min stack to 9.3.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -77,7 +77,7 @@ query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
   data_stream.dataset == "github.audit" and
-  event.type == "change" and
+  mv_contains(event.type, "change") and
   event.action == "protected_branch.policy_override" and
   github.category == "protected_branch" and
   mv_contains(github.reasons.code, "force_push")

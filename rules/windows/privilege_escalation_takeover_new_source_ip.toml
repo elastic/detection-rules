@@ -2,7 +2,7 @@
 creation_date = "2026/02/25"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -67,7 +67,7 @@ type = "esql"
 
 query = '''
 from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
-| where event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and 
+| where mv_contains(event.category, "authentication") and event.action == "logged-in" and winlog.event_id == "4624" and 
         event.outcome == "success" and winlog.logon.type in ("Network", "RemoteInteractive") and 
 		source.ip is not null and source.ip != "127.0.0.1" and not to_string(source.ip) like "*::*" and not user.name like "*$"
 | stats logon_count = COUNT(*), host_names = VALUES(host.name) by user.name, user.id, source.ip

@@ -2,7 +2,7 @@
 creation_date = "2026/03/23"
 integration = ["microsoft_exchange_online_message_trace"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -84,7 +84,7 @@ from logs-microsoft_exchange_online_message_trace.* metadata _id, _version, _ind
 
 // Filter for Azure Monitor notification emails with financial/billing themed subjects
 | where data_stream.dataset == "microsoft_exchange_online_message_trace.log"
-    and email.from.address == "azure-noreply@microsoft.com"
+    and mv_contains(email.from.address, "azure-noreply@microsoft.com")
     and event.outcome in ("success", "unknown")
     and email.subject like "*Azure Monitor alert*"
     and (

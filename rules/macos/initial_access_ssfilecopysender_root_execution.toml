@@ -2,7 +2,7 @@
 creation_date = "2026/08/19"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -105,7 +105,7 @@ type = "esql"
 query = '''
 from logs-endpoint.events.process-* METADATA _id, _index, _version
 | WHERE host.os.type == "macos"
-    AND event.type == "start"
+    AND MV_CONTAINS(event.type, "start")
     AND process.name == "SSFileCopySender"
     AND KQL(""" process.args : "0" AND process.args : "80" """)
 | KEEP _id, _version, _index,
