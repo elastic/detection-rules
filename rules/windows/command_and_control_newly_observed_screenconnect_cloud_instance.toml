@@ -61,7 +61,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version
     ) AND
     TO_LOWER(process.command_line) like "*e=access*" AND
     TO_LOWER(process.command_line) like "*y=guest*"
-| GROK process.command_line """h=(?<Esql.screenconnect_instance>[^&]+)"""
+| GROK TO_LOWER(process.command_line) """h=(?<Esql.screenconnect_instance>[^&]+)"""
 
 // Tag the event as current or historical based on ingest time, falling back to @timestamp.
 | EVAL
