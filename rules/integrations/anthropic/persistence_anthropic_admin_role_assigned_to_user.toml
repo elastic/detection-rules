@@ -2,20 +2,23 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/23"
 
 [rule]
 author = ["Elastic"]
 description = """
-The admin role controls organization settings, integrations, membership, and security configuration in Anthropic
-Claude for Enterprise. An attacker can assign it to a compromised or newly invited account to turn initial access
-into durable control-plane access. From admin, they can disable SSO, mint admin API keys for automation, start data
-exports, and weaken audit logging.
+The organization admin role controls organization settings, integrations, membership, and security configuration in
+Anthropic Claude for Enterprise. Membership role changes are reported as `claude_user_role_updated` with
+`anthropic.audit.current_role`. An attacker can promote a compromised or newly invited account to org admin to turn
+initial access into durable control-plane access. From admin, they can disable SSO, mint admin API keys for
+automation, start data exports, and weaken audit logging. Workspace-scoped `role_assignment_granted` grants (for
+example bare `admin` on a workspace) are out of scope for this rule.
 """
 false_positives = [
     """
-    IT administrators assign admin roles during onboarding, staffing changes, or incident response. Verify that the
-    target user should hold admin privileges, and that a change request exists when policy requires one.
+    IT administrators promote users to organization admin during onboarding, staffing changes, or incident response.
+    Verify that the target user should hold org admin privileges, and that a change request exists when policy
+    requires one.
     """,
 ]
 from = "now-9m"
@@ -26,27 +29,30 @@ note = """## Triage and analysis
 
 ### Investigating Anthropic Admin Role Assigned to User
 
-Org admin can change SSO, API keys, exports, and integrations. This rule matches `role_assignment_granted` where
-`user.target.roles` is the literal `admin` (not project roles; not `rbac_role_assigned`).
+Org admin can change SSO, API keys, exports, and integrations. This rule matches `claude_user_role_updated` where
+`anthropic.audit.current_role` is the literal `admin` (organization membership role — not workspace
+`role_assignment_granted`, not project `chat_project:*` roles, not `rbac_role_assigned`).
 
-Unauthorized = no IAM ticket naming the target as admin, target recently invited from an unexpected domain, or the
-grant is followed by key creation / SSO weakening / exports by the same actor or target.
+Unauthorized = no IAM ticket naming the target as org admin, target recently invited from an unexpected domain, or
+the promotion is followed by key creation / SSO weakening / exports by the same actor or target.
 
 #### Possible investigation steps
 
-- Identify target (`user.target.id`, `related.user`) and assigner (`actor.type`; for `user_actor` check email/IP/UA).
-- Check whether the target was invited or otherwise role-changed shortly before becoming admin.
-- After the grant, review ~48h of target activity and org IAM (primary owner transfer, admin keys, SSO, exports).
-- Close as FP when ticket + job function match. Escalate when the grant is untracked or precedes control-plane abuse.
+- Identify target (`user.target.id`, `user.target.email`, `related.user`) and assigner (`anthropic.audit.actor.type`;
+  for `user_actor` check email/IP/UA).
+- Compare `anthropic.audit.previous_role` → `anthropic.audit.current_role` and check whether the target was invited or
+  otherwise role-changed shortly before becoming admin.
+- After the promotion, review ~48h of target activity and org IAM (primary owner transfer, admin keys, SSO, exports).
+- Close as FP when ticket + job function match. Escalate when the change is untracked or precedes control-plane abuse.
 
 ### False positive analysis
 
-- Onboarding and IR staffing changes are valid — require change request when policy demands one.
+- Onboarding and IR staffing promotions to org admin are valid — require change request when policy demands one.
 
 ### Response and remediation
 
-- On unauthorized grant: revoke admin, rotate credentials for assigner and target, audit admin API keys and
-  integration changes for the organization.
+- On unauthorized promotion: revoke org admin (downgrade membership role), rotate credentials for assigner and
+  target, audit admin API keys and integration changes for the organization.
 """
 references = [
     "https://www.elastic.co/security-labs/elastic-advances-llm-security",
@@ -74,8 +80,8 @@ from logs-anthropic.audit-* metadata _id, _version, _index
 | where
     data_stream.dataset == "anthropic.audit" and
     mv_contains(event.category, "iam") and
-    event.action == "role_assignment_granted" and
-    user.target.roles == "admin"
+    event.action == "claude_user_role_updated" and
+    anthropic.audit.current_role == "admin"
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
@@ -122,14 +128,13 @@ field_names = [
     "event.id",
     "organization.id",
     "user.target.id",
-    "user.target.roles",
+    "user.target.email",
     "related.user",
-    "anthropic.audit.resource_id",
-    "anthropic.audit.resource_type",
+    "anthropic.audit.current_role",
+    "anthropic.audit.previous_role",
     "anthropic.audit.actor.type",
     "user.email",
     "user.id",
     "source.ip",
     "user_agent.original",
 ]
-
