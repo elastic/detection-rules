@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+SSO routes Anthropic authentication through the corporate identity provider. Disabling SSO, or deactivating or
+deleting an SSO connection, moves users onto alternate sign-in paths where IdP-enforced MFA, conditional access, and
+session policies no longer apply. That opens the door to password or magic-link accounts the attacker controls.
+"""
+false_positives = [
+    """
+    Identity provider directory sync and SCIM provisioning can deactivate or delete SSO connections during IdP
+    migrations, directory attribute changes, or connector maintenance. If `anthropic.audit.actor.type` is
+    `scim_directory_sync_actor`, correlate with WorkOS or Okta change windows before escalating.
+    """,
+    """
+    Administrators deactivate or delete SSO connections during identity provider migrations, certificate rotation, or
+    maintenance. Validate the actor, `anthropic.audit.connection_id`, and whether SSO was restored after the change.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic SSO Disabled or Connection Removed"
+note = """## Triage and analysis
+
+### Investigating Anthropic SSO Disabled or Connection Removed
+
+SSO is the primary path that enforces corporate IdP MFA and session policy. Turning SSO off, or deactivating/deleting
+a connection, pushes users onto alternate sign-in (password / magic link) the attacker may control.
+
+Severity by action: `org_sso_connection_deleted` (must re-bind IdP) > `org_sso_connection_deactivated` >
+`org_sso_toggled` with `anthropic.audit.enabled: false`.
+
+Unauthorized = no IdP change ticket / maintenance window for this `anthropic.audit.connection_id`, or a `user_actor`
+change outside known admins, especially with sibling magic-link second-factor disablement or admin role grants.
+SCIM-driven events during a documented connector sync are usually FP.
+
+#### Possible investigation steps
+
+- Branch on `anthropic.audit.actor.type`:
+  - `scim_directory_sync_actor`: check `anthropic.audit.directory_id` / `workos_event_id` / `idp_connection_type`
+    against IdP sync or certificate rotation windows before escalating.
+  - `user_actor`: compare `user.email`, `source.ip`, and `user_agent.original` to expected admins; scripting UA or
+    new IP is higher priority.
+- Note `event.action`, `anthropic.audit.connection_id`, and `organization.id`. Check whether SSO was restored
+  afterward.
+- Correlate ±hours for magic link second factor changes, admin role grants, invites, or admin API key creation.
+
+### False positive analysis
+
+- IdP migrations often deactivate or delete a connection before the replacement is live — match ticket and restore.
+
+### Response and remediation
+
+- On unauthorized change: restore or reconfigure SSO immediately, then review accounts that authenticated while SSO
+  was unavailable and rotate credentials for any suspicious successful logins in that window.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "b0b81938-a2d3-4222-977b-56f9c81afcf7"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Domain: Identity",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "iam") and
+    (
+        event.action in ("org_sso_connection_deactivated", "org_sso_connection_deleted") or
+        (event.action == "org_sso_toggled" and anthropic.audit.enabled == false)
+    )
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.connection_id",
+    "anthropic.audit.enabled",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.directory_id",
+    "anthropic.audit.actor.workos_event_id",
+    "anthropic.audit.actor.idp_connection_type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

@@ -1,0 +1,235 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful Anthropic audit activity where the user agent matches scripting HTTP clients, offensive scanners,
+or automation libraries (for example curl, python-requests, Go-http-client, axios, nuclei). Browser and first-party
+Claude clients normally present recognizable browser or product user agents; raw HTTP library agents on successful
+control-plane or product activity often indicate scripted access, stolen-session reuse, or unauthorized automation.
+Known benign automation patterns (axios or Go HTTP clients on file upload/delete, trusted device enrollment, and
+environment creation) are excluded.
+"""
+false_positives = [
+    """
+    Approved internal automation, CI jobs, or SDK integrations may present scripting user agents. Validate the actor,
+    source IP, and action against change tickets before treating as compromise. Prefer excluding stable identities or
+    source networks rather than removing the matching user-agent pattern.
+    """,
+    """
+    Penetration tests and red-team exercises that use curl, httpx, or similar clients will match. Add temporary
+    exceptions for the engagement window after validation.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Activity from a Suspicious User Agent"
+note = """## Triage and analysis
+
+### Investigating Anthropic Activity from a Suspicious User Agent
+
+Successful Anthropic audit events normally come from browser or first-party Claude clients. This rule flags scripting
+HTTP clients, scanners, or automation libraries on successful activity. UAs are spoofable — corroborate with actor,
+IP, and `event.action`.
+
+Benign automation using axios or Go HTTP clients is already excluded for `platform_file_uploaded`,
+`platform_file_deleted`, `claude_file_uploaded`, `trusted_device_enrolled`, and `environment_created`.
+
+Unauthorized / escalate when a normally browser-bound user suddenly uses curl/python/Go-http-client on privileged
+actions (IAM, exports, SSO, keys). Close as FP for approved SDK/CI identities on expected actions.
+
+#### Possible investigation steps
+
+- Compare `user_agent.original` and `event.action` to the user's baseline. A shift to curl, python-requests, or
+  Go-http-client on admin/export actions is higher priority than the same UA on already-allowlisted file ops.
+- Branch `anthropic.audit.actor.type` and check `user.email` / `source.ip` against approved automation inventory.
+- Pivot the same email/IP for auth failures, impossible travel, role changes, exports, or compliance logging changes.
+
+### False positive analysis
+
+- Internal GenAI SDKs (`openai*`, `anthropic-sdk*`, `langchain*`) and CI jobs match — exclude stable identities, not
+  entire UA families. Extend the Go/axios action allowlist only with evidence of additional benign actions.
+
+### Response and remediation
+
+- On unauthorized scripting access: revoke sessions, rotate credentials/MFA, review admin/export activity around the
+  alert, and hunt other scripting-UA activity from the same IP or email.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "d370aacb-a344-4578-a69c-beca88e063a1"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Command and Control",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.outcome == "success" and
+    source.ip is not null and
+    source.ip != "0.0.0.0" and
+    user.email is not null and
+    user_agent.original is not null
+| eval Esql.ua_lower = to_lower(user_agent.original)
+| where
+    (
+        Esql.ua_lower like "curl*" or
+        Esql.ua_lower like "python*" or
+        Esql.ua_lower like "wget*" or
+        Esql.ua_lower like "go-http*" or
+        Esql.ua_lower like "perl*" or
+        Esql.ua_lower like "libwww-perl*" or
+        Esql.ua_lower like "java*" or
+        Esql.ua_lower like "node*" or
+        Esql.ua_lower like "php*" or
+        Esql.ua_lower like "guzzle*" or
+        Esql.ua_lower like "bun*" or
+        Esql.ua_lower like "axios*" or
+        Esql.ua_lower like "undici*" or
+        Esql.ua_lower like "okhttp*" or
+        Esql.ua_lower like "apache-httpclient*" or
+        Esql.ua_lower like "httpclient*" or
+        Esql.ua_lower like "httpie*" or
+        Esql.ua_lower like "ruby*" or
+        Esql.ua_lower like "postmanruntime*" or
+        Esql.ua_lower like "restsharp*" or
+        Esql.ua_lower like "*kali*" or
+        Esql.ua_lower like "*parrot*" or
+        Esql.ua_lower like "*pentoo*" or
+        Esql.ua_lower like "*backbox*" or
+        Esql.ua_lower like "*blackarch*" or
+        Esql.ua_lower like "scrapy*" or
+        Esql.ua_lower like "mechanize*" or
+        Esql.ua_lower like "aiohttp*" or
+        Esql.ua_lower like "httpx*" or
+        Esql.ua_lower like "requests*" or
+        Esql.ua_lower like "pycurl*" or
+        Esql.ua_lower like "urllib*" or
+        Esql.ua_lower like "got/*" or
+        Esql.ua_lower like "node-fetch*" or
+        Esql.ua_lower like "superagent*" or
+        Esql.ua_lower like "ky/*" or
+        Esql.ua_lower like "fetch*" or
+        Esql.ua_lower like "deno*" or
+        Esql.ua_lower like "powershell*" or
+        Esql.ua_lower like "invoke-webrequest*" or
+        Esql.ua_lower like "windowspowershell*" or
+        Esql.ua_lower like "wget2*" or
+        Esql.ua_lower like "aria2*" or
+        Esql.ua_lower like "httrack*" or
+        Esql.ua_lower like "nikto*" or
+        Esql.ua_lower like "sqlmap*" or
+        Esql.ua_lower like "nmap*" or
+        Esql.ua_lower like "masscan*" or
+        Esql.ua_lower like "zgrab*" or
+        Esql.ua_lower like "nuclei*" or
+        Esql.ua_lower like "dirbuster*" or
+        Esql.ua_lower like "gobuster*" or
+        Esql.ua_lower like "ffuf*" or
+        Esql.ua_lower like "feroxbuster*" or
+        Esql.ua_lower like "wfuzz*" or
+        Esql.ua_lower like "burpsuite*" or
+        Esql.ua_lower like "hydra*" or
+        Esql.ua_lower like "metasploit*" or
+        Esql.ua_lower like "*havoc*" or
+        Esql.ua_lower like "*sliver*" or
+        Esql.ua_lower like "*cobalt strike*" or
+        Esql.ua_lower like "dart*" or
+        Esql.ua_lower like "rector*" or
+        Esql.ua_lower like "ruby-faraday*" or
+        Esql.ua_lower like "httparty*" or
+        Esql.ua_lower like "clj-http*" or
+        Esql.ua_lower like "hackney*" or
+        Esql.ua_lower like "elixir*" or
+        Esql.ua_lower like "swift-nio*" or
+        Esql.ua_lower like "vapor*" or
+        Esql.ua_lower like "rust*" or
+        Esql.ua_lower like "reqwest*" or
+        Esql.ua_lower like "ureq*" or
+        Esql.ua_lower like "hyper/*" or
+        Esql.ua_lower like "cohere-go*" or
+        Esql.ua_lower like "openai*" or
+        Esql.ua_lower like "anthropic-sdk*" or
+        Esql.ua_lower like "langchain*" or
+        Esql.ua_lower like "llamaindex*" or
+        Esql.ua_lower like "litellm*" or
+        Esql.ua_lower like "dspy*" or
+        Esql.ua_lower like "*zgrab*" or
+        Esql.ua_lower like "*masscan*" or
+        Esql.ua_lower like "*nessus*" or
+        Esql.ua_lower like "*shodan*" or
+        Esql.ua_lower like "*censys*" or
+        Esql.ua_lower like "*binaryedge*" or
+        Esql.ua_lower like "*internetmeasurement*" or
+        Esql.ua_lower like "*internetcensus*" or
+        Esql.ua_lower like "*shadowserver*" or
+        Esql.ua_lower like "*stretchoid*" or
+        Esql.ua_lower like "*http.rb*"
+    ) and
+    not (
+        event.action in (
+            "platform_file_deleted",
+            "platform_file_uploaded",
+            "claude_file_uploaded",
+            "trusted_device_enrolled",
+            "environment_created"
+        ) and
+        (Esql.ua_lower like "go-http*" or Esql.ua_lower like "axios*")
+    )
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*, Esql.ua_lower
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "source.ip", "user_agent.original"]
+duration = {value = 1, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "event.outcome",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+    "Esql.ua_lower",
+]
