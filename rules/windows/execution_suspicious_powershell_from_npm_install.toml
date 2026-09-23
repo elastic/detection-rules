@@ -76,8 +76,10 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 
 | EVAL is_pkg_install = CASE(
     // npm
-    process.parent.name == "node.exe" AND
-      process.parent.command_line LIKE "*npx-cli.js*@*", true,
+    process.parent.name == "node.exe" AND (
+      process.parent.command_line LIKE "*npx-cli.js*" OR
+      process.parent.command_line LIKE "*\\npm-cache\\_npx\\*"
+    ), true,
     false
   )
 
@@ -99,7 +101,8 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
         cmdline_lower LIKE "*-enc*" OR
         cmdline_lower LIKE "*-en *" OR
         cmdline_lower LIKE "*-ec *" OR
-        cmdline_lower LIKE "*-ec:*"
+        cmdline_lower LIKE "*-ec:*" OR
+        cmdline_lower LIKE "*frombase64*"
      ), true, false
   )
 
