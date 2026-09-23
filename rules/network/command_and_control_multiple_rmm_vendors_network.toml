@@ -84,7 +84,7 @@ risk_score = 47
 rule_id = "72ba47c8-7b4f-452f-b60a-ecaa7f8b5cca"
 setup = """## Setup
 
-This rule requires DNS transaction events from one of the following passive network integrations:
+This rule requires DNS transaction events from one of the following DNS telemetry sources:
 
 - Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
 - Fortinet FortiGate DNS logs (`fortinet_fortigate.log`) in `logs-fortinet_fortigate.log-*`
@@ -107,6 +107,8 @@ tags = [
     "Data Source: Network Traffic",
     "Data Source: Suricata",
     "Data Source: Zeek",
+    "Noise: High",
+    "Profile: Aggressive",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
@@ -123,8 +125,8 @@ from logs-fortinet_fortigate.log-*, logs-network_traffic.dns-*, logs-suricata.ev
 | eval
     Esql.client_ip = COALESCE(client.ip, source.ip),
     Esql.dataset = COALESCE(data_stream.dataset, event.dataset),
-    Esql.dns_question_name = TO_LOWER(dns.question.name),
-    Esql.dns_registered_domain = TO_LOWER(dns.question.registered_domain)
+    Esql.dns_question_name = REPLACE(TO_LOWER(dns.question.name), """\.$""", ""),
+    Esql.dns_registered_domain = REPLACE(TO_LOWER(dns.question.registered_domain), """\.$""", "")
 | where Esql.client_ip is not null
 | eval Esql.rmm_vendor = CASE(
     Esql.dns_registered_domain == "action1.com", "Action1",
@@ -162,11 +164,13 @@ from logs-fortinet_fortigate.log-*, logs-network_traffic.dns-*, logs-suricata.ev
     Esql.dns_registered_domain == "tightvnc.com", "TightVNC",
     Esql.dns_registered_domain == "ultravnc.com", "UltraVNC",
     Esql.dns_registered_domain == "vnc.com", "RealVNC",
-    Esql.dns_question_name in ("assist.zoho.com", "assist.zoho.com.")
-        or Esql.dns_registered_domain in ("zohoassist.com", "zohoassist.jp"), "ZohoAssist",
-    ""
+    (
+        Esql.dns_question_name == "assist.zoho.com"
+        or Esql.dns_registered_domain in ("zohoassist.com", "zohoassist.jp")
+    ), "ZohoAssist",
+    NULL
 )
-| where Esql.rmm_vendor != ""
+| where Esql.rmm_vendor is not null
 | stats
     Esql.event_count = COUNT(*),
     Esql.rmm_vendor_count = COUNT_DISTINCT(Esql.rmm_vendor),
