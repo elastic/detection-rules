@@ -1,0 +1,108 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Extra usage spend limits cap Anthropic organizational spend beyond included usage. Deleting a spend limit removes that
+cap and can enable unrestricted API or Claude consumption. An attacker who already has administrative or API access can
+delete the limit to burn budget, run large automated workloads, or stage resource abuse without the previous guardrail.
+"""
+false_positives = [
+    """
+    Finance or platform teams delete outdated spend limits when consolidating billing policies or replacing them with
+    new limits. Confirm the actor, nearby create or update events, and an approved change before escalating.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Extra Usage Spend Limit Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic Extra Usage Spend Limit Deleted
+
+Deleting an extra-usage spend limit removes a billing guardrail; it does not create spend by itself. Treat it as an
+early signal for follow-on quota burn or automated workloads.
+
+Unauthorized = no finance/platform ticket to redesign billing, and no nearby `extra_usage_spend_limit_created` /
+`extra_usage_spend_limit_updated` that replaces the deleted limit — especially if high chat creation or file uploads
+follow.
+
+#### Possible investigation steps
+
+- Branch on actor: `user_actor` → `user.email` / `source.ip` / UA; `api_actor` → `anthropic.audit.actor.api_key_id`
+  and whether that key is in inventory.
+- Check for create/update of a replacement limit within the same change window (planned redesign) vs standalone
+  deletion.
+- After the delete, look for elevated `claude_chat_created`, file uploads, or other high-volume activity on the same
+  `organization.id`.
+- Close as FP when a finance/platform ticket names the redesign and a replacement create/update exists. Escalate when
+  deletion is orphaned or usage spikes afterward.
+
+### False positive analysis
+
+- Billing consolidations often delete an old limit shortly before creating a new one.
+
+### Response and remediation
+
+- On unauthorized deletion: restore an appropriate spend limit, review API keys and admin sessions active during the
+  exposure window, and quantify extra usage accrued after the change.
+"""
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
+risk_score = 47
+rule_id = "9a944f66-417d-4dee-83a2-afd3f7980212"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "configuration") and
+    event.action == "extra_usage_spend_limit_deleted"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.spend_limit_id",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.api_key_id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
