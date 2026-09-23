@@ -87,21 +87,10 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 
 | EVAL is_encoded_powershell = CASE(
     TO_LOWER(process.name) == "powershell.exe" AND (
-        cmdline_lower LIKE "*-encodedcommand*" OR
-        cmdline_lower LIKE "*-encodedcomman*" OR
-        cmdline_lower LIKE "*-encodedcomma*" OR
-        cmdline_lower LIKE "*-encodedcomm*" OR
-        cmdline_lower LIKE "*-encodedcom*" OR
-        cmdline_lower LIKE "*-encodedco*" OR
-        cmdline_lower LIKE "*-encodedc*" OR
-        cmdline_lower LIKE "*-encoded*" OR
-        cmdline_lower LIKE "*-encode*" OR
-        cmdline_lower LIKE "*-encod*" OR
-        cmdline_lower LIKE "*-enco*" OR
-        cmdline_lower LIKE "*-enc*" OR
-        cmdline_lower LIKE "*-en *" OR
-        cmdline_lower LIKE "*-ec *" OR
-        cmdline_lower LIKE "*-ec:*" OR
+        cmdline_lower LIKE "* -enc*" OR
+        cmdline_lower LIKE "* -en *" OR
+        cmdline_lower LIKE "* -ec *" OR
+        cmdline_lower LIKE "* -ec:*" OR
         cmdline_lower LIKE "*frombase64*"
      ), true, false
   )
@@ -124,8 +113,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
         cmdline_lower LIKE "* iex *" OR
         cmdline_lower LIKE "* iex(*" OR
         cmdline_lower LIKE "*start-bitstransfer*" OR
-        cmdline_lower LIKE "*bitstransfer*" OR
-        cmdline_lower LIKE "*system.net.webclient*"
+        cmdline_lower LIKE "*bitstransfer*"
      ), true, false
   )
 
