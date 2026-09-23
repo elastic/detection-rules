@@ -78,7 +78,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
     // npm
     process.parent.name == "node.exe" AND (
       process.parent.command_line LIKE "*npx-cli.js*" OR
-      process.parent.command_line LIKE "*\\npm-cache\\_npx\\*"
+      process.parent.command_line LIKE """*\\npm-cache\\_npx\\*"""
     ), true,
     false
   )
@@ -137,7 +137,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 | EVAL all_entity_id = CASE(is_pkg_install, process.parent.entity_id, "null")
 
 // Collect all package install entity_ids globally
-| INLINE STATS all_pkg_entity_ids = VALUES(all_entity_id), all_pkg_cmdline = VALUES(process.parent.command_line) WHERE all_entity_id != "null"
+| INLINE STATS all_pkg_entity_ids = VALUES(all_entity_id), all_pkg_cmdline = VALUES(process.parent.command_line) WHERE all_entity_id != "null" by host.id
 
 // Find which package install entity_ids appear in this process's ancestry
 | EVAL Esql.pkg_ancestor_ids = MV_INTERSECTION(all_pkg_entity_ids, process.Ext.ancestry)
