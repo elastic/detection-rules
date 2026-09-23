@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Magic link second factor adds an extra authentication step to passwordless sign-in for Anthropic. An attacker with
+administrative access can turn it off so magic link logins no longer require the second factor, which makes stolen or
+attacker-controlled mailboxes usable for interactive access. This often shows up alongside SSO weakening when the
+attacker wants a fallback authentication path outside the corporate IdP.
+"""
+false_positives = [
+    """
+    Administrators disable magic link second factor during authentication policy changes or troubleshooting. Verify
+    the actor and whether the setting was re-enabled or replaced with an equivalent control.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Magic Link Second Factor Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Magic Link Second Factor Disabled
+
+Magic link second factor is an extra step on passwordless sign-in. Disabling it means anyone who can receive the
+mailbox's magic link can authenticate without that second check — a useful fallback if an attacker also weakens SSO.
+
+Treat as unauthorized unless identity has a change ticket / maintenance window that names this control, or the setting
+was re-enabled (or replaced with equivalent MFA) within the same change window.
+
+#### Possible investigation steps
+
+- Identify the actor (`anthropic.audit.actor.type`). For `user_actor`, check whether `user.email`, `source.ip`, and
+  `user_agent.original` match a known admin; a scripting UA or unfamiliar IP raises priority.
+- In the same `organization.id` and ±hours window, look for SSO disable/deactivate/delete, admin role grants, or a
+  burst of `magic_link_login_succeeded` after the change.
+- Close as FP when the ticket matches the actor and time, and second factor (or equivalent IdP MFA) was restored.
+  Escalate when there is no ticket, the actor is unexpected, or sibling auth-weakening events appear.
+
+### False positive analysis
+
+- Auth migrations and troubleshooting sometimes disable this briefly; require a ticket and restoration evidence.
+
+### Response and remediation
+
+- On unauthorized disable: re-enable magic link second factor, review magic-link sign-ins since the change, and
+  investigate concurrent SSO / admin IAM events for the same organization.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "58ad16ae-4c96-424e-9cd2-c151ac79e8ea"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Domain: Identity",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "configuration") and
+    event.action == "org_magic_link_second_factor_toggled" and
+    anthropic.audit.enabled == false
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.006"
+name = "Multi-Factor Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.enabled",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
