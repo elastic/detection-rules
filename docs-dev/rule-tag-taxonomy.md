@@ -125,7 +125,7 @@ Security Hub
 
 | Rule `type` / case | Tag(s) |
 | --- | --- |
-| `esql` | Prefer `Rule Type: ES\|QL` (taxonomy). Legacy `Rule Type: ESQL` remains valid on existing rules. |
+| `esql` | `Rule Type: ES\|QL` |
 | `query` (KQL) | `Rule Type: Custom Query (KQL)` |
 | `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
 | `eql` | `Rule Type: Event Correlation (EQL)` |
