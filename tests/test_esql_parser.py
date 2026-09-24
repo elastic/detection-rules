@@ -223,7 +223,7 @@ class TestEsqlOfflineSchemaPasses:
         loaded = RuleCollection().load_dict(rule)
         validator = ESQLValidator(loaded.contents.data.query)
         first = id(validator.ast)
-        validator.validate(loaded.contents.data, loaded.contents.metadata, force_remote_validation=False)
+        validator.validate(loaded.contents.data, loaded.contents.metadata)
         # Same grammar → same tree object still referenced after validate
         assert id(validator.ast) == first
 
@@ -268,7 +268,7 @@ class TestEsqlCorpusOffline:
             meta = rule.contents.metadata
             name = str(getattr(rule, "path", None) or data.rule_id)
             try:
-                ESQLValidator(data.query).validate(data, meta, force_remote_validation=False)
+                ESQLValidator(data.query).validate(data, meta)
             except Exception as exc:  # noqa: BLE001 — collect all failures
                 failures.append(f"{name}: {type(exc).__name__}: {exc}")
 

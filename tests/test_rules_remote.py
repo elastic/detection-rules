@@ -3,9 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
 from copy import deepcopy
-from types import SimpleNamespace
 
 import pytest
 
@@ -16,221 +14,16 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
-from detection_rules.index_mappings import (
-    align_flat_schema_to_flattened_fields,
-    collect_flattened_fields,
-    prepare_mappings,
-)
-from detection_rules.misc import (
-    get_default_config,
-    getdefault,
-)
 from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.rule_validators import ESQLValidator
 from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
 
 
-class TestESQLRemoteValidation(unittest.TestCase):
-    """Unit tests for ES|QL remote validation behavior that mock remote services."""
-
-    def test_remote_validation_uses_patch_floor_for_prepare_mappings(self):
-        """ES|QL remote validation prepares mappings with patch-adjusted stack versions."""
-        query = """
-        FROM logs-pkg.new_ds-* metadata _id, _version, _index
-        | WHERE data_stream.dataset == "pkg.new_ds"
-        | KEEP _id, _version, _index
-        """
-        metadata = SimpleNamespace(integration=["pkg"])
-        prepared_stack_versions: list[str] = []
-
-        def prepare_mappings_side_effect(
-            _elastic_client,
-            _indices,
-            _event_dataset_integrations,
-            _metadata,
-            stack_version,
-            _log,
-        ):
-            prepared_stack_versions.append(stack_version)
-            return {}, {}, {}
-
-        def patch_floor_side_effect(packages, major, minor):
-            self.assertIn("pkg", packages)
-            return 4 if (major, minor) == (9, 2) else 0
-
-        validator = ESQLValidator(query)
-        with (
-            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.2.0"),
-            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.2.0", "9.3.0"]),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
-                side_effect=patch_floor_side_effect,
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect
-            ),
-            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.execute_query_against_indices",
-                return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
-            ),
-            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
-        ):
-            response = validator.remote_validate_rule(
-                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.2.0"}}),
-                elastic_client=object(),
-                query=query,
-                metadata=metadata,
-                rule_id="test-rule",
-            )
-
-        self.assertEqual(response, {"ok": True})
-        self.assertIn("9.2.0", prepared_stack_versions)
-        self.assertIn("9.2.4", prepared_stack_versions)
-        self.assertIn("9.3.0", prepared_stack_versions)
-
-    def test_collect_flattened_fields_keeps_first_source(self):
-        """Known `flattened` fields are collected with the name of the first mapping that declares them."""
-        mappings: dict[str, dict[str, object]] = {
-            "existing-index-template-mappings": {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}},
-            "azure-platformlogs": {
-                "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
-            },
-            "other-integration": {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}},
-        }
-        self.assertEqual(
-            collect_flattened_fields(mappings),
-            {
-                "custom_ns.payload": "existing-index-template-mappings",
-                "azure.platformlogs.properties": "azure-platformlogs",
-            },
-        )
-
-    def test_flat_schema_subfields_collapsed_onto_flattened_parent(self):
-        """Entries below a known `flattened` field collapse onto that field instead of nesting as `object`."""
-        flattened_fields = {"azure.platformlogs.properties": "azure-platformlogs"}
-        flat_schema = {
-            "azure.platformlogs.properties.log.verb": "keyword",
-            "azure.platformlogs.properties.id": "keyword",
-            "azure.platformlogs.category": "keyword",
-            "user.name": "keyword",
-        }
-        logged: list[str] = []
-
-        aligned = align_flat_schema_to_flattened_fields(
-            flat_schema, flattened_fields, "rule-non-ecs-index", logged.append
-        )
-
-        self.assertEqual(
-            aligned,
-            {
-                "azure.platformlogs.properties": "flattened",
-                "azure.platformlogs.category": "keyword",
-                "user.name": "keyword",
-            },
-        )
-        self.assertEqual(len(logged), 1)
-        self.assertIn("`azure.platformlogs.properties`", logged[0])
-        self.assertIn("`flattened` in `azure-platformlogs`", logged[0])
-        self.assertIn("`object` in `rule-non-ecs-index`", logged[0])
-
-    def test_flat_schema_scalar_conflict_collapsed_onto_flattened_field(self):
-        """An entry typed differently from a known `flattened` field is retyped as `flattened`."""
-        flattened_fields = {"azure.platformlogs.properties": "azure-platformlogs"}
-        flat_schema = {
-            "azure.platformlogs.properties": "keyword",
-            "azure.platformlogs.properties.log.verb": "keyword",
-        }
-        logged: list[str] = []
-
-        aligned = align_flat_schema_to_flattened_fields(
-            flat_schema, flattened_fields, "custom logs-azure.platformlogs-*", logged.append
-        )
-
-        self.assertEqual(aligned, {"azure.platformlogs.properties": "flattened"})
-        self.assertEqual(len(logged), 1)
-        self.assertIn("`keyword` in `custom logs-azure.platformlogs-*`", logged[0])
-
-    def test_flat_schema_unchanged_without_conflicts(self):
-        """Schemas that already agree with the known `flattened` fields, or have none, are left as they are."""
-        flat_schema = {"azure.platformlogs.properties": "flattened", "user.name": "keyword"}
-        logged: list[str] = []
-
-        self.assertEqual(align_flat_schema_to_flattened_fields(flat_schema, {}, "x", logged.append), flat_schema)
-        self.assertEqual(
-            align_flat_schema_to_flattened_fields(
-                flat_schema, {"azure.platformlogs.properties": "azure-platformlogs"}, "x", logged.append
-            ),
-            flat_schema,
-        )
-        self.assertEqual(logged, [])
-
-    def test_prepare_mappings_aligns_schema_mappings_with_flattened_fields(self):
-        """`prepare_mappings` collapses non-ecs and custom subfields onto `flattened` fields from both real sources.
-
-        This pins the ordering inside `prepare_mappings`: the integration and existing index template mappings
-        must be loaded before the schema-derived mappings are converted, otherwise the known `flattened` fields
-        are empty at conversion time and the ambiguous mapping error from #6724 silently returns.
-        """
-        index = "logs-azure.platformlogs-*"
-        # `flattened` in the existing index template mappings only
-        existing_mappings: dict[str, object] = {"custom_ns": {"properties": {"payload": {"type": "flattened"}}}}
-        # `flattened` in the integration mappings only
-        integration_mapping: dict[str, object] = {
-            "azure": {"properties": {"platformlogs": {"properties": {"properties": {"type": "flattened"}}}}}
-        }
-        non_ecs_schema = {index: {"azure": {"platformlogs": {"properties": {"log": {"verb": "keyword"}}}}}}
-        custom_schema = {index: {"custom_ns": {"payload": {"key": "keyword"}}}}
-        logged: list[str] = []
-
-        with (
-            unittest.mock.patch(
-                "detection_rules.index_mappings.get_existing_mappings",
-                return_value=(existing_mappings, {index: deepcopy(existing_mappings)}),
-            ),
-            unittest.mock.patch("detection_rules.index_mappings.get_rule_integrations", return_value=["azure"]),
-            unittest.mock.patch("detection_rules.index_mappings.load_integrations_manifests", return_value={}),
-            unittest.mock.patch("detection_rules.index_mappings.load_integrations_schemas", return_value={}),
-            unittest.mock.patch(
-                "detection_rules.index_mappings.prepare_integration_mappings",
-                return_value=(deepcopy(integration_mapping), {"azure-platformlogs": integration_mapping}),
-            ),
-            unittest.mock.patch("detection_rules.ecs.get_non_ecs_schema", return_value=non_ecs_schema),
-            unittest.mock.patch("detection_rules.ecs.get_custom_schemas", return_value=custom_schema),
-        ):
-            _, index_lookup, combined_mappings = prepare_mappings(
-                elastic_client=object(),  # type: ignore[reportArgumentType]
-                indices=[index],
-                event_dataset_integrations=[],
-                metadata=SimpleNamespace(),  # type: ignore[reportArgumentType]
-                stack_version="9.3.0",
-                log=logged.append,
-            )
-
-        # non-ecs subfields collapsed onto the integration's `flattened` field
-        self.assertEqual(
-            index_lookup["rule-non-ecs-index"]["azure"]["properties"]["platformlogs"]["properties"]["properties"],
-            {"type": "flattened"},
-        )
-        # custom subfields collapsed onto the existing index template's `flattened` field
-        self.assertEqual(combined_mappings["custom_ns"]["properties"]["payload"], {"type": "flattened"})
-        warnings = [line for line in logged if "Mapping it as `flattened`" in line]
-        self.assertEqual(len(warnings), 3)
-        self.assertTrue(any("`azure.platformlogs.properties`" in w and "`non-ecs logs-azure" in w for w in warnings))
-        self.assertTrue(any("`azure.platformlogs.properties`" in w and "`rule-non-ecs-index`" in w for w in warnings))
-        self.assertTrue(any("`custom_ns.payload`" in w and "`existing-index-template-mappings`" in w for w in warnings))
-
-
-@unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
-@unittest.skipIf(
-    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
-)
 class TestRemoteRules(BaseRuleTest):
-    """Test rules against a remote Elastic stack instance."""
+    """ES|QL rule validation covered by the offline parser."""
 
     def test_get_hashable_content_required_fields_popped_when_keep_star_used(self):
         """Hashable content must not contain required_fields when query uses keep * or field wildcards."""
@@ -486,10 +279,8 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
-        # This is a type mismatch error due to Elastic Container project including the Endpoint integration by default.
-        # Otherwise one would expect an EsqlSchemaError due to the field not being present in the alerts index.
-        with pytest.raises(EsqlTypeMismatchError):
-            _ = RuleCollection().load_dict(production_rule)
+        # Endpoint package types file.Ext.entry_modified as double, so the comparison is valid offline.
+        _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_filtered_keep(self):
         """Test an ESQL rule's schema validation."""

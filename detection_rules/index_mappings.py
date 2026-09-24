@@ -6,36 +6,20 @@
 """Validation logic for rules containing queries."""
 
 import re
-import time
 from collections.abc import Callable
 from copy import deepcopy
 from typing import Any, cast
 
-from elastic_transport import ObjectApiResponse
-from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
-from elasticsearch.exceptions import BadRequestError
 from semver import Version
 
-from . import ecs, integrations, misc, utils
-from .config import load_current_package_version
+from . import ecs, integrations, utils
 from .esql import EventDataset
-from .esql_errors import (
-    EsqlKibanaBaseError,
-    EsqlSchemaError,
-    EsqlSyntaxError,
-    EsqlTypeMismatchError,
-    EsqlUnknownIndexError,
-    EsqlUnsupportedTypeError,
-    cleanup_empty_indices,
-)
+from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
     load_integrations_manifests,
     load_integrations_schemas,
 )
 from .rule import RuleMeta
-from .schemas import get_stack_schemas
-from .schemas.definitions import HTTP_STATUS_BAD_REQUEST
-from .utils import combine_dicts
 
 
 def delete_nested_key_from_dict(d: dict[str, Any], compound_key: str) -> None:
@@ -98,67 +82,6 @@ def get_rule_integrations(metadata: RuleMeta) -> list[str]:
             return list(metadata.integration)
         return [metadata.integration]
     return []
-
-
-def create_index_with_index_mapping(
-    elastic_client: Elasticsearch, index_name: str, mappings: dict[str, Any]
-) -> ObjectApiResponse[Any] | None:
-    """Create an index with the specified mappings and settings to support large number of fields and nested objects."""
-    try:
-        return elastic_client.indices.create(
-            index=index_name,
-            mappings={"properties": mappings},
-            settings={
-                "index.mapping.total_fields.limit": 10000,
-                "index.mapping.nested_fields.limit": 500,
-                "index.mapping.nested_objects.limit": 10000,
-            },
-        )
-    except BadRequestError as e:
-        error_message = str(e)
-        if (
-            e.status_code == HTTP_STATUS_BAD_REQUEST
-            and "validation_exception" in error_message
-            and "Validation Failed: 1: this action would add [2] shards" in error_message
-        ):
-            cleanup_empty_indices(elastic_client)
-            try:
-                return elastic_client.indices.create(
-                    index=index_name,
-                    mappings={"properties": mappings},
-                    settings={
-                        "index.mapping.total_fields.limit": 10000,
-                        "index.mapping.nested_fields.limit": 500,
-                        "index.mapping.nested_objects.limit": 10000,
-                    },
-                )
-            except BadRequestError as retry_error:
-                raise EsqlSchemaError(str(retry_error), elastic_client) from retry_error
-        raise EsqlSchemaError(error_message, elastic_client) from e
-
-
-def get_existing_mappings(elastic_client: Elasticsearch, indices: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Retrieve mappings for all matching existing index templates."""
-    existing_mappings: dict[str, Any] = {}
-    index_lookup: dict[str, Any] = {}
-    for index in indices:
-        index_tmpl_mappings = get_simulated_index_template_mappings(elastic_client, index)
-        index_lookup[index] = index_tmpl_mappings
-        combine_dicts(existing_mappings, index_tmpl_mappings)
-    return existing_mappings, index_lookup
-
-
-def get_simulated_index_template_mappings(elastic_client: Elasticsearch, name: str) -> dict[str, Any]:
-    """
-    Return the mappings from the index configuration that would be applied
-    to the specified index from an existing index template
-
-    https://elasticsearch-py.readthedocs.io/en/stable/api/indices.html#elasticsearch.client.IndicesClient.simulate_index_template
-    """
-    template = elastic_client.indices.simulate_index_template(name=name)
-    if not template:
-        return {}
-    return template["template"]["mappings"]["properties"]
 
 
 _SCALAR_MAPPING_TYPES = frozenset(
@@ -351,23 +274,6 @@ def prepare_integration_mappings(  # noqa: PLR0913, PLR0917
     return integration_mappings, index_lookup
 
 
-def get_index_to_package_lookup(indices: list[str], index_lookup: dict[str, Any]) -> dict[str, Any]:
-    """Get a lookup of index patterns to package names for the provided indices."""
-    index_lookup_indices: dict[str, Any] = {}
-    for key in index_lookup:
-        if key not in indices:
-            # Add logs-<key>* and logs-<key>-*
-            transformed_key_star = f"logs-{key.replace('-', '.')}*"
-            transformed_key_dash = f"logs-{key.replace('-', '.')}-*"
-            if "logs-endpoint." in transformed_key_star or "logs-endpoint." in transformed_key_dash:
-                transformed_key_star = transformed_key_star.replace("logs-endpoint.", "logs-endpoint.events.")
-                transformed_key_dash = transformed_key_dash.replace("logs-endpoint.", "logs-endpoint.events.")
-            index_lookup_indices[transformed_key_star] = key.replace("-", ".")
-            index_lookup_indices[transformed_key_dash] = key.replace("-", ".")
-
-    return index_lookup_indices
-
-
 def collect_known_esql_index_patterns(index_lookup: dict[str, Any], indices: list[str]) -> set[str]:
     """Build the set of known ES|QL index patterns from Fleet streams + non-ECS/custom."""
     # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
@@ -411,7 +317,7 @@ def validate_offline_esql_from_indices(
     event_dataset_integrations: list[EventDataset],
     stack_version: str,
 ) -> list[str]:
-    """Offline parity with remote prepare_mappings unknown-index checks."""
+    """Reject FROM and LOOKUP JOIN patterns that match no known index."""
     from .esql import infer_packages_from_indices
 
     rule_integrations = get_rule_integrations(metadata)
@@ -439,116 +345,6 @@ def validate_offline_esql_from_indices(
         _OFFLINE_INDEX_LOOKUP_CACHE[cache_key] = index_lookup
 
     return assert_known_esql_indices(indices, index_lookup)
-
-
-def get_filtered_index_schema(  # noqa: PLR0913, PLR0917
-    indices: list[str],
-    index_lookup: dict[str, Any],
-    ecs_schema: dict[str, Any],
-    non_ecs_mapping: dict[str, Any],
-    custom_mapping: dict[str, Any],
-    log: Callable[[str], None],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Check if the provided indices are known based on the integration format. Returns the combined schema."""
-
-    matches = assert_known_esql_indices(indices, index_lookup)
-
-    # Now that we have the matched indices, we need to filter the index lookup to only include those indices
-    filtered_index_lookup = {
-        "logs-" + key.replace("-", ".") + "*": value for key, value in index_lookup.items() if key not in indices
-    }
-    filtered_index_lookup.update(
-        {"logs-" + key.replace("-", ".") + "-*": value for key, value in index_lookup.items() if key not in indices}
-    )
-    filtered_index_lookup = {
-        key.replace("logs-endpoint.", "logs-endpoint.events."): value for key, value in filtered_index_lookup.items()
-    }
-
-    # Reduce the combined mappings to only the matched indices (local schema validation source of truth)
-    # Custom and non-ecs mappings are filtered before being sent to this function in prepare mappings
-    combined_mappings: dict[str, Any] = {}
-    utils.combine_dicts(combined_mappings, deepcopy(ecs_schema))
-    for match in matches:
-        base = filtered_index_lookup.get(match, {})
-        # Update filtered index with non-ecs and custom mappings
-        # Need to use a merge here to not overwrite existing fields
-        utils.combine_dicts(base, deepcopy(non_ecs_mapping.get(match, {})))
-        utils.combine_dicts(base, deepcopy(custom_mapping.get(match, {})))
-        filtered_index_lookup[match] = prune_mappings_of_unsupported_types(match, base, log)
-        utils.combine_dicts(combined_mappings, deepcopy(base))
-
-    # Reduce the index lookup to only the matched indices (remote/Kibana schema validation source of truth)
-    filtered_index_mapping: dict[str, Any] = {}
-    index_lookup_indices = get_index_to_package_lookup(indices, index_lookup)
-    for match in matches:
-        if match in index_lookup_indices:
-            index_name = index_lookup_indices[match].replace(".", "-")
-            filtered_index_mapping[index_name] = index_lookup[index_name]
-        else:
-            filtered_index_mapping[match] = filtered_index_lookup.get(match, {})
-
-    return combined_mappings, filtered_index_mapping
-
-
-def create_remote_indices(
-    elastic_client: Elasticsearch,
-    existing_mappings: dict[str, Any],
-    index_lookup: dict[str, Any],
-    log: Callable[[str], None],
-    name_suffix: str = "",
-) -> str:
-    """Create remote indices for validation and return the index string."""
-
-    # A rule prepares one set of indices per FROM clause, and those sets can be created within the
-    # same millisecond, so the caller passes a suffix to keep the index names distinct
-    suffix = f"{int(time.time() * 1000)}{name_suffix}"
-    test_index = f"rule-test-index-{suffix}"
-    response = create_index_with_index_mapping(elastic_client, test_index, existing_mappings)
-    log(f"Index `{test_index}` created: {response}")
-    full_index_str = test_index
-
-    # create all integration indices
-    for index, properties in index_lookup.items():
-        ind_index_str = f"test-{index.rstrip('*')}{suffix}"
-        response = create_index_with_index_mapping(elastic_client, ind_index_str, properties)
-        log(f"Index `{ind_index_str}` created: {response}")
-        full_index_str = f"{full_index_str}, {ind_index_str}"
-
-    return full_index_str
-
-
-def execute_query_against_indices(
-    elastic_client: Elasticsearch,
-    query: str,
-    test_index_str: str,
-    log: Callable[[str], None],
-    delete_indices: bool = True,
-) -> tuple[list[Any], ObjectApiResponse[Any]]:
-    """Execute the ESQL query against the test indices on a remote Stack and return the columns."""
-    try:
-        log(f"Executing a query against `{test_index_str}`")
-        response = elastic_client.esql.query(query=query)
-        log(f"Got query response: {response}")
-        query_columns = response.get("columns", [])
-    except BadRequestError as e:
-        error_msg = str(e)
-        if "parsing_exception" in error_msg:
-            raise EsqlSyntaxError(str(e), elastic_client) from None
-        if "Unknown column" in error_msg:
-            raise EsqlSchemaError(str(e), elastic_client) from None
-        if "verification_exception" in error_msg and "unsupported type" in error_msg:
-            raise EsqlUnsupportedTypeError(str(e), elastic_client) from None
-        if "verification_exception" in error_msg:
-            raise EsqlTypeMismatchError(str(e), elastic_client) from None
-        raise EsqlKibanaBaseError(str(e), elastic_client) from None
-    if delete_indices or not misc.getdefault("skip_empty_index_cleanup")():
-        for index_str in test_index_str.split(","):
-            response = elastic_client.indices.delete(index=index_str.strip())
-            log(f"Test index `{index_str}` deleted: {response}")
-
-    query_column_names = [c["name"] for c in query_columns]
-    log(f"Got query columns: {', '.join(query_column_names)}")
-    return query_columns, response
 
 
 def find_nested_multifields(mapping: dict[str, Any], path: str = "") -> list[Any]:
@@ -597,240 +393,3 @@ def find_flattened_fields_with_subfields(mapping: dict[str, Any], path: str = ""
                 )
 
     return flattened_fields_with_subfields
-
-
-def find_flattened_fields(mapping: dict[str, Any], path: str = "") -> set[str]:
-    """Recursively collect the dotted paths of every field typed `flattened` in Elasticsearch mappings."""
-    flattened_fields: set[str] = set()
-
-    for field, properties in mapping.items():
-        if not isinstance(properties, dict):
-            continue
-        current_path = f"{path}.{field}" if path else field
-
-        if properties.get("type") == "flattened":  # type: ignore[reportUnknownMemberType]
-            flattened_fields.add(current_path)
-
-        # Recurse into subfields
-        if "properties" in properties:
-            flattened_fields |= find_flattened_fields(properties["properties"], current_path)  # type: ignore[reportUnknownArgumentType]
-
-    return flattened_fields
-
-
-def collect_flattened_fields(mappings: dict[str, dict[str, Any]]) -> dict[str, str]:
-    """Map every dotted path typed `flattened` in `mappings` to the name of the first mapping declaring it."""
-    flattened_fields: dict[str, str] = {}
-    for name, mapping in mappings.items():
-        for field_path in find_flattened_fields(mapping):
-            _ = flattened_fields.setdefault(field_path, name)
-    return flattened_fields
-
-
-def find_flattened_ancestor(field_path: str, flattened_fields: dict[str, str]) -> str | None:
-    """Return the outermost known `flattened` field that is `field_path` or one of its ancestors."""
-    parts = field_path.split(".")
-    for depth in range(1, len(parts) + 1):
-        candidate = ".".join(parts[:depth])
-        if candidate in flattened_fields:
-            return candidate
-    return None
-
-
-def align_flat_schema_to_flattened_fields(
-    flat_schema: dict[str, str], flattened_fields: dict[str, str], source: str, log: Callable[[str], None]
-) -> dict[str, str]:
-    """Collapse every `flat_schema` entry at or below a known `flattened` field onto that field, typed `flattened`."""
-    # An integration can type a field as `flattened` (e.g. `azure.platformlogs.properties`) while the
-    # non-ecs, custom or ECS schemas only declare its subfields. Nesting those subfields as-is would leave
-    # the parent as an implicit `object` in the test index built from that schema, and ES|QL then refuses
-    # to read the parent across the union of the test indices with an ambiguous mapping error, even though
-    # the field is unambiguously `flattened` in a real deployment where those schema-only indices do not exist.
-    #
-    # Dropping the subfields matches a real deployment as well: ES|QL cannot read a subfield of a
-    # flattened field as a column (hence `field_extract`), while KQL predicates against subfields keep
-    # working through the `flattened` parent. The dotted entries stay in the source schema files.
-    if not flattened_fields:
-        return dict(flat_schema)
-
-    aligned: dict[str, str] = {}
-    replaced: dict[str, str] = {}
-    for field_path, field_type in flat_schema.items():
-        parent = find_flattened_ancestor(field_path, flattened_fields)
-        if parent is None:
-            aligned[field_path] = field_type
-            continue
-        aligned[parent] = "flattened"
-        if field_path == parent:
-            if field_type != "flattened":
-                replaced[parent] = field_type
-        else:
-            _ = replaced.setdefault(parent, "object")
-
-    for parent, previous_type in sorted(replaced.items()):
-        log(
-            f"Warning: field `{parent}` is mapped as `flattened` in `{flattened_fields[parent]}` but as "
-            f"`{previous_type}` in `{source}`. Mapping it as `flattened` for ES|QL validation."
-        )
-    return aligned
-
-
-def flat_schema_to_nested_mapping(
-    flat_schema: dict[str, str], flattened_fields: dict[str, str], source: str, log: Callable[[str], None]
-) -> dict[str, Any]:
-    """Convert a flat schema to a nested index mapping, aligned with the known `flattened` fields."""
-    aligned = align_flat_schema_to_flattened_fields(flat_schema, flattened_fields, source, log)
-    return utils.convert_to_nested_schema(aligned)
-
-
-def get_ecs_schema_mappings(
-    current_version: Version,
-    flattened_fields: dict[str, str] | None = None,
-    log: Callable[[str], None] = print,
-) -> dict[str, Any]:
-    """Get the ECS schema in an index mapping format (nested schema) handling scaled floats."""
-    # NOTE: the result depends on `flattened_fields` (the rule's integration and index template mappings),
-    # not only on `current_version`. Do not memoize it by stack version alone; if caching is ever needed,
-    # cache the version-only flat ECS schema and keep the alignment and nesting per rule.
-    ecs_version = get_stack_schemas()[str(current_version)]["ecs"]
-    ecs_schemas = ecs.get_schemas()
-    ecs_flat_schema: dict[str, Any] = {}
-    ecs_schema_scaled_floats: dict[str, Any] = {}
-    for index, info in ecs_schemas[ecs_version]["ecs_flat"].items():
-        if info["type"] == "scaled_float":
-            ecs_schema_scaled_floats.update({index: info["scaling_factor"]})
-        ecs_flat_schema.update({index: info["type"]})
-    ecs_flat_schema = align_flat_schema_to_flattened_fields(
-        ecs_flat_schema, flattened_fields or {}, "rule-ecs-index", log
-    )
-    ecs_schema = utils.convert_to_nested_schema(ecs_flat_schema)
-    for index, info in ecs_schema_scaled_floats.items():
-        if ecs_flat_schema.get(index) != "scaled_float":
-            # Collapsed onto a `flattened` parent above
-            continue
-        parts = index.split(".")
-        current = ecs_schema
-
-        # Traverse the ecs_schema to the correct nested dictionary
-        for part in parts[:-1]:  # Traverse all parts except the last one
-            current = current.setdefault(part, {}).setdefault("properties", {})
-
-        current[parts[-1]].update({"scaling_factor": info})
-    return ecs_schema
-
-
-def prepare_mappings(  # noqa: PLR0912, PLR0913, PLR0917
-    elastic_client: Elasticsearch,
-    indices: list[str],
-    event_dataset_integrations: list[EventDataset],
-    metadata: RuleMeta,
-    stack_version: str,
-    log: Callable[[str], None],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Prepare index mappings for the given indices and rule integrations."""
-    existing_mappings, index_lookup = get_existing_mappings(elastic_client, indices)
-
-    # Collect mappings for the integrations
-    from .esql import index_patterns_match, infer_packages_from_indices
-
-    rule_integrations = get_rule_integrations(metadata)
-    for package in infer_packages_from_indices(indices):
-        if package not in rule_integrations:
-            rule_integrations.append(package)
-
-    # Collect mappings for all relevant integrations for the given stack version
-    package_manifests = load_integrations_manifests()
-    integration_schemas = load_integrations_schemas()
-
-    integration_mappings, integration_index_lookup = prepare_integration_mappings(
-        rule_integrations, event_dataset_integrations, package_manifests, integration_schemas, stack_version, log
-    )
-
-    index_lookup.update(integration_index_lookup)
-
-    # The integration and existing index template mappings describe real indices, so a field they type as
-    # `flattened` is authoritative. The schema-derived mappings built below (ECS, non-ecs, custom) may only
-    # declare its subfields, which would leave the parent as an implicit `object` in their test indices and
-    # make ES|QL reject the field as ambiguously mapped across the test indices. Their entries at or below a
-    # known `flattened` field are therefore collapsed onto it while they are converted to index mappings.
-    # NOTE: this relies on both authoritative sources being loaded before any schema-derived mapping is
-    # converted. `test_prepare_mappings_aligns_schema_mappings_with_flattened_fields` pins that ordering.
-    known_flattened_fields = collect_flattened_fields(
-        {"existing-index-template-mappings": existing_mappings, **integration_index_lookup}
-    )
-
-    # Load non-ecs schema and convert to index mapping format (nested schema)
-    # For non_ecs we need both a mapping and a schema as custom schemas can override non-ecs fields
-    # In these cases we need to accept the overwrite keep the original non-ecs field in the schema
-    non_ecs_schema: dict[str, Any] = {}
-    non_ecs_mapping: dict[str, Any] = {}
-    non_ecs = ecs.get_non_ecs_schema()
-    for index in indices:
-        matched_fields: dict[str, Any] = dict(non_ecs.get(index, {}))
-        for key, fields in non_ecs.items():
-            if key == index:
-                continue
-            if index_patterns_match(index, key):
-                matched_fields.update(fields)
-        non_ecs_schema.update(matched_fields)
-        index_mapping = flat_schema_to_nested_mapping(
-            ecs.flatten(matched_fields), known_flattened_fields, f"non-ecs {index}", log
-        )
-        non_ecs_mapping.update({index: index_mapping})
-
-    # These need to be handled separately as we need to be able to validate non-ecs fields as a whole
-    # and also at a per index level as custom schemas can override non-ecs fields and/or indices
-    non_ecs_schema = flat_schema_to_nested_mapping(
-        ecs.flatten(non_ecs_schema), known_flattened_fields, "rule-non-ecs-index", log
-    )
-    non_ecs_schema = prune_mappings_of_unsupported_types("non-ecs", non_ecs_schema, log)
-
-    # Load custom schema and convert to index mapping format (nested schema)
-    custom_mapping: dict[str, Any] = {}
-    custom_indices = ecs.get_custom_schemas()
-    for index in indices:
-        index_mapping = custom_indices.get(index, {})
-        index_mapping = flat_schema_to_nested_mapping(
-            ecs.flatten(index_mapping), known_flattened_fields, f"custom {index}", log
-        )
-        custom_mapping.update({index: index_mapping})
-
-    # Load ECS in an index mapping format (nested schema). Skipped when every FROM index resolves to one of the
-    # rule's integration packages: as in KQL/EQL validation, integration indices are then checked against the
-    # package field schemas (plus non-ecs) only, since packages populate just a subset of ECS.
-    current_version = Version.parse(load_current_package_version(), optional_minor_and_patch=True)
-    ecs_schema: dict[str, Any] = {}
-    if esql_indices_covered_by_packages(indices, rule_integrations, event_dataset_integrations):
-        log("All indices resolve to the rule's integrations; validating without the full ECS schema")
-    else:
-        ecs_schema = get_ecs_schema_mappings(current_version, known_flattened_fields, log)
-
-    # Filter combined mappings based on the provided indices
-    combined_mappings, index_lookup = get_filtered_index_schema(
-        indices, index_lookup, ecs_schema, non_ecs_mapping, custom_mapping, log
-    )
-
-    index_lookup.update({"rule-ecs-index": prune_scalar_fields_with_subfields(deepcopy(ecs_schema))})
-
-    # Every source can legitimately be empty on its own (the full ECS schema is skipped for integration-only
-    # indices, a rule's indices may have no non-ecs entries, the stack may have no matching index template), so only
-    # the absence of all of them means nothing could be validated
-    if not (integration_mappings or existing_mappings or non_ecs_schema or ecs_schema):
-        raise ValueError("No mappings found")
-    index_lookup.update({"rule-non-ecs-index": prune_scalar_fields_with_subfields(deepcopy(non_ecs_schema))})
-    utils.combine_dicts(combined_mappings, deepcopy(non_ecs_schema))
-
-    # ES|QL verifies fields against each index in FROM. Merge ECS into every
-    # integration test-index mapping so remote validation matches offline
-    # (integration schema union ECS), not integration-only fields.
-    for key, properties in list(index_lookup.items()):
-        if key in {"rule-ecs-index", "rule-non-ecs-index"}:
-            continue
-        if not isinstance(properties, dict):
-            continue
-        merged = deepcopy(ecs_schema)
-        props = cast("dict[str, Any]", properties)
-        combine_index_mappings(merged, deepcopy(props))
-        index_lookup[key] = prune_scalar_fields_with_subfields(merged)
-
-    return existing_mappings, index_lookup, combined_mappings

@@ -30,7 +30,7 @@ from semver import Version
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations, normalize_dataset_package
-from .esql_errors import EsqlSemanticError
+from .esql_errors import EsqlSemanticError, EsqlSyntaxError
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     IntegrationVersionNotFoundError,
@@ -766,9 +766,6 @@ class QueryValidator:
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
 
-            if not field_type and isinstance(self, ESQLValidator):
-                field_type = self.get_unique_field_type(fld)
-
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 
         return sorted(required, key=lambda f: f["name"])
@@ -1047,7 +1044,7 @@ class ESQLRuleData(QueryRuleData):
     alert_suppression: AlertSuppressionMapping | None = field(metadata={"metadata": {"min_compat": "8.15"}})
 
     @validates_schema
-    def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:  # noqa: PLR0912
+    def validates_esql_data(self, data: dict[str, Any], **_: Any) -> None:
         """Custom validation for query rule type and subclasses."""
         import esql  # local import: avoid cycle with rule_validators at module import
 
@@ -1060,12 +1057,29 @@ class ESQLRuleData(QueryRuleData):
             return
 
         cfg = set_esql_config(load_current_package_version())
-        with cfg, esql.Schema({}, allow_missing=True):
-            tree = esql.parse_query(data["query"])
+
+        def reject_incomplete_keeps(tree: Any) -> None:
+            """Require metadata columns on every KEEP of a non-aggregating query."""
+            if esql.has_aggregating_stats(tree):
+                return
+            required = {"_id", "_version", "_index"}
+            for cmd in tree.commands:
+                if not isinstance(cmd, esql.ast.KeepCommand):
+                    continue
+                fields = {c.strip() for c in (*cmd.columns, *cmd.wildcards)}
+                if "*" in fields or required.issubset(fields):
+                    continue
+                raise esql.EsqlSemanticError(
+                    f"Rule: {data['name']} contains a keep clause without metadata fields "
+                    f"'_id', '_version', and '_index' -> Add '_id', '_version', '_index' to the keep command."
+                )
 
         try:
+            with cfg, esql.Schema({}, allow_missing=True):
+                tree = esql.parse_query(data["query"])
             if not bypass_metadata and not bypass_keep:
                 esql.validate_detection_rule_query(tree, name=data["name"])
+                reject_incomplete_keeps(tree)
             elif not bypass_metadata:
                 # KEEP bypassed: still enforce METADATA / aggregate shape.
                 if not esql.is_aggregate_query(tree):
@@ -1081,23 +1095,20 @@ class ESQLRuleData(QueryRuleData):
                     raise esql.EsqlSemanticError(  # noqa: TRY301
                         f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
                     )
-                if not esql.is_aggregate_query(tree):
-                    keep_columns = {c.strip() for c in esql.get_keep_columns(tree)}
-                    if "*" not in keep_columns and not {"_id", "_version", "_index"}.issubset(keep_columns):
-                        raise esql.EsqlSemanticError(  # noqa: TRY301
-                            f"Rule: {data['name']} contains a keep clause without metadata fields "
-                            f"'_id', '_version', and '_index' -> Add '_id', '_version', '_index' to the keep command."
-                        )
+                reject_incomplete_keeps(tree)
+        except esql.EsqlSyntaxError as exc:
+            raise EsqlSyntaxError(str(exc)) from exc
         except esql.EsqlSemanticError as exc:
             hint = ""
-            if "metadata" in str(exc).lower():
+            message = str(exc).lower()
+            if "keep" in message:
+                hint = (
+                    " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
+                )
+            elif "metadata" in message:
                 hint = (
                     " To bypass ES|QL `FROM` metadata validation, set the environment variable "
                     "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
-                )
-            elif "keep" in str(exc).lower():
-                hint = (
-                    " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
                 )
             raise EsqlSemanticError(f"{exc}{hint}") from exc
 
@@ -2082,7 +2093,7 @@ def set_eql_config(min_stack_version_val: str) -> eql.parser.ParserConfig:
 
 
 def set_esql_config(min_stack_version_val: str) -> Any:
-    """Enable ES|QL features for this stack version (esql-detection-rules-py + DR overrides)."""
+    """Enable ES|QL features for this stack version (detection-rules-esql-py + DR overrides)."""
     import esql  # local import: rule.py loads validators at module end
 
     if min_stack_version_val:
