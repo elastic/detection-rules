@@ -4,24 +4,25 @@ integration = ["google_workspace"]
 maturity = "production"
 min_stack_comments = "Changing min stack to 9.3.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/09/24"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when a user copies a Google document, spreadsheet, form, or script from an external Drive into their Workspace
-Drive and shortly after authorizes a custom Google OAuth application. Adversaries may send spearphishing links with a
-/copy URI parameter so the victim replicates a malicious object locally. Container-bound Apps Script can then execute on
-open and prompt the user for OAuth consent, granting the attacker's application access to Workspace data.
+Detects when a Workspace user copies a document, spreadsheet, form, or script from an external Drive into their My Drive
+and, within minutes from the same IP, authorizes a custom web OAuth client that requests a container-bound Apps Script
+scope (`script.container`). Adversaries send spearphishing links with a /copy URI parameter so the victim replicates a
+malicious object locally. Google names that replica with a "Copy of " prefix. The copy is performed by a domain user
+rather than a collaborator account, and the consent is not a known Google first-party client.
 """
 false_positives = [
     """
-    Google Workspace users typically share Drive resources with a shareable link where parameters are edited to indicate
-    when it is viewable or editable by the intended recipient. It is uncommon for a user in an organization to manually
-    copy a Drive object from an external drive to their corporate drive. This may happen where users find a useful
-    spreadsheet in a public drive, for example, and replicate it to their Drive. It is uncommon for the copied object to
-    execute a container-bound script either unless the user was intentionally aware, suggesting the object uses
-    container-bound scripts to accomplish a legitimate task.
+    A user may copy a public template that uses a container-bound script and consent to that add-on within three minutes
+    from the same IP. Confirm the OAuth client with the template owner before treating the grant as malicious.
+    """,
+    """
+    The copied-title check looks for the English text "Copy of ". Workspace locales that translate that prefix will not
+    match.
     """,
 ]
 from = "now-130m"
@@ -34,27 +35,23 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Object Copied from External Drive with App Consent
 
-Google Workspace users can receive Drive links with URI parameters such as `view`, `edit`, or `copy`. A `copy` link lets
-the recipient replicate the object into their own Drive. Documents, spreadsheets, forms, and Apps Script projects can
-include container-bound scripts that run when the object is opened. Copying alone does not produce an OAuth event; the
-user must open the copied object (or trigger an installable `onOpen` handler) before Apps Script can prompt for consent.
-
-This rule correlates two events for the same `source.user.email` within `maxspan=3m` using `@timestamp` (Google event
-time). When a user copies a Google document, spreadsheet, form, or script from an external Drive into their Workspace
-Drive and shortly after authorizes a custom Google OAuth application.
+A `/copy` link replicates a document, spreadsheet, form, or script into the recipient's Drive with a `Copy of` title, and a container-bound Apps Script can then prompt for consent when the object is opened. This rule correlates that external My Drive copy (`copy_type: external`, `actor_is_collaborator_account: false`, `owner_is_team_drive: false`) with a custom web OAuth grant (`client.type: WEB`, client id ending in `apps.googleusercontent.com`, scope matching `script.container`) for the same `source.user.email` and `source.ip` within `maxspan=3m`. Known Google first-party clients and Salesforce Connector project `857627895310` are excluded. Compare `google_workspace.token.app_name` with `file.name` and review `google_workspace.token.scope.value`. Grants that only have `*.currentonly`, `spreadsheets`, `drive`, `gmail.modify`, or `script.external_request` do not match, and visibility is not filtered.
 
 ### Possible investigation steps
 
-- Identify the affected user from `source.user.email` or `user.email` in the alert. Note `source.ip` and compare
-  `@timestamp` (event time).
+- Identify the affected user from `source.user.email` or `user.email`. Note `source.ip` and compare `@timestamp`
+  (event time) on the copy and the authorize event.
 - Drive copy event (`google_workspace.drive`):
-  - Review `file.name`, `file.id`, and `google_workspace.drive.file.type` to identify what was copied.
-  - For deeper review, pivot on `file.id` or `file.name` in Drive audit logs and Admin console Drive investigation.
+  - Review `file.name` and `google_workspace.drive.file.type` to identify what was copied. Confirm the title contains
+    `Copy of`.
+  - For deeper review, pivot on `google_workspace.drive.file.id` or `file.name` in Drive audit logs and Admin console
+    Drive investigation.
 - OAuth authorize event (`google_workspace.token`):
   - Review `google_workspace.token.app_name` and `google_workspace.token.client.id` to identify the application.
+    Check whether the app name appears in the copied title.
   - Review granted scopes in `google_workspace.token.scope.value` to determine which services the token can access
-    (for example Drive, Gmail, or Calendar scopes beyond identity).
-  - Review `google_workspace.token.client.type` and any `user.domain` context if present.
+    (for example Drive, Gmail, or Calendar scopes beyond the current file).
+  - Confirm `google_workspace.token.client.type` is `WEB` and that the client is not a known Google first-party client.
 - Determine whether the activity is expected:
   - Contact the user to confirm they intentionally copied an external template and authorized the application.
   - If timing or `source.ip` is unusual for the user, treat as higher priority until validated.
@@ -76,11 +73,13 @@ Drive and shortly after authorizes a custom Google OAuth application.
 
 ### False positive analysis
 
-- Users may legitimately copy public templates (spreadsheets, forms, or documents) from external drives for personal or
-  business use; OAuth consent afterward may still be benign if the embedded script is intentional (for example a known
-  add-on or vendor workflow).
-- OAuth consent does not always follow copy immediately; opening the object later can separate the two actions beyond
-  `maxspan=3m`, which would prevent a match even when activity is related.
+- Users may legitimately copy public templates (spreadsheets, forms, or documents) from external drives and consent to
+  a container-bound add-on within three minutes from the same IP. Compare `google_workspace.token.app_name` with
+  `file.name` and review `google_workspace.token.scope.value` before closing the alert. Grants that do not include a
+  `script.container` scope do not match.
+- OAuth consent does not always follow the copy immediately. Opening the object later can separate the two actions
+  beyond 180 seconds, which will not match even when the activity is related.
+- Non-English Workspace locales translate the `Copy of ` prefix, so those replicas will not match.
 
 ### Response and remediation
 
@@ -143,19 +142,38 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by source.user.email with maxspan=3m
+sequence by source.user.email, source.ip with maxspan=3m
 [file where data_stream.dataset == "google_workspace.drive" and event.action == "copy" and
 
-    /* Should only match if the object lives in a Drive that is external to the user's GWS organization */
-    google_workspace.drive.owner_is_team_drive == false and google_workspace.drive.copy_type == "external" and
+    /* External My Drive replica by a domain user, not a collaborator account or shared drive */
+    google_workspace.drive.owner_is_team_drive == false and
+    google_workspace.drive.actor_is_collaborator_account == false and
+    google_workspace.drive.primary_event == true and
+    google_workspace.drive.copy_type == "external" and
 
-    /* Google Script, Forms, Sheets and Document can have container-bound scripts */
-    google_workspace.drive.file.type: ("script", "form", "spreadsheet", "document")]
+    /* Google Script, Forms, Sheets, and Documents can carry container-bound scripts */
+    google_workspace.drive.file.type : ("script", "form", "spreadsheet", "document") and
+
+    /* /copy links name the replica with this English prefix */
+    file.name : "*Copy of*"]
 
 [any where data_stream.dataset == "google_workspace.token" and event.action == "authorize" and
 
-    /* Ensures application ID references custom app in Google Workspace and not GCP */
-    google_workspace.token.client.id : "*apps.googleusercontent.com"]
+    /* Custom web OAuth client, not a numeric GCP service-account client */
+    google_workspace.token.client.type == "WEB" and
+    google_workspace.token.client.id : "*apps.googleusercontent.com" and
+
+    /* Client IDs are {cloud_project_number}-{oauth_client}.apps.googleusercontent.com. */
+    not google_workspace.token.client.id : (
+        "77185425430*.apps.googleusercontent.com",
+        "32555940559*.apps.googleusercontent.com",
+        "764086051850*.apps.googleusercontent.com",
+        "407408718192*.apps.googleusercontent.com",
+        "857627895310*.apps.googleusercontent.com"
+    ) and
+
+    /* Sidebar or dialog inside the container, for example script.container.ui */
+    google_workspace.token.scope.value : "*script.container*"]
 '''
 
 
@@ -212,5 +230,15 @@ name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
 [rule.investigation_fields]
-field_names = ["user.name", "user.email", "source.ip"]
+field_names = [
+    "user.name",
+    "user.email",
+    "source.ip",
+    "file.name",
+    "google_workspace.drive.file.type",
+    "google_workspace.token.app_name",
+    "google_workspace.token.client.id",
+    "google_workspace.token.client.type",
+    "google_workspace.token.scope.value",
+]
 
