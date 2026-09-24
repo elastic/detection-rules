@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/21"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when Dependabot alerts or security updates are disabled on a GitHub repository. Adversaries may turn off
+Dependabot to reduce the chance that a malicious or vulnerable dependency they introduced is flagged.
+"""
+false_positives = [
+    """
+    Repository admins disabling Dependabot on archival, template, or non-code repos. Confirm the change was intended and
+    that production application repos remain covered.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Dependabot Alerts or Security Updates Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub Dependabot Alerts or Security Updates Disabled
+
+Disabling Dependabot removes automated visibility into vulnerable and malicious packages. This can precede a supply-chain commit or lockfile change.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.repo`, `event.action`, and `github.programmatic_access_type`.
+- Review commits and dependency manifest changes around the disable timestamp.
+- Check whether Secret Scanning, code scanning, or the org security configuration were also changed.
+- Re-enable Dependabot unless there is an approved exception.
+
+### False positive analysis
+
+- Bulk disable on forks, mirrors, or documentation-only repositories.
+- Org-policy automation that detaches a security configuration.
+
+### Response and remediation
+
+- Re-enable Dependabot alerts (and security updates if required by policy).
+- Audit recently added dependencies and workflow files.
+- Rotate credentials if the actor is not a known admin.
+"""
+references = ["https://docs.github.com/en/code-security/getting-started/dependabot-quickstart-guide"]
+risk_score = 21
+rule_id = "9164d803-bc5f-4197-a242-a3008707336c"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and data_stream.dataset == "github.audit"
+  and event.action in ("repository_vulnerability_alerts.disable", "repository_security_updates.disable")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
