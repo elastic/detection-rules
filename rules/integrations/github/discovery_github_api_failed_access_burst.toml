@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a burst of failed GitHub API requests (HTTP 4xx/5xx) recorded as api.request. Attackers probing private
+repositories, secrets, or admin routes generate clusters of 403/404 responses. Requires API Request Events on audit log
+streaming.
+"""
+false_positives = [
+    """
+    Broken automation, expired tokens, or inventory tools hitting renamed repositories. Review the routes and whether
+    the token is expected.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub API Failed Access Burst"
+note = """## Triage and analysis
+
+### Investigating GitHub API Failed Access Burst
+
+Failed `api.request` status codes often precede successful enumeration after the attacker finds a valid path or token.
+
+### Possible investigation steps
+
+- Review `github.route`, `github.status_code`, `github.hashed_token`, and `github.actor_ip`.
+- Look for a later run of 200s on secrets, trees, or contents from the same actor.
+
+### False positive analysis
+
+- CI using a token that lacks repo scope against private repositories.
+
+### Response and remediation
+
+- Revoke the token if the actor is not a known automation identity. Tighten org PAT policies.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise#enabling-api-request-events",
+]
+risk_score = 21
+rule_id = "45e23f23-eb7d-460d-98ee-81c9925efd4e"
+setup = """## Setup
+
+Requires the Elastic GitHub integration, GitHub Enterprise audit log streaming, and **Enable API Request Events**.
+"""
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and event.action == "api.request" and github.status_code >= 400
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_route_values = values(github.route),
+  Esql.github_status_code_values = values(github.status_code),
+  Esql.github_org_values = values(github.org),
+  Esql.github_programmatic_access_type_values = values(github.programmatic_access_type),
+  Esql.github_user_agent_values = values(github.user_agent),
+  Esql.agent_id_values = values(agent.id),
+  Esql.data_stream_dataset_values = values(data_stream.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace),
+  Esql_priv.github_token_id_values = values(github.token_id),
+  Esql_priv.user_name_values = values(user.name)
+  by user.name
+| keep user.name, Esql.*, Esql_priv.*
+| where Esql.event_count >= 15
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "Esql.event_count",
+    "Esql.github_route_values",
+    "Esql.github_status_code_values",
+    "Esql.github_org_values",
+    "Esql.github_programmatic_access_type_values",
+    "Esql.github_user_agent_values",
+    "Esql_priv.github_token_id_values",
+    "Esql_priv.user_name_values",
+]
+
