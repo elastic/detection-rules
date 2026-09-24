@@ -2,7 +2,7 @@
 creation_date = "2026/09/22"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/22"
+updated_date = "2026/09/24"
 
 [rule]
 author = ["Elastic"]
@@ -16,8 +16,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-github.audit-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "GitHub SAML SSO Disabled"
 note = """## Triage and analysis
@@ -53,15 +52,31 @@ tags = [
     "Tactic: Credential Access",
     "Tactic: Defense Evasion",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ESQL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-configuration where event.module == "github" and data_stream.dataset == "github.audit"
-  and event.action in ("business.disable_saml", "org.disable_saml")
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in ("business.disable_saml", "org.disable_saml")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business
 '''
 
 
