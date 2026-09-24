@@ -1,0 +1,107 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a GitHub organization being removed from an enterprise or transferred. Either action can take repositories,
+audit history, and billing out of the monitored enterprise.
+"""
+false_positives = [
+    """
+    Approved org moves between enterprises or decommission of a lab org. Confirm with enterprise owners before treating
+    as incident.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Organization Removed or Transferred from Enterprise"
+note = """## Triage and analysis
+
+### Investigating GitHub Organization Removed or Transferred from Enterprise
+
+`business.remove_organization` drops the org from the enterprise. `org.transfer_outgoing` / `org.transfer` move it. This is destructive for SIEM coverage of that org.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.org`, and `event.action`.
+- Confirm destination enterprise if transferred. Check remaining orgs for similar actions.
+
+### False positive analysis
+
+- Corporate restructuring with a ticket.
+
+### Response and remediation
+
+- Contact GitHub Support if unauthorized. Review enterprise owner list and restore the org if possible.
+"""
+references = [
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/managing-organizations-in-your-enterprise/adding-organizations-to-your-enterprise",
+]
+risk_score = 73
+rule_id = "0145d881-8374-4684-97e2-28fed7ea2b50"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Exfiltration",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and data_stream.dataset == "github.audit"
+  and event.action in ("business.remove_organization", "org.transfer_outgoing", "org.transfer")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1485"
+name = "Data Destruction"
+reference = "https://attack.mitre.org/techniques/T1485/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+]
+
