@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/09/21"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a GitHub repository is transferred out of an organization. Transferring a repository moves source code,
+issues, and settings to another account and is a common collection and exfiltration path after credential theft.
+"""
+false_positives = [
+    """
+    Planned ownership moves during org restructuring or when an employee takes a personal project. Confirm the
+    destination owner and that the transfer was approved.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Repository Transferred Out of Organization"
+note = """## Triage and analysis
+
+### Investigating GitHub Repository Transferred Out of Organization
+
+`repo.transfer_outgoing` is logged when a repository is sent to another user or organization. That action can strip the source org of visibility and copy intellectual property to an attacker-controlled account.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.repo`, `github.programmatic_access_type`, and `github.actor_ip`.
+- Determine the destination owner from the GitHub UI or subsequent `repo.transfer` events.
+- Check whether the repo was private and whether similar transfers occurred in a short window (mass collection).
+- Review other activity by the same token: clones, ZIP downloads, collaborator adds, visibility changes.
+
+### False positive analysis
+
+- Approved repo moves between company orgs or to a user's account during offboarding.
+
+### Response and remediation
+
+- If unauthorized, contact GitHub Support immediately to reverse the transfer if still possible.
+- Revoke the actor's tokens and review org ownership.
+- Inventory remaining repositories for additional transfers or visibility changes.
+"""
+references = [
+    "https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository",
+]
+risk_score = 47
+rule_id = "35466375-aa84-4e8f-9021-0e99f6a57614"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and data_stream.dataset == "github.audit"
+  and event.action == "repo.transfer_outgoing"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1537"
+name = "Transfer Data to Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1537/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.visibility",
+    "github.business",
+]
+
