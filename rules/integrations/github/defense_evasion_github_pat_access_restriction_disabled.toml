@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects disabling of GitHub organization restrictions that block personal access tokens from accessing organization
+resources. Turning that control off lets classic or fine-grained PATs reach private repositories again without the
+restriction that owners previously enforced.
+"""
+false_positives = [
+    """
+    Temporarily allowing PATs during a documented migration off GitHub Apps, then re-enabling the restriction. Confirm
+    with organization owners.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub PAT Access Restriction Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub PAT Access Restriction Disabled
+
+`personal_access_token.access_restriction_disabled` is the audit action when an owner stops restricting PAT access to organization resources. Enabling the restriction (`personal_access_token.access_restriction_enabled`) is hardening and is not alerted.
+
+This is a different control from fine-grained PAT *approval*. Auto-approve (`auto_approve_personal_access_token_requests.enable`) is covered by GitHub Fine-Grained PAT Auto-Approve Enabled. Do not treat "require approval" being turned on as suspicious.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.org`, and `github.actor_ip`.
+- Determine whether classic PATs, fine-grained PATs, or both were unrestricted.
+- List `personal_access_token.access_granted` and private `git.clone` activity after the change.
+
+### False positive analysis
+
+- A ticketed cutover that needs classic PATs for a short window.
+
+### Response and remediation
+
+- Re-enable PAT access restrictions if policy requires them.
+- Review and revoke PATs created or used while the restriction was off.
+"""
+references = [
+    "https://github.blog/security/application-security/introducing-fine-grained-personal-access-tokens-for-github/",
+    "https://docs.github.com/en/organizations/managing-programmatic-access-to-your-organization/setting-a-personal-access-token-policy-for-your-organization",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
+risk_score = 47
+rule_id = "71e26fdd-145c-4df3-88c4-b1aa6817732a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit"
+  and event.action == "personal_access_token.access_restriction_disabled"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.token_scopes",
+]
+
