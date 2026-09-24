@@ -22,6 +22,7 @@ from semver import Version
 
 from detection_rules import atlas, attack
 from detection_rules.config import load_current_package_version
+from detection_rules.esql import get_esql_multivalued_field_comparisons
 from detection_rules.integrations import (
     find_latest_compatible_version,
     load_integrations_manifests,
@@ -1748,6 +1749,25 @@ class TestAlertSuppression(BaseRuleTest):
                 # is_sequence method not yet available during schema validation
                 # so we have to check in a unit test
                 self.fail(f"{self.rule_str(rule)} Sequence rules cannot have alert suppression")
+
+
+class TestESQLMultivaluedFields(BaseRuleTest):
+    """Test that ES|QL rules handle fields that can hold more than one value."""
+
+    def test_no_direct_comparison_on_multivalued_fields(self):
+        """Ensure that ES|QL rules do not compare multivalued fields directly with single-valued operators."""
+        failures: list[str] = []
+        for rule in self.all_rules:
+            if rule.contents.data.type != "esql":
+                continue
+            fields = get_esql_multivalued_field_comparisons(rule.contents.data.query)
+            if fields:
+                failures.append(f"{self.rule_str(rule)} compares multivalued field(s) directly: {', '.join(fields)}")
+        if failures:
+            self.fail(
+                "ES|QL single-valued operators return null on a field holding more than one value, silently dropping "
+                "the row. Use MV_CONTAINS, MV_FIRST, MV_EXPAND, etc. instead:\n" + "\n".join(failures)
+            )
 
 
 class TestEQLEventFieldUsage(BaseRuleTest):
