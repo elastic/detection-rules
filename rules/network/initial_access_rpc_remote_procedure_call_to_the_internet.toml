@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense", "zeek", "corelight"]
 maturity = "production"
-updated_date = "2026/09/17"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -36,6 +36,9 @@ tags = [
     "Noise: High",
     "Performance: Normal",
     "Profile: Aggressive",
+    "Rule Type: Custom Query (KQL)",
+    "Domain: Network",
+    "Data Source: Network Packet Capture",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -75,6 +78,10 @@ query = '''
     "::1" or
     "FE80::/10" or
     "FF00::/8"
+  ) and
+  not (
+    data_stream.dataset:panw.panos and
+    network.application:("incomplete" or "insufficient-data" or "not-applicable")
   )
 '''
 note = """## Triage and analysis
