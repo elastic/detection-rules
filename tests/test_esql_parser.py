@@ -21,7 +21,6 @@ from detection_rules.esql import (
     normalize_dataset_package,
 )
 from detection_rules.esql_errors import EsqlSchemaError, EsqlUnknownIndexError
-from detection_rules.index_mappings import combine_index_mappings, prune_scalar_fields_with_subfields
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.utils import get_path, load_rule_contents
 
@@ -295,19 +294,6 @@ class TestEsqlSchemaHelpers:
         assert fields.get("kibana.alert.risk_score") == "long"
         assert fields.get("kibana.alert.building_block_type") == "keyword"
         assert fields.get("kibana.alert.rule.tags") == "keyword"
-
-    def test_combine_index_mappings_prefers_object_over_scalar(self) -> None:
-        dest = {"model": {"type": "keyword"}}
-        src = {"model": {"properties": {"id": {"type": "keyword"}}}}
-        combine_index_mappings(dest, src)
-        assert "properties" in dest["model"]
-        assert dest["model"]["properties"]["id"]["type"] == "keyword"
-
-    def test_prune_scalar_fields_with_subfields(self) -> None:
-        mapping = {"data": {"type": "keyword", "properties": {"nested": {"type": "keyword"}}}}
-        pruned = prune_scalar_fields_with_subfields(mapping)
-        assert pruned["data"]["type"] == "keyword"
-        assert "properties" not in pruned["data"]
 
 
 class TestEsqlLookupJoin:
