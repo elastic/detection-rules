@@ -11,10 +11,10 @@ author = ["Elastic"]
 description = """
 Detects when a Workspace user copies a document, spreadsheet, form, or script from an external Drive into their My Drive
 and, within minutes from the same IP, authorizes a custom web OAuth client that requests an Apps Script scope. That is
-any `https://www.googleapis.com/auth/script.*` scope, a container `*.currentonly` scope, or `drive.scripts`. Adversaries
-send spearphishing links with a /copy URI parameter so the victim replicates a malicious object locally. Google names
-that replica with a "Copy of " prefix. The copy is performed by a domain user rather than a collaborator account, and
-the consent is not a known Google first-party client.
+any `script.*` scope, a container `*.currentonly` scope, or `drive.scripts`. Adversaries send spearphishing links with a
+/copy URI parameter so the victim replicates a malicious object locally. Google names that replica with a "Copy of "
+prefix. The copy is performed by a domain user rather than a collaborator account, and the consent is not a known Google
+first-party client.
 """
 false_positives = [
     """
@@ -36,7 +36,7 @@ note = """## Triage and analysis
 
 ### Investigating Google Workspace Object Copied from External Drive with App Consent
 
-A `/copy` link replicates a document, spreadsheet, form, or script into the recipient's Drive with a `Copy of` title, and a container-bound Apps Script can then prompt for consent when the object is opened. This rule correlates that external My Drive copy (`copy_type: external`, `actor_is_collaborator_account: false`, `owner_is_team_drive: false`) with a custom web OAuth grant (`client.type: WEB`, client id ending in `apps.googleusercontent.com`) for the same `source.user.email` and `source.ip` within `maxspan=3m`. The grant must include an Apps Script scope: any `auth/script.*` scope (container UI, UrlFetch, triggers, MailApp, locale, or the Apps Script API), a `*.currentonly` scope, or `drive.scripts`. Known Google first-party clients and Cloud project `857627895310` are excluded. Compare `google_workspace.token.app_name` with `file.name` and review `google_workspace.token.scope.value`. Broader scopes such as `spreadsheets`, `drive`, or `gmail` do not match on their own, and visibility is not filtered.
+A `/copy` link replicates a document, spreadsheet, form, or script into the recipient's Drive with a `Copy of` title, and a container-bound Apps Script can then prompt for consent when the object is opened. This rule correlates that external My Drive copy (`copy_type: external`, `actor_is_collaborator_account: false`, `owner_is_team_drive: false`) with a custom web OAuth grant (`client.type: WEB`, client id ending in `apps.googleusercontent.com`) for the same `source.user.email` and `source.ip` within `maxspan=3m`. The grant must include an Apps Script scope: any `script.*` scope (container UI, UrlFetch, triggers, MailApp, locale, or the Apps Script API), a `*.currentonly` scope, or `drive.scripts`. Known Google first-party clients and Cloud project `857627895310` are excluded. Compare `google_workspace.token.app_name` with `file.name` and review `google_workspace.token.scope.value`. Broader scopes such as `spreadsheets`, `drive`, or `gmail` do not match on their own, and visibility is not filtered.
 
 ### Possible investigation steps
 
@@ -77,7 +77,7 @@ A `/copy` link replicates a document, spreadsheet, form, or script into the reci
 - Users may legitimately copy public templates (spreadsheets, forms, or documents) from external drives and consent to
   a container-bound add-on within three minutes from the same IP. Compare `google_workspace.token.app_name` with
   `file.name` and review `google_workspace.token.scope.value` before closing the alert. Grants that do not include an
-  Apps Script scope (`auth/script.*`, `*.currentonly`, or `drive.scripts`) do not match.
+  Apps Script scope (`script.*`, `*.currentonly`, or `drive.scripts`) do not match.
 - OAuth consent does not always follow the copy immediately. Opening the object later can separate the two actions
   beyond 180 seconds, which will not match even when the activity is related.
 - Non-English Workspace locales translate the `Copy of ` prefix, so those replicas will not match.
@@ -173,10 +173,10 @@ sequence by source.user.email, source.ip with maxspan=3m
         "857627895310*.apps.googleusercontent.com"
     ) and
 
-    /* Apps Script only: auth/script.* (container UI, UrlFetch, triggers, MailApp, locale, Apps Script API),
+    /* Apps Script only: script.* (container UI, UrlFetch, triggers, MailApp, locale, Apps Script API),
        container-bound *.currentonly, or drive.scripts */
     google_workspace.token.scope.value : (
-        "*auth/script.*",
+        "*script.*",
         "*.currentonly",
         "*auth/drive.scripts*"
     )]
