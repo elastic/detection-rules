@@ -1,0 +1,281 @@
+[metadata]
+creation_date = "2026/09/24"
+integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies suspicious commands written to the Windows Run dialog history (RunMRU) by explorer.exe. Adversaries socially
+engineer users to copy and paste malicious commands for execution, a pattern commonly seen in Fake CAPTCHA (ClickFix)
+campaigns. Investigate the process tree for a child of explorer.exe that matches the stored command.
+"""
+from = "now-9m"
+index = [
+    "logs-endpoint.events.registry-*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+	"logs-windows.forwarded-default-*",
+    "logs-m365_defender.event-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-crowdstrike.fdr*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential ClickFix Command via Windows Run Dialog"
+note = """## Triage and analysis
+
+### Investigating Potential ClickFix Command via Windows Run Dialog
+
+#### Possible investigation steps
+
+- What command was stored in the Run dialog history?
+  - Why: RunMRU records the command submitted through the Windows Run dialog. ClickFix and Fake CAPTCHA pages instruct the victim to paste that command.
+  - Focus: `registry.path`, `registry.value`, and `registry.data.strings`.
+  - Hint: Windows often appends a `\\1` show-window flag to the stored string. Read the command before that suffix.
+  - Implication: escalate when the string downloads content, decodes a payload, hides the window, or hands execution to PowerShell, cmd, mshta, msiexec, rundll32, certutil, curl, wget, or bitsadmin. Lower suspicion only when the same string is a bounded support or install command from a recognized workflow.
+
+- Did explorer.exe launch a child that matches the stored command?
+  - Why: the alerting process is explorer.exe writing Run dialog history. The pasted command runs as a child of that explorer instance.
+  - Focus: child process starts where `process.parent.entity_id` equals the alert `process.entity_id`. Compare child `process.name`, `process.executable`, and `process.command_line` with `registry.data.strings`. $investigate_0
+  - Hint: if `process.entity_id` is absent, recover children with `host.id`, `user.id`, and a tight alert-time window. $investigate_1
+  - Implication: escalate when a child shell, script host, or living-off-the-land binary matches the RunMRU string. No matching child leaves execution unproven.
+
+- What did that child do next?
+  - Focus: descendants of the recovered child `process.entity_id`, plus file and network events scoped to that child. Review `process.command_line`, `file.path`, `dns.question.name`, and `destination.ip`.
+  - Hint: if the child entity id is absent, fall back to `host.id` plus the child `process.pid` in a tight window. Missing file or network telemetry leaves those questions unresolved.
+  - Implication: escalate when the child retrieves a payload, writes a script or executable under a user-writable path, spawns further shells, or contacts an unusual destination.
+
+- Does the user and host context fit a planned paste-and-run action?
+  - Focus: `user.id`, `user.name`, `host.id`, and `host.name`, plus browser, chat, or mail activity just before the RunMRU write.
+  - Implication: escalate when an end-user host has no change window for the command. A lab or awareness exercise is lower suspicion only when the command, user, and host all match that exercise.
+
+- If local findings stay suspicious or unresolved, do related alerts change scope?
+  - Focus: recent alerts for the same `host.id`, then the same `user.id`, emphasizing reuse of the RunMRU command, child binary, destination, or follow-on payload. $investigate_2
+  - Hint: use the user view when a shared host needs actor scoping. $investigate_3
+  - Implication: broaden response when related alerts show the same paste-run chain, a follow-on payload, or credential access. Quiet alert history does not close the case without a telemetry-backed benign workflow.
+
+- Escalate when the RunMRU command shows download, decode, hidden execution, or living-off-the-land staging and the process tree, artifacts, destinations, or related alerts support execution. Close only when the stored command, launched child, user, and host bind to one authorized simulation or lab workflow with no contradiction. If evidence is mixed or visibility is incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Security-awareness, phishing-simulation, red-team, and malware-analysis labs can paste these commands into the Run dialog. Confirm one workflow: the `registry.data.strings` value, the expected child `process.executable` and `process.command_line`, and a bounded `user.id` / `host.id`, with recovered children and destinations inside the exercise.
+- Administrators sometimes launch a signed installer or diagnostic through the Run dialog. Close only when the stored command and child process are that exact tool, with no download cradle, encoded command, or second-stage child.
+- Before an exception, require the same `registry.data.strings` fragment, child `process.executable`, `user.id`, and `host.id` across prior alerts from this rule. Avoid exceptions on `explorer.exe`, the RunMRU path, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the command, child identity, `user.id`, and `host.id` that proved the workflow. Create an exception only when that exact workflow recurs.
+- If suspicious but unconfirmed, export the registry event, `registry.data.strings`, the explorer `process.entity_id`, and the child process tree, command lines, file paths, and destinations before cleanup. Apply reversible controls first, such as temporary destination blocks, a browser-session reset, or heightened monitoring. Isolate the host when retrieval or second-stage execution makes continued connectivity risky.
+- If confirmed malicious, isolate the host, then terminate the child process and suspicious descendants after recording identifiers. Remove staged scripts, archives, and payloads, and block confirmed domains, IPs, hashes, or URLs. Reset credentials only when the investigation shows account misuse.
+- Post-incident hardening: retain registry and process telemetry for Run dialog triage, review browser and paste-execution controls, and record the lure wording and paste-run chain in the case notes.
+"""
+references = ["https://mrd0x.com/filefix-clickfix-alternative/"]
+risk_score = 73
+rule_id = "856a31f9-7869-4a5f-aca8-275a77629f19"
+setup = """## Setup
+
+This rule is designed for data generated by [Elastic Defend](https://www.elastic.co/security/endpoint-security), which provides native endpoint detection and response, along with event enrichments designed to work with our detection rules.
+
+Setup instructions: https://ela.st/install-elastic-defend
+
+### Additional data sources
+
+This rule also supports the following third-party data sources. For setup instructions, refer to the links below:
+
+- [CrowdStrike](https://ela.st/crowdstrike-integration)
+- [Microsoft Defender XDR](https://ela.st/m365-defender)
+- [SentinelOne Cloud Funnel](https://ela.st/sentinel-one-cloud-funnel)
+- [Sysmon Registry Events](https://ela.st/sysmon-event-reg-setup)
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Data Source: Sysmon",
+    "Data Source: Microsoft Defender XDR",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Resources: Investigation Guide",
+    "Threat: ClickFix",
+    "Threat: Living off the Land",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type in ("creation", "change") and
+  process.name : "explorer.exe" and
+  registry.data.strings != null and
+
+  registry.path : (
+    "HKEY_USERS\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*",
+    "\\REGISTRY\\USER\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*",
+    "HKU\\*\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*",
+    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*",
+    "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU\\*"
+  ) and
+
+  not registry.path : "*\\RunMRU\\MRUList" and
+
+  (
+    /* PowerShell / PowerShell 7 with suspicious arguments or content */
+    (
+      registry.data.strings : ("*powershell*", "*pwsh*") and
+      registry.data.strings : (
+        "* -e *",
+        "* -ec *",
+        "* -en*",
+        "*irm *",
+        "*iwr *",
+        "*iex *",
+        "*iex(*",
+        "*Invoke-RestMethod*",
+        "*Invoke-WebRequest*",
+        "*Invoke-Expression*",
+        "*Invoke-Command*",
+        "*$ExecutionContext.InvokeCommand*",
+        "*WebClient*",
+        "*DownloadString*",
+        "*DownloadFile*",
+        "*http*",
+        "*bypass*",
+        "* -w* h*",
+        "* -w* mi*",
+        "*Start-Process*",
+        "*FromBase64String*",
+        "*Substring*",
+        "*+*+*+*"
+      )
+    ) or
+
+    /* Remote content and script execution through other utilities */
+    registry.data.strings : (
+      "*msiexec*http*",
+      "*msiexec*\\\\*",
+      "*mshta*http*",
+      "*mshta*javascript:*",
+      "*mshta*vbscript:*",
+      "*mshta*\\\\*",
+      "*rundll32*http*",
+      "*rundll32*javascript:*",
+      "*rundll32*\\\\*",
+      "*rundll32*mshtml*",
+      "*cmd*http*",
+      "*cmd*set*&set*",
+      "*conhost*--headless*",
+      "*forfiles* /c *",
+      "*certutil* -urlcache*",
+      "*certutil* -decode*",
+      "*curl*http*",
+      "*wget*http*",
+      "*bitsadmin*/transfer*",
+      "*|powershell*",
+      "*|pwsh*",
+      "*iex*irm *",
+      "*iex*iwr *"
+    )
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.004"
+name = "Malicious Copy and Paste"
+reference = "https://attack.mitre.org/techniques/T1204/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1218"
+name = "System Binary Proxy Execution"
+reference = "https://attack.mitre.org/techniques/T1218/"
+[[rule.threat.technique.subtechnique]]
+id = "T1218.005"
+name = "Mshta"
+reference = "https://attack.mitre.org/techniques/T1218/005/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.007"
+name = "Msiexec"
+reference = "https://attack.mitre.org/techniques/T1218/007/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1218.011"
+name = "Rundll32"
+reference = "https://attack.mitre.org/techniques/T1218/011/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "process.entity_id",
+    "process.pid",
+    "process.name",
+    "process.executable",
+    "process.parent.name",
+    "process.parent.executable",
+    "registry.path",
+    "registry.value",
+    "registry.data.strings",
+]
+
