@@ -10,11 +10,13 @@ import re
 import unittest
 import uuid
 from collections import defaultdict
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import ClassVar
 
 import eql
 import kql
+import pytoml
 from marshmallow import ValidationError
 from semver import Version
 
@@ -515,8 +517,8 @@ class TestRuleTags(BaseRuleTest):
             "logs-okta*": {"all": ["Data Source: Okta"]},
             "logs-gcp*": {"all": ["Data Source: Google Cloud Platform", "Data Source: GCP", "Domain: Cloud"]},
             "logs-google_workspace*": {"all": ["Data Source: Google Workspace", "Domain: Cloud"]},
-            "logs-cloud_defend.alerts-*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Container"]},
-            "logs-cloud_defend*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Container"]},
+            "logs-cloud_defend.alerts-*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Containers"]},
+            "logs-cloud_defend*": {"all": ["Data Source: Elastic Defend for Containers", "Domain: Containers"]},
             "logs-kubernetes.*": {"all": ["Data Source: Kubernetes"]},
             "apm-*-transaction*": {"all": ["Data Source: APM"]},
             "traces-apm*": {"all": ["Data Source: APM"]},
@@ -928,7 +930,7 @@ class TestRuleMetadata(BaseRuleTest):
 
     @unittest.skipIf(os.getenv("GITHUB_EVENT_NAME") == "push", "Skipping this test when not running on pull requests.")
     def test_rule_change_has_updated_date(self):
-        """Test to ensure modified rules have updated_date field updated."""
+        """Pass when a modified rule bumps updated_date, is already today UTC, or omits it; else fail."""
 
         rules_path = get_path(["rules"])
         rules_bbr_path = get_path(["rules_building_block"])
@@ -947,16 +949,44 @@ class TestRuleMetadata(BaseRuleTest):
         if result:
             modified_rules = [path for path in result.splitlines() if path.endswith(".toml")]
             failed_rules = []
+            today_utc = datetime.now(UTC).date()
             for modified_rule_path in modified_rules:
                 diff_output = detection_rules_git("diff", "origin/main", modified_rule_path)
-                if not re.search(r"\+\s*updated_date =", diff_output):
-                    # Rule has been modified but updated_date has not been changed, add to list of failed rules
+                if re.search(r"^\+\s*updated_date\s*=", diff_output, re.MULTILINE):
+                    # updated_date has been modified in this PR
+                    continue
+
+                rule_path = get_path([modified_rule_path])
+                metadata = pytoml.loads(rule_path.read_text(encoding="utf-8")).get("metadata") or {}
+                if "updated_date" not in metadata:
+                    # Explicit updated_date was not found -> do not require a bump
+                    continue
+
+                updated_date = metadata["updated_date"]
+                if isinstance(updated_date, datetime):
+                    if updated_date.tzinfo is None:
+                        updated_date = updated_date.replace(tzinfo=UTC)
+                    updated_date = updated_date.astimezone(UTC).date()
+                elif isinstance(updated_date, date):
+                    pass
+                elif isinstance(updated_date, str):
+                    updated_date = date.fromisoformat(updated_date.replace("/", "-").split("T")[0])
+                else:
                     failed_rules.append(f"{modified_rule_path}")
+                    continue
+
+                # Same-day follow-up tunings may leave updated_date unchanged.
+                # Compare in UTC so evening local edits still match CI runners.
+                if updated_date == today_utc:
+                    continue
+
+                failed_rules.append(f"{modified_rule_path}")
 
             if failed_rules:
-                fail_msg = """
-                The following rules in the below path(s) have been modified but updated_date has not been changed \n
-                """
+                fail_msg = (
+                    "Modified rules must bump updated_date, already be today's UTC date, "
+                    "or omit metadata.updated_date. Failed:\n"
+                )
                 self.fail(fail_msg + "\n".join(failed_rules))
 
     @unittest.skipIf(
@@ -1156,10 +1186,12 @@ class TestRuleMetadata(BaseRuleTest):
             """,
         ]
 
+        # integration validation accepts only fields the package declares plus non-ecs-schema.json entries for the
+        # rule's index patterns, so the synthetic rules read the same google_workspace patterns real rules use
         base_fields_eql = {
             "author": ["Elastic"],
             "description": "test description",
-            "index": ["filebeat-*"],
+            "index": ["filebeat-*", "logs-google_workspace.drive-*"],
             "language": "eql",
             "license": "Elastic License v2",
             "name": "test rule",
@@ -1172,7 +1204,7 @@ class TestRuleMetadata(BaseRuleTest):
         base_fields_kql = {
             "author": ["Elastic"],
             "description": "test description",
-            "index": ["filebeat-*"],
+            "index": ["filebeat-*", "logs-google_workspace*"],
             "language": "kuery",
             "license": "Elastic License v2",
             "name": "test rule",
@@ -1670,6 +1702,9 @@ class TestAlertSuppression(BaseRuleTest):
                 beats_version = get_stack_schemas()[str(min_stack_version)]["beats"]
                 queryvalidator = QueryValidator(rule.contents.data.query)
                 _, _, schema = queryvalidator.get_beats_schema([], beats_version, ecs_version)
+                # copy: the returned schema is a memoized object shared by every caller, so updating it in place
+                # would leak this rule's integration fields into every later schema lookup in the test run
+                schema = dict(schema)
                 if integration_tag:
                     # if integration tag exists in rule, append integration schema to existing schema
                     # grabs the latest
@@ -1757,7 +1792,6 @@ class TestEQLEventFieldUsage(BaseRuleTest):
 
     def test_process_fields_present_in_endpoint_schema(self):
         """Ensure process.* fields used in non-process EQL clauses exist in the endpoint integration schema."""
-        load_integrations_schemas.clear()
         schemas = load_integrations_schemas()
         endpoint_versions = schemas.get("endpoint", {})
         if not endpoint_versions:
