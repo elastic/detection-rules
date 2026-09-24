@@ -18,8 +18,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-github.audit-*"]
-language = "eql"
+language = "esql"
 license = "Elastic License v2"
 name = "GitHub Audit Log Streaming Configuration Modified or Deleted"
 note = """## Triage and analysis
@@ -59,15 +58,34 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
     "Data Source: GitHub Audit Logs",
-    "Rule Type: Event Correlation (EQL)",
+    "Rule Type: ESQL",
     "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 
 query = '''
-configuration where event.module == "github" and data_stream.dataset == "github.audit"
-  and event.action in ("audit_log_streaming.update", "audit_log_streaming.destroy")
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in ("audit_log_streaming.update", "audit_log_streaming.destroy")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business,
+    github.audit_log_stream_id,
+    github.audit_log_stream_sink,
+    github.audit_log_stream_enabled
 '''
 
 
