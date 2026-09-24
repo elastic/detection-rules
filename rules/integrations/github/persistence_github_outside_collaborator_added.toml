@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an outside collaborator being invited to or added on a GitHub repository. Compromised tokens often grant a
+second account write access so the attacker keeps a copy of private code after the original credential is revoked. This
+is distinct from adding an organization member (org.add_member).
+"""
+false_positives = [
+    """
+    Onboarding a contractor or vendor as an outside collaborator, or inviting a personal account during a documented
+    inner-source exercise. Confirm the invitee, repository, and permission with the repo owners.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Outside Collaborator Added to Repository"
+note = """## Triage and analysis
+
+### Investigating GitHub Outside Collaborator Added to Repository
+
+`repository_invitation.create` is the inviter sending access. `org.add_outside_collaborator` is logged when that person is added on the repository (typically after accept). Neither is covered by the organization-member building block, which only matches `org.add_member`.
+
+Lab telemetry for this behavior used the GitHub web UI, so `github.programmatic_access_type` and `github.hashed_token` may be empty. A fine-grained PAT, classic PAT, or OAuth token on the same actions is a stronger compromise signal.
+
+### Possible investigation steps
+
+- Identify `user.name` (actor), `github.invitee` / `github.user`, `github.repo`, `github.permission`, and `github.actor_ip`.
+- Check `github.programmatic_access_type` and `github.hashed_token`. Token-backed invites should be treated as higher urgency than a logged-in owner using the UI.
+- Confirm whether the invitee already belongs to the organization. Outside collaborators bypass org SSO and team review more often than members.
+- Pivot to clones, ZIP downloads, and `git.push` by the invitee or the same hashed token after the add.
+
+### False positive analysis
+
+- Approved contractor access with a ticket and an expiry date.
+- A maintainer inviting their own second account for testing in a non-production org.
+
+### Response and remediation
+
+- Remove unauthorized collaborators and cancel pending invitations.
+- Revoke the actor's sessions and tokens if the invite was not approved.
+- Review repository permissions and org outside-collaborator policy.
+"""
+references = [
+    "https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-outside-collaborators/adding-outside-collaborators-to-repositories-in-your-organization",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
+risk_score = 47
+rule_id = "06e6f38c-436a-4fe3-a29b-3d8d22c42c10"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Collection",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where data_stream.dataset == "github.audit"
+  and event.action in ("org.add_outside_collaborator", "repository_invitation.create")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.permission",
+]
+
