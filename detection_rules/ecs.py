@@ -21,7 +21,16 @@ from semver import Version
 from .config import CUSTOM_RULES_DIR, parse_rules_config
 from .custom_schemas import get_custom_schemas
 from .integrations import load_integrations_schemas
-from .utils import DateTimeEncoder, cached, get_etc_path, gzip_compress, load_etc_dump, read_gzip, unzip
+from .utils import (
+    DateTimeEncoder,
+    cached,
+    get_etc_path,
+    gzip_compress,
+    load_etc_dump,
+    read_gzip,
+    strip_index_expression,
+    unzip,
+)
 
 ECS_NAME = "ecs_schemas"
 ECS_SCHEMAS_DIR = get_etc_path([ECS_NAME])
@@ -210,7 +219,7 @@ def get_custom_index_schema(index_name: str, stack_version: str | None = None) -
     """Load custom schema."""
     custom_schemas = get_custom_schemas(stack_version)
     index_schema = custom_schemas.get(index_name, {})
-    ccs_schema = custom_schemas.get(index_name.replace("::", ":").split(":", 1)[-1], {})
+    ccs_schema = custom_schemas.get(strip_index_expression(index_name), {})
     index_schema.update(ccs_schema)
     return index_schema
 
@@ -220,7 +229,7 @@ def get_index_schema(index_name: str) -> Any:
     """Load non-ecs schema."""
     non_ecs_schema = get_non_ecs_schema()
     index_schema = non_ecs_schema.get(index_name, {})
-    ccs_schema = non_ecs_schema.get(index_name.replace("::", ":").split(":", 1)[-1], {})
+    ccs_schema = non_ecs_schema.get(strip_index_expression(index_name), {})
     index_schema.update(ccs_schema)
     return index_schema
 
