@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/09/21"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects deletion of a GitHub Actions workflow run. Adversaries who abuse Actions for execution or secret theft often
+delete the run afterward to remove job logs that would show the malicious steps.
+"""
+false_positives = [
+    """
+    Retention cleanup, deleting failed test runs, or automation that prunes old workflow runs. Review whether the
+    deleted run belonged to an unexpected workflow or actor.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub Actions Workflow Run Deleted"
+note = """## Triage and analysis
+
+### Investigating GitHub Actions Workflow Run Deleted
+
+`workflows.delete_workflow_run` is recorded when a run is deleted. GitHub does not always emit a separate audit event for deleting only the logs; the run deletion itself is the reliable cover-up signal.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.repo`, and nearby `workflows.created_workflow_run` / `workflows.completed_workflow_run` events.
+- Determine which workflow file ran and whether it was recently added or modified.
+- Look for `git.push` by `github-actions[bot]` or unexpected `GITHUB_TOKEN` usage around the same time.
+- Check org/repo secrets access (`api.request` for secrets) from the same actor.
+
+### False positive analysis
+
+- Admins pruning old CI history.
+- Tools that delete runs after collecting artifacts.
+
+### Response and remediation
+
+- If unauthorized, disable the suspect workflow and rotate secrets used by Actions.
+- Review commits to `.github/workflows/` and restrict `GITHUB_TOKEN` permissions.
+- Preserve remaining Actions logs and audit events for the incident window.
+"""
+references = ["https://docs.github.com/en/rest/actions/workflow-runs#delete-a-workflow-run"]
+risk_score = 21
+rule_id = "c3767835-ee6d-4523-8d11-3cabeecbb8cf"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Service: GitHub Actions",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and data_stream.dataset == "github.audit"
+  and event.action == "workflows.delete_workflow_run"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.data.workflow_run_id",
+]
+
