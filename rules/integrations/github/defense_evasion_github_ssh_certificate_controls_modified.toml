@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or deletion of a GitHub SSH certificate authority, or disabling the requirement that members use SSH
+certificates. Destroying a CA or dropping the requirement lets adversaries authenticate with unmanaged keys.
+"""
+false_positives = [
+    """
+    Planned CA rotation. Create the replacement CA before deleting the old one, and do not disable the certificate
+    requirement except during a documented outage.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "GitHub SSH Certificate Authority or Requirement Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub SSH Certificate Authority or Requirement Modified
+
+`ssh_certificate_authority.destroy` removes the org/enterprise CA. `ssh_certificate_requirement.disable` allows ordinary SSH keys again.
+
+### Possible investigation steps
+
+- Identify `user.name`, `event.action`, and `github.actor_ip`.
+- Confirm whether a replacement CA exists and whether certificate requirement is still enabled.
+- Review `public_key.create` after the change.
+
+### False positive analysis
+
+- Controlled CA rotation with a change ticket.
+
+### Response and remediation
+
+- Restore the CA and re-enable the certificate requirement. Revoke unexpected SSH keys.
+"""
+references = [
+    "https://docs.github.com/en/organizations/managing-git-access-to-your-organizations-repositories/about-ssh-certificate-authorities",
+]
+risk_score = 73
+rule_id = "f35a0ff1-017e-48b0-b782-5e0bdbcc390a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+configuration where event.module == "github" and data_stream.dataset == "github.audit"
+  and event.action in (
+    "ssh_certificate_authority.create",
+    "ssh_certificate_authority.destroy",
+    "ssh_certificate_requirement.disable"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+    "github.name",
+]
+
