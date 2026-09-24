@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2026/09/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unusually high number of Claude chat deletion events for the same user email within a single calendar day.
+Mass chat deletion can indicate an attempt to remove conversation history, cover tracks after misuse of Claude, or
+automated cleanup following data staging or prompt abuse.
+"""
+false_positives = [
+    """
+    Users or administrators purging old chats during workspace hygiene, retention exercises, or GDPR-related cleanup can
+    exceed the daily threshold legitimately.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Excessive Chat Deletion"
+note = """## Triage and analysis
+
+### Investigating Anthropic Excessive Chat Deletion
+
+One mailbox deleted many chats in a UTC day bucket. Deleted content may no longer be viewable in the product UI —
+preserve audit history early.
+
+Escalate when deletions follow uploads/exports/sharing, UA looks scripted, or compliance logging was disabled nearby.
+Close as FP for scheduled retention cleanup or migration tooling with a ticket.
+
+#### Possible investigation steps
+
+- Capture chat/project ID values from the alert while they remain in audit history.
+- Compare deletion volume to prior `claude_chat_created` / `claude_file_uploaded` from the same email — delete-after-
+  upload is higher priority than cleanup of empty chats.
+- Inspect IP/UA for scripted patterns; correlate with logging disablement, SSO changes, or data exports.
+
+### False positive analysis
+
+- Project closure cleanup and migration tooling often bulk-delete in one session.
+
+### Response and remediation
+
+- On malicious deletion: preserve remaining audit exports, revoke sessions, and investigate whether sensitive content
+  was uploaded or shared before deletion.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "2944223e-3c25-4ce4-bd69-64f2914da187"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action == "claude_chat_deleted" and
+    event.outcome == "success" and
+    user.email is not null
+| eval Esql.time_bucket = DATE_TRUNC(1 day, @timestamp)
+| stats
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.anthropic_audit_claude_chat_id_values = values(anthropic.audit.claude_chat_id),
+    Esql.anthropic_audit_claude_project_id_values = values(anthropic.audit.claude_project_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.user_id_values = values(user.id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email, Esql.time_bucket
+| where Esql.event_count >= 30
+| keep user.email, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "Esql.time_bucket"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "Esql.time_bucket",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.anthropic_audit_claude_chat_id_values",
+    "Esql.anthropic_audit_claude_project_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.user_id_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]

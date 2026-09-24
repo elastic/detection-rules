@@ -22,12 +22,12 @@ from logs-okta.system*
 | where event.dataset == "okta.system" and event.action == "user.account.reset_password" and source.user.full_name != user.target.full_name
 
 // Extract relevant fields
-| keep @timestamp, okta.actor.alternate_id, okta.debug_context.debug_data.dt_hash, user.target.full_name, okta.outcome.result
+| keep @timestamp, okta.actor.alternate_id, okta.debug_context.debug_data.dt_hash, user.target.full_name, okta.outcome.result, source.user.full_name
 
 // Count the number of reset password attempts for each user
 | stats
     user_count = count_distinct(user.target.full_name),
-    reset_counts = by okta.actor.alternate_id, source.user.full_name, okta.debug_context.debug_data.dt_hash
+    reset_counts = count(*) by okta.actor.alternate_id, source.user.full_name, okta.debug_context.debug_data.dt_hash
 
 // Filter for more than 10 unique users and more than 15 reset password attempts by the source
 | where user_count > 10 and reset_counts > 15
