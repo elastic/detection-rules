@@ -195,7 +195,7 @@ def apply_emit_transforms(
     stack_ver = parse_stack(stack if stack is not None else load_current_package_version())
     ctx = context or EmitContext()
     # One-line gate: never ship ATLAS below 9.6 (8.19 API schema and Kibana lack support).
-    if stack_ver < MITRE_ATLAS_MIN_STACK:
+    if stack_ver < MITRE_ATLAS_MIN_STACK and "threat" in obj:
         obj["threat"] = [
             entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"
         ]

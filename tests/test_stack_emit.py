@@ -102,6 +102,12 @@ class TestStackEmitHelpers(unittest.TestCase):
             self.assertIn("MITRE ATT&CK", frameworks, stack)
             self.assertNotIn("MITRE ATLAS", frameworks, stack)
 
+    def test_missing_threat_stays_absent_below_9_6(self) -> None:
+        """A payload that omitted threat must not gain an empty threat array."""
+        obj: dict[str, Any] = {"name": "no-threat"}
+        apply_emit_transforms(obj, stack="9.5.0")
+        self.assertNotIn("threat", obj)
+
     def test_atlas_threat_mappings_appended_on_9_6(self) -> None:
         """ATLAS threat_mappings are appended to threat on 9.6+."""
         attack_entry = {
