@@ -96,10 +96,21 @@ def integration_stream_keys(
         if integration not in package_manifests or integration not in integration_schemas:
             continue
         try:
+            # stack-schema-map keys are MAJOR.MINOR.0. A stream added in a later patch
+            # (azure aadgraphactivitylogs at 8.19.10) is missing from the package that
+            # resolves at .0, so known-index checks must use the same patch floor as
+            # the schema plan.
+            parsed_stack = Version.parse(stack_version)
+            patch_floor = integrations.find_latest_integration_patch_for_minor(
+                [integration],
+                parsed_stack.major,
+                parsed_stack.minor,
+            )
+            resolved_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
             package_version, _ = integrations.find_latest_compatible_version(
                 integration,
                 "",
-                Version.parse(stack_version),
+                resolved_stack,
                 package_manifests,
             )
         except ValueError:

@@ -22,7 +22,11 @@ from detection_rules.esql import (
     normalize_dataset_package,
 )
 from detection_rules.esql_errors import EsqlSchemaError, EsqlUnknownIndexError
-from detection_rules.index_mappings import assert_known_esql_indices, collect_known_esql_index_patterns
+from detection_rules.index_mappings import (
+    assert_known_esql_indices,
+    collect_known_esql_index_patterns,
+    integration_stream_keys,
+)
 from detection_rules.rule import get_unique_query_fields
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.utils import get_path, load_rule_contents
@@ -250,6 +254,33 @@ class TestEsqlOfflineSchemaFailures:
         rule["rule"]["query"] = """
         FROM packetbeat-* METADATA _id, _version, _index
         | KEEP process.command_line.text, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_patch_gated_stream_is_a_known_index(self) -> None:
+        """Known-index checks resolve the patch floor, not the .0 stack-map key."""
+        from detection_rules.integrations import load_integrations_manifests, load_integrations_schemas
+
+        schemas = load_integrations_schemas()
+        if "aadgraphactivitylogs" not in schemas.get("azure", {}).get("1.37.0", {}):
+            pytest.skip("bundled azure manifests have no patch-gated aadgraphactivitylogs stream")
+        keys = integration_stream_keys(
+            ["azure"],
+            [],
+            load_integrations_manifests(),
+            schemas,
+            "8.19.0",
+        )
+        assert "azure-aadgraphactivitylogs" in keys
+
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["azure"]
+        rule["metadata"]["min_stack_version"] = "8.19.0"
+        rule["rule"]["query"] = """
+        FROM logs-azure.aadgraphactivitylogs-* METADATA _id, _version, _index
+        | WHERE azure.aadgraphactivitylogs.category == "SignIn"
+        | KEEP azure.aadgraphactivitylogs.category, _id, _version, _index
         """
         loaded = RuleCollection().load_dict(rule)
         assert loaded.contents.data.language == "esql"
