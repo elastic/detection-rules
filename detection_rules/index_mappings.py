@@ -12,7 +12,7 @@ from semver import Version
 
 from . import ecs, integrations
 from .config import CUSTOM_RULES_DIR
-from .esql import EventDataset, index_patterns_match
+from .esql import EventDataset, index_patterns_match, local_esql_index
 from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
     load_integrations_manifests,
@@ -71,7 +71,7 @@ def esql_indices_covered_by_packages(
     packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
     package_set = set(packages)
     for index in indices:
-        cleaned = index.replace("::", ":").split(":")[-1].strip().strip("`")
+        cleaned = local_esql_index(index)
         inferred = infer_packages_from_indices([index])
         # infer_packages_from_indices maps a bare metrics-* pattern to system. That pattern
         # is not one system stream, so it still keeps the full ECS schema.

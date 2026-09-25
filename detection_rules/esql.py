@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-import fnmatch
+import functools
 import re
 from dataclasses import dataclass
 from typing import Any, cast
@@ -84,11 +84,51 @@ def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = Non
     return event_datasets
 
 
+def local_esql_index(source: str) -> str:
+    """Drop a ``cluster:`` or ``cluster::`` prefix from an index pattern."""
+    cleaned = source.strip().strip("`")
+    return cleaned.replace("::", ":").split(":")[-1].strip().strip("`")
+
+
 def index_patterns_match(left: str, right: str) -> bool:
-    """Return True when two index patterns refer to overlapping names."""
+    """Return True when some index name can match both patterns.
+
+    ``*`` is any sequence and ``?`` is one character. Overlapping globs such as
+    ``logs-*-foo`` and ``logs-bar-*`` match.
+    """
     if left == right:
         return True
-    return bool(fnmatch.fnmatch(left, right) or fnmatch.fnmatch(right, left))
+    return _index_patterns_overlap(left, right)
+
+
+@functools.cache
+def _index_patterns_overlap(left: str, right: str) -> bool:
+    """Return True when the languages of two ``*`` / ``?`` patterns intersect."""
+
+    @functools.cache
+    def overlap(i: int, j: int) -> bool:
+        if i == len(left) and j == len(right):
+            return True
+        if i < len(left) and left[i] == "*":
+            return overlap(i + 1, j) or (j < len(right) and overlap(i, j + 1))
+        if j < len(right) and right[j] == "*":
+            return overlap(i, j + 1) or (i < len(left) and overlap(i + 1, j))
+        if i == len(left) or j == len(right):
+            return False
+        if left[i] == "?" or right[j] == "?" or left[i] == right[j]:
+            return overlap(i + 1, j + 1)
+        return False
+
+    return overlap(0, 0)
+
+
+def _matching_non_ecs_fields(index: str, non_ecs: dict[str, Any]) -> dict[str, Any]:
+    """Flatten non-ECS rows whose index pattern overlaps ``index``."""
+    matched: dict[str, Any] = {}
+    for key, index_fields in non_ecs.items():
+        if isinstance(index_fields, dict) and index_patterns_match(index, key):
+            matched.update(ecs.flatten(cast("dict[str, Any]", index_fields)))
+    return matched
 
 
 def infer_packages_from_indices(indices: list[str]) -> list[str]:
@@ -96,7 +136,7 @@ def infer_packages_from_indices(indices: list[str]) -> list[str]:
     packages: list[str] = []
     seen: set[str] = set()
     for index in indices:
-        cleaned = index.replace("::", ":").split(":")[-1].strip()
+        cleaned = local_esql_index(index)
         match = _INDEX_PACKAGE_RE.match(cleaned)
         if match:
             package = normalize_dataset_package(match.group(1).lower())
@@ -122,9 +162,7 @@ def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
     non_ecs = ecs.get_non_ecs_schema()
     for index in indices:
         fields.update(**ecs.flatten(ecs.get_index_schema(index)))
-        for key, index_fields in non_ecs.items():
-            if index_patterns_match(index, key):
-                fields.update(index_fields)
+        fields.update(_matching_non_ecs_fields(index, non_ecs))
         if CUSTOM_RULES_DIR:
             fields.update(**ecs.flatten(ecs.get_custom_index_schema(index)))
     fields.update(**ecs.flatten(ecs.get_endpoint_schemas()))
@@ -143,9 +181,7 @@ def collect_lookup_index_field_schemas(indices: list[str]) -> dict[str, dict[str
     for index in indices:
         fields: dict[str, Any] = {}
         fields.update(**ecs.flatten(ecs.get_index_schema(index)))
-        for key, index_fields in non_ecs.items():
-            if index_patterns_match(index, key):
-                fields.update(index_fields)
+        fields.update(_matching_non_ecs_fields(index, non_ecs))
         if CUSTOM_RULES_DIR:
             fields.update(**ecs.flatten(ecs.get_custom_index_schema(index)))
         result[index] = fields
@@ -154,7 +190,7 @@ def collect_lookup_index_field_schemas(indices: list[str]) -> dict[str, dict[str
 
 def lookup_index_uses_ecs(index: str) -> bool:
     """Return True when a LOOKUP JOIN target is a datastream/beat, not a named table."""
-    cleaned = index.replace("::", ":").split(":")[-1].strip().strip("`")
+    cleaned = local_esql_index(index)
     if _INDEX_PACKAGE_RE.match(cleaned):
         return True
     return cleaned.startswith(
@@ -228,7 +264,7 @@ def split_esql_source_list(sources: str) -> list[str]:
     indices: list[str] = []
     for source in sources.split(","):
         # Truncate cross cluster search indices to local indices
-        index = source.split(":", 1)[-1].strip()
+        index = local_esql_index(source)
         if ESQL_INDEX_PATTERN_REGEX.match(index):
             indices.append(index)
     return indices
@@ -245,7 +281,7 @@ def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[Es
     except Exception:  # noqa: BLE001 — incomplete fragments have no FROM groups
         return []
     return [
-        EsqlSourceGroup(indices=list(group.indices), spans=list(group.spans))
+        EsqlSourceGroup(indices=[local_esql_index(index) for index in group.indices], spans=list(group.spans))
         for group in esql.get_from_source_groups(parsed)
     ]
 
@@ -266,8 +302,8 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
 def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[tuple[str, str]]:
     """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs.
 
-    The written form keeps any `cluster:` prefix, which is what the parser matches when it
-    narrows a multi-index schema to one FROM.
+    The written form keeps any `cluster:` or `cluster::` prefix, which is what the parser
+    matches when it narrows a multi-index schema to one FROM. The local pattern drops that prefix.
     """
     try:
         parsed = tree if tree is not None else _parse_for_extraction(query)
@@ -277,7 +313,7 @@ def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[
     sources: list[tuple[str, str]] = []
     for source in esql.get_from_sources(parsed):
         written = source.strip()
-        index = written.split(":", 1)[-1].strip()
+        index = local_esql_index(written)
         if index and ESQL_INDEX_PATTERN_REGEX.match(index) and (written, index) not in sources:
             sources.append((written, index))
     return sources
@@ -292,7 +328,7 @@ def get_esql_lookup_join_targets(query: str, tree: Any | None = None) -> list[st
 
     targets: list[str] = []
     for source in esql.get_lookup_join_targets(parsed):
-        index = source.split(":", 1)[-1].strip().strip("`")
+        index = local_esql_index(source)
         if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in targets:
             targets.append(index)
     return targets

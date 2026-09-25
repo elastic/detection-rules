@@ -117,6 +117,16 @@ class TestESQLQuerySources(unittest.TestCase):
         )
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
+    def test_double_colon_cluster_prefix_strips_to_local_index(self):
+        """A cluster:: prefix is not part of the local index pattern."""
+        query = "FROM remote::logs-a-* METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(
+            get_esql_query_source_patterns(query),
+            [("remote::logs-a-*", "logs-a-*")],
+        )
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
+        self.assertListEqual(get_esql_query_source_groups(query)[0].indices, ["logs-a-*"])
+
     def test_configured_parse_reads_feature_gated_sources(self):
         """Source extraction uses the current package config, including COMPLETION and nested KQL."""
         completion = """

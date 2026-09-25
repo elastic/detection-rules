@@ -31,6 +31,7 @@ from .beats import get_datasets_and_modules, parse_beats_from_index
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .custom_schemas import update_auto_generated_schema
 from .esql import (
+    EventDataset,
     collect_index_field_schemas,
     collect_lookup_index_field_schemas,
     collect_package_fields_for_indices,
@@ -39,6 +40,7 @@ from .esql import (
     get_esql_query_indices,
     get_esql_query_source_patterns,
     infer_packages_from_indices,
+    local_esql_index,
     lookup_index_uses_ecs,
     normalize_dataset_package,
 )
@@ -897,15 +899,18 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
     packages_manifest: dict[str, Any],
     integrations_schemas: dict[str, Any],
     index_fields: dict[str, Any],
-    *,
-    include_ecs: bool = True,
+    event_datasets: list[EventDataset],
 ) -> tuple[dict[str, Any], set[str]]:
     """Build the FROM schema, one map per index when several patterns are present.
 
     A single ``FROM a, b`` still unions those maps. Sibling subqueries only see the
     patterns on their own ``FROM``, which the parser narrows when keys contain ``*``.
-    Package-covered indices omit the full ECS schema; Beats and uncovered sources keep it.
+    Each index keeps full ECS on its own: a Beats pattern next to a package stream
+    does not attach ECS to the package stream.
     """
+    package_names = [
+        normalize_dataset_package(str(item["package"])) for item in package_integrations if item.get("package")
+    ]
 
     def one(
         indices: list[str], *, shared_index_fields: dict[str, Any] | None, allow_fallback: bool
@@ -920,7 +925,8 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
         )
         # A name that only looks like a Fleet package (custom data streams) has no
         # field file. Keep full ECS there so host.name and the rest still resolve.
-        schema_dict = dict(ecs_flat) if include_ecs or not pkgs else {}
+        covered = esql_indices_covered_by_packages(indices, package_names, event_datasets)
+        schema_dict = dict(ecs_flat) if not covered or not pkgs else {}
         if shared_index_fields is not None:
             schema_dict.update(shared_index_fields)
         else:
@@ -1084,7 +1090,7 @@ class ESQLValidator(QueryValidator):
                     return DrEsqlSemanticError(f"{exc}\n\n{trailer}")
         return None
 
-    def build_validation_plan(  # noqa: PLR0912, PLR0915
+    def build_validation_plan(  # noqa: PLR0915
         self, data: "QueryRuleData", meta: RuleMeta
     ) -> list[ValidationTarget]:
         """Build offline validation targets across the release-window stack map."""
@@ -1158,9 +1164,6 @@ class ESQLValidator(QueryValidator):
                 )
                 min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
                 ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
-                package_names = [
-                    normalize_dataset_package(str(p["package"])) for p in package_integrations if p.get("package")
-                ]
                 schema_dict, pkgs = _schema_dict_for_from_indices(
                     from_indices,
                     from_sources,
@@ -1170,7 +1173,7 @@ class ESQLValidator(QueryValidator):
                     packages_manifest,
                     integrations_schemas,
                     index_fields,
-                    include_ecs=not esql_indices_covered_by_packages(from_indices, package_names, event_datasets),
+                    event_datasets,
                 )
                 packages_by_stack.setdefault(stack_version, set()).update(pkgs)
 
@@ -1202,13 +1205,9 @@ class ESQLValidator(QueryValidator):
                 cache_key = (("__stack__",), indices_key, str(stack_version), str(ecs_version))
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
-                    raw_schema = cast("dict[str, Any]", ecs.get_schema(ecs_version))
-                    ecs_types: dict[str, Any] = {}
-                    for key, value in raw_schema.items():
-                        if isinstance(value, dict):
-                            ecs_types[str(key)] = cast("dict[str, Any]", value).get("type")
-                        else:
-                            ecs_types[str(key)] = value
+                    # Copy: get_flat_ecs_schema returns a shared dict. Multi-fields such as
+                    # process.command_line.text are columns on Beats indices with no package schema.
+                    ecs_types = dict(ecs.get_flat_ecs_schema(ecs_version))
                     if len(from_sources) <= 1:
                         schema_dict = {**ecs_types, **index_fields}
                     else:
@@ -1338,7 +1337,7 @@ class ESQLValidator(QueryValidator):
             if isinstance(node, esql.ast.EsqlQuery) and node.commands:
                 first = node.commands[0]
                 if isinstance(first, esql.ast.FromCommand) and first.index_patterns:
-                    scope = first.index_patterns[0].split(":", 1)[-1].strip()
+                    scope = local_esql_index(first.index_patterns[0])
             elif isinstance(node, esql.ast.ColumnRef) and str(node) == field_name and scope:
                 matches.append((scope, (node.line, node.column)))
             for child in node.iter_children():

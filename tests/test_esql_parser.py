@@ -16,6 +16,7 @@ from detection_rules.esql import (
     collect_index_field_schemas,
     collect_lookup_index_field_schemas,
     get_esql_lookup_join_targets,
+    index_patterns_match,
     infer_packages_from_indices,
     lookup_index_uses_ecs,
     normalize_dataset_package,
@@ -209,6 +210,49 @@ class TestEsqlOfflineSchemaFailures:
         """
         with pytest.raises(EsqlSchemaError, match=re.escape("aws.cloudtrail.user_identity.type")):
             RuleCollection().load_dict(rule)
+
+    def test_uncovered_index_does_not_attach_ecs_to_sibling_subquery(self) -> None:
+        """Full ECS stays on the uncovered FROM. A package stream beside it does not inherit it."""
+        from esql.versions import Version
+
+        from detection_rules.config import load_current_package_version
+
+        if Version.parse(load_current_package_version()) < Version(9, 5):
+            pytest.skip("Subquery FROM index spans require the 9.5 grammar")
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "9.5.0"
+        rule["rule"]["query"] = """
+        FROM
+          (FROM logs-endpoint.events.process-* | WHERE faas.trigger.type == "http" | KEEP host.name),
+          (FROM packetbeat-* | KEEP host.name)
+        | STATS count = COUNT(*) BY host.name
+        | KEEP count, host.name
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("faas.trigger.type")):
+            RuleCollection().load_dict(rule)
+
+        rule["rule"]["query"] = """
+        FROM
+          (FROM packetbeat-* | KEEP process.command_line.text),
+          (FROM logs-endpoint.events.process-* | KEEP host.name)
+        | STATS count = COUNT(*) BY host.name
+        | KEEP count, host.name
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_stack_only_schema_keeps_ecs_multi_fields(self) -> None:
+        """Beats indices with no Fleet package still accept ECS multi-fields."""
+        rule = _sample_rule()
+        rule["metadata"].pop("integration", None)
+        rule["metadata"]["min_stack_version"] = "9.6.0"
+        rule["rule"]["query"] = """
+        FROM packetbeat-* METADATA _id, _version, _index
+        | KEEP process.command_line.text, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
 
     def test_stack_subquery_does_not_see_sibling_index_fields(self) -> None:
         """Without packages, each subquery still gets only its own FROM index fields."""
@@ -501,6 +545,22 @@ class TestEsqlSchemaHelpers:
         assert "system" in packages
         assert "gcp" in packages
         assert ".alerts-security.*" not in packages
+
+    def test_index_patterns_match_overlapping_globs(self) -> None:
+        assert index_patterns_match("logs-*-foo", "logs-bar-*")
+        assert index_patterns_match("endgame-2026", "endgame-*")
+        assert index_patterns_match("logs-aws.cloudtrail-2026", "logs-aws.cloudtrail-*")
+        assert not index_patterns_match("logs-a-*", "logs-b-*")
+        assert not index_patterns_match("a*c", "*b")
+
+    def test_wildcard_non_ecs_fields_are_flattened(self) -> None:
+        """A concrete index that overlaps a wildcard non-ECS row sees dotted fields."""
+        fields = collect_index_field_schemas(["endgame-2026"])
+        assert fields.get("endgame.event_subtype_full") == "keyword"
+        assert fields.get("endgame.metadata.type") == "keyword"
+        lookup_fields = collect_lookup_index_field_schemas(["endgame-2026"])["endgame-2026"]
+        assert lookup_fields.get("endgame.event_subtype_full") == "keyword"
+        assert lookup_fields.get("endgame.metadata.type") == "keyword"
 
     def test_collect_index_field_schemas_includes_alert_fields(self) -> None:
         fields = collect_index_field_schemas([".alerts-security.*"])
