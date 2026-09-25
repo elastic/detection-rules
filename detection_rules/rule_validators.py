@@ -1277,8 +1277,11 @@ class ESQLValidator(QueryValidator):
                 tree = trees_by_grammar.get(gkey)
                 if tree is None:
                     cfg = set_esql_config(target.min_stack_version)
-                    with cfg, esql.Schema({}, allow_missing=True):
-                        tree = esql.parse_query(target.query_text)
+                    try:
+                        with cfg, esql.Schema({}, allow_missing=True):
+                            tree = esql.parse_query(target.query_text)
+                    except esql.EsqlSyntaxError as exc:
+                        raise DrEsqlSyntaxError(str(exc)) from exc
                     trees_by_grammar[gkey] = tree
                 exc, _ = self.validate_query_text_with_schema(
                     target.query_text,

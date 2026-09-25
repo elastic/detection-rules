@@ -183,6 +183,24 @@ def _repo_relative(path: Path | None) -> str:
     return str(Path(*parts[idx:]))
 
 
+def test_mv_expand_protects_only_following_compares() -> None:
+    """MV_EXPAND covers a later compare of that field and not an earlier one."""
+    early = """
+    FROM logs-*
+    | WHERE process.args == "x"
+    | MV_EXPAND process.args
+    | KEEP process.args
+    """
+    late = """
+    FROM logs-*
+    | MV_EXPAND process.args
+    | WHERE process.args == "x"
+    | KEEP process.args
+    """
+    assert "process.args" in unprotected_always_multi_compares(early)
+    assert "process.args" not in unprotected_always_multi_compares(late)
+
+
 class TestEsqlAlwaysMultiFields(BaseRuleTest):
     """Iterate all production ES|QL rules like test_all_rules."""
 

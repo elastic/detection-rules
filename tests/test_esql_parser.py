@@ -21,6 +21,7 @@ from detection_rules.esql import (
     normalize_dataset_package,
 )
 from detection_rules.esql_errors import EsqlSchemaError, EsqlUnknownIndexError
+from detection_rules.index_mappings import assert_known_esql_indices, collect_known_esql_index_patterns
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.utils import get_path, load_rule_contents
 
@@ -44,6 +45,71 @@ class TestEsqlOfflineSchemaFailures:
         """
         with pytest.raises(EsqlUnknownIndexError, match=re.escape("logs-endpoint.fake")):
             RuleCollection().load_dict(rule)
+
+    def test_stream_keys_cover_metrics_and_traces(self) -> None:
+        """Fleet streams are known as logs, metrics, and traces index patterns."""
+        patterns = collect_known_esql_index_patterns({"system-cpu"}, [])
+        assert "logs-system.cpu*" in patterns
+        assert "metrics-system.cpu*" in patterns
+        assert "traces-system.cpu*" in patterns
+        assert assert_known_esql_indices(["metrics-system.cpu-*"], {"system-cpu"})
+        assert assert_known_esql_indices(["packetbeat-*"], set())
+
+    def test_one_unknown_index_among_known_still_raises(self) -> None:
+        """Every FROM index must match a known pattern."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-*, logs-endpoint.fake-* METADATA _id, _version, _index
+        | WHERE host.name == "workstation"
+        | KEEP host.name, _id, _version, _index
+        """
+        with pytest.raises(EsqlUnknownIndexError, match=re.escape("logs-endpoint.fake")):
+            RuleCollection().load_dict(rule)
+
+    def test_unknown_dataset_package_does_not_raise_manifest_error(self) -> None:
+        """A data_stream.dataset value outside the manifests must not raise ValueError."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE data_stream.dataset == "notapkg.stream"
+        | KEEP host.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_custom_rules_dir_skips_unknown_index(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Custom and customized prebuilt rules may use data streams outside Fleet manifests."""
+        monkeypatch.setattr("detection_rules.index_mappings.CUSTOM_RULES_DIR", "custom-rules-dir")
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = []
+        rule["rule"]["query"] = """
+        FROM logs-acme.private-* METADATA _id, _version, _index
+        | WHERE host.name == "workstation"
+        | KEEP host.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_older_grammar_reparse_uses_detection_rules_syntax_error(self) -> None:
+        """A reparse for an older stack grammar raises detection_rules EsqlSyntaxError."""
+        import esql
+
+        from detection_rules.esql_errors import EsqlSyntaxError
+
+        rule = _sample_rule()
+        rule["metadata"]["min_stack_version"] = "8.19.0"
+        rule["metadata"]["integration"] = ["endpoint"]
+        # Map-form COMPLETION parses on 9.3+ grammars and is rejected by the 8.19 grammar.
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | COMPLETION triage_result = "x" WITH { "inference_id": "model" }
+        | KEEP triage_result, _id, _version, _index
+        """
+        with pytest.raises(EsqlSyntaxError, match=r"COMPLETION|mismatched") as caught:
+            RuleCollection().load_dict(rule)
+        assert not isinstance(caught.value, esql.EsqlSyntaxError)
 
     def test_unknown_field_raises_schema_error(self) -> None:
         rule = _sample_rule()
@@ -155,10 +221,7 @@ class TestEsqlOfflineSchemaPasses:
         | WHERE KQL("""totally.made_up.nested_kql_field : x""")
         | KEEP host.name, _id, _version, _index
         '''
-        with pytest.raises(
-            (EsqlSchemaError, Exception),
-            match=r"totally\.made_up\.nested_kql_field|Unknown field|Field",
-        ):
+        with pytest.raises(EsqlSchemaError, match="Unknown field"):
             RuleCollection().load_dict(rule)
 
     def test_eql_parse_hook_wired(self) -> None:

@@ -11,6 +11,7 @@ from typing import Any
 from semver import Version
 
 from . import ecs, integrations
+from .config import CUSTOM_RULES_DIR
 from .esql import EventDataset
 from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
@@ -82,12 +83,19 @@ def integration_stream_keys(
     rule_integrations, dataset_restriction = resolve_rule_packages(rule_integrations, event_dataset_integrations)
     keys: set[str] = set()
     for integration in rule_integrations:
-        package_version, _ = integrations.find_latest_compatible_version(
-            integration,
-            "",
-            Version.parse(stack_version),
-            package_manifests,
-        )
+        # Dataset strings are not always Fleet packages. A custom data stream named in
+        # data_stream.dataset must not abort prebuilt index checks.
+        if integration not in package_manifests or integration not in integration_schemas:
+            continue
+        try:
+            package_version, _ = integrations.find_latest_compatible_version(
+                integration,
+                "",
+                Version.parse(stack_version),
+                package_manifests,
+            )
+        except ValueError:
+            continue
         package_schema = integration_schemas[integration][package_version]
         if integration in dataset_restriction:
             allowed_keys = dataset_restriction[integration]
@@ -100,17 +108,20 @@ def integration_stream_keys(
 
 def collect_known_esql_index_patterns(stream_keys: set[str], indices: list[str]) -> set[str]:
     """Build known ES|QL index patterns from Fleet streams plus non-ECS and custom schemas."""
-    # Assumes valid index format is logs-<integration>.<package>* or logs-<integration>.<package>-*
     usable = {key for key in stream_keys if key not in indices}
-    filtered_keys = {"logs-" + key.replace("-", ".") + "*" for key in usable}
-    filtered_keys.update("logs-" + key.replace("-", ".") + "-*" for key in usable)
+    filtered_keys: set[str] = set()
+    for prefix in ("logs-", "metrics-", "traces-"):
+        filtered_keys.update(prefix + key.replace("-", ".") + "*" for key in usable)
+        filtered_keys.update(prefix + key.replace("-", ".") + "-*" for key in usable)
     filtered_keys = {
-        key.replace("logs-endpoint.", "logs-endpoint.events.") if "logs-endpoint." in key else key
+        key.replace("logs-endpoint.", "logs-endpoint.events.") if key.startswith("logs-endpoint.") else key
         for key in filtered_keys
     }
     filtered_keys.update(ecs.get_non_ecs_schema().keys())
     filtered_keys.update(ecs.get_custom_schemas().keys())
     filtered_keys.add("logs-endpoint.alerts-*")
+    # Packetbeat is an official index with no non-ECS schema entry. Shipped rules read it.
+    filtered_keys.add("packetbeat-*")
     return filtered_keys
 
 
@@ -118,13 +129,19 @@ def assert_known_esql_indices(indices: list[str], stream_keys: set[str]) -> list
     """Return known patterns matching FROM indices."""
     filtered_keys = collect_known_esql_index_patterns(stream_keys, indices)
     matches: list[str] = []
+    unmatched: list[str] = []
     for index in indices:
         pattern = re.compile(re.escape(index.rstrip("-")).replace(r"\*", ".*"))
-        matches.extend(key for key in filtered_keys if pattern.fullmatch(key))
+        index_matches = [key for key in filtered_keys if pattern.fullmatch(key)]
+        if index_matches:
+            matches.extend(index_matches)
+        else:
+            unmatched.append(index)
 
-    if not matches:
+    if unmatched or not indices:
+        unknown = unmatched or indices
         raise EsqlUnknownIndexError(
-            f"Unknown index pattern(s): {', '.join(indices)}. Known patterns: {', '.join(sorted(filtered_keys))}"
+            f"Unknown index pattern(s): {', '.join(unknown)}. Known patterns: {', '.join(sorted(filtered_keys))}"
         )
 
     if "logs-endpoint.alerts-*" in matches and "logs-endpoint.events.alerts-*" not in matches:
@@ -141,7 +158,12 @@ def validate_offline_esql_from_indices(
     event_dataset_integrations: list[EventDataset],
     stack_version: str,
 ) -> list[str]:
-    """Reject FROM and LOOKUP JOIN patterns that match no known index."""
+    """Reject unknown FROM and LOOKUP JOIN patterns on prebuilt rules."""
+    # Custom-rules directories hold custom rules and customized prebuilt rules.
+    # Their data streams are not in the Fleet manifests, so this check does not apply.
+    if CUSTOM_RULES_DIR:
+        return list(indices)
+
     from .esql import infer_packages_from_indices
 
     rule_integrations = get_rule_integrations(metadata)
