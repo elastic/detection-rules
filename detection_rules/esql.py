@@ -14,6 +14,7 @@ from .schemas.definitions import (
     ESQL_FROM_SOURCES_TERMINATOR_REGEX,
     ESQL_INDEX_PATTERN_REGEX,
 )
+from .utils import strip_index_expression
 
 
 @dataclass
@@ -79,8 +80,8 @@ def split_esql_source_list(sources: str) -> list[str]:
     """Split a FROM clause source list into its local index patterns."""
     indices: list[str] = []
     for source in sources.split(","):
-        # Truncate cross cluster search indices to local indices
-        index = source.split(":", 1)[-1].strip()
+        # Truncate cross cluster search indices and component selectors to local indices
+        index = strip_index_expression(source)
         if ESQL_INDEX_PATTERN_REGEX.match(index):
             indices.append(index)
     return indices

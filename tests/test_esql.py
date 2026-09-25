@@ -45,6 +45,12 @@ class TestESQLQuerySources(unittest.TestCase):
         query = "FROM cluster_one:logs-a-*, logs-b-* METADATA _id\n| WHERE x"
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
+    def test_selector_sources(self):
+        """Test that component selectors are stripped from local and cross cluster sources."""
+        query = "FROM logs-a-*::failures, cluster_one:logs-b-*::data, logs-c-* METADATA _id\n| WHERE x"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*", "logs-c-*"])
+        self.assertEqual(replace_with_group_position(query), "FROM test-index-0 METADATA _id\n| WHERE x")
+
     def test_subqueries_are_grouped_by_their_own_sources(self):
         """Test that subqueries reading different indices are grouped and replaced separately."""
         query = "FROM\n(\n  FROM logs-a-* METADATA _id\n  | WHERE x\n),\n(\n  FROM logs-b-* METADATA _id\n)\n| WHERE y"
