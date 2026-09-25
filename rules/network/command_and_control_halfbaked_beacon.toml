@@ -2,7 +2,9 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -83,7 +85,7 @@ query = '''
 from packetbeat-*, filebeat-*, logs-network_traffic.* metadata _id, _version, _index
 | where (
     data_stream.dataset in ("network_traffic.tls", "network_traffic.http") or
-    (event.category in ("network", "network_traffic") and network.protocol == "http")
+    ((mv_contains(event.category, "network") or mv_contains(event.category, "network_traffic")) and network.protocol == "http")
   )
 | where network.transport == "tcp"
 | where url.full RLIKE "http://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}/cd"

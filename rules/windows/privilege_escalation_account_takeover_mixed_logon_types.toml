@@ -2,7 +2,9 @@
 creation_date = "2026/02/25"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -68,7 +70,7 @@ type = "esql"
 
 query = '''
 from logs-system.security*, logs-windows.forwarded*, winlogbeat-* metadata _id, _version, _index
-| WHERE event.category == "authentication" and event.action == "logged-in" and winlog.event_id == "4624" and
+| WHERE MV_CONTAINS(event.category, "authentication") and event.action == "logged-in" and winlog.event_id == "4624" and
         event.outcome == "success" and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
         to_lower(user.name) != "administrator"
 | STATS logon_count = COUNT(*), host_names = VALUES(host.name) by user.name, user.id, winlog.logon.type

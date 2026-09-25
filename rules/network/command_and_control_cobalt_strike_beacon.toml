@@ -2,7 +2,9 @@
 creation_date = "2020/07/06"
 integration = ["network_traffic", "panw", "fortinet_fortigate"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +89,7 @@ type = "esql"
 query = '''
 from packetbeat-*, filebeat-*, logs-network_traffic.*, logs-panw.panos*, logs-fortinet_fortigate.log-* metadata _id, _version, _index
 | where (
-    (event.category in ("network", "network_traffic") and network.protocol in ("tls", "http")) or
+    ((mv_contains(event.category, "network") or mv_contains(event.category, "network_traffic")) and network.protocol in ("tls", "http")) or
     (data_stream.dataset == "panw.panos" and network.application in ("ssl", "web-browsing")) or
     data_stream.dataset in ("network_traffic.tls", "network_traffic.http", "fortinet_fortigate.log")
   )

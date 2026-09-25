@@ -2,7 +2,9 @@
 creation_date = "2026/01/22"
 integration = ["wiz"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -69,7 +71,7 @@ type = "esql"
 query = '''
 FROM logs-wiz.vulnerability-*
 
-| WHERE data_stream.dataset == "wiz.vulnerability" and event.category == "vulnerability" and
+| WHERE data_stream.dataset == "wiz.vulnerability" and MV_CONTAINS(event.category, "vulnerability") and
         wiz.vulnerability.vulnerable_asset.name is not null and
         wiz.vulnerability.vulnerable_asset.id is not null
 | stats Esql.count_distinct_vuln_id = COUNT_DISTINCT(wiz.vulnerability.id),

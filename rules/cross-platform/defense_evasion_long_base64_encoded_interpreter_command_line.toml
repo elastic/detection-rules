@@ -2,7 +2,9 @@
 creation_date = "2026/03/27"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -73,7 +75,7 @@ query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 | MV_EXPAND _ignored
 | WHERE _ignored == "process.command_line"
-| WHERE event.category == "process" and event.type == "start"
+| WHERE MV_CONTAINS(event.category, "process") and MV_CONTAINS(event.type, "start")
 | EVAL command_line = TO_LOWER(process.command_line.text), pname = TO_LOWER(process.name)
 | WHERE 
 (
