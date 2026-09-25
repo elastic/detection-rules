@@ -63,7 +63,7 @@ _COMPARE_OPS = frozenset({"==", "!=", "in", "not in", "not_in"})
 _LIKE_FUNCS = frozenset({"like", "not_like", "rlike", "not_rlike"})
 _MV_PROTECT_FUNCS = frozenset({"mv_contains", "mv_intersects"})
 
-# Shrink as rules are fixed; do not grow without review. Paths relative to repo `rules/`.
+# Shrink as rules are fixed; do not grow without review. Paths relative to the repo root.
 KNOWN_UNPROTECTED: dict[str, frozenset[str]] = {
     "rules/linux/defense_evasion_base64_decoding_activity.toml": frozenset({"process.args"}),
     "rules/network/initial_access_fortigate_admin_login_multi_srcip.toml": frozenset({"source.user.roles"}),

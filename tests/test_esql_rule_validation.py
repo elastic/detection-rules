@@ -59,8 +59,8 @@ class TestEsqlRuleValidation(BaseRuleTest):
         rule = RuleCollection().load_dict(production_rule)
         api = rule.contents.to_api_format()
         hashable = rule.contents.get_hashable_content()
-        if "required_fields" in api:
-            assert "required_fields" in hashable, "required_fields must not be popped when keep has no wildcards"
+        assert "required_fields" in api, "event.action should produce required_fields"
+        assert "required_fields" in hashable, "required_fields must not be popped when keep has no wildcards"
 
     def test_get_hashable_content_required_fields_kept_for_explicit_keep_only(self):
         """Hashable content keeps required_fields when keep lists only explicit fields."""
@@ -75,8 +75,8 @@ class TestEsqlRuleValidation(BaseRuleTest):
         rule = RuleCollection().load_dict(production_rule)
         api = rule.contents.to_api_format()
         hashable = rule.contents.get_hashable_content()
-        if "required_fields" in api:
-            assert "required_fields" in hashable
+        assert "required_fields" in api, "event.action should produce required_fields"
+        assert "required_fields" in hashable
 
     def test_esql_related_integrations(self):
         """Test an ESQL rule has its related integrations built correctly."""
@@ -124,7 +124,7 @@ class TestEsqlRuleValidation(BaseRuleTest):
         """Test an ESQL rule that uses event.dataset field in the query that restricts the schema failing validation."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # event.dataset restricts the schema to aws.billing, which has no cloudtrail fields
         production_rule = deepcopy(original_production_rule)[0]
         del production_rule["metadata"]["integration"]
         production_rule["rule"]["query"] = """
@@ -142,7 +142,7 @@ class TestEsqlRuleValidation(BaseRuleTest):
         """Test an ESQL rule that produces a type error comparing a keyword to a number."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # A keyword compared to a number raises EsqlTypeMismatchError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -157,10 +157,10 @@ class TestEsqlRuleValidation(BaseRuleTest):
             _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_syntax_error(self):
-        """Test an ESQL rule that incorrectly using = for comparison."""
+        """Test an ESQL rule that incorrectly uses = for comparison."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # `=` is assignment, not comparison, so the query is a syntax error
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -178,7 +178,7 @@ class TestEsqlRuleValidation(BaseRuleTest):
         """Test an ESQL rule's schema validation to properly reduce it by the index and handle implicit fields."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # Cloudtrail fields resolve on logs-aws.cloud*, so the rule loads
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -194,7 +194,7 @@ class TestEsqlRuleValidation(BaseRuleTest):
         """Test an ESQL rule's schema validation when reduced by the index and check if the field is present."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # The billing stream has no cloudtrail fields, so this raises EsqlSchemaError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -286,7 +286,7 @@ class TestEsqlRuleValidation(BaseRuleTest):
         """Test an ESQL rule's schema validation."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # The billing stream has no cloudtrail fields, so this raises EsqlSchemaError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """

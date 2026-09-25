@@ -11,6 +11,7 @@ from detection_rules.esql import (
     get_esql_lookup_join_targets,
     get_esql_query_indices,
     get_esql_query_source_groups,
+    get_esql_query_source_patterns,
     replace_esql_query_sources,
 )
 
@@ -93,6 +94,15 @@ class TestESQLQuerySources(unittest.TestCase):
         query = "FROM logs-a-* METADATA _id\n| LOOKUP JOIN threat_list ON host.name\n| WHERE x == 1"
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
         self.assertListEqual(get_esql_lookup_join_targets(query), ["threat_list"])
+
+    def test_source_patterns_keep_cluster_prefix(self):
+        """Source patterns keep the written cluster prefix alongside the local index."""
+        query = "FROM remote:logs-a-*, logs-b-*, remote:logs-a-* METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(
+            get_esql_query_source_patterns(query),
+            [("remote:logs-a-*", "logs-a-*"), ("logs-b-*", "logs-b-*")],
+        )
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
     def test_configured_parse_reads_feature_gated_sources(self):
         """Source extraction uses the current package config, including COMPLETION and nested KQL."""

@@ -308,13 +308,13 @@ class TestEsqlOfflineSchemaPasses:
             RuleCollection().load_dict(rule)
 
     def test_eql_parse_hook_wired(self) -> None:
-        """eql_parse hook is installed for when ES|QL grammar supports EQL()."""
+        """eql_parse hook is installed for nested EQL() (9.7+)."""
         from detection_rules.rule import set_esql_config
 
         cfg = set_esql_config("9.5.0")
         assert callable(cfg.context.get("kql_parse"))
         assert callable(cfg.context.get("eql_parse"))
-        # Hook accepts a simple event query (prep; grammar may not yet emit NestedQuery).
+        # Hook accepts a simple event query.
         tree = cfg.context["eql_parse"]('process where process.name == "cmd.exe"')
         assert tree is not None
 
@@ -426,6 +426,43 @@ class TestEsqlOfflineSchemaPasses:
         """
         loaded = RuleCollection().load_dict(rule)
         assert loaded.contents.data.language == "esql"
+
+    def test_remote_only_multi_index_from_keeps_fields(self) -> None:
+        """Per-index schemas match FROM patterns that carry a cluster prefix."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM remote:logs-endpoint.events.process-*, remote:logs-endpoint.events.network-* METADATA _id, _version, _index
+        | WHERE process.pid > 0
+        | KEEP host.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_remote_subquery_keeps_fields_and_isolation(self) -> None:
+        """A remote subquery sees its own index fields and not a sibling's."""
+        rule = _sample_rule()
+        rule["metadata"].pop("integration", None)
+        rule["metadata"]["min_stack_version"] = "9.6.0"
+        rule["rule"]["query"] = """
+        FROM
+          (FROM remote:auditbeat-* | WHERE process.pid > 0 | KEEP host.name),
+          (FROM winlogbeat-* | KEEP host.name)
+        | STATS c = COUNT(*) BY host.name
+        | KEEP c, host.name
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+        rule["rule"]["query"] = """
+        FROM
+          (FROM remote:.alerts-security.* | KEEP host.name),
+          (FROM remote:auditbeat-* | WHERE kibana.alert.rule.name == "x" | KEEP host.name)
+        | STATS c = COUNT(*) BY host.name
+        | KEEP c, host.name
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("kibana.alert.rule.name")):
+            RuleCollection().load_dict(rule)
 
 
 class TestEsqlCorpusOffline:

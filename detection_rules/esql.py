@@ -100,7 +100,7 @@ def infer_packages_from_indices(indices: list[str]) -> list[str]:
         match = _INDEX_PACKAGE_RE.match(cleaned)
         if match:
             package = normalize_dataset_package(match.group(1).lower())
-        elif cleaned.startswith("metrics-") or cleaned == "metrics-*":
+        elif cleaned.startswith("metrics-"):
             # Broad metrics-* datastreams commonly include Elastic Agent system metrics.
             package = "system"
         else:
@@ -256,17 +256,31 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
     Call with ``tree=`` after the offline allow_missing parse so schema planning
     reuses that AST instead of parsing again.
     """
-    try:
-        parsed = tree if tree is not None else _parse_for_extraction(query)
-    except Exception:  # noqa: BLE001 — incomplete fragments yield no indices
-        return []
-
     indices: list[str] = []
-    for source in esql.get_from_sources(parsed):
-        index = source.split(":", 1)[-1].strip()
-        if index and ESQL_INDEX_PATTERN_REGEX.match(index) and index not in indices:
+    for _, index in get_esql_query_source_patterns(query, tree=tree):
+        if index not in indices:
             indices.append(index)
     return indices
+
+
+def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[tuple[str, str]]:
+    """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs.
+
+    The written form keeps any `cluster:` prefix, which is what the parser matches when it
+    narrows a multi-index schema to one FROM.
+    """
+    try:
+        parsed = tree if tree is not None else _parse_for_extraction(query)
+    except Exception:  # noqa: BLE001 — incomplete fragments yield no sources
+        return []
+
+    sources: list[tuple[str, str]] = []
+    for source in esql.get_from_sources(parsed):
+        written = source.strip()
+        index = written.split(":", 1)[-1].strip()
+        if index and ESQL_INDEX_PATTERN_REGEX.match(index) and (written, index) not in sources:
+            sources.append((written, index))
+    return sources
 
 
 def get_esql_lookup_join_targets(query: str, tree: Any | None = None) -> list[str]:

@@ -37,6 +37,7 @@ from .esql import (
     get_esql_lookup_join_targets,
     get_esql_query_event_dataset_integrations,
     get_esql_query_indices,
+    get_esql_query_source_patterns,
     infer_packages_from_indices,
     lookup_index_uses_ecs,
     normalize_dataset_package,
@@ -803,7 +804,7 @@ class EQLValidator(QueryValidator):
         return configured, any(f not in schema for f in configured)
 
 
-# Cross-rule caches for offline ES|QL validation (M6).
+# Cross-rule caches for offline ES|QL validation.
 _ESQL_SCHEMA_DICT_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
 _ESQL_WARM_STATE = {"warmed": False}
 
@@ -889,6 +890,7 @@ def _lookup_join_schemas_for_stack(
 
 def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
     from_indices: list[str],
+    from_sources: list[tuple[str, str]],
     ecs_flat: dict[str, Any],
     package_integrations: list[Any],
     min_stack: Version,
@@ -926,14 +928,16 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
         schema_dict.update(stream_fields)
         return schema_dict, pkgs
 
-    if len(from_indices) <= 1:
+    if len(from_sources) <= 1:
         return one(from_indices, shared_index_fields=index_fields, allow_fallback=True)
 
     combined: dict[str, Any] = {}
     packages: set[str] = set()
-    for index in from_indices:
+    # Key by the pattern as written (e.g. `remote:logs-*`) so the parser can match it;
+    # fields come from the local index name.
+    for written, index in from_sources:
         per_index, pkgs = one([index], shared_index_fields=None, allow_fallback=False)
-        combined[index] = per_index
+        combined[written] = per_index
         packages.update(pkgs)
     # ECS includes a field named "type", which makes Schema treat this map as a
     # flat field list. An empty "*" entry is selected with every FROM pattern and
@@ -999,7 +1003,7 @@ class ESQLValidator(QueryValidator):
 
     @staticmethod
     def nested_query_field_names(tree: Any) -> set[str]:
-        """Union field names from nested KQL()/EQL() payloads (PRD §5.7 metadata merge)."""
+        """Union field names from nested KQL()/EQL() payloads."""
         names: set[str] = set()
         for nested in esql.find_nested_queries(tree):
             text = nested.text
@@ -1095,6 +1099,7 @@ class ESQLValidator(QueryValidator):
             package_integrations = [{"package": ds.package, "integration": ds.integration} for ds in event_datasets]
 
         from_indices = get_esql_query_indices(self.query, tree=self.ast)
+        from_sources = get_esql_query_source_patterns(self.query, tree=self.ast)
         lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
         # Infer Fleet packages from FROM patterns when metadata/datasets are absent
         # (e.g. metrics-* → system) so offline schemas match remote mapping prep.
@@ -1112,7 +1117,8 @@ class ESQLValidator(QueryValidator):
                 if p.get("package")
             )
         )
-        indices_key = tuple(sorted(from_indices))
+        # Written patterns, so `remote:logs-*` and `logs-*` do not share a cached schema.
+        indices_key = tuple(sorted(written for written, _ in from_sources))
 
         def lookups_for(stack_version: str, ecs_version: str) -> dict[str, dict[str, Any]] | None:
             built = _lookup_join_schemas_for_stack(
@@ -1157,6 +1163,7 @@ class ESQLValidator(QueryValidator):
                 ]
                 schema_dict, pkgs = _schema_dict_for_from_indices(
                     from_indices,
+                    from_sources,
                     ecs_flat,
                     package_integrations,
                     min_stack,
@@ -1202,13 +1209,15 @@ class ESQLValidator(QueryValidator):
                             ecs_types[str(key)] = cast("dict[str, Any]", value).get("type")
                         else:
                             ecs_types[str(key)] = value
-                    if len(from_indices) <= 1:
+                    if len(from_sources) <= 1:
                         schema_dict = {**ecs_types, **index_fields}
                     else:
                         # One map per index, as in _schema_dict_for_from_indices, so a
                         # subquery only sees fields for the patterns on its own FROM.
+                        # Keys keep any `cluster:` prefix so the parser can match them.
                         schema_dict = {
-                            index: {**ecs_types, **collect_index_field_schemas([index])} for index in from_indices
+                            written: {**ecs_types, **collect_index_field_schemas([index])}
+                            for written, index in from_sources
                         }
                         schema_dict["*"] = {}
                     _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
@@ -1365,7 +1374,7 @@ class ESQLValidator(QueryValidator):
                 # Do not pass query event.dataset restrictions: they describe FROM, not lookup indices.
                 _ = validate_offline_esql_from_indices(lookup_targets, rule_meta, [], str(stack_version))
 
-        # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
+        # Parse once per grammar snapshot; reuse AST for schema/feature checks.
         # self.ast is already parsed (for FROM indices) under the current package
         # grammar — seed the cache so the matching plan target does not re-parse.
         from esql.grammar_registry import resolve_grammar_key
