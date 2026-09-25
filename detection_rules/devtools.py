@@ -831,12 +831,12 @@ def integrations_pr(  # noqa: PLR0913, PLR0915, PLR0917
 @click.pass_context
 def license_check(ctx: click.Context, ignore_directory: list[str]) -> None:
     """Check that all code files contain a valid license."""
-    ignore_directory += ("env", ".venv", "venv")
+    ignore_directory += ("env", ".venv", "venv", "exports")
     failed = False
 
     for path in utils.ROOT_DIR.rglob("*.py"):
         relative_path = path.relative_to(utils.ROOT_DIR)
-        if relative_path.parts[0] in ignore_directory:
+        if relative_path.parts[0] in ignore_directory or "build" in relative_path.parts:
             continue
 
         with path.open(encoding="utf-8") as f:
