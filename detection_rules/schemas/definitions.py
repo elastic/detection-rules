@@ -314,6 +314,7 @@ EXPECTED_RULE_TAGS = [
     "Service: Azure Functions",
     "Service: Azure Key Vault",
     "Service: Azure OpenAI",
+    "Service: Azure Resource Manager",
     "Service: Azure Storage",
     "Service: GCP BigQuery",
     "Service: GCP Cloud Functions",
