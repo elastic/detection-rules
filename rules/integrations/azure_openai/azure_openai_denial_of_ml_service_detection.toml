@@ -2,7 +2,7 @@
 creation_date = "2025/02/25"
 integration = ["azure_openai"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -66,11 +66,10 @@ https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/stream-monitori
 """
 severity = "medium"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: Azure OpenAI",
     "Data Source: Azure Event Hubs",
     "Use Case: Denial of Service",
-    "Mitre Atlas: T0029",
     "Resources: Investigation Guide",
     "Noise: Low",
     "Performance: Fast",
@@ -79,9 +78,9 @@ tags = [
     "Rule Type: ES|QL",
     "Platform: Azure",
     "Domain: Cloud",
-    "Domain: GenAI",
     "Service: Azure OpenAI",
     "Service: Azure Event Hubs",
+    "Mitre Atlas: AML.T0029",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -107,4 +106,22 @@ from logs-azure_openai.logs-*
     Esql.azure_open_ai_properties_request_length_avg >= 5000
 | sort Esql.event_count desc
 '''
+
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0029"
+name = "Denial of AI Service"
+reference = "https://atlas.mitre.org/techniques/AML.T0029/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+
 

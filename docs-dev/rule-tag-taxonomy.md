@@ -36,7 +36,7 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 | Threat | `Threat:` | Optional | Operational threat categories and/or named exploit/campaign tags; multi-label OK |
 | Noise | `Noise:` | Optional (exactly one when set) | Fleet alert volume: `Low`, `Medium`, `High`, `Unknown` |
 | Performance | `Performance:` | Optional (exactly one when set) | Rule exec cost: `Fast`, `Normal`, `Slow`, `Very Slow`, `Unknown` |
-| MITRE ATLAS | `Mitre Atlas:` | GenAI when applicable | Technique IDs (e.g. `T0051`) |
+| MITRE ATLAS | `Mitre Atlas:` | GenAI detections | Technique IDs (`AML.T0051` or short `T0051`) |
 | Profile | `Profile:` | Optional | `Recommended`, `Aggressive`, `Beta` |
 | Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, Osquery |
 | Use Case | `Use Case:` | Legacy | Still valid during migration |
@@ -45,10 +45,32 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 ## Domain values
 
 `Endpoint`, `Cloud`, `Container` (legacy enforced spelling), `Containers`, `Network`,
-`Identity`, `SaaS`, `Email`, `GenAI`, `LLM`, `OT/IoT`.
+`Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`.
+
+Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
+(agents, MCP, foundation-model APIs, model artifacts). Those rules should carry
+`Mitre Atlas:` technique IDs when ATLAS has a technique. When it does not, map the
+ATLAS tactic only in `threat_mappings` and leave the technique tag off. A rule that
+calls a model uses `Resources: LLM`.
 
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.
+
+## Resources: LLM — rules that call an LLM
+
+`Resources: LLM` is the **user-visible** tag that a detection invokes a large language
+model. Customers use it in Kibana to find rules that require Elastic Inference Service
+(or another LLM connector) and incur token cost.
+
+**Add `Resources: LLM` when** the rule `query` uses the ES|QL `COMPLETION` command
+(typically `| COMPLETION ... WITH { "inference_id": "..." }`).
+
+**Do not add `Resources: LLM` when** the rule only detects GenAI/LLM *threats*
+(`Domain: GenAI` + `Mitre Atlas:` instead), or when an investigation guide merely
+mentions LLMs.
+
+COMPLETION rules keep their existing attack-surface `Domain:` (Endpoint, Identity,
+…). Do not add `Domain: GenAI` only because the query calls a model.
 
 ## Platform values
 
@@ -273,7 +295,7 @@ This list mirrors `EXPECTED_RULE_TAGS` in `detection_rules/schemas/definitions.p
 
 | Prefix | Values |
 | --- | --- |
-| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
+| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, Network, OT/IoT, SaaS |
 | Platform | AWS, Anthropic, Azure, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
 | OS | Linux, Windows, macOS |
 | Rule Type | BBR, Custom Query (KQL), ES\|QL, Event Correlation (EQL), Higher-Order, Higher-Order Rule, Indicator Match, ML, Machine Learning, New Terms, Threshold, Threat Match |

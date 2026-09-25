@@ -2,7 +2,7 @@
 creation_date = "2024/11/20"
 integration = ["aws_bedrock"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -67,21 +67,20 @@ https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-create.html
 """
 severity = "medium"
 tags = [
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS Bedrock",
     "Data Source: AWS S3",
     "Use Case: Policy Violation",
-    "Mitre Atlas: T0051",
-    "Mitre Atlas: T0054",
     "Resources: Investigation Guide",
     "Noise: Low",
     "Performance: Fast",
     "Rule Type: ES|QL",
     "Platform: AWS",
     "Domain: Cloud",
-    "Domain: GenAI",
     "Service: AWS S3",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0057",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -113,4 +112,34 @@ from logs-aws_bedrock.invocation-*
 // sort highest to lowest
 | sort Esql.ml_policy_blocked_sensitive_info_count desc
 '''
+
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0057"
+name = "LLM Data Leakage"
+reference = "https://atlas.mitre.org/techniques/AML.T0057/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
 
