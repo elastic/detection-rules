@@ -2142,9 +2142,9 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
     if language not in ("kuery", "eql", "esql"):
         return None
 
-    min_stack_version = rule.contents.metadata.get("min_stack_version")
-    if not min_stack_version:
-        raise ValueError("Min stack version not found")
+    # Many rules (notably ES|QL) leave min_stack_version unset; the config setters
+    # fall back to the current package version when it is empty.
+    min_stack_version = rule.contents.metadata.get("min_stack_version") or ""
 
     if language == "esql":
         import esql  # local import: avoid cycle with rule_validators

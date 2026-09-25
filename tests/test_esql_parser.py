@@ -210,6 +210,20 @@ class TestEsqlOfflineSchemaFailures:
         with pytest.raises(EsqlSchemaError, match=re.escape("aws.cloudtrail.user_identity.type")):
             RuleCollection().load_dict(rule)
 
+    def test_stack_subquery_does_not_see_sibling_index_fields(self) -> None:
+        """Without packages, each subquery still gets only its own FROM index fields."""
+        rule = _sample_rule()
+        rule["metadata"].pop("integration", None)
+        rule["rule"]["query"] = """
+        FROM
+          (FROM .alerts-security.* | KEEP host.name),
+          (FROM auditbeat-* | WHERE kibana.alert.rule.name == "x" | KEEP host.name)
+        | STATS c = COUNT(*) BY host.name
+        | KEEP c, host.name
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("kibana.alert.rule.name")):
+            RuleCollection().load_dict(rule)
+
     def test_unique_fields_include_nested_kql(self) -> None:
         """Rule search and packaging see fields that appear only inside KQL()."""
         rule = _sample_rule()
@@ -383,6 +397,36 @@ class TestEsqlOfflineSchemaPasses:
         loaded = RuleCollection().load_dict(rule)
         assert "script_b64" in loaded.contents.data.query
 
+    def test_unique_fields_without_min_stack_version(self) -> None:
+        """rule-search and packaging must not fail on ES|QL rules with no min_stack_version."""
+        rule = _sample_rule()
+        rule["metadata"].pop("min_stack_version", None)
+        rule["metadata"].pop("min_stack_comments", None)
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE host.name == "workstation"
+        | KEEP host.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert "min_stack_version" not in loaded.contents.metadata.to_dict()
+        assert get_unique_query_fields(loaded) == ["host.name"]
+
+    def test_stack_subquery_field_on_its_own_index(self) -> None:
+        """An alert field inside the .alerts-security.* subquery resolves there."""
+        rule = _sample_rule()
+        rule["metadata"].pop("integration", None)
+        rule["metadata"]["min_stack_version"] = "9.6.0"
+        rule["rule"]["query"] = """
+        FROM
+          (FROM .alerts-security.* | WHERE kibana.alert.rule.name == "x" | KEEP host.name),
+          (FROM auditbeat-* | KEEP host.name)
+        | STATS c = COUNT(*) BY host.name
+        | KEEP c, host.name
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
 
 class TestEsqlCorpusOffline:
     """Re-validate every production ES|QL rule offline (remote replacement path)."""
@@ -427,6 +471,25 @@ class TestEsqlSchemaHelpers:
         assert fields.get("kibana.alert.risk_score") == "long"
         assert fields.get("kibana.alert.building_block_type") == "keyword"
         assert fields.get("kibana.alert.rule.tags") == "keyword"
+
+    def test_auto_add_targets_subquery_from_index(self) -> None:
+        """Auto-add picks the FROM pattern of the subquery that references the field."""
+        import esql
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule import set_esql_config
+        from detection_rules.rule_validators import ESQLValidator
+
+        query = """FROM (FROM logs-acme.app-* | KEEP host.name),
+     (FROM logs-acme.other-* | WHERE acme.other_field == "x" | KEEP host.name)
+| STATS c = COUNT(*) BY host.name
+| KEEP c, host.name"""
+        with set_esql_config(load_current_package_version()), esql.Schema({}, allow_missing=True):
+            tree = esql.parse_query(query)
+        err = EsqlSchemaError("Error at line:2,column:38\nUnknown field 'acme.other_field'")
+        assert ESQLValidator.from_index_for_field(tree, "acme.other_field", err) == "logs-acme.other-*"
+        # Fields only used after the subqueries merge have no FROM scope.
+        assert ESQLValidator.from_index_for_field(tree, "c", err) is None
 
 
 class TestEsqlLookupJoin:

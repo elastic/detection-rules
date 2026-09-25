@@ -1196,15 +1196,22 @@ class ESQLValidator(QueryValidator):
                 schema_dict = _ESQL_SCHEMA_DICT_CACHE.get(cache_key)
                 if schema_dict is None:
                     raw_schema = cast("dict[str, Any]", ecs.get_schema(ecs_version))
-                    built: dict[str, Any] = {}
+                    ecs_types: dict[str, Any] = {}
                     for key, value in raw_schema.items():
                         if isinstance(value, dict):
-                            built[str(key)] = cast("dict[str, Any]", value).get("type")
+                            ecs_types[str(key)] = cast("dict[str, Any]", value).get("type")
                         else:
-                            built[str(key)] = value
-                    built.update(index_fields)
-                    _ESQL_SCHEMA_DICT_CACHE[cache_key] = built
-                    schema_dict = built
+                            ecs_types[str(key)] = value
+                    if len(from_indices) <= 1:
+                        schema_dict = {**ecs_types, **index_fields}
+                    else:
+                        # One map per index, as in _schema_dict_for_from_indices, so a
+                        # subquery only sees fields for the patterns on its own FROM.
+                        schema_dict = {
+                            index: {**ecs_types, **collect_index_field_schemas([index])} for index in from_indices
+                        }
+                        schema_dict["*"] = {}
+                    _ESQL_SCHEMA_DICT_CACHE[cache_key] = schema_dict
                 err_trailer = f"stack: {stack_version}, ecs: {ecs_version}\nrule: {data.name} - {data.rule_id}"
                 targets.append(
                     ValidationTarget(
@@ -1307,7 +1314,34 @@ class ESQLValidator(QueryValidator):
         match = re.search(r"Unknown field ['\"]([^'\"]+)['\"]", str(exc))
         return match.group(1) if match else None
 
-    def validate(  # type: ignore[reportIncompatibleMethodOverride]
+    @staticmethod
+    def from_index_for_field(tree: Any, field_name: str, exc: Exception) -> str | None:
+        """Return the first FROM pattern of the (sub)query that references field_name.
+
+        Prefers the reference at the error position, so a field known in one
+        subquery and unknown in a sibling resolves to the sibling's index.
+        """
+        pos = re.search(r"line:(\d+),column:(\d+)", str(exc))
+        err_pos = (int(pos.group(1)) - 1, int(pos.group(2)) - 1) if pos else None
+        matches: list[tuple[str, tuple[int | None, int | None]]] = []
+
+        def visit(node: Any, scope: str | None) -> None:
+            if isinstance(node, esql.ast.EsqlQuery) and node.commands:
+                first = node.commands[0]
+                if isinstance(first, esql.ast.FromCommand) and first.index_patterns:
+                    scope = first.index_patterns[0].split(":", 1)[-1].strip()
+            elif isinstance(node, esql.ast.ColumnRef) and str(node) == field_name and scope:
+                matches.append((scope, (node.line, node.column)))
+            for child in node.iter_children():
+                visit(child, scope)
+
+        visit(tree, None)
+        for scope, node_pos in matches:
+            if node_pos == err_pos:
+                return scope
+        return matches[0][0] if matches else None
+
+    def validate(  # type: ignore[reportIncompatibleMethodOverride]  # noqa: PLR0912
         self,
         data: "QueryRuleData",
         rule_meta: RuleMeta,
@@ -1380,14 +1414,15 @@ class ESQLValidator(QueryValidator):
                 break
 
             unknown_field = self._unknown_field_from_error(first_error)
-            if (
-                isinstance(first_error, DrEsqlSchemaError)
-                and unknown_field
-                and RULES_CONFIG.auto_gen_schema_file
-                and schema_index
-            ):
-                self.auto_add_field(unknown_field, schema_index)
-                continue
+            if isinstance(first_error, DrEsqlSchemaError) and unknown_field and RULES_CONFIG.auto_gen_schema_file:
+                # Subqueries each read their own FROM; add the field to that index,
+                # not to the first pattern in the query.
+                target_index = (
+                    None if data.index_or_dataview else self.from_index_for_field(self.ast, unknown_field, first_error)
+                ) or schema_index
+                if target_index:
+                    self.auto_add_field(unknown_field, target_index)
+                    continue
 
             raise first_error
         else:

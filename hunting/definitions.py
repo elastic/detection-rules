@@ -3,7 +3,6 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -59,19 +58,18 @@ class Hunt:
             # allow_missing skips index fields that are not in the empty schema.
             # Syntax errors and columns that are not in the pipeline still fail.
             with cfg, esql.Schema({}, allow_missing=True):
-                _ = esql.parse_query(query)
+                tree = esql.parse_query(query)
         except esql.EsqlError as exc:
             raise ValueError(f"Hunt: {self.name} contains invalid ES|QL: {exc}") from exc
 
-        query = query.lower()
-
         if self.author == "Elastic":
-            # Regex patterns for checking "stats by" and "| keep"
-            stats_by_pattern = re.compile(r"\bstats\b.*?\bby\b", re.DOTALL)
-            keep_pattern = re.compile(r"\| keep", re.DOTALL)
-
-            # Check if either "stats by" or "| keep" exists in the query
-            if not stats_by_pattern.search(query) and not keep_pattern.search(query):
+            # Walk the AST (subqueries included) for a KEEP or a STATS ... BY.
+            has_keep_or_stats_by = any(
+                isinstance(node, esql.ast.KeepCommand)
+                or (isinstance(node, esql.ast.StatsCommand) and bool(node.grouping))
+                for node in tree
+            )
+            if not has_keep_or_stats_by:
                 raise ValueError(
                     f"Hunt: {self.name} contains an ES|QL query that must contain either 'stats by' or 'keep' functions"
                 )
