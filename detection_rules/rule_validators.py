@@ -973,7 +973,7 @@ class ESQLValidator(QueryValidator):
     def unique_fields(self) -> list[str]:  # type: ignore[reportIncompatibleMethodOverride]
         """Return unique field names from the AST."""
         names = set(esql.get_unique_fields(self.ast))
-        names.update(self._nested_query_field_names(self.ast))
+        names.update(self.nested_query_field_names(self.ast))
         return sorted(names)
 
     @staticmethod
@@ -996,7 +996,7 @@ class ESQLValidator(QueryValidator):
         return {}
 
     @staticmethod
-    def _nested_query_field_names(tree: Any) -> set[str]:
+    def nested_query_field_names(tree: Any) -> set[str]:
         """Union field names from nested KQL()/EQL() payloads (PRD §5.7 metadata merge)."""
         names: set[str] = set()
         for nested in esql.find_nested_queries(tree):

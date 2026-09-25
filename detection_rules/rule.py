@@ -2158,7 +2158,7 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
         from .rule_validators import ESQLValidator
 
         names = set(esql.get_unique_fields(tree))
-        names.update(ESQLValidator._nested_query_field_names(tree))  # noqa: SLF001
+        names.update(ESQLValidator.nested_query_field_names(tree))
         return sorted(names)
 
     # remove once py-eql supports ipv6 for cidrmatch
