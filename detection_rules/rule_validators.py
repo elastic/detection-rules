@@ -52,6 +52,7 @@ from .esql_errors import (
 )
 from .esql_errors import EsqlTypeMismatchError
 from .index_mappings import (
+    esql_indices_covered_by_packages,
     get_rule_integrations,
     validate_offline_esql_from_indices,
 )
@@ -894,21 +895,19 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
     packages_manifest: dict[str, Any],
     integrations_schemas: dict[str, Any],
     index_fields: dict[str, Any],
+    *,
+    include_ecs: bool = True,
 ) -> tuple[dict[str, Any], set[str]]:
     """Build the FROM schema, one map per index when several patterns are present.
 
     A single ``FROM a, b`` still unions those maps. Sibling subqueries only see the
     patterns on their own ``FROM``, which the parser narrows when keys contain ``*``.
+    Package-covered indices omit the full ECS schema; Beats and uncovered sources keep it.
     """
 
     def one(
         indices: list[str], *, shared_index_fields: dict[str, Any] | None, allow_fallback: bool
     ) -> tuple[dict[str, Any], set[str]]:
-        schema_dict = dict(ecs_flat)
-        if shared_index_fields is not None:
-            schema_dict.update(shared_index_fields)
-        else:
-            schema_dict.update(collect_index_field_schemas(indices))
         stream_fields, pkgs = _integration_fields_for_indices(
             package_integrations,
             indices,
@@ -917,6 +916,13 @@ def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
             integrations_schemas,
             allow_fallback=allow_fallback,
         )
+        # A name that only looks like a Fleet package (custom data streams) has no
+        # field file. Keep full ECS there so host.name and the rest still resolve.
+        schema_dict = dict(ecs_flat) if include_ecs or not pkgs else {}
+        if shared_index_fields is not None:
+            schema_dict.update(shared_index_fields)
+        else:
+            schema_dict.update(collect_index_field_schemas(indices))
         schema_dict.update(stream_fields)
         return schema_dict, pkgs
 
@@ -1144,6 +1150,9 @@ class ESQLValidator(QueryValidator):
                 )
                 min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
                 ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
+                package_names = [
+                    normalize_dataset_package(str(p["package"])) for p in package_integrations if p.get("package")
+                ]
                 schema_dict, pkgs = _schema_dict_for_from_indices(
                     from_indices,
                     ecs_flat,
@@ -1152,6 +1161,7 @@ class ESQLValidator(QueryValidator):
                     packages_manifest,
                     integrations_schemas,
                     index_fields,
+                    include_ecs=not esql_indices_covered_by_packages(from_indices, package_names, event_datasets),
                 )
                 packages_by_stack.setdefault(stack_version, set()).update(pkgs)
 

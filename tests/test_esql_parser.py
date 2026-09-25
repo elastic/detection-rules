@@ -133,6 +133,18 @@ class TestEsqlOfflineSchemaFailures:
         with pytest.raises(EsqlSchemaError, match="totally_unknown_keep_field"):
             RuleCollection().load_dict(rule)
 
+    def test_package_covered_index_does_not_accept_undeclared_ecs_field(self) -> None:
+        """Fleet-covered indices do not inherit the full ECS schema."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE faas.trigger.type == "http"
+        | KEEP faas.trigger.type, _id, _version, _index
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("faas.trigger.type")):
+            RuleCollection().load_dict(rule)
+
     def test_field_from_unrelated_package_raises_schema_error(self) -> None:
         """Endpoint-only package plan must reject azure-only fields."""
         rule = _sample_rule()
