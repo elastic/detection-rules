@@ -54,6 +54,7 @@ class TestEsqlOfflineSchemaFailures:
         assert "metrics-system.cpu*" in patterns
         assert "traces-system.cpu*" in patterns
         assert assert_known_esql_indices(["metrics-system.cpu-*"], {"system-cpu"})
+        assert assert_known_esql_indices(["metrics-system.cpu-default"], {"system-cpu"})
         assert assert_known_esql_indices(["packetbeat-*"], set())
 
     def test_one_unknown_index_among_known_still_raises(self) -> None:

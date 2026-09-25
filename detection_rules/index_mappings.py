@@ -12,7 +12,7 @@ from semver import Version
 
 from . import ecs, integrations
 from .config import CUSTOM_RULES_DIR
-from .esql import EventDataset
+from .esql import EventDataset, index_patterns_match
 from .esql_errors import EsqlUnknownIndexError
 from .integrations import (
     load_integrations_manifests,
@@ -131,8 +131,7 @@ def assert_known_esql_indices(indices: list[str], stream_keys: set[str]) -> list
     matches: list[str] = []
     unmatched: list[str] = []
     for index in indices:
-        pattern = re.compile(re.escape(index.rstrip("-")).replace(r"\*", ".*"))
-        index_matches = [key for key in filtered_keys if pattern.fullmatch(key)]
+        index_matches = [key for key in filtered_keys if index_patterns_match(index, key)]
         if index_matches:
             matches.extend(index_matches)
         else:
