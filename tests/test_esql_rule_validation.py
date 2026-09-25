@@ -156,6 +156,34 @@ class TestEsqlRuleValidation(BaseRuleTest):
         with pytest.raises(EsqlTypeMismatchError):
             _ = RuleCollection().load_dict(production_rule)
 
+    def test_esql_dropped_column_is_schema_error(self):
+        """A column referenced after DROP fails during the allow_missing parse as a schema error."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | drop aws.cloudtrail.user_identity.type
+        | keep aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        with pytest.raises(EsqlSchemaError, match=r"aws\.cloudtrail\.user_identity\.type"):
+            _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_known_arithmetic_is_type_mismatch(self):
+        """Fully known incompatible arithmetic fails during the allow_missing parse as a type error."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | eval x = 1 + "a"
+        | keep x, _id, _version, _index
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            _ = RuleCollection().load_dict(production_rule)
+
     def test_esql_syntax_error(self):
         """Test an ESQL rule that incorrectly uses = for comparison."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])

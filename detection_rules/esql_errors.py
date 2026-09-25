@@ -15,6 +15,7 @@ __all__ = (
     "EsqlTypeMismatchError",
     "EsqlUnknownIndexError",
     "EsqlUnsupportedTypeError",
+    "public_esql_error",
 )
 
 
@@ -56,6 +57,19 @@ class EsqlUnknownIndexError(ClientError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
+
+
+def public_esql_error(exc: BaseException) -> Exception:
+    """Map a parser exception onto a detection-rules ES|QL error."""
+    import esql
+
+    if isinstance(exc, esql.EsqlSyntaxError):
+        return EsqlSyntaxError(str(exc))
+    if isinstance(exc, esql.EsqlSchemaError):
+        return EsqlSchemaError(str(exc))
+    if isinstance(exc, esql.EsqlTypeMismatchError):
+        return EsqlTypeMismatchError(str(exc))
+    return EsqlSemanticError(str(exc))
 
 
 ESQL_EXCEPTION_TYPES = (

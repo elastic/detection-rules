@@ -30,7 +30,7 @@ from semver import Version
 from . import beats, ecs, endgame, utils
 from .config import CUSTOM_RULES_DIR, load_current_package_version, parse_rules_config
 from .esql import get_esql_query_event_dataset_integrations, normalize_dataset_package
-from .esql_errors import EsqlSemanticError, EsqlSyntaxError
+from .esql_errors import EsqlSemanticError, public_esql_error
 from .integrations import (
     UNKNOWN_PACKAGE_INTEGRATION,
     IntegrationVersionNotFoundError,
@@ -1033,6 +1033,25 @@ class EQLRuleData(QueryRuleData):
         return None
 
 
+def _esql_load_error(exc: BaseException) -> Exception:
+    """Add rule-load bypass hints to a mapped ES|QL semantic error."""
+    mapped = public_esql_error(exc)
+    if not isinstance(mapped, EsqlSemanticError):
+        return mapped
+    message = str(mapped).lower()
+    hint = ""
+    if "keep" in message:
+        hint = " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
+    elif "metadata" in message:
+        hint = (
+            " To bypass ES|QL `FROM` metadata validation, set the environment variable "
+            "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
+        )
+    if not hint:
+        return mapped
+    return EsqlSemanticError(f"{mapped}{hint}")
+
+
 @dataclass(frozen=True, kw_only=True)
 class ESQLRuleData(QueryRuleData):
     """ESQL rules are a special case of query rules."""
@@ -1082,32 +1101,19 @@ class ESQLRuleData(QueryRuleData):
                 if not esql.is_aggregate_query(tree):
                     metadata = set(esql.get_metadata_fields(tree))
                     if not {"_id", "_version", "_index"}.issubset(metadata):
-                        raise esql.EsqlSemanticError(  # noqa: TRY301
+                        raise esql.EsqlSemanticError(
                             f"Rule: {data['name']} contains a non-aggregate query without metadata fields "
                             f"'_id', '_version', and '_index' -> Add 'metadata _id, _version, _index' "
                             f"to the from command or add an aggregate function."
                         )
             elif not bypass_keep:
                 if not esql.has_keep(tree):
-                    raise esql.EsqlSemanticError(  # noqa: TRY301
+                    raise esql.EsqlSemanticError(
                         f"Rule: {data['name']} does not contain a 'keep' command -> Add a 'keep' command to the query."
                     )
                 reject_incomplete_keeps(tree)
-        except esql.EsqlSyntaxError as exc:
-            raise EsqlSyntaxError(str(exc)) from exc
-        except esql.EsqlSemanticError as exc:
-            hint = ""
-            message = str(exc).lower()
-            if "keep" in message:
-                hint = (
-                    " To bypass ES|QL `keep` validation, set the environment variable `DR_BYPASS_ESQL_KEEP_VALIDATION`."
-                )
-            elif "metadata" in message:
-                hint = (
-                    " To bypass ES|QL `FROM` metadata validation, set the environment variable "
-                    "`DR_BYPASS_ESQL_METADATA_VALIDATION`."
-                )
-            raise EsqlSemanticError(f"{exc}{hint}") from exc
+        except esql.EsqlError as exc:
+            raise _esql_load_error(exc) from exc
 
 
 @dataclass(frozen=True, kw_only=True)
