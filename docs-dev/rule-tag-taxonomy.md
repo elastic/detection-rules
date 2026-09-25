@@ -45,12 +45,11 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 ## Domain values
 
 `Endpoint`, `Cloud`, `Container` (legacy enforced spelling), `Containers`, `Network`,
-`Identity`, `SaaS`, `Email`, `GenAI`, `LLM`, `OT/IoT`.
+`Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`.
 
 Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
 (agents, MCP, foundation-model APIs, model artifacts). Those rules should carry
-`Mitre Atlas:` technique IDs. `Domain: LLM` is a separate attack-surface domain and may
-appear alongside `Domain: GenAI`. It does not mean the rule calls an LLM.
+`Mitre Atlas:` technique IDs. A rule that calls a model uses `Resources: LLM`.
 
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.
@@ -294,7 +293,7 @@ This list mirrors `EXPECTED_RULE_TAGS` in `detection_rules/schemas/definitions.p
 
 | Prefix | Values |
 | --- | --- |
-| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
+| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, Network, OT/IoT, SaaS |
 | Platform | AWS, Anthropic, Azure, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
 | OS | Linux, Windows, macOS |
 | Rule Type | BBR, Custom Query (KQL), ES\|QL, Event Correlation (EQL), Higher-Order, Higher-Order Rule, Indicator Match, ML, Machine Learning, New Terms, Threshold, Threat Match |

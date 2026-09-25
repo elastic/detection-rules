@@ -104,13 +104,20 @@ def _apply_mitre_attack_v19(obj: dict[str, Any], stack: Version, context: EmitCo
         obj["tags"] = rewrite_tactic_tags(obj.get("tags"), baseline_threat, obj.get("threat"))
 
 
+def _threat_entries(value: Any) -> list[dict[str, Any]]:
+    """Return threat entries when value is a list of mappings."""
+    if not isinstance(value, list):
+        return []
+    return [cast("dict[str, Any]", entry) for entry in cast("list[Any]", value) if isinstance(entry, dict)]
+
+
 def _atlas_entries_from_mappings(context: EmitContext) -> list[dict[str, Any]]:
     """Collect MITRE ATLAS threat entries from repo-only threat_mappings."""
     atlas_from_mappings: list[dict[str, Any]] = []
     for block in context.threat_mappings or []:
-        if not isinstance(block, dict) or block.get("framework") != "MITRE ATLAS":
+        if block.get("framework") != "MITRE ATLAS":
             continue
-        atlas_from_mappings.extend(cast("list[dict[str, Any]]", block.get("threat") or []))
+        atlas_from_mappings.extend(_threat_entries(block.get("threat")))
     return atlas_from_mappings
 
 
@@ -186,13 +193,17 @@ def apply_emit_transforms(
     ctx = context or EmitContext()
     # One-line gate: never ship ATLAS below 9.6 (8.19 API schema and Kibana lack support).
     if stack_ver < MITRE_ATLAS_MIN_STACK:
-        obj["threat"] = [e for e in (obj.get("threat") or []) if e.get("framework") != "MITRE ATLAS"]
+        obj["threat"] = [
+            entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"
+        ]
     for transform in transforms_for_stack(stack_ver):
         transform.apply(obj, stack_ver, ctx)
     if stack_ver >= MITRE_ATLAS_MIN_STACK:
         atlas_entries = _atlas_entries_from_mappings(ctx)
         if atlas_entries:
-            without_atlas = [e for e in (obj.get("threat") or []) if e.get("framework") != "MITRE ATLAS"]
+            without_atlas = [
+                entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"
+            ]
             obj["threat"] = without_atlas + atlas_entries
     return obj
 

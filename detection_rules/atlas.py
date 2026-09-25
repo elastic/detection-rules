@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import requests
 import yaml
@@ -90,35 +90,47 @@ class AtlasLookups:
     matrix: dict[str, list[str]]
 
 
+def _mapping(value: Any) -> dict[str, Any]:
+    """Return value when it is a dict, otherwise an empty mapping."""
+    return cast("dict[str, Any]", value) if isinstance(value, dict) else {}
+
+
+def _sequence(value: Any) -> list[Any]:
+    """Return value when it is a list, otherwise an empty list."""
+    return cast("list[Any]", value) if isinstance(value, list) else []
+
+
 def _normalize_atlas_payload(raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize v5 (legacy matrices list) and v6 (collection + dict maps) payloads."""
-    if "collection" in raw and "tactics" in raw and isinstance(raw.get("tactics"), dict):
-        version = str(raw.get("collection", {}).get("version") or raw.get("format-version") or "unknown")
-        tactics_list = list(raw["tactics"].values())
-        techniques_list = list(raw.get("techniques", {}).values()) if isinstance(raw.get("techniques"), dict) else []
-        relationships = raw.get("relationships") or {}
+    tactics_raw = raw.get("tactics")
+    if "collection" in raw and isinstance(tactics_raw, dict):
+        collection = _mapping(raw.get("collection"))
+        version = str(collection.get("version") or raw.get("format-version") or "unknown")
+        techniques_raw = raw.get("techniques")
+        techniques_map = _mapping(techniques_raw)
         return {
             "version": version,
-            "tactics": tactics_list,
-            "techniques": techniques_list,
-            "relationships": relationships,
+            "tactics": list(_mapping(tactics_raw).values()),
+            "techniques": list(techniques_map.values()),
+            "relationships": _mapping(raw.get("relationships")),
         }
 
     # v5 / legacy: version + matrices[].tactics / techniques
     version = str(raw.get("version") or "unknown")
-    matrices = raw.get("matrices") or []
-    matrix_data = None
+    matrices = _sequence(raw.get("matrices"))
+    matrix_data: dict[str, Any] | None = None
     for matrix in matrices:
-        if matrix.get("id") == "ATLAS":
-            matrix_data = matrix
+        matrix_obj = _mapping(matrix)
+        if matrix_obj.get("id") == "ATLAS":
+            matrix_data = matrix_obj
             break
     if matrix_data is None and matrices:
-        matrix_data = matrices[0]
+        matrix_data = _mapping(matrices[0])
     matrix_data = matrix_data or {}
     return {
         "version": version,
-        "tactics": matrix_data.get("tactics") or [],
-        "techniques": matrix_data.get("techniques") or [],
+        "tactics": _sequence(matrix_data.get("tactics")),
+        "techniques": _sequence(matrix_data.get("techniques")),
         "relationships": {},
     }
 
@@ -126,16 +138,15 @@ def _normalize_atlas_payload(raw: dict[str, Any]) -> dict[str, Any]:
 def _tactics_for_technique(
     technique: dict[str, Any],
     relationships: dict[str, Any],
-    tactic_id_to_name: dict[str, str],
+    known_tactic_ids: set[str],
 ) -> list[str]:
     """Return tactic IDs for a technique from v6 relationships or a v5 tactics field."""
-    tech_id = technique.get("id", "")
-    rel = relationships.get(tech_id) or {}
-    achieved = [entry.get("target") for entry in rel.get("achieves") or [] if entry.get("target")]
+    tech_id = str(technique.get("id", ""))
+    rel = _mapping(relationships.get(tech_id))
+    achieved = [str(entry.get("target")) for entry in _sequence(rel.get("achieves")) if _mapping(entry).get("target")]
     if achieved:
-        return [tid for tid in achieved if tid in tactic_id_to_name]
-    raw_tactics = technique.get("tactics") or []
-    return [tid for tid in raw_tactics if tid in tactic_id_to_name]
+        return [tid for tid in achieved if tid in known_tactic_ids]
+    return [str(tid) for tid in _sequence(technique.get("tactics")) if str(tid) in known_tactic_ids]
 
 
 def _build_lookups(version: str, raw: dict[str, Any]) -> AtlasLookups:
@@ -157,13 +168,14 @@ def _build_lookups(version: str, raw: dict[str, Any]) -> AtlasLookups:
 
     technique_lookup: dict[str, dict[str, Any]] = {}
     matrix: dict[str, list[str]] = {name: [] for name in tactics_map}
-    relationships = normalized.get("relationships") or {}
+    relationships = _mapping(normalized.get("relationships"))
 
-    for technique in normalized["techniques"]:
-        technique_id = str(technique["id"])
-        tactic_ids = _tactics_for_technique(technique, relationships, tactic_id_to_detail)
+    for technique in _sequence(normalized.get("techniques")):
+        technique_obj = _mapping(technique)
+        technique_id = str(technique_obj["id"])
+        tactic_ids = _tactics_for_technique(technique_obj, relationships, set(tactic_id_to_detail))
         technique_lookup[technique_id] = {
-            "name": technique["name"],
+            "name": technique_obj["name"],
             "id": technique_id,
             "tactics": tactic_ids,
         }
@@ -225,8 +237,11 @@ def _latest_manifest_release() -> tuple[str, str]:
     """Return (content_version, dist-relative yaml path) for the newest v6 ATLAS release."""
     response = requests.get(ATLAS_MANIFEST_URL, timeout=30)
     response.raise_for_status()
-    manifest = yaml.safe_load(response.text)
-    if not isinstance(manifest, list) or not manifest:
+    loaded = yaml.safe_load(response.text)
+    if not isinstance(loaded, list) or not loaded:
+        raise ValueError("ATLAS manifest is empty or invalid")
+    releases = [_mapping(entry) for entry in cast("list[Any]", loaded) if isinstance(entry, dict)]
+    if not releases:
         raise ValueError("ATLAS manifest is empty or invalid")
 
     def _release_key(entry: dict[str, Any]) -> tuple[int, ...]:
@@ -239,10 +254,10 @@ def _latest_manifest_release() -> tuple[str, str]:
                 parts.append(0)
         return tuple(parts)
 
-    latest = max(manifest, key=_release_key)
+    latest = max(releases, key=_release_key)
     content_version = str(latest["release"])
-    versions = latest.get("versions") or []
-    v6 = next((v for v in versions if str(v.get("format-version", "")).startswith("6.")), None)
+    versions = [_mapping(entry) for entry in _sequence(latest.get("versions")) if isinstance(entry, dict)]
+    v6 = next((entry for entry in versions if str(entry.get("format-version", "")).startswith("6.")), None)
     if v6 is None and versions:
         v6 = versions[0]
     if v6 is None or not v6.get("path"):
@@ -256,9 +271,10 @@ def download_atlas_data(save: bool = True) -> dict[str, Any] | None:
     url = f"{ATLAS_DIST_BASE}/{rel_path.lstrip('/')}"
     response = requests.get(url, timeout=60)
     response.raise_for_status()
-    atlas_data = yaml.safe_load(response.text)
-    if not isinstance(atlas_data, dict):
+    downloaded = yaml.safe_load(response.text)
+    if not isinstance(downloaded, dict):
         raise TypeError("ATLAS download did not return a mapping")
+    atlas_data = cast("dict[str, Any]", downloaded)
 
     if save:
         compressed = gzip_compress(json.dumps(atlas_data, sort_keys=True, default=str))
