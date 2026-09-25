@@ -19,6 +19,7 @@ from .config import CUSTOM_RULES_DIR
 from .schemas.definitions import (
     ESQL_INDEX_PATTERN_REGEX,
 )
+from .utils import strip_index_expression
 
 # Legacy / alternate dataset package prefixes → Fleet package names.
 DATASET_PACKAGE_ALIASES: dict[str, str] = {
@@ -85,9 +86,9 @@ def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = Non
 
 
 def local_esql_index(source: str) -> str:
-    """Drop a ``cluster:`` or ``cluster::`` prefix from an index pattern."""
+    """Drop a ``cluster:`` prefix and ``::data``/``::failures`` selector from an index pattern."""
     cleaned = source.strip().strip("`")
-    return cleaned.replace("::", ":").split(":")[-1].strip().strip("`")
+    return strip_index_expression(cleaned).strip("`")
 
 
 def index_patterns_match(left: str, right: str) -> bool:
@@ -302,8 +303,8 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
 def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[tuple[str, str]]:
     """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs.
 
-    The written form keeps any `cluster:` or `cluster::` prefix, which is what the parser
-    matches when it narrows a multi-index schema to one FROM. The local pattern drops that prefix.
+    The written form keeps any `cluster:` prefix and `::` selector, which is what the parser
+    matches when it narrows a multi-index schema to one FROM. The local pattern drops both.
     """
     try:
         parsed = tree if tree is not None else _parse_for_extraction(query)
