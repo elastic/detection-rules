@@ -766,6 +766,9 @@ class QueryValidator:
                 elif endgame_schema:
                     field_type = endgame_schema.endgame_schema.get(fld, None)
 
+            if not field_type and isinstance(self, ESQLValidator):
+                field_type = getattr(self, "_resolved_field_types", {}).get(fld)
+
             required.append({"name": fld, "type": field_type or "unknown", "ecs": is_ecs})
 
         return sorted(required, key=lambda f: f["name"])

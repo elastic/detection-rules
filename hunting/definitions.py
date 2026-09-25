@@ -48,7 +48,21 @@ class Hunt:
                 self.validate_esql_query(q)
 
     def validate_esql_query(self, query: str) -> None:
-        """Validation logic for ESQL."""
+        """Reject invalid ES|QL. Unknown index fields stay allowed."""
+        import esql
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule import set_esql_config
+
+        cfg = set_esql_config(load_current_package_version())
+        try:
+            # allow_missing skips index fields that are not in the empty schema.
+            # Syntax errors and columns that are not in the pipeline still fail.
+            with cfg, esql.Schema({}, allow_missing=True):
+                esql.parse_query(query)
+        except esql.EsqlError as exc:
+            raise ValueError(f"Hunt: {self.name} contains invalid ES|QL: {exc}") from exc
+
         query = query.lower()
 
         if self.author == "Elastic":

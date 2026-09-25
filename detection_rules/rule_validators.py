@@ -953,6 +953,8 @@ class ESQLValidator(QueryValidator):
 
     metadata: RuleMeta
     _parsed_tree: Any | None = None
+    # Filled after a successful offline plan so required_fields can type integration columns.
+    _resolved_field_types: dict[str, str]
 
     def _parse_tree(self, min_stack_version: str | None = None) -> Any:
         """Parse query with detection-rules-esql-py under the given stack config."""
@@ -1289,6 +1291,16 @@ class ESQLValidator(QueryValidator):
         # Offline plan caches schemas; rebuild after custom schema mutates.
         _ESQL_SCHEMA_DICT_CACHE.clear()
 
+    def _remember_field_types(self, plan: list[Any]) -> None:
+        """Keep the newest offline type for each field used by required_fields."""
+        resolved: dict[str, str] = {}
+        for target in plan:
+            flat = self._flat_schema_dict(target.schema)
+            for name, value in flat.items():
+                if isinstance(value, str):
+                    resolved.setdefault(name, value)
+        self._resolved_field_types = resolved
+
     @staticmethod
     def _unknown_field_from_error(exc: Exception) -> str | None:
         """Extract an unknown field name from an ES|QL schema error message."""
@@ -1361,6 +1373,7 @@ class ESQLValidator(QueryValidator):
                     break
 
             if first_error is None:
+                self._remember_field_types(plan)
                 break
 
             unknown_field = self._unknown_field_from_error(first_error)

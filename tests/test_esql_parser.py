@@ -134,6 +134,20 @@ class TestEsqlOfflineSchemaFailures:
         with pytest.raises(EsqlSchemaError, match="totally_unknown_keep_field"):
             RuleCollection().load_dict(rule)
 
+    def test_required_fields_use_integration_types(self) -> None:
+        """Integration fields keep their package type after offline validation."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["aws"]
+        rule["rule"]["query"] = """
+        FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
+        | WHERE aws.cloudtrail.user_identity.type == "IAMUser"
+        | KEEP aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        fields = loaded.contents.data.get_required_fields([]) or []
+        typed = {item["name"]: item["type"] for item in fields}
+        assert typed["aws.cloudtrail.user_identity.type"] == "keyword"
+
     def test_package_covered_index_does_not_accept_undeclared_ecs_field(self) -> None:
         """Fleet-covered indices do not inherit the full ECS schema."""
         rule = _sample_rule()
