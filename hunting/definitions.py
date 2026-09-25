@@ -59,7 +59,7 @@ class Hunt:
             # allow_missing skips index fields that are not in the empty schema.
             # Syntax errors and columns that are not in the pipeline still fail.
             with cfg, esql.Schema({}, allow_missing=True):
-                esql.parse_query(query)
+                _ = esql.parse_query(query)
         except esql.EsqlError as exc:
             raise ValueError(f"Hunt: {self.name} contains invalid ES|QL: {exc}") from exc
 

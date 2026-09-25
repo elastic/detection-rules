@@ -1297,8 +1297,8 @@ class ESQLValidator(QueryValidator):
         for target in plan:
             flat = self._flat_schema_dict(target.schema)
             for name, value in flat.items():
-                if isinstance(value, str):
-                    resolved.setdefault(name, value)
+                if isinstance(value, str) and name not in resolved:
+                    resolved[name] = value
         self._resolved_field_types = resolved
 
     @staticmethod
