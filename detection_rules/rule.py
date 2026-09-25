@@ -1053,8 +1053,6 @@ class ESQLRuleData(QueryRuleData):
 
         bypass_metadata = os.environ.get("DR_BYPASS_ESQL_METADATA_VALIDATION") is not None
         bypass_keep = os.environ.get("DR_BYPASS_ESQL_KEEP_VALIDATION") is not None
-        if bypass_metadata and bypass_keep:
-            return
 
         cfg = set_esql_config(load_current_package_version())
 
@@ -2157,7 +2155,11 @@ def get_unique_query_fields(rule: TOMLRule) -> list[str] | None:
         cfg = set_esql_config(min_stack_version)
         with cfg, esql.Schema({}, allow_missing=True):
             tree = esql.parse_query(query)
-        return sorted(esql.get_unique_fields(tree))
+        from .rule_validators import ESQLValidator
+
+        names = set(esql.get_unique_fields(tree))
+        names.update(ESQLValidator._nested_query_field_names(tree))  # noqa: SLF001
+        return sorted(names)
 
     # remove once py-eql supports ipv6 for cidrmatch
     cfg = set_eql_config(min_stack_version)

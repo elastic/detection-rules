@@ -22,6 +22,7 @@ from detection_rules.esql import (
 )
 from detection_rules.esql_errors import EsqlSchemaError, EsqlUnknownIndexError
 from detection_rules.index_mappings import assert_known_esql_indices, collect_known_esql_index_patterns
+from detection_rules.rule import get_unique_query_fields
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.utils import get_path, load_rule_contents
 
@@ -155,6 +156,47 @@ class TestEsqlOfflineSchemaFailures:
         """
         with pytest.raises(EsqlSchemaError):
             RuleCollection().load_dict(rule)
+
+    def test_combined_from_unions_sibling_stream_fields(self) -> None:
+        """One FROM of several indices still sees fields from any of those indices."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["aws"]
+        rule["rule"]["query"] = """
+        FROM logs-aws.cloudtrail-*, logs-aws.billing-* METADATA _id, _version, _index
+        | WHERE aws.cloudtrail.user_identity.type == "IAMUser"
+        | KEEP aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        assert loaded.contents.data.language == "esql"
+
+    def test_subquery_does_not_see_sibling_stream_fields(self) -> None:
+        """A field present on one subquery source is unknown inside the other."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["aws"]
+        rule["rule"]["query"] = """
+        FROM
+          (FROM logs-aws.cloudtrail-* | KEEP aws.cloudtrail.user_identity.type),
+          (FROM logs-aws.billing-* | WHERE aws.cloudtrail.user_identity.type == "IAMUser" | KEEP host.name)
+        | STATS count = COUNT(*) BY host.name
+        | KEEP count, host.name
+        """
+        with pytest.raises(EsqlSchemaError, match=re.escape("aws.cloudtrail.user_identity.type")):
+            RuleCollection().load_dict(rule)
+
+    def test_unique_fields_include_nested_kql(self) -> None:
+        """Rule search and packaging see fields that appear only inside KQL()."""
+        rule = _sample_rule()
+        rule["metadata"]["integration"] = ["endpoint"]
+        rule["metadata"]["min_stack_version"] = "8.16.0"
+        rule["rule"]["query"] = """
+        FROM logs-endpoint.events.process-* METADATA _id, _version, _index
+        | WHERE KQL("process.command_line: *whoami*")
+        | KEEP host.name, _id, _version, _index
+        """
+        loaded = RuleCollection().load_dict(rule)
+        fields = get_unique_query_fields(loaded)
+        assert fields is not None
+        assert "process.command_line" in fields
 
     def test_keyword_compared_to_number_raises_type_mismatch(self) -> None:
         """Parity with remote test_esql_type_mismatch_error (keyword == number)."""

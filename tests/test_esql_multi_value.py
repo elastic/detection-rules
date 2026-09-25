@@ -116,7 +116,11 @@ def _norm_func_name(name: str | None) -> str:
 
 def unprotected_always_multi_compares(query: str) -> set[str]:
     """Return always-multi fields used in scalar compares/likes without MV protection."""
-    tree = esql.parse_query(query)
+    return _unprotected_in_query(esql.parse_query(query))
+
+
+def _unprotected_in_query(query_tree: ast.EsqlQuery) -> set[str]:
+    """Scan one pipeline. Nested ``FROM`` / ``FORK`` pipes keep their own MV_EXPAND state."""
     expanded: set[str] = set()
     unprotected: set[str] = set()
 
@@ -142,6 +146,9 @@ def unprotected_always_multi_compares(query: str) -> set[str]:
     def walk(node: object | None, *, mv_protected: bool = False) -> None:
         if node is None:
             return
+        if isinstance(node, ast.EsqlQuery):
+            unprotected.update(_unprotected_in_query(node))
+            return
         if isinstance(node, ast.FunctionCall):
             walk_function(node, mv_protected=mv_protected)
             return
@@ -158,7 +165,7 @@ def unprotected_always_multi_compares(query: str) -> set[str]:
                 if isinstance(child, ast.BaseNode) and child is not node:
                     walk(child, mv_protected=mv_protected)
 
-    for cmd in tree.commands:
+    for cmd in query_tree.commands:
         if isinstance(cmd, ast.MvExpandCommand):
             field = getattr(cmd, "field", None)
             if isinstance(field, str) and field:
@@ -166,8 +173,7 @@ def unprotected_always_multi_compares(query: str) -> set[str]:
             elif isinstance(field, ast.ColumnRef):
                 expanded.add(field.name)
             continue
-        if isinstance(cmd, ast.WhereCommand):
-            walk(cmd.predicate)
+        walk(cmd)
 
     return unprotected
 
@@ -199,6 +205,23 @@ def test_mv_expand_protects_only_following_compares() -> None:
     """
     assert "process.args" in unprotected_always_multi_compares(early)
     assert "process.args" not in unprotected_always_multi_compares(late)
+
+
+def test_eval_compare_is_unprotected_until_mv_expand() -> None:
+    """Always-multi compares in EVAL are flagged the same way as WHERE."""
+    bare = """
+    FROM logs-*
+    | EVAL hit = process.args == "x"
+    | KEEP hit
+    """
+    after = """
+    FROM logs-*
+    | MV_EXPAND process.args
+    | EVAL hit = process.args == "x"
+    | KEEP hit
+    """
+    assert "process.args" in unprotected_always_multi_compares(bare)
+    assert "process.args" not in unprotected_always_multi_compares(after)
 
 
 class TestEsqlAlwaysMultiFields(BaseRuleTest):

@@ -816,12 +816,14 @@ def _warm_esql_offline_caches() -> None:
     _ESQL_WARM_STATE["warmed"] = True
 
 
-def _integration_fields_for_indices(
+def _integration_fields_for_indices(  # noqa: PLR0913
     package_integrations: list[Any],
     indices: list[str],
     min_stack: Version,
     packages_manifest: dict[str, Any],
     integrations_schemas: dict[str, Any],
+    *,
+    allow_fallback: bool = True,
 ) -> tuple[dict[str, Any], set[str]]:
     """Collect Fleet stream fields that match *indices* for the given packages."""
     fields: dict[str, Any] = {}
@@ -843,7 +845,9 @@ def _integration_fields_for_indices(
         if package not in integrations_schemas or package_version not in integrations_schemas[package]:
             continue
         package_schema = integrations_schemas[package][package_version]
-        stream_fields = collect_package_fields_for_indices(package_schema, package, indices, integration)
+        stream_fields = collect_package_fields_for_indices(
+            package_schema, package, indices, integration, allow_fallback=allow_fallback
+        )
         for field_name, field_type in stream_fields.items():
             fields[field_name] = kql.parser.elasticsearch_type_family(field_type)
         packages.add(package)
@@ -880,6 +884,56 @@ def _lookup_join_schemas_for_stack(
         if fields:
             lookups[target] = fields
     return lookups
+
+
+def _schema_dict_for_from_indices(  # noqa: PLR0913, PLR0917
+    from_indices: list[str],
+    ecs_flat: dict[str, Any],
+    package_integrations: list[Any],
+    min_stack: Version,
+    packages_manifest: dict[str, Any],
+    integrations_schemas: dict[str, Any],
+    index_fields: dict[str, Any],
+) -> tuple[dict[str, Any], set[str]]:
+    """Build the FROM schema, one map per index when several patterns are present.
+
+    A single ``FROM a, b`` still unions those maps. Sibling subqueries only see the
+    patterns on their own ``FROM``, which the parser narrows when keys contain ``*``.
+    """
+
+    def one(
+        indices: list[str], *, shared_index_fields: dict[str, Any] | None, allow_fallback: bool
+    ) -> tuple[dict[str, Any], set[str]]:
+        schema_dict = dict(ecs_flat)
+        if shared_index_fields is not None:
+            schema_dict.update(shared_index_fields)
+        else:
+            schema_dict.update(collect_index_field_schemas(indices))
+        stream_fields, pkgs = _integration_fields_for_indices(
+            package_integrations,
+            indices,
+            min_stack,
+            packages_manifest,
+            integrations_schemas,
+            allow_fallback=allow_fallback,
+        )
+        schema_dict.update(stream_fields)
+        return schema_dict, pkgs
+
+    if len(from_indices) <= 1:
+        return one(from_indices, shared_index_fields=index_fields, allow_fallback=True)
+
+    combined: dict[str, Any] = {}
+    packages: set[str] = set()
+    for index in from_indices:
+        per_index, pkgs = one([index], shared_index_fields=None, allow_fallback=False)
+        combined[index] = per_index
+        packages.update(pkgs)
+    # ECS includes a field named "type", which makes Schema treat this map as a
+    # flat field list. An empty "*" entry is selected with every FROM pattern and
+    # keeps the map in multi-index mode without adding columns.
+    combined["*"] = {}
+    return combined, packages
 
 
 def _strict_esql_schema(schema_dict: dict[str, Any], lookups: dict[str, dict[str, Any]] | None = None) -> esql.Schema:
@@ -1090,12 +1144,15 @@ class ESQLValidator(QueryValidator):
                 )
                 min_stack = Version(parsed_stack.major, parsed_stack.minor, max(parsed_stack.patch, patch_floor))
                 ecs_flat = ecs.flatten_multi_fields(ecs.get_schema(ecs_version, name="ecs_flat"))
-                schema_dict = dict(ecs_flat)
-                schema_dict.update(index_fields)
-                stream_fields, pkgs = _integration_fields_for_indices(
-                    package_integrations, from_indices, min_stack, packages_manifest, integrations_schemas
+                schema_dict, pkgs = _schema_dict_for_from_indices(
+                    from_indices,
+                    ecs_flat,
+                    package_integrations,
+                    min_stack,
+                    packages_manifest,
+                    integrations_schemas,
+                    index_fields,
                 )
-                schema_dict.update(stream_fields)
                 packages_by_stack.setdefault(stack_version, set()).update(pkgs)
 
                 combined_by_stack[stack_version] = schema_dict
@@ -1245,15 +1302,12 @@ class ESQLValidator(QueryValidator):
         lookup_targets = get_esql_lookup_join_targets(self.query, tree=self.ast)
         event_datasets = get_esql_query_event_dataset_integrations(self.query, tree=self.ast)
         stack_versions = rule_meta.get_validation_stack_versions()
-        stack_version = (
-            max(stack_versions.keys(), key=lambda v: Version.parse(str(v), optional_minor_and_patch=True))
-            if stack_versions
-            else load_current_package_version()
-        )
-        _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
-        if lookup_targets:
-            # Do not pass query event.dataset restrictions: they describe FROM, not lookup indices.
-            _ = validate_offline_esql_from_indices(lookup_targets, rule_meta, [], str(stack_version))
+        index_versions = list(stack_versions) or [load_current_package_version()]
+        for stack_version in index_versions:
+            _ = validate_offline_esql_from_indices(from_indices, rule_meta, event_datasets, str(stack_version))
+            if lookup_targets:
+                # Do not pass query event.dataset restrictions: they describe FROM, not lookup indices.
+                _ = validate_offline_esql_from_indices(lookup_targets, rule_meta, [], str(stack_version))
 
         # Parse once per grammar snapshot; reuse AST for schema/feature checks (M6).
         # self.ast is already parsed (for FROM indices) under the current package

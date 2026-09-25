@@ -171,6 +171,8 @@ def collect_package_fields_for_indices(
     package: str,
     indices: list[str],
     integration: str | None = None,
+    *,
+    allow_fallback: bool = True,
 ) -> dict[str, Any]:
     """Collect package fields, restricted to streams that match FROM indices.
 
@@ -194,7 +196,7 @@ def collect_package_fields_for_indices(
         if stream_matches_indices(package, dataset, indices):
             matched = True
             fields.update(stream_fields)
-    if matched:
+    if matched or not allow_fallback:
         return fields
     # Fallback: no stream key matched (e.g. unusual index shape) — keep prior
     # whole-package behavior rather than validating against an empty schema.
