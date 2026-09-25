@@ -761,9 +761,10 @@ class TestRuleTags(BaseRuleTest):
             self.fail("Resources: LLM is only for rules whose query uses ES|QL COMPLETION:\n" + "\n".join(invalid))
 
     def test_genai_rules_have_mitre_atlas_tags(self):
-        """Domain: GenAI detections carry at least one Mitre Atlas technique tag.
+        """Domain: GenAI detections carry an ATLAS technique tag or a tactic-only mapping.
 
         ES|QL COMPLETION rules are labeled Resources: LLM and are not GenAI-domain detections.
+        A tactic-only ``threat_mappings`` entry is enough when ATLAS has no technique yet.
         """
         invalid = []
         completion_re = re.compile(r"\|\s*COMPLETION\b", re.IGNORECASE)
@@ -775,10 +776,17 @@ class TestRuleTags(BaseRuleTest):
             if completion_re.search(query):
                 invalid.append(f"{self.rule_str(rule)} has Domain: GenAI but invokes ES|QL COMPLETION")
                 continue
-            if not any(tag.startswith("Mitre Atlas:") for tag in tags):
-                invalid.append(f"{self.rule_str(rule)} missing Mitre Atlas tag")
+            has_technique_tag = any(tag.startswith("Mitre Atlas:") for tag in tags)
+            has_atlas_mapping = any(
+                block.framework == "MITRE ATLAS" and block.threat for block in rule.contents.data.threat_mappings or []
+            )
+            if not has_technique_tag and not has_atlas_mapping:
+                invalid.append(f"{self.rule_str(rule)} missing Mitre Atlas tag or threat_mappings tactic")
         if invalid:
-            self.fail("Domain: GenAI rules need Mitre Atlas technique tags:\n" + "\n".join(invalid))
+            self.fail(
+                "Domain: GenAI rules need an ATLAS technique tag or a tactic-only threat_mappings entry:\n"
+                + "\n".join(invalid)
+            )
 
     def test_mitre_atlas_tags_match_data(self):
         """Mitre Atlas tags must be real ATLAS technique IDs (not OWASP LLM Top 10 IDs)."""

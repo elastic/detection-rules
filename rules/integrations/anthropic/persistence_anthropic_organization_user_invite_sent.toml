@@ -7,10 +7,10 @@ updated_date = "2026/09/25"
 [rule]
 author = ["Elastic"]
 description = """
-Sending an organization user invite creates a path for a new member to join the Anthropic tenant with a chosen role.
-An adversary who compromises an administrator or admin API key can invite a mailbox they control and accept the invite
-to gain durable access. Invites may target internal corporate addresses or external domains; this rule does not
-distinguish them because invite events do not carry verified organization domains for reliable comparison.
+Sending an organization user invite creates a path for a new member to join the Anthropic tenant with a chosen role. An
+adversary who compromises an administrator or admin API key can invite a mailbox they control and accept the invite to
+gain durable access. Invites may target internal corporate addresses or external domains; this rule does not distinguish
+them because invite events do not carry verified organization domains for reliable comparison.
 """
 false_positives = [
     """
@@ -52,9 +52,7 @@ ticket names the invitee and role.
 - On unauthorized invite: delete/revoke the pending invite (and remove the user if already accepted), review other IAM
   changes by the same actor, and rotate compromised admin credentials or API keys.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "5fd313e8-c61c-4737-88f7-b452a2f25a3b"
 severity = "medium"
@@ -100,6 +98,21 @@ reference = "https://attack.mitre.org/techniques/T1136/003/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0125"
+name = "Create Account"
+reference = "https://atlas.mitre.org/techniques/AML.T0125/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
@@ -120,16 +133,3 @@ field_names = [
     "user_agent.original",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0125"
-name = "Create Account"
-reference = "https://atlas.mitre.org/techniques/AML.T0125/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0006"
-name = "Persistence"
-reference = "https://atlas.mitre.org/tactics/AML.TA0006/"

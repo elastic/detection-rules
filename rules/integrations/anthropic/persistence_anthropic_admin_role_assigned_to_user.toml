@@ -10,15 +10,15 @@ description = """
 The organization admin role controls organization settings, integrations, membership, and security configuration in
 Anthropic Claude for Enterprise. Membership role changes are reported as `claude_user_role_updated` with
 `anthropic.audit.current_role`. An attacker can promote a compromised or newly invited account to org admin to turn
-initial access into durable control-plane access. From admin, they can disable SSO, mint admin API keys for
-automation, start data exports, and weaken audit logging. Workspace-scoped `role_assignment_granted` grants (for
-example bare `admin` on a workspace) are out of scope for this rule.
+initial access into durable control-plane access. From admin, they can disable SSO, mint admin API keys for automation,
+start data exports, and weaken audit logging. Workspace-scoped `role_assignment_granted` grants (for example bare
+`admin` on a workspace) are out of scope for this rule.
 """
 false_positives = [
     """
     IT administrators promote users to organization admin during onboarding, staffing changes, or incident response.
-    Verify that the target user should hold org admin privileges, and that a change request exists when policy
-    requires one.
+    Verify that the target user should hold org admin privileges, and that a change request exists when policy requires
+    one.
     """,
 ]
 from = "now-9m"
@@ -121,6 +121,21 @@ reference = "https://attack.mitre.org/techniques/T1098/003/"
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
 
 [rule.investigation_fields]
 field_names = [
@@ -140,16 +155,3 @@ field_names = [
     "user_agent.original",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0012"
-name = "Valid Accounts"
-reference = "https://atlas.mitre.org/techniques/AML.T0012/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0012"
-name = "Privilege Escalation"
-reference = "https://atlas.mitre.org/tactics/AML.TA0012/"

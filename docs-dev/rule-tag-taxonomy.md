@@ -49,7 +49,9 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 
 Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
 (agents, MCP, foundation-model APIs, model artifacts). Those rules should carry
-`Mitre Atlas:` technique IDs. A rule that calls a model uses `Resources: LLM`.
+`Mitre Atlas:` technique IDs when ATLAS has a technique. When it does not, map the
+ATLAS tactic only in `threat_mappings` and leave the technique tag off. A rule that
+calls a model uses `Resources: LLM`.
 
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.

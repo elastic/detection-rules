@@ -2,15 +2,15 @@
 creation_date = "2026/02/23"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects the first time a Python process spawns a shell on a given host. Malicious Python scripts, compromised
 dependencies, or model file deserialization can result in shell spawns that would not occur during normal workflows.
-Since legitimate Python processes rarely shell out to interactive shells, a first occurrence of this behavior on a
-host is a strong signal of potential compromise.
+Since legitimate Python processes rarely shell out to interactive shells, a first occurrence of this behavior on a host
+is a strong signal of potential compromise.
 """
 from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
@@ -74,6 +74,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 event.category:process and host.os.type:macos and event.type:start and event.action:exec and
 process.parent.name:python* and
@@ -81,14 +82,13 @@ process.name:(bash or dash or sh or tcsh or csh or zsh or ksh or fish) and proce
 not process.command_line:(*pip* or *conda* or *brew* or *jupyter*)
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1059.004"
 name = "Unix Shell"
@@ -99,17 +99,12 @@ id = "T1059.006"
 name = "Python"
 reference = "https://attack.mitre.org/techniques/T1059/006/"
 
+
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "process.parent.executable"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -123,12 +118,24 @@ reference = "https://atlas.mitre.org/techniques/AML.T0011/"
 id = "AML.T0011.000"
 name = "Unsafe AI Artifacts"
 reference = "https://atlas.mitre.org/techniques/AML.T0011.000/"
+
+
 [[rule.threat_mappings.threat.technique]]
 id = "AML.T0050"
 name = "Command and Scripting Interpreter"
 reference = "https://atlas.mitre.org/techniques/AML.T0050/"
 
+
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0005"
 name = "Execution"
 reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.parent.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

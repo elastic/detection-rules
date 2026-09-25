@@ -2,17 +2,18 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when an Amazon Bedrock agent is associated with, or updated to use, a knowledge base via the AssociateAgentKnowledgeBase, 
-or UpdateAgentKnowledgeBase API actions. Bedrock agents consume knowledge base (RAG) content as trusted context for the model. 
-By wiring an agent to an externally controlled or third-party knowledge base, or by swapping in an attacker-controlled knowledge base, 
-an adversary can redraw the agent's trust boundary toward an untrusted source. This is a software-supply-chain compromise and an indirect 
-prompt-injection delivery vector: poisoned or adversarial content served from the associated knowledge base is treated as authoritative
-by the agent. Validate that the associated knowledge base, and any underlying data source, is owned and controlled by your organization.
+Detects when an Amazon Bedrock agent is associated with, or updated to use, a knowledge base via the
+AssociateAgentKnowledgeBase, or UpdateAgentKnowledgeBase API actions. Bedrock agents consume knowledge base (RAG)
+content as trusted context for the model. By wiring an agent to an externally controlled or third-party knowledge base,
+or by swapping in an attacker-controlled knowledge base, an adversary can redraw the agent's trust boundary toward an
+untrusted source. This is a software-supply-chain compromise and an indirect prompt-injection delivery vector: poisoned
+or adversarial content served from the associated knowledge base is treated as authoritative by the agent. Validate that
+the associated knowledge base, and any underlying data source, is owned and controlled by your organization.
 """
 false_positives = [
     """
@@ -70,7 +71,7 @@ base the agent already trusts.
 """
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html",
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html"
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html",
 ]
 risk_score = 47
 rule_id = "168b5538-4d54-4269-b4f5-786fa49dd850"
@@ -90,7 +91,6 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: New Terms",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
     "Mitre Atlas: AML.T0070",
     "Mitre Atlas: AML.T0010",
@@ -111,16 +111,43 @@ data_stream.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0010"
+name = "AI Supply Chain Compromise"
+reference = "https://atlas.mitre.org/techniques/AML.T0010/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0070"
+name = "RAG Poisoning"
+reference = "https://atlas.mitre.org/techniques/AML.T0070/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
@@ -139,37 +166,12 @@ field_names = [
     "aws.cloudtrail.flattened.request_parameters",
     "aws.cloudtrail.flattened.response_elements",
 ]
- 
+
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["aws.cloudtrail.user_identity.arn"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0070"
-name = "RAG Poisoning"
-reference = "https://atlas.mitre.org/techniques/AML.T0070/"
 
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0006"
-name = "Persistence"
-reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0010"
-name = "AI Supply Chain Compromise"
-reference = "https://atlas.mitre.org/techniques/AML.T0010/"
-
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0004"
-name = "Initial Access"
-reference = "https://atlas.mitre.org/tactics/AML.TA0004/"

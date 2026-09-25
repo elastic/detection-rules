@@ -3,15 +3,15 @@ creation_date = "2026/02/27"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects Elastic Defend alerts (behavior, malicious file, memory signature, shellcode) where the alerted process or its
 direct parent is a GenAI coding or assistant utility (e.g. Cursor, Claude, Windsurf, Cody, Continue, Aider, OpenClaw,
-Moltbot, Clawdbot, Codeium, Tabnine, GitHub Copilot). Activity from these tools can indicate prompt injection,
-malicious skills, or supply-chain abuse; this Higher-Order rule helps prioritize such alerts for triage.
+Moltbot, Clawdbot, Codeium, Tabnine, GitHub Copilot). Activity from these tools can indicate prompt injection, malicious
+skills, or supply-chain abuse; this Higher-Order rule helps prioritize such alerts for triage.
 """
 from = "now-9m"
 interval = "5m"
@@ -42,10 +42,7 @@ Elastic Defend has raised an alert on a process that is either a GenAI coding/as
 
 - If abuse is confirmed: disable or restrict the GenAI tool, remove malicious extensions/skills, rotate any exposed API keys or credentials, and block IOCs at network/EDR level.
 """
-references = [
-    "https://attack.mitre.org/techniques/T1059/",
-    "https://attack.mitre.org/techniques/T1195/002/",
-]
+references = ["https://attack.mitre.org/techniques/T1059/", "https://attack.mitre.org/techniques/T1195/002/"]
 risk_score = 99
 rule_id = "d4e5f6a7-b8c9-7d0e-1f2a-3b4c5d6e7f8a"
 severity = "critical"
@@ -63,7 +60,6 @@ tags = [
     "Threat: Supply Chain",
     "Threat: Unauthorized AI Usage",
     "Rule Type: ES|QL",
-    "Domain: GenAI",
     "Mitre Atlas: AML.T0053",
     "Mitre Atlas: AML.T0011",
 ]
@@ -105,6 +101,7 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
 | KEEP *
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -116,11 +113,12 @@ id = "T1195.002"
 name = "Compromise Software Supply Chain"
 reference = "https://attack.mitre.org/techniques/T1195/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -130,12 +128,16 @@ framework = "MITRE ATLAS"
 id = "AML.T0011"
 name = "User Execution"
 reference = "https://atlas.mitre.org/techniques/AML.T0011/"
+
 [[rule.threat_mappings.threat.technique]]
 id = "AML.T0053"
 name = "AI Agent Tool Invocation"
 reference = "https://atlas.mitre.org/techniques/AML.T0053/"
 
+
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0005"
 name = "Execution"
 reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+

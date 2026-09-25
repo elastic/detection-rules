@@ -7,10 +7,10 @@ updated_date = "2026/09/25"
 [rule]
 author = ["Elastic"]
 description = """
-Admin API keys grant programmatic access to organization and compliance APIs outside an interactive browser session.
-An attacker who creates one after compromise can automate role grants, exports, and logging changes without holding a
-user session that would time out under SSO. The key also survives password resets and IdP lockout if defenders revoke
-the interactive account but miss the API credential.
+Admin API keys grant programmatic access to organization and compliance APIs outside an interactive browser session. An
+attacker who creates one after compromise can automate role grants, exports, and logging changes without holding a user
+session that would time out under SSO. The key also survives password resets and IdP lockout if defenders revoke the
+interactive account but miss the API credential.
 """
 false_positives = [
     """
@@ -50,9 +50,7 @@ actor who just received admin / ownership and immediately mints a key — especi
 - On unauthorized creation: revoke the key in Anthropic admin, rotate other admin credentials, and review API activity
   attributable to that `anthropic.audit.admin_api_key_id` during the exposure window.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "4051e709-03b6-4782-aae3-e58dde33642b"
 severity = "medium"
@@ -97,6 +95,21 @@ reference = "https://attack.mitre.org/techniques/T1098/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0125"
+name = "Create Account"
+reference = "https://atlas.mitre.org/techniques/AML.T0125/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
@@ -113,16 +126,3 @@ field_names = [
     "anthropic.audit.actor.type",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0125"
-name = "Create Account"
-reference = "https://atlas.mitre.org/techniques/AML.T0125/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0006"
-name = "Persistence"
-reference = "https://atlas.mitre.org/tactics/AML.TA0006/"

@@ -7,14 +7,14 @@ updated_date = "2026/09/25"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high number of Claude chat creation events for the same user email within a 24-hour period.
-Burst chat creation can indicate automated LLM abuse, resource hijacking to burn organizational quotas, or scripted
-workflows used to stage many parallel conversations for data processing or prompt-injection campaigns.
+Detects an unusually high number of Claude chat creation events for the same user email within a 24-hour period. Burst
+chat creation can indicate automated LLM abuse, resource hijacking to burn organizational quotas, or scripted workflows
+used to stage many parallel conversations for data processing or prompt-injection campaigns.
 """
 false_positives = [
     """
-    Power users, automation engineers, or evaluation scripts that create many short-lived chats during testing can exceed
-    the threshold without malicious intent.
+    Power users, automation engineers, or evaluation scripts that create many short-lived chats during testing can
+    exceed the threshold without malicious intent.
     """,
 ]
 from = "now-24h"
@@ -47,9 +47,7 @@ one admin with browser UA and no data-access follow-ons.
 - When TP signals hold: revoke sessions, review project membership, and apply rate limits or policy changes for the
   actor.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "854d9932-93c3-42d4-bab0-7723a91df397"
 severity = "medium"
@@ -103,10 +101,24 @@ reference = "https://attack.mitre.org/techniques/T1496/"
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0034"
+name = "Cost Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0034/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
 
 [rule.alert_suppression]
 group_by = ["user.email"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -124,16 +136,7 @@ field_names = [
     "Esql.timestamp_last_seen",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0034"
-name = "Cost Harvesting"
-reference = "https://atlas.mitre.org/techniques/AML.T0034/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0011"
-name = "Impact"
-reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

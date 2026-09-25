@@ -2,25 +2,26 @@
 creation_date = "2026/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies an Amazon Bedrock API key phantom user (an IAM user whose name starts with "BedrockAPIKey-") acting as the
-caller of a non-Bedrock API request, such as IAM, STS, EC2, VPC, or KMS calls. These users are provisioned by AWS to back
-a Bedrock bearer token and carry the AmazonBedrockLimitedAccess managed policy, which also grants IAM, VPC, and KMS
+caller of a non-Bedrock API request, such as IAM, STS, EC2, VPC, or KMS calls. These users are provisioned by AWS to
+back a Bedrock bearer token and carry the AmazonBedrockLimitedAccess managed policy, which also grants IAM, VPC, and KMS
 reconnaissance. A phantom user performing activity outside of Bedrock indicates its credentials are being used beyond
 their intended scope, which is the privilege-escalation path realized: an attacker who created standard IAM access keys
-for the phantom user is now using them for reconnaissance or lateral movement outside the Bedrock authentication boundary.
+for the phantom user is now using them for reconnaissance or lateral movement outside the Bedrock authentication
+boundary.
 """
 false_positives = [
     """
-    Automation or SDK tooling configured with a Bedrock API key may call non-Bedrock APIs for benign
-    credential validation. Ubiquitous no-op STS identity calls (GetCallerIdentity, GetSessionToken, 
-    GetAccessKeyInfo) are excluded; other non-Bedrock activity by a BedrockAPIKey-* principal — recon, 
-    privilege escalation, lateral movement, or exfiltration — is unexpected for an inference-only key. 
-    Confirm the key and source in "source.ip"/"user_agent.original" are sanctioned.
+    Automation or SDK tooling configured with a Bedrock API key may call non-Bedrock APIs for benign credential
+    validation. Ubiquitous no-op STS identity calls (GetCallerIdentity, GetSessionToken, GetAccessKeyInfo) are excluded;
+    other non-Bedrock activity by a BedrockAPIKey-* principal — recon, privilege escalation, lateral movement, or
+    exfiltration — is unexpected for an inference-only key. Confirm the key and source in
+    "source.ip"/"user_agent.original" are sanctioned.
     """,
 ]
 from = "now-30m"
@@ -80,7 +81,6 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: Custom Query (KQL)",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS IAM",
     "Service: AWS Bedrock",
     "Mitre Atlas: AML.T0012",
@@ -100,6 +100,7 @@ data_stream.dataset: "aws.cloudtrail"
     and not event.action: ("GetCallerIdentity" or "GetSessionToken" or "GetAccessKeyInfo")
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -111,11 +112,12 @@ id = "T1078.004"
 name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -125,6 +127,7 @@ framework = "MITRE ATLAS"
 id = "AML.T0012"
 name = "Valid Accounts"
 reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
 
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0012"
@@ -137,7 +140,10 @@ id = "AML.T0055"
 name = "Unsecured Credentials"
 reference = "https://atlas.mitre.org/techniques/AML.T0055/"
 
+
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0013"
 name = "Credential Access"
 reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
+
+

@@ -52,9 +52,7 @@ positive: legal/IR link review or broken bookmarks with scattered IDs and many s
 - On confirmed enumeration: revoke sessions, review recently accessed chats, rotate exposed shared links if needed,
   and check for data export or artifact sharing by the same user.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "a304c107-e0f0-4042-aa6c-5332ce6ca967"
 severity = "medium"
@@ -107,10 +105,24 @@ reference = "https://attack.mitre.org/techniques/T1526/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0075"
+name = "Enterprise Resource Discovery"
+reference = "https://atlas.mitre.org/techniques/AML.T0075/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0008"
+name = "Discovery"
+reference = "https://atlas.mitre.org/tactics/AML.TA0008/"
 
 [rule.alert_suppression]
 group_by = ["user.id", "organization.id", "source.ip"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -130,16 +142,7 @@ field_names = [
     "Esql.timestamp_last_seen",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0075"
-name = "Enterprise Resource Discovery"
-reference = "https://atlas.mitre.org/techniques/AML.T0075/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0008"
-name = "Discovery"
-reference = "https://atlas.mitre.org/tactics/AML.TA0008/"
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

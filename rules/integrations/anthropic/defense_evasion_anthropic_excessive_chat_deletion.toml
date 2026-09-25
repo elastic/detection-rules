@@ -48,9 +48,7 @@ Close as FP for scheduled retention cleanup or migration tooling with a ticket.
 - On malicious deletion: preserve remaining audit exports, revoke sessions, and investigate whether sensitive content
   was uploaded or shared before deletion.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "2944223e-3c25-4ce4-bd69-64f2914da187"
 severity = "medium"
@@ -105,10 +103,24 @@ reference = "https://attack.mitre.org/techniques/T1070/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0092"
+name = "Manipulate User LLM Chat History"
+reference = "https://atlas.mitre.org/techniques/AML.T0092/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
 [rule.alert_suppression]
 group_by = ["user.email", "Esql.time_bucket"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -127,16 +139,7 @@ field_names = [
     "Esql.timestamp_last_seen",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0092"
-name = "Manipulate User LLM Chat History"
-reference = "https://atlas.mitre.org/techniques/AML.T0092/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0007"
-name = "Defense Evasion"
-reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+

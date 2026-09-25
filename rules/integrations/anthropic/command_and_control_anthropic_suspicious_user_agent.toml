@@ -7,9 +7,9 @@ updated_date = "2026/09/25"
 [rule]
 author = ["Elastic"]
 description = """
-Detects successful Anthropic audit activity where the user agent matches scripting HTTP clients, offensive scanners,
-or automation libraries (for example curl, python-requests, Go-http-client, axios, nuclei). Browser and first-party
-Claude clients normally present recognizable browser or product user agents; raw HTTP library agents on successful
+Detects successful Anthropic audit activity where the user agent matches scripting HTTP clients, offensive scanners, or
+automation libraries (for example curl, python-requests, Go-http-client, axios, nuclei). Browser and first-party Claude
+clients normally present recognizable browser or product user agents; raw HTTP library agents on successful
 control-plane or product activity often indicate scripted access, stolen-session reuse, or unauthorized automation.
 Known benign automation patterns (axios or Go HTTP clients on file upload/delete, trusted device enrollment, and
 environment creation) are excluded.
@@ -60,9 +60,7 @@ actions (IAM, exports, SSO, keys). Close as FP for approved SDK/CI identities on
 - On unauthorized scripting access: revoke sessions, rotate credentials/MFA, review admin/export activity around the
   alert, and hunt other scripting-UA activity from the same IP or email.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 47
 rule_id = "d370aacb-a344-4578-a69c-beca88e063a1"
 severity = "medium"
@@ -210,14 +208,29 @@ name = "Web Protocols"
 reference = "https://attack.mitre.org/techniques/T1071/001/"
 
 
+
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
 
 [rule.alert_suppression]
 group_by = ["user.email", "source.ip", "user_agent.original"]
-duration = {value = 1, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -235,16 +248,7 @@ field_names = [
     "Esql.ua_lower",
 ]
 
-[[rule.threat_mappings]]
-framework = "MITRE ATLAS"
-version = "2026.08"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0012"
-name = "Valid Accounts"
-reference = "https://atlas.mitre.org/techniques/AML.T0012/"
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0004"
-name = "Initial Access"
-reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

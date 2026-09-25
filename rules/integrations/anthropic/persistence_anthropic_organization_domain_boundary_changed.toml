@@ -2,19 +2,19 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Verified organization domains control which email addresses can join or be pulled into an Anthropic tenant. Verifying,
-claiming, adding, or removing a domain changes the tenant boundary and can pull in attacker-controlled mailboxes or
-push out legitimate corporate domains. These events are infrequent and affect organization-wide membership trust.
+claiming, adding, or removing a domain changes the tenant boundary and can pull in attacker-controlled mailboxes or push
+out legitimate corporate domains. These events are infrequent and affect organization-wide membership trust.
 """
 false_positives = [
     """
-    IT and identity teams verify or add corporate domains during tenant onboarding, mergers, or DNS migrations.
-    Confirm the domain and actor against change management records.
+    IT and identity teams verify or add corporate domains during tenant onboarding, mergers, or DNS migrations. Confirm
+    the domain and actor against change management records.
     """,
 ]
 from = "now-9m"
@@ -47,14 +47,13 @@ work, or domain change paired with external invites or SSO changes.
 
 - On unauthorized change: revert via Anthropic administration and review users added under the affected domain.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 73
 rule_id = "fb3b43e2-0358-4bd0-b8b6-569d7c2baed1"
 severity = "high"
 tags = [
     "Domain: GenAI",
+    "Domain: Identity",
     "Platform: Anthropic",
     "Data Source: Anthropic Audit Logs",
     "Use Case: Identity and Access Audit",
@@ -93,6 +92,16 @@ reference = "https://attack.mitre.org/techniques/T1098/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
