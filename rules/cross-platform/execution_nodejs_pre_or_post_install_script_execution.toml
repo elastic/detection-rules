@@ -2,7 +2,7 @@
 creation_date = "2025/09/18"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -66,7 +66,7 @@ tags = [
 type = "eql"
 query = '''
 sequence by host.id with maxspan=10s
-  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "node" and process.args == "install"] by process.entity_id
+  [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.name == "node" and process.args in ("install", "ci", "i", "install-ci-test", "cit")] by process.entity_id
   [process where host.os.type in ("linux", "macos") and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start") and process.parent.name == "node"] by process.parent.entity_id
 '''
 
