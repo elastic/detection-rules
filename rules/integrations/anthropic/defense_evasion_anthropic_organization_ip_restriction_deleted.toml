@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting one widens
+where a compromised admin session or API key can be used. The audit event does not always carry the deleted CIDR or
+restriction identifier, so treat this as an early signal and pivot to nearby IP restriction create or update events
+for the same organization.
+"""
+false_positives = [
+    """
+    Network or security teams remove IP restrictions during office moves, VPN migrations, or policy redesigns.
+    Validate the actor, and confirm replacement restrictions were applied if the control is still required.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Organization IP Restriction Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization IP Restriction Deleted
+
+IP allowlists limit where admin sessions and admin API keys can be used. Deleting a restriction widens that surface.
+The delete event often lacks the removed CIDR — recover it from nearby create/update events.
+
+Unauthorized = no network/security change ticket for allowlist work, no replacement `org_ip_restriction_created` /
+`org_ip_restriction_updated` in the same window, or deletion paired with admin key creation / SSO weakening.
+
+#### Possible investigation steps
+
+- Identify actor type. For `user_actor`, check admin identity via `user.email`, `source.ip`, and UA. For
+  `anthropic_actor`, pivot on `organization.id` only.
+- Search the same org for `org_ip_restriction_created` / `org_ip_restriction_updated` before/after the delete to
+  recover ranges and see if this was a replace vs a standalone removal.
+- Correlate ±hours for admin role grants, admin API key creation, SSO changes, or data exports — common follow-ons
+  after network controls drop.
+- Close as FP when a ticket names the migration and a replacement restriction appears promptly. Escalate when deletion
+  stands alone or admin activity from non-corporate IPs follows.
+
+### False positive analysis
+
+- Office moves and VPN redesigns often remove old ranges before new ones are applied.
+
+### Response and remediation
+
+- On unauthorized deletion: restore required IP restrictions, review admin activity from non-corporate `source.ip`
+  during the open window, and rotate admin credentials / API keys used in that period.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "ae472523-3854-4b2b-868d-a001c764a136"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "configuration") and
+    event.action == "org_ip_restriction_deleted"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

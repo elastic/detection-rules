@@ -1,0 +1,142 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Starting an organization data export only signals intent. Accessing the export archive via its signed URL means the
+actor actually downloaded chats, projects, user metadata, and configuration. An attacker with administrative access
+can use this to exfiltrate intellectual property and credentials at scale.
+"""
+false_positives = [
+    """
+    Compliance, legal, and platform teams download organization data exports after scheduled audits, migrations, or
+    litigation holds. Validate the actor and business justification before escalating.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Organization Data Export Accessed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization Data Export Accessed
+
+The export archive was downloaded (not merely requested). Reconstruct lifecycle with `org_data_export_started` /
+`org_data_export_completed` for the same `organization.id`.
+
+Unauthorized = no legal/compliance/offboarding ticket, download without a matching started event or outside the
+approved window, or export preceded by sudden admin grants / key creation / logging disablement.
+
+#### Possible investigation steps
+
+- Identify actor (`user_actor` → email/IP/UA) and whether a started/completed export exists for the same org.
+- Flag downloads lacking a matching start, or occurring far from any approved hold/migration window.
+- Correlate with admin role grants, admin API key creation, compliance logging changes, or SSO modifications.
+- Determine whether the archive left approved storage or corporate networks (DLP / egress if available).
+
+### False positive analysis
+
+- Planned audit or offboarding exports include a download by authorized staff — ticket closes as FP.
+
+### Response and remediation
+
+- On unauthorized access: revoke admin for the actor, contain any copies of the archive, and review other admin
+  changes in the same window.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "00955b87-ed85-4977-8ab1-9140f85b9d6c"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0085",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "file") and
+    event.action == "org_data_export_accessed"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"

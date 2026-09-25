@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unusually high number of successful Claude chat snapshot creation events for the same user email within a
+rolling 24-hour window. Chat snapshots package conversation content into shareable exports; sustained creation volume
+can indicate staging of organizational chat data for exfiltration via Anthropic's web service or automated bulk export
+of sensitive prompts and responses.
+"""
+false_positives = [
+    """
+    Power users, trainers, or documentation owners who intentionally snapshot many chats for sharing, archival, or
+    handoff workflows can exceed the threshold without malicious intent.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Excessive Chat Snapshot Creation"
+note = """## Triage and analysis
+
+### Investigating Anthropic Excessive Chat Snapshot Creation
+
+One mailbox created many chat snapshots in 24 hours. Snapshots can package conversation content for handoff — or for
+exfiltration staging. Source IP/UA are investigation fields, not grouping keys, so multi-IP bursts still accumulate.
+
+Escalate when scripting UA, concurrent file uploads / public artifact sharing / data exports / chat deletions appear,
+or snapshots span many unrelated chats. Close as FP for documented knowledge handoffs, training packaging, or
+compliance archival automation.
+
+#### Possible investigation steps
+
+- Review event count and snapshot/chat ID lists — many distinct chats is stronger than repeated snapshots of one chat.
+- Inspect IP/UA values for automation. Correlate with uploads, public artifact sharing, exports, or deletions from
+  the same email.
+- Note actor type and whether the same email appears across organizations (`organization_id` values).
+
+### False positive analysis
+
+- Power-user archival and compliance snapshot jobs commonly exceed the threshold.
+
+### Response and remediation
+
+- On unauthorized staging: revoke sessions, review snapshot destinations and shared links, and tighten chat sharing
+  or export policy for the actor.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "0cd6c462-28eb-482a-b445-9ced6a034b49"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0085",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "file") and
+    event.action == "claude_chat_snapshot_created" and
+    event.outcome == "success" and
+    user.email is not null
+| stats
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.anthropic_audit_claude_chat_snapshot_id_values = values(anthropic.audit.claude_chat_snapshot_id),
+    Esql.anthropic_audit_claude_chat_id_values = values(anthropic.audit.claude_chat_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.organization_id_values = values(organization.id),
+    Esql.user_id_values = values(user.id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email
+| where Esql.event_count >= 10
+| keep user.email, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.alert_suppression]
+group_by = ["user.email"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.anthropic_audit_claude_chat_snapshot_id_values",
+    "Esql.anthropic_audit_claude_chat_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.organization_id_values",
+    "Esql.user_id_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"

@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Primary ownership is the highest administrative authority in an Anthropic organization, covering billing, membership,
+and organization-wide settings. Transferring ownership to an attacker-controlled account can lock out the legitimate
+administrator from recovery paths that depend on the original owner. Attackers often do this after role escalation so
+defenders cannot reverse earlier privilege changes through normal administration.
+"""
+false_positives = [
+    """
+    Organizations transfer primary ownership during reorganizations, administrator departures, or vendor transitions.
+    Verify both the previous and new owner with internal stakeholders before treating the event as malicious.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Primary Owner Transferred"
+note = """## Triage and analysis
+
+### Investigating Anthropic Primary Owner Transferred
+
+Primary ownership is the highest Anthropic org authority (billing, membership, org-wide settings). Transfers should
+be rare and ticketed. Actor fields identify who initiated the transfer — not the new owner
+(`anthropic.audit.previous_owner_id` / `new_owner_id`).
+
+Unauthorized = no HR/IT offboarding or ownership-change ticket naming both parties, or the new owner was recently
+invited / granted admin and immediately received ownership, especially with follow-on SSO/key/export changes.
+
+#### Possible investigation steps
+
+- Map `anthropic.audit.previous_owner_id` → `new_owner_id` and resolve initiator (`actor.type`; for `user_actor`
+  check email/IP/UA).
+- Before the transfer: look for `claude_user_role_updated` with `anthropic.audit.current_role: admin`, invite accept,
+  or admin API key creation for the new owner path.
+- After the transfer: look for SSO changes, exports, compliance logging disablement, or IP restriction deletes by the
+  new owner.
+- Contact previous and new owners only after ticket/timeline triage; escalate when ticket is missing or the new owner
+  chain looks staged.
+
+### False positive analysis
+
+- Reorgs and admin departures are valid — require matching change management / HR records.
+
+### Response and remediation
+
+- On unauthorized transfer: engage Anthropic support and internal IT to recover ownership, revoke the new owner's
+  sessions/keys, and review every admin change made under the new owner account.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "b39aa7b1-b77a-4bd0-84fc-b638ccb29224"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Privilege Escalation",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "iam") and
+    event.action == "primary_owner_transferred" and
+    event.outcome == "success"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.previous_owner_id",
+    "anthropic.audit.new_owner_id",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"

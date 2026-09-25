@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/09/16"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Sending an organization user invite creates a path for a new member to join the Anthropic tenant with a chosen role.
+An adversary who compromises an administrator or admin API key can invite a mailbox they control and accept the invite
+to gain durable access. Invites may target internal corporate addresses or external domains; this rule does not
+distinguish them because invite events do not carry verified organization domains for reliable comparison.
+"""
+false_positives = [
+    """
+    IT administrators and hiring workflows routinely invite new members during onboarding, contractor access, or
+    staffing changes. Verify the invited email, role, and that a hiring or access request exists when policy requires
+    one.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Organization User Invite Sent"
+note = """## Triage and analysis
+
+### Investigating Anthropic Organization User Invite Sent
+
+A successful `org_user_invite_sent` creates a path for a new member. Invitee is `user.target.email` (also
+`related.user`); role on accept is `anthropic.audit.invited_role` when present. Audit events do not include the org's
+verified domain list — domain judgment is triage's job.
+
+Unauthorized / high priority: invitee domain outside known corporate domains, `invited_role` of admin (or similarly
+privileged), actor is unexpected / API key, or invite followed by accept + privileged activity. Close as FP when HR/IT
+ticket names the invitee and role.
+
+#### Possible investigation steps
+
+- Compare invitee domain to trusted corporate domains; treat unexpected external domains as higher priority.
+- Branch actor: `user_actor` (email/IP/UA) vs `admin_api_key_actor`
+  (`anthropic.audit.actor.admin_api_key_id` in inventory?).
+- Search for `org_user_invite_accepted` for the same `anthropic.audit.invite_id` or invitee email.
+- Look nearby for role grants, SSO changes, or admin API key creation from the same actor.
+
+### False positive analysis
+
+- Routine onboarding invites are FP when an HR/IT ticket names the invitee domain and `invited_role`.
+
+### Response and remediation
+
+- On unauthorized invite: delete/revoke the pending invite (and remove the user if already accepted), review other IAM
+  changes by the same actor, and rotate compromised admin credentials or API keys.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "5fd313e8-c61c-4737-88f7-b452a2f25a3b"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0125",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "iam") and
+    event.action == "org_user_invite_sent" and
+    event.outcome == "success"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, related.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "event.outcome",
+    "organization.id",
+    "user.target.email",
+    "related.user",
+    "anthropic.audit.invited_role",
+    "anthropic.audit.invite_id",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0125"
+name = "Create Account"
+reference = "https://atlas.mitre.org/techniques/AML.T0125/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"

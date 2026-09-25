@@ -2,7 +2,7 @@
 creation_date = "2026/06/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/06/05"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -86,6 +86,11 @@ tags = [
     "Tactic: Privilege Escalation",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -95,8 +100,7 @@ file.extension == "conf" and file.path like (
   "/etc/systemd/system/*.d/*.conf", "/etc/systemd/user/*.d/*.conf", "/usr/local/lib/systemd/system/*.d/*.conf",
   "/lib/systemd/system/*.d/*.conf", "/usr/lib/systemd/system/*.d/*.conf", "/usr/lib/systemd/user/*.d/*.conf",
   "/home/*/.config/systemd/user/*.d/*.conf", "/home/*/.local/share/systemd/user/*.d/*.conf",
-  "/root/.config/systemd/user/*.d/*.conf", "/root/.local/share/systemd/user/*.d/*.conf",
-  "/run/systemd/system/*.d/*.conf", "/var/run/systemd/system/*.d/*.conf"
+  "/root/.config/systemd/user/*.d/*.conf", "/root/.local/share/systemd/user/*.d/*.conf"
 ) and
 not process.executable in (
   "/bin/dpkg", "/usr/bin/dpkg", "/bin/dockerd", "/usr/bin/dockerd", "/usr/sbin/dockerd", "/bin/microdnf",
@@ -105,7 +109,8 @@ not process.executable in (
   "/usr/bin/dpkg-divert", "/bin/dpkg-divert", "/sbin/apk", "/usr/sbin/apk", "/usr/local/sbin/apk", "/usr/bin/dnf5",
   "/usr/bin/apt", "/usr/bin/puppet", "/bin/puppet", "/opt/puppetlabs/puppet/bin/puppet", "/usr/bin/pacman",
   "/usr/bin/chef-client", "/bin/chef-client", "/usr/bin/pamac-daemon", "/bin/pamac-daemon", "/usr/local/bin/dockerd",
-  "/usr/bin/crio", "/usr/bin/podman", "/usr/bin/tdnf", "/usr/bin/apk"
+  "/usr/bin/crio", "/usr/bin/podman", "/usr/bin/tdnf", "/usr/bin/apk",
+  "/usr/libexec/netplan/generate", "/usr/lib/systemd/system-generators/netplan"
 )
 '''
 

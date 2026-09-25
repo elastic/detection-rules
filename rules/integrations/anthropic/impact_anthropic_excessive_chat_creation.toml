@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/09/15"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an unusually high number of Claude chat creation events for the same user email within a 24-hour period.
+Burst chat creation can indicate automated LLM abuse, resource hijacking to burn organizational quotas, or scripted
+workflows used to stage many parallel conversations for data processing or prompt-injection campaigns.
+"""
+false_positives = [
+    """
+    Power users, automation engineers, or evaluation scripts that create many short-lived chats during testing can exceed
+    the threshold without malicious intent.
+    """,
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Excessive Chat Creation"
+note = """## Triage and analysis
+
+### Investigating Anthropic Excessive Chat Creation
+
+One mailbox created a large burst of Claude chats in 24 hours — fits automation, quota burn, or scripted parallel
+workflows.
+
+True-positive signals: scripting UA (curl/python/Go-http-client), many distinct project IDs, concurrent file uploads
+or deletions, or follow-on exports. False-positive signals: known eval/load-test accounts, onboarding templates from
+one admin with browser UA and no data-access follow-ons.
+
+#### Possible investigation steps
+
+- Prefer alerts with scripting UA and/or many distinct project IDs over browser UA confined to one known project.
+- Correlate with high file uploads, chat deletions, or org data export from the same email in the same window.
+
+### False positive analysis
+
+- Known eval/load-test seats and onboarding template creators with browser UA and no data-access follow-ons are FP.
+
+### Response and remediation
+
+- When TP signals hold: revoke sessions, review project membership, and apply rate limits or policy changes for the
+  actor.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "854d9932-93c3-42d4-bab0-7723a91df397"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Impact",
+    "Mitre Atlas: AML.T0034",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-*
+| where
+    data_stream.dataset == "anthropic.audit" and
+    event.action == "claude_chat_created" and
+    event.outcome == "success" and
+    user.email is not null
+| stats
+    Esql.event_count = count(*),
+    Esql.event_id_values = values(event.id),
+    Esql.anthropic_audit_claude_chat_id_values = values(anthropic.audit.claude_chat_id),
+    Esql.anthropic_audit_claude_project_id_values = values(anthropic.audit.claude_project_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.anthropic_audit_actor_type_values = values(anthropic.audit.actor.type),
+    Esql.user_id_values = values(user.id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email
+| where Esql.event_count >= 20
+| keep user.email, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.alert_suppression]
+group_by = ["user.email"]
+duration = {value = 24, unit = "h"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "Esql.event_count",
+    "Esql.event_id_values",
+    "Esql.anthropic_audit_claude_chat_id_values",
+    "Esql.anthropic_audit_claude_project_id_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.anthropic_audit_actor_type_values",
+    "Esql.user_id_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0034"
+name = "Cost Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0034/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"

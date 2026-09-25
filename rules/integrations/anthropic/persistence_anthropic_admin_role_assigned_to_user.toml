@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+The organization admin role controls organization settings, integrations, membership, and security configuration in
+Anthropic Claude for Enterprise. Membership role changes are reported as `claude_user_role_updated` with
+`anthropic.audit.current_role`. An attacker can promote a compromised or newly invited account to org admin to turn
+initial access into durable control-plane access. From admin, they can disable SSO, mint admin API keys for
+automation, start data exports, and weaken audit logging. Workspace-scoped `role_assignment_granted` grants (for
+example bare `admin` on a workspace) are out of scope for this rule.
+"""
+false_positives = [
+    """
+    IT administrators promote users to organization admin during onboarding, staffing changes, or incident response.
+    Verify that the target user should hold org admin privileges, and that a change request exists when policy
+    requires one.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Admin Role Assigned to User"
+note = """## Triage and analysis
+
+### Investigating Anthropic Admin Role Assigned to User
+
+Org admin can change SSO, API keys, exports, and integrations. This rule matches `claude_user_role_updated` where
+`anthropic.audit.current_role` is the literal `admin` (organization membership role — not workspace
+`role_assignment_granted`, not project `chat_project:*` roles, not `rbac_role_assigned`).
+
+Unauthorized = no IAM ticket naming the target as org admin, target recently invited from an unexpected domain, or
+the promotion is followed by key creation / SSO weakening / exports by the same actor or target.
+
+#### Possible investigation steps
+
+- Identify target (`user.target.id`, `user.target.email`, `related.user`) and assigner (`anthropic.audit.actor.type`;
+  for `user_actor` check email/IP/UA).
+- Compare `anthropic.audit.previous_role` → `anthropic.audit.current_role` and check whether the target was invited or
+  otherwise role-changed shortly before becoming admin.
+- After the promotion, review ~48h of target activity and org IAM (primary owner transfer, admin keys, SSO, exports).
+- Close as FP when ticket + job function match. Escalate when the change is untracked or precedes control-plane abuse.
+
+### False positive analysis
+
+- Onboarding and IR staffing promotions to org admin are valid — require change request when policy demands one.
+
+### Response and remediation
+
+- On unauthorized promotion: revoke org admin (downgrade membership role), rotate credentials for assigner and
+  target, audit admin API keys and integration changes for the organization.
+"""
+references = [
+    "https://www.elastic.co/security-labs/elastic-advances-llm-security",
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 73
+rule_id = "f280afaf-332a-40c9-9213-8e2e717ed320"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "iam") and
+    event.action == "claude_user_role_updated" and
+    anthropic.audit.current_role == "admin"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.target.id",
+    "user.target.email",
+    "related.user",
+    "anthropic.audit.current_role",
+    "anthropic.audit.previous_role",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"

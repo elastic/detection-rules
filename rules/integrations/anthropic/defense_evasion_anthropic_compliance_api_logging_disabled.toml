@@ -1,0 +1,119 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Compliance API logging feeds the anthropic.audit dataset that Anthropic audit detections run on. An attacker with
+administrative access can disable it so later role grants, API key creation, exports, and authentication changes stop
+reaching this data source. This rule detects the disable action itself. Activity that happens after logging stops may
+not appear in logs-anthropic.audit-*.
+"""
+false_positives = [
+    """
+    Platform or security administrators disable compliance logging during onboarding, integration testing, or log
+    pipeline migrations. Verify the actor, source IP, and whether logging was re-enabled promptly. Planned changes can
+    be exempted from this rule.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Compliance API Logging Disabled"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance API Logging Disabled
+
+Compliance API logging feeds `logs-anthropic.audit-*`. Disabling it creates a **blind window**: later admin actions
+may not appear in this data source even if other logging remains. Do not assume the timeline after disable is complete.
+
+Unauthorized = no platform/security ticket for Fleet/integration work, and logging was not re-enabled promptly — or
+disable is paired with role grants, key creation, exports, or SSO changes.
+
+#### Possible investigation steps
+
+- Confirm `anthropic.audit.compliance_api_logging_enabled == false`. Do not confuse with
+  `compliance_api_enabled` (whether the Compliance API itself is on).
+- Branch actor: `admin_api_key_actor` → which key (`anthropic.audit.actor.admin_api_key_id`); `user_actor` →
+  email/IP/UA vs known admins.
+- Pivot the same `organization.id` for admin grants, key creation, exports, or SSO changes **before** the disable
+  (still visible) and note the blind window start time.
+- Gate re-enable: treat the case as open until logging is back on and fresh events appear in `logs-anthropic.audit-*`.
+
+### False positive analysis
+
+- Integration testing / pipeline migrations can disable logging briefly — require a ticket and verify re-enable.
+
+### Response and remediation
+
+- Re-enable compliance API logging first and confirm ingestion resumes. Then reconstruct the blind window via any
+  prior exports, Anthropic support, or other data sources, and review configuration changes around the disable.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+    "https://www.elastic.co/docs/reference/integrations/anthropic",
+]
+risk_score = 73
+rule_id = "4890f6d3-709f-440e-9135-d22403516ef7"
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "configuration") and
+    event.action == "org_compliance_api_settings_updated" and
+    anthropic.audit.compliance_api_logging_enabled == false
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.compliance_api_logging_enabled",
+    "anthropic.audit.compliance_api_enabled",
+    "anthropic.audit.actor.type",
+    "anthropic.audit.actor.admin_api_key_id",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+

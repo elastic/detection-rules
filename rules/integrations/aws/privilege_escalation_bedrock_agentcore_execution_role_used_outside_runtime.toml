@@ -2,7 +2,7 @@
 creation_date = "2026/07/08"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/07/08"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -66,11 +66,23 @@ tags = [
     "Data Source: AWS",
     "Data Source: AWS CloudTrail",
     "Data Source: Amazon Web Services",
+    "Data Source: AWS Bedrock",
     "Data Source: Amazon Bedrock",
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Tactic: Credential Access",
     "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Fast",
+    "Profile: Recommended",
+    "Threat: Unauthorized AI Usage",
+    "Threat: LLMjacking",
+    "Rule Type: New Terms",
+    "Platform: AWS",
+    "Domain: GenAI",
+    "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0012",
+    "Mitre Atlas: AML.T0098",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -151,3 +163,27 @@ value = ["aws.cloudtrail.user_identity.session_context.session_issuer.arn", "eve
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0098"
+name = "AI Agent Tool Credential Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0098/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0013"
+name = "Credential Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0013/"

@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/25"
+
+[rule]
+author = ["Elastic"]
+description = """
+An audit log export archive was accessed, meaning the actor downloaded exported audit activity. Attackers pull audit
+exports to see what defenders can observe, look for detection gaps, or remove evidence before making other control-plane
+changes.
+"""
+false_positives = [
+    """
+    Security and compliance teams download audit log exports for investigations, regulatory requests, or SIEM
+    validation. Validate the actor and confirm the activity matches an approved ticket.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Compliance Audit Log Export Accessed"
+note = """## Triage and analysis
+
+### Investigating Anthropic Compliance Audit Log Export Accessed
+
+An audit-log export archive was downloaded. Attackers use this to see what defenders can observe or to stage before
+further control-plane changes. Correlate with `audit_log_export_started` for the same org.
+
+Unauthorized = no security/compliance ticket, export window covering recent IAM/logging changes without investigation
+context, or download followed by compliance logging disablement / SSO changes / data exports.
+
+#### Possible investigation steps
+
+- Use `anthropic.audit.from_date` / `to_date` to see which admin activity the actor pulled; match actor email/IP/UA to
+  known IR/compliance staff.
+- Find preceding `audit_log_export_started`. Flag if the window covers recent IAM or logging changes the actor then
+  altered.
+- Sequence check: download → logging disable / SSO change / org data export is a common recon-then-abuse pattern.
+
+### False positive analysis
+
+- SIEM validation and regulatory requests are expected — require an approved ticket.
+
+### Response and remediation
+
+- On unauthorized access: revoke actor access, determine whether export data left the org, and review whether
+  compliance logging was disabled or modified around the same time.
+"""
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
+risk_score = 47
+rule_id = "754f378f-5828-4ab7-ba3c-01ad4365b474"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "file") and
+    event.action == "audit_log_export_accessed"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "anthropic.audit.from_date",
+    "anthropic.audit.to_date",
+    "anthropic.audit.actor.type",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "user_agent.original",
+]
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
