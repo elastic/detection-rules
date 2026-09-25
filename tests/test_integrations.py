@@ -720,7 +720,7 @@ class TestParseVersionSchema(unittest.TestCase):
 
 
 class TestEsqlIndexCoverage(unittest.TestCase):
-    """Remote ES|QL validation skips the full ECS mappings only when every FROM index belongs to a rule integration."""
+    """Full ECS is omitted only when every FROM index belongs to a rule integration."""
 
     def test_non_integration_indices_keep_full_ecs(self):
         from detection_rules.esql import EventDataset
@@ -729,8 +729,12 @@ class TestEsqlIndexCoverage(unittest.TestCase):
         eds = [EventDataset("pkg", "audit")]
         self.assertTrue(esql_indices_covered_by_packages(["logs-pkg.audit-*"], [], eds))
         self.assertTrue(esql_indices_covered_by_packages(["logs-pkg*"], ["pkg"], []))
-        # Beats and unrelated indices are not modelled by the integration mappings
+        self.assertTrue(esql_indices_covered_by_packages(["metrics-system.cpu-*"], ["system"], []))
+        self.assertTrue(esql_indices_covered_by_packages(["traces-apm.span-*"], ["apm"], []))
+        # Beats, broad metrics, and unrelated indices are not one integration stream
         self.assertFalse(esql_indices_covered_by_packages(["logs-pkg.audit-*", "auditbeat-*"], [], eds))
         self.assertFalse(esql_indices_covered_by_packages(["logs-other.stream-*"], [], eds))
+        self.assertFalse(esql_indices_covered_by_packages(["metrics-*"], ["system"], []))
+        self.assertFalse(esql_indices_covered_by_packages(["metrics-system.cpu-*"], ["aws"], []))
         # nothing extracted from FROM must not pass vacuously
         self.assertFalse(esql_indices_covered_by_packages([], ["pkg"], []))

@@ -117,6 +117,17 @@ def get_schema(version: str | None = None, name: str = "ecs_flat") -> dict[str, 
 
 
 @cached
+def get_multivalued_fields(version: str | None = None) -> frozenset[str]:
+    """Return ECS fields that can hold more than one value (`normalize: ["array"]`).
+
+    This is capability, not runtime cardinality — many array-normalized fields are
+    still length-1 in practice (e.g. ``event.category`` / ``event.type``).
+    """
+    schema: dict[str, Any] = get_schema(version, name="ecs_flat")
+    return frozenset(name.lower() for name, info in schema.items() if "array" in (info.get("normalize") or []))
+
+
+@cached
 def get_eql_schema(version: str | None = None, index_patterns: list[str] | None = None) -> dict[str, Any]:
     """Return schema in expected format for eql."""
     schema = get_schema(version, name="ecs_flat")
