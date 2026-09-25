@@ -2,7 +2,7 @@
 creation_date = "2026/09/24"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -118,6 +118,7 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*, winlogb
   (
     (registry_data like "*powershell*" or registry_data like "*pwsh*") and
     (
+      registry_data like "*-nop -c*" or 
       registry_data like "* -e *" or
       registry_data like "* -ec *" or
       registry_data like "* -en*" or
@@ -140,6 +141,7 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*, winlogb
       registry_data like "*start-process*" or
       registry_data like "*frombase64string*" or
       registry_data like "*substring*" or
+      registry_data like "*PSItem.Definition*" or 
       registry_data like "*+*+*+*"
     )
   )
