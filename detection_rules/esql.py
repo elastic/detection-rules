@@ -56,9 +56,23 @@ class EsqlSourceGroup:
     spans: list[tuple[int, int]]
 
 
+def _parse_for_extraction(query: str) -> Any:
+    """Parse under the current package config when the caller did not pass an AST.
+
+    No schema is installed, so this only applies grammar, feature, and nested
+    KQL/EQL hooks. Column checks stay with the validation plan.
+    """
+    from .config import load_current_package_version
+    from .rule import set_esql_config
+
+    cfg = set_esql_config(load_current_package_version())
+    with cfg:
+        return esql.parse_query(query)
+
+
 def get_esql_query_event_dataset_integrations(query: str, tree: Any | None = None) -> list[EventDataset]:
     """Extract event.dataset / data_stream.dataset integrations from an ES|QL query."""
-    parsed = tree if tree is not None else esql.parse_query(query)
+    parsed = tree if tree is not None else _parse_for_extraction(query)
     seen: set[tuple[str, str]] = set()
     event_datasets: list[EventDataset] = []
     for ds in esql.get_event_datasets(parsed):

@@ -1781,7 +1781,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
         packaged_integrations: list[dict[str, Any]] = []
         datasets, _ = beats.get_datasets_and_modules(data.get("ast") or [])  # type: ignore[reportArgumentType]
         if isinstance(data, ESQLRuleData):
-            dataset_objs = get_esql_query_event_dataset_integrations(data.query)
+            dataset_objs = get_esql_query_event_dataset_integrations(data.query, tree=data.ast)
             datasets.update(str(obj) for obj in dataset_objs)
         # integration is None to remove duplicate references upstream in Kibana
         # chronologically, event.dataset, data_stream.dataset is checked for package:integration, then rule tags
