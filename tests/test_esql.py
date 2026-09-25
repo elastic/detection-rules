@@ -7,6 +7,10 @@
 
 import unittest
 
+from esql.features import feature_available
+from esql.versions import Version
+
+from detection_rules.config import load_current_package_version
 from detection_rules.esql import (
     get_esql_lookup_join_targets,
     get_esql_query_indices,
@@ -14,6 +18,10 @@ from detection_rules.esql import (
     get_esql_query_source_patterns,
     replace_esql_query_sources,
 )
+
+
+def _current_package() -> Version:
+    return Version.parse(load_current_package_version())
 
 
 def replace_with_group_position(query: str) -> str:
@@ -49,6 +57,9 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_subqueries_are_grouped_by_their_own_sources(self):
         """Test that subqueries reading different indices are grouped and replaced separately."""
+        # Grammars before 9.5 keep the inner query but drop its FROM index patterns.
+        if _current_package() < Version(9, 5):
+            self.skipTest("Subquery FROM index spans require the 9.5 grammar")
         query = "FROM\n(\n  FROM logs-a-* METADATA _id\n  | WHERE x\n),\n(\n  FROM logs-b-* METADATA _id\n)\n| WHERE y"
         groups = get_esql_query_source_groups(query)
         self.assertListEqual([group.indices for group in groups], [["logs-a-*"], ["logs-b-*"]])
@@ -61,6 +72,8 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_subqueries_reading_the_same_sources_share_a_group(self):
         """Test that subqueries reading the same indices share one group, and so one set of indices."""
+        if _current_package() < Version(9, 5):
+            self.skipTest("Subquery FROM index spans require the 9.5 grammar")
         query = "FROM (FROM logs-a-* METADATA _id | WHERE x), (FROM logs-a-* METADATA _id | WHERE y) | WHERE z"
         groups = get_esql_query_source_groups(query)
         self.assertListEqual([group.indices for group in groups], [["logs-a-*"]])
@@ -111,6 +124,8 @@ class TestESQLQuerySources(unittest.TestCase):
         | COMPLETION triage_result = "x" WITH { "inference_id": "model" }
         """
         nested = 'FROM logs-b-* | WHERE KQL("NOT process.name : cmd.exe")'
-        self.assertListEqual(get_esql_query_indices(completion), ["logs-a-*"])
         self.assertListEqual(get_esql_query_indices(nested), ["logs-b-*"])
-        self.assertListEqual(get_esql_query_source_groups(completion)[0].indices, ["logs-a-*"])
+        # 8.19 accepts COMPLETION ... WITH identifier, not a map literal.
+        if feature_available("completion", _current_package()):
+            self.assertListEqual(get_esql_query_indices(completion), ["logs-a-*"])
+            self.assertListEqual(get_esql_query_source_groups(completion)[0].indices, ["logs-a-*"])
