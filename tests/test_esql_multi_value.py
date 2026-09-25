@@ -119,9 +119,13 @@ def unprotected_always_multi_compares(query: str) -> set[str]:
     return _unprotected_in_query(esql.parse_query(query))
 
 
-def _unprotected_in_query(query_tree: ast.EsqlQuery) -> set[str]:
-    """Scan one pipeline. Nested ``FROM`` / ``FORK`` pipes keep their own MV_EXPAND state."""
-    expanded: set[str] = set()
+def _unprotected_in_query(query_tree: ast.EsqlQuery, inherited: set[str] | None = None) -> set[str]:
+    """Scan one pipeline.
+
+    A ``FORK`` branch sees ``MV_EXPAND`` from the parent pipe. A nested ``FROM``
+    does not.
+    """
+    expanded: set[str] = set(inherited or ())
     unprotected: set[str] = set()
 
     def flag(field: str | None, *, mv_protected: bool) -> None:
@@ -173,6 +177,10 @@ def _unprotected_in_query(query_tree: ast.EsqlQuery) -> set[str]:
             elif isinstance(field, ast.ColumnRef):
                 expanded.add(field.name)
             continue
+        if isinstance(cmd, ast.ForkCommand):
+            for branch in cmd.branches:
+                unprotected.update(_unprotected_in_query(branch, expanded))
+            continue
         walk(cmd)
 
     return unprotected
@@ -222,6 +230,28 @@ def test_eval_compare_is_unprotected_until_mv_expand() -> None:
     """
     assert "process.args" in unprotected_always_multi_compares(bare)
     assert "process.args" not in unprotected_always_multi_compares(after)
+
+
+def test_fork_branch_inherits_mv_expand() -> None:
+    """A FORK branch sees MV_EXPAND from the pipe before the FORK."""
+    query = """
+    FROM logs-*
+    | MV_EXPAND process.args
+    | FORK (WHERE process.args == "x")
+    | KEEP process.args
+    """
+    assert "process.args" not in unprotected_always_multi_compares(query)
+
+
+def test_nested_from_does_not_inherit_mv_expand() -> None:
+    """A nested FROM is its own pipe, even after an outer MV_EXPAND."""
+    query = """
+    FROM logs-*
+    | MV_EXPAND process.args
+    | WHERE host.name IN (FROM logs-* | WHERE process.args == "x" | KEEP process.args)
+    | KEEP host.name
+    """
+    assert "process.args" in unprotected_always_multi_compares(query)
 
 
 class TestEsqlAlwaysMultiFields(BaseRuleTest):
