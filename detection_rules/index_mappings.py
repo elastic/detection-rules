@@ -52,6 +52,10 @@ def resolve_rule_packages(
     return packages, dataset_restriction
 
 
+# Named logs/metrics/traces streams. Broad patterns such as metrics-* do not match.
+_NAMED_DATA_STREAM_RE = re.compile(r"^(?:logs|metrics|traces)-[a-zA-Z0-9_]+", re.IGNORECASE)
+
+
 def esql_indices_covered_by_packages(
     indices: list[str],
     rule_integrations: list[str],
@@ -62,12 +66,16 @@ def esql_indices_covered_by_packages(
     # not model, so rules reading them keep the full-ECS fallback.
     if not indices:
         return False
+    from .esql import infer_packages_from_indices
+
     packages, _ = resolve_rule_packages(rule_integrations, event_dataset_integrations)
+    package_set = set(packages)
     for index in indices:
-        if not index.startswith("logs-"):
-            return False
-        package = re.split(r"[.\-*]", index.removeprefix("logs-"), maxsplit=1)[0]
-        if package not in packages:
+        cleaned = index.replace("::", ":").split(":")[-1].strip().strip("`")
+        inferred = infer_packages_from_indices([index])
+        # infer_packages_from_indices maps a bare metrics-* pattern to system. That pattern
+        # is not one system stream, so it still keeps the full ECS schema.
+        if not _NAMED_DATA_STREAM_RE.match(cleaned) or len(inferred) != 1 or inferred[0] not in package_set:
             return False
     return True
 

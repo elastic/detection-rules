@@ -1373,6 +1373,9 @@ class ESQLValidator(QueryValidator):
                     break
 
             if first_error is None:
+                # Older targets parse with older grammars and replace _parsed_tree.
+                # Callers of ast keep the current-package tree.
+                self._parsed_tree = trees_by_grammar[package_grammar_key]
                 self._remember_field_types(plan)
                 break
 

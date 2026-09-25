@@ -22,7 +22,7 @@ from detection_rules.utils import get_path, load_rule_contents
 from .base import BaseRuleTest
 
 
-class TestRemoteRules(BaseRuleTest):
+class TestEsqlRuleValidation(BaseRuleTest):
     """ES|QL rule validation covered by the offline parser."""
 
     def test_get_hashable_content_required_fields_popped_when_keep_star_used(self):

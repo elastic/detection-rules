@@ -93,3 +93,14 @@ class TestESQLQuerySources(unittest.TestCase):
         query = "FROM logs-a-* METADATA _id\n| LOOKUP JOIN threat_list ON host.name\n| WHERE x == 1"
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
         self.assertListEqual(get_esql_lookup_join_targets(query), ["threat_list"])
+
+    def test_configured_parse_reads_feature_gated_sources(self):
+        """Source extraction uses the current package config, including COMPLETION and nested KQL."""
+        completion = """
+        FROM logs-a-*
+        | COMPLETION triage_result = "x" WITH { "inference_id": "model" }
+        """
+        nested = 'FROM logs-b-* | WHERE KQL("NOT process.name : cmd.exe")'
+        self.assertListEqual(get_esql_query_indices(completion), ["logs-a-*"])
+        self.assertListEqual(get_esql_query_indices(nested), ["logs-b-*"])
+        self.assertListEqual(get_esql_query_source_groups(completion)[0].indices, ["logs-a-*"])

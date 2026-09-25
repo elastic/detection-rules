@@ -241,7 +241,7 @@ def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[Es
     index rewriting — no separate regex pass. Unparseable fragments return [].
     """
     try:
-        parsed = tree if tree is not None else esql.parse_query(query)
+        parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments have no FROM groups
         return []
     return [
@@ -257,7 +257,7 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
     reuses that AST instead of parsing again.
     """
     try:
-        parsed = tree if tree is not None else esql.parse_query(query)
+        parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments yield no indices
         return []
 
@@ -272,7 +272,7 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
 def get_esql_lookup_join_targets(query: str, tree: Any | None = None) -> list[str]:
     """Extract unique LOOKUP JOIN target index names (CCS prefix stripped)."""
     try:
-        parsed = tree if tree is not None else esql.parse_query(query)
+        parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments yield no lookup targets
         return []
 

@@ -116,7 +116,13 @@ def _norm_func_name(name: str | None) -> str:
 
 def unprotected_always_multi_compares(query: str) -> set[str]:
     """Return always-multi fields used in scalar compares/likes without MV protection."""
-    return _unprotected_in_query(esql.parse_query(query))
+    from detection_rules.config import load_current_package_version
+    from detection_rules.rule import set_esql_config
+
+    cfg = set_esql_config(load_current_package_version())
+    with cfg, esql.Schema({}, allow_missing=True):
+        tree = esql.parse_query(query)
+    return _unprotected_in_query(tree)
 
 
 def _unprotected_in_query(query_tree: ast.EsqlQuery, inherited: set[str] | None = None) -> set[str]:

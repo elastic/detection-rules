@@ -3,6 +3,8 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+"""Kept for reference. Rule checks do not call this module."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -176,6 +178,32 @@ class RemoteValidator(RemoteConnector):
         pool.join()
 
         return responses  # type: ignore[reportUnknownVariableType]
+
+    def validate_esql(self, contents: TOMLRuleContents) -> dict[str, Any]:
+        """Send an ES|QL rule query to the stack. LIMIT 0 checks syntax without returning rows."""
+        query = contents.data.query  # type: ignore[reportAttributeAccessIssue]
+        rule_id = contents.data.rule_id
+        if not self.es_client:
+            raise ValueError("No ES client found")
+        if not self.kibana_client:
+            raise ValueError("No Kibana client found")
+
+        headers = {"accept": "application/json", "content-type": "application/json"}
+        body = {"query": f"{query} | LIMIT 0"}
+        try:
+            response = self.es_client.perform_request(
+                "POST",
+                "/_query",
+                headers=headers,
+                params={"pretty": True},
+                body=body,
+            )
+        except Exception as exc:
+            if isinstance(exc, elasticsearch.BadRequestError):
+                raise ValidationError(f"ES|QL query failed: {exc} for rule: {rule_id}, query: \n{query}") from exc
+            raise Exception(f"ES|QL query failed for rule: {rule_id}, query: \n{query}") from exc  # noqa: TRY002
+
+        return response.body
 
     def validate_eql(self, contents: TOMLRuleContents) -> dict[str, Any]:
         """Validate query for "eql" rule types."""

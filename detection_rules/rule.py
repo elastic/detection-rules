@@ -60,10 +60,6 @@ from .stack_emit import (
 from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
 from .version_lock import VersionLock, loaded_version_lock
 
-if typing.TYPE_CHECKING:
-    from .remote_validation import RemoteValidator
-
-
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
 RULES_CONFIG = parse_rules_config()
@@ -1828,7 +1824,7 @@ class TOMLRuleContents(BaseRuleContents, MarshmallowDataclassMixin):
             data.validate(metadata) if hasattr(data, "validate") else False  # type: ignore[reportUnknownMemberType]
 
     @staticmethod
-    def validate_remote(remote_validator: "RemoteValidator", contents: "TOMLRuleContents") -> None:
+    def validate_remote(remote_validator: Any, contents: "TOMLRuleContents") -> None:
         _ = remote_validator.validate_rule(contents)
 
     @classmethod

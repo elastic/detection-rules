@@ -353,10 +353,11 @@ class TestEsqlOfflineSchemaPasses:
         """
         loaded = RuleCollection().load_dict(rule)
         validator = ESQLValidator(loaded.contents.data.query)
-        first = id(validator.ast)
+        first = validator.ast
         validator.validate(loaded.contents.data, loaded.contents.metadata)
-        # Same grammar → same tree object still referenced after validate
-        assert id(validator.ast) == first
+        # Older stack targets use older grammars. ast stays the current-package tree.
+        assert validator.ast is first
+        assert validator._parsed_tree is first  # noqa: SLF001
 
     def test_alert_index_kibana_alert_fields_pass(self) -> None:
         rule = _sample_rule()
