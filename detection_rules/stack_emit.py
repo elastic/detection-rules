@@ -148,8 +148,11 @@ EMIT_TRANSFORMS: tuple[EmitTransform, ...] = (
         affects=("related_integrations",),
         apply=_apply_related_integrations_gte,
     ),
-    # ATLAS is gated in apply_emit_transforms (9.6+) and is not an emit epoch —
-    # registering it here would force stack_emit["9.6"] rows on every rule.
+    # ATLAS is gated in apply_emit_transforms (9.6+) and is not an emit epoch.
+    # stack_emit stores a hash and version, not the payload, so a 9.6 hash
+    # cannot make a 9.5 package emit MITRE ATLAS. Registering a 9.6 transform
+    # would move emit_epoch_key(9.6) off "9.5" and write stack_emit["9.6"] for
+    # every rule whose payload already differs from the baseline.
 )
 
 
