@@ -2,7 +2,7 @@
 creation_date = "2022/08/30"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/24"
 
 [rule]
 author = ["Elastic"]
@@ -45,6 +45,61 @@ type = "eql"
 
 query = '''
 any where host.os.type == "windows" and
+
+  /* ── Hardware monitoring kernel drivers in Temp directories ── */
+  not (
+    winlog.event_data.ServiceName : ("cpuz*", "HWiNFO*", "TDKLIMIT") and
+    (winlog.event_data.ServiceFileName : ("*\\Windows\\Temp\\*", "*\\AppData\\Local\\Temp\\*") or
+     winlog.event_data.ImagePath : ("*\\Windows\\Temp\\*", "*\\AppData\\Local\\Temp\\*"))
+  ) and
+
+  /* ── SentinelOne cleanup driver ── */
+  not (
+    winlog.event_data.ServiceName : "SentinelObliterator" and
+    (winlog.event_data.ServiceFileName : ("*\\SentinelOneInstaller\\*", "*\\S1_*\\*") or
+     winlog.event_data.ImagePath : ("*\\SentinelOneInstaller\\*", "*\\S1_*\\*"))
+  ) and
+
+  /* ── Zoom CptService with -user_path arguments ── */
+  not (
+    winlog.event_data.ServiceName : (
+      "Zoom Sharing Service", "Zoom Service for VDI Plugin Management",
+      "ZoomCptService", "ZoomCptServiceForVDIPluginMgmt"
+    ) and
+    (winlog.event_data.ServiceFileName : ("*\\Zoom\\Support\\CptService.exe*",
+                                           "*\\ZoomVDIPluginManagement\\Support\\CptService.exe*") or
+     winlog.event_data.ImagePath : ("*\\Zoom\\Support\\CptService.exe*",
+                                     "*\\ZoomVDIPluginManagement\\Support\\CptService.exe*"))
+  ) and
+
+  /* ── HP Software Framework ── */
+  not (
+    winlog.event_data.ServiceName : ("hpqwmiex", "HP Software Framework Service") and
+    (winlog.event_data.ServiceFileName : "*\\Hewlett-Packard\\hpqwmiex.exe*" or
+     winlog.event_data.ImagePath : "*\\Hewlett-Packard\\hpqwmiex.exe*")
+  ) and
+
+  /* ── Veeam backup guest agent ── */
+  not (
+    winlog.event_data.ServiceName : ("VeeamGuestHelper", "VeeamGuestHelpers") and
+    (winlog.event_data.ServiceFileName : "*\\VeeamVssSupport\\VeeamGuestHelper.exe*" or
+     winlog.event_data.ImagePath : "*\\VeeamVssSupport\\VeeamGuestHelper.exe*")
+  ) and
+
+  /* ── Oracle remote exec service ── */
+  not (
+    winlog.event_data.ServiceName : "OracleRemExecServiceV2" and
+    (winlog.event_data.ServiceFileName : "*\\oraremservicev2\\RemoteExecService.exe*" or
+     winlog.event_data.ImagePath : "*\\oraremservicev2\\RemoteExecService.exe*")
+  ) and
+
+  /* ── N-able RMM remote service ── */
+  not (
+    winlog.event_data.ServiceName : "N-able Remote Service" and
+    (winlog.event_data.ServiceFileName : "*\\Windows\\Temp\\*\\RemoteService.exe" or
+     winlog.event_data.ImagePath : "*\\Windows\\Temp\\*\\RemoteService.exe")
+  ) and
+
 (
   (
     event.code : "4697" and
@@ -60,10 +115,13 @@ any where host.os.type == "windows" and
           winlog.event_data.ServiceFileName regex~ """%systemroot%\\[a-z0-9]+\.exe"""
         ) and
         not winlog.event_data.ServiceFileName: (
-              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
-              "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+              "*\\PSEXESVC.exe",
+              "*\\RemComSvc.exe",
+              "*\\pbpsdeploy.exe",
               "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
               "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
               "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
         )
       ) or
@@ -83,10 +141,13 @@ any where host.os.type == "windows" and
           "*regsvr32*", "*msbuild*", "*winexesvc.exe*", "*DumpSvc.exe*", "*pwsh.exe*", "*PAExec*"
         ) and
         not winlog.event_data.ImagePath : (
-              "%SystemRoot%\\PSEXESVC.exe", "%SystemRoot%\\\\RemComSvc.exe",
-              "%SystemRoot%\\pbpsdeploy.exe", "%SystemRoot%\\system32\\RemComSvc.exe",
+              "*\\PSEXESVC.exe",
+              "*\\RemComSvc.exe",
+              "*\\pbpsdeploy.exe",
               "\"C:\\Program Files\\Common Files\\Zoom\\Support\\CptService.exe*",
               "\"C:\\Program Files\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\Common Files\\Zoom\\Support\\CptService.exe*",
+              "\"C:\\Program Files (x86)\\Common Files\\ZoomVDIPluginManagement\\Support\\CptService.exe*",
               "\"C:\\Program Files (x86)\\CheckPoint\\Endpoint Security\\EFR\\host\\cpsechost.exe\" service"
         )
       ) or
