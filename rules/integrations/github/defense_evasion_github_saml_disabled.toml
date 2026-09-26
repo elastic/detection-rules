@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects disabling of SAML single sign-on for a GitHub enterprise or organization. Dropping SSO removes IdP-enforced
+access control and is a common persistence step after an owner account is compromised.
+"""
+false_positives = [
+    """
+    Planned IdP migration. Keep a second owner session and re-enable SSO as soon as the new provider is ready.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub SAML SSO Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub SAML SSO Disabled
+
+`business.disable_saml` and `org.disable_saml` apply to enterprises/orgs that use SAML. They will not fire on a personal-account GHEC trial without SSO.
+
+### Possible investigation steps
+
+- Identify `user.name` and `github.actor_ip`. Confirm whether SSO was supposed to be on.
+- Review owner membership, recovery-code events, and PAT grants in the same window.
+
+### False positive analysis
+
+- IdP cutover with an approved change window.
+
+### Response and remediation
+
+- Re-enable SAML and require SSO. Invalidate sessions and review members added while SSO was off.
+"""
+references = [
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/identity-and-access-management/using-saml-for-enterprise-iam/configuring-saml-single-sign-on-for-your-enterprise",
+]
+risk_score = 73
+rule_id = "b60d3944-7ef3-4267-9a18-2f1114b066cb"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in ("business.disable_saml", "org.disable_saml")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+]
+
