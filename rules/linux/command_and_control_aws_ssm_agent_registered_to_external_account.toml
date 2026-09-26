@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the Amazon SSM Agent invoked with "-register" and a hybrid activation argument on a Linux host.
+Linux host. Adversaries with local access can repurpose the pre-installed, root-privileged SSM Agent as a covert
+remote access trojan by registering it to an attacker-controlled AWS account, gaining a persistent command channel
+that blends in with legitimate management traffic and evades host-based controls. On an EC2 instance that already runs
+the agent, an interactive hybrid registration is highly unusual.
+"""
+false_positives = [
+    """
+    Hybrid activation is a legitimate operation when onboarding on-premises or non-EC2 hosts as managed nodes for
+    the first time. On already-registered EC2 instances this sequence is anomalous. Allowlist known provisioning
+    automation identities if this fires in expected environments.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential AWS SSM Agent Registered to External Account"
+references = [
+    "https://www.mitiga.io/blog/abusing-the-amazon-web-services-ssm-agent-as-a-remote-access-trojan",
+    "https://thehackernews.com/2023/08/researchers-uncover-aws-ssm-agent.html",
+    "https://www.paloaltonetworks.com/blog/security-operations/aws-systems-manager-attack-vectors/",
+]
+risk_score = 73
+rule_id = "5f366163-8de9-46ad-91d2-541deaf56864"
+note = """## Triage and analysis
+
+### Investigating Potential AWS SSM Agent Registered to External Account
+
+This rule detects the Amazon SSM Agent being re-registered with a hybrid activation code and ID on a Linux host. This is highly anomalous on EC2 instances that already run the SSM Agent, as it indicates an adversary is attempting to hijack the agent's persistent command channel to an attacker-controlled AWS account.
+
+### Possible investigation steps
+
+- Review the process arguments to identify the activation code, activation ID, and any region flag to determine which AWS account the agent was registered to.
+- Query AWS CloudTrail for `CreateActivation` and `RegisterManagedInstance` events around the same time to identify the attacker-controlled AWS account.
+- Investigate the parent process to understand how the registration command was initiated.
+- Determine if the user session that ran the command was interactive or came from an automated process.
+- Check whether the SSM Agent is currently reporting to an unexpected Fleet Manager endpoint.
+
+### False positive analysis
+
+- Hybrid activation is a legitimate operation when onboarding on-premises or non-EC2 hosts as managed nodes for the first time. On already-registered EC2 instances this sequence is anomalous.
+- Allowlist known provisioning automation identities if this fires in expected environments.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the affected host to prevent the attacker from issuing further SSM commands.
+- Re-register the SSM Agent with the correct organization-owned AWS account.
+- Rotate any instance credentials that may have been accessible to the attacker during the rogue registration window.
+- Review SSM Session Manager history for commands executed through the rogue registration.
+"""
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "OS: Linux",
+    "Service: AWS SSM",
+    "Tactic: Command and Control",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : process and host.os.type : linux and event.type : start and event.action : exec and
+process.name : (amazon-ssm-agent or ssm-agent-worker or ssm-setup-cli) and
+process.args : (-register and (-activation-code or -activation-id or -code or -id))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
