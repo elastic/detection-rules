@@ -2,7 +2,7 @@
 creation_date = "2020/11/04"
 integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/23"
 [transform]
 [[transform.investigate]]
 label = "Alerts associated with the user in the last 48h"
@@ -316,7 +316,8 @@ network where host.os.type == "windows" and
 
       (process.code_signature.subject_name : "Microsoft *" and process.code_signature.trusted == true and
        dns.question.name : ("*.sharepoint.com", "graph.microsoft.com", "g.live.com", "login.live.com",
-                            "*.blob.core.windows.net", "*.blob.storage.azure.net", "*.googleapis.com")
+                            "*.blob.core.windows.net", "*.blob.storage.azure.net", "*.googleapis.com",
+                            "*.elastic-cloud.com", "*.cloud.es.io")
       ) or
 
       (process.code_signature.subject_name : ("Python Software Foundation", "Anaconda, Inc.") and
@@ -329,10 +330,16 @@ network where host.os.type == "windows" and
        process.code_signature.trusted == true) and dns.question.name : ("*.googleapis.com", "graph.microsoft.com", "*.blob.core.windows.net")
       ) or
 
-      /* VSCode */
-      (process.name : "Code.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
+      /* VSCode and Microsoft developer tools */
+      (process.name : ("Code.exe", "Microsoft.VisualStudio.Code.Server.exe", "StorageExplorer.exe") and
+       (process.code_signature.subject_name : "Microsoft Corporation" and
        process.code_signature.trusted == true) and dns.question.name : ("api.github.com", "raw.githubusercontent.com",
        "*.googleapis.com", "files.pythonhosted.org")
+      ) or
+
+      /* DevTunnels */
+      (process.name : "devtunnel.exe" and (process.code_signature.subject_name : "Microsoft Corporation" and
+       process.code_signature.trusted == true) and dns.question.name : ("global.rel.tunnels.api.visualstudio.com", "*.devtunnels.ms")
       ) or
 
       /* Terraform */
@@ -343,6 +350,19 @@ network where host.os.type == "windows" and
       /* Telegram */
       (process.name : "Telegram.exe" and (process.code_signature.subject_name : "Telegram FZ-LLC" and
        process.code_signature.trusted == true) and dns.question.name : "*.googleapis.com"
+      ) or
+
+      /* Trusted-signed processes connecting to non-C2-relevant Google infrastructure subdomains */
+      (process.code_signature.trusted == true and
+       dns.question.name : ("fonts.googleapis.com", "update.googleapis.com", "safebrowsing.googleapis.com",
+                            "play.googleapis.com", "content-autofill.googleapis.com",
+                            "optimizationguide-pa.googleapis.com", "imasdk.googleapis.com",
+                            "daily-cloudcode-pa.googleapis.com", "clientservices.googleapis.com",
+                            "passwordsleakcheck-pa.googleapis.com", "fcm.googleapis.com",
+                            "firebaseinstallations.googleapis.com", "fcmregistrations.googleapis.com",
+                            "firebase.googleapis.com", "maps.googleapis.com", "oauth2.googleapis.com",
+                            "securetoken.googleapis.com", "firestore.googleapis.com",
+                            "content.googleapis.com", "identitytoolkit.googleapis.com")
       ) or
 
       (
