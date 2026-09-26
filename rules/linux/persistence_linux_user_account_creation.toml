@@ -2,7 +2,7 @@
 creation_date = "2023/02/13"
 integration = ["system"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve Information for a Specific User"
@@ -92,10 +92,10 @@ Filebeat is a lightweight shipper for forwarding and centralizing log data. Inst
 - To run Filebeat on Docker follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html).
 - To run Filebeat on Kubernetes follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/running-on-kubernetes.html).
 - For quick start information for Filebeat refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/8.11/filebeat-installation-configuration.html).
-- For complete “Setup and Run Filebeat” information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
+- For complete "Setup and Run Filebeat" information refer to the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/setting-up-and-running.html).
 
 #### Rule Specific Setup Note
-- This rule requires the “Filebeat System Module” to be enabled.
+- This rule requires the "Filebeat System Module" to be enabled.
 - The system module collects and parses logs created by the system logging service of common Unix/Linux based distributions.
 - To run the system module of Filebeat on Linux follow the setup instructions in the [helper guide](https://www.elastic.co/guide/en/beats/filebeat/current/filebeat-module-system.html).
 """
@@ -116,6 +116,17 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 iam where host.os.type == "linux" and event.type == "user" and event.type == "creation" and event.outcome == "success"
+and user.name != null
+and not (
+  user.name : ("systemd-*", "_*", "azure*")
+  or user.name in (
+    "alloy", "ansible", "ceph", "cloud-user", "cwagent", "dhcpcd", "dnsmasq",
+    "ec2-user", "gitlab-runner", "gluster", "lxd", "mdatp", "mysql", "nginx",
+    "ntp", "packer", "postfix", "postgres", "prometheus", "rocky", "sentinelone",
+    "splunk", "ssm-user", "sssd", "statd", "tcpdump", "tomcat", "ubuntu",
+    "vboxadd", "wazuh", "zabbix"
+  )
+)
 '''
 
 [[rule.threat]]
