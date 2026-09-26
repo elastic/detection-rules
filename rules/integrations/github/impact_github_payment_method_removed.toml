@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects removal of a GitHub payment method. Adversaries with billing access may delete payment instruments to disrupt
+the organization or hide a plan change.
+"""
+false_positives = ["    Finance rotating cards at expiry. Confirm with the billing owners.\n    "]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Payment Method Removed"
+note = """## Triage and analysis
+
+### Investigating GitHub Payment Method Removed
+
+`payment_method.remove` is a billing-admin action. Correlate with plan changes and owner modifications.
+
+### Possible investigation steps
+
+- Identify `user.name` and `github.actor_ip`. Confirm with finance whether a card rotation was planned.
+
+### False positive analysis
+
+- Expired card replacement.
+
+### Response and remediation
+
+- Restore a valid payment method. Review billing managers and enterprise owners.
+"""
+references = ["https://docs.github.com/en/billing/managing-your-billing/adding-or-editing-a-payment-method"]
+risk_score = 73
+rule_id = "d2eb8be6-c172-41d0-bf2d-feabc231936a"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "payment_method.remove"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1489"
+name = "Service Stop"
+reference = "https://attack.mitre.org/techniques/T1489/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+]
+
