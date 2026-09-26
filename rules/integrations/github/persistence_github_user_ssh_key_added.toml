@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects addition of a GitHub user SSH public key. Adversaries add keys for persistence after stealing interactive
+credentials. User-level public_key.create may not appear in a non-EMU enterprise audit stream.
+"""
+false_positives = [
+    """
+    Developers adding a key for a new workstation. Confirm the key comment, source IP, and that the user expected it.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub User SSH Key Added"
+note = """## Triage and analysis
+
+### Investigating GitHub User SSH Key Added
+
+`public_key.create` is the documented action. On this lab's non-EMU stream, user SSH key add/delete did not appear; the rule is still valid where GitHub includes the action in streamed audit.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.actor_ip`, and key fingerprint/title if present.
+- Correlate with unrecognized-device login and new PATs.
+
+### False positive analysis
+
+- Expected laptop onboarding.
+
+### Response and remediation
+
+- Delete unauthorized keys, revoke sessions, and require SSH certificates if policy allows.
+"""
+references = [
+    "https://github.blog/news-insights/company-news/security-alert-new-phishing-campaign-targets-github-users/",
+    "https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account",
+]
+risk_score = 21
+rule_id = "8205043a-5fd1-4dd8-be6f-55677ffe067b"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "public_key.create"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.004"
+name = "SSH Authorized Keys"
+reference = "https://attack.mitre.org/techniques/T1098/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
