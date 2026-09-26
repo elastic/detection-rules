@@ -1,0 +1,132 @@
+[metadata]
+creation_date = "2026/08/16"
+integration = ["suricata"]
+maturity = "production"
+updated_date = "2026/08/16"
+
+[rule]
+author = ["Ahmed Hassan"]
+description = """
+Detects classic Suricata / Snort-family signature hits (Generator ID not equal to SnortML
+GID 411) with high-priority classifications commonly associated with malware C2, privilege
+gain, or known exploits.
+
+These events are stronger signature true-positive candidates than ML-only (GID 411) paths
+and may justify gated remediation after analyst or policy review. Pair with
+"Suricata SnortML GID 411 High ML-Only Alert" and
+"Suricata Signature And High Severity Corroboration".
+"""
+false_positives = [
+    """
+    Noisy signature packs or policy-violation classifications in permissive environments.
+    """,
+    """
+    Vulnerability scanners and malware sandboxes generating simulated attacks.
+    """,
+]
+from = "now-9m"
+index = ["filebeat-*", "logs-suricata.*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Suricata IDS Signature High Priority Classification"
+note = """## Triage and analysis
+
+### Investigating Suricata IDS Signature High Priority Classification
+
+This rule surfaces classic IDS classifications while **excluding** SnortML Generator ID 411
+so ML-only probability alerts are not mixed into the signature TP path.
+
+### Possible investigation steps
+
+- Review `suricata.eve.alert.category`, `rule.name`, and signature ID.
+- Confirm `suricata.eve.alert.gid` is not 411.
+- Map source/destination to assets; check concurrent endpoint or identity alerts.
+- Prefer gated remediation (HITL / policy) over blind auto-contain when only this signal exists.
+
+### False positive analysis
+
+- Broad ET/Open rulesets can fire high-priority categories on scanners.
+- Lab and red-team traffic often reproduces these classifications intentionally.
+
+### Response and remediation
+
+- Treat as a stronger TP candidate than GID 411 ML-only alerts.
+- Isolate or block only after confirming scope and business impact, or when dual-signal
+  corroboration is present.
+- Tune noisy signatures rather than disabling the entire classification family.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/suricata",
+    "https://github.com/elastic/detection-rules/issues/6661",
+    "https://github.com/SigmaHQ/sigma/pull/6237",
+    "https://github.com/Cisco-Talos/EvidenceForge/pull/389",
+    "https://github.com/splunk/security_content/pull/4221",
+    "https://github.com/AAH20/aegis-decision-fabric",
+    "https://a2zsoc.com/consultation",
+]
+risk_score = 73
+rule_id = "0296f22d-b5fe-4889-8044-e46ef4980386"
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Platform: Elastic",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Rule Type: Custom Query (KQL)",
+    "Data Source: Suricata",
+    "Data Source: Suricata Logs",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:suricata.eve and event.kind:alert and
+not suricata.eve.alert.gid:411 and
+(
+  suricata.eve.alert.category:("A Network Trojan was detected" or
+    "Successful Administrator Privilege Gain" or
+    "Successful User Privilege Gain" or
+    "Attempted Administrator Privilege Gain" or
+    "Attempted User Privilege Gain" or
+    "Known malware command and control traffic" or
+    "Malware Command and Control Activity Detected" or
+    "A Network Trojan was Detected" or
+    "Large Scale Information Leak") or
+  rule.category:("A Network Trojan was detected" or
+    "Successful Administrator Privilege Gain" or
+    "Successful User Privilege Gain" or
+    "Malware Command and Control Activity Detected" or
+    "Potentially Bad Traffic") or
+  message:("A Network Trojan was detected" or
+    "Malware Command and Control Activity Detected" or
+    "Command and Control Traffic")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1203"
+name = "Exploitation for Client Execution"
+reference = "https://attack.mitre.org/techniques/T1203/"
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
