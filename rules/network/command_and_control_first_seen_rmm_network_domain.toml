@@ -1,0 +1,225 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["fortinet_fortigate", "network_traffic", "suricata", "zeek"]
+maturity = "production"
+updated_date = "2026/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a source IP first queries an exact service hostname associated with commonly abused Remote Monitoring
+and Management (RMM) software within the seven-day new-terms history window. RMM tools are legitimate administration
+products, but adversaries frequently install or abuse them for command and control, persistence, and remote execution.
+"""
+false_positives = [
+    """
+    Approved RMM deployments, one-time support sessions, product migrations, and security testing can trigger this rule.
+    Recursive resolvers or DNS forwarders can also appear as the client when sensor placement does not preserve the
+    originating endpoint address.
+    """,
+]
+from = "now-9m"
+index = [
+    "logs-fortinet_fortigate.log-*",
+    "logs-network_traffic.dns-*",
+    "logs-suricata.eve-*",
+    "logs-zeek.dns-*",
+    "packetbeat-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time Seen RMM Service Hostname from Network DNS"
+note = """## Triage and analysis
+
+### Investigating First Time Seen RMM Service Hostname from Network DNS
+
+Remote Monitoring and Management (RMM) tools provide legitimate remote administration, but the same capabilities are
+frequently abused for initial access, persistence, command execution, and command and control. This rule identifies the
+first observed relationship between a DNS source and a curated RMM agent or service hostname within the seven-day
+new-terms history window. Novelty is evaluated independently for each `source.ip` and
+`dns.question.registered_domain` pair, not for the domain across the entire environment. Using the registered domain as
+the novelty key prevents one RMM product from generating multiple alerts when its agent queries several service
+hostnames.
+
+The alert does not prove malicious RMM use. Passive DNS does not identify the requesting process, and `source.ip` may
+represent a recursive resolver or forwarder depending on sensor placement.
+
+### Possible investigation steps
+
+- Review `source.ip`, `dns.question.name`, `dns.question.registered_domain`, `dns.question.type`, `dns.response_code`, and
+  `dns.resolved_ip`. Confirm that `source.ip` represents an endpoint rather than shared DNS infrastructure.
+- Identify the asset and owner associated with `source.ip` using DHCP, asset inventory, endpoint telemetry, or
+  `network.community_id`.
+- Determine which RMM product owns the queried hostname and whether that product is approved for this asset, user, and
+  support window.
+- Search DNS and TLS events for the same client before and after the alert. Look for additional RMM vendors, repeated
+  agent-control traffic, or connections to self-hosted relay infrastructure.
+- Correlate with the endpoint rules "First Time Seen Remote Monitoring and Management Tool" and "First Time Seen DNS
+  Query to RMM Domain" when host telemetry is available.
+- Review process, file, service, and persistence activity on the resolved endpoint. Unexpected installers, scripting
+  engines, user-writable execution paths, or remote-access services increase suspicion.
+- Check for preceding delivery or social-engineering activity and for follow-on credential access, lateral movement, or
+  data staging.
+
+### False positive analysis
+
+- A newly deployed or newly observed approved RMM agent is expected to alert once for each client and registered domain.
+- Helpdesk, managed service provider, migration, and lab systems may legitimately contact several RMM services.
+- Browser access to a vendor service hostname can match because network DNS telemetry lacks process context.
+- Central resolvers can combine many endpoints under one `source.ip`. Do not create broad vendor exceptions until the
+  actual endpoint and business owner are known.
+- Scope exceptions to a validated combination of client network or asset, exact hostname, and approved operational
+  context. Avoid globally excluding a vendor domain.
+
+### Response and remediation
+
+- If unauthorized RMM use is confirmed, preserve process, installer, service, account, and network evidence before
+  containment.
+- Isolate the affected endpoint when active remote control or follow-on compromise is suspected.
+- Remove unauthorized RMM software and persistence, revoke active sessions, and rotate credentials exposed through the
+  remote session.
+- Block confirmed unauthorized agent or relay domains where organizational policy permits.
+- Enforce an approved-RMM policy and retain DNS, TLS, and endpoint telemetry needed to distinguish authorized support
+  from adversary use.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/",
+    "https://attack.mitre.org/techniques/T1219/002/",
+    "https://github.com/magicsword-io/LOLRMM/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+    "https://www.elastic.co/security-labs/tollbooth",
+    "https://www.proofpoint.com/us/blog/threat-insight/remote-monitoring-and-management-rmm-tooling-increasingly-attackers-first-choice",
+]
+risk_score = 47
+rule_id = "e73f0535-781b-4a3b-9042-5d993938f8d9"
+setup = """## Setup
+
+This rule requires DNS transaction events from one of the following DNS telemetry sources:
+
+- Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
+- Fortinet FortiGate DNS logs (`fortinet_fortigate.log`) in `logs-fortinet_fortigate.log-*`
+- Suricata EVE DNS events (`suricata.eve`) in `logs-suricata.eve-*`
+- Zeek (`zeek.dns`) in `logs-zeek.dns-*`
+- Legacy Packetbeat DNS events in `packetbeat-*` with `event.dataset` set to `dns`
+
+Place the sensor where it observes endpoint-to-resolver DNS traffic. If the sensor is upstream of a recursive resolver,
+`source.ip` may identify the resolver instead of the originating endpoint. DNS over HTTPS, DNS over TLS, cached answers,
+and asymmetric capture can create blind spots.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Fortinet",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Suricata",
+    "Data Source: Zeek",
+    "Noise: Medium",
+    "Profile: Recommended",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+(
+  data_stream.dataset:(fortinet_fortigate.log or network_traffic.dns or suricata.eve or zeek.dns)
+  or event.dataset:dns
+)
+  and source.ip:*
+  and dns.question.registered_domain:*
+  and dns.question.name:(
+    "agent-api.atera.com" or
+    "agent-api.atera.com." or
+    "agenthb.atera.com" or
+    "agenthb.atera.com." or
+    "agentreporting.atera.com" or
+    "agentreporting.atera.com." or
+    "agents.level.io" or
+    "agents.level.io." or
+    "api.rustdesk.com" or
+    "api.rustdesk.com." or
+    "assist.zoho.com" or
+    "assist.zoho.com." or
+    "boot.net.anydesk.com" or
+    "boot.net.anydesk.com." or
+    "cc.centrastage.net" or
+    "cc.centrastage.net." or
+    "client.teamviewer.com" or
+    "client.teamviewer.com." or
+    "control.connectwise.com" or
+    "control.connectwise.com." or
+    "deploy01.kaseya.com" or
+    "deploy01.kaseya.com." or
+    "gateway.zohoassist.com" or
+    "gateway.zohoassist.com." or
+    "geo.netsupportsoftware.com" or
+    "geo.netsupportsoftware.com." or
+    "ld.aurelius.host" or
+    "ld.aurelius.host." or
+    "live.screenconnect.com" or
+    "live.screenconnect.com." or
+    "managedsupport.kaseya.net" or
+    "managedsupport.kaseya.net." or
+    "ps.atera.com" or
+    "ps.atera.com." or
+    "pubsub.atera.com" or
+    "pubsub.atera.com." or
+    "rescue-data-center.logmein-gateway.com" or
+    "rescue-data-center.logmein-gateway.com." or
+    "router15.teamviewer.com" or
+    "router15.teamviewer.com." or
+    "rs-ny.rustdesk.com" or
+    "rs-ny.rustdesk.com." or
+    "serv.superopsalpha.com" or
+    "serv.superopsalpha.com." or
+    "taf.teamviewer.com" or
+    "taf.teamviewer.com."
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "client.ip",
+    "server.ip",
+    "dns.question.name",
+    "dns.question.registered_domain",
+    "dns.question.type",
+    "dns.response_code",
+    "dns.resolved_ip",
+    "network.community_id",
+    "observer.name",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "dns.question.registered_domain"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

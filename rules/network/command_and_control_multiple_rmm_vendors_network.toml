@@ -1,0 +1,231 @@
+[metadata]
+creation_date = "2026/07/27"
+integration = ["fortinet_fortigate", "network_traffic", "suricata", "zeek"]
+maturity = "production"
+updated_date = "2026/09/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a DNS client that queries infrastructure associated with two or more distinct Remote Monitoring and
+Management (RMM) vendors during the same short rule window. Multiple RMM products on one endpoint can indicate attacker
+staging, redundant persistence, or unauthorized remote access.
+"""
+false_positives = [
+    """
+    Managed service provider, helpdesk, migration, software inventory, and lab systems may legitimately contact multiple
+    RMM vendors. Recursive resolvers can aggregate queries from many endpoints and must be identified before treating
+    the client IP as one asset.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Multiple RMM Vendors Queried by a Single DNS Client"
+note = """## Triage and analysis
+
+### Investigating Multiple RMM Vendors Queried by a Single DNS Client
+
+Adversaries frequently use legitimate RMM products for remote command execution and persistence. Observing two or more
+different RMM vendor families from one DNS client in a short period can indicate an attacker testing tools, adding a
+fallback access channel, or operating on a host that already has approved management software.
+
+This rule maps related products, aliases, and rebrands to one vendor label so that multiple domains from the same product
+do not inflate `Esql.rmm_vendor_count`. The alert does not prove that the tools were installed or used maliciously.
+
+### Possible investigation steps
+
+- Review `Esql.client_ip`, `Esql.rmm_vendor_values`, `Esql.dns_question_name_values`,
+  `Esql.dns_registered_domain_values`, `Esql.event_count`, `Esql.first_seen`, and `Esql.last_seen`.
+- Confirm whether `Esql.client_ip` identifies an endpoint. Recursive resolvers, forwarders, NAT, and sensor placement can
+  combine multiple endpoints under one address.
+- Resolve the client to an asset and owner using DHCP, asset inventory, endpoint telemetry, or network session context.
+- Determine whether every observed RMM vendor is approved for the asset and whether a migration, support case, or
+  managed-service workflow explains the overlap.
+- Correlate with the endpoint rule "Multiple Remote Management Tool Vendors on Same Host" and with first-time RMM process
+  or DNS rules when endpoint telemetry is available.
+- Review process, service, file, and persistence events for installers or RMM binaries. Pay particular attention to
+  execution from user-writable directories, suspicious parent processes, unsigned binaries, and unattended-access
+  configuration.
+- Search surrounding DNS and TLS activity for self-hosted relay domains, download infrastructure, or additional remote
+  access products not represented in the alert.
+- Investigate precursor activity such as phishing, browser downloads, script execution, or credential compromise and
+  follow-on activity such as lateral movement or data staging.
+
+### False positive analysis
+
+- MSP and helpdesk assets may use a monitoring platform plus a separate remote-support product.
+- Product migrations and acquisitions can create temporary overlap between old and new agents.
+- Software inventory, sandbox, and security research systems can query multiple vendor domains without installing them.
+- Browser activity can contribute one of the vendor matches because passive DNS has no process attribution.
+- Create exceptions only after confirming the client identity and expected vendor combination. Prefer a narrow
+  client-address or asset-group plus vendor-pair exception over suppressing one vendor globally.
+
+### Response and remediation
+
+- Preserve DNS, network, process, service, installer, account, and persistence evidence before containment.
+- If unauthorized remote access is active or likely, isolate the endpoint and revoke remote sessions.
+- Remove unauthorized RMM tools and persistence, rotate exposed credentials, and block confirmed unauthorized domains or
+  relays where policy permits.
+- Review other endpoints querying the same vendor combination to determine whether the activity is a deployment,
+  migration, or broader intrusion.
+- Enforce an approved-RMM policy and retain telemetry that connects DNS activity to endpoint processes and asset owners.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1219/",
+    "https://attack.mitre.org/techniques/T1219/002/",
+    "https://github.com/magicsword-io/LOLRMM/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-025a",
+    "https://www.elastic.co/security-labs/tollbooth",
+    "https://www.proofpoint.com/us/blog/threat-insight/remote-monitoring-and-management-rmm-tooling-increasingly-attackers-first-choice",
+]
+risk_score = 47
+rule_id = "72ba47c8-7b4f-452f-b60a-ecaa7f8b5cca"
+setup = """## Setup
+
+This rule requires DNS transaction events from one of the following DNS telemetry sources:
+
+- Elastic Network Packet Capture (`network_traffic.dns`) in `logs-network_traffic.dns-*`
+- Fortinet FortiGate DNS logs (`fortinet_fortigate.log`) in `logs-fortinet_fortigate.log-*`
+- Suricata EVE DNS events (`suricata.eve`) in `logs-suricata.eve-*`
+- Zeek (`zeek.dns`) in `logs-zeek.dns-*`
+- Legacy Packetbeat DNS events in `packetbeat-*` with `event.dataset` set to `dns`
+
+Place the sensor where it observes endpoint-to-resolver DNS traffic. If the sensor is upstream of a recursive resolver,
+`Esql.client_ip` may identify the resolver and combine queries from many endpoints, producing false multi-vendor
+correlations. Exclude validated resolver addresses or deploy the sensor on client-facing segments.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Fortinet",
+    "Data Source: Network Packet Capture",
+    "Data Source: Network Traffic",
+    "Data Source: Suricata",
+    "Data Source: Zeek",
+    "Noise: High",
+    "Profile: Aggressive",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-fortinet_fortigate.log-*, logs-network_traffic.dns-*, logs-suricata.eve-*, logs-zeek.dns-*, packetbeat-*
+| where (
+      data_stream.dataset in ("fortinet_fortigate.log", "network_traffic.dns", "suricata.eve", "zeek.dns")
+      or event.dataset == "dns"
+    )
+    and dns.question.name is not null
+    and dns.question.registered_domain is not null
+| eval
+    Esql.client_ip = COALESCE(client.ip, source.ip),
+    Esql.dataset = COALESCE(data_stream.dataset, event.dataset),
+    Esql.dns_question_name = REPLACE(TO_LOWER(dns.question.name), """\.$""", ""),
+    Esql.dns_registered_domain = REPLACE(TO_LOWER(dns.question.registered_domain), """\.$""", "")
+| where Esql.client_ip is not null
+| eval Esql.rmm_vendor = CASE(
+    Esql.dns_registered_domain == "action1.com", "Action1",
+    Esql.dns_registered_domain == "anydesk.com", "AnyDesk",
+    Esql.dns_registered_domain == "atera.com", "Atera",
+    Esql.dns_registered_domain in ("beyondtrustcloud.com", "bomgar.com", "bomgarcloud.com"), "BeyondTrust",
+    Esql.dns_registered_domain in ("connectwise.com", "screenconnect.com"), "ConnectWise",
+    Esql.dns_registered_domain in ("centrastage.net", "datto.com", "datto.net"), "Datto",
+    Esql.dns_registered_domain == "dwservice.net", "DWService",
+    Esql.dns_registered_domain in (
+        "getgo.com", "gotoassist.at", "gotoassist.com", "gotoassist.me", "gotohttp.com", "gotoresolve.com"
+    ), "GoTo",
+    Esql.dns_registered_domain in ("kaseya.com", "kaseya.net"), "Kaseya",
+    Esql.dns_registered_domain == "level.io", "Level",
+    Esql.dns_registered_domain in (
+        "logmein-gateway.com", "logmein.com", "logmeininc.com", "logmeinrescue.com", "logmeinrescue.eu"
+    ), "LogMeIn",
+    Esql.dns_registered_domain == "meshcentral.com", "MeshCentral",
+    Esql.dns_registered_domain in ("netsupportmanager.com", "netsupportsoftware.com"), "NetSupport",
+    Esql.dns_registered_domain in ("ninjaone.com", "ninjarmm.com", "ninjarmm.net"), "NinjaOne",
+    Esql.dns_registered_domain == "pulseway.com", "Pulseway",
+    Esql.dns_registered_domain == "remotepc.com", "RemotePC",
+    Esql.dns_registered_domain == "remoteutilities.com", "RemoteUtilities",
+    Esql.dns_registered_domain == "rustdesk.com", "RustDesk",
+    Esql.dns_registered_domain == "simple-help.com", "SimpleHelp",
+    Esql.dns_registered_domain in ("splashtop.com", "splashtop.eu"), "Splashtop",
+    Esql.dns_registered_domain in (
+        "superops.ai", "superops.com", "superopsalpha.com", "superopsbeta.com"
+    ), "SuperOps",
+    Esql.dns_registered_domain in (
+        "aurelius.host", "kabuto.io", "servably.com", "syncroapi.com", "syncromsp.com"
+    ), "Syncro",
+    Esql.dns_registered_domain == "tacticalrmm.com", "TacticalRMM",
+    Esql.dns_registered_domain == "teamviewer.com", "TeamViewer",
+    Esql.dns_registered_domain == "tightvnc.com", "TightVNC",
+    Esql.dns_registered_domain == "ultravnc.com", "UltraVNC",
+    Esql.dns_registered_domain == "vnc.com", "RealVNC",
+    (
+        Esql.dns_question_name == "assist.zoho.com"
+        or Esql.dns_registered_domain in ("zohoassist.com", "zohoassist.jp")
+    ), "ZohoAssist",
+    NULL
+)
+| where Esql.rmm_vendor is not null
+| stats
+    Esql.event_count = COUNT(*),
+    Esql.rmm_vendor_count = COUNT_DISTINCT(Esql.rmm_vendor),
+    Esql.rmm_vendor_values = VALUES(Esql.rmm_vendor),
+    Esql.dns_question_name_values = MV_SLICE(VALUES(Esql.dns_question_name), 0, 20),
+    Esql.dns_registered_domain_values = VALUES(Esql.dns_registered_domain),
+    Esql.dataset_values = VALUES(Esql.dataset),
+    Esql.observer_name_values = VALUES(observer.name),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  by Esql.client_ip
+| where Esql.rmm_vendor_count >= 2
+| keep
+    Esql.client_ip,
+    Esql.event_count,
+    Esql.rmm_vendor_count,
+    Esql.rmm_vendor_values,
+    Esql.dns_question_name_values,
+    Esql.dns_registered_domain_values,
+    Esql.dataset_values,
+    Esql.observer_name_values,
+    Esql.first_seen,
+    Esql.last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+[[rule.threat.technique.subtechnique]]
+id = "T1219.002"
+name = "Remote Desktop Software"
+reference = "https://attack.mitre.org/techniques/T1219/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.client_ip",
+    "Esql.rmm_vendor_count",
+    "Esql.rmm_vendor_values",
+    "Esql.dns_question_name_values",
+    "Esql.dns_registered_domain_values",
+    "Esql.dataset_values",
+    "Esql.observer_name_values",
+    "Esql.event_count",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
+
