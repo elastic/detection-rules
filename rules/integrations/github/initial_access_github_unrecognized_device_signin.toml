@@ -1,0 +1,123 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GitHub sign-in from an unrecognized device. These user.sign_in_from_unrecognized_device* events appear in
+enterprise audit for Enterprise Managed Users (EMU). Personal-account enterprises typically keep them only in the user
+security log, which does not stream to Elastic.
+"""
+false_positives = [
+    "    A developer signing in from a new laptop or phone. Confirm with the user and that MFA succeeded.\n    ",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Sign-in from Unrecognized Device"
+note = """## Triage and analysis
+
+### Investigating GitHub Sign-in from Unrecognized Device
+
+GitHub emits `user.sign_in_from_unrecognized_device`, `user.sign_in_from_unrecognized_device_and_location`, and `user.new_device_used`. On non-EMU GHEC these often never reach `logs-github.audit-*`. The Elastic GitHub pipeline maps `action` to `event.action` and sets `event.category` to configuration (not authentication).
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.actor_ip`, `github.user_agent`, and `github.device`.
+- Correlate with new PATs, OAuth grants, and SSH keys from the same IP.
+
+### False positive analysis
+
+- First login on a replacement workstation after device verification.
+
+### Response and remediation
+
+- If unauthorized, reset the password, revoke sessions and tokens, and review org membership.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/reviewing-your-security-log",
+]
+risk_score = 47
+rule_id = "cbbfd58a-fdb4-4618-9975-27f66165c127"
+setup = """## Setup
+
+This rule is intended for GitHub Enterprise Managed User (EMU) enterprises where user security-log actions stream into the enterprise audit log. Personal-account GHEC trials generally will not emit these events to `logs-github.audit-*`.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in (
+      "user.sign_in_from_unrecognized_device",
+      "user.sign_in_from_unrecognized_device_and_location",
+      "user.new_device_used"
+    )
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.device,
+    github.actor_location.country_name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.device",
+    "github.actor_location.country_name",
+]
+
