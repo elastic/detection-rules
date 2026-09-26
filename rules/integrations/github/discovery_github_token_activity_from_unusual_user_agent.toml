@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects git clone, git push, ZIP download, or API request authenticated with a GitHub token from a user agent not
+previously seen for that hashed token. This covers classic PATs, fine-grained PATs, and OAuth access tokens. First-seen
+token user agents are the practical equivalent of "unusual UA" or automated scraping without a scraper denylist.
+"""
+false_positives = [
+    """
+    CI, git GUI, or library upgrades that change the User-Agent on an existing PAT or OAuth token. Confirm the token
+    owner and whether the client is expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-github.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GitHub Token Activity from Unusual User Agent"
+note = """## Triage and analysis
+
+### Investigating GitHub Token Activity from Unusual User Agent
+
+New `github.user_agent` for a `github.hashed_token` on `git.clone`, `git.push`, `repo.download_zip`, or `api.request` (14-day history). Classic PATs are included (`Personal access token`).
+
+Named scanners (TruffleHog, Nord Stream) have a dedicated SIEM. This rule catches first-seen clients such as `python-requests`.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.hashed_token`, `github.programmatic_access_type`, `github.user_agent`, `github.actor_ip`, and `event.action`.
+- For `api.request`, review `github.route`. For clone or ZIP, count distinct private repositories.
+
+### False positive analysis
+
+- Browser or git-client version bumps.
+- New internal automation that reuses an existing token.
+
+### Response and remediation
+
+- Revoke the token if the user agent is not an approved client. Hunt clones, ZIP downloads, and secret-scope API calls in the same window.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
+risk_score = 21
+rule_id = "702f8d5d-04be-4ef6-a2be-4a3a331530ca"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Discovery",
+    "Tactic: Initial Access",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:"github.audit" and event.category:"configuration" and github.user_agent:* and
+github.hashed_token:* and
+github.programmatic_access_type:("OAuth access token" or "Fine-grained personal access token" or "Personal access token") and
+event.action:("git.clone" or "git.push" or "repo.download_zip" or "api.request")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.token_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["github.hashed_token", "github.user_agent"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
