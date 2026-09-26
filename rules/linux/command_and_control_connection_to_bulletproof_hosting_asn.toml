@@ -1,0 +1,186 @@
+[metadata]
+creation_date = "2026/09/17"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects outbound connection attempts from unusual Linux process locations or common living-off-the-land
+utilities to autonomous systems associated with bulletproof or high-abuse hosting. Adversaries often stage payloads
+in world-writable or web directories and beacon to infrastructure that ignores abuse reports, including providers
+such as Storm Industries, Ecatel/IP Volume, Aeza, and Proton66.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.network*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Suspicious Linux Process Connection to Bulletproof Hosting ASN"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Suspicious Linux Process Connection to Bulletproof Hosting ASN
+
+This rule flags a Linux process that initiates an outbound connection to an ASN commonly associated with bulletproof or high-abuse hosting. The process is either running from an unusual location such as `/tmp`, `/dev/shm`, a web directory, or `memfd`, or it is a downloader, shell, or interpreter frequently abused to fetch and launch follow-on payloads. A typical pattern is a dropped ELF in `/tmp` or a webshell-spawned `curl`/`wget`/`python` process beaconing to providers such as Storm Industries, Ecatel/IP Volume, Aeza, or Proton66.
+
+ASN enrichment is applied at ingest. Confirm `destination.as.number` and `destination.as.organization.name` on the source event, because the endpoint agent does not populate these fields natively.
+
+### Possible investigation steps
+
+- Review the process executable path, name, command line, parent lineage, user, and working directory to determine whether the connection came from a dropped binary, a webshell, or an expected administrative tool.
+- Enrich the destination IP with ASN, organization, reputation, passive DNS, and related hosts that contacted the same address or ASN around the same time.
+- Correlate nearby file, process, and DNS activity on the same `host.id` and `process.entity_id` for payload writes, `chmod`/`exec` of the same path, interpreter downloads, or additional beacons.
+- Check whether the destination was reached by raw IP with no preceding DNS lookup, which is common for malware command-and-control.
+- Scope the same process hash, destination IP, and ASN across the environment, and review web server, SSH, and privilege-escalation telemetry if the parent is a web process or an unusual interactive shell.
+
+### False positive analysis
+
+- An administrator or automation job may use `curl`, `wget`, `python`, or a shell to retrieve packages or updates from a VPS that happens to sit in a high-abuse ASN such as HOSTKEY, Aeza, or FlokiNET; confirm the parent process, change record, and destination ownership.
+- Software installers, self-extracting packages, or development builds running from `/tmp` can make outbound connections during setup; verify the binary path, publisher, and whether the destination is expected for that installer.
+- Privacy-oriented or Tor-related tooling hosted on FlokiNET or similar providers can trigger this rule; validate that the process and destination match an approved use case.
+
+### Response and remediation
+
+- Isolate the affected Linux host from the network except for approved management access, terminate the suspicious process tree, and block the destination IP, domain, and ASN at DNS, proxy, and firewall layers where policy allows.
+- Preserve the executable, command line, destination IP, ASN, and related files under `/tmp`, `/var/tmp`, `/dev/shm`, web directories, and `memfd` for forensic review.
+- Remove attacker footholds including dropped binaries, webshells, cron or systemd persistence, and unauthorized SSH keys, then rotate credentials exposed on the host.
+- Rebuild or restore the host from a known-good image if a malicious payload executed, and hunt for the same hash, destination, or ASN on other systems.
+- Escalate to incident response if the process ran as root, the same infrastructure appears on multiple hosts, or you observe follow-on payload execution, credential access, or lateral movement.
+"""
+references = [
+  "https://attack.mitre.org/techniques/T1071/",
+  "https://www.spamhaus.org/blocklists/do-not-route-or-peer/",
+]
+risk_score = 73
+rule_id = "01d8b52c-61b0-4a28-96cf-14d5b3c01e05"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Network",
+    "OS: Linux",
+    "Platform: Linux",
+    "Rule Type: Event Correlation (EQL)",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+network where host.os.type == "linux" and event.type == "start" and event.action == "connection_attempted" and
+(
+  process.executable like (
+    "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "*/www/html/*",
+    "/lost+found/*", "/var/mail/*", "/var/www/*", "/mnt/*", "/media/*", "/proc/*/fd/*", "?memfd:*", "memfd:*",
+    "*/wp-content/*", "*/wp-includes/*", "*/wp-admin/*"
+  ) or
+  process.name in (
+    "curl", "wget", "ftp", "tftp", "scp", "rsync", "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish",
+    "busybox", "timeout", "env", "bun"
+  ) or
+  process.name like (".*", "python*", "perl*", "php*", "ruby*", "lua*", "node*", "deno*")
+) and (
+  // Storm Industries / StormCloud / Pfcloud / OMEGATECH
+  destination.as.number in (202412, 214472, 219502, 51396) or
+  // Ecatel / IP Volume / Novogara / SpectraIP
+  destination.as.number in (48090, 56611, 57717, 62068, 202425, 202769, 204655) or
+  // 4Vendeta / Tamatiya
+  destination.as.number in (200391, 204428, 207812) or
+  // KoDDoS / Amarutu
+  destination.as.number == 206264 or
+  // 1337 Services (rdp.sh)
+  destination.as.number == 210558 or
+  // TEAM-HOST
+  destination.as.number == 202984 or
+  // HOSTKEY (frequently abused for malware C2)
+  destination.as.number in (50867, 57043) or
+  // Proton66 / Prospero
+  destination.as.number in (198953, 200593) or
+  // Aeza / Hypercore (OFAC)
+  destination.as.number in (210644, 211522, 215552, 216246) or
+  // Stark / PQ.Hosting / WorkTitans / MIRhosting / UFO Hosting
+  destination.as.number in (33993, 44477, 52000, 209847) or
+  // Zservers / XHost
+  destination.as.number in (213010, 213194, 61336, 216071) or
+  // Media Land (OFAC)
+  destination.as.number in (48721, 206728, 211409, 215311) or
+  // ELITETEAM / 1337TEAM
+  destination.as.number in (39770, 51381, 56873, 60424) or
+  // aurologic downstream BPH brands
+  destination.as.number in (209800, 210281, 213887, 214351, 214940, 214943, 215789, 216309) or
+  // QWINS, GCSAS, Cloudzy, HostSlick, AlexHost, FlokiNET, PINSPB
+  destination.as.number in (14956, 44050, 200019, 200651, 208046, 213702, 215540) or
+  // FUNNULL / CTG Server
+  destination.as.number == 152194 or
+  // First Server Limited
+  destination.as.number in (50113, 204997, 205090) or
+  // CrazyRDP / Delis
+  destination.as.number in (211252, 394711) or
+  // BtHoster / BTCloud
+  destination.as.number in (213388, 213790, 214295) or
+  // SHANGXING
+  destination.as.number == 400619
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
