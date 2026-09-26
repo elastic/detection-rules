@@ -2,7 +2,7 @@
 creation_date = "2026/01/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -130,11 +130,30 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category:process and host.os.type:windows and powershell.file.script_block_length > 1000 and
+event.category:process and host.os.type:windows and powershell.file.script_block_length > 3000 and
   powershell.file.script_block_entropy_bits >= 5.5 and powershell.file.script_block_surprisal_stdev > 0.7 and
   not file.directory: (
         "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts" or
-        "C:\Program Files\Microsoft Azure AD Connect Health Agent\Products\AdFederationService\AdfsDiagnostics\AdfsToolbox\diagnosticsModule\Private"
+        "C:\Program Files\Microsoft Azure AD Connect Health Agent\Products\AdFederationService\AdfsDiagnostics\AdfsToolbox\diagnosticsModule\Private" or
+        "?:\Octopus\*" or
+        "C:\Program Files (x86)\N-able Technologies\*" or
+        "C:\ProgramData\Qualys\*" or
+        "C:\ProgramData\NinjaRMMAgent\*" or
+        "C:\ProgramData\CentraStage\*" or
+        "C:\Program Files (x86)\Advanced Monitoring Agent*" or
+        "C:\ProgramData\Quest\KACE\*" or
+        "C:\Program Files\JumpCloud\*" or
+        "C:\ProgramData\chocolatey\*" or
+        "C:\Program Files\nodejs*"
+  ) and
+  not file.name: (
+        "shellIntegration.ps1" or
+        "npm.ps1" or
+        "npx.ps1" or
+        "allcommands.ps1" or
+        "PsWindowsBackup.ps1" or
+        "AWSPowerShellCompleters.psm1" or
+        "UtilitySetConstants.ps1"
   )
 '''
 
