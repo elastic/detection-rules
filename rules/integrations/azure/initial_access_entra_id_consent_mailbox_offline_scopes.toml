@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/09/03"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/09/03"
+
+[rule]
+author = ["Eduard Arbona"]
+description = """
+Identifies an illicit consent grant (OAuth phishing) where a non-admin user consents to an application that requests
+high-risk delegated mailbox permissions (Mail.Read, Mail.ReadWrite, Mail.Send or MailboxSettings.ReadWrite) together
+with offline_access. offline_access returns a long-lived refresh token, so a single successful end-user consent grants
+an attacker-controlled application durable, silent read/send access to the victim's mailbox without stealing a password
+or re-prompting for MFA. This scope combination is a common precursor to business email compromise (BEC), mailbox
+exfiltration, and internal phishing. Unlike a first-seen (new terms) consent detection, this rule fires deterministically
+on the specific high-fidelity scope combination, so it also flags a previously-seen application that is consented to with
+these permissions.
+"""
+false_positives = [
+    """
+    Onboarding of a sanctioned mail client, add-in, backup, or archiving application that legitimately requires delegated
+    mailbox access with a refresh token. Validate publisher verification, application ownership, and whether the scopes
+    align with an approved business use case, then add an exception for the reviewed AppId. Restricting end-user consent to
+    verified publishers reduces this residual set to unsanctioned applications only.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID End-User Consent to App With Mailbox and Offline Access Scopes"
+note = """## Triage and analysis
+
+### Investigating Entra ID End-User Consent to App With Mailbox and Offline Access Scopes
+
+Adversaries trick a user into granting OAuth consent to an application that requests delegated mailbox scopes together with `offline_access`. Because `offline_access` yields a long-lived refresh token, the application keeps read/send access to the victim's mailbox silently, without re-authentication or MFA. This is a common precursor to business email compromise, mailbox exfiltration, and internal phishing.
+
+This rule inspects Entra ID audit logs for `Consent to application` events where the consent is a non-admin (end-user) consent and the granted permissions contain `offline_access` plus at least one high-risk mailbox scope (`Mail.Read`, `Mail.ReadWrite`, `Mail.Send`, or `MailboxSettings.ReadWrite`).
+
+#### Possible investigation steps
+
+- Review `azure.auditlogs.properties.target_resources.0.display_name` and `azure.auditlogs.properties.target_resources.0.id` (the AppId/service principal) to determine which application was granted access. Pivot on the AppId in Enterprise Applications in the Entra portal.
+- Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName` and `azure.auditlogs.properties.initiated_by.user.ipAddress` to identify the consenting user and the source of the consent. Investigate their recent activity for signs of phishing or account compromise.
+- Inspect the full `ConsentAction.Permissions` value to confirm the exact delegated scopes granted and whether mailbox write/send capability (`Mail.ReadWrite`, `Mail.Send`) was included.
+- Pivot on `azure.auditlogs.properties.correlation_id` and `@timestamp` to related sign-in and token-usage activity for the same application.
+
+### False positive analysis
+
+- Sanctioned mail clients, add-ins, backup, or archiving tools may legitimately request delegated mailbox access with a refresh token. Validate publisher verification, ownership, and scope alignment, then add an exception for the reviewed AppId.
+
+### Response and remediation
+
+- Revoke the application's OAuth grant (for example `Remove-MgOauth2PermissionGrant` / `Remove-AzureADOAuth2PermissionGrant`) and disable or delete the associated service principal.
+- Revoke the affected user's refresh tokens and require re-authentication.
+- Block the application via Conditional Access or Defender for Cloud Apps.
+- Enable the admin consent workflow and restrict end-user consent to applications from verified publishers.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/architecture/security-operations-applications#end-user-consent",
+    "https://learn.microsoft.com/en-us/security/operations/incident-response-playbook-app-consent",
+    "https://learn.microsoft.com/en-us/defender-cloud-apps/investigate-risky-oauth",
+    "https://attack.mitre.org/techniques/T1528/",
+]
+risk_score = 73
+rule_id = "e907ca08-45f2-4f8b-9854-c66be0e985dd"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Resources: Investigation Guide",
+    "Tactic: Credential Access",
+]
+type = "esql"
+
+query = '''
+FROM logs-azure.auditlogs-* metadata _id, _version, _index
+| WHERE (azure.auditlogs.operation_name == "Consent to application"
+    OR event.action == "Consent to application")
+  AND event.outcome == "success"
+| EVAL
+    consent_is_admin = TO_LOWER(`azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`),
+    consent_permissions = TO_LOWER(`azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value`)
+| WHERE consent_is_admin LIKE "*false*"
+  AND consent_permissions LIKE "*offline_access*"
+  AND (consent_permissions LIKE "*mail.read*"
+    OR consent_permissions LIKE "*mail.readwrite*"
+    OR consent_permissions LIKE "*mail.send*"
+    OR consent_permissions LIKE "*mailboxsettings.readwrite*")
+| KEEP
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    azure.auditlogs.operation_name,
+    azure.auditlogs.properties.initiated_by.user.userPrincipalName,
+    azure.auditlogs.properties.initiated_by.user.id,
+    azure.auditlogs.properties.initiated_by.user.ipAddress,
+    `azure.auditlogs.properties.target_resources.0.display_name`,
+    `azure.auditlogs.properties.target_resources.0.id`,
+    consent_permissions,
+    azure.tenant_id,
+    azure.auditlogs.properties.correlation_id
+'''
+
+[rule.alert_suppression]
+group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+duration = {value = 6, unit = "h"}
+missing_fields_strategy = "suppress"
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
