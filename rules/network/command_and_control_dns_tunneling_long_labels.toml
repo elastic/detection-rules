@@ -2,43 +2,47 @@
 creation_date = "2026/08/20"
 integration = ["network_traffic", "fortinet_fortigate", "zeek"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a client generating many unique, unusually long DNS query names to the same registered domain within a
-five-minute window. Malware DNS tunnels and DNS command-and-control commonly encode data in lengthy subdomain portions
-under one apex domain.
+Identifies DNS query patterns associated with tunneling, including rare NULL queries, repeated TXT queries with
+unusually long names, and clients generating many unique, long subdomains under one registered domain within a
+five-minute window.
 """
 false_positives = [
     """
     CDN, cloud load-balancer, software-update, and telemetry hostnames can be long and change often. Recursive
     resolvers, forwarders, NAT gateways, and localhost DNS listeners can also combine queries from many endpoints under
-    one client address. Validate the apex domain and whether the source is an endpoint before treating the activity as
-    tunneling.
+    one client address. DNS research, testing, and security tools can generate NULL or unusually long TXT queries.
+    Validate the apex domain and whether the source is an endpoint before treating the activity as tunneling.
     """,
 ]
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "Potential DNS Tunneling via Long and Unique Subdomains"
+name = "Potential DNS Tunneling via NULL or Long DNS Queries"
 note = """## Triage and analysis
 
-### Investigating Potential DNS Tunneling via Long and Unique Subdomains
+### Investigating Potential DNS Tunneling via NULL or Long DNS Queries
 
 DNS tunneling encodes data in query labels and often produces many unique, unusually long subdomains under a single apex
-domain. This rule aggregates network DNS telemetry for that behavioral pattern without relying on threat intelligence
-feeds or machine learning jobs.
+domain. Some tunneling tools also use rare NULL queries or long TXT query names. This rule aggregates network DNS
+telemetry for those behavioral patterns without relying on threat intelligence feeds or machine learning jobs.
 
 Compare overlapping apex domains against the machine learning **DNS Tunneling** rule when that job is enabled.
 
 ### Possible investigation steps
 
-- Review `Esql.dns_registered_domain`, `Esql.count_distinct_names`, `Esql.unique_name_ratio`,
+- Review `Esql.dns_registered_domain`, `Esql.dns_question_type_values`, `Esql.total_qualifying_queries`,
+  `Esql.count_distinct_names`, `Esql.unique_name_ratio`, `Esql.max_question_name_length`,
   `Esql.max_subdomain_length`, and sample values in `Esql.sample_names`.
-- Inspect `Esql.dns_question_type_values`. TXT, NULL, CNAME, or MX bursts increase confidence; A/AAAA-only activity can
-  still be tunneling and should not be dismissed on type alone.
+- NULL alerts require at least three queries and two distinct names. Long-TXT alerts require at least five distinct
+  names longer than 100 characters. The general long-subdomain branch retains the original threshold of 25 queries and
+  15 distinct names across all query types.
+- TXT, NULL, CNAME, or MX bursts increase confidence; A/AAAA-only activity can still be tunneling and should not be
+  dismissed on type alone.
 - Use `Esql.first_seen`, `Esql.last_seen`, `Esql.dataset_values`, and `Esql.observer_name_values` to establish the event
   span and identify the integrations and sensors that contributed to the alert.
 - Confirm whether `Esql.client_ip` is a workstation, server, recursive resolver, forwarder, NAT address, or localhost
@@ -63,6 +67,7 @@ Compare overlapping apex domains against the machine learning **DNS Tunneling** 
 - Add temporary blocks for the apex domain while scoping additional hosts querying the same name.
 """
 references = [
+    "https://code.kryo.se/iodine/",
     "https://unit42.paloaltonetworks.com/dns-tunneling-how-dns-can-be-abused-by-malicious-actors/",
 ]
 risk_score = 47
@@ -115,16 +120,44 @@ from logs-network_traffic.dns-*, logs-fortinet_fortigate.log-*, logs-zeek.dns-*,
     Esql.dns_question_name = TO_LOWER(dns.question.name),
     Esql.dns_registered_domain = TO_LOWER(dns.question.registered_domain),
     Esql.dns_question_type = TO_LOWER(dns.question.type),
+    Esql.question_name_length = LENGTH(Esql.dns_question_name),
     Esql.subdomain_length = LENGTH(Esql.dns_question_name) - LENGTH(Esql.dns_registered_domain) - 1
 | where
     Esql.client_ip is not null
-    and Esql.subdomain_length >= 50
     and (Esql.dns_question_type is null or Esql.dns_question_type != "ptr")
     and not ENDS_WITH(Esql.dns_question_name, ".arpa")
+    and (
+      Esql.dns_question_type == "null"
+      or Esql.subdomain_length >= 50
+      or (Esql.dns_question_type == "txt" and Esql.question_name_length > 100)
+    )
+| eval
+    Esql.long_subdomain_query_name = CASE(
+      Esql.subdomain_length >= 50,
+      Esql.dns_question_name,
+      null
+    ),
+    Esql.null_query_name = CASE(
+      Esql.dns_question_type == "null",
+      Esql.dns_question_name,
+      null
+    ),
+    Esql.long_txt_query_name = CASE(
+      Esql.dns_question_type == "txt" and Esql.question_name_length > 100,
+      Esql.dns_question_name,
+      null
+    )
 | eval Esql.time_window = DATE_TRUNC(5 minutes, @timestamp)
 | stats
-    Esql.count_queries = COUNT(*),
-    Esql.count_distinct_names = COUNT_DISTINCT(Esql.dns_question_name),
+    Esql.total_qualifying_queries = COUNT(*),
+    Esql.count_queries = COUNT(Esql.long_subdomain_query_name),
+    Esql.count_distinct_names = COUNT_DISTINCT(Esql.long_subdomain_query_name),
+    Esql.null_query_count = COUNT(Esql.null_query_name),
+    Esql.null_distinct_names = COUNT_DISTINCT(Esql.null_query_name),
+    Esql.long_txt_query_count = COUNT(Esql.long_txt_query_name),
+    Esql.long_txt_distinct_names = COUNT_DISTINCT(Esql.long_txt_query_name),
+    Esql.max_question_name_length = MAX(Esql.question_name_length),
+    Esql.avg_question_name_length = AVG(Esql.question_name_length),
     Esql.max_subdomain_length = MAX(Esql.subdomain_length),
     Esql.avg_subdomain_length = AVG(Esql.subdomain_length),
     Esql.dns_question_type_values = MV_SLICE(VALUES(Esql.dns_question_type), 0, 9),
@@ -135,8 +168,24 @@ from logs-network_traffic.dns-*, logs-fortinet_fortigate.log-*, logs-zeek.dns-*,
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp)
   by Esql.time_window, Esql.client_ip, Esql.dns_registered_domain
-| where Esql.count_queries >= 25 and Esql.count_distinct_names >= 15
-| eval Esql.unique_name_ratio = TO_DOUBLE(Esql.count_distinct_names) / Esql.count_queries
+| eval Esql.unique_name_ratio = CASE(
+    Esql.count_queries > 0,
+    TO_DOUBLE(Esql.count_distinct_names) / Esql.count_queries,
+    null
+  )
+| where
+    (
+      Esql.count_queries >= 25
+      and Esql.count_distinct_names >= 15
+    )
+    or (
+      Esql.null_query_count >= 3
+      and Esql.null_distinct_names >= 2
+    )
+    or (
+      Esql.long_txt_query_count >= 5
+      and Esql.long_txt_distinct_names >= 5
+    )
 | keep Esql.*
 '''
 
@@ -186,12 +235,19 @@ field_names = [
     "Esql.client_ip",
     "Esql.dns_registered_domain",
     "Esql.time_window",
+    "Esql.total_qualifying_queries",
     "Esql.count_queries",
     "Esql.count_distinct_names",
     "Esql.unique_name_ratio",
+    "Esql.null_query_count",
+    "Esql.null_distinct_names",
+    "Esql.long_txt_query_count",
+    "Esql.long_txt_distinct_names",
+    "Esql.dns_question_type_values",
+    "Esql.max_question_name_length",
+    "Esql.avg_question_name_length",
     "Esql.max_subdomain_length",
     "Esql.avg_subdomain_length",
-    "Esql.dns_question_type_values",
     "Esql.destination_ip_values",
     "Esql.sample_names",
     "Esql.dataset_values",
