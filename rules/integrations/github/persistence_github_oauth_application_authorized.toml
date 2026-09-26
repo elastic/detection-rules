@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a user authorizes a GitHub OAuth application. Stolen OAuth grants persist after password changes until
+revoked and can clone or ZIP private repositories. This is not a GitHub App installation
+(integration_installation.create).
+"""
+false_positives = [
+    """
+    Developers authorizing approved internal or vendor OAuth apps. Maintain an allowlist of expected application names
+    and investigate first-time grants from unusual IPs or user agents.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub OAuth Application Authorized"
+note = """## Triage and analysis
+
+### Investigating GitHub OAuth Application Authorized
+
+`oauth_authorization.create` is a user grant of an OAuth App. It is distinct from installing a GitHub App. After a grant, look for `git.clone` or `repo.download_zip` with `programmatic_access_type` of OAuth access token.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.application_name` / `github.oauth_application_id`, `github.actor_ip`, and `github.user_agent`.
+- Confirm the app is approved by the organization. Review requested scopes.
+- Pivot to clone, ZIP, and `api.request` activity from the same user shortly after the grant.
+
+### False positive analysis
+
+- First-time login to an approved CI, IDE, or SaaS integration.
+
+### Response and remediation
+
+- If unauthorized, revoke the OAuth grant and the application's tokens, then force a password reset and session invalidation.
+- Review org third-party application restrictions.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://github.blog/news-insights/company-news/security-alert-stolen-oauth-user-tokens/",
+    "https://github.blog/news-insights/company-news/security-alert-new-phishing-campaign-targets-github-users/",
+    "https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/authorizing-oauth-apps",
+]
+risk_score = 21
+rule_id = "3e8ae55e-5b66-40dc-b747-c314cf9fcef8"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "oauth_authorization.create"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.name",
+]
+
