@@ -201,16 +201,28 @@ def build_attack_lookups_for_version(version: str) -> AttackLookups:
     return _build_lookups(version, raw)
 
 
+# Rules are still authored against the v18 tactic name. v19 renamed TA0005.
+_LEGACY_TACTIC_NAMES = {"Defense Evasion": "Stealth"}
+
+
+def _tactic_lookup_name(tactic: str) -> str:
+    """Return the tactic name present in the loaded ATT&CK data."""
+    if tactic in tactics_map:
+        return tactic
+    return _LEGACY_TACTIC_NAMES.get(tactic, tactic)
+
+
 def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes | None]:
     """Refresh ATT&CK data from Mitre."""
-    attack_path = get_attack_file_path()
-    filename, _, _ = attack_path.name.rsplit(".", 2)
 
     def get_version_from_tag(name: str, pattern: str = "att&ck-v") -> str:
         _, version = name.lower().split(pattern, 1)
         return version
 
-    current_version = Version.parse(get_version_from_tag(filename, "attack-v"), optional_minor_and_patch=True)
+    attack_files = get_etc_glob_path(["attack-v*.json.gz"])
+    if not attack_files:
+        raise FileNotFoundError("Missing required attack-v*.json.gz file")
+    current_version = max(_attack_file_version(path) for path in attack_files)
 
     r = requests.get("https://api.github.com/repos/mitre/cti/tags", timeout=30)
     r.raise_for_status()
@@ -235,8 +247,7 @@ def refresh_attack_data(save: bool = True) -> tuple[dict[str, Any] | None, bytes
     if save:
         new_path = get_etc_path([f"attack-v{latest_version}.json.gz"])
         _ = new_path.write_bytes(compressed)
-        attack_path.unlink()
-        print(f"Replaced file: {attack_path} with {new_path}")
+        print(f"Saved ATT&CK data file: {new_path}")
 
     return attack_data, compressed
 
@@ -245,7 +256,8 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
     """Build rule threat map from technique IDs."""
     techniques_redirect_map = load_techniques_redirect()
     url_base = "https://attack.mitre.org/{type}/{id}/"
-    tactic_id = tactics_map[tactic]
+    lookup_tactic = _tactic_lookup_name(tactic)
+    tactic_id = tactics_map[lookup_tactic]
     tech_entries: dict[str, Any] = {}
 
     def make_entry(_id: str) -> dict[str, Any]:
@@ -259,10 +271,11 @@ def build_threat_map_entry(tactic: str, *technique_ids: str) -> dict[str, Any]:
         # fail if deprecated or else convert if it has been replaced
         if tid in deprecated:
             raise ValueError(f"Technique ID: {tid} has been deprecated and should not be used")
-        if tid in techniques_redirect_map:
-            tid = techniques_redirect_map[tid]  # noqa: PLW2901
+        redirected = techniques_redirect_map.get(tid)
+        if redirected in matrix[lookup_tactic]:
+            tid = redirected  # noqa: PLW2901
 
-        if tid not in matrix[tactic]:
+        if tid not in matrix[lookup_tactic]:
             raise ValueError(f"Technique ID: {tid} does not fall under tactic: {tactic}")
 
         # sub-techniques
