@@ -2,7 +2,7 @@
 creation_date = "2026/07/24"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/27"
 
 [rule]
 author = ["Elastic"]
@@ -108,7 +108,15 @@ file.path:(
 not (
   file.path:*/storage/framework/sessions/* or
   (process.name:php-fpm* and file.path:(/mnt/WEB/*/public_html/tmp/templates/frontend/*.php or /mnt/WEB/*/public_html/wp-content/languages/*.json)) or
-  (process.name:node and (user.id>=1000 or user.id:0))
+  (process.name:node and (user.id>=1000 or user.id:0)) or
+  file.extension:("part" or "tmp" or "temp" or "cache" or "tmpfsfile" or "lock") or
+  file.extension:("pdf" or "PDF" or "png" or "PNG" or "jpg" or "JPG" or "jpeg" or "JPEG" or "gif" or "GIF" or "svg" or "SVG" or "ico" or "ICO" or "bmp" or "BMP" or "webp" or "WEBP" or "tiff" or "TIFF" or "mp4" or "mp3" or "avi" or "mov" or "wmv" or "flv" or "mkv" or "ogg" or "wav") or
+  file.path:(*/_cache/* or */_sessions/* or */localcache/* or */cachestore_file/* or */_inventories/* or */cache/tcpdf/*) or
+  file.path:(*/storage/framework/cache/* or */thumbnails/* or */files_trashbin/* or */proxy_temp/*) or
+  file.path:*/sessions/sess_* or
+  file.path:*/temp-write-test-* or
+  file.path:*/uploads/web-file-upload-* or
+  file.path:(*/node_modules/* or */.npm/*)
   )
 '''
 
