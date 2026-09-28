@@ -7,16 +7,16 @@ updated_date = "2026/09/28"
 [rule]
 author = ["Elastic"]
 description = """
-Detects NetScaler syslog records containing a forged Pitboss/PPE failure message, an NSPPE token, and shell syntax. This
-pattern is associated with CVE-2026-88771, in which attacker-controlled text written to appliance logs can later be
-interpolated into a shell command by the root-running ns_monuploadd_err.pl script. Command execution can be delayed
-until the script processes the poisoned record.
+Detects shell syntax in NetScaler Pitboss records or in Citrix records that combine Pitboss, packet-engine, or core
+terminology with shell syntax. This may indicate that attacker-controlled data poisoned an appliance log consumed by a
+privileged script. The behavior includes CVE-2026-88771, but the detection is intended to identify similar NetScaler
+log-poisoning command-injection attempts without requiring a specific vulnerability, failure phrase, or command.
 """
 false_positives = [
     """
-    Authorized security testing may deliberately write a harmless forged PPE failure record to validate exposure or
-    detection. Confirm the source and testing window. Normal packet-engine failure records should not contain shell
-    separators, command substitution, pipes, or redirection after an NSPPE token.
+    Authorized security testing may deliberately write a harmless forged Pitboss or PPE record to validate exposure or
+    detection. Confirm the source and testing window. Normal Pitboss and packet-engine records should not contain shell
+    separators, command substitution, pipes, or redirection.
     """,
 ]
 from = "now-9m"
@@ -28,15 +28,14 @@ note = """## Triage and analysis
 
 ### Investigating Potential NetScaler Log Poisoning Command Injection Attempt
 
-CVE-2026-88771 is a pre-authentication command-injection vulnerability affecting vulnerable NetScaler ADC and
-NetScaler Gateway builds. Attacker-controlled request data can be written into appliance logs as a forged Pitboss/PPE
-failure record. The root-running `ns_monuploadd_err.pl` script later extracts the supposed packet-engine core name,
-interpolates it into a shell command, and can execute injected shell syntax. Processing may occur up to 24 hours after
-the malicious request.
+NetScaler emits Pitboss records for packet-engine process monitoring and recovery. Shell separators, command
+substitution, pipes, or redirection are not expected in these records. Their presence can indicate that
+attacker-controlled request or authentication data was written into an appliance log in a form that may later be
+interpreted by a privileged log-processing, diagnostic, or core-handling script.
 
-The normal record structure is narrow, such as `pitboss: NSPPE-00 (12345) unexpectedly died`. This rule requires a
-forged failure structure containing `pitboss`, `PPE`, a failure phrase, `NSPPE`, and literal or percent-encoded shell
-syntax. It does not require the public reproduction's endpoint, parameter, filename, or injected command.
+CVE-2026-88771 is one example of this behavior. Its public exploit family forges a Pitboss/PPE failure record containing
+an `NSPPE` token and shell syntax that can later be processed by the root-running `ns_monuploadd_err.pl` script. This
+rule does not require that CVE's failure phrase, endpoint, parameter, filename, token ordering, or injected command.
 
 ### Possible investigation steps
 
@@ -58,8 +57,9 @@ syntax. It does not require the public reproduction's endpoint, parameter, filen
 - Review DNS, proxy, firewall, NetFlow/IPFIX, and Zeek telemetry for first-seen internet egress, payload retrieval,
   long-lived outbound connections, or new internal SSH, SMB, RDP, WinRM, database, or management traffic from every
   appliance identity, including NSIPs, SNIPs, HA peers, and translated egress addresses.
-- Verify the exact NetScaler branch and build. Fixed versions include 14.1-73.37, 13.1-64.23, 14.1-73.37 FIPS, and
-  13.1-37.279 FIPS/NDcPP or later, subject to current Citrix upgrade guidance.
+- If the record resembles CVE-2026-88771, verify the exact NetScaler branch and build. Fixed versions include
+  14.1-73.37, 13.1-64.23, 14.1-73.37 FIPS, and 13.1-37.279 FIPS/NDcPP or later, subject to current Citrix upgrade
+  guidance.
 
 ### False positive analysis
 
@@ -68,8 +68,9 @@ syntax. It does not require the public reproduction's endpoint, parameter, filen
 - Broad internet scanners and vulnerability probes can submit POST requests to `/nf/auth/doAuthentication.do` without
   carrying the CVE-2026-88771 payload. Do not classify the endpoint path, request method, or source reputation alone as
   exploitation.
-- A legitimate packet-engine crash can contain `PPE`, `NSPPE`, and a failure phrase, but should not contain the shell
-  syntax required by this rule. Do not suppress genuine crashes broadly.
+- A legitimate packet-engine crash or Pitboss recovery event can contain `PPE`, `NSPPE`, core-file terminology, and a
+  failure phrase, but should not contain the shell syntax required by this rule. Do not suppress genuine crashes
+  broadly.
 - If a benign test is confirmed, scope any exception to the controlled source and maintenance window rather than
   excluding a failure phrase or shell token globally.
 
@@ -104,7 +105,7 @@ The integration stores the parsed inner Citrix record in `citrix.detail` and unm
 `citrix_adc.log.message`; the rule checks both because poisoned text can appear inside another Citrix event or as a
 Pitboss-class record. Enable **Preserve original event** for investigation, forward logs to a remote collector, and
 retain rotated records for at least 48 hours because local evidence can be altered after root compromise and
-CVE-2026-88771 command execution can be delayed by up to 24 hours.
+some log consumers process records asynchronously. CVE-2026-88771 command execution can be delayed by up to 24 hours.
 
 This rule analyzes appliance logs rather than encrypted request payloads. It can detect the poisoned record without TLS
 decryption after the attacker-controlled value is logged, but it cannot prove that the vulnerable script executed the
@@ -119,6 +120,7 @@ tags = [
     "Tactic: Initial Access",
     "Data Source: Citrix ADC",
     "Resources: Investigation Guide",
+    "Threat: Log Poisoning",
     "Threat: Vulnerability Exploit",
     "Rule Type: Event Correlation (EQL)",
     "Vuln: CVE-2026-88771",
@@ -130,10 +132,13 @@ query = '''
 any where
   data_stream.dataset == "citrix_adc.log" and
   (
-    citrix.detail regex~ """.*pitboss.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*""" or
+    (
+      citrix.detail regex~ """.*pitboss.*(nsppe|ppe|packet.*engine|core).*""" and
+      citrix.detail regex~ """.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+    ) or
     (
       citrix.device_event_class_id == "PITBOSS" and
-      citrix_adc.log.message regex~ """.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+      citrix_adc.log.message regex~ """.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
     )
   )
 '''
