@@ -7,17 +7,11 @@ updated_date = "2026/09/14"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies execution of a third-party S3 or object-storage client such as S3 Browser, s5cmd, the MinIO client, or
-Cyberduck. After obtaining AWS credentials, adversaries frequently switch from the AWS CLI to a GUI or bulk-transfer
-client to enumerate and drain buckets faster. S3 Browser specifically was the tool used to exfiltrate and then delete
-bucket contents in the Unit 42 mass .env extortion campaign that touched more than 100,000 domains, and in the DarkLab
-Jenkins-RCE case study.
-
-These tools are legitimately installed on both servers and client machines by developers, data engineers, and ops
-teams, so execution is only flagged when driven by a script interpreter, a shell one-liner, or a process running from
-a temporary or user-writable path - the contexts that characterise post-exploitation automation rather than interactive
-use. Note: rclone is included here for Linux and macOS coverage; Windows rclone abuse already has a dedicated rule
-(windows/exfiltration_rclone_cloud_upload), so some Windows overlap is expected and intentional.
+Identifies execution of a third-party S3 or object-storage client (S3 Browser, s5cmd, s3cmd, MinIO mc, rclone,
+Cyberduck, s3fs, goofys, juicefs) launched by a script interpreter, a shell one-liner, or from a temporary or
+user-writable path. After stealing cloud credentials, adversaries switch from the AWS CLI to these clients to
+enumerate and drain buckets in bulk. Gating on a scripted context separates post-exploitation automation from
+interactive developer use.
 """
 false_positives = [
     """
@@ -124,12 +118,14 @@ process.name : (
   *bucketexplorer* or *cloudberry* or *s3browser*
 ) and not (
   process.name : (mc or mc.exe) and not
-  process.args : (alias or cp or mirror or mv or rm or ls or find or cat or admin or share)
-) and not process.executable : (
-  /opt/Elastic/Agent/* or /usr/lib/systemd/* or /var/lib/amazon/ssm/*
-) and not process.command_line : (* version* or *--help* or *--version* or *selfupdate*) and
+  process.args : (admin or alias or cat or cp or du or find or get or ls or mb or mirror or mv or pipe or put or rb or rm or share or stat or tree)
+) and not process.executable : (/opt/Elastic/Agent/* or /usr/lib/systemd/*) and
+not process.args : (--help or --version or -h or selfupdate or version) and
 (
-  process.parent.name : (bun or bun.exe or deno or deno.exe or node or node.exe or nodejs or perl* or php* or python* or ruby*) or
+  process.parent.name : (
+    bun or bun.exe or cscript.exe or deno or deno.exe or mshta.exe or node or node.exe or nodejs or
+    perl* or php* or python* or ruby* or wscript.exe
+  ) or
   (
     process.parent.name : (bash or bash.exe or cmd.exe or dash or fish or ksh or powershell.exe or pwsh or pwsh.exe or sh or zsh) and
     process.parent.args : ("-Command" or "-EncodedCommand" or "-enc" or "-e" or "-c" or "-ilc" or "-lc" or "/c")
