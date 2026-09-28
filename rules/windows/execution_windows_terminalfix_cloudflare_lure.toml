@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/09/28"
+integration = ["windows"]
+maturity = "production"
+updated_date = "2026/09/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell script blocks that print a fake Cloudflare verification lure. TerminalFix pages instruct the
+victim to paste a command into Windows Terminal or PowerShell. The script presents messages such as "Cloudflare
+verification", "Cloudflare ID:", or "I am not a robot" while it stages a payload. Review the full script block for
+download, extraction, and follow-on execution.
+"""
+from = "now-9m"
+index = ["logs-windows.powershell*", "winlogbeat-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Potential TerminalFix Cloudflare Lure in PowerShell"
+note = """## Triage and analysis
+
+### Investigating Potential TerminalFix Cloudflare Lure in PowerShell
+
+#### Possible investigation steps
+
+- What lure text was executed, and what command sits around it?
+  - Why: TerminalFix pastes a multi-line PowerShell script that prints a fake Cloudflare check. Script block logging records that text even when the process command line only shows the host binary.
+  - Focus: `powershell.file.script_block_text` for "Cloudflare verification", "Cloudflare ID:", or "I am not a robot", then the surrounding download, extract, start-process, or hidden-window statements.
+  - Implication: escalate when the lure is paired with a download, archive extraction, encoded command, or a launch of another script, batch file, or executable. Lower suspicion only when the same text is a bounded lab reproduction with no retrieval or second stage.
+
+- Is this fragment the whole script?
+  - Why: one pasted script can be split across multiple 4104 events.
+  - Focus: `powershell.file.script_block_id`, `powershell.sequence`, and `powershell.total` on the same `host.id`. Order the fragments by sequence and read the reconstructed script.
+  - Implication: escalate when a later fragment retrieves a payload, writes under a user-writable or ProgramData path, or starts a follow-on process. A single fragment that only prints the lure leaves the rest of the script unresolved.
+
+- Did the script stage or launch a payload?
+  - Focus: paths, URLs, and executables named in the reconstructed script. On the same `host.id`, review file and process events in a tight window around the alert for archives, extracted directories, `cmd.exe`, `powershell.exe`, or an unexpected executable start.
+  - Hint: if `process.entity_id` is absent, fall back to `host.id` plus `process.pid`.
+  - Implication: escalate when a file lands outside a recognized installer path, a batch or executable starts from that location, or the script reaches an unusual domain or IP. Missing file or network telemetry leaves those questions unresolved.
+
+- How was this PowerShell instance started?
+  - Focus: the process start for this `process.pid` on `host.id`, including `process.parent.name`, `process.parent.executable`, `process.command_line`, `user.id`, and `user.name`.
+  - Implication: escalate when Windows Terminal, a console host, or explorer starts PowerShell for an end user just after browser activity. A scheduled admin task is lower suspicion only when the script content is that task and contains no lure-plus-payload behavior.
+
+- Escalate when the Cloudflare lure is paired with retrieval, staging, or a second-stage process, or when related alerts show the same paste on this user or host. Close only when the script text, user, and host bind to one authorized simulation or lab workflow with no contradiction. If evidence is mixed or visibility is incomplete, preserve evidence and escalate.
+
+### False positive analysis
+
+- Security-awareness, phishing-simulation, red-team, and malware-analysis labs can paste this lure into PowerShell. Confirm one workflow: the `powershell.file.script_block_text` value, the expected parent process, and a bounded `user.id` / `host.id`, with no retrieval or second stage outside the exercise.
+- Before an exception, require the same script fragment, `user.id`, and `host.id` across prior alerts from this rule. Avoid exceptions on the lure phrases, `powershell.exe`, or `user.name` alone.
+
+### Response and remediation
+
+- If confirmed benign, reverse temporary containment and record the script text, parent process, `user.id`, and `host.id` that proved the workflow. Create an exception only when that exact workflow recurs.
+- If suspicious but unconfirmed, export the script block events, the reconstructed script, `powershell.file.script_block_id`, and any child process, file, and destination evidence before cleanup. Apply reversible controls first, such as temporary destination blocks, a browser-session reset, or heightened monitoring. Isolate the host when retrieval or second-stage execution makes continued connectivity risky.
+- If confirmed malicious, isolate the host, then terminate the PowerShell instance and suspicious descendants after recording identifiers. Remove staged archives, scripts, and payloads, and block confirmed domains, IPs, hashes, or URLs. Reset credentials only when the investigation shows account misuse.
+- Post-incident hardening: keep PowerShell script block logging enabled, warn users that a real Cloudflare check never asks them to paste a command into a terminal, and record the lure wording and paste-run chain in the case notes.
+"""
+references = [
+    "https://www.microsoft.com/en-us/security/blog/2026/08/28/terminalfix-campaign-deploys-reverse-tunnel-through-multistage-intrusion/",
+]
+risk_score = 73
+rule_id = "a4071476-76c8-4dc4-a3e2-956148d22aa2"
+setup = """## Setup
+
+PowerShell Script Block Logging must be enabled to generate the events used by this rule (e.g., 4104).
+Setup instructions: https://ela.st/powershell-logging-setup
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: PowerShell Logs",
+    "Resources: Investigation Guide",
+    "Threat: ClickFix",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:windows and event.category:process and
+event.provider:("Microsoft-Windows-PowerShell" or "PowerShellCore") and
+event.action:"Execute a Remote Command" and
+powershell.file.script_block_text:(("Write-Host" or "cls;") and ("Cloudflare verification" or  "Cloudflare ID:" or  "I am not a robot" or "I' am not a robot"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1204.004"
+name = "Malicious Copy and Paste"
+reference = "https://attack.mitre.org/techniques/T1204/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1189"
+name = "Drive-by Compromise"
+reference = "https://attack.mitre.org/techniques/T1189/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.name",
+    "host.id",
+    "user.name",
+    "user.id",
+    "user.domain",
+    "process.pid",
+    "powershell.file.script_block_text",
+    "powershell.file.script_block_id",
+    "powershell.sequence",
+    "powershell.total",
+    "file.path",
+    "file.name",
+]
