@@ -100,10 +100,11 @@ to forward native syslog records to an Elastic Agent by TCP or UDP, or collect t
 syslog is recommended where supported. Include system/PPE and AAA/AAAD or authentication-related records so analysts
 can recover the poisoned failure text and surrounding request context.
 
-Enable **Preserve original event** so the complete native record is stored in `event.original`; the rule intentionally
-uses this field because exploit-shaped text may not populate normalized fields consistently. Forward logs to a remote
-collector and retain rotated records for at least 48 hours because local evidence can be altered after root compromise
-and CVE-2026-88771 command execution can be delayed by up to 24 hours.
+The integration stores the parsed inner Citrix record in `citrix.detail` and unmatched Pitboss message content in
+`citrix_adc.log.message`; the rule checks both because poisoned text can appear inside another Citrix event or as a
+Pitboss-class record. Enable **Preserve original event** for investigation, forward logs to a remote collector, and
+retain rotated records for at least 48 hours because local evidence can be altered after root compromise and
+CVE-2026-88771 command execution can be delayed by up to 24 hours.
 
 This rule analyzes appliance logs rather than encrypted request payloads. It can detect the poisoned record without TLS
 decryption after the attacker-controlled value is logged, but it cannot prove that the vulnerable script executed the
@@ -128,7 +129,13 @@ type = "eql"
 query = '''
 any where
   data_stream.dataset == "citrix_adc.log" and
-  event.original regex~ """.*pitboss.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+  (
+    citrix.detail regex~ """.*pitboss.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*""" or
+    (
+      citrix.device_event_class_id == "PITBOSS" and
+      citrix_adc.log.message regex~ """.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+    )
+  )
 '''
 
 
