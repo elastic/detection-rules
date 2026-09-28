@@ -2,7 +2,7 @@
 creation_date = "2024/06/29"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -121,11 +121,15 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS RDS",
-    "Resources: Investigation Guide",
-    "Use Case: Threat Detection",
-    "Tactic: Persistence",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS RDS",
     "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -139,6 +143,7 @@ any where data_stream.dataset == "aws.cloudtrail"
         or
         (event.action in ("CreateDBInstance", "CreateDBCluster") and stringContains(aws.cloudtrail.request_parameters, "publiclyAccessible=true"))
     )
+    and not user_agent.original like~ ("*Terraform*",  "*Pulumi*")
 '''
 
 
