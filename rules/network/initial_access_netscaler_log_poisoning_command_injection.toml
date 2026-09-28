@@ -140,11 +140,17 @@ any where
   (
     (
       citrix.detail regex~ """.*pitboss.*(nsppe|ppe|packet.*engine|core).*""" and
-      citrix.detail regex~ """.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+      citrix.detail like~ (
+        "*;*", "*`*", "*$(*", "*|*", "*>*", "*<*", "*&&*", "*||*",
+        "*%3b*", "*%60*", "*%7c*", "*%24%28*", "*%26%26*", "*%3e*", "*%3c*"
+      )
     ) or
     (
       citrix.device_event_class_id == "PITBOSS" and
-      citrix_adc.log.message regex~ """.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+      citrix_adc.log.message like~ (
+        "*;*", "*`*", "*$(*", "*|*", "*>*", "*<*", "*&&*", "*||*",
+        "*%3b*", "*%60*", "*%7c*", "*%24%28*", "*%26%26*", "*%3e*", "*%3c*"
+      )
     )
   )
 '''
