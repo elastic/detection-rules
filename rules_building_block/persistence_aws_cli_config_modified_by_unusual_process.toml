@@ -15,16 +15,17 @@ subsequent AWS CLI and SDK call through a binary of their choosing, harvesting o
 touching the credentials file itself. The CLI alias file offers a similar hijack primitive. This write-side abuse
 leaves no CloudTrail evidence and is substantially quieter than reading the credentials file.
 
-Common file-copy utilities (cp, mv, rsync) and general-purpose Python interpreters are intentionally not allowlisted,
+Common file-copy utilities (cp, mv, rsync, install) and general-purpose interpreters are intentionally not allowlisted,
 since an attacker copying a pre-staged malicious config or injecting a credential_process directive via script should
-produce a signal. Bootstrap and onboarding shell scripts that legitimately run aws configure are a common FP; allowlist
-their executable paths if needed.
+produce a signal. Provisioning systems and onboarding scripts that legitimately write this file run as those same
+interpreters and are the expected source of benign hits; add exceptions for known hosts and pipelines.
 """
 false_positives = [
     """
-    Dotfile management tools (chezmoi, stow, yadm), provisioning systems (Ansible, cloud-init), and package
-    managers are allowlisted. Company onboarding and bootstrap shell scripts that run aws configure set commands
-    will also trigger this rule. Allowlist known script executable paths or parent processes as needed.
+    Configuration management (Ansible, cloud-init) and bootstrap scripts that write ~/.aws/config run as generic
+    interpreters (python3, bash) and will trigger this rule. Add exceptions on host.name, user.name, or
+    process.executable for known provisioning hosts and pipelines. Dotfile managers (chezmoi, stow, yadm) and
+    package managers are excluded by process name.
     """,
 ]
 from = "now-119m"
@@ -88,15 +89,15 @@ query = '''
 event.category : "file" and event.action : (creation or modification or overwrite or rename) and
 file.path : (
   /root/.aws/cli/alias or /root/.aws/config or
+  /var/root/.aws/cli/alias or /var/root/.aws/config or
+  /private/var/root/.aws/cli/alias or /private/var/root/.aws/config or
   *\\.aws\\cli\\alias or *\\.aws\\config or
   /Users/*/.aws/cli/alias or /Users/*/.aws/config or
   /home/*/.aws/cli/alias or /home/*/.aws/config
 ) and
 process.executable : (* and not (
   *\\Program Files*\\* or /Applications/* or /opt/Elastic/Agent/* or /opt/aws/* or
-  /usr/lib/python3*/dist-packages/ansible* or /usr/lib/python3*/dist-packages/cloud_init* or
-  /usr/lib/systemd/* or /usr/local/lib/python3*/site-packages/ansible* or
-  /usr/local/lib/python3*/site-packages/cloud_init* or /var/lib/amazon/ssm/*
+  /usr/lib/systemd/* or /var/lib/amazon/ssm/*
 )) and
 not process.name : (
   Code or apt or assume or assumego or
@@ -104,11 +105,11 @@ not process.name : (
   aws-vault or "aws-vault.exe" or aws.exe or aws_completer or aws_signing_helper or
   brew or "chef-client" or chezmoi or "cloud-init" or code or code.exe or conda or
   cursor or cursor.exe or dnf or dpkg or emacs or gedit or "gimme-aws-creds" or
-  git or git.exe or goland or granted or helm or idea or install or kate or kubectl or
+  git or git.exe or goland or granted or helm or idea or kate or kubectl or
   leapp or nano or "notepad++.exe" or "notepad.exe" or npm or nvim or
   "okta-aws-cli" or packer or pip or pip3 or puppet or pycharm or rpm or
-  saml2aws or saml2aws.exe or stow or sublime_text or tar or terraform or terraform.exe or
-  tofu or unzip or vi or vim or yadm or yum
+  saml2aws or saml2aws.exe or stow or sublime_text or terraform or terraform.exe or
+  tofu or vi or vim or yadm or yum
 )
 '''
 
@@ -116,9 +117,9 @@ not process.name : (
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
 
 [rule.threat.tactic]
 id = "TA0003"
@@ -129,14 +130,9 @@ reference = "https://attack.mitre.org/tactics/TA0003/"
 framework = "MITRE ATT&CK"
 
 [[rule.threat.technique]]
-id = "T1552"
-name = "Unsecured Credentials"
-reference = "https://attack.mitre.org/techniques/T1552/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1552.001"
-name = "Credentials In Files"
-reference = "https://attack.mitre.org/techniques/T1552/001/"
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
 
 [rule.threat.tactic]
 id = "TA0006"
