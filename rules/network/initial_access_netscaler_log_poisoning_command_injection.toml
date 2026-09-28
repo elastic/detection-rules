@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/09/28"
+integration = ["citrix_adc"]
+maturity = "production"
+updated_date = "2026/09/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects NetScaler syslog records containing a forged Pitboss/PPE failure message, an NSPPE token, and shell syntax. This
+pattern is associated with CVE-2026-88771, in which attacker-controlled text written to appliance logs can later be
+interpolated into a shell command by the root-running ns_monuploadd_err.pl script. Command execution can be delayed
+until the script processes the poisoned record.
+"""
+false_positives = [
+    """
+    Authorized security testing may deliberately write a harmless forged PPE failure record to validate exposure or
+    detection. Confirm the source and testing window. Normal packet-engine failure records should not contain shell
+    separators, command substitution, pipes, or redirection after an NSPPE token.
+    """,
+]
+from = "now-9m"
+index = ["logs-citrix_adc.log-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Potential NetScaler Log Poisoning Command Injection Attempt"
+note = """## Triage and analysis
+
+### Investigating Potential NetScaler Log Poisoning Command Injection Attempt
+
+CVE-2026-88771 is a pre-authentication command-injection vulnerability affecting vulnerable NetScaler ADC and
+NetScaler Gateway builds. Attacker-controlled request data can be written into appliance logs as a forged Pitboss/PPE
+failure record. The root-running `ns_monuploadd_err.pl` script later extracts the supposed packet-engine core name,
+interpolates it into a shell command, and can execute injected shell syntax. Processing may occur up to 24 hours after
+the malicious request.
+
+The normal record structure is narrow, such as `pitboss: NSPPE-00 (12345) unexpectedly died`. This rule requires a
+forged failure structure containing `pitboss`, `PPE`, a failure phrase, `NSPPE`, and literal or percent-encoded shell
+syntax. It does not require the public reproduction's endpoint, parameter, filename, or injected command.
+
+### Possible investigation steps
+
+- Preserve the complete `event.original`, remote syslog records, rotated logs, NetScaler Console results, support
+  bundles, packet-engine cores, snapshots, and relevant flow data before patching or rebooting.
+- Identify the source address and the targeted NetScaler or virtual server. In native `CONN_DELINK` records,
+  `destination.ip` can represent a backend service rather than the public virtual-server address; review the raw
+  `Vserver`, `NatIP`, and `Destination` values when present.
+- Review adjacent AAA/AAAD, authentication, login, and WAF records for the submitted username or login value, selected
+  request headers, action, response, and request or session identifiers. The `/nf/auth/doAuthentication.do` path is
+  useful context but is not proof of exploitation without the forged PPE structure.
+- Determine whether the value contains a shell separator (`;`, `&&`, `||`), command substitution (backticks or `$()`),
+  a pipe, or redirection, and repeatedly URL-decode percent-encoded values while preserving the original bytes.
+- Search remote and rotated NetScaler logs for the same value and source for at least 48 hours. A match can represent
+  an attempt even if `ns_monuploadd_err.pl` has not processed the poisoned record yet.
+- From the first poisoned-log timestamp, hunt forward at least 24–48 hours for root shell activity, unexpected
+  commands, file creation, configuration or startup changes, new listeners, packet-engine failure, restart, or HA
+  failover.
+- Review DNS, proxy, firewall, NetFlow/IPFIX, and Zeek telemetry for first-seen internet egress, payload retrieval,
+  long-lived outbound connections, or new internal SSH, SMB, RDP, WinRM, database, or management traffic from every
+  appliance identity, including NSIPs, SNIPs, HA peers, and translated egress addresses.
+- Verify the exact NetScaler branch and build. Fixed versions include 14.1-73.37, 13.1-64.23, 14.1-73.37 FIPS, and
+  13.1-37.279 FIPS/NDcPP or later, subject to current Citrix upgrade guidance.
+
+### False positive analysis
+
+- Confirm whether an authorized scanner, penetration test, synthetic log fixture, or incident-response exercise
+  generated the record.
+- Broad internet scanners and vulnerability probes can submit POST requests to `/nf/auth/doAuthentication.do` without
+  carrying the CVE-2026-88771 payload. Do not classify the endpoint path, request method, or source reputation alone as
+  exploitation.
+- A legitimate packet-engine crash can contain `PPE`, `NSPPE`, and a failure phrase, but should not contain the shell
+  syntax required by this rule. Do not suppress genuine crashes broadly.
+- If a benign test is confirmed, scope any exception to the controlled source and maintenance window rather than
+  excluding a failure phrase or shell token globally.
+
+### Response and remediation
+
+- Treat a match on an unpatched appliance as a potential root-compromise precursor. Preserve evidence, then isolate or
+  tightly restrict the appliance while maintaining an evidence-preserving management path.
+- Upgrade to a fixed build using current Citrix guidance. Patching prevents future exploitation but does not establish
+  that the appliance was not already compromised.
+- Run current NetScaler Console IOC and file-integrity checks. A clean scan does not prove absence of compromise.
+- If command execution is confirmed, rebuild from a trusted image and rotate administrative credentials, secrets,
+  certificates, tokens, and backend trust material stored on or transiting the appliance.
+- Restrict appliance egress and management access, and retain remote logs so a compromised appliance cannot erase the
+  only copy of the evidence.
+"""
+references = [
+    "https://support.citrix.com/external/article/CTX697096",
+    "https://labs.watchtowr.com/oh-look-the-foot-gun-went-off-again-citrix-netscaler-preauth-command-injection-cve-2026-88771/",
+    "https://www.cisa.gov/news-events/alerts/2026/09/27/critical-zero-day-vulnerabilities-exploited-citrix-netscaler-adc-gateway",
+    "https://www.elastic.co/docs/reference/integrations/citrix_adc",
+]
+risk_score = 73
+rule_id = "afaece21-6631-440b-87d3-1d0a2013576e"
+setup = """## Setup
+
+This rule requires the Elastic Citrix ADC integration with the `citrix_adc.log` data stream enabled. Configure NetScaler
+to forward native syslog records to an Elastic Agent by TCP or UDP, or collect the corresponding log files. RFC 5424
+syslog is recommended where supported. Include system/PPE and AAA/AAAD or authentication-related records so analysts
+can recover the poisoned failure text and surrounding request context.
+
+Enable **Preserve original event** so the complete native record is stored in `event.original`; the rule intentionally
+uses this field because exploit-shaped text may not populate normalized fields consistently. Forward logs to a remote
+collector and retain rotated records for at least 48 hours because local evidence can be altered after root compromise
+and CVE-2026-88771 command execution can be delayed by up to 24 hours.
+
+This rule analyzes appliance logs rather than encrypted request payloads. It can detect the poisoned record without TLS
+decryption after the attacker-controlled value is logged, but it cannot prove that the vulnerable script executed the
+injected command.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Data Source: Citrix ADC",
+    "Resources: Investigation Guide",
+    "Threat: Vulnerability Exploit",
+    "Rule Type: Event Correlation (EQL)",
+    "Vuln: CVE-2026-88771",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where
+  data_stream.dataset == "citrix_adc.log" and
+  event.original regex~ """.*pitboss.*ppe.*(unexpectedly.*died|missed.*too.*many.*heartbeats).*nsppe.*(;|`|\$\(|\||>|<|&&|\|\||%3b|%60|%7c|%24%28|%26%26|%3e|%3c).*"""
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
