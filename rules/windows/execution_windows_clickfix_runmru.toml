@@ -2,7 +2,7 @@
 creation_date = "2026/09/24"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/24"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -118,6 +118,7 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*, winlogb
   (
     (registry_data like "*powershell*" or registry_data like "*pwsh*") and
     (
+      registry_data like "*-nop *" or 
       registry_data like "* -e *" or
       registry_data like "* -ec *" or
       registry_data like "* -en*" or
@@ -137,36 +138,42 @@ from logs-endpoint.events.registry-*, logs-windows.sysmon_operational-*, winlogb
       registry_data like "*bypass*" or
       registry_data like "* -w* h*" or
       registry_data like "* -w* mi*" or
+      registry_data like "* -w *" or 
       registry_data like "*start-process*" or
       registry_data like "*frombase64string*" or
       registry_data like "*substring*" or
+      registry_data like "*psitem.definition*" or
       registry_data like "*+*+*+*"
     )
   )
   or
   // Remote content and script execution through other utilities
   (
-    registry_data like "*msiexec*http*" or
-    registry_data like """*msiexec*\\\\*""" or
-    registry_data like "*mshta*http*" or
-    registry_data like "*mshta*javascript:*" or
-    registry_data like "*mshta*vbscript:*" or
-    registry_data like """*mshta*\\\\*""" or
-    registry_data like "*rundll32*http*" or
-    registry_data like "*rundll32*javascript:*" or
-    registry_data like """*rundll32*\\\\*""" or
-    registry_data like "*rundll32*mshtml*" or
+    registry_data like "*msiexec*" or
+    registry_data like "*mshta*" or
+    registry_data like "*msbuild*" or 
+    registry_data like "*pcalua*" or
+    registry_data like "*regsvr32*" or 
+    registry_data like "*rundll32*" or
+    registry_data like "*cmstp.exe*" or 
     registry_data like "*cmd*http*" or
     registry_data like "*cmd*set*&set*" or
-    registry_data like "*conhost*--headless*" or
-    registry_data like "*forfiles* /c *" or
-    registry_data like "*certutil* -urlcache*" or
-    registry_data like "*certutil* -decode*" or
+    registry_data like "*conhost*" or
+    registry_data like "*forfiles*" or
+    registry_data like "*certutil*" or
     registry_data like "*curl*http*" or
     registry_data like "*wget*http*" or
-    registry_data like "*bitsadmin*/transfer*" or
-    registry_data like "*|powershell*" or
-    registry_data like "*|pwsh*" or
+    registry_data like "*bitsadmin*" or 
+    registry_data like "*wmic*/f*" or 
+    registry_data like "*odbcconf*" or 
+    registry_data like "*script*davwwwroot*" or 
+    registry_data like "*script*@ssl*" or 
+    registry_data like "*cmd*davwwwroot*" or 
+    registry_data like "*cmd*@ssl*" or 
+    registry_data like "*cmd*pushd*" or 
+    registry_data like "*-appvscript*" or 
+    registry_data like "*|*powershell*" or
+    registry_data like "*|*pwsh*" or
     registry_data like "*iex*irm *" or
     registry_data like "*iex*iwr *"
   )
