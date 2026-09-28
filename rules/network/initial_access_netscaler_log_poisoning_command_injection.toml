@@ -37,6 +37,12 @@ CVE-2026-88771 is one example of this behavior. Its public exploit family forges
 an `NSPPE` token and shell syntax that can later be processed by the root-running `ns_monuploadd_err.pl` script. This
 rule does not require that CVE's failure phrase, endpoint, parameter, filename, token ordering, or injected command.
 
+> **CVE-2026-88771 indicator note**:
+> During triage, specifically look for `pitboss PPE` followed by `unexpectedly died` or
+> `missed too many heartbeats`, a malformed `NSPPE` value, and shell syntax. Also review requests to
+> `/nf/auth/doAuthentication.do`, attacker-controlled `login` values, execution by `ns_monuploadd_err.pl`, and
+> suspicious `/var/core/NSPPE-*` artifacts. No single endpoint, path, or filename is sufficient to confirm exploitation.
+
 ### Possible investigation steps
 
 - Preserve the complete `event.original`, remote syslog records, rotated logs, NetScaler Console results, support
@@ -92,7 +98,7 @@ references = [
     "https://www.cisa.gov/news-events/alerts/2026/09/27/critical-zero-day-vulnerabilities-exploited-citrix-netscaler-adc-gateway",
     "https://www.elastic.co/docs/reference/integrations/citrix_adc",
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "afaece21-6631-440b-87d3-1d0a2013576e"
 setup = """## Setup
 
@@ -111,7 +117,7 @@ This rule analyzes appliance logs rather than encrypted request payloads. It can
 decryption after the attacker-controlled value is logged, but it cannot prove that the vulnerable script executed the
 injected command.
 """
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Network",
     "Use Case: Network Security Monitoring",
