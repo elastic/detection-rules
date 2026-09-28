@@ -4,26 +4,26 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "DNS for Linux support was introduced in 9.3.0"
-updated_date = "2026/07/20"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule detects DNS queries to commonly abused top level domains. Malware authors may use these
-domains to host command and control infrastructure, exfiltrate data, or to download payloads
-for later execution.
+This rule detects unusual DNS queries to commonly abused top level domains. Malware authors may
+use these domains to host command and control infrastructure, exfiltrate data, or to download
+payloads for later execution.
 """
-from = "now-9m"
-index = ["logs-endpoint.events.network-*"]
-language = "eql"
+from = "now-5d"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
-name = "DNS Request to Suspicious Top Level Domain"
+name = "Unusual DNS Request to Suspicious Top Level Domain"
 note = """ ## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating DNS Request to Suspicious Top Level Domain
+### Investigating Unusual DNS Request to Suspicious Top Level Domain
 
 This rule flags a Linux process making DNS lookups for top-level domains that threat actors frequently abuse, which can reveal command-and-control staging, payload retrieval, or data theft paths that blend into normal name resolution. A common pattern is a compromised Linux server or container resolving a .xyz, .top, or .ru domain immediately before a downloader, backdoor, or script beacon starts exchanging instructions or uploading collected data.
 
@@ -56,23 +56,45 @@ tags = [
     "Domain: Endpoint",
     "Domain: Network",
     "OS: Linux",
+    "Platform: Linux",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Tactic: Exfiltration",
     "Data Source: Elastic Defend",
+    "Rule Type: ES|QL",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Suspicious TLD",
 ]
 timestamp_override = "event.ingested"
-type = "eql"
+type = "esql"
 query = '''
-network where host.os.type == "linux" and dns.question.name != null and process.name != null and
-dns.question.name like~ (
-  "*.forum", "*.pro", "*.team", "*.lol", "*.kr", "*.ke", "*.nu", "*.space", "*.capital", "*.in", "*.cfd", "*.online",
-  "*.ru", "*.info", "*.top", "*.buzz", "*.xyz", "*.rest", "*.ml", "*.cf", "*.gq", "*.ga", "*.onion", "*.network",
-  "*.monster", "*.marketing", "*.cyou", "*.quest", "*.cc", "*.bar", "*.click", "*.cam", "*.surf", "*.tk", "*.shop",
-  "*.club", "*.icu", "*.pw", "*.ws", "*.fun", "*.life", "*.boats", "*.store", "*.hair", "*.mom",
-  "*.beauty", "*.bond", "*.biz", "*.live", "*.zone"
-)
+FROM logs-endpoint.events.network-*
+| WHERE host.os.type == "linux"
+    AND event.action == "lookup_requested"
+    AND host.id IS NOT NULL
+    AND host.name IS NOT NULL
+    AND user.name IS NOT NULL
+    AND user.id IS NOT NULL
+    AND process.executable IS NOT NULL
+    AND dns.question.name LIKE "*.*"
+    AND process.executable != "/usr/lib/systemd/systemd-resolved"
+| EVAL Esql.dns_tld = MV_LAST(SPLIT(TO_LOWER(dns.question.name), "."))
+| WHERE Esql.dns_tld IN (
+    "forum", "pro", "team", "lol", "kr", "ke", "nu", "space", "capital", "in", "cfd", "online",
+    "ru", "info", "top", "buzz", "xyz", "rest", "ml", "cf", "gq", "ga", "onion", "network",
+    "monster", "marketing", "cyou", "quest", "cc", "bar", "click", "cam", "surf", "tk", "shop",
+    "club", "icu", "pw", "ws", "fun", "life", "boats", "store", "hair", "mom", "beauty", "bond",
+    "biz", "live", "zone"
+  )
+| STATS Esql.first_time_seen = MIN(@timestamp)
+  BY host.id, host.name, user.name, user.id, process.executable, dns.question.name, data_stream.namespace
+// New terms emulation: alert when the tuple was first seen recently within the 5-day history.
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent_minutes <= 6
+| KEEP host.id, host.name, user.name, user.id, process.executable, dns.question.name, data_stream.namespace
 '''
 
 [[rule.threat]]

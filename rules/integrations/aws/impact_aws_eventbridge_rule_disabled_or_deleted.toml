@@ -2,7 +2,7 @@
 creation_date = "2021/10/17"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/04/10"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Austin Songer", "Elastic"]
@@ -104,9 +104,14 @@ tags = [
     "Domain: Cloud",
     "Data Source: AWS",
     "Data Source: Amazon Web Services",
-    "Data Source: AWS EventBridge",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS EventBridge",
     "Tactic: Impact",
+    "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "query"
@@ -116,6 +121,7 @@ data_stream.dataset: aws.cloudtrail
     and event.provider: events.amazonaws.com 
     and event.action: (DeleteRule or DisableRule) 
     and event.outcome: success
+    and not user_agent.original: (*Terraform* or *Pulumi*)
 '''
 
 
