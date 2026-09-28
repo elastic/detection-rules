@@ -7,18 +7,21 @@
 
 from __future__ import annotations
 
+import copy
 import functools
 import re
 from dataclasses import dataclass
 from typing import Any, cast
 
 import esql
+from semver import Version
 
 from . import ecs
-from .config import CUSTOM_RULES_DIR
+from .config import CUSTOM_RULES_DIR, load_current_package_version
 from .schemas.definitions import (
     ESQL_INDEX_PATTERN_REGEX,
 )
+from .utils import cached
 
 # Legacy / alternate dataset package prefixes → Fleet package names.
 DATASET_PACKAGE_ALIASES: dict[str, str] = {
@@ -57,16 +60,29 @@ class EsqlSourceGroup:
 
 
 def _parse_for_extraction(query: str) -> Any:
-    """Parse under the current package config when the caller did not pass an AST.
-
-    No schema is installed, so this only applies grammar, feature, and nested
-    KQL/EQL hooks. Column checks stay with the validation plan.
-    """
-    from .config import load_current_package_version
+    """Parse a query under the current package config when the caller did not pass an AST."""
+    # no schema is installed, so column checks stay with the validation plan
     from .rule import set_esql_config
 
     cfg = set_esql_config(load_current_package_version())
     with cfg:
+        return esql.parse_query(query)
+
+
+def parse_esql_query(query: str, min_stack_version: str | None = None) -> Any:
+    """Parse an ES|QL query for a stack version without checking index fields."""
+    stack = str(Version.parse(min_stack_version or load_current_package_version(), optional_minor_and_patch=True))
+    # copy: the tree is shared and esql.analyze() modifies LOOKUP JOIN fields
+    return copy.deepcopy(_parse_esql_query(query, stack))
+
+
+@cached
+def _parse_esql_query(query: str, stack_version: str) -> Any:
+    """Memoized body of `parse_esql_query`."""
+    # failures are not cached and re-raise
+    from .rule import set_esql_config
+
+    with set_esql_config(stack_version), esql.Schema({}, allow_missing=True):
         return esql.parse_query(query)
 
 
@@ -91,11 +107,8 @@ def local_esql_index(source: str) -> str:
 
 
 def index_patterns_match(left: str, right: str) -> bool:
-    """Return True when some index name can match both patterns.
-
-    ``*`` is any sequence and ``?`` is one character. Overlapping globs such as
-    ``logs-*-foo`` and ``logs-bar-*`` match.
-    """
+    """Return True when some index name can match both patterns."""
+    # `*` is any sequence and `?` is one character, so `logs-*-foo` and `logs-bar-*` overlap
     if left == right:
         return True
     return _index_patterns_overlap(left, right)
@@ -151,13 +164,10 @@ def infer_packages_from_indices(indices: list[str]) -> list[str]:
     return packages
 
 
+@cached
 def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
-    """Merge non-ECS / custom field schemas for the given FROM indices.
-
-    Mirrors remote `prepare_mappings` so offline validation includes alert fields
-    (`kibana.alert.*`), integration gaps tracked in `non-ecs-schema.json`, and
-    custom index schemas.
-    """
+    """Merge the non-ECS, alert, endpoint and custom field schemas for FROM indices."""
+    # cached: the returned dict is shared, so callers must treat it as read-only
     fields: dict[str, Any] = {}
     non_ecs = ecs.get_non_ecs_schema()
     for index in indices:
@@ -170,12 +180,8 @@ def collect_index_field_schemas(indices: list[str]) -> dict[str, Any]:
 
 
 def collect_lookup_index_field_schemas(indices: list[str]) -> dict[str, dict[str, Any]]:
-    """Per-LOOKUP-JOIN-target field maps (no blanket endpoint union).
-
-    Named lookup tables only receive custom / non-ECS fields that match that
-    index. Fleet datastreams used as lookup targets still get their matching
-    non-ECS rows here; ECS and package streams are merged by the validator.
-    """
+    """Get the non-ECS and custom field schemas for each LOOKUP JOIN target."""
+    # ECS and package stream fields are merged in by the validator
     non_ecs = ecs.get_non_ecs_schema()
     result: dict[str, dict[str, Any]] = {}
     for index in indices:
@@ -224,12 +230,7 @@ def collect_package_fields_for_indices(
     *,
     allow_fallback: bool = True,
 ) -> dict[str, Any]:
-    """Collect package fields, restricted to streams that match FROM indices.
-
-    When *integration* is set, returns that stream only if it matches. When unset,
-    unions matching streams. If no stream matches (should be rare), falls back to
-    all streams so broad patterns are not under-validated.
-    """
+    """Collect the package fields from streams that match the FROM indices."""
     if integration is not None:
         if integration not in package_schema:
             return {}
@@ -271,11 +272,7 @@ def split_esql_source_list(sources: str) -> list[str]:
 
 
 def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[EsqlSourceGroup]:
-    """Group FROM/TS clauses by index patterns using the ES|QL AST (with rewrite spans).
-
-    One parse yields indices for schema selection and character spans for remote
-    index rewriting — no separate regex pass. Unparseable fragments return [].
-    """
+    """Group FROM/TS clauses and their spans by index patterns."""
     try:
         parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments have no FROM groups
@@ -287,11 +284,7 @@ def get_esql_query_source_groups(query: str, tree: Any | None = None) -> list[Es
 
 
 def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
-    """Extract unique FROM/TS index patterns via the ES|QL AST (CCS prefix stripped).
-
-    Call with ``tree=`` after the offline allow_missing parse so schema planning
-    reuses that AST instead of parsing again.
-    """
+    """Extract unique FROM/TS index patterns with any cluster prefix removed."""
     indices: list[str] = []
     for _, index in get_esql_query_source_patterns(query, tree=tree):
         if index not in indices:
@@ -300,11 +293,8 @@ def get_esql_query_indices(query: str, tree: Any | None = None) -> list[str]:
 
 
 def get_esql_query_source_patterns(query: str, tree: Any | None = None) -> list[tuple[str, str]]:
-    """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs.
-
-    The written form keeps any `cluster:` or `cluster::` prefix, which is what the parser
-    matches when it narrows a multi-index schema to one FROM. The local pattern drops that prefix.
-    """
+    """Extract unique FROM/TS sources as (pattern as written, local index pattern) pairs."""
+    # the parser matches the written form, including any `cluster:` prefix, to narrow a multi-index schema
     try:
         parsed = tree if tree is not None else _parse_for_extraction(query)
     except Exception:  # noqa: BLE001 — incomplete fragments yield no sources

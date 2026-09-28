@@ -6,7 +6,9 @@
 """Test ES|QL query parsing."""
 
 import unittest
+from unittest import mock
 
+import esql
 from esql.features import feature_available
 from esql.versions import Version
 
@@ -16,6 +18,7 @@ from detection_rules.esql import (
     get_esql_query_indices,
     get_esql_query_source_groups,
     get_esql_query_source_patterns,
+    parse_esql_query,
     replace_esql_query_sources,
 )
 
@@ -139,3 +142,36 @@ class TestESQLQuerySources(unittest.TestCase):
         if feature_available("completion", _current_package()):
             self.assertListEqual(get_esql_query_indices(completion), ["logs-a-*"])
             self.assertListEqual(get_esql_query_source_groups(completion)[0].indices, ["logs-a-*"])
+
+
+class TestParseEsqlQuery(unittest.TestCase):
+    """Test the memoized ES|QL parse."""
+
+    # each test uses its own query so it starts uncached without calling clear_caches()
+
+    def test_repeat_parses_reuse_one_parse(self):
+        """Test that a query parses once per stack version."""
+        query = "FROM logs-cache-repeat-* METADATA _id, _version, _index | KEEP _id, _version, _index"
+        with mock.patch.object(esql, "parse_query", wraps=esql.parse_query) as parse:
+            _ = parse_esql_query(query, "9.3")
+            _ = parse_esql_query(query, "9.3.0")
+            self.assertEqual(parse.call_count, 1)
+            _ = parse_esql_query(query, "9.4.0")
+            self.assertEqual(parse.call_count, 2)
+
+    def test_each_call_gets_its_own_tree(self):
+        """Test that each call returns its own copy of the tree."""
+        query = "FROM logs-cache-test-* METADATA _id, _version, _index | KEEP _id, _version, _index"
+        first = parse_esql_query(query)
+        first.commands.clear()
+        second = parse_esql_query(query)
+        self.assertIsNot(first, second)
+        self.assertListEqual(get_esql_query_indices(query, tree=second), ["logs-cache-test-*"])
+
+    def test_failures_are_not_cached(self):
+        """Test that parse failures are not cached."""
+        with mock.patch.object(esql, "parse_query", wraps=esql.parse_query) as parse:
+            for _ in range(2):
+                with self.assertRaises(esql.EsqlSyntaxError):
+                    _ = parse_esql_query("FROM logs-* | WHERE")
+            self.assertEqual(parse.call_count, 2)

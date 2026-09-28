@@ -20,10 +20,10 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-import esql
 from esql import ast
 
 from detection_rules.ecs import get_multivalued_fields
+from detection_rules.esql import parse_esql_query
 
 from .base import BaseRuleTest
 
@@ -116,21 +116,13 @@ def _norm_func_name(name: str | None) -> str:
 
 def unprotected_always_multi_compares(query: str) -> set[str]:
     """Return always-multi fields used in scalar compares/likes without MV protection."""
-    from detection_rules.config import load_current_package_version
-    from detection_rules.rule import set_esql_config
-
-    cfg = set_esql_config(load_current_package_version())
-    with cfg, esql.Schema({}, allow_missing=True):
-        tree = esql.parse_query(query)
+    tree = parse_esql_query(query)
     return _unprotected_in_query(tree)
 
 
 def _unprotected_in_query(query_tree: ast.EsqlQuery, inherited: set[str] | None = None) -> set[str]:
-    """Scan one pipeline.
-
-    A ``FORK`` branch sees ``MV_EXPAND`` from the parent pipe. A nested ``FROM``
-    does not.
-    """
+    """Scan one pipeline for unprotected multi-value compares."""
+    # a FORK branch inherits MV_EXPAND from the parent pipe, a nested FROM does not
     expanded: set[str] = set(inherited or ())
     unprotected: set[str] = set()
 
