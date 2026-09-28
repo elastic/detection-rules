@@ -2,7 +2,7 @@
 creation_date = "2025/08/20"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/28"
 
 [rule]
 author = ["Elastic"]
@@ -54,7 +54,21 @@ process where host.os.type == "windows" and event.type == "start" and
   process.name : ("pwsh.exe", "powershell.exe", "curl.exe", "msiexec.exe", "mshta.exe", "wscript.exe", "cscript.exe", "rundll32.exe", "certutil.exe", "certreq.exe") or
   process.executable : "?:\\Users\\*\\Downloads\\*"
   ) and
-not (process.name : "rundll32.exe" and process.args : ("ndfapi.dll,NdfRunDllDiagnoseWithAnswerFile", "shwebsvc.dll,AddNetPlaceRunDll"))
+not (
+    process.name : "rundll32.exe" and
+    process.args : (
+      "ndfapi.dll,NdfRunDllDiagnoseWithAnswerFile",
+      "shwebsvc.dll,AddNetPlaceRunDll",
+      "?:\\WINDOWS\\Installer\\MSI*.tmp,zzzzInvokeManagedCustomActionOutOfProc",
+      "*cryptext.dll,CryptExtOpenCER",
+      "*cryptext.dll,CryptExtOpenCRL",
+      "*cryptext.dll,CryptExtOpenPKCS7",
+      "*cryptext.dll,CryptExtAddPFX",
+      "?:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll,*",
+      "?:\\WINDOWS\\*\\hotplug.dll,HotPlugSafeRemovalDriveNotification"
+    )
+  ) and
+  not (process.name : "certutil.exe" and process.args : "-hashfile")
 '''
 
 note = """## Triage and analysis
@@ -93,6 +107,7 @@ note = """## Triage and analysis
 ### False positive analysis
 
 - Signed browser-initiated installer/diagnostic workflows or authorized security tests can trigger. Confirm exact alignment across parent flags, child path, signer, hash, command line, user, host, timing, and absence of suspicious descendants; do not close on a ticket or owner statement if process evidence conflicts.
+- The query excludes browser file-picker launches of certutil `-hashfile`, rundll32 `cryptext.dll` certificate dialogs, Windows Photo Viewer, MSI `zzzzInvokeManagedCustomActionOutOfProc` custom actions, and `hotplug.dll` safe-removal notifications.
 - Before creating an exception, require recurrence with stable `process.parent.executable`, `process.parent.args`, `process.executable`, `process.code_signature.thumbprint_sha256`, command-line shape, `user.id`, and `host.id`. Avoid exceptions on browser parentage, `process.name`, or Downloads-path execution alone.
 
 ### Response and remediation
