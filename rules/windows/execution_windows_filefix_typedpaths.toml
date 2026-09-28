@@ -28,10 +28,10 @@ note = """## Triage and analysis
   - Focus: `registry.data.strings` and `registry.path`.
   - Implication: escalate when the string invokes PowerShell, pwsh, cmd, mshta, msiexec, rundll32, curl, wget, certutil, certreq, bitsadmin, wscript, cscript, conhost, or forfiles. A quiet local install such as msiexec with `/q`, `/qb`, or `/qn` against a user-profile or Downloads package is the same pattern. Lower suspicion only when the string is a real folder path from a recognized workflow and contains no command switches, URL, or shell operator.
 
-- Did explorer.exe launch a child that matches the stored command?
-  - Why: the alerting process is explorer.exe writing address bar history. The pasted command runs as a child of that explorer instance.
+- Did the writing process launch a child that matches the stored command?
+  - Why: the alerting process is whichever process hosted the address bar: explorer.exe for File Explorer, or chrome.exe, msedge.exe, or firefox.exe for a file upload dialog. The pasted command runs as a child of that process.
   - Focus: child process starts where `process.parent.entity_id` equals the alert `process.entity_id`. Compare child `process.name`, `process.executable`, and `process.command_line` with `registry.data.strings`.
-  - Implication: escalate when a child shell, script host, installer, or living-off-the-land binary matches the TypedPaths string. No matching child leaves execution unproven.
+  - Implication: escalate when a child shell, script host, installer, or living-off-the-land binary matches the TypedPaths string. A browser as the writer is the expected FileFix shape, not an anomaly. No matching child leaves execution unproven.
 
 - What did that child do next?
   - Focus: descendants of the recovered child `process.entity_id`, plus file and network events scoped to that child. Review `process.command_line`, `file.path`, `dns.question.name`, and `destination.ip`.
