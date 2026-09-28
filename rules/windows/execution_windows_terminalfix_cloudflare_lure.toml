@@ -86,7 +86,10 @@ query = '''
 host.os.type:windows and event.category:process and
 event.provider:("Microsoft-Windows-PowerShell" or "PowerShellCore") and
 event.action:"Execute a Remote Command" and
-powershell.file.script_block_text:(("Write-Host" or "cls;") and ("Cloudflare verification" or  "Cloudflare ID:" or  "I am not a robot" or "I' am not a robot"))
+powershell.file.script_block_text:(
+  ("Clear-Host" or "Write-Host" or "Write-Output" or "Write-Warning" or "cls;" or echo or WriteLine) and
+  ("Cloudflare ID:" or "Cloudflare Services respond" or "Cloudflare verification" or "I am not a robot" or "I'm not a robot")
+)
 '''
 
 [[rule.threat]]
