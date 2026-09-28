@@ -67,6 +67,7 @@ from .integrations import (
     load_integrations_schemas,
     parse_datasets,
 )
+from .lucene_regex import LuceneRegexError, validate_lucene_regex
 from .rule import (
     EQLRuleData,
     QueryRuleData,
@@ -88,6 +89,8 @@ EQL_ERROR_TYPES = (
     | eql.EqlTypeMismatchError
 )
 KQL_ERROR_TYPES = kql.KqlCompileError | kql.KqlParseError
+# EQL functions produced by the `regex`/`regex~` operators, whose patterns Elasticsearch compiles with Lucene
+EQL_REGEX_FUNCTIONS = ("match", "matchLite")
 RULES_CONFIG = parse_rules_config()
 
 
@@ -660,6 +663,23 @@ class EQLValidator(QueryValidator):
 
         return deduplicate_validation_targets(targets)
 
+    def validate_regex_patterns(self, data: "QueryRuleData") -> None:
+        """Validate `regex`/`regex~` patterns with Lucene's regex syntax, which `eql.parse_query()` does not check."""
+        for node in self.ast:  # type: ignore[reportUnknownVariableType]
+            if not isinstance(node, ast.FunctionCall) or node.name not in EQL_REGEX_FUNCTIONS:  # type: ignore[reportUnknownMemberType]
+                continue
+            for pattern in node.arguments[1:]:  # type: ignore[reportUnknownMemberType]
+                if not isinstance(pattern, ast.String):
+                    continue
+                try:
+                    validate_lucene_regex(pattern.value)  # type: ignore[reportUnknownMemberType]
+                except LuceneRegexError as exc:
+                    raise ValueError(
+                        f"{exc}\nElasticsearch parses `regex` patterns as Lucene regular expressions, where "
+                        f'`&`, `<`, `>`, `~`, `#`, `@` and `"` are operators; escape them with `\\` or use `like~` '
+                        f"for literal matches.\nrule: {data.name} - {data.rule_id}"
+                    ) from exc
+
     def validate(self, data: "QueryRuleData", meta: RuleMeta, max_attempts: int = 10) -> None:  # type: ignore[reportIncompatibleMethodOverride]
         """Validate an EQL query using a unified plan of schema combinations."""
         # base field declaration
@@ -674,6 +694,9 @@ class EQLValidator(QueryValidator):
         set_fields, has_invalid = self.validate_rule_type_configurations(data, meta)  # type: ignore[reportArgumentType]
         if has_invalid and set_fields:
             raise ValueError(f"Rule type configuration fields not in ECS schema: {', '.join(set_fields)}")
+
+        # eql.parse_query() does not compile regex patterns, so check them against Lucene's syntax
+        self.validate_regex_patterns(data)
 
         for _ in range(max_attempts):
             all_targets = self.build_validation_plan(data, meta)
