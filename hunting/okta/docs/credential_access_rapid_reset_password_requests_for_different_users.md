@@ -27,7 +27,7 @@ from logs-okta.system*
 // Count the number of reset password attempts for each user
 | stats
     user_count = count_distinct(user.target.full_name),
-    reset_counts = by okta.actor.alternate_id, source.user.full_name, okta.debug_context.debug_data.dt_hash
+    reset_counts = count(*) by okta.actor.alternate_id, source.user.full_name, okta.debug_context.debug_data.dt_hash
 
 // Filter for more than 10 unique users and more than 15 reset password attempts by the source
 | where user_count > 10 and reset_counts > 15
