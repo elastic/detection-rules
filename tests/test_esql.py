@@ -55,6 +55,12 @@ class TestESQLQuerySources(unittest.TestCase):
         query = "FROM cluster_one:logs-a-*, logs-b-* METADATA _id\n| WHERE x"
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
+    def test_selector_sources(self):
+        """Test that component selectors are stripped from local and cross cluster sources."""
+        query = "FROM logs-a-*::failures, cluster_one:logs-b-*::data, logs-c-* METADATA _id\n| WHERE x"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*", "logs-c-*"])
+        self.assertEqual(replace_with_group_position(query), "FROM test-index-0 METADATA _id\n| WHERE x")
+
     def test_subqueries_are_grouped_by_their_own_sources(self):
         """Test that subqueries reading different indices are grouped and replaced separately."""
         # Grammars before 9.5 keep the inner query but drop its FROM index patterns.
@@ -117,12 +123,12 @@ class TestESQLQuerySources(unittest.TestCase):
         )
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
 
-    def test_double_colon_cluster_prefix_strips_to_local_index(self):
-        """A cluster:: prefix is not part of the local index pattern."""
-        query = "FROM remote::logs-a-* METADATA _id\n| WHERE x == 1"
+    def test_selector_strips_to_local_index(self):
+        """A ::selector suffix is not part of the local index pattern."""
+        query = "FROM remote:logs-a-*::failures METADATA _id\n| WHERE x == 1"
         self.assertListEqual(
             get_esql_query_source_patterns(query),
-            [("remote::logs-a-*", "logs-a-*")],
+            [("remote:logs-a-*::failures", "logs-a-*")],
         )
         self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
         self.assertListEqual(get_esql_query_source_groups(query)[0].indices, ["logs-a-*"])
