@@ -2,7 +2,9 @@
 creation_date = "2024/05/03"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -83,7 +85,7 @@ query = '''
 from logs-endpoint.events.file-* metadata _id, _version, _index
 
 // filter for file creation event done remotely over SMB with common user readable file types used to place ransomware notes
-| where event.category == "file" and host.os.type == "windows" and event.action == "creation" and process.pid == 4 and user.id != "S-1-5-18" and 
+| where mv_contains(event.category, "file") and host.os.type == "windows" and event.action == "creation" and process.pid == 4 and user.id != "S-1-5-18" and 
   file.extension in ("txt", "htm", "html", "hta", "pdf", "jpg", "bmp", "png") and
   to_lower(file.path) like """c:\\*""" and not to_lower(file.path) like """c:\\temp\\*"""
 

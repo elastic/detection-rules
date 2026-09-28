@@ -2,7 +2,9 @@
 creation_date = "2026/08/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -105,13 +107,13 @@ from logs-endpoint.events.file-*, logs-endpoint.events.registry-* metadata _id, 
   )
   and (
     (
-      event.category == "file"
-      and event.type == "creation"
+      mv_contains(event.category, "file")
+      and mv_contains(event.type, "creation")
       and ends_with(to_lower(file.name), ":changelist")
     )
     or (
-      event.category == "registry"
-      and event.type == "change"
+      mv_contains(event.category, "registry")
+      and mv_contains(event.type, "change")
       and to_lower(registry.path) like """*\\system\\*controlset*\\services\\*\\args"""
       and to_lower(registry.data.strings) like "*:changelist"
     )

@@ -2,7 +2,9 @@
 creation_date = "2026/03/03"
 integration = ["endpoint", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -81,7 +83,7 @@ type = "esql"
 query = '''
 FROM logs-endpoint.events.network-*, logs-windows.sysmon_operational-* METADATA _index
 | WHERE host.os.type == "windows"
-    AND event.category == "network"
+    AND MV_CONTAINS(event.category, "network")
     AND event.action in ("lookup_requested", "DNSEvent (DNS query)")
     AND dns.question.name IS NOT NULL
 

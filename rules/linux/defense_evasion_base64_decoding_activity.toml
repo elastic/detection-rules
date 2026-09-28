@@ -2,7 +2,9 @@
 creation_date = "2025/02/21"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
+min_stack_version = "9.3.0"
+updated_date = "2026/09/22"
 
 [rule]
 author = ["Elastic"]
@@ -100,27 +102,29 @@ type = "esql"
 query = '''
 from logs-endpoint.events.process-* metadata _id, _index, _version
 | mv_expand event.action 
+// Preserve argument boundaries while allowing prefix matching on the multivalued process.args field.
+| eval Esql.process_args = CONCAT("|", MV_CONCAT(process.args, "|"))
 | where
     host.os.type == "linux" and
-    event.type == "start" and
+    mv_contains(event.type, "start") and
     event.action == "exec" and (
         (
             process.name in ("base64", "base64plain", "base64url", "base64mime", "base64pem", "base32", "base16") and
-            (process.args like "--d*" or process.args like "-d*")
+            (Esql.process_args like "*|--d*" or Esql.process_args like "*|-d*")
         ) or
         (
             process.name == "openssl" and
-            process.args == "enc" and
-            process.args in ("-d", "-base64", "-a")
+            mv_contains(process.args, "enc") and
+            (mv_contains(process.args, "-d") or mv_contains(process.args, "-base64") or mv_contains(process.args, "-a"))
         ) or
         (
             process.name like "python*" and (
                 (
-                    process.args == "base64" and
-                    process.args in ("-d", "-u", "-t")
+                    mv_contains(process.args, "base64") and
+                    (mv_contains(process.args, "-d") or mv_contains(process.args, "-u") or mv_contains(process.args, "-t"))
                 ) or
                 (
-                    process.args == "-c" and
+                    mv_contains(process.args, "-c") and
                     process.command_line like "*base64*" and
                     process.command_line like "*b64decode*"
                 )
@@ -132,7 +136,7 @@ from logs-endpoint.events.process-* metadata _id, _index, _version
         ) or
         (
             process.name like "ruby*" and
-            process.args == "-e" and
+            mv_contains(process.args, "-e") and
             process.command_line like "*Base64.decode64*"
         )
     )
