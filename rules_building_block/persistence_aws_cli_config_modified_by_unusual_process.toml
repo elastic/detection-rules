@@ -15,10 +15,10 @@ subsequent AWS CLI and SDK call through a binary of their choosing, harvesting o
 touching the credentials file itself. The CLI alias file offers a similar hijack primitive. This write-side abuse
 leaves no CloudTrail evidence and is substantially quieter than reading the credentials file.
 
-Common file-copy utilities (cp, mv, rsync, install) and general-purpose interpreters are intentionally not allowlisted,
-since an attacker copying a pre-staged malicious config or injecting a credential_process directive via script should
-produce a signal. Provisioning systems and onboarding scripts that legitimately write this file run as those same
-interpreters and are the expected source of benign hits; add exceptions for known hosts and pipelines.
+Only the AWS CLI, credential-helper tools that rewrite this file as part of normal operation, and a few system agent
+paths are excluded. Editors, IDEs, dotfile managers, configuration management, shells, and copy utilities are
+intentionally kept in scope: this is a building block, and a human or script writing a credential_process directive
+is the context higher-order rules need.
 """
 false_positives = [
     """
