@@ -7,17 +7,20 @@ updated_date = "2026/09/14"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a GenAI coding agent spawning a cloud CLI command that destroys infrastructure or identities, such as
-terminating EC2 instances, removing S3 buckets, or deleting IAM users. A compromised or prompt-injected agent can be
-steered into wiping the developer's environment and cloud account. In July 2025 a malicious pull request shipped in
-Amazon Q Developer for VS Code v1.84.0 carried exactly this payload, instructing the agent to return the system to a
-factory state by deleting local files, S3 buckets, EC2 instances, and IAM users. Because the agent already holds the
-developer's AWS credentials, no separate credential theft step is required.
+Identifies a cloud CLI command that destroys infrastructure or identities, such as terminating EC2 instances, removing
+S3 buckets, or deleting IAM users, when it is spawned by a GenAI coding agent directly or through the agent's shell
+wrapper. A compromised or prompt-injected agent can be steered into wiping the developer's environment and cloud
+account using the credentials it already holds, as seen in the malicious Amazon Q Developer for VS Code v1.84.0
+release (AWS-2025-015).
 """
 false_positives = [
     """
     Authorized infrastructure teardown automation may legitimately invoke these commands. Correlate with change
     management records and known deployment pipeline identities before escalating.
+    """,
+    """
+    Developers who explicitly instruct an agent to tear down a development environment or rotate access keys will
+    trigger this rule. Confirm intent with the user before escalating.
     """,
 ]
 from = "now-9m"
@@ -93,6 +96,7 @@ tags = [
     "Platform: Linux",
     "Platform: macOS",
     "Platform: Windows",
+    "Platform: Kubernetes",
     "OS: Linux",
     "OS: macOS",
     "OS: Windows",
@@ -119,7 +123,7 @@ event.category : "process" and event.type : "start" and event.action : (start or
     kiro or "kiro-cli" or "kiro-cli-chat" or "kiro-cli-term" or
     kiro.exe or "kiro-cli.exe" or "kiro-cli-chat.exe" or "kiro-cli-term.exe" or
     claude or "claude-bin" or claude.exe or codex or codex.exe or
-    copilot or copilot.exe or cursor or cursor.exe or
+    copilot or copilot.exe or cursor or cursor.exe or "Cursor Helper (Plugin)" or "Cursor Helper" or
     "gemini-cli" or "gemini-cli.exe" or windsurf or windsurf.exe or
     aider or aider.exe or cline or goose or goose.exe or opencode or opencode.exe
   ) or
@@ -129,6 +133,16 @@ event.category : "process" and event.type : "start" and event.action : (start or
     *\\Users\\*\\AppData\\Local\\Programs\\Amazon Q\\*\\q.exe or
     *\\Program Files\\Amazon Q\\q.exe or
     *\\Program Files\\Amazon Q\\*\\q.exe
+  ) or
+  (
+    process.parent.name : (bash or zsh or sh or dash or cmd.exe or powershell.exe or pwsh or pwsh.exe) and
+    process.parent.command_line : (
+      */.claude/shell-snapshots/* or *\\.claude\\shell-snapshots\\* or
+      */.codex/* or *\\.codex\\* or
+      */.kiro/* or *\\.kiro\\* or
+      */.aws/amazonq/* or *\\.aws\\amazonq\\* or
+      */.goose/* or */.opencode/* or */.aider*
+    )
   )
 ) and
 (
@@ -141,9 +155,13 @@ event.category : "process" and event.type : "start" and event.action : (start or
       *rds delete-db-instance* or *rds delete-db-cluster* or *dynamodb delete-table* or
       *efs delete-file-system* or *eks delete-cluster* or *ecs delete-cluster* or
       *lambda delete-function* or *kms schedule-key-deletion* or
+      *cloudformation delete-stack* or
       *cloudtrail delete-trail* or *cloudtrail stop-logging* or
       *backup delete-recovery-point* or *organizations close-account*
     )
+  ) or
+  (
+    process.name : (sam or sam.exe) and process.command_line : *sam delete*
   ) or
   (
     process.name : (terraform or terraform.exe or tofu or tofu.exe) and
