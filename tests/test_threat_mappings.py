@@ -691,5 +691,36 @@ class TestIdentityScaffold(unittest.TestCase):
                 )
 
 
+class TestBuildThreatMapEntry(unittest.TestCase):
+    """Threat entries built from technique IDs."""
+
+    def test_defense_evasion_name_resolves(self) -> None:
+        """The v18 tactic name still builds an entry after the v19 rename."""
+        entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+        self.assertEqual(entry["technique"][0]["id"], "T1055")
+
+    def test_defense_evasion_alias_when_baseline_is_v19(self) -> None:
+        """A v19-only dataset still accepts the v18 tactic name."""
+        tactic_id = attack.tactics_map["Defense Evasion"]
+        techniques = list(attack.matrix["Defense Evasion"])
+        with (
+            mock.patch.dict(attack.tactics_map, {"Stealth": tactic_id}, clear=True),
+            mock.patch.dict(attack.matrix, {"Stealth": techniques}, clear=True),
+        ):
+            entry = attack.build_threat_map_entry("Defense Evasion", "T1055")
+        self.assertEqual(entry["tactic"]["id"], "TA0005")
+        self.assertEqual(entry["tactic"]["name"], "Defense Evasion")
+
+    def test_redirect_that_changes_tactic_keeps_original_id(self) -> None:
+        """A replacement filed under another tactic does not rewrite the baseline entry."""
+        entry = attack.build_threat_map_entry("Persistence", "T1547.011")
+        sub_ids = [sub["id"] for tech in entry["technique"] for sub in tech.get("subtechnique", [])]
+        self.assertIn("T1547.011", sub_ids)
+        self.assertNotIn("T1647", sub_ids)
+        self.assertEqual(entry["tactic"]["name"], "Persistence")
+
+
 if __name__ == "__main__":
     unittest.main()

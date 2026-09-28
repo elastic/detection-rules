@@ -2,7 +2,7 @@
 creation_date = "2026/07/30"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/30"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -41,6 +41,11 @@ tags = [
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Data Source: Elastic Defend",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -59,6 +64,29 @@ file where host.os.type == "windows" and event.type == "deletion" and
     process.executable : "?:\\Windows\\explorer.exe" and
     process.code_signature.trusted == true and
     process.code_signature.subject_name : "Microsoft Windows"
+  ) and
+
+  /* Browsers may delete Zone.Identifier during download handling */
+  not (
+    process.code_signature.trusted == true and
+    (
+      (
+        process.name : "chrome.exe" and
+        process.code_signature.subject_name : "Google LLC"
+      ) or
+      (
+        process.name : "msedge.exe" and
+        process.code_signature.subject_name : "Microsoft Corporation"
+      ) or
+      (
+        process.name : "firefox.exe" and
+        process.code_signature.subject_name : "Mozilla Corporation"
+      ) or
+      (
+        process.name : "brave.exe" and
+        process.code_signature.subject_name : "Brave Software, Inc."
+      )
+    )
   )
 '''
 
