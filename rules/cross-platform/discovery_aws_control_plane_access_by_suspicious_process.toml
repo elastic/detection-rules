@@ -3,8 +3,8 @@ creation_date = "2026/09/14"
 integration = ["endpoint"]
 maturity = "production"
 updated_date = "2026/09/14"
-min_stack_version = "9.4.0"
-min_stack_comments = "process.command_line on Elastic Defend network events requires 9.4.0"
+min_stack_version = "9.3.0"
+min_stack_comments = "Linux DNS events on Elastic Defend require 9.3.0"
 [rule]
 author = ["Elastic"]
 description = """
@@ -119,16 +119,10 @@ dns.question.name : (
   portal.sso.*.amazonaws.com or secretsmanager.*.amazonaws.com or ssm.*.amazonaws.com or sso.*.amazonaws.com or
   sts.*.amazonaws.com or sts.amazonaws.com
 ) and
-(
-  process.executable : (
-    /Users/*/Public/* or /Users/Shared/* or /dev/shm/* or /private/tmp/* or /run/* or /tmp/* or /var/run/* or
-    /var/tmp/* or /var/www/* or
-    *\\ProgramData\\* or *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\*
-  ) or
-  (
-    process.name : (bun or bun.exe or deno or deno.exe or node or node.exe or nodejs or perl* or php* or powershell or powershell.exe or pwsh or pwsh.exe or python* or ruby*) and
-    process.command_line : (*/dev/shm/* or */private/tmp/* or */tmp/* or */var/tmp/* or */var/www/* or *\\AppData\\Local\\Temp\\* or *\\Windows\\Temp\\*)
-  )
+process.executable : (
+  /Users/*/Public/* or /Users/Shared/* or /dev/shm/* or /private/tmp/* or /run/* or /tmp/* or /var/run/* or
+  /var/tmp/* or /var/www/* or
+  *\\ProgramData\\* or *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\*
 ) and
 not process.executable : (/opt/actions-runner/* or /tmp/cargo-install* or /tmp/go-build* or /tmp/pytest-*)
 '''
