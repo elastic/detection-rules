@@ -115,16 +115,18 @@ type = "new_terms"
 query = '''
 event.category : network and host.os.type : (linux or macos or windows) and
 dns.question.name : (
-  bedrock*.amazonaws.com or iam.amazonaws.com or kms.*.amazonaws.com or organizations.*.amazonaws.com or
+  iam.amazonaws.com or sts.amazonaws.com or bedrock*.amazonaws.com or kms.*.amazonaws.com or organizations.*.amazonaws.com or
   portal.sso.*.amazonaws.com or secretsmanager.*.amazonaws.com or ssm.*.amazonaws.com or sso.*.amazonaws.com or
-  sts.*.amazonaws.com or sts.amazonaws.com
+  sts.*.amazonaws.com
 ) and
 process.executable : (
-  /Users/*/Public/* or /Users/Shared/* or /dev/shm/* or /private/tmp/* or /run/* or /tmp/* or /var/run/* or
-  /var/tmp/* or /var/www/* or
-  *\\ProgramData\\* or *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\*
-) and
-not process.executable : (/opt/actions-runner/* or /tmp/cargo-install* or /tmp/go-build* or /tmp/pytest-*)
+  (
+    *\\ProgramData\\* or *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\* or
+    /Users/*/Public/* or /Users/Shared/* or /dev/shm/* or /private/tmp/* or /run/* or /tmp/* or /var/run/* or
+    /var/tmp/* or /var/www/*
+  ) and
+  not (/opt/actions-runner/* or /tmp/cargo-install* or /tmp/go-build* or /tmp/pytest-*)
+)
 '''
 
 [[rule.threat]]
