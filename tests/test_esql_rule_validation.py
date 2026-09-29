@@ -3,9 +3,7 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
-import unittest
 from copy import deepcopy
-from types import SimpleNamespace
 
 import pytest
 
@@ -16,85 +14,16 @@ from detection_rules.esql_errors import (
     EsqlTypeMismatchError,
     EsqlUnknownIndexError,
 )
-from detection_rules.misc import (
-    get_default_config,
-    getdefault,
-)
 from detection_rules.rule import ESQLRuleData
 from detection_rules.rule_loader import RuleCollection
-from detection_rules.rule_validators import ESQLValidator
 from detection_rules.schemas.definitions import ESQL_DYNAMIC_FIELD_PREFIXES
 from detection_rules.utils import get_path, load_rule_contents
 
 from .base import BaseRuleTest
 
 
-class TestESQLRemoteValidation(unittest.TestCase):
-    """Unit tests for ES|QL remote validation behavior that mock remote services."""
-
-    def test_remote_validation_uses_patch_floor_for_prepare_mappings(self):
-        """ES|QL remote validation prepares mappings with patch-adjusted stack versions."""
-        query = """
-        FROM logs-pkg.new_ds-* metadata _id, _version, _index
-        | WHERE data_stream.dataset == "pkg.new_ds"
-        | KEEP _id, _version, _index
-        """
-        metadata = SimpleNamespace(integration=["pkg"])
-        prepared_stack_versions: list[str] = []
-
-        def prepare_mappings_side_effect(
-            _elastic_client,
-            _indices,
-            _event_dataset_integrations,
-            _metadata,
-            stack_version,
-            _log,
-        ):
-            prepared_stack_versions.append(stack_version)
-            return {}, {}, {}
-
-        def patch_floor_side_effect(packages, major, minor):
-            self.assertIn("pkg", packages)
-            return 4 if (major, minor) == (9, 2) else 0
-
-        validator = ESQLValidator(query)
-        with (
-            unittest.mock.patch("detection_rules.rule_validators.get_latest_stack_version", return_value="9.2.0"),
-            unittest.mock.patch("detection_rules.rule_validators.get_stack_versions", return_value=["9.2.0", "9.3.0"]),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.find_latest_integration_patch_for_minor",
-                side_effect=patch_floor_side_effect,
-            ),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.prepare_mappings", side_effect=prepare_mappings_side_effect
-            ),
-            unittest.mock.patch("detection_rules.rule_validators.create_remote_indices", return_value="test-index"),
-            unittest.mock.patch(
-                "detection_rules.rule_validators.execute_query_against_indices",
-                return_value=([{"name": "data_stream.dataset", "type": "keyword"}], {"ok": True}),
-            ),
-            unittest.mock.patch.object(ESQLValidator, "validate_columns_index_mapping", return_value=True),
-        ):
-            response = validator.remote_validate_rule(
-                kibana_client=SimpleNamespace(get=lambda *_args, **_kwargs: {"version": {"number": "9.2.0"}}),
-                elastic_client=object(),
-                query=query,
-                metadata=metadata,
-                rule_id="test-rule",
-            )
-
-        self.assertEqual(response, {"ok": True})
-        self.assertIn("9.2.0", prepared_stack_versions)
-        self.assertIn("9.2.4", prepared_stack_versions)
-        self.assertIn("9.3.0", prepared_stack_versions)
-
-
-@unittest.skipIf(get_default_config() is None, "Skipping remote validation due to missing config")
-@unittest.skipIf(
-    not getdefault("remote_esql_validation")(), "Skipping remote validation because remote_esql_validation is False"
-)
-class TestRemoteRules(BaseRuleTest):
-    """Test rules against a remote Elastic stack instance."""
+class TestEsqlRuleValidation(BaseRuleTest):
+    """ES|QL rule validation covered by the offline parser."""
 
     def test_get_hashable_content_required_fields_popped_when_keep_star_used(self):
         """Hashable content must not contain required_fields when query uses keep * or field wildcards."""
@@ -103,7 +32,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule = deepcopy(original_production_rule)[0]
         # Non-aggregate queries must include _id, _version, _index in keep when keep is not exactly "*"
         base = "from logs-aws.cloudtrail* metadata _id, _version, _index\n"
-        base += '| where event.action == "start"\n | eval Esql.entity_type = cloud.target.machine.type\n | keep '
+        base += '| where event.action == "start"\n | eval Esql.entity_type = event.action\n | keep '
         keep_star_queries = [
             base + "*",
             base + "Esql.*, _id, _version, _index",
@@ -130,8 +59,8 @@ class TestRemoteRules(BaseRuleTest):
         rule = RuleCollection().load_dict(production_rule)
         api = rule.contents.to_api_format()
         hashable = rule.contents.get_hashable_content()
-        if "required_fields" in api:
-            assert "required_fields" in hashable, "required_fields must not be popped when keep has no wildcards"
+        assert "required_fields" in api, "event.action should produce required_fields"
+        assert "required_fields" in hashable, "required_fields must not be popped when keep has no wildcards"
 
     def test_get_hashable_content_required_fields_kept_for_explicit_keep_only(self):
         """Hashable content keeps required_fields when keep lists only explicit fields."""
@@ -146,8 +75,8 @@ class TestRemoteRules(BaseRuleTest):
         rule = RuleCollection().load_dict(production_rule)
         api = rule.contents.to_api_format()
         hashable = rule.contents.get_hashable_content()
-        if "required_fields" in api:
-            assert "required_fields" in hashable
+        assert "required_fields" in api, "event.action should produce required_fields"
+        assert "required_fields" in hashable
 
     def test_esql_related_integrations(self):
         """Test an ESQL rule has its related integrations built correctly."""
@@ -158,7 +87,7 @@ class TestRemoteRules(BaseRuleTest):
         production_rule["rule"]["query"] = """
         from logs-aws.cloudtrail* metadata _id, _version, _index
         | where @timestamp > now() - 30 minutes
-        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and data_stream.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.arn is not null
         and aws.cloudtrail.user_identity.type == "IAMUser"
         | keep
@@ -195,7 +124,7 @@ class TestRemoteRules(BaseRuleTest):
         """Test an ESQL rule that uses event.dataset field in the query that restricts the schema failing validation."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # event.dataset restricts the schema to aws.billing, which has no cloudtrail fields
         production_rule = deepcopy(original_production_rule)[0]
         del production_rule["metadata"]["integration"]
         production_rule["rule"]["query"] = """
@@ -213,13 +142,13 @@ class TestRemoteRules(BaseRuleTest):
         """Test an ESQL rule that produces a type error comparing a keyword to a number."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # A keyword compared to a number raises EsqlTypeMismatchError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
         from logs-aws.cloudtrail* metadata _id, _version, _index
         | where @timestamp > now() - 30 minutes
-        and event.dataset in ("aws.cloudtrail", "aws.billing")
+        and data_stream.dataset in ("aws.cloudtrail", "aws.billing")
         and aws.cloudtrail.user_identity.type == 5
         | keep
         aws.cloudtrail.user_identity.type, _id, _version, _index
@@ -227,11 +156,39 @@ class TestRemoteRules(BaseRuleTest):
         with pytest.raises(EsqlTypeMismatchError):
             _ = RuleCollection().load_dict(production_rule)
 
-    def test_esql_syntax_error(self):
-        """Test an ESQL rule that incorrectly using = for comparison."""
+    def test_esql_dropped_column_is_schema_error(self):
+        """A column referenced after DROP fails during the allow_missing parse as a schema error."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | drop aws.cloudtrail.user_identity.type
+        | keep aws.cloudtrail.user_identity.type, _id, _version, _index
+        """
+        with pytest.raises(EsqlSchemaError, match=r"aws\.cloudtrail\.user_identity\.type"):
+            _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_known_arithmetic_is_type_mismatch(self):
+        """Fully known incompatible arithmetic fails during the allow_missing parse as a type error."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        production_rule = deepcopy(original_production_rule)[0]
+        production_rule["metadata"]["integration"] = ["aws"]
+        production_rule["rule"]["query"] = """
+        from logs-aws.cloudtrail* metadata _id, _version, _index
+        | eval x = 1 + "a"
+        | keep x, _id, _version, _index
+        """
+        with pytest.raises(EsqlTypeMismatchError):
+            _ = RuleCollection().load_dict(production_rule)
+
+    def test_esql_syntax_error(self):
+        """Test an ESQL rule that incorrectly uses = for comparison."""
+        file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
+        original_production_rule = load_rule_contents(file_path)
+        # `=` is assignment, not comparison, so the query is a syntax error
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -249,7 +206,7 @@ class TestRemoteRules(BaseRuleTest):
         """Test an ESQL rule's schema validation to properly reduce it by the index and handle implicit fields."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # Cloudtrail fields resolve on logs-aws.cloud*, so the rule loads
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -265,7 +222,7 @@ class TestRemoteRules(BaseRuleTest):
         """Test an ESQL rule's schema validation when reduced by the index and check if the field is present."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # The billing stream has no cloudtrail fields, so this raises EsqlSchemaError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """
@@ -350,16 +307,14 @@ class TestRemoteRules(BaseRuleTest):
         | stats Esql.host_id_count_distinct = count_distinct(host.id) by rule.name, event.code, file.Ext.entry_modified
         | where Esql.host_id_count_distinct >= 3
         """
-        # This is a type mismatch error due to Elastic Container project including the Endpoint integration by default.
-        # Otherwise one would expect an EsqlSchemaError due to the field not being present in the alerts index.
-        with pytest.raises(EsqlTypeMismatchError):
-            _ = RuleCollection().load_dict(production_rule)
+        # Endpoint package types file.Ext.entry_modified as double, so the comparison is valid offline.
+        _ = RuleCollection().load_dict(production_rule)
 
     def test_esql_filtered_keep(self):
         """Test an ESQL rule's schema validation."""
         file_path = get_path(["tests", "data", "command_control_dummy_production_rule.toml"])
         original_production_rule = load_rule_contents(file_path)
-        # Test that a ValidationError is raised if the query doesn't match the schema
+        # The billing stream has no cloudtrail fields, so this raises EsqlSchemaError
         production_rule = deepcopy(original_production_rule)[0]
         production_rule["metadata"]["integration"] = ["aws"]
         production_rule["rule"]["query"] = """

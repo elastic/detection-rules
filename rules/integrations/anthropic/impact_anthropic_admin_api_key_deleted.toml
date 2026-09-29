@@ -1,0 +1,106 @@
+[metadata]
+creation_date = "2026/09/12"
+integration = ["anthropic"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Admin API keys grant programmatic access to organization and compliance APIs. An attacker can delete legitimate admin
+API keys to break security monitoring or integrations, or to cover tracks after creating replacement credentials they
+control. Deletion without a nearby rotation event points more at sabotage than routine key hygiene.
+"""
+false_positives = [
+    """
+    Platform and security teams delete admin API keys during scheduled rotation or decommissioning. Check for a nearby
+    `admin_api_key_created` event or an approved change ticket to explain the deletion.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Anthropic Admin API Key Deleted"
+note = """## Triage and analysis
+
+### Investigating Anthropic Admin API Key Deleted
+
+Deleting an admin API key can break Fleet/compliance ingestion or admin automation — or remove a defender-owned key
+after an attacker creates a replacement they control.
+
+Unauthorized = deletion without a matching nearby `admin_api_key_created` (rotation) or decommission ticket, or
+deletion by an unexpected actor paired with logging disablement / exports / SSO changes.
+
+#### Possible investigation steps
+
+- Note deleted `anthropic.audit.admin_api_key_id` and actor. For `user_actor`, validate admin identity (email/IP/UA).
+  For `admin_api_key_actor`, check whether the deleting key (`actor.admin_api_key_id`) was itself recently created.
+- Distinguish rotation (create+delete same window, same actor) from standalone deletion.
+- Check whether Fleet/compliance ingestion stopped after the delete; correlate with compliance logging changes,
+  exports, or SSO modifications.
+
+### False positive analysis
+
+- Scheduled rotation pairs delete with create during maintenance — ticket + sibling create event closes as FP.
+
+### Response and remediation
+
+- On unauthorized deletion: restore required integrations with new keys, verify audit ingestion, and review other
+  admin changes by the same actor in the exposure window.
+"""
+references = [
+    "https://platform.claude.com/docs/en/api/compliance/activities/list",
+]
+risk_score = 47
+rule_id = "590b6961-e9d5-4ca9-ade0-978c1755a944"
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: Anthropic",
+    "Data Source: Anthropic Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Impact",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-anthropic.audit-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "anthropic.audit" and
+    mv_contains(event.category, "iam") and
+    event.action == "admin_api_key_deleted"
+| keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1531"
+name = "Account Access Removal"
+reference = "https://attack.mitre.org/techniques/T1531/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "event.id",
+    "organization.id",
+    "user.email",
+    "user.id",
+    "anthropic.audit.admin_api_key_id",
+    "anthropic.audit.actor.admin_api_key_id",
+    "source.ip",
+    "user_agent.original",
+    "anthropic.audit.actor.type",
+]
