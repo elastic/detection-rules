@@ -238,23 +238,23 @@ class TestThreatMappings(BaseRuleTest):
         self.fail(f"Unknown framework '{framework}' for rule: {self.rule_str(rule)}")
         return None, None  # unreachable, but needed for type checking
 
-    def _validate_tactic(self, framework_module, framework_name: str, tactic, rule):
+    def _validate_tactic(self, framework_module, framework_name: str, tactic, rule, *, context: str = ""):
         """Validate tactic mapping and reference."""
         # Validate techniques are under the correct tactic
         if tactic.name not in framework_module.matrix:
-            self.fail(f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}")
+            self.fail(f"Unknown {framework_name} tactic '{tactic.name}' for rule: {self.rule_str(rule)}{context}")
 
         # Validate tactic ID mapping
         expected_tactic = framework_module.tactics_map.get(tactic.name)
         if expected_tactic is None:
             self.fail(
-                f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+                f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}{context}\n"
                 f"Unknown tactic name: {tactic.name}"
             )
         self.assertEqual(
             expected_tactic,
             tactic.id,
-            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"expected:  {expected_tactic} for {tactic.name}\n"
             f"actual: {tactic.id}",
         )
@@ -264,23 +264,23 @@ class TestThreatMappings(BaseRuleTest):
         self.assertEqual(
             tactic.id,
             tactic_reference_id,
-            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} tactic mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"tactic ID {tactic.id} does not match the reference URL ID "
             f"{tactic.reference}",
         )
 
-    def _validate_technique(self, framework_module, framework_name: str, technique, rule):
+    def _validate_technique(self, framework_module, framework_name: str, technique, rule, *, context: str = ""):
         """Validate technique mapping and reference."""
         if technique.id not in framework_module.technique_lookup:
             self.fail(
-                f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+                f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}{context}\n"
                 f"Unknown technique ID: {technique.id}"
             )
         expected_technique = framework_module.technique_lookup[technique.id]["name"]
         self.assertEqual(
             expected_technique,
             technique.name,
-            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"expected: {expected_technique} for {technique.id}\n"
             f"actual: {technique.name}",
         )
@@ -289,23 +289,32 @@ class TestThreatMappings(BaseRuleTest):
         self.assertEqual(
             technique.id,
             technique_reference_id,
-            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} technique mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"technique ID {technique.id} does not match the reference URL ID "
             f"{technique.reference}",
         )
 
-    def _validate_subtechnique(self, framework_module, framework_name: str, sub_technique, framework: str, rule):
+    def _validate_subtechnique(  # noqa: PLR0913
+        self,
+        framework_module,
+        framework_name: str,
+        sub_technique,
+        framework: str,
+        rule,
+        *,
+        context: str = "",
+    ):
         """Validate sub-technique mapping and reference."""
         if sub_technique.id not in framework_module.technique_lookup:
             self.fail(
-                f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+                f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}{context}\n"
                 f"Unknown sub-technique ID: {sub_technique.id}"
             )
         expected_sub_technique = framework_module.technique_lookup[sub_technique.id]["name"]
         self.assertEqual(
             expected_sub_technique,
             sub_technique.name,
-            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"expected: {expected_sub_technique} for {sub_technique.id}\n"
             f"actual: {sub_technique.name}",
         )
@@ -320,7 +329,7 @@ class TestThreatMappings(BaseRuleTest):
         self.assertEqual(
             sub_technique.id,
             sub_technique_reference_id,
-            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}\n"
+            f"{framework_name} sub-technique mapping error for rule: {self.rule_str(rule)}{context}\n"
             f"sub-technique ID {sub_technique.id} does not match the reference URL ID "
             f"{sub_technique.reference}",
         )
@@ -387,123 +396,47 @@ class TestThreatMappings(BaseRuleTest):
             if not threat_mappings:
                 continue
             for versioned_block in threat_mappings:
-                version_label = f"v{versioned_block.version}"
-                if versioned_block.framework == "MITRE ATT&CK":
-                    try:
-                        lookups_attack = attack.build_attack_lookups_for_version(versioned_block.version)
-                    except FileNotFoundError:
+                framework = versioned_block.framework
+                try:
+                    if framework == "MITRE ATT&CK":
+                        lookups = attack.build_attack_lookups_for_version(versioned_block.version)
+                    elif framework == "MITRE ATLAS":
+                        lookups = atlas.build_atlas_lookups_for_version(versioned_block.version)
+                    else:
                         continue
-                    self._assert_versioned_attack_block(rule, versioned_block, lookups_attack, version_label)
-                elif versioned_block.framework == "MITRE ATLAS":
-                    try:
-                        lookups_atlas = atlas.build_atlas_lookups_for_version(versioned_block.version)
-                    except FileNotFoundError:
-                        continue
-                    self._assert_versioned_atlas_block(rule, versioned_block, lookups_atlas, version_label)
+                except FileNotFoundError:
+                    continue  # no local data for this version; validation skipped
+                self._assert_versioned_block(rule, versioned_block, lookups)
 
-    def _assert_versioned_attack_block(self, rule, versioned_block, lookups, version_label: str) -> None:
-        """Validate one ATT&CK threat_mappings block against STIX lookups."""
+    def _assert_versioned_block(self, rule, versioned_block, lookups) -> None:
+        """Validate one versioned threat_mappings block against that version's framework data."""
+        framework = versioned_block.framework
+        _, framework_name = self._get_framework_module(framework, rule)
+        context = f" [threat_mappings {framework} v{versioned_block.version}]"
+
         for entry in versioned_block.threat:
             tactic = entry.tactic
             techniques = entry.technique or []
-            if tactic.name not in lookups.tactics_map:
-                self.fail(
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: unknown ATT&CK tactic '{tactic.name}'"
-                )
-            expected_tactic_id = lookups.tactics_map[tactic.name]
-            self.assertEqual(
-                expected_tactic_id,
-                tactic.id,
-                f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                f"tactic ID mismatch for '{tactic.name}': "
-                f"expected {expected_tactic_id}, got {tactic.id}",
-            )
-            mismatched = [t.id for t in techniques if t.id not in lookups.matrix.get(tactic.name, [])]
-            if mismatched:
-                self.fail(
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                    f"techniques {mismatched} not under tactic '{tactic.name}' "
-                    f"in ATT&CK {version_label}"
-                )
-            for technique in techniques:
-                if technique.id not in lookups.technique_lookup:
-                    self.fail(
-                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                        f"unknown ATT&CK technique ID '{technique.id}'"
-                    )
-                expected_name = lookups.technique_lookup[technique.id]["name"]
-                self.assertEqual(
-                    expected_name,
-                    technique.name,
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                    f"technique name mismatch for {technique.id}: "
-                    f"expected '{expected_name}', got '{technique.name}'",
-                )
-                for sub in technique.subtechnique or []:
-                    if sub.id not in lookups.technique_lookup:
-                        self.fail(
-                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                            f"unknown ATT&CK subtechnique ID '{sub.id}'"
-                        )
-                    expected_sub_name = lookups.technique_lookup[sub.id]["name"]
-                    self.assertEqual(
-                        expected_sub_name,
-                        sub.name,
-                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                        f"subtechnique name mismatch for {sub.id}: "
-                        f"expected '{expected_sub_name}', got '{sub.name}'",
-                    )
 
-    def _assert_versioned_atlas_block(self, rule, versioned_block, lookups, version_label: str) -> None:
-        """Validate one ATLAS threat_mappings block against versioned ATLAS data."""
-        for entry in versioned_block.threat:
-            tactic = entry.tactic
-            techniques = entry.technique or []
-            if tactic.name not in lookups.tactics_map:
-                self.fail(
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: unknown ATLAS tactic '{tactic.name}'"
-                )
-            expected_tactic_id = lookups.tactics_map[tactic.name]
-            self.assertEqual(
-                expected_tactic_id,
-                tactic.id,
-                f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                f"ATLAS tactic ID mismatch for '{tactic.name}': "
-                f"expected {expected_tactic_id}, got {tactic.id}",
-            )
+            # Validate techniques are under the correct tactic
             mismatched = [t.id for t in techniques if t.id not in lookups.matrix.get(tactic.name, [])]
             if mismatched:
                 self.fail(
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                    f"ATLAS techniques {mismatched} not under tactic '{tactic.name}'"
+                    f"mismatched {framework_name} techniques for rule: {self.rule_str(rule)}{context} "
+                    f"{', '.join(mismatched)} not under: {tactic.name}"
                 )
+
+            # Validate tactic, techniques, and sub-techniques against the versioned lookups. The lookups
+            # object exposes the same matrix/tactics_map/technique_lookup surface as the framework module,
+            # so the baseline validators (including reference URL checks) apply unchanged.
+            self._validate_tactic(lookups, framework_name, tactic, rule, context=context)
+
             for technique in techniques:
-                if technique.id not in lookups.technique_lookup:
-                    self.fail(
-                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                        f"unknown ATLAS technique ID '{technique.id}'"
-                    )
-                expected_name = lookups.technique_lookup[technique.id]["name"]
-                self.assertEqual(
-                    expected_name,
-                    technique.name,
-                    f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                    f"ATLAS technique name mismatch for {technique.id}: "
-                    f"expected '{expected_name}', got '{technique.name}'",
-                )
-                for sub in technique.subtechnique or []:
-                    if sub.id not in lookups.technique_lookup:
-                        self.fail(
-                            f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                            f"unknown ATLAS subtechnique ID '{sub.id}'"
-                        )
-                    expected_sub_name = lookups.technique_lookup[sub.id]["name"]
-                    self.assertEqual(
-                        expected_sub_name,
-                        sub.name,
-                        f"{self.rule_str(rule)} threat_mappings {version_label}: "
-                        f"ATLAS subtechnique name mismatch for {sub.id}: "
-                        f"expected '{expected_sub_name}', got '{sub.name}'",
+                self._validate_technique(lookups, framework_name, technique, rule, context=context)
+
+                for sub_technique in technique.subtechnique or []:
+                    self._validate_subtechnique(
+                        lookups, framework_name, sub_technique, framework, rule, context=context
                     )
 
     def test_versioned_threat_mappings_deprecations(self):

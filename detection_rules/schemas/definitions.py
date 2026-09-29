@@ -232,7 +232,6 @@ EXPECTED_RULE_TAGS = [
     "Domain: Endpoint",
     "Domain: GenAI",
     "Domain: Identity",
-    "Domain: LLM",
     "Domain: Network",
     "Domain: OT/IoT",
     "Domain: SaaS",
