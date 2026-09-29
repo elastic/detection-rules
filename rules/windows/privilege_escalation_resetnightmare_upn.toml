@@ -4,7 +4,7 @@ integration = ["system", "windows"]
 maturity = "production"
 min_stack_comments = "FROM subquery support became generally available in 9.5.0."
 min_stack_version = "9.5.0"
-updated_date = "2026/08/19"
+updated_date = "2026/09/29"
 
 [rule]
 author = ["Elastic"]
@@ -14,8 +14,7 @@ that other account. This pattern may indicate ResetNightmare (CVE-2026-27912), w
 UPN to reset another account's password and take over that account. Targeting a privileged identity can escalate a
 standard domain user to Domain Admin or equivalent control of the domain.
 """
-from = "now-9m"
-interval = "5m"
+from = "now-30m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential ResetNightmare UPN Account Takeover (CVE-2026-27912)"
@@ -42,6 +41,10 @@ tags = [
     "Use Case: Vulnerability",
     "Data Source: Active Directory",
     "Data Source: Windows Security Event Logs",
+    "Threat: Vulnerability Exploit",
+    "Rule Type: ES|QL",
+    "Platform: Windows",
+    "Vuln: CVE-2026-27912",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -90,7 +93,7 @@ FROM (
   )
 
 | WHERE Esql.assignment_span_ms > 0 AND
-    Esql.assignment_span_ms <= 300000
+    Esql.assignment_span_ms <= 1200000
 
 /* Nearest preceding 4738 per 4723. */
 | SORT Esql.assignment_span_ms ASC,
