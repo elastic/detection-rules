@@ -1,0 +1,28 @@
+name: test-cpr-auth
+on: workflow_dispatch
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Write a file so the pull request has a diff
+        run: |
+          date -u > .cpr-auth-test
+          git add .cpr-auth-test
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@18f7dc018cc2cd597073088f7c7591b9d1c02672 # v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: test-cpr-auth
+          delete-branch: true
+          commit-message: "test checkout v7 auth"
+          title: "test checkout v7 auth"
+          body: "Throwaway auth test. Close without merging."
+          add-paths: |
+            .cpr-auth-test
