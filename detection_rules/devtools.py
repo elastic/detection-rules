@@ -25,8 +25,7 @@ import click
 import pytoml  # type: ignore[reportMissingTypeStubs]
 import requests.exceptions
 import yaml
-from elasticsearch import BadRequestError, Elasticsearch
-from elasticsearch import ConnectionError as ESConnectionError
+from elasticsearch import Elasticsearch
 from eql.table import Table  # type: ignore[reportMissingTypeStubs]
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 from kibana.connector import Kibana  # type: ignore[reportMissingTypeStubs]
@@ -44,9 +43,6 @@ from .config import (
 from .docs import REPO_DOCS_DIR, IntegrationSecurityDocs, IntegrationSecurityDocsMDX
 from .ecs import download_endpoint_schemas, download_schemas
 from .endgame import EndgameSchemaManager
-from .esql_errors import (
-    ESQL_EXCEPTION_TYPES,
-)
 from .eswrap import CollectEvents, add_range_to_dsl
 from .ghwrap import GithubClient, update_gist
 from .integrations import (
@@ -61,10 +57,9 @@ from .main import root
 from .misc import (
     PYTHON_LICENSE,
     add_client,
-    get_default_elasticsearch_client,
-    get_default_kibana_client,
     raise_client_error,
 )
+from .navigator import select_navigator_gist_files
 from .packaging import CURRENT_RELEASE_PATH, PACKAGE_FILE, RELEASE_DIR, Package
 from .rule import (
     AnyRuleData,
@@ -78,7 +73,6 @@ from .rule import (
     VersionedThreatMapping,
 )
 from .rule_loader import RuleCollection, production_filter
-from .rule_validators import ESQLValidator
 from .schemas import definitions, get_stack_versions
 from .utils import check_version_lock_double_bumps, dict_hash, get_etc_path, get_path
 from .version_lock import VersionLockFile, loaded_version_lock
@@ -837,12 +831,12 @@ def integrations_pr(  # noqa: PLR0913, PLR0915, PLR0917
 @click.pass_context
 def license_check(ctx: click.Context, ignore_directory: list[str]) -> None:
     """Check that all code files contain a valid license."""
-    ignore_directory += ("env",)
+    ignore_directory += ("env", ".venv", "venv", "exports")
     failed = False
 
     for path in utils.ROOT_DIR.rglob("*.py"):
         relative_path = path.relative_to(utils.ROOT_DIR)
-        if relative_path.parts[0] in ignore_directory:
+        if relative_path.parts[0] in ignore_directory or "build" in relative_path.parts:
             continue
 
         with path.open(encoding="utf-8") as f:
@@ -1029,7 +1023,7 @@ def deprecate_rule(ctx: click.Context, rule_file: Path, deprecation_folder: Path
     "--directory",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path),
     default=CURRENT_RELEASE_PATH.joinpath("extras", "navigator_layers"),
-    help="Directory containing only navigator files.",
+    help="Directory containing navigator layer JSON files.",
 )
 @click.option(
     "--token",
@@ -1056,17 +1050,17 @@ def update_navigator_gists(
         prefix, _, suffix = raw_link.rsplit("/", 2)
         return f"{prefix}/{suffix}"
 
-    file_map = {f: f.read_text() for f in directory.glob("*.json")}
+    file_map = select_navigator_gist_files(directory)
     try:
         response = update_gist(
             token, file_map, description="ATT&CK Navigator layer files.", gist_id=gist_id, pre_purge=True
         )
     except requests.exceptions.HTTPError as exc:
-        if exc.response.status_code == requests.status_codes.codes.not_found:
+        if exc.response is not None and exc.response.status_code == requests.status_codes.codes.not_found:
             raise raise_client_error(
                 "Gist not found: verify the gist_id exists and the token has access to it", exc=exc
             ) from exc
-        if exc.response.status_code == requests.status_codes.codes.unauthorized:
+        if exc.response is not None and exc.response.status_code == requests.status_codes.codes.unauthorized:
             text = json.loads(exc.response.text).get(
                 "message", "verify the token is valid and has the necessary permissions"
             )
@@ -1075,34 +1069,20 @@ def update_navigator_gists(
                 error_message,
                 exc=exc,
             ) from exc
-        raise
+        raise raise_client_error(f"Gist update failed: {exc}", exc=exc) from exc
 
     response_data = response.json()
     raw_urls = {name: raw_permalink(data["raw_url"]) for name, data in response_data["files"].items()}
 
     base_url = "https://mitre-attack.github.io/attack-navigator/#layerURL={}&leave_site_dialog=false&tabs=false"
-
-    # pull out full and platform coverage to print on top of markdown table
-    all_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop("Elastic-detection-rules-all.json")))
-    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls.pop("Elastic-detection-rules-platforms.json")))
+    all_url = base_url.format(urllib.parse.quote_plus(raw_urls["Elastic-detection-rules-all.json"]))
+    platforms_url = base_url.format(urllib.parse.quote_plus(raw_urls["Elastic-detection-rules-platforms.json"]))
 
     generated_urls = [all_url, platforms_url]
-    markdown_links: list[str] = []
-    for name, gist_url in raw_urls.items():
-        query = urllib.parse.quote_plus(gist_url)
-        url = f"https://mitre-attack.github.io/attack-navigator/#layerURL={query}&leave_site_dialog=false&tabs=false"
-        generated_urls.append(url)
-        link_name = name.split(".")[0]
-        markdown_links.append(f"|[{link_name}]({url})|")
-
     markdown = [
         f"**Full coverage**: {NAVIGATOR_BADGE}",
         "\n",
         f"**Coverage by platform**: [navigator]({platforms_url})",
-        "\n",
-        "| other navigator links by rule attributes |",
-        "|------------------------------------------|",
-        *markdown_links,
     ]
 
     if print_markdown:
@@ -1113,11 +1093,10 @@ def update_navigator_gists(
         header_lines = textwrap.dedent("""# Rule coverage
 
 ATT&CK navigator layer files are generated when a package is built with `make release` or
-`python -m detection-rules`.This also means they can be downloaded from all successful builds.
+`python -m detection-rules`. This also means they can be downloaded from all successful builds.
 
-These files can be used to pass to a custom navigator session. For convenience, the links are
-generated below. You can also include multiple across tabs in a single session, though it is not
-advisable to upload _all_ of them as it will likely overload your browsers resources.
+Published gist links cover the full rule set and coverage by platform. Additional tag and index
+layer files are not uploaded to the gist because they exceed GitHub gist size limits.
 
 ## Current rule coverage
 
@@ -1417,72 +1396,6 @@ def rule_event_search(  # noqa: PLR0913, PLR0917
         )
     else:
         raise_client_error("Rule is not a query rule!")
-
-
-@test_group.command("esql-remote-validation")
-@click.option(
-    "--verbosity",
-    type=click.IntRange(0, 1),
-    default=0,
-    help="Set verbosity level: 0 for minimal output, 1 for detailed output.",
-)
-def esql_remote_validation(
-    verbosity: int,
-) -> None:
-    """Search using a rule file against an Elasticsearch instance."""
-
-    rule_collection: RuleCollection = RuleCollection.default().filter(production_filter)
-    esql_rules = [r for r in rule_collection if r.contents.data.type == "esql"]
-
-    click.echo(f"ESQL rules loaded: {len(esql_rules)}")
-
-    if not esql_rules:
-        return
-    # TODO(eric-forte-elastic): @add_client https://github.com/elastic/detection-rules/issues/5156  # noqa: FIX002
-    with get_default_kibana_client() as kibana_client, get_default_elasticsearch_client() as elastic_client:
-        if not kibana_client or not elastic_client:
-            raise_client_error("Skipping remote validation due to missing client")
-
-        failed_count = 0
-        fail_list: list[str] = []
-        max_retries = 3
-        for r in esql_rules:
-            retry_count = 0
-            while retry_count < max_retries:
-                try:
-                    validator = ESQLValidator(r.contents.data.query)  # type: ignore[reportIncompatibleMethodOverride]
-                    _ = validator.remote_validate_rule_contents(kibana_client, elastic_client, r.contents, verbosity)
-                    break
-                except (ValueError, BadRequestError, *ESQL_EXCEPTION_TYPES) as e:  # type: ignore[reportUnknownMemberType]
-                    e_type = type(e)  # type: ignore[reportUnknownMemberType]
-                    if isinstance(e, ESQL_EXCEPTION_TYPES):
-                        click.echo(click.style(f"{r.contents.data.rule_id} ", fg="red", bold=True), nl=False)
-                        _ = e.show()  # type: ignore[reportUnknownMemberType]
-                    else:
-                        click.echo(f"FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
-                    fail_list.append(f"{r.contents.data.rule_id}  FAILURE: {e_type}: {e}")  # type: ignore[reportUnknownMemberType]
-                    failed_count += 1
-                    break
-                except ESConnectionError as e:
-                    retry_count += 1
-                    click.echo(f"Connection error: {e}. Retrying {retry_count}/{max_retries}...")
-                    time.sleep(30)
-                    if retry_count == max_retries:
-                        click.echo(f"FAILURE: {e} after {max_retries} retries")
-                        fail_list.append(f"FAILURE: {e} after {max_retries} retries")
-                        failed_count += 1
-
-        click.echo(f"Total rules: {len(esql_rules)}")
-        click.echo(f"Failed rules: {failed_count}")
-
-        _ = Path("failed_rules.log").write_text("\n".join(fail_list), encoding="utf-8")
-        click.echo("Failed rules written to failed_rules.log")
-        if failed_count > 0:
-            click.echo("Failed rule IDs:")
-            uuids = {line.split()[0] for line in fail_list}
-            click.echo("\n".join(uuids))
-            ctx = click.get_current_context()
-            ctx.exit(1)
 
 
 @test_group.command("rule-survey")
