@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2026/09/14"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2026/09/14"
 
@@ -23,7 +23,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.process*"]
+index = ["logs-endpoint.events.process*", "logs-crowdstrike.fdr*", "logs-sentinel_one_cloud_funnel.*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS SSM Agent Registered via Hybrid Activation"
@@ -96,6 +96,8 @@ tags = [
     "Tactic: Command and Control",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
     "Rule Type: Custom Query (KQL)",
     "Resources: Investigation Guide",
 ]
@@ -103,9 +105,21 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-event.category : process and host.os.type : linux and event.type : start and event.action : exec and
-process.name : (amazon-ssm-agent or ssm-agent-worker or ssm-setup-cli) and
-process.args : (-register and (-activation-code or -activation-id or -code or -id))
+event.category : process and host.os.type : linux and event.type : start and
+event.action : (ProcessRollup2 or exec or exec_event or start) and
+(
+  process.name : (amazon-ssm-agent or ssm-agent-worker or ssm-setup-cli) or
+  process.executable : (/snap/amazon-ssm-agent/*/amazon-ssm-agent or /usr/bin/amazon-ssm-agent or /usr/bin/ssm-setup-cli)
+) and
+process.args : (
+  (-register or --register) and
+  (
+    -activation-code or "-activation-code=*" or --activation-code or "--activation-code=*" or
+    -activation-id or "-activation-id=*" or --activation-id or "--activation-id=*" or
+    -code or "-code=*" or --code or "--code=*" or
+    -id or "-id=*" or --id or "--id=*"
+  )
+)
 '''
 
 [[rule.threat]]
