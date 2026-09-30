@@ -7,7 +7,7 @@ updated_date = "2026/09/30"
 [rule]
 author = ["Elastic"]
 description = """
-Detects three changes on the same ESXi host within 15 minutes: SSH enabled, ExecInstalledOnly turned off, and a
+Detects three changes on the same ESXi host within 1 hour: SSH enabled, ExecInstalledOnly turned off, and a
 VIB install with `-f` or `--force` and `--no-sig-check`. Together they open a remote shell, allow unsigned code to
 run, and bypass VIB signature checks. That sequence prepares the host to receive and run a package the normal
 controls would reject.
@@ -26,7 +26,7 @@ note = """## Triage and analysis
 
 ### Investigating ESXi Host Prepared for an Unsigned Install
 
-The rule counts three behaviors on one host and alerts only when all three occur in the same 15-minute window.
+The rule counts three behaviors on one host and alerts only when all three occur in the same 1-hour window.
 SSH enablement is hostsvc/enable_ssh or the hostd sentence SSH access has been enabled. ExecInstalledOnly is
 the kernel setting set to FALSE, or the advanced setting /User/ExecInstalledOnly set with -i 0. The install
 is vib install with the -f or --force switch and --no-sig-check.
@@ -76,8 +76,7 @@ type = "esql"
 query = '''
 FROM logs-vsphere.log-*
 | WHERE data_stream.dataset == "vsphere.log" AND event.module == "vsphere" and host.ip is not null
-| EVAL Esql.message_lower = TO_LOWER(message),
-       Esql.time_window = DATE_TRUNC(15 minutes, @timestamp)
+| EVAL Esql.message_lower = TO_LOWER(message)
 | EVAL
     Esql.ssh_enabled = CASE(
       Esql.message_lower LIKE "*ssh access has been enabled*" OR Esql.message_lower LIKE "*hostsvc/enable_ssh*",
@@ -93,8 +92,6 @@ FROM logs-vsphere.log-*
       Esql.message_lower LIKE "*vib install*" AND (
         Esql.message_lower LIKE "* -f *" OR Esql.message_lower LIKE "* -f"
         OR Esql.message_lower LIKE "* --force *" OR Esql.message_lower LIKE "* --force"
-      ) AND (
-        Esql.message_lower LIKE "* --no-sig-check *" OR Esql.message_lower LIKE "* --no-sig-check"
       ),
       1, 0
     )
@@ -104,19 +101,15 @@ FROM logs-vsphere.log-*
     Esql.exec_installed_only_disabled_count = SUM(Esql.exec_installed_only_disabled),
     Esql.vib_force_install_count = SUM(Esql.vib_force_install),
     Esql.message_values = VALUES(message),
-    Esql.process_name_values = VALUES(process.name),
     Esql.log_file_path_values = VALUES(log.file.path),
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp)
-  BY host.ip, Esql.time_window
-| EVAL Esql.span_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
+  BY host.ip
 | WHERE Esql.ssh_enabled_count > 0
     AND Esql.exec_installed_only_disabled_count > 0
     AND Esql.vib_force_install_count > 0
-    AND Esql.span_minutes <= 15
 | KEEP host.ip, Esql.ssh_enabled_count, Esql.exec_installed_only_disabled_count, Esql.vib_force_install_count,
-    Esql.message_values, Esql.process_name_values, Esql.log_file_path_values, Esql.first_seen, Esql.last_seen,
-    Esql.span_minutes, Esql.time_window
+    Esql.message_values, Esql.log_file_path_values, Esql.first_seen, Esql.last_seen
 '''
 
 [[rule.threat]]
@@ -162,15 +155,12 @@ reference = "https://attack.mitre.org/tactics/TA0008/"
 
 [rule.investigation_fields]
 field_names = [
-    "Esql.host",
+    "host.ip",
     "Esql.ssh_enabled_count",
     "Esql.exec_installed_only_disabled_count",
     "Esql.vib_force_install_count",
     "Esql.message_values",
-    "Esql.time_window",
-    "Esql.process_name_values",
     "Esql.log_file_path_values",
     "Esql.first_seen",
     "Esql.last_seen",
-    "Esql.span_minutes",
 ]
