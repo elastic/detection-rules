@@ -2,13 +2,13 @@
 creation_date = "2026/07/27"
 integration = ["fortinet_fortigate", "network_traffic", "suricata", "zeek"]
 maturity = "production"
-updated_date = "2026/09/23"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies when a source IP first queries an exact service hostname associated with commonly abused Remote Monitoring
-and Management (RMM) software within the seven-day new-terms history window. RMM tools are legitimate administration
+Identifies when a source IP first queries a service hostname associated with commonly abused Remote Monitoring and
+Management (RMM) software within the seven-day new-terms history window. RMM tools are legitimate administration
 products, but adversaries frequently install or abuse them for command and control, persistence, and remote execution.
 """
 false_positives = [
@@ -35,11 +35,11 @@ note = """## Triage and analysis
 
 Remote Monitoring and Management (RMM) tools provide legitimate remote administration, but the same capabilities are
 frequently abused for initial access, persistence, command execution, and command and control. This rule identifies the
-first observed relationship between a DNS source and a curated RMM agent or service hostname within the seven-day
-new-terms history window. Novelty is evaluated independently for each `source.ip` and
-`dns.question.registered_domain` pair, not for the domain across the entire environment. Using the registered domain as
-the novelty key prevents one RMM product from generating multiple alerts when its agent queries several service
-hostnames.
+first observed relationship between a DNS source and a curated RMM agent or service hostname, including ScreenConnect
+relay subdomains, within the seven-day new-terms history window. Novelty is evaluated independently for each `source.ip`
+and `dns.question.registered_domain` pair, not for the domain across the entire environment. Using the registered domain
+as the novelty key prevents multiple service hostnames under the same registered domain from generating separate
+alerts. Products that use multiple registered domains may generate more than one alert for the same client.
 
 The alert does not prove malicious RMM use. Passive DNS does not identify the requesting process, and `source.ip` may
 represent a recursive resolver or forwarder depending on sensor placement.
@@ -68,7 +68,7 @@ represent a recursive resolver or forwarder depending on sensor placement.
 - Browser access to a vendor service hostname can match because network DNS telemetry lacks process context.
 - Central resolvers can combine many endpoints under one `source.ip`. Do not create broad vendor exceptions until the
   actual endpoint and business owner are known.
-- Scope exceptions to a validated combination of client network or asset, exact hostname, and approved operational
+- Scope exceptions to a validated combination of client network or asset, hostname or domain, and approved operational
   context. Avoid globally excluding a vendor domain.
 
 ### Response and remediation
@@ -131,53 +131,54 @@ query = '''
 )
   and source.ip:*
   and dns.question.registered_domain:*
-  and dns.question.name:(
-    "agent-api.atera.com" or
-    "agent-api.atera.com." or
-    "agenthb.atera.com" or
-    "agenthb.atera.com." or
-    "agentreporting.atera.com" or
-    "agentreporting.atera.com." or
-    "agents.level.io" or
-    "agents.level.io." or
-    "api.rustdesk.com" or
-    "api.rustdesk.com." or
-    "assist.zoho.com" or
-    "assist.zoho.com." or
-    "boot.net.anydesk.com" or
-    "boot.net.anydesk.com." or
-    "cc.centrastage.net" or
-    "cc.centrastage.net." or
-    "client.teamviewer.com" or
-    "client.teamviewer.com." or
-    "control.connectwise.com" or
-    "control.connectwise.com." or
-    "deploy01.kaseya.com" or
-    "deploy01.kaseya.com." or
-    "gateway.zohoassist.com" or
-    "gateway.zohoassist.com." or
-    "geo.netsupportsoftware.com" or
-    "geo.netsupportsoftware.com." or
-    "ld.aurelius.host" or
-    "ld.aurelius.host." or
-    "live.screenconnect.com" or
-    "live.screenconnect.com." or
-    "managedsupport.kaseya.net" or
-    "managedsupport.kaseya.net." or
-    "ps.atera.com" or
-    "ps.atera.com." or
-    "pubsub.atera.com" or
-    "pubsub.atera.com." or
-    "rescue-data-center.logmein-gateway.com" or
-    "rescue-data-center.logmein-gateway.com." or
-    "router15.teamviewer.com" or
-    "router15.teamviewer.com." or
-    "rs-ny.rustdesk.com" or
-    "rs-ny.rustdesk.com." or
-    "serv.superopsalpha.com" or
-    "serv.superopsalpha.com." or
-    "taf.teamviewer.com" or
-    "taf.teamviewer.com."
+  and (
+    dns.question.registered_domain:screenconnect.com or
+    dns.question.name:(
+      "agent-api.atera.com" or
+      "agent-api.atera.com." or
+      "agenthb.atera.com" or
+      "agenthb.atera.com." or
+      "agentreporting.atera.com" or
+      "agentreporting.atera.com." or
+      "agents.level.io" or
+      "agents.level.io." or
+      "api.rustdesk.com" or
+      "api.rustdesk.com." or
+      "assist.zoho.com" or
+      "assist.zoho.com." or
+      "boot.net.anydesk.com" or
+      "boot.net.anydesk.com." or
+      "cc.centrastage.net" or
+      "cc.centrastage.net." or
+      "client.teamviewer.com" or
+      "client.teamviewer.com." or
+      "control.connectwise.com" or
+      "control.connectwise.com." or
+      "deploy01.kaseya.com" or
+      "deploy01.kaseya.com." or
+      "gateway.zohoassist.com" or
+      "gateway.zohoassist.com." or
+      "geo.netsupportsoftware.com" or
+      "geo.netsupportsoftware.com." or
+      "ld.aurelius.host" or
+      "ld.aurelius.host." or
+      "managedsupport.kaseya.net" or
+      "managedsupport.kaseya.net." or
+      "ps.atera.com" or
+      "ps.atera.com." or
+      "pubsub.atera.com" or
+      "pubsub.atera.com." or
+      "rescue-data-center.logmein-gateway.com" or
+      "rescue-data-center.logmein-gateway.com." or
+      "router15.teamviewer.com" or
+      "router15.teamviewer.com." or
+      "rs-ny.rustdesk.com" or
+      "rs-ny.rustdesk.com." or
+      "serv.superopsalpha.com" or
+      "serv.superopsalpha.com." or
+      "taf.teamviewer.com" or
+      "taf.teamviewer.com."
+    )
   )
 '''
 
