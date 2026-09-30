@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/02/24"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -28,7 +28,12 @@ tags = [
     "Tactic: Reconnaissance",
     "Use Case: Network Security Monitoring",
     "Data Source: PAN-OS",
-    "Resources: Investigation Guide"
+    "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Rule Type: ES|QL",
+    "Data Source: Network Packet Capture",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -115,3 +120,11 @@ reference = "https://attack.mitre.org/techniques/T1595/001/"
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
+
+[rule.alert_suppression]
+group_by = ["source.ip", "destination.ip"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1

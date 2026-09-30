@@ -1,0 +1,188 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies execution of well-known cloud exploitation, enumeration, and attack-simulation frameworks on an endpoint.
+Adversaries run these after obtaining cloud credentials to map the compromised principal's effective permissions,
+discover privilege escalation paths, and pivot to the console. Pacu is tracked by MITRE as software S1091. Real-world
+use on compromised hosts is documented in the AWS customer incident catalog, where both the Unit 42 SugarCRM zero-day
+response and the AWS CIRT federated-user compromise record Pacu and ScoutSuite scanning from access keys found on EC2
+hosts.
+
+Covered frameworks include: Pacu, CloudFox, ScoutSuite, PMapper, Stratus Red Team, WeirdAAL, enumerate-iam, Prowler,
+CloudMapper, CloudSplaining, cloud_enum, CloudBrute, SkyArk, Leonidas, Halberd, Barq, Cartography, Nimbostratus,
+AWSBucketDump, dsnap, aws_consoler, Redboto, cloudjack, s3scanner, CloudSploit, aws-enumerator, iam-vulnerable, Fog,
+and SmogCloud. Secret scanners such as TruffleHog and Gitleaks are intentionally excluded because they run routinely in
+CI and pre-commit hooks; their credential-validation use is covered by CloudTrail and GitHub user-agent rules.
+
+Authorized red team and cloud audit activity uses the same tooling, so alerts should be correlated with known
+assessment windows and operators.
+"""
+false_positives = [
+    """
+    Authorized red team engagements and cloud security assessments use the same frameworks. Correlate with known
+    assessment windows, operator identities, and approved change records before escalating.
+    """,
+    """
+    Security engineers running Prowler, ScoutSuite, or Cartography on a schedule for compliance or asset inventory will
+    trigger this rule. Add host or user exceptions for known security tooling environments.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Cloud Offensive Framework Execution"
+note = """## Triage and analysis
+
+### Investigating Cloud Offensive Framework Execution
+
+This rule fires when a known cloud offensive, enumeration, or attack-simulation framework starts on an endpoint, either as a standalone binary or through a Python, Go, Node, uv, or pipx launcher whose command line references the tool. These frameworks are what an adversary reaches for immediately after obtaining cloud credentials: Pacu and CloudFox for privilege escalation paths, ScoutSuite and Prowler for account-wide enumeration, PMapper and CloudMapper for IAM graphing, Stratus Red Team, Leonidas, and Halberd for scripted attack chains.
+
+### Possible investigation steps
+
+- Review `process.command_line` and `process.working_directory` to identify the framework, the modules or checks invoked, and any `--profile`, `--role`, or credential file arguments that show which cloud principal is being used.
+- Identify the parent process and user. An interactive terminal under a security engineer's account differs from a launcher spawned by a web server, cron, CI runner, or a process running from `/tmp`.
+- Check whether cloud credentials exist on the host (`~/.aws/credentials`, environment variables, instance metadata) and whether they were recently created or accessed.
+- Pivot to CloudTrail or the equivalent cloud audit log for the same principal and time window. Pacu and ScoutSuite generate bursts of `Describe*`, `List*`, and `Get*` calls; PMapper and CloudFox add `iam:Simulate*` and `sts:GetCallerIdentity`.
+- Look for follow-on activity on the host: new IAM users or keys, `aws sts assume-role`, `aws_consoler` console federation, or outbound connections from the same process tree.
+- Correlate with `Potential Linux Hack Tool Launched` and with the CloudTrail rules `AWS IAM User Self Created Access Key Subsequently Used` and `Suspicious User Agent Detected in CloudTrail`.
+
+### False positive analysis
+
+- Scheduled Prowler, ScoutSuite, or Cartography runs from a dedicated security or compliance host. Verify the host, user, and schedule, then add an exception scoped to that host and user rather than to the tool name.
+- Red team or purple team engagements. Confirm against the engagement record and time window.
+- Developers building or testing a framework from source. `go build`, `go test`, `pip install`, and `pytest` are excluded; if a build system uses other commands, exclude by parent process rather than by tool name.
+
+### Response and remediation
+
+- If not authorized, isolate the host and terminate the process tree.
+- Identify every cloud principal whose credentials were present on the host and rotate or revoke them. Treat any key used by the framework as compromised.
+- Review CloudTrail for the principal from the first framework execution onward, looking for privilege escalation (`iam:CreateAccessKey`, `iam:AttachUserPolicy`, `iam:UpdateAssumeRolePolicy`), persistence (new users, roles, Lambda functions), and data access.
+- Remove the framework, its virtual environment, and any session or credential caches it created (for example Pacu's session database).
+- Escalate to the cloud incident response process if the principal had privileges beyond read-only enumeration.
+"""
+references = [
+    "https://www.uptycs.com/blog/threat-research-report-team/threat-actor-mitigation-with-cloud-security",
+    "https://github.com/ramimac/aws-customer-security-incidents",
+    "https://unit42.paloaltonetworks.com/sugarcrm-cloud-incident-black-hat/",
+    "https://github.com/RhinoSecurityLabs/pacu",
+    "https://github.com/BishopFox/cloudfox",
+    "https://github.com/nccgroup/ScoutSuite",
+    "https://github.com/nccgroup/PMapper",
+    "https://stratus-red-team.cloud/",
+    "https://github.com/duo-labs/cloudmapper",
+    "https://github.com/salesforce/cloudsplaining",
+    "https://github.com/cyberark/SkyArk",
+    "https://github.com/FSecureLABS/leonidas",
+    "https://github.com/vectra-ai-research/Halberd",
+    "https://github.com/prisma-cloud/dsnap",
+]
+risk_score = 47
+rule_id = "77c476eb-6a49-402a-a561-267ae66daa5e"
+setup = """<unchanged from HEAD>"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.category : "process" and event.type : "start" and event.action:(start or exec) and 
+(
+  process.name : (
+    pacu or pacu.exe or cloudfox or cloudfox.exe or
+    weirdaal or "enumerate-iam" or enumerate_iam or scoutsuite or pmapper or
+    prowler or prowler.exe or cloudmapper or cloudsplaining or cloud_enum or
+    cloudbrute or cloudbrute.exe or nimbostratus or "aws-enumerator" or "aws-enumerator.exe" or
+    skyark or awsbucketdump or dsnap or aaia or
+    aws_consoler or awsconsoler or redboto or cloudjack or s3scanner or s3scanner.exe or
+    cloudsploit or "iam-vulnerable" or smogcloud
+  ) or
+  (process.name : (stratus or stratus.exe) and process.args : (detonate or warmup or revert or cleanup)) or
+  (process.name : cartography and process.args : ("--aws-sync-all-profiles" or "--aws-requested-syncs")) or
+  (
+    process.name : (python* or pipx or uv or uvx or go or node) and
+    process.command_line : (
+      *cloudfox* or *enumerate_iam* or *enumerate-iam* or *weirdAAL* or *aws_consoler* or
+      *-m pacu* or *pacu.py* or *aws_escalate* or *scoutsuite* or *pmapper* or
+      *cloudmapper* or *cloudsplaining* or *nimbostratus* or *leonidas-framework* or
+      *cloud_enum* or *halberd* or *skyark* or *awsbucketdump* or *stratus-red-team* or
+      *prowler* or *cloudsploit* or *cloudbrute* or *fog-aws* or *barq*
+    )
+  )
+) and not process.command_line : (
+  *pip install* or *pip3 install* or *pipx install* or *uv pip install* or *uv tool install* or
+  *go get* or *go install* or *go build* or *go test* or *npm install* or *--help* or *--version* or
+  *git clone* or *pytest* or "*site-packages/pip*"
+) and not process.parent.name : (dpkg or rpm or apt or yum or dnf or brew or pip or pip3)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[rule.alert_suppression]
+group_by = ["host.id", "process.name", "process.command_line"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
