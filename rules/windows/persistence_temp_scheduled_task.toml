@@ -2,7 +2,7 @@
 creation_date = "2022/08/29"
 integration = ["system", "windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -72,7 +72,26 @@ type = "eql"
 
 query = '''
 sequence by winlog.computer_name, winlog.event_data.TaskName with maxspan=5m
-   [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$"]
+   [iam where host.os.type == "windows" and event.action == "scheduled-task-created" and not user.name : "*$" and
+    not winlog.event_data.TaskName : (
+      "\\SoftLanding\\*",
+      "*PRTG*",
+      "\\MicrosoftEdgeMaintenance*",
+      "*\\Microsoft\\Windows\\DeviceLicensingService\\*",
+      "\\OneDrive Standalone Update*",
+      "\\PowerToys\\*",
+      "*Hewlett-Packard*",
+      "*\\HP\\HP Support Assistant\\*",
+      "*\\Mozilla\\*",
+      "\\AMDLinkUpdate",
+      "\\AMDInstallLauncher",
+      "*\\GoogleUserPEH\\*",
+      "\\CreateExplorerShellUnelevatedTask",
+      "*\\RunAADCHTestConnectivityAsSystem",
+      "*WaveBrowser*",
+      "\\CCleanerCrashReporting",
+      "\\TVInstallRestore"
+    )]
    [iam where host.os.type == "windows" and event.action == "scheduled-task-deleted" and not user.name : "*$"]
 '''
 
