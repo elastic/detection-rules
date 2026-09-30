@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ESXi audit record transmission being turned off, locally or to a remote collector. Audit records are the
+host's own trail of administrative changes. Disabling them means later changes to accounts, the firewall, and SSH
+are not recorded there.
+"""
+false_positives = [
+    """
+    Audit settings change during collector maintenance. Confirm that transmission was
+enabled again and that the change matches a ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Audit Records Disabled"
+note = """## Triage and analysis
+
+### Investigating ESXi Audit Records Disabled
+
+ESXi audit records capture administrative changes. Turning off local or remote transmission hides the commands that follow, including firewall, account, and VM actions.
+
+#### Possible investigation steps
+
+- Read message to see whether local or remote transmission was disabled.
+- Check for a later auditrecords command that sets --enabled true.
+- Correlate with syslog reset, firewall changes, and VM shutdowns.
+
+### False positive analysis
+
+A collector outage can include a temporary disable. The setting should be turned back on in the same change.
+
+### Response and remediation
+
+- Re-enable local and remote audit transmission.
+- Review shell and hostd logs for commands issued while auditing was off.
+- If the disable was unauthorized, isolate the host and rotate credentials.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "224d0328-36d4-553f-804a-5ff765aa85e5"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: "auditrecords" and
+  message: ("local disable" or "remote disable" or "--enabled false" or "--enabled=false")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

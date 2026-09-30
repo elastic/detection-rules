@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful SSH session opened by the privileged vpxuser account. vpxuser is a service account used by
+VMware vCenter Server to manage ESXi hosts. An SSH session from that account reaches the host shell directly,
+outside the vCenter management path, and is a sign the credential is being reused with malicious intent.
+"""
+false_positives = [
+    """
+    Rare troubleshooting can open an SSH session with vpxuser. Confirm the source address and that the session
+    matches a change ticket. vCenter itself manages hosts through the API, not through SSH as vpxuser.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi SSH Session from vpxuser"
+note = """## Triage and analysis
+
+### Investigating ESXi SSH Session from vpxuser
+
+Hostd records SSH session was opened for 'vpxuser@<address>' when that account gets a shell. vpxuser is created for vCenter and is not an interactive operator account.
+
+#### Possible investigation steps
+
+- Read the address after vpxuser@ in message and compare it with the vCenter server.
+- Review shell commands in the same session, especially copies to /tmp, vm process, and datastore paths.
+- Check whether SSH was enabled on this host just before the session.
+- Ask whether anyone used vpxuser for a documented console session.
+
+### False positive analysis
+
+An approved break-glass SSH session with vpxuser should be rare and tied to a ticket. A session from an address that is not the vCenter server deserves review.
+
+### Response and remediation
+
+- If the session was not approved, disable SSH and terminate the session.
+- Rotate the vpxuser credential from vCenter and review other hosts for the same account.
+- Preserve hostd.log and shell.log for the session.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "eb4de742-3183-55a9-942f-c3d3d93d806b"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and
+message: "SSH session was opened for" and message: "vpxuser"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects chmod making a file executable on an ESXi host, including `+x` and numeric modes such as `755` and `777`.
+The host will not run a file until the execute bit is set. Making a file under `/tmp` executable is the step that
+lets a later command launch it against the datastore.
+"""
+false_positives = [
+    """
+    Administrators mark a maintenance or support script executable during a change window. Confirm the path, the
+account, and whether the same session then executes a file from `/tmp` or enumerates virtual disks.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi File Made Executable with chmod"
+note = """## Triage and analysis
+
+### Investigating ESXi File Made Executable with chmod
+
+chmod +x, chmod a+x, and numeric modes such as 777 and 755 add the execute bit. On ESXi this is the step that turns a file dropped in /tmp into a runnable payload. Modes that do not grant execute, such as 644, are not included.
+
+#### Possible investigation steps
+
+- Read the full command in message, including the target path.
+- Check the same session for a copy into /tmp, a following execution of that path, VM process kills, or a search for vmdk files.
+- Confirm with the virtualization owner whether that file was part of an approved script.
+
+### False positive analysis
+
+Support workflows sometimes chmod a known script. A chmod of an unknown file under /tmp, followed by execution, is the staging pattern.
+
+### Response and remediation
+
+- If the file was not approved, remove it and end the shell session.
+- Preserve shell.log and review commands issued after the chmod.
+- If the path was executed, isolate the host and rotate credentials used in that session.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "c4e0a1d2-7b58-5f31-9c44-6a8e2f0d91ab"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and message: "chmod" and message: (
+  "+x" or "a+x" or "u+x" or "g+x" or "o+x" or
+  "777" or "0777" or "1777" or
+  "775" or "0775" or
+  "755" or "0755" or "4755" or
+  "750" or "0750" or
+  "711" or "0711" or
+  "700" or "0700" or
+  "555" or "0555" or
+  "511" or "0511" or
+  "111"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1222"
+name = "File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/"
+[[rule.threat.technique.subtechnique]]
+id = "T1222.002"
+name = "Linux and Mac File and Directory Permissions Modification"
+reference = "https://attack.mitre.org/techniques/T1222/002/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

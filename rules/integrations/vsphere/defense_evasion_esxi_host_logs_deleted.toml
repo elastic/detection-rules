@@ -1,0 +1,143 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects shell removal of ESXi host logs. A direct `rm` of a path under `/var/log` deletes shell, authentication,
+or hostd history. The same alert also covers `rm *.log` when that host already ran `cd /var/log` in the 15 minute
+window, which clears the logs in that directory without putting the path on the `rm` line. Either action removes
+the record of what was changed on the host.
+"""
+false_positives = [
+    """
+    An administrator deletes a rotated log under `/var/log` during a documented maintenance window.
+    Confirm the path and the change ticket.
+    """,
+]
+from = "now-15m"
+language = "esql"
+license = "Elastic License v2"
+name = "ESXi Host Logs Deleted with rm"
+note = """## Triage and analysis
+
+### Investigating ESXi Host Logs Deleted with rm
+
+shell.log records the typed command. A direct deletion looks like [root]: rm -f /var/log/<file>. Clearing the directory after changing into it is two lines: [root]: cd /var/log and a later [root]: rm *.log. The rule alerts when the direct path is present, or when the directory change happens before rm *.log on the same host inside 15 minutes.
+
+#### Possible investigation steps
+
+- Read Esql.message_values and note whether the hit is rm of /var/log or cd /var/log followed by rm *.log.
+- Compare Esql.cd_first with Esql.rm_star_first. The directory change should precede the glob delete.
+- On the host, list /var/log and see which files are missing, including shell.log, auth.log, and hostd.log.
+- Review account changes, firewall changes, and VM power events from the same session that are still in the index.
+
+### False positive analysis
+
+Deleting one rotated log during maintenance can be expected. rm *.log after cd /var/log removes the whole directory of logs and should be explained by a ticket.
+
+### Response and remediation
+
+- If the delete was not approved, isolate the host and preserve any remaining logs before they rotate.
+- Rotate credentials used in that shell session.
+- Confirm remote syslog still has a copy of the deleted host logs.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "15db4d31-a54f-5837-8f77-a350382faac5"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-vsphere.log-*
+| WHERE data_stream.dataset == "vsphere.log" AND event.module == "vsphere"
+| EVAL Esql.message_lower = TO_LOWER(message)
+| EVAL Esql.host = COALESCE(host.name, host.hostname)
+| EVAL
+    Esql.rm_var_log = CASE(
+      LOCATE(Esql.message_lower, "]: rm") > 0 AND LOCATE(Esql.message_lower, "/var/log") > 0,
+      1, 0
+    ),
+    Esql.cd_var_log = CASE(
+      LOCATE(Esql.message_lower, "]: cd") > 0 AND LOCATE(Esql.message_lower, "/var/log") > 0,
+      1, 0
+    ),
+    Esql.rm_star_log = CASE(
+      LOCATE(Esql.message_lower, "]: rm") > 0 AND LOCATE(Esql.message_lower, "*.log") > 0,
+      1, 0
+    )
+| WHERE Esql.host IS NOT NULL AND (Esql.rm_var_log == 1 OR Esql.cd_var_log == 1 OR Esql.rm_star_log == 1)
+| STATS
+    Esql.rm_var_log_count = SUM(Esql.rm_var_log),
+    Esql.cd_var_log_count = SUM(Esql.cd_var_log),
+    Esql.rm_star_log_count = SUM(Esql.rm_star_log),
+    Esql.cd_first = MIN(CASE(Esql.cd_var_log == 1, @timestamp, null)),
+    Esql.rm_star_first = MIN(CASE(Esql.rm_star_log == 1, @timestamp, null)),
+    Esql.message_values = VALUES(message),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  BY Esql.host
+| EVAL Esql.span_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
+| WHERE Esql.span_minutes <= 15 AND (
+    Esql.rm_var_log_count > 0 OR (
+      Esql.cd_var_log_count > 0 AND Esql.rm_star_log_count > 0 AND Esql.cd_first <= Esql.rm_star_first
+    )
+  )
+| KEEP Esql.host, Esql.rm_var_log_count, Esql.cd_var_log_count, Esql.rm_star_log_count,
+    Esql.span_minutes, Esql.cd_first, Esql.rm_star_first, Esql.first_seen, Esql.last_seen, Esql.message_values
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.002"
+name = "Clear Linux or Mac System Logs"
+reference = "https://attack.mitre.org/techniques/T1070/002/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.host",
+    "Esql.rm_var_log_count",
+    "Esql.cd_var_log_count",
+    "Esql.rm_star_log_count",
+    "Esql.span_minutes",
+    "Esql.cd_first",
+    "Esql.rm_star_first",
+    "Esql.first_seen",
+    "Esql.last_seen",
+    "Esql.message_values",
+]

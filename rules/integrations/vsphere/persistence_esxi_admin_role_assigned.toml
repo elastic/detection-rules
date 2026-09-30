@@ -1,0 +1,104 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an ESXi account being granted the Administrator role. Administrator is full control of the host, including
+the firewall, SSH, accounts, and every virtual machine. Granting it to another account keeps that access after the
+original session ends.
+"""
+false_positives = [
+    """
+    New virtualization administrators and service accounts are granted Admin during approved
+account provisioning. Confirm the account name against the identity ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Account Granted Admin Role"
+note = """## Triage and analysis
+
+### Investigating ESXi Account Granted Admin Role
+
+Admin on a standalone ESXi host can change the firewall, syslog, SSH, and every virtual machine. Granting that role to an unexpected account is a persistence path that survives the interactive session.
+
+#### Possible investigation steps
+
+- Read the account name in message. The shell form uses --id. The hostd form is Permission created for <name>.
+- Compare that name with known ESXi accounts (root, dcui, vpxuser, and approved operators).
+- Look for a preceding Account <name> was created or esxcli system account add for the same id.
+- Check whether that account was used for SSH or further esxcli commands.
+
+### False positive analysis
+
+Joiner automation and break-glass account setup grant Admin on purpose. The account id should match a ticket.
+
+### Response and remediation
+
+- If the account is unknown, remove the permission and the account: esxcli system permission unset and esxcli system account remove.
+- Rotate credentials that were exposed in the same session.
+- Hunt other hosts for the same account id.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "2e6ec182-2a31-5ff9-8b42-fdcb6f04e4c7"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and (
+  (
+    message: "system permission set" and
+    message: ("--role Admin" or "--role=Admin")
+  ) or (
+    message: "Permission created" and
+    message: "role is Administrator"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

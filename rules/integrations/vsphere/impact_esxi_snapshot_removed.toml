@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects removal of all snapshots for an ESXi virtual machine. Snapshots are on-host recovery points for a guest.
+Removing all of them deletes those recovery points, so the virtual machine cannot be reverted to an earlier disk
+state.
+"""
+false_positives = [
+    """
+    Snapshot consolidation after backups, storage pressure, and planned decommissioning can
+remove every snapshot for a VM. Confirm the account and whether the command ran against one VM or every VM.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Virtual Machine Snapshot Removed"
+note = """## Triage and analysis
+
+### Investigating ESXi Virtual Machine Snapshot Removed
+
+Snapshots are the local recovery point on a datastore. snapshot.removeall deletes them for one VM id. Ransomware wraps that command in a loop over every VM.
+
+#### Possible investigation steps
+
+- Read the VM id in message. A loop that calls removeall for every id from getallvms is higher severity than one VM.
+- Check whether VM processes were killed or disks were enumerated in the same session.
+- Ask the backup or virtualization owner whether snapshot consolidation was underway.
+
+### False positive analysis
+
+Backup products and administrators delete snapshots after a successful consolidate. Match the account and the change ticket before closing the alert.
+
+### Response and remediation
+
+- If removal was not approved, isolate the host and stop the shell session.
+- Restore affected VMs from an off-host backup. Datastore snapshots removed by this command are gone.
+- Preserve shell history and hostd logs.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "e822bf97-933f-58f9-bd14-47a2ac9cd5d3"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: "snapshot.removeall"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

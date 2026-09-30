@@ -1,0 +1,98 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects `vim-cmd vmsvc/power.off` on an ESXi host. Powering a virtual machine off releases the lock the hypervisor
+holds on its virtual disks. With the guest stopped, those disks can be rewritten or encrypted while the machine
+is down.
+"""
+false_positives = [
+    """
+    Administrators power off virtual machines for patching, decommissioning, and hardware
+maintenance. Review the account and whether the command targeted one VM id or every id returned by `getallvms`.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Virtual Machine Powered Off"
+note = """## Triage and analysis
+
+### Investigating ESXi Virtual Machine Powered Off
+
+vim-cmd vmsvc/power.off is the guest-aware shutdown path ransomware uses when esxcli vm process kill is not enough. A for loop over getallvms powers off every guest on the host.
+
+#### Possible investigation steps
+
+- Read message for a single VM id versus a loop over vim-cmd vmsvc/getallvms.
+- Correlate with snapshot removal, vm process kill, and find commands for *.vmdk on the same host.
+- Ask the VM owner whether that power-off was scheduled.
+
+### False positive analysis
+
+One VM powered off by a known administrator during a change window is commonly benign. Powering off every VM in one shell loop is the ransomware pattern.
+
+### Response and remediation
+
+- If the power-off was not approved, isolate the host and do not reboot it.
+- Power guests back on only after confirming their disks were not encrypted, or restore them from backup.
+- Preserve shell and hostd logs for the session that issued power.off.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "eefac402-2845-5498-90ff-e2e6eda987db"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: "vmsvc/power.off"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1529"
+name = "System Shutdown/Reboot"
+reference = "https://attack.mitre.org/techniques/T1529/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

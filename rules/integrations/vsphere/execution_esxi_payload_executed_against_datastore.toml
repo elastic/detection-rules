@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a program launched from the ESXi shell against `/vmfs/volumes`. The datastore holds the virtual disks of
+every guest. A process pointed at that path can read or encrypt those disks and take the hosted virtual machines
+offline.
+"""
+false_positives = [
+    """
+    A support script stored under `/tmp` or a Python inventory check can be pointed at a datastore during
+maintenance. Confirm the file name, the account, and whether virtual machines were shut down in the same session.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Payload Executed Against Datastore"
+note = """## Triage and analysis
+
+### Investigating ESXi Payload Executed Against Datastore
+
+This is the launch command. A path under /tmp, or python, is invoked with /vmfs/volumes as an argument. Ragnar Locker uses /tmp/<filename> /vmfs/volumes/<UUID>/. Pysa uses Python and passes the datastore path.
+
+#### Possible investigation steps
+
+- Read message for the executable path and the datastore argument.
+- Check the same session for chmod +x, VM process kills, snapshot removal, and find commands for vmdk files.
+- On the host, identify the file that was executed and whether it is still under /tmp or on a datastore.
+
+### False positive analysis
+
+Approved maintenance can run a known script from /tmp against a datastore. An unknown filename, especially after a chmod in the same session, is the ransomware launch pattern.
+
+### Response and remediation
+
+- If the program was not approved, isolate the host. Leave powered-on VMs running so their disks stay locked.
+- Remove the file under /tmp and preserve shell.log.
+- Restore any datastore that was modified from an off-host backup.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "4bfd7545-987a-5a19-a3c9-c3fba2858f29"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and (
+  message: "/vmfs/volumes" and message: ("/tmp/" or "python")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1486"
+name = "Data Encrypted for Impact"
+reference = "https://attack.mitre.org/techniques/T1486/"
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

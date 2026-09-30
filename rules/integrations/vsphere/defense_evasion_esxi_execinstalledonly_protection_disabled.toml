@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ESXi ExecInstalledOnly protection being turned off. The setting limits execution to binaries that were
+installed by a VIB and have not been modified. When it is set to false, the host can run files from paths such
+as `/tmp` that were never part of the system image.
+"""
+false_positives = [
+    """
+    Some recovery and lab images leave ExecInstalledOnly off, and an approved change can disable it while a
+    custom VIB is installed. Confirm the setting is restored to TRUE afterward.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi ExecInstalledOnly Protection Disabled"
+note = """## Triage and analysis
+
+### Investigating ESXi ExecInstalledOnly Protection Disabled
+
+ExecInstalledOnly limits execution to binaries that were installed by a VIB and have not been modified. Turning it off lets a later payload run from a path such as /tmp.
+
+#### Possible investigation steps
+
+- Read message for execInstalledOnly set to FALSE, or /User/ExecInstalledOnly set with -i 0.
+- On the host, run esxcli system settings kernel list -o execInstalledOnly and compare Configured with Runtime.
+- Look for a following vib install with --force, a chmod that adds execute permission, or a file launched from /tmp.
+
+### False positive analysis
+
+A documented install of an unsigned vendor VIB can disable the setting for the duration of the change. The setting should be TRUE when the work is finished.
+
+### Response and remediation
+
+- If the change was not approved, set the control back on: esxcli system settings kernel set -s execInstalledOnly -v TRUE.
+- Review VIBs installed in the same session with esxcli software vib list.
+- Preserve shell.log before rotating credentials.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "c7eb51a1-6ca4-5fd2-9842-0f81a046bdd2"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and message: "execInstalledOnly" and message: (
+  "FALSE" or "-i 0" or "-v 0"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

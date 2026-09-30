@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation of a local ESXi account. A new account is a separate login that remains after the session that
+created it. It has no rights until a role is assigned, and it is the first step toward a persistent login on the host.
+"""
+false_positives = [
+    """
+    Administrators create local accounts during onboarding or break-glass setup. Confirm the account name and whether
+it was then granted the Admin role.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Local Account Created"
+note = """## Triage and analysis
+
+### Investigating ESXi Local Account Created
+
+Hostd records Account <name> was created on host <hostname> when an account is added from the Host Client or API. The shell records esxcli system account add. The new account has no role until a later permission change.
+
+#### Possible investigation steps
+
+- Read the account name in message and the user field on the hostd event, which is the account that created it.
+- Look for a following esxcli system permission set or an Admin role grant for the same account.
+- Compare the account with the approved list for that host.
+
+### False positive analysis
+
+A documented joiner or break-glass account is commonly benign. An unknown account created by root over the Host Client, then granted Admin, deserves review.
+
+### Response and remediation
+
+- If the account was not approved, remove it with esxcli system account remove --id <name>.
+- Preserve hostd.log and shell.log for the creating session.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "dff0caa0-9d14-5e75-946b-677c38734e9b"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and (
+  message: "esxcli system account add" or
+  (message: "Account" and message: "was created")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

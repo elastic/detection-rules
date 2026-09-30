@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ESXi SSH being turned on. SSH is often left disabled so the host is managed through the local console,
+the Host Client, or vCenter. Enabling it opens a remote shell that can copy files onto the host and run commands
+against the datastore.
+"""
+false_positives = [
+    """
+    Administrators enable SSH for a documented troubleshooting window. ESXi often disables
+the service again on reboot, so a later enable by a known operator can be expected.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi SSH Access Enabled"
+note = """## Triage and analysis
+
+### Investigating ESXi SSH Access Enabled
+
+SSH is disabled on many ESXi hosts. Turning it on is the step that lets an intruder who already has the root password open a shell and stage a payload in /tmp.
+
+#### Possible investigation steps
+
+- Confirm whether the hit is the hostd sentence SSH access has been enabled or the shell command hostsvc/enable_ssh.
+- Review source.ip and the account on nearby authentication events.
+- Check for a following cd /tmp, file upload, or vm process command.
+- Ask whether a change ticket opened SSH on this host.
+
+### False positive analysis
+
+Documented troubleshooting enables SSH and should disable it afterward. An enable with no ticket, followed by datastore commands, is the intrusion pattern.
+
+### Response and remediation
+
+- If the enable was not approved, disable SSH (vim-cmd hostsvc/disable_ssh) after preserving logs.
+- Rotate the root password and review accounts added in the same window.
+- Hunt other hosts for the same hostd event.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "2ff3eded-6e58-5cad-8642-bb2b060affe0"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: "SSH access has been enabled" or message: "hostsvc/enable_ssh"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+    "source.ip",
+]

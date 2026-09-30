@@ -1,0 +1,102 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the ESXi remote syslog destination being cleared with `--reset=loghost`. The loghost is where host logs
+are forwarded for retention and detection. Clearing it keeps later commands on the host only, so an external
+collector stops receiving them.
+"""
+false_positives = [
+    """
+    An administrator can reset the loghost while moving the host to a new collector. Confirm
+that a new `--loghost` value was set in the same change and that logs are arriving at the collector.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Syslog Remote Host Reset"
+note = """## Triage and analysis
+
+### Investigating ESXi Syslog Remote Host Reset
+
+Remote syslog is often the only copy of ESXi shell history that leaves the host. --reset=loghost drops that destination. Obfuscated commands in the same reports decode to this exact esxcli line.
+
+#### Possible investigation steps
+
+- Read message for a literal esxcli line or an obfuscated line that still contains reset=loghost.
+- Run or review esxcli system syslog config get and confirm whether Remote Host is empty.
+- Correlate with firewall, SSH, and VM shutdown commands from the same session.
+
+### False positive analysis
+
+Collector migrations reset the old loghost and then set a new one. An empty loghost that stays empty is not a migration.
+
+### Response and remediation
+
+- Restore the collector: esxcli system syslog config set --loghost=<collector> and reload syslog.
+- Pull local shell.log, hostd.log, and auth.log before they rotate. The gap while loghost was empty will be missing from the collector.
+- If the reset was unauthorized, isolate the host.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "9bd3bba8-e4c3-5670-9553-4d91e19ec328"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: "syslog config set" and
+  message: ("--reset=loghost" or "--reset loghost" or "reset=loghost")
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

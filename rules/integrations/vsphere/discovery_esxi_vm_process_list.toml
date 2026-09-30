@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects `esxcli vm process list` on an ESXi host. The command lists running virtual machines and the world IDs of
+their `vmx` processes. Those IDs are what a later kill command uses to stop the VMs and release the locks on their
+virtual disks.
+"""
+false_positives = [
+    """
+    Administrators list virtual machines during maintenance and troubleshooting. Review whether the same session
+then kills those processes or searches the datastore.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Virtual Machine Process List"
+note = """## Triage and analysis
+
+### Investigating ESXi Virtual Machine Process List
+
+esxcli vm process list enumerates running virtual machines and their world ids. A later kill command uses those world ids to stop the VMs.
+
+#### Possible investigation steps
+
+- Read message for a plain list versus a list piped into vm process kill.
+- Check the same session for pkill, power.off, snapshot removal, or a search for vmdk files.
+- Confirm with the virtualization owner whether the list was part of a scheduled check.
+
+### False positive analysis
+
+A standalone list during a change window is commonly benign. A list immediately followed by a force kill of every world id is the shutdown step before encryption.
+
+### Response and remediation
+
+- If the same session kills virtual machines or deletes snapshots, isolate the host.
+- Otherwise record the account and source for hunting on other hosts.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 21
+rule_id = "a7f969e5-6cfd-5b5f-8df4-3c4317a3cf7e"
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and process.name: "shell" and message: ("esxcli" and "vm process list")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1057"
+name = "Process Discovery"
+reference = "https://attack.mitre.org/techniques/T1057/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

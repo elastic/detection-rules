@@ -1,0 +1,115 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ESXi shell commands that rebuild a command with encoding instead of writing it in clear text, including
+octal and hex `printf`, Python `chr()`, `awk` `%c` sequences, reversed strings, and invisible Unicode. The shell
+log then hides the administrative command. The decoded action can still change syslog, the firewall, or other
+host settings.
+"""
+false_positives = [
+    """
+    Rare troubleshooting one-liners can use `printf` or `awk` to generate text. A line that
+also decodes to a syslog, firewall, or VM command should still be investigated.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Shell Command Obfuscation"
+note = """## Triage and analysis
+
+### Investigating ESXi Shell Command Obfuscation
+
+ESXi shell.log stores the command text. Encoding the letters of esxcli is an attempt to keep a destructive command out of simple string searches. The decoded action is often a syslog reset or a VM listing.
+
+#### Possible investigation steps
+
+- Copy message and decode it. Octal 145 163 170, hex 65 73 78, chr(101), and repeated percent-c sequences all spell esx.
+- If the decoded command resets syslog, changes the firewall, or kills a VM, follow that detection as well.
+- Compare the account and source with normal ESXi administration. Operators rarely need these encodings.
+
+### False positive analysis
+
+A lab or training host may replay published obfuscation samples. On a production host, treat the encoded command as hostile until the decoded text is explained.
+
+### Response and remediation
+
+- Decode and record the command, then check esxcli system syslog config get and the firewall state in case the payload already ran.
+- End the shell session and disable SSH if it was not required.
+- Preserve shell.log before rotation. The encoded line is the evidence.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "a7716b79-b964-58ea-8773-333eb42a8d78"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Encoding-Based Obfuscation",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and (
+  message: (
+    "chr(101)" or
+    "%c%c%c%c%c%c" or
+    "ilcxse" or
+    "0xe2,0x80,0x8b" or
+    "0xf3,0xb0,0x80,0x80" or
+    "\\x65\\x73\\x78" or
+    "\\145\\163\\170"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects `curl` or `wget` from the ESXi shell. These tools download a file or contact a remote URL from the
+hypervisor. A successful transfer can place a package or script on the host, often under `/tmp`, where a later
+command can execute it against the datastore.
+"""
+false_positives = [
+    """
+    Administrators use `wget` to download a patch, VIB, or support script during maintenance. Confirm the URL and
+whether the same session continues into file execution or virtual machine shutdown.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Curl or Wget Activity"
+note = """## Triage and analysis
+
+### Investigating ESXi Curl or Wget Activity
+
+curl and wget download a file or check a URL from the ESXi shell. The shell log records the command even when the binary is missing or the host has no route to the destination.
+
+#### Possible investigation steps
+
+- Read the URL and output path in message.
+- Check the same session for a file under /tmp, chmod, or execution of the downloaded file.
+- Confirm the URL with the virtualization owner.
+
+### False positive analysis
+
+A documented download of a vendor package is commonly benign. A download of an unknown file into /tmp, followed by chmod, deserves review.
+
+### Response and remediation
+
+- If the download was not approved, remove the file and end the shell session.
+- Preserve shell.log and review commands issued after the download.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 47
+rule_id = "8b01751e-702d-5a27-b754-e2c6e020167f"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and process.name: "shell" and message: ("curl" or "wget")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]

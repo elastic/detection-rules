@@ -1,0 +1,103 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the disabling of ESXi lockdown mode, a critical security feature that restricts remote access to ESXi hosts.
+When lockdown mode is disabled, remote users can directly access and modify ESXi host configurations using the root
+login. When enabled, the ESXi host is accessible only through the local console or vCenter Server.
+"""
+false_positives = [
+    """
+    Administrators disable lockdown mode for a documented maintenance window, then turn it back on.
+    Confirm the change ticket and that lockdown mode is enabled again afterward.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Lockdown Mode Disabled"
+note = """## Triage and analysis
+
+### Investigating ESXi Lockdown Mode Disabled
+
+Lockdown mode limits remote administration of the host. Turning it off restores direct administrator access from SSH and the API.
+
+#### Possible investigation steps
+
+- Read message for esx.audit.lockdownmode.disabled or the shell command lockdown_mode_exit. A DCUI change records the audit id and does not record lockdown_mode_exit.
+- Note the account in the hostd user field. A DCUI change shows user=dcui.
+- On the host, run vim-cmd -U dcui vimsvc/auth/lockdown_is_enabled and confirm whether it is still off.
+- Check the same session for new accounts, an Admin role grant, or a root password change.
+
+### False positive analysis
+
+A short maintenance window that disables lockdown mode and enables it again can be expected. The host should not be left with lockdown mode off.
+
+### Response and remediation
+
+- If the change was not approved, enable lockdown mode again from the DCUI or with vim-cmd -U dcui vimsvc/auth/lockdown_mode_enter.
+- Review accounts and permissions changed in the same session.
+- Preserve hostd.log before rotating credentials.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "567050d5-fe4e-54f7-b81f-131af20f903d"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "vsphere.log" and event.module: "vsphere" and (
+  message: "esx.audit.lockdownmode.disabled" or
+  message: "lockdown_mode_exit"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "process.name",
+    "host.name",
+    "log.file.path",
+]
