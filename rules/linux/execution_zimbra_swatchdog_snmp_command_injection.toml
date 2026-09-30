@@ -9,8 +9,8 @@ author = ["Elastic"]
 description = """
 Detects a Unix shell launched by Perl from a generated Zimbra `.swatchdog_script` when the shell command line contains
 an `snmptrap` invocation and Zimbra SNMP service fields, followed by an unexpected child process other than `snmptrap`.
-This is the direct command-execution boundary for CVE-2026-73570, an unauthenticated command-injection vulnerability in
-Zimbra's SNMP monitoring path.
+This sequence provides high-confidence evidence of external command execution through CVE-2026-73570, an unauthenticated
+command-injection vulnerability in Zimbra's SNMP monitoring path.
 """
 false_positives = [
     """
@@ -34,16 +34,19 @@ request can poison `/var/log/zimbra.log` with a forged service-status record. Vu
 the attacker-controlled service value and interpolates it into a Perl backtick expression, causing a Unix shell to
 interpret shell grammar embedded in an `snmptrap` command.
 
-This rule targets that stable execution boundary rather than one payload, callback domain, or utility. It requires a
-shell child of Perl, a generated `.swatchdog_script` parent command line, `snmptrap`, the Zimbra SNMP service fields,
-and an additional child process spawned by that shell. A match is very high-confidence evidence of command injection,
-even if a downloaded payload was encoded, changed, or never written to disk. Shell-only payloads that use built-ins or
-redirection without starting another process are instead covered by the companion network and poisoned-log rules.
+This rule targets execution immediately after the vulnerable boundary rather than one payload, callback domain, or
+utility. It requires a shell child of Perl, a generated `.swatchdog_script` parent command line, `snmptrap`, the Zimbra
+SNMP service fields, and an additional child process spawned by that shell. A match is very high-confidence evidence
+of command injection, even if a downloaded payload was encoded, changed, or never written to disk. Shell-only payloads
+that use built-ins or redirection without starting another process are outside this rule and require the companion
+network or poisoned-log detection.
 
 ### Possible investigation steps
 
 - Preserve the complete process tree, command lines, process entity identifiers, executable hashes, environment, open
   files, network connections, and memory for the matching shell, Perl parent, and descendant processes.
+- Identify the unexpected child process from the second event in the sequence and determine what command, script, or
+  interpreter it executed.
 - Extract the injected command without executing it. Identify callback destinations, downloaded files, output
   redirection, background execution, decoders, and commands chained after `snmptrap`.
 - Search `/var/log/zimbra.log`, Postfix logs, remote syslog, and rotated records for the preceding forged
@@ -91,7 +94,7 @@ This rule requires process events from Elastic Defend on every Zimbra MTA and ma
 Linux process starts with complete child and parent command lines. Confirm that `process.parent.command_line` retains
 the generated `.swatchdog_script` path and that `process.command_line` retains the shell's `snmptrap` command.
 
-Forward Zimbra and Postfix logs off-host as a companion data source. The matching process event proves the direct
+Forward Zimbra and Postfix logs off-host as a companion data source. The matching process sequence proves external
 execution behavior, while the preceding poisoned log record can identify the remote SMTP source and submitted text.
 """
 severity = "critical"
@@ -108,7 +111,7 @@ tags = [
     "Rule Type: Event Correlation (EQL)",
     "Platform: Linux",
     "Noise: Low",
-    "Performance: Fast",
+    "Performance: Normal",
     "Profile: Recommended",
     "Vuln: CVE-2026-73570",
 ]
@@ -116,7 +119,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id with maxspan=5s
+sequence by host.id with maxspan=30s
   [process where
     host.os.type == "linux" and
     event.type == "start" and
