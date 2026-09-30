@@ -26,7 +26,7 @@ note = """## Triage and analysis
 
 ### Investigating ESXi Host Prepared for an Unsigned Install
 
-The rule counts three behaviors on one host and alerts only when all three occur inside the 15 minute lookback.
+The rule counts three behaviors on one host and alerts only when all three occur in the same 15-minute window.
 SSH enablement is hostsvc/enable_ssh or the hostd sentence SSH access has been enabled. ExecInstalledOnly is
 the kernel setting set to FALSE, or the advanced setting /User/ExecInstalledOnly set with -i 0. The install
 is vib install with the -f or --force switch and --no-sig-check.
@@ -76,7 +76,8 @@ type = "esql"
 query = '''
 FROM logs-vsphere.log-*
 | WHERE data_stream.dataset == "vsphere.log" AND event.module == "vsphere" and host.ip is not null
-| EVAL Esql.message_lower = TO_LOWER(message)
+| EVAL Esql.message_lower = TO_LOWER(message),
+       Esql.time_window = DATE_TRUNC(15 minutes, @timestamp)
 | EVAL
     Esql.ssh_enabled = CASE(
       Esql.message_lower LIKE "*ssh access has been enabled*" OR Esql.message_lower LIKE "*hostsvc/enable_ssh*",
@@ -107,15 +108,15 @@ FROM logs-vsphere.log-*
     Esql.log_file_path_values = VALUES(log.file.path),
     Esql.first_seen = MIN(@timestamp),
     Esql.last_seen = MAX(@timestamp)
-  BY host.ip
+  BY host.ip, Esql.time_window
 | EVAL Esql.span_minutes = DATE_DIFF("minute", Esql.first_seen, Esql.last_seen)
 | WHERE Esql.ssh_enabled_count > 0
     AND Esql.exec_installed_only_disabled_count > 0
     AND Esql.vib_force_install_count > 0
-    AND Esql.span_minutes <= 60
+    AND Esql.span_minutes <= 15
 | KEEP host.ip, Esql.ssh_enabled_count, Esql.exec_installed_only_disabled_count, Esql.vib_force_install_count,
     Esql.message_values, Esql.process_name_values, Esql.log_file_path_values, Esql.first_seen, Esql.last_seen,
-    Esql.span_minutes
+    Esql.span_minutes, Esql.time_window
 '''
 
 [[rule.threat]]
@@ -166,6 +167,7 @@ field_names = [
     "Esql.exec_installed_only_disabled_count",
     "Esql.vib_force_install_count",
     "Esql.message_values",
+    "Esql.time_window",
     "Esql.process_name_values",
     "Esql.log_file_path_values",
     "Esql.first_seen",
