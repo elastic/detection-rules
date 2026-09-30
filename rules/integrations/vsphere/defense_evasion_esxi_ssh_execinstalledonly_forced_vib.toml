@@ -8,8 +8,9 @@ updated_date = "2026/09/30"
 author = ["Elastic"]
 description = """
 Detects three changes on the same ESXi host within 15 minutes: SSH enabled, ExecInstalledOnly turned off, and a
-VIB install with `--force`. Together they open a remote shell, allow unsigned code to run, and bypass VIB
-signature checks. That sequence prepares the host to receive and run a package the normal controls would reject.
+VIB install with `-f` or `--force` and `--no-sig-check`. Together they open a remote shell, allow unsigned code to
+run, and bypass VIB signature checks. That sequence prepares the host to receive and run a package the normal
+controls would reject.
 """
 false_positives = [
     """
@@ -28,7 +29,7 @@ note = """## Triage and analysis
 The rule counts three behaviors on one host and alerts only when all three occur inside the 15 minute lookback.
 SSH enablement is hostsvc/enable_ssh or the hostd sentence SSH access has been enabled. ExecInstalledOnly is
 the kernel setting set to FALSE, or the advanced setting /User/ExecInstalledOnly set with -i 0. The install
-is vib install together with --force, which skips signature validation.
+is vib install with the -f or --force switch and --no-sig-check.
 
 #### Possible investigation steps
 
@@ -88,7 +89,12 @@ FROM logs-vsphere.log-*
       1, 0
     ),
     Esql.vib_force_install = CASE(
-      Esql.message_lower LIKE "*vib install*" AND Esql.message_lower LIKE "*--force*",
+      Esql.message_lower LIKE "*vib install*" AND (
+        Esql.message_lower LIKE "* -f *" OR Esql.message_lower LIKE "* -f"
+        OR Esql.message_lower LIKE "* --force *" OR Esql.message_lower LIKE "* --force"
+      ) AND (
+        Esql.message_lower LIKE "* --no-sig-check *" OR Esql.message_lower LIKE "* --no-sig-check"
+      ),
       1, 0
     )
 | WHERE Esql.ssh_enabled == 1 OR Esql.exec_installed_only_disabled == 1 OR Esql.vib_force_install == 1
