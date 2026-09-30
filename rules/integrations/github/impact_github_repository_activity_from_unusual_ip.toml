@@ -2,15 +2,22 @@
 creation_date = "2025/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when there is activity on a private GitHub repository from an unusual IP address. Adversaries may
-access private repositories from unfamiliar IPs to exfiltrate sensitive code or data, potentially indicating
-a compromise or unauthorized access.
+Detects when a GitHub user pushes to or clones a private repository from an IP address not previously seen for that
+user. Adversaries may access private repositories from unfamiliar IPs to exfiltrate sensitive code or data, potentially
+indicating a compromise or unauthorized access.
 """
+false_positives = [
+    """
+    Developers connecting from dynamic, mobile or VPN networks will periodically appear from new IP addresses. CI
+    runners such as GitHub Actions hosted runners or cloud build services rotate source IPs frequently; add exceptions
+    for known automation identities or runner IP ranges if the volume is high.
+    """,
+]
 from = "now-9m"
 index = ["logs-github.audit-*"]
 language = "kuery"
@@ -115,8 +122,8 @@ name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["source.ip", "github.repo"]
+value = ["user.name", "source.ip"]
 
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-7d"
+value = "now-14d"

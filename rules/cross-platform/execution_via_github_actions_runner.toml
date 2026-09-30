@@ -2,7 +2,7 @@
 creation_date = "2025/11/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -180,6 +180,14 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
      "gws"
    ) or
    process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "?:\\Users\\*")
+ ) and
+ not (
+   /* Runner orchestration layer: Runner.Worker directly spawns a shell for every `run:` step,
+      node for every JavaScript action, docker for container actions and tar for cache/artifact
+      steps. These are the normal execution model of GitHub Actions, not workflow payload. */
+   process.parent.name in ("Runner.Worker", "Runner.Worker.exe") and
+   process.name : ("bash", "sh", "dash", "pwsh", "pwsh.exe", "powershell.exe", "node", "node.exe", "docker", "tar") and
+   not process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*")
  )
 '''
 
