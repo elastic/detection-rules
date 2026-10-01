@@ -2,20 +2,20 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
-Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting one widens
-where a compromised admin session or API key can be used. The audit event does not always carry the deleted CIDR or
-restriction identifier, so treat this as an early signal and pivot to nearby IP restriction create or update events
-for the same organization.
+Organization IP restrictions limit Anthropic administrative access to approved network ranges. Deleting one widens where
+a compromised admin session or API key can be used. The audit event does not always carry the deleted CIDR or
+restriction identifier, so treat this as an early signal and pivot to nearby IP restriction create or update events for
+the same organization.
 """
 false_positives = [
     """
-    Network or security teams remove IP restrictions during office moves, VPN migrations, or policy redesigns.
-    Validate the actor, and confirm replacement restrictions were applied if the control is still required.
+    Network or security teams remove IP restrictions during office moves, VPN migrations, or policy redesigns. Validate
+    the actor, and confirm replacement restrictions were applied if the control is still required.
     """,
 ]
 from = "now-9m"
@@ -52,9 +52,7 @@ Unauthorized = no network/security change ticket for allowlist work, no replacem
 - On unauthorized deletion: restore required IP restrictions, review admin activity from non-corporate `source.ip`
   during the open window, and rotate admin credentials / API keys used in that period.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 73
 rule_id = "ae472523-3854-4b2b-868d-a001c764a136"
 severity = "high"
@@ -98,6 +96,16 @@ reference = "https://attack.mitre.org/techniques/T1562/007/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
 [rule.investigation_fields]
 field_names = [
