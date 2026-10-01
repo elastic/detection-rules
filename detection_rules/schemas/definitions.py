@@ -93,6 +93,9 @@ ELASTICSEARCH_EQL_FEATURES = {
     "allow_sample": (Version.parse("8.6.0"), None),
     "elasticsearch_validate_optional_fields": (Version.parse("7.16.0"), None),
 }
+# Optional overrides for detection-rules-esql-py feature gates (merged on top of esql.ESQL_FEATURES).
+# Shape: feature_name -> (introduced Version, removed Version | None)
+ELASTICSEARCH_ESQL_FEATURES: dict[str, tuple[Version, Version | None]] = {}
 NON_DATASET_PACKAGES = [
     "apm",
     "auditd_manager",
@@ -165,6 +168,7 @@ EXPECTED_RULE_TAGS = [
     "Data Source: Azure OpenAI",
     "Data Source: Azure Platform Logs",
     "Data Source: Check Point Harmony Email Logs",
+    "Data Source: Citrix ADC",
     "Data Source: CrowdStrike Falcon",
     "Data Source: Crowdstrike",
     "Data Source: CyberArk PAS",
@@ -249,6 +253,7 @@ EXPECTED_RULE_TAGS = [
     "Platform: Anthropic",
     "Platform: AWS",
     "Platform: Azure",
+    "Platform: Citrix",
     "Platform: Entra ID",
     "Platform: GCP",
     "Platform: GitHub",
@@ -293,6 +298,7 @@ EXPECTED_RULE_TAGS = [
     "Service: AWS EventBridge",
     "Service: AWS GuardDuty",
     "Service: AWS IAM",
+    "Service: AWS IoT",
     "Service: AWS KMS",
     "Service: AWS Lambda",
     "Service: AWS Organizations",
