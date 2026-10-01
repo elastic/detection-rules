@@ -353,10 +353,22 @@ def cached(f: Callable[..., Any]) -> Callable[..., Any]:
 # filled under, so a flush also invalidates every per-instance memo without tracking the instances.
 _cache_generation = 0
 
+# Module-level dict caches that clear_caches() also empties
+_registered_caches: list[dict[Any, Any]] = []
+
+
+def registered_cache() -> dict[Any, Any]:
+    """Return a new dict cache that is emptied by clear_caches()."""
+    store: dict[Any, Any] = {}
+    _registered_caches.append(store)
+    return store
+
 
 def clear_caches() -> None:
     global _cache_generation  # noqa: PLW0603
     _cache.clear()
+    for store in _registered_caches:
+        store.clear()
     _cache_generation += 1
 
 
