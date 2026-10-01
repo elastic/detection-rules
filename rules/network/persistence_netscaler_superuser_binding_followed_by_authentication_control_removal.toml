@@ -1,0 +1,210 @@
+[metadata]
+creation_date = "2026/10/01"
+integration = ["citrix_adc"]
+maturity = "production"
+updated_date = "2026/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a NetScaler command that binds a system user to the built-in superuser command policy, followed within 15
+minutes on the same appliance by a command that disables endpoint analysis or unbinds an authentication or VPN session
+policy. Attackers with command execution on NetScaler ADC or Gateway, including after CVE-2026-88771, have used this
+sequence to retain a local administrator and remove login controls that would block that account.
+"""
+false_positives = [
+    """
+    Approved break-glass provisioning, appliance deployment, or a maintenance window can bind a system user to superuser
+    and change authentication or VPN policies in the same session.
+    """,
+]
+from = "now-30m"
+index = ["logs-citrix_adc.log-*"]
+interval = "10m"
+language = "eql"
+license = "Elastic License v2"
+name = "NetScaler Superuser Binding Followed by Authentication Control Removal"
+note = """## Triage and analysis
+
+### Investigating NetScaler Superuser Binding Followed by Authentication Control Removal
+
+NetScaler does not grant administrative rights with `add system user` alone. The administrative grant is
+`bind system user <name> superuser`. This rule requires that grant, then a later CLI command on the same appliance
+that weakens authentication: setting an endpoint-analysis action's default group to `NO_AUTH`, or unbinding an
+authentication vserver policy, authentication policy label, or VPN vserver session policy.
+
+That ordered pair is the post-compromise procedure observed after CVE-2026-88771 exploitation. The in-the-wild script
+runs both steps through `cli_script.sh` in one session, instead of dropping a PHP web shell or editing
+`/etc/httpd.conf`.
+
+### Possible investigation steps
+
+- Review both sequence events. Confirm `citrix.name` is `CMD_EXECUTED`, then compare `process.command_line`,
+  `citrix_adc.log.status`, `user.name`, `source.ip`, and `citrix_adc.log.adm_user` when present. A status of `Done` or
+  `Success` means the command was applied. `ERROR` means the attempt failed.
+- Identify the bound username and whether it was created moments earlier with `add system user`. Search the same
+  `observer.hostname` for that username's later Gateway or AAA logins.
+- Treat `set authentication epaAction ... -defaultEPAGroup NO_AUTH` and `unbind authentication vserver`,
+  `unbind authentication policylabel`, or `unbind vpn vserver` as removal of a login control. Record the policy and
+  vserver names from the command so they can be restored.
+- Search back at least 48 hours on the same appliance for Pitboss or packet-engine records that contain shell syntax.
+  CVE-2026-88771 command execution can be delayed up to 24 hours after the poisoned log is written.
+- Review other `CMD_EXECUTED` events from the same user and source for `save ns config`, configuration export, and
+  changes to logging or additional system users.
+- Preserve remote syslog, `event.original`, and a copy of `ns.conf` before rebooting or applying a clean configuration.
+
+```esql
+FROM logs-citrix_adc.log-*
+| WHERE citrix.name == "CMD_EXECUTED" AND observer.hostname == "<appliance>"
+| EVAL command = TO_LOWER(COALESCE(process.command_line, citrix_adc.log.message, citrix.detail))
+| WHERE command LIKE "*bind system user*"
+    OR command LIKE "*set authentication epaaction*"
+    OR command LIKE "*unbind authentication*"
+    OR command LIKE "*unbind vpn vserver*"
+    OR command LIKE "*add system user*"
+    OR command LIKE "*save ns config*"
+| KEEP @timestamp, observer.hostname, user.name, source.ip, process.command_line, citrix_adc.log.status, citrix.detail
+| SORT @timestamp
+```
+
+### False positive analysis
+
+- A single change window that creates a break-glass superuser and intentionally relaxes endpoint analysis or VPN
+  session policies can match. Confirm the change record, the actor, and the source address.
+- Commands that only add an LDAP, RADIUS, or SAML action, or that bind an authentication policy, do not match. A
+  superuser bind without one of the weakening commands also does not match.
+- Scope any exception to the approved actor, source, and maintenance window. Do not exclude `superuser` or `NO_AUTH`
+  globally.
+
+### Response and remediation
+
+- If the change is unauthorized, disable or remove the system user, terminate its sessions, and restore the
+  authentication and VPN policy bindings from a known-good configuration.
+- Treat the appliance as potentially compromised. Preserve off-box logs, then rebuild from a trusted image if command
+  execution is confirmed. Rotate NetScaler, AAA, and Gateway secrets.
+- Upgrade to a Citrix-fixed build when the surrounding activity matches CVE-2026-88771. Patching does not remove an
+  account or policy change that is already saved.
+"""
+references = [
+    "https://support.citrix.com/external/article/CTX697096",
+    "https://labs.watchtowr.com/oh-look-the-foot-gun-went-off-again-citrix-netscaler-preauth-command-injection-cve-2026-88771/",
+    "https://www.cisa.gov/news-events/alerts/2026/09/27/critical-zero-day-vulnerabilities-exploited-citrix-netscaler-adc-gateway",
+    "https://thehackernews.com/2026/10/citrix-netscaler-post-exploitation.html",
+    "https://www.elastic.co/docs/reference/integrations/citrix_adc",
+]
+risk_score = 73
+rule_id = "8d99345f-7e67-4d50-9958-eca162251133"
+setup = """## Setup
+
+This rule requires the Elastic Citrix ADC integration and NetScaler audit syslog that includes CLI `CMD_EXECUTED`
+events. Configure an audit syslog action and policy, and forward those records with the other `citrix_adc.log` events.
+RFC 5424 syslog is recommended where supported.
+
+The integration stores a successfully parsed CLI command in `process.command_line` and sets `citrix.name` to
+`CMD_EXECUTED`. `observer.hostname` is taken from the appliance hostname in the syslog header. Enable **Preserve
+original event** so `event.original` remains available when the command text is only retained there. Local
+`ns.conf` edits that never pass through the CLI are not recorded as `CMD_EXECUTED` and will not match.
+"""
+severity = "high"
+tags = [
+    "Domain: Network",
+    "Domain: Identity",
+    "Platform: Citrix",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Data Source: Citrix ADC",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Noise: Low",
+    "Performance: Fast",
+    "Profile: Recommended",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by observer.hostname with maxspan=15m
+  [any where data_stream.dataset == "citrix_adc.log" and
+    citrix.name == "CMD_EXECUTED" and
+    (
+      process.command_line regex~ """^bind system user [^ ]+ superuser([^a-z0-9_]|$).*""" or
+      citrix.detail regex~ """.*[^n]bind system user [^ ]+ superuser([^a-z0-9_]|$).*""" or
+      citrix_adc.log.message regex~ """.*[^n]bind system user [^ ]+ superuser([^a-z0-9_]|$).*"""
+    )]
+  [any where data_stream.dataset == "citrix_adc.log" and
+    citrix.name == "CMD_EXECUTED" and
+    (
+      process.command_line like~ (
+        "set authentication epaaction *no_auth*",
+        "unbind authentication vserver*",
+        "unbind authentication policylabel*",
+        "unbind vpn vserver*"
+      ) or
+      citrix.detail like~ (
+        "*set authentication epaaction*no_auth*",
+        "*unbind authentication vserver*",
+        "*unbind authentication policylabel*",
+        "*unbind vpn vserver*"
+      ) or
+      citrix_adc.log.message like~ (
+        "*set authentication epaaction*no_auth*",
+        "*unbind authentication vserver*",
+        "*unbind authentication policylabel*",
+        "*unbind vpn vserver*"
+      )
+    )]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.001"
+name = "Local Account"
+reference = "https://attack.mitre.org/techniques/T1136/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+[[rule.threat.technique.subtechnique]]
+id = "T1556.004"
+name = "Network Device Authentication"
+reference = "https://attack.mitre.org/techniques/T1556/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "observer.hostname",
+    "user.name",
+    "source.ip",
+    "citrix_adc.log.adm_user",
+    "process.command_line",
+    "citrix_adc.log.status",
+    "citrix_adc.log.message",
+    "citrix.name",
+    "citrix.detail",
+    "event.original",
+]
+
