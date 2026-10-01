@@ -4,15 +4,15 @@ integration = ["anthropic"]
 maturity = "production"
 min_stack_comments = "ES|QL IP_LOCATION requires 9.5.0+. FIRST/LAST aggregations and st_distance require 9.4.0+."
 min_stack_version = "9.5.0"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects successful Anthropic magic link or SSO sign-ins for the same user email from source IP addresses whose
-query-time geo-locations (via IP_LOCATION) are separated by at least 1,000 km, with implied travel faster than
-800 km/h, within a 24-hour window. That pattern can indicate account sharing, VPN or proxy egress mismatches, or
-an adversary authenticating from a geography far from the legitimate user's baseline.
+query-time geo-locations (via IP_LOCATION) are separated by at least 1,000 km, with implied travel faster than 800 km/h,
+within a 24-hour window. That pattern can indicate account sharing, VPN or proxy egress mismatches, or an adversary
+authenticating from a geography far from the legitimate user's baseline.
 """
 false_positives = [
     """
@@ -58,9 +58,7 @@ matching corporate ASN/UA.
 - On suspected compromise: revoke sessions, reset credentials/MFA, and review admin or data-access activity after the
   distant sign-in.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 73
 rule_id = "e89e4744-039e-4290-9835-63ea42fe531e"
 severity = "high"
@@ -74,6 +72,7 @@ tags = [
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
     "Tactic: Initial Access",
+    "Mitre Atlas: AML.T0012",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -133,14 +132,29 @@ name = "Cloud Accounts"
 reference = "https://attack.mitre.org/techniques/T1078/004/"
 
 
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
 
 [rule.alert_suppression]
 group_by = ["user.email"]
-duration = {value = 24, unit = "h"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
@@ -164,3 +178,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+
