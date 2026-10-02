@@ -1,0 +1,201 @@
+[metadata]
+creation_date = "2026/10/01"
+integration = ["azure_ai_foundry"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "The Microsoft Foundry integration is compatible with 9.3 and above."
+updated_date = "2026/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects more than three completed assistant refusals from the same client, API Management subscription, and model
+within 9 minutes. Matching replies finished on their own (finish_reason stop) and declined the prompt. A burst means
+that caller kept sending prompts the model will not answer.
+"""
+false_positives = [
+    """
+    Red-team or application tests that intentionally send prompts the model refuses. Exclude that source IP or API
+    Management subscription.
+    """,
+    """
+    A shared subscription key behind one NAT can combine refusals from unrelated users. Raise the threshold or split
+    keys per application if that subscription is noisy.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Microsoft Foundry Repeated Assistant Refusals"
+note = """## Triage and analysis
+
+### Investigating Microsoft Foundry Repeated Assistant Refusals
+
+One client received more than three completed refusals in 9 minutes. The alert is grouped by source IP, user agent,
+API Management subscription, API, operation, model, gateway, and the URL the client called. Prompt and reply samples
+are on the alert.
+
+True positive: several disallowed prompts from one IP or subscription, often a scripting user agent, with replies such
+as "I'm sorry, but I can't assist with that request." False positive: an approved eval, or many users sharing one
+subscription key and one egress IP.
+
+#### Possible investigation steps
+
+- Read the prompt and reply samples. Confirm the replies are refusals and the prompts are what the model declined.
+- Review other GatewayLogs for the same source IP and subscription in the same window: successful completions, HTTP
+  400 jailbreak blocks, or a sharp rise in calls.
+- Check whether this subscription and user agent match the application's normal client. curl or a scripted agent on a
+  key that usually comes from an application gateway deserves a closer look.
+- Use the geo and ASN fields to see whether the client network is expected for that subscription.
+
+### False positive analysis
+
+- Approved prompt-security tests and model evaluations. Exclude the test source IP or subscription.
+- A busy shared subscription behind one NAT. The count is per IP and subscription; raise the threshold if normal
+  traffic still exceeds three refusals in 9 minutes.
+
+### Response and remediation
+
+- Rotate or disable the API Management subscription key when the client is not approved for this traffic.
+- Block the source IP at the gateway when it is not a known application egress.
+- Review the prompts for secrets, and for any later call from the same client that the model answered instead of
+  refusing.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/azure_ai_foundry",
+    "https://learn.microsoft.com/en-us/azure/api-management/diagnostic-logs-reference",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+]
+risk_score = 73
+rule_id = "3c694712-7bd9-43b5-ac6b-1db841abc8de"
+setup = """## Setup
+
+This rule needs the Microsoft Foundry integration collecting Azure API Management GatewayLogs with the backend
+response body. Foundry RequestResponse logs do not include the assistant reply, so they will not match.
+
+- Use an API Management tier that emits resource logs. Developer or higher works. Consumption does not.
+- Send the GatewayLogs category to the Event Hub the integration reads.
+- Log the backend request and response bodies in API diagnostics so the prompt, finish_reason, and assistant message are stored.
+
+https://www.elastic.co/docs/reference/integrations/azure_ai_foundry
+"""
+severity = "high"
+tags = [
+    "Data Source: Microsoft Foundry",
+    "Data Source: Azure Event Hubs",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: T0051",
+    "Mitre Atlas: T0054",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Azure",
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Service: Azure API Management",
+    "Service: Azure Event Hubs",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_ai_foundry.logs-*
+| where
+    data_stream.dataset == "azure_ai_foundry.logs" and
+    azure.ai_foundry.category == "GatewayLogs" and
+    azure.ai_foundry.properties.backend_response_body.choices.finish_reason == "stop" and
+    (
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't assist*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't help*" or 
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot fulfill*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot help*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot provide*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't provide*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I will not provide*" or
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot answer*" or 
+        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't answer*"
+    )
+| stats
+    Esql.event_count = count(*),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.azure_ai_foundry_properties_backend_request_body_messages_content_values = values(azure.ai_foundry.properties.backend_request_body.messages.content),
+    Esql.azure_ai_foundry_properties_backend_response_body_choices_message_content_values = values(azure.ai_foundry.properties.backend_response_body.choices.message.content)
+  by
+    source.ip,
+    azure.ai_foundry.properties.user_agent,
+    azure.ai_foundry.properties.apim_subscription_id,
+    azure.ai_foundry.properties.api_id,
+    azure.ai_foundry.properties.operation_id,
+    azure.ai_foundry.properties.backend_response_body.model,
+    azure.ai_foundry.service_name,
+    azure.resource.group,
+    url.domain,
+    url.path,
+    source.geo.country_iso_code,
+    source.geo.city_name,
+    source.as.organization.name
+| where Esql.event_count >= 3
+| keep
+    source.ip,
+    azure.ai_foundry.properties.user_agent,
+    azure.ai_foundry.properties.apim_subscription_id,
+    azure.ai_foundry.properties.api_id,
+    azure.ai_foundry.properties.operation_id,
+    azure.ai_foundry.properties.backend_response_body.model,
+    azure.ai_foundry.service_name,
+    azure.resource.group,
+    url.domain,
+    url.path,
+    source.geo.country_iso_code,
+    source.geo.city_name,
+    source.as.organization.name,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = [
+    "source.ip",
+    "azure.ai_foundry.service_name",
+    "azure.ai_foundry.properties.api_id",
+]
+duration = {value = 9, unit = "m"}
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "azure.ai_foundry.properties.user_agent",
+    "azure.ai_foundry.properties.apim_subscription_id",
+    "azure.ai_foundry.properties.api_id",
+    "azure.ai_foundry.properties.operation_id",
+    "azure.ai_foundry.properties.backend_response_body.model",
+    "azure.ai_foundry.service_name",
+    "azure.resource.group",
+    "url.domain",
+    "url.path",
+    "source.geo.country_iso_code",
+    "source.geo.city_name",
+    "source.as.organization.name",
+    "Esql.event_count",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+    "Esql.azure_ai_foundry_properties_backend_request_body_messages_content_values",
+    "Esql.azure_ai_foundry_properties_backend_response_body_choices_message_content_values",
+]
