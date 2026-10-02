@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/08/13"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/08/14"
+
+[rule]
+author = ["Gideon145"]
+description = """
+Detects Linux botnet binary download and staging activity via wget, tftp, busybox, or curl.
+IoT botnet families (Mirai, Gafgyt, Mozi) download raw ELF binaries to writable locations
+such as /tmp or /var/tmp during the infection stage. Loader paths commonly follow the
+`/bins/<name>.<arch>` convention and Mirai-family downloads carry self-identifying
+User-Agent strings such as `wget/1.0 (Mirai/arm)`. Matching these staging patterns avoids
+broad port-based detection while covering multiple botnet families.
+"""
+false_positives = [
+    """
+    #### False Positive Analysis
+
+    This rule matches command-line downloads of raw ELF binaries using
+    botnet-style naming conventions. Legitimate administration workflows
+    rarely fetch raw ELF executables over wget, tftp, or curl, preferring
+    package managers or versioned release archives. Potential false positives
+    are limited to development or CI workflows that intentionally download
+    standalone ELF binaries, and security research or sandbox environments
+    replaying botnet samples.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+max_signals = 100
+name = "Linux Botnet Binary Download via Wget, TFTP, or Curl"
+note = """## Triage and analysis
+
+### Investigating Linux Botnet Binary Download via Wget, TFTP, or Curl
+
+This rule detects Linux processes downloading raw ELF binaries using
+botnet-style staging patterns, including loader paths such as `/bins/`,
+`.elf` URLs, and Mirai-format User-Agent strings.
+
+#### Possible investigation steps
+
+- Inspect the process command line to determine the download source IP and
+  the binary name or architecture targeted (`arm`, `mips`, `mipsel`, `x86`,
+  `sh4`).
+- Identify the parent process that launched the download. IoT botnet
+  infection commonly follows a telnet or SSH brute-force using vendor default
+  credentials, so review authentication events from the same source IP within
+  the same time window.
+- Check for subsequent execution of the downloaded binary, chmod operations
+  granting execute permissions, and persistence mechanisms such as cron
+  entries or init script modifications.
+- Isolate the affected host and block the download source at the network
+  boundary.
+
+### False positive analysis
+
+- Development and CI workflows intentionally downloading standalone ELF
+  binaries may trigger this rule.
+- Security researchers or sandbox environments replaying botnet samples may
+  trigger this rule.
+- Organisations running honeypots that serve bot binaries will see
+  corresponding download attempts from infected devices.
+
+### Response and remediation
+
+- Isolate the affected host from the network to stop propagation.
+- Reset credentials of all IoT devices on the network, focusing on vendor
+  default credentials.
+- Remove the downloaded binary and any persistence mechanisms (cron jobs,
+  init scripts).
+- Rebuild the affected device from a trusted image.
+"""
+references = [
+    "https://github.com/Gideon145/mirai-detector",
+    "https://www.cisa.gov/sites/default/files/FactSheets/NCCIC%20ICS_FactSheet_Mirai_Vulnerable_IoT_Devices_S508C.pdf",
+    "https://www.malwaremustdie.org/2016/08/mmd-0056-2016-linuxmirai-just.html",
+]
+risk_score = 65
+rule_id = "3f577bf8-7d90-4b88-8151-e69f1ce407f0"
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+]
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "start") and
+  process.name in ("wget", "tftp", "busybox", "curl") and
+  (process.args like "*.elf*" or process.args like "*bins/*" or process.args like "*Mirai/*")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
