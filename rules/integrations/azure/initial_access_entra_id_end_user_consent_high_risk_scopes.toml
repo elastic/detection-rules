@@ -9,14 +9,12 @@ updated_date = "2026/10/02"
 [rule]
 author = ["Elastic", "Eduard Arbona"]
 description = """
-Identifies an end-user (non-admin) consent grant in Microsoft Entra ID to an application requesting delegated permissions
-that are commonly abused in illicit consent grant (OAuth phishing) attacks. Microsoft Graph mailbox, mailbox settings,
-contacts, files, SharePoint, OneNote and Teams chat scopes are evaluated together with offline_access, which returns a
-long-lived refresh token and gives an attacker-controlled application durable, silent access to the victim's data without
-stealing a password or re-prompting for MFA. SharePoint Online (AllSites.*) and Exchange Web Services
-(EWS.AccessAsUser.All, full_access_as_user) scopes are logged by Entra in a separate consent event and are evaluated on
-their own. External applications that stack multiple reconnaissance scopes are also flagged. The alert classifies the
-application owner as Microsoft first-party, in-tenant or external to help prioritize review.
+Identifies an end-user (non-admin) consent grant in Microsoft Entra ID to an application requesting delegated scopes
+commonly abused in illicit consent grant (OAuth phishing) attacks, such as mail, mailbox settings, contacts, files,
+SharePoint, OneNote, Teams chat and Exchange Web Services. Graph scopes are evaluated together with offline_access, which
+returns a long-lived refresh token and gives an attacker-controlled application durable, silent access to the victim's
+data without stealing a password or re-prompting for MFA. The alert classifies the application owner as Microsoft
+first-party, in-tenant or external to help prioritize review.
 """
 false_positives = [
     """
@@ -47,6 +45,7 @@ The alert includes the following derived fields:
 - `Esql.low_risk_scopes` and `Esql.low_risk_scope_count`: matched reconnaissance scope families (`people`, `calendars`, `online_meetings`, `tasks`, `user_directory`, `impersonation`). `impersonation` (`user_impersonation`, `Directory.AccessAsUser.All`) is ignored for Microsoft first-party applications such as Azure CLI and Azure PowerShell.
 - `Esql.app_owner_type`: `microsoft` (Microsoft-owned or well-known first-party public client), `tenant` (application registered in this tenant) or `external` (multi-tenant application owned by another tenant, or owner not recorded on this event).
 - `Esql.sp_provisioned_by_consent`: `true` when the service principal was created by this consent, meaning the application had never been seen in the tenant before.
+- `Esql.service_principal_id`: the consented application's service principal object id, used together with the consenting user for alert suppression so distinct applications are not suppressed together.
 
 #### Possible investigation steps
 
@@ -124,7 +123,9 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
         MV_CONTAINS(azure.auditlogs.properties.additional_details.value, azure.tenant_id), "tenant",
         "external"),
     // "Consent" = service principal was created by this consent, i.e. first time the app appears in the tenant
-    Esql.sp_provisioned_by_consent = MV_CONTAINS(azure.auditlogs.properties.additional_details.value, "Consent")
+    Esql.sp_provisioned_by_consent = MV_CONTAINS(azure.auditlogs.properties.additional_details.value, "Consent"),
+    // Alias of the consented service principal object id for alert suppression (positional target_resources.0.* is not schema-resolvable)
+    Esql.service_principal_id = `azure.auditlogs.properties.target_resources.0.id`
 
 // High-risk scope families: in-the-wild consent phishing (MS IR playbook), 365-Stealer/GraphRunner defaults, Midnight Blizzard EWS.
 // Positive enumeration excludes low-risk variants (Mail.ReadBasic, Chat.ReadBasic, Files.*.Selected) without lookarounds.
@@ -181,7 +182,7 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
 '''
 
 [rule.alert_suppression]
-group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName", "Esql.service_principal_id"]
 missing_fields_strategy = "doNotSuppress"
 
 [rule.alert_suppression.duration]
