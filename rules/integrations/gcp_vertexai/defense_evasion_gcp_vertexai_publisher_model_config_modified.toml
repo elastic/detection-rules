@@ -1,0 +1,150 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects changes to Vertex AI publisher model configuration via SetPublisherModelConfig (for example enabling or
+retargeting prompt/response BigQuery logging). Unexpected config changes can disable security-relevant logging or
+redirect logs.
+"""
+false_positives = [
+    """
+    Approved platform engineering changes that update publisher logging destinations. Confirm the actor and change
+    ticket.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Publisher Model Config Modified"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Publisher Model Config Modified
+
+Someone called `SetPublisherModelConfig` on a publisher model. That API can enable, disable, or
+retarget prompt/response BigQuery logging and related publisher settings. Unexpected changes can
+blind detection (logging off or redirected) or move sensitive prompt data to an unapproved sink.
+
+#### Possible investigation steps
+
+- Note `@timestamp`, `event.action`, `source.ip`, `client.user.email`,
+  `gcp.vertexai.audit.resource_name`, and `user_agent.original` on the alert.
+- Confirm the actor is an approved platform owner. Check change tickets / IaC pipelines for a
+  matching change.
+- In GCP, verify the publisher model config still points at the expected BigQuery dataset/table and
+  sampling rate.
+- Compare `prompt_response_logs` volume before and after the change for gaps or a sudden destination
+  shift.
+- Hunt for other privilege or config changes by the same principal around the same time.
+
+### False positive analysis
+
+- Approved platform engineering work that enables or retargets logging. Validate with the change
+  ticket and expected actor/IP before escalating.
+
+### Response and remediation
+
+- Revert unauthorized config to the last known-good logging destination and sampling settings.
+- Restrict IAM who can call `SetPublisherModelConfig`; rotate credentials for the actor if
+  compromise is suspected.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/request-response-logging",
+    "https://atlas.mitre.org/techniques/AML.T0015",
+]
+risk_score = 47
+rule_id = "6987cc9a-1f4c-47ae-9bfe-50190a2c5683"
+setup = """## Setup
+
+Requires GCP Vertex AI `auditlogs` via Pub/Sub sink for `aiplatform.googleapis.com`.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0015",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.auditlogs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "gcp_vertexai.auditlogs" and
+    event.action like "*SetPublisherModelConfig*" and
+    (gcp.vertexai.audit.status.code is null or gcp.vertexai.audit.status.code == 0)
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    event.action,
+    cloud.project.id,
+    source.ip,
+    gcp.vertexai.audit.service_name,
+    gcp.vertexai.audit.resource_name,
+    client.user.email,
+    user_agent.original
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0015"
+name = "Evade AI Model"
+reference = "https://atlas.mitre.org/techniques/AML.T0015/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "event.action",
+    "cloud.project.id",
+    "source.ip",
+    "gcp.vertexai.audit.service_name",
+    "gcp.vertexai.audit.resource_name",
+    "client.user.email",
+    "user_agent.original",
+]
+

@@ -1,0 +1,152 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Vertex AI GenerateContent requests that set safety_settings.threshold to BLOCK_NONE. That threshold disables
+category blocking for the listed harm categories when clients explicitly send safetySettings. Attackers and careless
+apps use BLOCK_NONE to weaken built-in Gemini filters.
+"""
+false_positives = [
+    """
+    Approved research projects that document BLOCK_NONE for evaluation. Prefer labeled service accounts and exclude
+    those principals.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Safety Filters Set to BLOCK_NONE"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Safety Filters Set to BLOCK_NONE
+
+The GenerateContent request set `safety_settings.threshold` to `BLOCK_NONE` for one or more harm
+categories. Category blocking is disabled for those categories (the model may still refuse in text,
+but built-in filters will not stop generation for that category). Attackers and misconfigured apps
+use this to weaken Gemini safety controls.
+
+#### Possible investigation steps
+
+- Confirm which categories were set to BLOCK_NONE via
+  `full_request.safety_settings.category` and `threshold` on the alert.
+- Read the prompt text. Look for disallowed content that would normally be blocked.
+- Hunt the same `cloud.project.id` / model for subsequent HIGH/MEDIUM safety ratings or unusual
+  successful completions after filters were weakened.
+- Identify the caller via auditlogs GenerateContent (`source.ip`, `client.user.email`).
+- Check whether org policy or an approved wrapper SDK requires stricter defaults
+  (BLOCK_MEDIUM_AND_ABOVE or higher).
+
+### False positive analysis
+
+- Documented research or red-team projects that intentionally use BLOCK_NONE. Prefer labeled service
+  accounts and exclude those principals.
+
+### Response and remediation
+
+- Require stricter thresholds via org policy, admission control, or application defaults; revoke
+  non-compliant callers.
+- If abuse is confirmed, rotate credentials and review other config changes (including
+  SetPublisherModelConfig) by the same actor.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-filters",
+    "https://atlas.mitre.org/techniques/AML.T0015",
+]
+risk_score = 47
+rule_id = "08244b2a-6017-48f2-bfc5-ec4d2d0fe7c5"
+setup = """## Setup
+
+Requires prompt_response_logs with full_request.safety_settings.threshold. The field is only present when the client
+sends safetySettings on the GenerateContent request.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0015",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold, "BLOCK_NONE")
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    cloud.project.id,
+    gcp.vertexai.prompt_response_logs.model,
+    gcp.vertexai.prompt_response_logs.api_method,
+    gcp.vertexai.prompt_response_logs.full_request.contents.parts.text,
+    gcp.vertexai.prompt_response_logs.full_request.safety_settings.category,
+    gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0015"
+name = "Evade AI Model"
+reference = "https://atlas.mitre.org/techniques/AML.T0015/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "cloud.project.id",
+    "gcp.vertexai.prompt_response_logs.model",
+    "gcp.vertexai.prompt_response_logs.api_method",
+    "gcp.vertexai.prompt_response_logs.full_request.safety_settings.category",
+    "gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold",
+    "gcp.vertexai.prompt_response_logs.full_request.contents.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability",
+]
+

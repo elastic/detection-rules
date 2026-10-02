@@ -1,0 +1,249 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects repeated Vertex AI Agent Engine sandbox execution calls, or calls from multiple
+audit principals, against the same sandboxEnvironment without a reported API error. Sandbox
+reuse can expose later tool results to a response-channel hook installed by an earlier call.
+Audit logs omit submitted Python, so this behavior requires corroboration from agent traces
+or prompt-response content and can also occur during legitimate stateful execution.
+"""
+false_positives = [
+    """
+    Legitimate notebooks, iterative analysis, and multi-step agents can exceed five
+    execution calls in an hour. Baseline per-sandbox activity and scope exceptions to
+    reviewed workloads; higher thresholds can miss short hijack sequences.
+    """,
+    """
+    Approved shared sandbox pools can use multiple audit principals. Review the pool's
+    ownership and tenant isolation before creating resource or workload exceptions.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Agent Engine Repeated Sandbox Code Execution"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Agent Engine Repeated Sandbox Code Execution
+
+The same Agent Engine `sandboxEnvironment` has five or more execution calls, or calls from
+two or more distinct `client.user.email` values, in the lookback window. The query excludes
+explicit API errors and retains events whose `gcp.vertexai.audit.status.code` is zero or
+absent. These are API calls without a reported error, not proof that the submitted Python
+succeeded or that its output was trustworthy.
+
+A response-channel hook can alter subsequent results for the lifetime of a reused sandbox.
+Audit events omit submitted Python, and ordinary notebooks also reuse sandboxes. Treat this
+alert as a reason to investigate reuse and tool-output integrity, not confirmation of hijacking.
+A hook installed and reused in fewer than five calls by one principal can evade this rule.
+
+#### Possible investigation steps
+
+- Record `gcp.vertexai.audit.resource_name`, `cloud.project.id`, `Esql.event_count`,
+  `Esql.unique_user_count`, `Esql.client_user_email_values`, `Esql.source_ip_values`,
+  `Esql.user_agent_original_values`, and `Esql.event_action_values`.
+- Establish the workload owner and expected reuse rate. Multiple audit principals increase
+  the scope of potential exposure but may be approved service accounts. One service account
+  can also serve several end users; `Esql.unique_user_count` does not count application tenants.
+- Review raw audit events for the sandbox, including `gcp.vertexai.audit.status.code` and
+  `gcp.vertexai.audit.status.message`. Invalid requests and cancellations are excluded from
+  the threshold but remain useful evidence of failed setup or sandbox crashes. A cancellation
+  does not prove that no code ran.
+- Compare `Esql.timestamp_first_seen` and `Esql.timestamp_last_seen` with the expected workflow.
+  Both benign automation and hook installation can produce short bursts. A long time span
+  does not rule out persistence. The rule's lookback uses `event.ingested`; these two displayed
+  timestamps use the original event time and may span older activity after delayed ingestion.
+- Find earlier `CreateSandboxEnvironment` events on the parent reasoning engine. In auditlogs,
+  the create event's `gcp.vertexai.audit.resource_name` can be the parent
+  `reasoningEngines/...` path, rather than the full sandbox path. Correlate with application
+  records to identify the created sandbox. Creation may predate the lookback window.
+- Inspect submitted-code records and agent traces, or stdout/stderr if the application captures
+  them, for `/proc/*/mem`, `/proc/self/maps`, `ctypes`/`CFUNCTYPE`, GOT writes, `from_address`,
+  and output-pipe or SandboxOut manipulation. These code details are not present in the audit
+  request/response fields and are not necessarily captured in ordinary stdout/stderr logs.
+- Correlate with GCP Vertex AI Agent Engine Sandbox Hijack in Prompt in the same project and
+  time range. A project/time match is a lead; use application traces to connect it to a caller
+  and sandbox before attributing the activity.
+- Recheck downstream decisions that trusted outputs after the earliest suspicious execution.
+  Search the sandbox's wider history even when subsequent calls fall outside this lookback.
+- Review raw events during the 60-minute suppression period. Additional calls or new principals
+  on the same sandbox/project may not produce a separate alert during that period.
+
+### False positive analysis
+
+- Notebooks, iterative analysis, and approved multi-step agents can exceed five calls in an
+  hour. Measure their per-sandbox peak over representative workloads before enabling this rule
+  broadly. Raising the threshold trades away detection of short install-and-reuse sequences.
+- Intentional shared pools can satisfy the multiple-principal branch with only two calls.
+  Validate ownership and tenant isolation; scope exceptions to reviewed workloads or resources.
+- Dedicated lab or CI projects can reproduce both behaviors. Avoid broad principal exclusions
+  that would also hide unrelated production workloads using the same service account.
+
+### Response and remediation
+
+- If code inspection, traces, or output validation corroborate tampering, stop routing work to
+  the implicated sandbox, preserve relevant evidence, and replace the sandbox before reuse.
+- Re-run affected high-impact validations in a trusted fresh environment. Prefer separate
+  sandboxes across users or tenants and treat tool output as untrusted input to the agent.
+- Investigate the calling identities and restrict or rotate credentials when unauthorized use
+  or credential compromise is established. Sandbox reuse alone does not establish either.
+"""
+references = [
+    "https://www.beyondtrust.com/blog/entry/vertex-ai-agent-engine-sandbox-hijack",
+    "https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale/sandbox/code-execution-quickstart",
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://atlas.mitre.org/techniques/AML.T0053",
+    "https://atlas.mitre.org/techniques/AML.T0110",
+    "https://atlas.mitre.org/techniques/AML.T0110.002",
+]
+risk_score = 47
+rule_id = "0280de77-4296-42e0-b986-60da7e7ba15d"
+setup = """## Setup
+
+Requires GCP Vertex AI `auditlogs` for `aiplatform.googleapis.com`, including
+`SandboxEnvironmentExecutionService.ExecuteSandboxEnvironment`. Confirm collection of the
+relevant Data Access audit events and principal/resource fields. Submitted code is not in
+these events; obtain application code records or traces separately when available.
+
+Baseline per-sandbox execution rates and intentional multi-principal reuse before broad
+enablement. The five-call floor is a sensitive starting point, not a universal anomaly
+threshold. A 60-minute ingestion-time lookback and 10-minute interval detect short bursts
+after ingestion, but do not prevent poisoning or cover every low-volume persistent hook.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0110",
+    "Mitre Atlas: AML.T0110.002",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.auditlogs-*
+| where
+    data_stream.dataset == "gcp_vertexai.auditlogs" and
+    event.action like "*SandboxEnvironmentExecutionService.ExecuteSandboxEnvironment*" and
+    gcp.vertexai.audit.resource_name like "*/sandboxEnvironments/*" and
+    gcp.vertexai.audit.service_name == "aiplatform.googleapis.com" and
+    (gcp.vertexai.audit.status.code is null or gcp.vertexai.audit.status.code == 0)
+| stats
+    Esql.event_count = count(*),
+    Esql.unique_user_count = count_distinct(client.user.email),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.source_ip_values = values(source.ip),
+    Esql.client_user_email_values = values(client.user.email),
+    Esql.user_agent_original_values = values(user_agent.original),
+    Esql.event_action_values = values(event.action),
+    Esql.service_name_values = values(gcp.vertexai.audit.service_name)
+  by
+    gcp.vertexai.audit.resource_name,
+    cloud.project.id
+| where Esql.event_count >= 5 or Esql.unique_user_count >= 2
+| keep
+    gcp.vertexai.audit.resource_name,
+    cloud.project.id,
+    Esql.event_count,
+    Esql.unique_user_count,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen,
+    Esql.source_ip_values,
+    Esql.client_user_email_values,
+    Esql.user_agent_original_values,
+    Esql.event_action_values,
+    Esql.service_name_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.006"
+name = "Python"
+reference = "https://attack.mitre.org/techniques/T1059/006/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0110"
+name = "AI Agent Tool Poisoning"
+reference = "https://atlas.mitre.org/techniques/AML.T0110/"
+[[rule.threat_mappings.threat.technique.subtechnique]]
+id = "AML.T0110.002"
+name = "Runtime Response"
+reference = "https://atlas.mitre.org/techniques/AML.T0110.002/"
+
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.alert_suppression]
+group_by = ["gcp.vertexai.audit.resource_name", "cloud.project.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "gcp.vertexai.audit.resource_name",
+    "cloud.project.id",
+    "Esql.event_count",
+    "Esql.unique_user_count",
+    "Esql.client_user_email_values",
+    "Esql.source_ip_values",
+    "Esql.user_agent_original_values",
+    "Esql.event_action_values",
+    "Esql.service_name_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 60

@@ -1,0 +1,178 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of Vertex AI prompt-response log rows and combined input+output tokens for one model in the
+lookback window. High request and token volume can indicate model extraction, quota abuse, or a compromised caller. Tune
+thresholds for your baseline.
+"""
+false_positives = [
+    """
+    Approved batch evaluation or high-traffic applications. Raise thresholds above the normal peak per model.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI High Request and Token Volume"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI High Request and Token Volume
+
+One model exceeded both the request-count and combined input+output token thresholds in the
+lookback window. High volume can indicate model extraction, quota abuse, cost impact, or a
+compromised caller. This rule aggregates usage metadata; individual prompt text is not required on
+the alert.
+
+#### Possible investigation steps
+
+- Note `gcp.vertexai.prompt_response_logs.model`, `cloud.project.id`, `Esql.event_count`,
+  `Esql.prompt_tokens_sum`, `Esql.candidates_tokens_sum`, and `Esql.total_tokens_sum`.
+- Compare request count vs token sums: many short calls (scraping/extraction) vs fewer huge prompts
+  (context stuffing / data exfil via prompt).
+- Pivot to `logs-gcp_vertexai.auditlogs-*` GenerateContent for `source.ip` and `client.user.email`
+  concentration in the same window.
+- Sample `prompt_response_logs` for that model/time range to see whether content looks like
+  systematic extraction.
+- Check for recent `SetPublisherModelConfig` changes that might have altered logging visibility.
+
+### False positive analysis
+
+- Approved batch evaluation, fine-tuning data prep, or high-traffic production apps. Raise
+  `Esql.event_count` and token thresholds above the normal peak per model before broad enablement.
+
+### Response and remediation
+
+- Restrict or rotate caller credentials, apply quotas, and review spend/billing for the model.
+- If compromise is suspected, hunt lateral use of the same principal across other GCP services.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://atlas.mitre.org/techniques/AML.T0029",
+    "https://atlas.mitre.org/techniques/AML.T0034",
+]
+risk_score = 47
+rule_id = "9bd7c550-5d7f-43ed-969a-76eb50f9e553"
+setup = """## Setup
+
+Requires GCP Vertex AI `prompt_response_logs` with usage_metadata token counts. Raise `Esql.event_count` and token
+thresholds above your normal peak before broad enablement.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Potential Overload",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Threat: LLMjacking",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0029",
+    "Mitre Atlas: AML.T0034",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-*
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    gcp.vertexai.prompt_response_logs.full_response.usage_metadata.prompt_token_count > 0
+| stats
+    Esql.event_count = count(*),
+    Esql.prompt_tokens_sum = sum(gcp.vertexai.prompt_response_logs.full_response.usage_metadata.prompt_token_count),
+    Esql.candidates_tokens_sum = sum(gcp.vertexai.prompt_response_logs.full_response.usage_metadata.candidates_token_count),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id
+| eval Esql.total_tokens_sum = Esql.prompt_tokens_sum + Esql.candidates_tokens_sum
+| where Esql.event_count >= 100 and Esql.total_tokens_sum >= 10000
+| keep
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id,
+    Esql.event_count,
+    Esql.prompt_tokens_sum,
+    Esql.candidates_tokens_sum,
+    Esql.total_tokens_sum,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1496"
+name = "Resource Hijacking"
+reference = "https://attack.mitre.org/techniques/T1496/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0029"
+name = "Denial of AI Service"
+reference = "https://atlas.mitre.org/techniques/AML.T0029/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0034"
+name = "Cost Harvesting"
+reference = "https://atlas.mitre.org/techniques/AML.T0034/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+
+[rule.alert_suppression]
+group_by = ["gcp.vertexai.prompt_response_logs.model", "cloud.project.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "gcp.vertexai.prompt_response_logs.model",
+    "cloud.project.id",
+    "Esql.event_count",
+    "Esql.prompt_tokens_sum",
+    "Esql.candidates_tokens_sum",
+    "Esql.total_tokens_sum",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
