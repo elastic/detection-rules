@@ -58,7 +58,6 @@ block and often co-occurs with elevated harm-category ratings.
 references = [
     "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
     "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-filters",
-    "https://atlas.mitre.org/techniques/AML.T0054",
 ]
 risk_score = 47
 rule_id = "59ebf5b6-942a-441e-9d18-9ba71d134c63"
@@ -70,18 +69,18 @@ request/response logging.
 severity = "medium"
 tags = [
     "Domain: GenAI",
-    "Data Source: GCP Vertex AI",
-    "Data Source: Google Cloud Platform",
-    "Use Case: Threat Detection",
-    "Use Case: Policy Violation",
-    "Resources: Investigation Guide",
-    "Tactic: Defense Evasion",
-    "Rule Type: ES|QL",
-    "Platform: GCP",
     "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
     "Service: GCP Vertex AI",
+    "Use Case: Policy Violation",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
     "Threat: Unauthorized AI Usage",
-    "Mitre Atlas: AML.T0054",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -90,7 +89,7 @@ query = '''
 from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
 | where
     data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
-    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason == "SAFETY"
+    MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason, "SAFETY")
 | keep
     _id,
     _version,
@@ -108,29 +107,11 @@ from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
     gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.severity
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0054"
-name = "LLM Jailbreak"
-reference = "https://atlas.mitre.org/techniques/AML.T0054/"
-
 
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0007"

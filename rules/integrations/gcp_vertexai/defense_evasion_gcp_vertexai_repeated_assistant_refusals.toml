@@ -10,8 +10,9 @@ updated_date = "2026/10/02"
 author = ["Elastic"]
 description = """
 Detects three or more Vertex AI GenerateContent replies in 60 minutes whose assistant text indicates a refusal (cannot
-fulfill/assist/help/answer, unable to assist, decline the request, against my guidelines, and similar), on the same
-model. A burst often means repeated disallowed prompts.
+fulfill/assist/help/answer, unable to assist, decline the request, against my guidelines, and similar), aggregated by
+project and model. Prompt-response logs lack a stable caller identity, so this is a project-wide refusal burst signal —
+pivot to auditlogs for principal/IP attribution.
 """
 false_positives = [
     """
@@ -27,10 +28,10 @@ note = """## Triage and analysis
 
 ### Investigating GCP Vertex AI Repeated Assistant Refusals
 
-One model produced three or more refusal-style completions in the lookback window (assistant text
-such as "I cannot fulfill…", "I cannot provide…", "unable to assist…", or
-"against my guidelines…", typically with `finish_reason` STOP). A burst
-often means a caller is repeatedly submitting disallowed or policy-violating prompts.
+One project/model pair produced three or more refusal-style completions in the lookback window
+(assistant text such as "I cannot fulfill…", "I cannot provide…", "unable to assist…", or
+"against my guidelines…", typically with `finish_reason` STOP). Aggregation is project-wide
+because prompt_response_logs do not carry caller email/IP; use auditlogs to attribute the burst.
 
 #### Possible investigation steps
 
@@ -59,8 +60,6 @@ often means a caller is repeatedly submitting disallowed or policy-violating pro
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
-    "https://atlas.mitre.org/techniques/AML.T0051",
-    "https://atlas.mitre.org/techniques/AML.T0054",
 ]
 risk_score = 73
 rule_id = "949912f8-6736-439e-a2fb-d28dcf866017"
@@ -71,18 +70,18 @@ Requires GCP Vertex AI `prompt_response_logs` with response text populated in Bi
 severity = "high"
 tags = [
     "Domain: GenAI",
+    "Domain: Cloud",
     "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
     "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
     "Use Case: Policy Violation",
-    "Mitre Atlas: AML.T0051",
-    "Mitre Atlas: AML.T0054",
+    "Use Case: Threat Detection",
     "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
-    "Platform: GCP",
-    "Domain: Cloud",
-    "Service: GCP Vertex AI",
-    "Threat: Unauthorized AI Usage",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -91,7 +90,7 @@ query = '''
 from logs-gcp_vertexai.prompt_response_logs-*
 | where
     data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
-    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason == "STOP"
+    MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason, "STOP")
 | eval response_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text, " "), ""))
 | where
     response_text like "*cannot fulfill*" or
@@ -137,41 +136,11 @@ from logs-gcp_vertexai.prompt_response_logs-*
     Esql.response_values
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1562"
-name = "Impair Defenses"
-reference = "https://attack.mitre.org/techniques/T1562/"
-
-
-[rule.threat.tactic]
-id = "TA0005"
-name = "Defense Evasion"
-reference = "https://attack.mitre.org/tactics/TA0005/"
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0051"
-name = "LLM Prompt Injection"
-reference = "https://atlas.mitre.org/techniques/AML.T0051/"
-
-
-[rule.threat_mappings.threat.tactic]
-id = "AML.TA0005"
-name = "Execution"
-reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
-[[rule.threat_mappings.threat]]
-framework = "MITRE ATLAS"
-[[rule.threat_mappings.threat.technique]]
-id = "AML.T0054"
-name = "LLM Jailbreak"
-reference = "https://atlas.mitre.org/techniques/AML.T0054/"
-
 
 [rule.threat_mappings.threat.tactic]
 id = "AML.TA0007"
