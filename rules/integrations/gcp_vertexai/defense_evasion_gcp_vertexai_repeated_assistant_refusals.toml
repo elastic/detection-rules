@@ -10,8 +10,8 @@ updated_date = "2026/10/02"
 author = ["Elastic"]
 description = """
 Detects three or more Vertex AI GenerateContent replies in 60 minutes whose assistant text indicates a refusal (cannot
-fulfill, cannot assist, cannot help, cannot answer, or will not provide), on the same model. A burst often means
-repeated disallowed prompts.
+fulfill/assist/help/answer, unable to assist, decline the request, against my guidelines, and similar), on the same
+model. A burst often means repeated disallowed prompts.
 """
 false_positives = [
     """
@@ -28,9 +28,9 @@ note = """## Triage and analysis
 ### Investigating GCP Vertex AI Repeated Assistant Refusals
 
 One model produced three or more refusal-style completions in the lookback window (assistant text
-such as "I cannot fulfill…", "I cannot provide…", "I cannot help…", "I cannot answer…", or
-"I will not provide…", typically with `finish_reason` STOP). A burst often means a caller is
-repeatedly submitting disallowed or policy-violating prompts.
+such as "I cannot fulfill…", "I cannot provide…", "unable to assist…", or
+"against my guidelines…", typically with `finish_reason` STOP). A burst
+often means a caller is repeatedly submitting disallowed or policy-violating prompts.
 
 #### Possible investigation steps
 
@@ -45,6 +45,8 @@ repeatedly submitting disallowed or policy-violating prompts.
 
 ### False positive analysis
 
+- Quoted refusal examples and non-security limitations can also match these text heuristics. Read
+  the original prompts and responses before treating a match as a policy refusal.
 - Approved content-safety evaluation or red-team suites that intentionally elicit refusals. Exclude
   those models/principals or raise the count threshold.
 
@@ -89,18 +91,32 @@ query = '''
 from logs-gcp_vertexai.prompt_response_logs-*
 | where
     data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
-    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason == "STOP" and
-    (
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot fulfill*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot assist*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*can't assist*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*can't help*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot help*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I cannot provide*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I can't provide*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I will not provide*" or
-        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I cannot answer*"
-    )
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason == "STOP"
+| eval response_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text, " "), ""))
+| where
+    response_text like "*cannot fulfill*" or
+    response_text like "*cannot assist*" or
+    response_text like "*can't assist*" or
+    response_text like "*can't help*" or
+    response_text like "*cannot help*" or
+    response_text like "*i cannot provide*" or
+    response_text like "*i can't provide*" or
+    response_text like "*i will not provide*" or
+    response_text like "*i cannot answer*" or
+    response_text like "*i can't answer*" or
+    response_text like "*unable to provide*" or
+    response_text like "*unable to assist*" or
+    response_text like "*unable to fulfill*" or
+    response_text like "*not able to help*" or
+    response_text like "*not able to provide*" or
+    response_text like "*must decline*" or
+    response_text like "*respectfully decline*" or
+    response_text like "*decline this request*" or
+    response_text like "*decline that request*" or
+    response_text like "*cannot disclose*" or
+    response_text like "*can't disclose*" or
+    response_text like "*against my guidelines*" or
+    response_text like "*that violates my guidelines*"
 | stats
     Esql.event_count = count(*),
     Esql.timestamp_first_seen = min(@timestamp),
@@ -114,7 +130,11 @@ from logs-gcp_vertexai.prompt_response_logs-*
 | keep
     gcp.vertexai.prompt_response_logs.model,
     cloud.project.id,
-    Esql.*
+    Esql.event_count,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen,
+    Esql.prompt_values,
+    Esql.response_values
 '''
 
 

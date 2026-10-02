@@ -33,9 +33,8 @@ note = """## Triage and analysis
 The request or response text combines three groups: process-memory or GOT primitives;
 FFI/library or sandbox indicators; and response-channel or write-hook language. The last
 group requires terms such as SandboxOut, fd 5, GOT overwrite/hook, or write-hook identifiers,
-so generic discussion of `ctypes` and `/proc` is insufficient. Matching is case-insensitive
-and includes all text parts on both sides. Indicators can occur in different parts or in
-the request and response of the same logged event.
+so generic discussion of `ctypes` and `/proc` is insufficient. Indicators can occur in
+different parts or in the request and response of the same logged event.
 
 This rule identifies technique language, not a live sandbox compromise or malicious intent.
 Defensive research can match, and a model may introduce the technique in its reply. Agent
@@ -126,20 +125,20 @@ type = "esql"
 query = '''
 from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
 | where data_stream.dataset == "gcp_vertexai.prompt_response_logs"
-| eval Esql.request_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text, " "), "")),
-       Esql.response_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text, " "), ""))
+| eval request_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text, " "), "")),
+       response_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text, " "), ""))
 | where
     (
-        Esql.request_text rlike """.*(/proc/([0-9]+|self)/(mem|maps)|from_address|[.]rela[.]plt|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook).*""" or
-        Esql.response_text rlike """.*(/proc/([0-9]+|self)/(mem|maps)|from_address|[.]rela[.]plt|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook).*"""
+        request_text rlike """.*(/proc/([0-9]+|self)/(mem|maps)|from_address|[.]rela[.]plt|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook).*""" or
+        response_text rlike """.*(/proc/([0-9]+|self)/(mem|maps)|from_address|[.]rela[.]plt|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook).*"""
     ) and
     (
-        Esql.request_text rlike """.*(ctypes|cfunctype|libpython|sandboxout).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?""" or
-        Esql.response_text rlike """.*(ctypes|cfunctype|libpython|sandboxout).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?"""
+        request_text rlike """.*(ctypes|cfunctype|libpython|sandboxout).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?""" or
+        response_text rlike """.*(ctypes|cfunctype|libpython|sandboxout).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?"""
     ) and
     (
-        Esql.request_text rlike """.*(sandboxout|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook|write_got).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?""" or
-        Esql.response_text rlike """.*(sandboxout|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook|write_got).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?"""
+        request_text rlike """.*(sandboxout|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook|write_got).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?""" or
+        response_text rlike """.*(sandboxout|got[ _]*(overwrite|hook)|hook(ing)?[ ]+(the[ ]+)?write|write[_ ]hook|write_got).*|(.*[^a-z0-9_])?fd[ ]*(==|=)?[ ]*5([^a-z0-9_].*)?"""
     )
 | keep
     _id,

@@ -10,9 +10,9 @@ updated_date = "2026/10/02"
 author = ["Elastic"]
 description = """
 Detects Vertex AI GenerateContent prompts that match common jailbreak / instruction-override heuristics (for example
-ignore previous instructions, DAN or developer mode, unrestricted-AI language, or explicit safety-filter bypass). Vertex
-does not emit a first-party jailbreak flag on prompt_response_logs; Model Armor findings are a preferred signal when
-that API is enabled.
+ignore previous instructions, DAN or developer mode, unrestricted-AI language, or explicit safety-filter bypass).
+Typical prompt_response_logs exports do not populate HARM_CATEGORY_JAILBREAK (unlike hate/harassment/dangerous
+ratings); Model Armor findings remain the preferred first-party jailbreak signal when that API is enabled.
 """
 false_positives = [
     """
@@ -31,8 +31,9 @@ note = """## Triage and analysis
 
 The user prompt matched common jailbreak / instruction-override language (for example "ignore
 previous instructions", DAN/"Do Anything Now", or "bypass the safety filter"). This is a content
-heuristic on prompt text — not a Model Armor finding or a Gemini safety-filter verdict. Read the
-response to see whether the model refused or complied.
+heuristic on prompt text — not a Model Armor finding or a Gemini `HARM_CATEGORY_JAILBREAK`
+safety rating (that category is often absent from prompt_response_logs). Read the response to
+see whether the model refused or complied.
 
 #### Possible investigation steps
 
@@ -95,32 +96,30 @@ type = "esql"
 
 query = '''
 from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where data_stream.dataset == "gcp_vertexai.prompt_response_logs"
+| eval request_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text, " "), ""))
 | where
-    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
-    (
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore all previous*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore prior instructions*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore your previous*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Forget everything you were told*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*You are DAN*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*DAN mode*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Do Anything Now*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*developer mode*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*no content restrictions*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*without restrictions*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*unrestricted AI*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*bypass the safety filter*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*bypass the content filter*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*ignore the content policy*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Override your safety*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*no safety filters*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*jailbreak*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*hidden system prompt*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard your system prompt*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard your system*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard all prior*" or
-        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*disregard the developer*"
-    )
+    request_text rlike ".*ignore (all |your )?(previous|prior) instructions.*" or
+    request_text rlike ".*disregard (your |all |the )?(system|developer|prior).*" or
+    request_text rlike ".*(dan|stan|aim|dude) mode.*" or
+    request_text rlike ".*do anything now.*" or
+    request_text like "*bypass*safety*" or
+    request_text like "*bypass*content*filter*" or
+    request_text like "*bypass*content*polic*" or
+    request_text like "*no safety filter*" or
+    request_text rlike ".*without (any |your |content |safety )?restrictions?.*" or
+    request_text like "*no content restriction*" or
+    request_text like "*unrestricted ai*" or
+    request_text like "*jailbreak*" or
+    request_text like "*forget everything you were told*" or
+    request_text like "*you are dan*" or
+    request_text like "*developer mode*" or
+    request_text like "*override your safety*" or
+    request_text like "*hidden system prompt*" or
+    request_text like "*ignore the content policy*" or
+    request_text like "*ignore all previous*" or
+    request_text like "*ignore prior instructions*" or
+    request_text like "*ignore your previous*"
 | keep
     _id,
     _version,
@@ -175,4 +174,13 @@ id = "AML.TA0007"
 name = "Defense Evasion"
 reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
+[rule.investigation_fields]
+field_names = [
+    "cloud.project.id",
+    "gcp.vertexai.prompt_response_logs.model",
+    "gcp.vertexai.prompt_response_logs.api_method",
+    "gcp.vertexai.prompt_response_logs.full_request.contents.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason",
+]
 
