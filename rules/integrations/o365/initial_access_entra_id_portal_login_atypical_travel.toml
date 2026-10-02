@@ -2,56 +2,82 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects successful Microsoft 365 portal logins from a country and region the user has not previously authenticated
-from in a specific time window. Atypical regions are identified by combining the user's country and region geolocation history; an
-authentication from a new country/region pair for that user may indicate an adversary attempting to access the
-account from an unusual location or behind a VPN. 
+from in a historical window. Atypical regions are identified by combining the user's country and region geolocation history;
+an authentication from a new country/region pair for that user may indicate an adversary attempting to access the
+account from an unusual location or behind a VPN. Adversaries may leverage AiTM phishing kits or brokered credentials to gain unauthorized access.
 """
 false_positives = [
     """
-    False positives may occur when users are using a VPN or when users are traveling to different locations"
+    False positives may occur when users are using a VPN or traveling to different locations. Corporate CASB
+    proxies (Zscaler and Netskope) are excluded; other proxy services routing traffic through distant network
+    points of presence may trigger this rule.
     """,
     """
     Mobile access may also result in false positives, as users may log in from various locations while on the go.
+    Mobile user-agents (Android, iPad, iPhone) are excluded.
     """,
 ]
-from = "now-15m"
-index = ["logs-o365.audit-*"]
-language = "kuery"
+from = "now-14d"
+language = "esql"
 license = "Elastic License v2"
 name = "M365 Identity Login from Atypical Region"
 note = """## Triage and analysis
 
 ### Investigating M365 Identity Login from Atypical Region
 
-Microsoft 365 is a cloud-based suite offering productivity tools accessible from anywhere, making it crucial for business operations. Adversaries may exploit this by logging in from uncommon regions, potentially using VPNs to mask their origin. The detection rule identifies successful logins from atypical country/region pairs for a given user, flagging potential unauthorized access attempts by analyzing login events and user location patterns at country and region granularity.
+Detects successful Microsoft 365 portal logins from a country and region the user has not previously authenticated from in a historical window. This may indicate an adversary attempting to access the account from an unusual location or behind a VPN. Adversaries may leverage AiTM phishing kits or brokered credentials to gain unauthorized access.
 
 ### Possible investigation steps
 
-- Review the user associated with these sign-ins to determine if the login attempt was legitimate or if further investigation is needed.
-- Analyze the geographic locations of the logins to identify any patterns or anomalies that may indicate malicious activity.
-- Review the ISP information for the login attempts to identify any unusual or suspicious providers.
-- Review the authorization request type to understand the context of the login attempts and whether they align with the user's typical behavior.
-- Analyze the client application used for the login attempts to determine if it is consistent with the user's normal usage patterns (Teams, Office, etc.)
-- Analyze the user-agent associated with the login attempts to identify any unusual or suspicious patterns. These could also indicate mobile and endpoint logins causing false-positives.
+- Identify the user in `o365.audit.UserId` and the new geographic combination: `source.geo.country_name`
+  and `source.geo.region_name`.
+- Review `Esql.first_seen` to confirm when this geographic combination first appeared and correlate with the
+  user's known activity.
+- Inspect `Esql.source_as_organization_name_values` for the originating ASN. Corporate ISPs and known CASB
+  proxies are lower-risk. Hosting-provider ASNs (cloud compute, bulletproof hosting) for interactive sign-ins
+  are high-fidelity suspicious.
+- Review `Esql.source_ip_values` for the source IPs and correlate with threat intelligence or known VPN ranges
+  for the user.
+- Examine `Esql.request_type_values` to understand the authentication flow type. `OAuth2:Authorize` is interactive
+  browser login; `OAuth2:Token` indicates background token acquisition.
+- Analyze `Esql.application_id_values` to identify which application was used. Look for unexpected applications
+  or those commonly associated with OAuth phishing campaigns.
+- Review `Esql.user_agent_original_values` for the browser and OS. A user-agent that diverges from the user's
+  baseline (different OS, browser version) may indicate session reuse or tool-based access.
+- Use `Esql.aad_session_id_values` to pivot directly into `azure.signinlogs` on the `session_id` field and
+  retrieve the full interactive sign-in record, including MFA details, device compliance, and CA policy outcomes.
+- Use `Esql.user_key_values` (AAD object GUID) to query Entra ID user details and risk posture.
+- If `Esql.token_object_id_values` is populated, cross-reference against known stolen token indicators; a token
+  object ID appearing in multiple geographic contexts is a high-confidence AiTM signal.
+- Compare `Esql.source_ip_values` and `Esql.actor_ip_values` — divergence may indicate proxied or forwarded requests.
+- Check `Esql.object_id_values` to identify which Microsoft resource or service was accessed from the new location.
+- If Entra ID sign-in logs are available, also check for concurrent impossible travel alerts for the same user.
 
 ### False positive analysis
 
-- Users traveling or using VPNs may trigger this alert. Verify with the user if they were traveling or using a VPN at the time of the login attempt.
-- Mobile access may also result in false positives, as users may log in from various locations while on the go.
+- Users traveling or using VPNs may trigger this alert. Verify with the user if they were traveling or using
+  a VPN at the time of the login attempt.
+- Mobile access may result in false positives; mobile user-agents (Android, iPad, iPhone) are already excluded.
+- Zscaler and Netskope CASB traffic is excluded. Other enterprise proxy services routing traffic through distant
+  PoPs may generate alerts; validate the ASN in `Esql.source_as_organization_name_values` against the
+  organization's known proxy infrastructure.
 
 ### Response and remediation
 
-- Investigate the login attempt further by checking for any additional context or related events that may provide insight into the user's behavior.
-- If the login attempt is deemed suspicious, consider implementing additional security measures, such as requiring multi-factor authentication (MFA) for logins from unusual locations.
-- Educate users about the risks of accessing corporate resources from unfamiliar locations and the importance of using secure connections (e.g., VPNs) when doing so.
-- Monitor for any subsequent login attempts from the same location or IP address to identify potential patterns of malicious activity.
-- Consider adding exceptions to this rule for the user or source application ID if the login attempts are determined to be legitimate and not a security concern.
+- If the login attempt is deemed suspicious, immediately revoke all active sessions for the user and force
+  re-authentication.
+- Reset the user's password and enforce multi-factor authentication (MFA) for logins from unusual locations.
+- Review conditional access policies to ensure they require MFA or block access from unexpected geographies.
+- Investigate any OAuth consent grants, new authentication method registrations, or device joins that occurred
+  near the same time as the atypical login.
+- Monitor for subsequent login attempts from the same location or IP address to identify persistent adversary access.
+- Consider adding exceptions for specific ASNs if the login attempts are confirmed legitimate corporate proxy behavior.
 """
 references = ["https://www.huntress.com/blog/time-travelers-busted-how-to-detect-impossible-travel-"]
 risk_score = 47
@@ -66,51 +92,86 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Tactic: Initial Access",
     "Resources: Investigation Guide",
-    "Noise: Medium",
+    "Noise: High",
     "Performance: Normal",
     "Profile: Recommended",
     "Threat: Impossible Travel",
-    "Rule Type: New Terms",
+    "Rule Type: ES|QL",
     "Platform: Microsoft 365",
     "Domain: SaaS",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "esql"
 
 query = '''
-data_stream.dataset:o365.audit and 
-    event.provider:AzureActiveDirectory and
-    event.action:UserLoggedIn and event.outcome:success and
-    o365.audit.Target.Type:(0 or 2 or 3 or 5 or 6 or 10) and
-    o365.audit.UserId:(* and not "Not Available") and
-    source.geo.country_name:* and
-    source.geo.region_name:* and
-    o365.audit.ApplicationId:(* and not (
-        08e18876-6177-487e-b8b5-cf950c1e598c or
-        29d9ed98-a469-4536-ade2-f981bc1d605e or
-        38aa3b87-a06d-4817-b275-7a316988d93b or
-        3e62f81e-590b-425b-9531-cad6683656cf or
-        a809996b-059e-42e2-9866-db24b99a9782 or
-        d7b530a4-7680-4c23-a8bf-c52c121d2e87
-    )) and
-    o365.audit.ExtendedProperties.RequestType:(* and not (
-        "Consent:Set" or
-        "DeviceAuth:ReprocessTls" or
-        "Federation:oauth2claimsprovider" or
-        "Federation:oauth2msa" or
-        "Kmsi:kmsi" or
-        "Login:reprocess" or
-        "Login:resume" or
-        "MessagePrompt:MessagePrompt" or
-        "OrgIdWsFederation:federation" or 
-        "PermitSso:PermitSso" or
-        "SAS:EndAuth" or
-        "SAS:ProcessAuth" or
-        "SSPR:end" or
-        "Saml2:processrequest" or
+FROM logs-o365.audit-*
+| WHERE @timestamp >= NOW() - 14 days
+    AND data_stream.dataset == "o365.audit"
+    AND event.provider == "AzureActiveDirectory"
+    AND event.action == "UserLoggedIn"
+    AND event.outcome == "success"
+    AND TO_INTEGER(o365.audit.Target.Type) IN (0, 2, 3, 5, 6, 10)
+    AND o365.audit.UserId IS NOT NULL
+    AND o365.audit.UserId != "Not Available"
+    AND source.geo.country_name IS NOT NULL
+    AND source.geo.region_name IS NOT NULL
+    AND source.`as`.organization.name NOT IN ("ZSCALER, INC.", "Zscaler Switzerland GmbH", "Netskope Inc")
+    AND o365.audit.ApplicationId IS NOT NULL
+    AND o365.audit.ApplicationId NOT IN (
+        "08e18876-6177-487e-b8b5-cf950c1e598c",
+        "29d9ed98-a469-4536-ade2-f981bc1d605e",
+        "38aa3b87-a06d-4817-b275-7a316988d93b",
+        "3e62f81e-590b-425b-9531-cad6683656cf",
+        "a809996b-059e-42e2-9866-db24b99a9782",
+        "d7b530a4-7680-4c23-a8bf-c52c121d2e87"
+    )
+    AND o365.audit.ExtendedProperties.RequestType IS NOT NULL
+    AND o365.audit.ExtendedProperties.RequestType NOT IN (
+        "Consent:Set",
+        "DeviceAuth:ReprocessTls",
+        "Federation:oauth2claimsprovider",
+        "Federation:oauth2msa",
+        "Kmsi:kmsi",
+        "Login:reprocess",
+        "Login:resume",
+        "MessagePrompt:MessagePrompt",
+        "OrgIdWsFederation:federation",
+        "PermitSso:PermitSso",
+        "SAS:EndAuth",
+        "SAS:ProcessAuth",
+        "SSPR:end",
+        "Saml2:processrequest",
         "WsFederation:wsfederation"
-    )) and
-    not user_agent.original:(*Android* or *PKeyAuth* or *WebView* or *iPad* or *iPhone*)
+    )
+    AND (
+        user_agent.original IS NULL
+        OR (
+            user_agent.original NOT LIKE "*Android*"
+            AND user_agent.original NOT LIKE "*PKeyAuth*"
+            AND user_agent.original NOT LIKE "*WebView*"
+            AND user_agent.original NOT LIKE "*iPad*"
+            AND user_agent.original NOT LIKE "*iPhone*"
+        )
+    )
+| STATS
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp),
+    Esql.event_count = COUNT(*),
+    Esql.source_as_organization_name_values = VALUES(source.`as`.organization.name),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original),
+    Esql.application_id_values = VALUES(o365.audit.ApplicationId),
+    Esql.request_type_values = VALUES(o365.audit.ExtendedProperties.RequestType),
+    Esql.object_id_values = VALUES(o365.audit.ObjectId),
+    Esql.result_status_detail_values = VALUES(o365.audit.ExtendedProperties.ResultStatusDetail),
+    Esql.user_type_values = VALUES(o365.audit.UserType),
+    Esql.aad_session_id_values = VALUES(o365.audit.AppAccessContext.AADSessionId),
+    Esql.actor_ip_values = VALUES(o365.audit.ActorIpAddress),
+    Esql.user_key_values = VALUES(o365.audit.UserKey),
+    Esql.token_object_id_values = VALUES(o365.audit.TokenObjectId)
+  BY o365.audit.UserId, source.geo.country_name, source.geo.region_name
+| WHERE Esql.first_seen >= NOW() - 10 minutes
+| KEEP Esql.*, o365.audit.UserId, source.geo.country_name, source.geo.region_name
 '''
 
 
@@ -134,20 +195,22 @@ reference = "https://attack.mitre.org/tactics/TA0001/"
 
 [rule.investigation_fields]
 field_names = [
-    "@timestamp",
-    "organization.id",
     "o365.audit.UserId",
-    "o365.audit.ActorIpAddress",
-    "o365.audit.ApplicationId",
-    "o365.audit.ExtendedProperties.RequestType",
-    "o365.audit.Target.ID",
     "source.geo.country_name",
     "source.geo.region_name",
+    "Esql.first_seen",
+    "Esql.last_seen",
+    "Esql.event_count",
+    "Esql.source_ip_values",
+    "Esql.actor_ip_values",
+    "Esql.source_as_organization_name_values",
+    "Esql.user_agent_original_values",
+    "Esql.application_id_values",
+    "Esql.object_id_values",
+    "Esql.request_type_values",
+    "Esql.result_status_detail_values",
+    "Esql.user_type_values",
+    "Esql.aad_session_id_values",
+    "Esql.user_key_values",
+    "Esql.token_object_id_values",
 ]
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["o365.audit.UserId", "source.geo.country_name", "source.geo.region_name"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-10d"
