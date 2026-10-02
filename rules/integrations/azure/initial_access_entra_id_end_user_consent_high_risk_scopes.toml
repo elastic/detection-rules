@@ -1,5 +1,5 @@
 [metadata]
-creation_date = "2026/09/03"
+creation_date = "2026/10/02"
 integration = ["azure"]
 maturity = "production"
 min_stack_comments = "MV_CONTAINS was added to ES|QL in 9.2.0 and is not available on 8.19; 9.3.0 is the lowest supported 9.x release."
@@ -76,18 +76,19 @@ references = [
     "https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/manage-app-consent-policies",
     "https://learn.microsoft.com/en-us/defender-cloud-apps/investigate-risky-oauth",
     "https://www.microsoft.com/en-us/security/blog/2024/01/25/midnight-blizzard-guidance-for-responders-on-nation-state-attack/",
-    "https://github.com/AlteredSecurity/365-Stealer",
-    "https://attack.mitre.org/techniques/T1528/",
+    "https://github.com/AlteredSecurity/365-Stealer"
 ]
-risk_score = 73
+risk_score = 47
 rule_id = "e907ca08-45f2-4f8b-9854-c66be0e985dd"
-severity = "high"
+severity = "medium"
 tags = [
     "Domain: Cloud",
     "Domain: Identity",
     "Data Source: Azure",
     "Data Source: Microsoft Entra ID",
     "Data Source: Microsoft Entra ID Audit Logs",
+    "Platform: Entra ID",
+    "Profile: Beta",
     "Use Case: Identity and Access Audit",
     "Resources: Investigation Guide",
     "Tactic: Initial Access",
@@ -105,8 +106,6 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
 
 // Normalize ConsentAction.Permissions into a lower-cased, space-padded token string so " token " is an exact scope match.
 // Raw: "[] => [[Id: .., ResourceId: .., ConsentType: Principal, Scope:  Mail.Read offline_access .., ..]]"
-// Entra writes one consent event per resource API: Graph scopes + offline_access share an event, while SharePoint
-// (AllSites.*), Exchange EWS, and ARM (user_impersonation) scopes arrive in their own event without offline_access.
 | EVAL Esql.scopes = CONCAT(" ", REPLACE(TO_LOWER(`azure.auditlogs.properties.target_resources.0.modified_properties.4.new_value`), """[\[\],;"]""", " "), " ")
 
 // additional_details.key/value are parallel arrays but ES|QL returns multivalues sorted, so pair via MV_CONTAINS, not position.
@@ -126,7 +125,7 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     // "Consent" = service principal was created by this consent, i.e. first time the app appears in the tenant
     Esql.sp_provisioned_by_consent = MV_CONTAINS(azure.auditlogs.properties.additional_details.value, "Consent")
 
-// High-risk scope families: ~99% of consent phishing (MS IR playbook), 365-Stealer/GraphRunner defaults, Midnight Blizzard EWS.
+// High-risk scope families: in-the-wild consent phishing (MS IR playbook), 365-Stealer/GraphRunner defaults, Midnight Blizzard EWS.
 // Positive enumeration excludes low-risk variants (Mail.ReadBasic, Chat.ReadBasic, Files.*.Selected) without lookarounds.
 | EVAL
     Esql.high_risk_scopes = TRIM(CONCAT(
@@ -182,8 +181,12 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
 
 [rule.alert_suppression]
 group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
-duration = {value = 6, unit = "h"}
-missing_fields_strategy = "suppress"
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 6
+
 
 
 [[rule.threat]]
