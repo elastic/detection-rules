@@ -1,0 +1,179 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects three or more Vertex AI GenerateContent replies in 60 minutes whose assistant text indicates a refusal (cannot
+fulfill, cannot assist, cannot help, cannot answer, or will not provide), on the same model. A burst often means
+repeated disallowed prompts.
+"""
+false_positives = [
+    """
+    Approved red-team suites that intentionally elicit refusals. Exclude those models or raise the threshold.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Repeated Assistant Refusals"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Repeated Assistant Refusals
+
+One model produced three or more refusal-style completions in the lookback window (assistant text
+such as "I cannot fulfill…", "I cannot provide…", "I cannot help…", "I cannot answer…", or
+"I will not provide…", typically with `finish_reason` STOP). A burst often means a caller is
+repeatedly submitting disallowed or policy-violating prompts.
+
+#### Possible investigation steps
+
+- Review `Esql.event_count`, `Esql.prompt_values`, and `Esql.response_values` on the alert. Skim
+  prompts for jailbreak attempts, malware requests, or credential harvesting.
+- Remember this rule keys on textual refusals with STOP — not provider `SAFETY` blocks. Use the
+  safety-filter / elevated-rating rules for those.
+- Pivot to `logs-gcp_vertexai.auditlogs-*` with `event.action like "*GenerateContent*"` in the same
+  window for `source.ip` and `client.user.email`.
+- Correlate with jailbreak-heuristic, elevated-safety, and BLOCK_NONE alerts for the same
+  project/model.
+
+### False positive analysis
+
+- Approved content-safety evaluation or red-team suites that intentionally elicit refusals. Exclude
+  those models/principals or raise the count threshold.
+
+### Response and remediation
+
+- Identify the calling workload via auditlogs; if unauthorized, restrict or rotate credentials and
+  review application allowlists.
+- If prompts show a clear attack theme, expand the hunt across other models and projects for the
+  same principal/IP.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+]
+risk_score = 73
+rule_id = "949912f8-6736-439e-a2fb-d28dcf866017"
+setup = """## Setup
+
+Requires GCP Vertex AI `prompt_response_logs` with response text populated in BigQuery export.
+"""
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Data Source: GCP Vertex AI",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Policy Violation",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: GCP",
+    "Domain: Cloud",
+    "Service: Vertex AI",
+    "Threat: Unauthorized AI Usage",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-*
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason == "STOP" and
+    (
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot fulfill*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot assist*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*can't assist*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*can't help*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*cannot help*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I cannot provide*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I can't provide*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I will not provide*" or
+        gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text like "*I cannot answer*"
+    )
+| stats
+    Esql.event_count = count(*),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.prompt_values = values(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text),
+    Esql.response_values = values(gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text)
+  by
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id
+| where Esql.event_count >= 3
+| keep
+    gcp.vertexai.prompt_response_logs.model,
+    cloud.project.id,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.alert_suppression]
+group_by = ["gcp.vertexai.prompt_response_logs.model", "cloud.project.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "gcp.vertexai.prompt_response_logs.model",
+    "cloud.project.id",
+    "Esql.event_count",
+    "Esql.prompt_values",
+    "Esql.response_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

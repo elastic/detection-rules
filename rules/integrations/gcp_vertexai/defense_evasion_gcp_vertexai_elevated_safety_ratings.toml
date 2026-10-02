@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Vertex AI prompt-response logs where a candidate safety_ratings.probability is HIGH or MEDIUM. Those values are
+stronger signals than NEGLIGIBLE or LOW alone. Requires the request to include safetySettings so ratings are logged.
+"""
+false_positives = [
+    """
+    Borderline creative-writing or news-summarization prompts can occasionally score MEDIUM. Confirm category and prompt
+    text before escalating.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Elevated Safety Rating on Response"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Elevated Safety Rating on Response
+
+A GenerateContent response included `safety_ratings.probability` of HIGH or MEDIUM for one or more
+Gemini harm categories (for example `HARM_CATEGORY_HATE_SPEECH` or
+`HARM_CATEGORY_DANGEROUS_CONTENT`). That is a stronger signal than NEGLIGIBLE/LOW and often means
+the prompt probed disallowed content — whether or not generation was fully blocked.
+
+#### Possible investigation steps
+
+- Read the prompt in `gcp.vertexai.prompt_response_logs.full_request.contents.parts.text`.
+- Note `safety_ratings.category`, `probability`, and `severity` on the alert, plus
+  `finish_reason`. `SAFETY` with HIGH/MEDIUM is high confidence; `STOP` with HIGH still warrants
+  review of what was returned.
+- Check `full_request.safety_settings.threshold` on the same event. `BLOCK_NONE` means category
+  blocking was disabled for listed categories.
+- Pivot to `logs-gcp_vertexai.auditlogs-*` GenerateContent for `source.ip` and `client.user.email`
+  in the same window to identify the caller.
+- Look for related alerts (jailbreak heuristics, repeated refusals, BLOCK_NONE) from the same
+  project/model.
+
+### False positive analysis
+
+- Authorized red-team or content-moderation workloads that intentionally score MEDIUM/HIGH.
+  Exclude those projects or principals.
+- Borderline creative-writing or news-summarization prompts can occasionally score MEDIUM — read
+  the prompt before escalating.
+
+### Response and remediation
+
+- If the prompt is malicious and unauthorized: quarantine the calling identity, revoke Vertex
+  credentials, and review IAM.
+- If `BLOCK_NONE` was used, require stricter thresholds (for example BLOCK_MEDIUM_AND_ABOVE) via
+  org policy or application defaults.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-filters",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+]
+risk_score = 47
+rule_id = "83ac492d-d5b5-4db6-89d4-d1be7456c54c"
+setup = """## Setup
+
+Requires prompt_response_logs with candidates.safety_ratings.* populated. Ratings appear when the client sends
+safetySettings on the GenerateContent request.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Data Source: GCP Vertex AI",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Use Case: Policy Violation",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Platform: GCP",
+    "Domain: Cloud",
+    "Service: Vertex AI",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0051",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    (
+        MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability, "HIGH") or
+        MV_CONTAINS(gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability, "MEDIUM")
+    )
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    cloud.project.id,
+    gcp.vertexai.prompt_response_logs.model,
+    gcp.vertexai.prompt_response_logs.full_request.contents.parts.text,
+    gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.severity
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "cloud.project.id",
+    "gcp.vertexai.prompt_response_logs.model",
+    "gcp.vertexai.prompt_response_logs.full_request.contents.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.category",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.probability",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.safety_ratings.severity",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason",
+    "gcp.vertexai.prompt_response_logs.full_request.safety_settings.threshold",
+]
+

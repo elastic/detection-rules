@@ -1,0 +1,184 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a single source IP making a high number of Vertex AI GenerateContent (or StreamGenerateContent) audit calls
+against the same model resource in the lookback window. That pattern fits model extraction, automated scraping, or a
+compromised caller burning prediction quota.
+"""
+false_positives = [
+    """
+    Approved batch evaluation clients or shared NAT egress. Raise the threshold or exclude known source IP prefixes.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI High GenerateContent Volume From Single IP"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI High GenerateContent Volume From Single IP
+
+A single `source.ip` issued an unusually high number of Vertex AI `GenerateContent` /
+`StreamGenerateContent` audit calls against one model resource
+(`gcp.vertexai.audit.resource_name`) in the lookback window. That pattern is consistent with
+model extraction, automated scraping, or a compromised caller burning prediction quota.
+
+#### Possible investigation steps
+
+- Note `source.ip`, `gcp.vertexai.audit.resource_name`, `cloud.project.id`, and `Esql.event_count`
+  on the alert. Compare the count to the project's normal peak for that model.
+- Confirm whether the IP is known egress for an approved app, CI runner, or shared NAT. Check
+  `Esql.event_action_values` for StreamGenerateContent vs GenerateContent mix.
+- Pivot to `logs-gcp_vertexai.prompt_response_logs-*` for the same time window and model: sample
+  prompts, token volume, and whether content looks like systematic extraction (repetitive probes,
+  large context dumps).
+- Pivot auditlogs for the same IP: other aiplatform methods, new service accounts, or
+  `SetPublisherModelConfig` changes that could hide or redirect logging.
+- Identify `client.user.email` on matching GenerateContent audit events to map IP → principal.
+
+### False positive analysis
+
+- Shared corporate NAT or proxy egress aggregating many legitimate users onto one IP.
+- Approved batch evaluation, load tests, or data-migration jobs. Validate with change tickets and
+  expected schedules before escalating.
+
+### Response and remediation
+
+- If unauthorized: revoke or rotate credentials for the calling principal, restrict the IP via VPC
+  Service Controls / firewall, and apply per-IP or per-principal quotas.
+- Review billing and quota usage for the model; hunt for similar volume from other IPs in the same
+  project.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://genai.owasp.org/llmrisk/llm10-model-theft",
+    "https://atlas.mitre.org/techniques/AML.T0024",
+    "https://atlas.mitre.org/techniques/AML.T0029",
+]
+risk_score = 47
+rule_id = "a9f28b66-a69e-4d5b-be8d-94e5eda6c736"
+setup = """## Setup
+
+Requires GCP Vertex AI `auditlogs` for `aiplatform.googleapis.com`. Raise `Esql.event_count` above your normal peak
+before broad enablement.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Data Source: GCP Vertex AI",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Model Theft",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Tactic: Collection",
+    "Rule Type: ES|QL",
+    "Platform: GCP",
+    "Domain: Cloud",
+    "Service: Vertex AI",
+    "Mitre Atlas: AML.T0024",
+    "Mitre Atlas: AML.T0029",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0024.002",
+    "Threat: LLMjacking",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.auditlogs-*
+| where
+    data_stream.dataset == "gcp_vertexai.auditlogs" and
+    source.ip is not null and
+    (
+        event.action like "*PredictionService.GenerateContent*" or
+        event.action like "*PredictionService.StreamGenerateContent*"
+    )
+| stats
+    Esql.event_count = count(*),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp),
+    Esql.event_action_values = values(event.action)
+  by
+    source.ip,
+    gcp.vertexai.audit.resource_name,
+    cloud.project.id
+| where Esql.event_count >= 20
+| keep
+    source.ip,
+    gcp.vertexai.audit.resource_name,
+    cloud.project.id,
+    Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0029"
+name = "Denial of AI Service"
+reference = "https://atlas.mitre.org/techniques/AML.T0029/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0024"
+name = "Exfiltration via AI Inference API"
+reference = "https://atlas.mitre.org/techniques/AML.T0024/"
+[[rule.threat_mappings.threat.technique.subtechnique]]
+id = "AML.T0024.002"
+name = "Extract AI Model"
+reference = "https://atlas.mitre.org/techniques/AML.T0024.002/"
+
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.alert_suppression]
+group_by = ["source.ip", "gcp.vertexai.audit.resource_name", "cloud.project.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "gcp.vertexai.audit.resource_name",
+    "cloud.project.id",
+    "Esql.event_count",
+    "Esql.event_action_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

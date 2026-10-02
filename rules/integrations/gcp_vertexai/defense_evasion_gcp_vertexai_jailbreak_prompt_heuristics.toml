@@ -1,0 +1,178 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Vertex AI GenerateContent prompts that match common jailbreak / instruction-override heuristics (for example
+ignore previous instructions, DAN or developer mode, unrestricted-AI language, or explicit safety-filter bypass). Vertex
+does not emit a first-party jailbreak flag on prompt_response_logs; Model Armor findings are a preferred signal when
+that API is enabled.
+"""
+false_positives = [
+    """
+    Approved red-team or evaluation prompts that deliberately include jailbreak strings. Exclude known test principals
+    or lower severity for those models.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Jailbreak Prompt Heuristics"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Jailbreak Prompt Heuristics
+
+The user prompt matched common jailbreak / instruction-override language (for example "ignore
+previous instructions", DAN/"Do Anything Now", or "bypass the safety filter"). This is a content
+heuristic on prompt text — not a Model Armor finding or a Gemini safety-filter verdict. Read the
+response to see whether the model refused or complied.
+
+#### Possible investigation steps
+
+- Read `full_request.contents.parts.text` and `full_response.candidates.content.parts.text`. Confirm
+  intent is instruction override or filter bypass versus an innocent mention of the word
+  "jailbreak".
+- Note `finish_reason`: `STOP` with a helpful reply after a jailbreak attempt is higher priority
+  than a clear refusal; `SAFETY` means the provider blocked generation.
+- Correlate with `logs-gcp_vertexai.auditlogs-*` GenerateContent in the same window for `source.ip`
+  and `client.user.email`.
+- Check for related alerts: repeated refusals, elevated safety ratings, credentials in prompt, or
+  BLOCK_NONE from the same caller/model.
+
+### False positive analysis
+
+- Approved red-team, evaluation, or Model Armor test suites that deliberately include jailbreak
+  strings. Exclude known test principals or models.
+- Documentation that mentions "developer mode" or "without restrictions" in a non-adversarial
+  context. Read the full prompt before escalating.
+
+### Response and remediation
+
+- If not an approved test: investigate the calling principal/IP, restrict or rotate credentials, and
+  add application-side input filtering.
+- Prefer enabling Model Armor / AI Protection for a first-party jailbreak or prompt-injection signal
+  when available.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/blog/products/identity-security/introducing-ai-protection-security-for-the-ai-era",
+    "https://github.com/elastic/integrations/issues/20740",
+    "https://atlas.mitre.org/techniques/AML.T0051",
+    "https://atlas.mitre.org/techniques/AML.T0054",
+]
+risk_score = 47
+rule_id = "42cc9ad9-4ad1-4702-8abc-7d55096f6ee0"
+setup = """## Setup
+
+Requires GCP Vertex AI `prompt_response_logs`. For a higher-fidelity jailbreak signal, enable Model Armor / AI Protection
+and ingest those findings separately when available.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Data Source: GCP Vertex AI",
+    "Data Source: Google Cloud Platform",
+    "Use Case: Threat Detection",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
+    "Resources: Investigation Guide",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Platform: GCP",
+    "Domain: Cloud",
+    "Service: Vertex AI",
+    "Threat: Unauthorized AI Usage",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "gcp_vertexai.prompt_response_logs" and
+    (
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore all previous*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore prior instructions*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Ignore your previous*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Forget everything you were told*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*You are DAN*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*DAN mode*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Do Anything Now*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*developer mode*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*no content restrictions*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*without restrictions*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*unrestricted AI*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*bypass the safety filter*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*bypass the content filter*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*ignore the content policy*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Override your safety*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*no safety filters*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*jailbreak*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*hidden system prompt*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard your system prompt*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard your system*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*Disregard all prior*" or
+        gcp.vertexai.prompt_response_logs.full_request.contents.parts.text like "*disregard the developer*"
+    )
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    cloud.project.id,
+    gcp.vertexai.prompt_response_logs.model,
+    gcp.vertexai.prompt_response_logs.api_method,
+    gcp.vertexai.prompt_response_logs.full_request.contents.parts.text,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+
