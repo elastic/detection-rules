@@ -2,7 +2,7 @@
 creation_date = "2026/06/01"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
@@ -284,7 +284,7 @@ not (
         "sh -c php -r \"echo PHP_VERSION;\""
       ) or
       process.command_line like (
-        "*var_export*extension_loaded*", "*/tmp/tmp_resize*", "*/v1/objects/hosts/*_Infoterminal*", "*python -m json.tool*",
+        "*var_export*extension_loaded*", "*/tmp/tmp_resize*", "*python -m json.tool*",
         "sh -c timeout 3600 ssh -o ControlMaster=auto -o ControlPath=/var/www/html/storage/app/ssh/mux/*"
       ) or
       process.args like ("ps*|*grep*", "ffmpeg*")
@@ -324,7 +324,6 @@ not (
   ) or
   (process.parent.name like "python*" and process.parent.command_line like "*hive_server.py*") or
   (process.parent.name == "sw-engine-fpm" and process.command_line like ("*/opt/psa/admin/bin/*", "*/usr/local/psa/admin/*")) or
-  (process.parent.name == "httpd" and process.command_line like ("*/datastore/htdocs/control-states/compass*", "*/dev/shm/netmon-log*")) or
   (process.parent.name == "asterisk" and process.args like "/bin/chmod 777 */gravacoes/*.WAV") or
   (process.parent.name == "nginx" and process.command_line like "sh -c gcc -print-multiarch 2>/dev/null > /tmp/lua_*") or
   (process.parent.name == "varnishd" and process.args like "exec gcc*") or
