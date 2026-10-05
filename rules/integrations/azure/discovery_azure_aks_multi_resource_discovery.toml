@@ -9,11 +9,11 @@ updated_date = "2026/08/04"
 [rule]
 author = ["Elastic"]
 description = """
-Detects an AKS (Azure Kubernetes Service) identity that lists or gets multiple distinct Kubernetes API
-resource types associated with cluster orientation (namespaces, nodes, pods, roles, clusterroles, configmaps,
-serviceaccounts, rolebindings, clusterrolebindings) within a short window. Cardinality of distinct resources touched,
-not raw event count, is the signal that separates recon/orientation behavior from steady-state controllers that
-repeatedly touch a narrow set of resources. Known platform and control-plane identities are excluded.
+Detects an AKS (Azure Kubernetes Service) identity that lists or gets multiple distinct Kubernetes API resource types
+associated with cluster orientation (namespaces, nodes, pods, roles, clusterroles, configmaps, serviceaccounts,
+rolebindings, clusterrolebindings) within a short window. Cardinality of distinct resources touched, not raw event
+count, is the signal that separates recon/orientation behavior from steady-state controllers that repeatedly touch a
+narrow set of resources. Known platform and control-plane identities are excluded.
 """
 false_positives = [
     """
@@ -135,10 +135,6 @@ from logs-azure.platformlogs-* metadata _id, _index, _version
 | keep Esql.*, Esql_priv.*, azure.resource.id
 '''
 
-[rule.alert_suppression]
-group_by = ["Esql_priv.username", "Esql.user_agent", "azure.resource.id"]
-duration = {value = 30, unit = "m"}
-missing_fields_strategy = "suppress"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -152,4 +148,12 @@ reference = "https://attack.mitre.org/techniques/T1613/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.alert_suppression]
+group_by = ["Esql_priv.username", "Esql.user_agent", "azure.resource.id"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 30
 
