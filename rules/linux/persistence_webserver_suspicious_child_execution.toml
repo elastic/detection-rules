@@ -2,8 +2,7 @@
 creation_date = "2023/03/04"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/07/20"
-
+updated_date = "2026/10/05"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve Listening Ports"
@@ -136,7 +135,14 @@ tags = [
     "Tactic: Initial Access",
     "Use Case: Vulnerability",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Defend"
+    "Data Source: Elastic Defend",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Web Shell",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Resources: Osquery",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -273,10 +279,6 @@ not (
     process.executable like (
       "/var/www/html/dialapplet-web/agi/*.php", "/var/lib/asterisk/bin/faxnotify.php"
     )
-  ) or
-  (
-    process.parent.executable == "/home/jiraContractor/jira.install/jre/bin/java" and
-    process.executable == "/home/jiraContractor/jira.install/jre/lib/jspawnhelper"
   ) or
   process.parent.args like "/home/agent/Claude/*" or
   (process.parent.executable == "/usr/lib/jvm/java-21-openjdk/bin/java" and process.name == "ln") or

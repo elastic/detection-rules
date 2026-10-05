@@ -14,6 +14,7 @@ Here are the queries currently available:
 - [IAM Assume Role Creation with Attached Policy](./aws/docs/iam_assume_role_creation_with_attached_policy.md) (ES|QL)
 - [IAM Unusual Default Aviatrix Role Activity](./aws/docs/iam_unusual_default_aviatrix_role_activity.md) (ES|QL)
 - [IAM User Activity with No MFA Session](./aws/docs/iam_user_activity_with_no_mfa_session.md) (ES|QL)
+- [Java_Ghost Threat Actor Infrastructure and Identity Markers](./aws/docs/java_ghost_threat_actor_infrastructure_and_identity_markers.md) (ES|QL)
 - [Lambda Add Permissions for Write Actions to Function](./aws/docs/lambda_add_permissions_for_write_actions_to_function.md) (ES|QL)
 - [Multiple Service Logging Deleted or Stopped](./aws/docs/multiple_service_logging_deleted_or_stopped.md) (ES|QL)
 - [S3 Public Bucket Rapid Object Access Attempts](./aws/docs/s3_public_bucket_rapid_object_access_attempts.md) (ES|QL)
@@ -116,6 +117,8 @@ Here are the queries currently available:
 
 
 ## network
+- [Cisco Secure FMC Authentication Bypass HTTP Exploit Artifacts](./network/docs/initial_access_cisco_fmc_authentication_bypass_http_exploit_artifacts.md) (ES|QL)
+- [Cisco Secure FMC Possible Exploitation via License Package Processing](./network/docs/initial_access_cisco_fmc_possible_exploitation_via_license_package_processing.md) (ES|QL)
 - [Mythic C2 TLS Certificate Observed in Cisco SD-WAN Exploitation](./network/docs/command_and_control_cisco_sdwan_mythic_c2_tls_cert.md) (ES|QL)
 
 
