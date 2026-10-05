@@ -32,22 +32,25 @@ note = """## Triage and analysis
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree, so this rule uses
 `field_extract` to pull `stage`, `verb`, `objectRef.resource`, `objectRef.namespace`, `user.username`, `userAgent`,
 and `sourceIPs` into named `Esql.*`/`Esql_priv.*` fields. It groups `ResponseComplete`-stage `list`/`get` calls on
-orientation-related resources by `Esql_priv.username` and `Esql.user_agent`, and alerts when the distinct
-`Esql.resource` cardinality for that identity/client fingerprint is 3 or greater, mirroring the Kubernetes ES|QL
-multi-resource discovery rule. Source IPs are not part of the group key because AKS `sourceIPs` carries the client IP
-alongside a control-plane proxy address (`172.31.x.x`) that varies across proxy replicas within a single session;
-they are instead collected into `Esql_priv.source_ip_values` for triage. Known platform/control-plane identities
-(`aksService`, `hcpService`, `acsService`, `readinessChecker`, node and `kube-system`/`elastic-system` service
-accounts) and automation-tool user agents (Azure Arc, Helm, Terraform, `OpenAPI-Generator`) are excluded; `kubectl`
-is never excluded by user agent alone, since both admins and attackers with a stolen token typically drive activity
-through it.
+orientation-related resources by `Esql_priv.username`, `Esql.user_agent`, and `azure.resource.id` (the AKS cluster),
+and alerts when the distinct `Esql.resource` cardinality for that identity/client fingerprint is 3 or greater,
+mirroring the Kubernetes ES|QL multi-resource discovery rule. Scoping by cluster keeps same-named identities (for
+example the default `masterclient` admin or a GitOps service account deployed to several clusters) from pooling
+across clusters and reaching the threshold on unrelated activity. Source IPs are not part of the group key because
+AKS `sourceIPs` carries the client IP alongside a control-plane proxy address (`172.31.x.x`) that varies across proxy
+replicas within a single session; they are instead collected into `Esql_priv.source_ip_values` for triage. Known
+platform/control-plane identities (`aksService`, `hcpService`, `acsService`, `readinessChecker`, node and
+`kube-system`/`elastic-system` service accounts) and automation-tool user agents (Azure Arc, Helm, Terraform,
+`OpenAPI-Generator`) are excluded; `kubectl` is never excluded by user agent alone, since both admins and attackers
+with a stolen token typically drive activity through it.
 
 ### Possible investigation steps
 
 - Review `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip_values` for the acting identity and client
-  fingerprint, bound the window with `Esql.earliest_timestamp`/`Esql.latest_timestamp`, and pivot into raw
-  `kube-audit` logs for call ordering. Unexpected `kubectl` or custom user agents (for example `kubectl-recon`) from
-  human-style identities, or the same identity spanning multiple user agents/source IPs, warrant closer review.
+  fingerprint, confirm which cluster was targeted via `azure.resource.id`, bound the window with
+  `Esql.earliest_timestamp`/`Esql.latest_timestamp`, and pivot into raw `kube-audit` logs for call ordering.
+  Unexpected `kubectl` or custom user agents (for example `kubectl-recon`) from human-style identities, or the same
+  identity spanning multiple user agents/source IPs, warrant closer review.
 - Check `Esql.enumerated_resources`/`Esql.enumerated_namespaces` against a known job, GitOps sync, or CI/CD pipeline.
   Both cluster-scoped kinds (nodes, clusterroles, clusterrolebindings) and an all-namespaces list of a
   namespace-scoped kind (for example `kubectl get pods -A`) surface as `(cluster-scoped)`; the latter is a broader
@@ -127,13 +130,13 @@ from logs-azure.platformlogs-* metadata _id, _index, _version
     Esql.event_count = count(*),
     Esql.earliest_timestamp = min(@timestamp),
     Esql.latest_timestamp = max(@timestamp)
-  by Esql_priv.username, Esql.user_agent
+  by Esql_priv.username, Esql.user_agent, azure.resource.id
 | where Esql.unique_resources >= 3
-| keep Esql.*, Esql_priv.*
+| keep Esql.*, Esql_priv.*, azure.resource.id
 '''
 
 [rule.alert_suppression]
-group_by = ["Esql_priv.username", "Esql.user_agent"]
+group_by = ["Esql_priv.username", "Esql.user_agent", "azure.resource.id"]
 duration = {value = 30, unit = "m"}
 missing_fields_strategy = "suppress"
 
