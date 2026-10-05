@@ -4,12 +4,12 @@ integration = ["azure_ai_foundry"]
 maturity = "production"
 min_stack_version = "9.3.0"
 min_stack_comments = "The Microsoft Foundry integration is compatible with 9.3 and above."
-updated_date = "2026/10/01"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects more than three completed assistant refusals from the same client, API Management subscription, and model. Matching replies finished on their own (finish_reason stop) and declined the prompt. A burst means
+Detects three or more completed assistant refusals from the same client, API Management subscription, and model. Matching replies finished on their own (finish_reason stop) and declined the prompt. A burst means
 that caller kept sending prompts the model will not answer.
 """
 false_positives = [
@@ -22,7 +22,7 @@ false_positives = [
     keys per application if that subscription is noisy.
     """,
 ]
-from = "now-9m"
+from = "now-15m"
 interval = "5m"
 language = "esql"
 license = "Elastic License v2"
@@ -31,7 +31,7 @@ note = """## Triage and analysis
 
 ### Investigating Microsoft Foundry Repeated Assistant Refusals
 
-One client received three or more completed refusals in 9 minutes. The alert is grouped by source IP, user agent,
+One client received three or more completed refusals in 15 minutes. The alert is grouped by source IP, user agent,
 API Management subscription, API, operation, model, gateway, and the URL the client called. Prompt and reply samples
 are on the alert.
 
@@ -52,7 +52,7 @@ subscription key and one egress IP.
 
 - Approved prompt-security tests and model evaluations. Exclude the test source IP or subscription.
 - A busy shared subscription behind one NAT. The count is per IP and subscription; raise the threshold if normal
-  traffic still reaches three refusals in 9 minutes.
+  traffic still reaches three refusals in 15 minutes.
 
 ### Response and remediation
 
@@ -81,10 +81,9 @@ https://www.elastic.co/docs/reference/integrations/azure_ai_foundry
 severity = "high"
 tags = [
     "Data Source: Microsoft Foundry",
-    "Data Source: Azure Event Hubs",
     "Use Case: Policy Violation",
-    "Mitre Atlas: T0051",
-    "Mitre Atlas: T0054",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
     "Tactic: Defense Evasion",
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
@@ -92,27 +91,27 @@ tags = [
     "Domain: Cloud",
     "Domain: GenAI",
     "Service: Azure API Management",
-    "Service: Azure Event Hubs",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
 
 query = '''
 from logs-azure_ai_foundry.logs-*
+| eval Esql.reply_text = mv_concat(azure.ai_foundry.properties.backend_response_body.choices.message.content, " ")
 | where
     data_stream.dataset == "azure_ai_foundry.logs" and
     azure.ai_foundry.category == "GatewayLogs" and
     azure.ai_foundry.properties.backend_response_body.choices.finish_reason in ("stop", "content_filter") and
     (
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't assist*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't help*" or 
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot fulfill*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot help*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot provide*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't provide*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I will not provide*" or
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I cannot answer*" or 
-        azure.ai_foundry.properties.backend_response_body.choices.message.content like "*I can't answer*"
+        Esql.reply_text like "*I can't assist*" or
+        Esql.reply_text like "*I can't help*" or
+        Esql.reply_text like "*I cannot fulfill*" or
+        Esql.reply_text like "*I cannot help*" or
+        Esql.reply_text like "*I cannot provide*" or
+        Esql.reply_text like "*I can't provide*" or
+        Esql.reply_text like "*I will not provide*" or
+        Esql.reply_text like "*I cannot answer*" or
+        Esql.reply_text like "*I can't answer*"
     )
 | stats
     Esql.event_count = count(*),
@@ -166,13 +165,41 @@ id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
 [rule.alert_suppression]
 group_by = [
     "source.ip",
     "azure.ai_foundry.service_name",
     "azure.ai_foundry.properties.api_id",
 ]
-duration = {value = 9, unit = "m"}
+duration = {value = 15, unit = "m"}
 missing_fields_strategy = "suppress"
 
 [rule.investigation_fields]
