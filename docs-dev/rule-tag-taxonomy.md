@@ -36,7 +36,7 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 | Threat | `Threat:` | Optional | Operational threat categories and/or named exploit/campaign tags; multi-label OK |
 | Noise | `Noise:` | Optional (exactly one when set) | Fleet alert volume: `Low`, `Medium`, `High`, `Unknown` |
 | Performance | `Performance:` | Optional (exactly one when set) | Rule exec cost: `Fast`, `Normal`, `Slow`, `Very Slow`, `Unknown` |
-| MITRE ATLAS | `Mitre Atlas:` | GenAI when applicable | Technique IDs (e.g. `T0051`) |
+| MITRE ATLAS | `Mitre Atlas:` | GenAI detections | Technique IDs (`AML.T0051` or short `T0051`) |
 | Profile | `Profile:` | Optional | `Recommended`, `Aggressive`, `Beta` |
 | Resources | `Resources:` | When present | Investigation Guide, LLM, Workflow, Osquery |
 | Use Case | `Use Case:` | Legacy | Still valid during migration |
@@ -45,15 +45,37 @@ endpoint-scoped (`OS:`), and analyst affordances (`Resources:`).
 ## Domain values
 
 `Endpoint`, `Cloud`, `Container` (legacy enforced spelling), `Containers`, `Network`,
-`Identity`, `SaaS`, `Email`, `GenAI`, `LLM`, `OT/IoT`.
+`Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`.
+
+Use `Domain: GenAI` for rules that detect threats against or via generative AI systems
+(agents, MCP, foundation-model APIs, model artifacts). Those rules should carry
+`Mitre Atlas:` technique IDs when ATLAS has a technique. When it does not, map the
+ATLAS tactic only in `threat_mappings` and leave the technique tag off. A rule that
+calls a model uses `Resources: LLM`.
 
 Do **not** invent domains for storage, web/app servers, or threat intelligence — use
 `Service:` or `Rule Type:` instead.
 
+## Resources: LLM — rules that call an LLM
+
+`Resources: LLM` is the **user-visible** tag that a detection invokes a large language
+model. Customers use it in Kibana to find rules that require Elastic Inference Service
+(or another LLM connector) and incur token cost.
+
+**Add `Resources: LLM` when** the rule `query` uses the ES|QL `COMPLETION` command
+(typically `| COMPLETION ... WITH { "inference_id": "..." }`).
+
+**Do not add `Resources: LLM` when** the rule only detects GenAI/LLM *threats*
+(`Domain: GenAI` + `Mitre Atlas:` instead), or when an investigation guide merely
+mentions LLMs.
+
+COMPLETION rules keep their existing attack-surface `Domain:` (Endpoint, Identity,
+…). Do not add `Domain: GenAI` only because the query calls a model.
+
 ## Platform values
 
 `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`,
-`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`.
+`GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`, `Anthropic`.
 
 Legacy `Platform: Elastic` and `Platform: FortiGate` may still appear on rules;
 prefer `Data Source:` / `Service:` for those products.
@@ -72,7 +94,7 @@ still required by index-based unit tests (for example AWS rules still need both
 
 **SaaS:** `Microsoft 365`, `Microsoft Graph Activity Logs`,
 `Google Workspace Audit Logs`, `GitHub Audit Logs`, `GitHub Code Scanning Logs`,
-`Zoom`
+`Zoom`, `Anthropic Audit Logs`
 
 **Endpoint:** `Elastic Defend`, `Elastic Endgame`, `Elastic Defend for Containers`,
 `Windows Security Event Logs`, `Windows System Event Logs`, `Sysmon`,
@@ -80,7 +102,7 @@ still required by index-based unit tests (for example AWS rules still need both
 `SentinelOne`, `Jamf Protect`, `Microsoft Defender XDR`
 
 **Network:** `Network Packet Capture`, `Network Traffic`, `Suricata`, `PAN-OS`,
-`Fortinet FortiGate`, `SonicWall Firewall Logs`
+`Citrix ADC`, `Fortinet FortiGate`, `SonicWall Firewall Logs`
 
 **Email / security tools / other:** `Microsoft Exchange Online Logs`,
 `Microsoft Defender for Office 365`, `Check Point Harmony Email Logs`,
@@ -125,7 +147,7 @@ Security Hub
 
 | Rule `type` / case | Tag(s) |
 | --- | --- |
-| `esql` | Prefer `Rule Type: ES\|QL` (taxonomy). Legacy `Rule Type: ESQL` remains valid on existing rules. |
+| `esql` | `Rule Type: ES\|QL` |
 | `query` (KQL) | `Rule Type: Custom Query (KQL)` |
 | `saved_query` | `Rule Type: Custom Query (KQL)` (same KQL construction tag) |
 | `eql` | `Rule Type: Event Correlation (EQL)` |
@@ -273,8 +295,8 @@ This list mirrors `EXPECTED_RULE_TAGS` in `detection_rules/schemas/definitions.p
 
 | Prefix | Values |
 | --- | --- |
-| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, LLM, Network, OT/IoT, SaaS |
-| Platform | AWS, Azure, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
+| Domain | Cloud, Containers, Email, Endpoint, GenAI, Identity, Network, OT/IoT, SaaS |
+| Platform | AWS, Anthropic, Azure, Citrix, Entra ID, GCP, GitHub, Google Workspace, Kubernetes, Linux, Microsoft 365, Okta, Windows, Wiz, macOS |
 | OS | Linux, Windows, macOS |
 | Rule Type | BBR, Custom Query (KQL), ES\|QL, Event Correlation (EQL), Higher-Order, Higher-Order Rule, Indicator Match, ML, Machine Learning, New Terms, Threshold, Threat Match |
 | Noise | High, Low, Medium, Unknown |
@@ -286,7 +308,7 @@ This list mirrors `EXPECTED_RULE_TAGS` in `detection_rules/schemas/definitions.p
 | Use Case | Active Directory Monitoring, Asset Visibility, Configuration Audit, Guided Onboarding, Identity and Access Audit, Log Auditing, Network Security Monitoring, Threat Detection, UEBA, Vulnerability |
 | Tactic | Collection, Command and Control, Credential Access, Defense Evasion, Defense Impairment, Discovery, Execution, Exfiltration, Impact, Initial Access, Lateral Movement, Persistence, Privilege Escalation, Reconnaissance, Resource Development, Stealth |
 
-**Data Source:** APM, AWS, AWS Bedrock, AWS CloudTrail, AWS Sign-In, AWS VPC Flow Logs, Active Directory, Amazon Bedrock, Amazon Web Services, Auditd Manager, Azure, Azure Activity Logs, Azure OpenAI, Azure Platform Logs, Check Point Harmony Email Logs, CrowdStrike Falcon, Crowdstrike, CyberArk PAS, Elastic Defend, Elastic Defend for Containers, Elastic Endgame, Entra Audit Logs, Entra ID Audit Logs, Entra ID Protection Logs, Entra ID Sign-In, Entra ID Sign-In Logs, File Integrity Monitoring, Fortinet, Fortinet FortiGate, GCP, GCP Audit Logs, GitHub Audit Logs, GitHub Code Scanning Logs, Github, Google Cloud Platform, Google SecOps, Google Workspace, Google Workspace Audit Logs, Google Workspace Device Logs, Google Workspace User Log Events, Jamf Protect, Kubernetes, Kubernetes API Server Audit Logs, Linux Sysmon Logs, macOS Security Events, Microsoft 365, Microsoft Defender XDR, Microsoft Defender for Cloud Alerts, Microsoft Defender for Identity, Microsoft Defender for Office 365, Microsoft Entra ID Sign-In Logs, Microsoft Exchange Online Logs, Microsoft Graph, Microsoft Graph Activity Logs, Microsoft Purview, Microsoft Sentinel, Network Packet Capture, Network Traffic, Okta, Okta System Logs, PAN-OS, PowerShell Logs, Rapid7 Threat Command, SentinelOne, SonicWall, SonicWall Firewall Logs, Splunk, Suricata, Sysmon, Windows Security Event Logs, Windows System Event Logs, Wiz, Zoom
+**Data Source:** APM, AWS, AWS Bedrock, AWS CloudTrail, AWS Sign-In, AWS VPC Flow Logs, Active Directory, Amazon Bedrock, Amazon Web Services, Anthropic Audit Logs, Auditd Manager, Azure, Azure Activity Logs, Azure OpenAI, Azure Platform Logs, Check Point Harmony Email Logs, Citrix ADC, CrowdStrike Falcon, Crowdstrike, CyberArk PAS, Elastic Defend, Elastic Defend for Containers, Elastic Endgame, Entra Audit Logs, Entra ID Audit Logs, Entra ID Protection Logs, Entra ID Sign-In, Entra ID Sign-In Logs, File Integrity Monitoring, Fortinet, Fortinet FortiGate, GCP, GCP Audit Logs, GitHub Audit Logs, GitHub Code Scanning Logs, Github, Google Cloud Platform, Google SecOps, Google Workspace, Google Workspace Audit Logs, Google Workspace Device Logs, Google Workspace User Log Events, Jamf Protect, Kubernetes, Kubernetes API Server Audit Logs, Linux Sysmon Logs, macOS Security Events, Microsoft 365, Microsoft Defender XDR, Microsoft Defender for Cloud Alerts, Microsoft Defender for Identity, Microsoft Defender for Office 365, Microsoft Entra ID Sign-In Logs, Microsoft Exchange Online Logs, Microsoft Graph, Microsoft Graph Activity Logs, Microsoft Purview, Microsoft Sentinel, Network Packet Capture, Network Traffic, Okta, Okta System Logs, PAN-OS, PowerShell Logs, Rapid7 Threat Command, SentinelOne, SonicWall, SonicWall Firewall Logs, Splunk, Suricata, Sysmon, Windows Security Event Logs, Windows System Event Logs, Wiz, Zoom
 
 **Service:** AWS Backup, AWS Bedrock, AWS CloudFormation, AWS CloudWatch, AWS Config, AWS Detective, AWS DynamoDB, AWS EC2, AWS EFS, AWS EKS, AWS EventBridge, AWS GuardDuty, AWS IAM, AWS KMS, AWS Lambda, AWS Organizations, AWS RDS, AWS Route 53, AWS S3, AWS SES, AWS Sign-In, AWS SNS, AWS SQS, AWS SSM, AWS STS, AWS Secrets Manager, AWS WAF, AWS Security Hub, Apache HTTP Server, Apache Tomcat, Azure Event Hubs, Azure Functions, Azure Key Vault, Azure OpenAI, Azure Storage, GCP BigQuery, GCP Cloud Functions, GCP Cloud Storage, GCP Compute Engine, GCP Secret Manager, GitHub Actions, GitHub Code Scanning, IIS, Microsoft Exchange Online, Microsoft OneDrive, Microsoft Purview, Microsoft SharePoint, Microsoft Teams, Nginx
 
