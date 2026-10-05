@@ -1,0 +1,155 @@
+[metadata]
+creation_date = "2026/09/14"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/09/14"
+min_stack_version = "9.3.0"
+min_stack_comments = "Linux DNS events on Elastic Defend require 9.3.0"
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a process running from a temporary or user-writable directory, or a script interpreter executing a payload
+from such a directory, followed by a network connection to an AWS identity, secrets, or management control plane
+endpoint. This detects credential abuse performed through an AWS SDK such as boto3, aws-sdk-js, or the Go SDK rather
+than through the aws command line binary. Rules that key on the CLI process name are bypassed entirely by SDK based
+tooling, which is what most post exploitation malware and supply chain stealers actually use, so this rule is intended
+as the name independent complement to them.
+"""
+false_positives = [
+    """
+    Build systems and CI runners frequently compile or download binaries into temporary directories and then make
+    AWS API calls as part of integration tests. Exclude known runner paths and restrict to interactive or
+    production hosts if alert volume is high.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.network-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Control Plane Access by Suspicious Process"
+references = [
+    "https://thehackernews.com/2024/11/malicious-pypi-package-fabrice-found.html",
+    "https://www.sentinelone.com/labs/cloudy-with-a-chance-of-credentials-aws-targeting-cred-stealer-expands-to-azure-gcp/",
+    "https://www.sysdig.com/blog/ai-assisted-cloud-intrusion-achieves-admin-access-in-8-minutes",
+    "https://unit42.paloaltonetworks.com/teamtnt-operations-cloud-environments/",
+    "https://www.sysdig.com/blog/cloud-breach-terraform-data-theft",
+]
+note = """## Triage and analysis
+
+### Investigating AWS Control Plane Access by Suspicious Process
+
+This rule detects a process running from a temporary or user-writable directory, or a script interpreter executing a payload from such a path, followed by a DNS lookup for an AWS identity or secrets management endpoint. This pattern is characteristic of SDK-based credential theft and post-exploitation tooling that bypasses CLI-name-based rules by calling the AWS API directly via boto3, aws-sdk-js, or similar libraries.
+
+### Possible investigation steps
+
+- Examine the process executable path and command line to determine if it is a known tool or malicious payload.
+- Identify the parent process to understand how the suspicious process was spawned.
+- Review the DNS queries and network connections made by the process to determine which AWS control plane services were contacted.
+- Query AWS CloudTrail for API calls made around the same time from the host's source IP to identify what actions were taken with any obtained credentials.
+- Check for lateral movement or persistence artifacts on the affected host.
+
+### False positive analysis
+
+- Build and CI systems that compile binaries into /tmp or run integration tests that make real AWS API calls will trigger this rule. Exclude known runner paths via `process.executable` exceptions in the rule or as exceptions.
+- Development environments where engineers routinely run scripts from temporary directories against AWS may generate benign alerts.
+
+### Response and remediation
+
+- Initiate the incident response process based on the outcome of the triage.
+- Isolate the affected host to prevent further post-compromise activity.
+- Revoke and rotate any AWS credentials that may have been accessed or harvested by the process.
+- Review CloudTrail logs for API actions performed using the compromised credentials and assess the blast radius.
+- Scan the host for additional malicious scripts or payloads in user-writable directories.
+"""
+risk_score = 47
+rule_id = "ffba7c69-13b3-4b6d-a747-2947e73c967c"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the
+Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can
+  click the "Existing hosts" tab and select an existing policy instead.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and install Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Platform: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "OS: Windows",
+    "Service: AWS IAM",
+    "Service: AWS STS",
+    "Service: AWS SSM",
+    "Service: AWS Secrets Manager",
+    "Service: AWS KMS",
+    "Service: AWS Bedrock",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+event.category : network and host.os.type : (linux or macos or windows) and
+dns.question.name : (
+  iam.amazonaws.com or sts.amazonaws.com or bedrock*.amazonaws.com or kms.*.amazonaws.com or organizations.*.amazonaws.com or
+  portal.sso.*.amazonaws.com or secretsmanager.*.amazonaws.com or ssm.*.amazonaws.com or sso.*.amazonaws.com or
+  sts.*.amazonaws.com
+) and
+process.executable : (
+  (
+    *\\ProgramData\\* or *\\Users\\*\\AppData\\Local\\Temp\\* or *\\Users\\Public\\* or *\\Windows\\Temp\\* or
+    /Users/*/Public/* or /Users/Shared/* or /dev/shm/* or /private/tmp/* or /run/* or /tmp/* or /var/run/* or
+    /var/tmp/* or /var/www/*
+  ) and
+  not (/opt/actions-runner/* or /tmp/cargo-install* or /tmp/go-build* or /tmp/pytest-*)
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+[[rule.threat.technique]]
+id = "T1580"
+name = "Cloud Infrastructure Discovery"
+reference = "https://attack.mitre.org/techniques/T1580/"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.executable"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
