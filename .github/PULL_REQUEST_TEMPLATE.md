@@ -38,7 +38,7 @@ from your submission, but they are here to help bring them to your attention.
 
 - [ ] Added a label for the type of pr: `bug`, `enhancement`, `schema`, `maintenance`, `Rule: New`, `Rule: Deprecation`, `Rule: Tuning`, `Hunt: New`, or `Hunt: Tuning` so guidelines can be generated
 - [ ] Added the `meta:rapid-merge` label if planning to merge within 24 hours
-- [ ] Secret and sensitive material has been managed correctly
+- [ ] Secret and sensitive material has been managed correctly (no credentials; exclusions use generic non-identifying vendor/install paths — not usernames, hostnames, org names, cluster/agent IDs, IP addresses, or internal workspace/repo trees)
 - [ ] Automated testing was updated or added to match the most common scenarios
 - [ ] Documentation and comments were added for features that require explanation
 

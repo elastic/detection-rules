@@ -139,6 +139,12 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - Ensure the **query logic aligns with the rule description** (e.g., the description says "Detect Certutil abuse," but the query looks for `svchost.exe`).
 - Verify there are no duplicate entries in the query (e.g., same exclusion listed twice).
 - Flag risky false-positive exclusions (e.g., `not file.path : "C:\\Users\\*"` — paths under `Users` are world-writable and attacker-controlled).
+- **Sensitive / customer-identifying paths (required on every rule PR):** For every **added or changed** exclusion (process/file/parent path, command-line pattern, args, working directory, registry path, etc.), check whether it looks like sensitive or customer-specific information rather than a generic third-party product install. Flag and request changes when the pattern includes or fingerprints:
+  - Usernames, hostnames, emails, org/company names, cluster UUIDs, agent IDs, IP addresses, or other environment identifiers
+  - Internal workspace or repo layouts (e.g. `/home/*/work/zzyzx-batch-runner*`, `/var/tmp/qorvex-ci/*`, `?:\\Build\\NimblefoxApp\\out\\*`)
+  - Credentials, tokens, API keys, passwords, or private-key material (values or unique secret-looking blobs — not generic detection keywords like `*password*`)
+  - Product or tool paths that appear customer-internal / single-tenant rather than a widely distributed vendor install (prefer `Program Files\\Vendor\\*`, `/opt/vendor/*`, `/home/*/.example-tool/bin/*` style patterns; require multi-cluster telemetry evidence before accepting obscure product names)
+  Prefer rewriting to a **generic, non-identifying** vendor/install pattern, or drop the exclusion if it cannot be made generic. Do not approve shipping customer-environment fingerprints into published rules.
 - Check exclusions where the drive letter is hardcoded (e.g., `"C:\\Program Files\\*"` should use `"?:\\Program Files\\*"` to cover all drive letters). Applies to **Windows rules only**.
 - Flag unnecessary or overly broad wildcard usage when more specific patterns would work.
 
