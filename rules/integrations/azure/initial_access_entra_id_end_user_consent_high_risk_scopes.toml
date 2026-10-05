@@ -156,6 +156,7 @@ FROM logs-azure.auditlogs-* metadata _id, _version, _index
     OR Esql.high_risk_scopes LIKE "*sharepoint_spo*"
     OR Esql.high_risk_scopes LIKE "*exchange_ews*"
     OR (Esql.scopes LIKE "* offline_access *" AND Esql.low_risk_scope_count >= 2 AND Esql.app_owner_type == "external")
+| EVAL Esql.target_service_principal_id = `azure.auditlogs.properties.target_resources.0.id`
 | DROP Esql.scopes
 | KEEP
     _id,
