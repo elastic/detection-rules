@@ -38,7 +38,7 @@ control, place matching client credentials and an agent on a compromised host, a
 for command and control.
 
 This rule requires the same Linux process to resolve a default AWS IoT ATS endpoint and then attempt an outbound
-connection on TCP/443 or TCP/8883 within five minutes. The process must run from a temporary, hidden, boot, log, or
+connection on TCP/443 or TCP/8883 within one minute. The process must run from a temporary, hidden, boot, log, or
 per-user runtime path. The DNS-to-connection sequence identifies the service without decrypting TLS. It does not reveal
 MQTT client IDs, topics, commands, results, or file content.
 
@@ -118,7 +118,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by host.id, process.entity_id with maxspan=5m
+sequence by host.id, process.entity_id with maxspan=1m
   [network where host.os.type == "linux" and
     event.action in ("lookup_requested", "lookup_result") and
     dns.question.name like~ (
