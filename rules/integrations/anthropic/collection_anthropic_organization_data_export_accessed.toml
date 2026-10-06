@@ -2,14 +2,14 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/21"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Starting an organization data export only signals intent. Accessing the export archive via its signed URL means the
-actor actually downloaded chats, projects, user metadata, and configuration. An attacker with administrative access
-can use this to exfiltrate intellectual property and credentials at scale.
+actor actually downloaded chats, projects, user metadata, and configuration. An attacker with administrative access can
+use this to exfiltrate intellectual property and credentials at scale.
 """
 false_positives = [
     """
@@ -47,9 +47,7 @@ approved window, or export preceded by sudden admin grants / key creation / logg
 - On unauthorized access: revoke admin for the actor, contain any copies of the archive, and review other admin
   changes in the same window.
 """
-references = [
-    "https://platform.claude.com/docs/en/api/compliance/activities/list",
-]
+references = ["https://platform.claude.com/docs/en/api/compliance/activities/list"]
 risk_score = 73
 rule_id = "00955b87-ed85-4977-8ab1-9140f85b9d6c"
 severity = "high"
@@ -62,6 +60,8 @@ tags = [
     "Rule Type: ES|QL",
     "Tactic: Collection",
     "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0085",
+    "Mitre Atlas: AML.T0025",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -88,7 +88,6 @@ reference = "https://attack.mitre.org/techniques/T1530/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -101,6 +100,33 @@ reference = "https://attack.mitre.org/techniques/T1567/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
 [rule.investigation_fields]
 field_names = [

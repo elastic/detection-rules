@@ -55,7 +55,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - **Compatibility:** Keep currently enforced tags that unit tests require (for example `Domain: Containers`, dual AWS data-source tags). Prefer additive suggestions for new categories (`Platform:`, `Service:`, `Vuln:`, `Profile:`) rather than renaming legacy values mid-migration.
 
   **Required (suggest if missing):**
-  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple.
+  - `Domain:` — at least one attack-surface tag. Allowed: `Endpoint`, `Cloud`, `Containers`, `Network`, `Identity`, `SaaS`, `Email`, `GenAI`, `OT/IoT`. Multi-domain rules may have multiple. Use `Domain: GenAI` for detections of threats against/via GenAI systems. Add `Mitre Atlas:` technique tags when a technique exists; when ATLAS has no technique, map the tactic only in `threat_mappings`. A rule that calls a model is `Resources: LLM`.
   - `Platform:` — at least one target ecosystem (distinct from data source). Examples: `AWS`, `Azure`, `Entra ID`, `GCP`, `Google Workspace`, `Microsoft 365`, `Okta`, `GitHub`, `Kubernetes`, `Windows`, `Linux`, `macOS`, `Wiz`.
   - `Tactic:` — one tag per MITRE ATT&CK tactic in `[[rule.threat]]` (must match threat mapping names).
   - `Rule Type:` — at least one construction/behavior tag aligned to the rule engine type:
@@ -72,8 +72,8 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
   - `OS:` — required when the rule lives under `rules/windows|linux|macos/` or is endpoint-scoped: `OS: Windows`, `OS: Linux`, `OS: macOS`.
   - `Data Source:` — telemetry origin matching integrations/index patterns (not the platform name alone). Prefer specific streams when known (e.g. `Data Source: Azure Platform Logs`, `Data Source: Azure Activity Logs`, `Data Source: Elastic Defend`, `Data Source: AWS CloudTrail`, `Data Source: Entra ID Sign-In Logs`). Preserve any dual/legacy tags still required by tests (e.g. AWS + Amazon Web Services, `Data Source: Crowdstrike`, `Data Source: SentinelOne`, `Data Source: Sysmon`). Use spellings from `EXPECTED_RULE_TAGS`. **Do not** suggest a second tag that only appends `Logs` (`SentinelOne Logs`, `Windows Sysmon Logs`) or `CrowdStrike Falcon Logs` — CrowdStrike stays `Crowdstrike` or `CrowdStrike Falcon`, never `… Falcon Logs`.
   - `Resources: Investigation Guide` if `note` contains an investigation guide.
-  - `Resources: LLM` if the query uses the ES|QL `COMPLETION` command.
-  - `Mitre Atlas: Txxxx` for GenAI-domain rules when an ATLAS technique applies.
+  - **`Resources: LLM` — user-visible label that the rule calls an LLM.** Required when the query uses ES|QL `| COMPLETION`. This is how users find inference-backed rules (EIS / connector + token cost). Keep the existing attack-surface `Domain:` tags (`Endpoint`, `Identity`, and so on). Do **not** add `Resources: LLM` to GenAI-threat rules that do not invoke `COMPLETION`, and do **not** add `Domain: GenAI` only because the query calls a model.
+  - `Mitre Atlas: AML.Txxxx` (or short `Txxxx`) for GenAI-domain rules when an ATLAS technique applies. IDs must exist in the current ATLAS data — do not use OWASP LLM Top 10 labels (`LLM04`, `LLM06`, …). When no technique fits, add a tactic-only `[[rule.threat_mappings]]` entry and leave this tag off.
 
   **Optional (suggest when clearly applicable):**
   - `Service:` — specific component (prefix cloud services with vendor): e.g. `Service: AWS S3`, `Service: Azure Key Vault`, `Service: AWS Bedrock`, `Service: GitHub Actions`, `Service: IIS`, `Service: Nginx`.
@@ -139,6 +139,12 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - Ensure the **query logic aligns with the rule description** (e.g., the description says "Detect Certutil abuse," but the query looks for `svchost.exe`).
 - Verify there are no duplicate entries in the query (e.g., same exclusion listed twice).
 - Flag risky false-positive exclusions (e.g., `not file.path : "C:\\Users\\*"` — paths under `Users` are world-writable and attacker-controlled).
+- **Sensitive / customer-identifying paths (required on every rule PR):** For every **added or changed** exclusion (process/file/parent path, command-line pattern, args, working directory, registry path, etc.), check whether it looks like sensitive or customer-specific information rather than a generic third-party product install. Flag and request changes when the pattern includes or fingerprints:
+  - Usernames, hostnames, emails, org/company names, cluster UUIDs, agent IDs, IP addresses, or other environment identifiers
+  - Internal workspace or repo layouts (e.g. `/home/*/work/zzyzx-batch-runner*`, `/var/tmp/qorvex-ci/*`, `?:\\Build\\NimblefoxApp\\out\\*`)
+  - Credentials, tokens, API keys, passwords, or private-key material (values or unique secret-looking blobs — not generic detection keywords like `*password*`)
+  - Product or tool paths that appear customer-internal / single-tenant rather than a widely distributed vendor install (prefer `Program Files\\Vendor\\*`, `/opt/vendor/*`, `/home/*/.example-tool/bin/*` style patterns; require multi-cluster telemetry evidence before accepting obscure product names)
+  Prefer rewriting to a **generic, non-identifying** vendor/install pattern, or drop the exclusion if it cannot be made generic. Do not approve shipping customer-environment fingerprints into published rules.
 - Check exclusions where the drive letter is hardcoded (e.g., `"C:\\Program Files\\*"` should use `"?:\\Program Files\\*"` to cover all drive letters). Applies to **Windows rules only**.
 - Flag unnecessary or overly broad wildcard usage when more specific patterns would work.
 
@@ -191,6 +197,7 @@ For each rule `.toml` file in the PR, review the **metadata**, **rule fields**, 
 - `MV_*` (multi-value) functions require proper null handling — always check for `IS NOT NULL` before using.
 - Prefer `| keep` with explicit field lists over `| keep *` for clarity and to control which fields appear in alerts.
 - Verify that `FROM` source indices are correct and not overly broad.
+- If the query uses `| COMPLETION`, the rule **must** be tagged `Resources: LLM` (user-visible inference/token-cost label). Flag missing tags, and flag `Resources: LLM` on queries that do not call `COMPLETION`.
 
 </Query — ES|QL Specific>
 
