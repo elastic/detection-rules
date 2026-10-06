@@ -1,15 +1,16 @@
 [metadata]
 creation_date = "2026/09/16"
-integration = ["panw", "suricata", "zeek"]
+integration = ["network_traffic", "panw", "suricata", "zeek"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/10/06"
 
 [rule]
 author = ["Elastic"]
 description = """
 Identifies the first MQTT relationship from an internal source to an external broker that was not observed during the
-previous 14 days. MQTT is commonly used by IoT and messaging applications, but malware including BambooToken, IOCONTROL,
-MQsTTang, and WailingCrab has used publish/subscribe traffic for command and control.
+previous 14 days. This includes protocol-decoded MQTT and direct AWS IoT Core MQTT identified from TLS ClientHello
+metadata without decryption. MQTT is commonly used by IoT and messaging applications, but malware including BambooToken,
+IOCONTROL, MQsTTang, and WailingCrab has used publish/subscribe traffic for command and control.
 """
 false_positives = [
     """
@@ -19,7 +20,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["logs-panw.panos*", "logs-suricata.eve-*", "logs-zeek.connection-*"]
+index = ["logs-network_traffic.tls-*", "logs-panw.panos*", "logs-suricata.eve-*", "logs-zeek.connection-*"]
 interval = "5m"
 language = "kuery"
 license = "Elastic License v2"
@@ -34,8 +35,10 @@ to an operator. This rule surfaces the first protocol-decoded or application-ide
 internal source and an external destination within the 14-day new-terms history window.
 
 The alert does not prove malicious command and control. Suricata and Zeek require plaintext MQTT or traffic decrypted
-before inspection. PAN-OS coverage depends on App-ID identifying the traffic as `mqtt-base`; encrypted sessions may only
-be identified as SSL when decryption is unavailable.
+before inspection. PAN-OS coverage depends on App-ID identifying the traffic as `mqtt-base`. The Network Packet Capture
+path recognizes direct AWS IoT Core MQTT inside TLS without decryption by using the client-offered ALPN
+`x-amzn-mqtt-ca` on TCP/443 or a default account-specific AWS IoT ATS SNI on TCP/8883. It does not expose MQTT client
+IDs, topics, commands, results, or file content.
 
 ### Possible investigation steps
 
@@ -43,6 +46,10 @@ be identified as SSL when decryption is unavailable.
   firewalls, build systems, and other assets that are not approved MQTT clients warrants additional scrutiny.
 - Determine whether `destination.ip` belongs to an approved private or public MQTT broker. Review destination reputation,
   ASN, geolocation, passive DNS, and other internal clients communicating with it.
+- For Network Packet Capture TLS events, preserve `tls.client.server_name` exactly. On TCP/443, verify that
+  `tls.detailed.client_hello.extensions.application_layer_protocol_negotiation` contains `x-amzn-mqtt-ca`. On TCP/8883,
+  confirm that the SNI matches `<account-specific-prefix>-ats.iot.<region>.amazonaws.com`. Determine whether the source
+  asset and complete endpoint are approved for AWS IoT use.
 - For Suricata events, inspect `suricata.eve.mqtt` for CONNECT client IDs, credentials, subscribed topics, published
   topics, payloads, keepalive values, and broker response codes. Review equivalent protocol details in the originating
   network sensor when available.
@@ -58,7 +65,8 @@ be identified as SSL when decryption is unavailable.
 
 - Confirm newly deployed or intermittently active IoT, telemetry, messaging, and monitoring applications with the asset
   owner.
-- Validate broker migrations, disaster-recovery tests, development environments, and vendor-managed services.
+- Validate broker migrations, AWS IoT device onboarding, disaster-recovery tests, development environments, and
+  vendor-managed services.
 - Scope exceptions to an approved source asset and broker pair where possible. Avoid excluding all MQTT traffic or an
   entire public broker globally.
 
@@ -74,7 +82,10 @@ be identified as SSL when decryption is unavailable.
 """
 references = [
     "https://www.lumen.com/blog/en-us/the-banana-stand-brokering-and-managing-infections-across-asia-using-mqtt",
+    "https://hackerhermanos.com/posts/aws-iot-mqtt-red-teamer/",
+    "https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html",
     "https://docs.suricata.io/en/latest/output/eve/eve-json-format.html#event-type-mqtt",
+    "https://www.elastic.co/guide/en/beats/packetbeat/current/configuration-tls.html",
     "https://www.elastic.co/docs/reference/integrations/suricata",
     "https://docs.zeek.org/en/current/scripts/base/protocols/mqtt/main.zeek.html",
     "https://www.elastic.co/docs/reference/integrations/zeek",
@@ -86,23 +97,34 @@ setup = """## Setup
 
 This rule requires one or more of the following integrations:
 
+- Network Packet Capture with TLS parsing on TCP ports 443 and 8883 and `include_detailed_fields: true`.
 - Suricata with the MQTT application-layer parser and MQTT EVE output enabled.
 - Zeek connection logs with the MQTT analyzer enabled so `network.protocol` is populated with `mqtt`.
 - PAN-OS traffic logs with App-ID enabled and MQTT identified as `mqtt-base`.
 
 Place network sensors where they observe client-to-broker traffic before source NAT so internal client addresses remain
 visible. Suricata and Zeek must observe plaintext MQTT or receive decrypted traffic. PAN-OS must identify the session with
-the MQTT App-ID; without decryption, MQTT over TLS may only be identified as SSL.
+the MQTT App-ID; without decryption, generic MQTT over TLS may only be identified as SSL.
+
+The Network Packet Capture AWS IoT path does not require TLS decryption. It requires SNI in `tls.client.server_name` and,
+for TCP/443, client-offered ALPN in
+`tls.detailed.client_hello.extensions.application_layer_protocol_negotiation`. Encrypted ClientHello can hide SNI, and
+custom AWS IoT domains on TCP/8883 do not match the default ATS hostname pattern.
 """
 severity = "medium"
 tags = [
     "Domain: Network",
+    "Domain: OT/IoT",
+    "Platform: AWS",
     "Use Case: Network Security Monitoring",
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: PAN-OS Logs",
+    "Data Source: Network Traffic",
+    "Data Source: Network Packet Capture",
     "Data Source: Suricata Logs",
     "Data Source: Zeek",
+    "Service: AWS IoT",
     "Rule Type: New Terms",
     "Resources: Investigation Guide",
 ]
@@ -117,7 +139,21 @@ query = '''
   data_stream.dataset:zeek.connection and
   network.protocol:mqtt or
   data_stream.dataset:panw.panos and
-  network.application:mqtt-base
+  network.application:mqtt-base or
+  data_stream.dataset:network_traffic.tls and
+  tls.established:true and
+  tls.client.server_name:* and
+  (
+    destination.port:443 and
+    tls.detailed.client_hello.extensions.application_layer_protocol_negotiation:"x-amzn-mqtt-ca" or
+    destination.port:8883 and
+    tls.client.server_name:(
+      "*-ats.iot.*.amazonaws.com" or
+      "*-ats.iot.*.amazonaws.com." or
+      "*-ats.iot.*.amazonaws.com.cn" or
+      "*-ats.iot.*.amazonaws.com.cn."
+    )
+  )
 ) and
   network.transport:tcp and
   source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16 or "FC00::/7") and
@@ -170,6 +206,8 @@ field_names = [
     "network.transport",
     "network.application",
     "network.community_id",
+    "tls.client.server_name",
+    "tls.detailed.client_hello.extensions.application_layer_protocol_negotiation",
     "data_stream.dataset",
     "observer.name",
 ]
