@@ -76,14 +76,13 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 | WHERE event.category == "process" AND MV_CONTAINS(event.type, "start")
 | EVAL command_line = TO_LOWER(process.command_line.text),
        pname = TO_LOWER(process.name)
-| EVAL has_base64_payload =
-    command_line RLIKE """.*[a-z0-9+/]{1000,}={0,2}.*"""
+| EVAL has_long_base64 = command_line RLIKE """.*[a-z0-9+/]{100,}={0,2}.*"""
 | WHERE
 (
     (
         /* Python: decode primitive + plausible Base64 payload */
         pname LIKE "python*" AND
-        has_base64_payload AND
+        has_long_base64 AND
         (
             command_line LIKE "*b64decode*" OR
             (command_line LIKE "*-c*" AND command_line LIKE "*base64*")
@@ -92,7 +91,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
     (
         /* PowerShell: encoded command or explicit Base64 decode + payload */
         (pname LIKE "powershell*" OR pname LIKE "pwsh*") AND
-        has_base64_payload AND
+        has_long_base64 AND
         (
             command_line RLIKE """.* -(e|en|enc|enco|encod|encode|encoded|encodedcommand) .+""" OR
             command_line LIKE "*-encodedcommand*" OR
@@ -102,7 +101,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
     (
         /* Node.js */
         pname LIKE "node*" AND
-        has_base64_payload AND
+        has_long_base64 AND
         (
             (command_line LIKE "*buffer.from*" AND command_line LIKE "*base64*") OR
             command_line LIKE "*atob(*"
@@ -111,7 +110,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
     (
         /* Deno */
         pname LIKE "deno*" AND
-        has_base64_payload AND
+        has_long_base64 AND
         (
             command_line LIKE "*atob(*" OR
             (command_line LIKE "*buffer.from*" AND command_line LIKE "*base64*") OR
@@ -121,7 +120,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 )
 | EVAL Esql.length_cmdline = LENGTH(command_line)
 | WHERE Esql.length_cmdline >= 4000
-| DROP _ignored, pname, has_base64_payload
+| DROP _ignored, pname, has_long_base64
 | KEEP @timestamp, _id, _version, _index, data_stream.namespace,
        user.name, user.id, host.name, host.id,
        process.entity_id, process.executable,
