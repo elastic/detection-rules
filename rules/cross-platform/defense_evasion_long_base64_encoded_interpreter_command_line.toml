@@ -73,7 +73,7 @@ query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
 | MV_EXPAND _ignored
 | WHERE _ignored == "process.command_line"
-| WHERE event.category == "process" event.type == "start"
+| WHERE event.category == "process" and event.type == "start"
 | EVAL command_line = TO_LOWER(process.command_line.text),
        pname = TO_LOWER(process.name)
 | EVAL has_long_base64 = command_line RLIKE """.*[a-z0-9+/]{100,}={0,2}.*"""
