@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/06"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -134,13 +134,24 @@ sequence by process.entity_id with maxspan=1m
 
   /* first sequence to capture the start of Windows processes */
   [process where host.os.type == "windows" and event.type == "start" and process.pid != 4 and
-
+    (
+      (process.code_signature.trusted == false or process.code_signature.exists == false) or
+      (
+        process.code_signature.trusted == true and process.code_signature.subject_name : "Microsoft*" and
+        (
+          process.name : (
+            "powershell.exe", "pwsh.exe", "powershell_ise.exe", "telnet.exe", "ssh.exe", "curl.exe", "wsmprovhost.exe",
+            "net.exe", "net1.exe", "sc.exe", "cmd.exe", "rundll32.exe", "wmic.exe"
+          ) or
+          ?process.pe.original_file_name : (
+            "PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE", "telnetc.exe", "ssh.exe", "curl.exe", "wsmprovhost.exe",
+            "net.exe", "net1.exe", "sc.exe", "Cmd.Exe", "RUNDLL32.EXE", "wmic.exe"
+          )
+        )
+      )
+    ) and
     /* ignore NT Authority and Network Service accounts */
     not user.id in ("S-1-5-19", "S-1-5-20") and
-
-    /* filter out anything trusted but not from Microsoft */
-    /* LOLBins will be inherently trusted and signed, so ignore everything else trusted */
-    not (process.code_signature.trusted == true and not startsWith(process.code_signature.subject_name, "Microsoft")) and
 
     /* filter out PowerShell scripts from Windows Defender ATP */
     not (
