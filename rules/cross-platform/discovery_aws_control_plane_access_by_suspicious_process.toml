@@ -2,7 +2,7 @@
 creation_date = "2026/09/14"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/14"
+updated_date = "2026/10/06"
 min_stack_version = "9.3.0"
 min_stack_comments = "Linux DNS events on Elastic Defend require 9.3.0"
 [rule]
@@ -126,6 +126,10 @@ process.executable : (
     /var/tmp/* or /var/www/*
   ) and
   not (/opt/actions-runner/* or /tmp/cargo-install* or /tmp/go-build* or /tmp/pytest-*)
+) and
+not (
+  process.executable : *\\ProgramData\\Microsoft\\Windows Defender Advanced Threat Protection\\Platform\\Versions\\*\\MsSense.exe and
+  process.code_signature.subject_name : "Microsoft Windows Publisher" and process.code_signature.trusted : true
 )
 '''
 
