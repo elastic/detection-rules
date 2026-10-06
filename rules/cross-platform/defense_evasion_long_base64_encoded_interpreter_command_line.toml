@@ -86,7 +86,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _index, _version, _ignored
         (
             command_line LIKE "*b64decode*" OR
             (command_line LIKE "*-c*" AND command_line LIKE "*base64*")
-        )
+        ) AND NOT (process.parent.name == "codex" AND (command_line LIKE "*.write(base64.*" or command_line LIKE "*.write_bytes(base64*"))
     ) OR
     (
         /* PowerShell: encoded command or explicit Base64 decode + payload */
