@@ -18,37 +18,39 @@ interval = "1h"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise High File Download Activity"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise High File Download Activity
 
-One user downloaded many files in a day. Confirm business justification and destination systems.
+One user downloaded a large number of files in a single day. Bulk downloads can stage conversation attachments or workspace files for exfiltration.
+
+Escalate when there is no business justification, downloads coincide with unusual geo or user agents, or shares and deletions follow. Close as a false positive for approved research, migration, or export projects.
 
 #### Possible investigation steps
 
-- Review file IDs and nearby conversation/share activity.
-- Check whether downloads coincide with unusual geo or user agents.
+- Review `Esql.event_count` and file identifiers associated with the user.
+- Check nearby conversation or share activity and whether downloads align with an approved project.
+- Compare source IP, geo, and user agent with the user's normal baseline.
+- Determine where downloaded content may have been stored or forwarded.
 
 ### False positive analysis
 
-- Bulk export for approved projects.
+- Users downloading many attachments during legitimate research, migration, or e-discovery work.
 
 ### Response and remediation
 
-- Suspend access if unauthorized and inventory downloaded content.
+- Suspend access if the downloads appear unauthorized and inventory the downloaded content.
+- Revoke sessions and review other exfiltration-oriented activity by the same user.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "a2977fac-7211-43a5-ba22-71c2f589bf86"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

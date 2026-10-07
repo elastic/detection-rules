@@ -17,37 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Workspace Log Files Accessed"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
-### Investigating OpenAI ChatGPT Enterprise Workspace Log File Downloaded
+### Investigating OpenAI ChatGPT Enterprise Workspace Log Files Accessed
 
-A compliance log archive was downloaded. Confirm the actor and which log types were pulled.
+A workspace compliance log archive was listed or downloaded. These exports can include authentication, conversation, and Codex activity that is useful for both legitimate compliance work and attacker reconnaissance.
+
+Escalate when the actor is unexpected, an API key is used outside approved collectors, or exports coincide with other privileged changes. Close as a false positive for documented SIEM or compliance collection jobs.
 
 #### Possible investigation steps
 
-- Note `action_data.event_type` (AUTH_LOG, CONVERSATION_MESSAGE, CODEX_LOG, etc.).
-- Correlate with API-key actors and other privileged changes nearby.
+- Identify the actor (`user.id`, `user.email`, or API-key fields) and source IP.
+- Note which log types were requested in `openai_chatgpt_enterprise.audit_log.action_data` (for example AUTH_LOG, CONVERSATION_MESSAGE, or CODEX_LOG).
+- Correlate with other privileged audit activity from the same actor in the surrounding window, such as role changes, invites, or feature toggles.
+- Confirm whether the download matches an approved compliance or SIEM collector.
 
 ### False positive analysis
 
-- Approved SIEM/compliance collectors using admin API keys.
+- Security and compliance teams routinely download workspace logs for investigations, SIEM ingestion, or regulatory requests when using approved admin API keys or accounts.
 
 ### Response and remediation
 
-- Revoke unauthorized API keys/sessions and determine whether export data left the organization.
+- Revoke unauthorized API keys or sessions and determine whether export data left the organization.
+- If the download was unauthorized, inventory other exports by the same actor and tighten admin-key scope.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "802d8451-fa0f-4449-98f0-31abaaabcf4d"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

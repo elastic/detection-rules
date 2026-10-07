@@ -17,28 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise App Authentication Linked"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise App Authentication Linked
 
-An app was linked. Confirm app inventory approval and whether the actor recently had suspicious auth or audit activity.
+A third-party app was linked to a user or workspace. Linking establishes durable OAuth-style access that can persist after the initial session ends.
+
+Escalate when the app is unapproved, the actor recently had suspicious authentication activity, or multiple unusual apps are linked in a short window. Close as a false positive for expected onboarding of approved apps.
+
+#### Possible investigation steps
+
+- Identify the user and the linked app details on the alert.
+- Confirm the app is in the approved workspace inventory.
+- Correlate with suspicious user agents, impossible travel, or privileged audit activity nearby.
+- Review whether the linked app can access sensitive data or connectors.
+
+### False positive analysis
+
+- Users legitimately connect approved apps during onboarding or project setup.
 
 ### Response and remediation
 
 - Unlink unauthorized apps and rotate related OAuth credentials.
+- Review other persistence-oriented changes by the same actor.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "f453f820-61cf-4618-a2eb-7af304b36747"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

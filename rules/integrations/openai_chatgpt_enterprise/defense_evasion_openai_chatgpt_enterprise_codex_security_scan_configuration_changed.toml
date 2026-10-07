@@ -17,28 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Codex Security Scan Configuration Changed"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Codex Security Scan Configuration Changed
 
-A Codex security scan configuration changed. Validate repository ownership and notification-rule deltas.
+A Codex security scan configuration was created or updated. Changes to repository scope, lookback, or notification rules can weaken secrets-scanning coverage or redirect findings.
+
+Escalate when the repository is unexpected, notification targets change, or the actor is not on the security engineering team. Close as a false positive for documented onboarding or tuning of approved repositories.
+
+#### Possible investigation steps
+
+- Identify the actor and the scan configuration fields on the alert (repository URL, scan type, state, lookback).
+- Confirm repository ownership and whether the change matches an approved security-engineering request.
+- Review related Codex security findings or follow-on activity after the configuration change.
+- Compare with other admin or security-configuration changes by the same actor.
+
+### False positive analysis
+
+- Security engineering teams legitimately onboard repositories and tune scan lookback windows during rollout.
 
 ### Response and remediation
 
-- Revert unauthorized scan configuration changes and review related findings / proposed PRs.
+- Revert unauthorized scan configuration changes and review related findings.
+- If coverage was reduced, restore the prior configuration and investigate why it was changed.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "6c634405-3880-4354-8fea-925ec7eadd9b"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -51,8 +62,8 @@ tags = [
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
     "Rule Type: ES|QL",
-    "Tactic: Impact",
     "Tactic: Defense Evasion",
+    "Tactic: Impact",
     "Mitre Atlas: AML.T0081",
 ]
 timestamp_override = "event.ingested"

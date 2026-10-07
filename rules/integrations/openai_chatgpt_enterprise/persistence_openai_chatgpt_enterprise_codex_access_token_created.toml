@@ -17,28 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Codex Access Token Created"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Codex Access Token Created
 
-A Codex access token was minted. Validate the token name, creator, and intended automation use.
+A Codex access token was created. These tokens enable automated CLI or environment access and can be abused for persistence or automation after account compromise.
+
+Escalate when the token owner or purpose is unclear, the creator is unexpected, or tool and MCP activity follows immediately. Close as a false positive for documented CI or local development token creation.
+
+#### Possible investigation steps
+
+- Identify the creator (`user.email` / `user.id`) and token-related fields on the alert.
+- Confirm the intended automation use and whether a ticket or runbook covers the token.
+- Review subsequent Codex tool calls, MCP activity, or security-scan changes from the same user or client.
+- Inventory other active Codex tokens for the same user.
+
+### False positive analysis
+
+- Developers create Codex tokens for CI runners and local development environments as part of normal workflows.
 
 ### Response and remediation
 
 - Revoke unauthorized tokens and review subsequent Codex tool and MCP activity.
+- Rotate related credentials if the token may have been exposed.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 73
 rule_id = "0280b13a-65a8-4475-8f43-c8304b7e3467"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -53,7 +64,7 @@ tags = [
     "Rule Type: ES|QL",
     "Tactic: Persistence",
     "Tactic: Credential Access",
-    "Mitre Atlas: AML.T0012",
+    "Mitre Atlas: AML.T0083",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -106,15 +117,15 @@ version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
 [[rule.threat_mappings.threat.technique]]
-id = "AML.T0012"
-name = "Valid Accounts"
-reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+id = "AML.T0083"
+name = "Credentials from AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0083/"
 
 
 [rule.threat_mappings.threat.tactic]
-id = "AML.TA0006"
-name = "Persistence"
-reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+id = "AML.TA0013"
+name = "Credential Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
 
 [rule.investigation_fields]
 field_names = [

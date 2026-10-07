@@ -17,37 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Conversation Shared"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Conversation Shared
 
-A conversation share event occurred. Determine audience scope and whether the conversation holds sensitive data.
+A conversation was shared. Sharing can expose prompts, responses, and attached context beyond the original participants.
+
+Escalate when the audience is external or overly broad, the conversation contains sensitive data, or sharing coincides with downloads or mass deletion. Close as a false positive for expected collaboration inside the organization.
 
 #### Possible investigation steps
 
-- Review conversation/share IDs and nearby message content when available.
-- Correlate with file downloads or mass deletions from the same user.
+- Identify the user, conversation, and share-related fields on the alert.
+- Determine the intended audience and whether it matches workspace sharing policy.
+- Review nearby message content, file downloads, or additional shares from the same user.
+- Check whether the conversation includes credentials, proprietary code, or customer data.
 
 ### False positive analysis
 
-- Normal collaboration shares inside the tenant.
+- Users intentionally share conversations for collaboration within the organization when that sharing path is approved.
 
 ### Response and remediation
 
 - Revoke unauthorized shares and review other sharing activity by the same actor.
+- If sensitive content was exposed, follow your data-incident process for the recipients and channel used.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "9246f273-b33f-465b-8966-c27e151ded78"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

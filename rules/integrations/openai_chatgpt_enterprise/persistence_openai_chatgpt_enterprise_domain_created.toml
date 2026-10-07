@@ -17,28 +17,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Domain Created"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Domain Created
 
-A domain was added to the workspace. Validate ownership of the domain and change request.
+A domain was added to the workspace boundary. Domain changes can expand who is allowed to join or access the tenant.
+
+Escalate when the domain is not corporate-owned, the change lacks approval, or invites from that domain follow quickly. Close as a false positive for documented onboarding or merger-related domain additions.
+
+#### Possible investigation steps
+
+- Identify the actor and the domain value on the alert.
+- Validate ownership of the domain and whether a change request exists.
+- Search for subsequent invites, role changes, or ownership transfers involving that domain.
+- Review other IAM changes by the same actor in the surrounding window.
+
+### False positive analysis
+
+- Administrators add legitimate corporate domains during onboarding or merger activity when the request is approved.
 
 ### Response and remediation
 
-- Remove unauthorized domains and audit subsequent invites from that domain.
+- Remove unauthorized domains and audit subsequent invites associated with that domain.
+- Rotate credentials for the actor if the change appears malicious.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 73
 rule_id = "282c56ce-6124-4558-a5f0-d5c6c3cc3c2c"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -54,7 +65,7 @@ tags = [
     "Domain: Identity",
     "Use Case: Identity and Access Audit",
     "Tactic: Persistence",
-    "Mitre Atlas: AML.T0012",
+    "Mitre Atlas: AML.T0125",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -92,9 +103,9 @@ version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
 [[rule.threat_mappings.threat.technique]]
-id = "AML.T0012"
-name = "Valid Accounts"
-reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+id = "AML.T0125"
+name = "Create Account"
+reference = "https://atlas.mitre.org/techniques/AML.T0125/"
 
 
 [rule.threat_mappings.threat.tactic]

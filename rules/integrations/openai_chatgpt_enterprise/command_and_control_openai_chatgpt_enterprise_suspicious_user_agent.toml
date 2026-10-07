@@ -18,36 +18,39 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent
 
-A successful auth event used a scripted user agent. Confirm whether the user or an approved integration owns that client.
+A successful authentication event used a scripted user agent (for example Python, curl, Go HTTP clients, or similar) rather than a typical browser.
+
+Escalate when the user has no approved CLI or API access, the user agent is unfamiliar, or privileged activity follows the sign-in. Close as a false positive for documented automation, compliance collectors, or SSO libraries that use non-browser clients.
 
 #### Possible investigation steps
 
-- Confirm `user_agent.original`, `source.ip`, and whether the user has approved CLI/API access.
-- Correlate with role changes, file downloads, or conversation shares from the same user shortly after.
+- Confirm `user_agent.original`, `source.ip`, `source.geo.country_iso_code`, and the authenticated user.
+- Determine whether the account is expected to use CLI, API, or compliance automation.
+- Search for role changes, file downloads, conversation shares, or admin actions from the same user shortly after the event.
+- Compare with the user's normal browser-based authentication history.
 
 ### False positive analysis
 
-- Compliance collectors and SSO libraries may use Python/Go user agents.
+- Approved automation, compliance API tooling, and some SSO client libraries use non-browser user agents by design.
 
 ### Response and remediation
 
-- Revoke sessions for the user, rotate credentials, and inventory automation using that user agent.
+- Revoke sessions for the user, rotate credentials where appropriate, and inventory automation that uses that user agent.
+- If takeover is suspected, review subsequent data-access and admin activity for the same account.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "c461f0cf-54df-4e93-bb05-076ea22fe84b"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

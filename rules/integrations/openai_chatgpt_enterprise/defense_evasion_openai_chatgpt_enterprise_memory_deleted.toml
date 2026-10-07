@@ -17,28 +17,38 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Memory Deleted"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Memory Deleted
 
-A memory entry was deleted. Correlate with unusual chat activity or prior credential exposure.
+A ChatGPT Enterprise memory entry was deleted. Memory deletion can remove persisted context that would otherwise help explain prior conversations or automated behavior.
+
+Escalate when deletion follows unusual chat activity, credential exposure, or other defense-evasion signals from the same user. Close as a false positive for routine user-driven memory cleanup.
+
+#### Possible investigation steps
+
+- Identify the user and memory identifiers on the alert.
+- Review the user's recent conversation and Codex activity for sensitive content or policy-violating use.
+- Correlate with mass conversation deletion, shares, or downloads nearby.
+- Ask the user whether the deletion was intentional only after reviewing surrounding activity.
+
+### False positive analysis
+
+- Users commonly delete individual memories while managing personalization settings.
 
 ### Response and remediation
 
-- Preserve remaining audit history and investigate the actor's recent conversations.
+- Preserve remaining audit history and investigate the actor's recent conversations if the deletion appears tied to concealment.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 21
 rule_id = "c54f19db-fdea-4d32-9cc0-8f8b6016416e"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

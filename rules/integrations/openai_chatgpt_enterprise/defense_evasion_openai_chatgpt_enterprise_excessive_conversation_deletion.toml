@@ -18,37 +18,38 @@ interval = "1h"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Excessive Conversation Deletion"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Excessive Conversation Deletion
 
-One user deleted many conversations in a day. Preserve audit history early.
+One user deleted a large number of conversations in a single day. Mass deletion can remove useful investigative context after misuse or data staging.
+
+Escalate when deletions follow downloads, shares, or credential-bearing prompts, or when the user has no retention-cleanup role. Close as a false positive for documented retention cleanup or migration tooling.
 
 #### Possible investigation steps
 
-- Capture conversation IDs while they remain in audit history.
-- Compare with preceding file downloads, shares, or credential-bearing prompts.
+- Capture conversation identifiers from the alert while they remain in audit history.
+- Review `Esql.event_count` and the time window for the user.
+- Compare with preceding file downloads, conversation shares, or prompts containing secrets from the same user.
+- Confirm whether a retention or migration process accounts for the volume.
 
 ### False positive analysis
 
-- Retention cleanup and migration tooling.
+- Approved retention cleanup jobs and workspace migration tooling can delete many conversations in a short period.
 
 ### Response and remediation
 
-- Preserve remaining audit exports, revoke sessions if malicious, and investigate prior data access.
+- Preserve remaining audit exports, revoke sessions if the activity appears malicious, and investigate prior data access by the same user.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "ac16af6b-8a45-43cd-92bc-83b2fa0e1e3a"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

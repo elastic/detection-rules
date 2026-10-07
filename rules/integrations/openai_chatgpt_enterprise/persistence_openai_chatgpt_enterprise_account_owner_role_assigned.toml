@@ -18,21 +18,24 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Account Owner Role Assigned"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Account Owner Role Assigned
 
-A user was promoted to `account-owner`. Confirm change management and review subsequent privileged activity.
+A user role was updated to `account-owner`. Account owners control workspace membership, connectors, usage limits, and other security-sensitive settings.
+
+Escalate when the promotion lacks change management, the actor is unexpected, or privileged activity follows. Close as a false positive for planned ownership transfers with an approved request.
 
 #### Possible investigation steps
 
-- Identify actor (`user.id`) and target (`openai_chatgpt_enterprise.audit_log.action_data.user_id`).
-- Review invites, usage-limit changes, plugin policy updates, and log exports after the promotion.
+- Identify the actor (`user.id` / `user.email`) and the target user in `openai_chatgpt_enterprise.audit_log.action_data`.
+- Confirm whether a ticket or change request authorized the promotion.
+- Review invites, usage-limit changes, plugin or feature policy updates, and log exports after the promotion.
+- Check authentication anomalies for the actor or target around the same time.
 
 ### False positive analysis
 
-- Planned ownership transfers with an approved ticket.
+- IT administrators legitimately promote users to account-owner during staffing or ownership changes when the request is approved.
 
 ### Response and remediation
 
@@ -40,15 +43,13 @@ A user was promoted to `account-owner`. Confirm change management and review sub
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 73
 rule_id = "109e5d9f-3436-4ea9-8660-1810b5d40237"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

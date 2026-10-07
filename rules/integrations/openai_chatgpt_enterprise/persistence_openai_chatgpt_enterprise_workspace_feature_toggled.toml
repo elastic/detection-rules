@@ -17,12 +17,24 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise Workspace Feature Toggled"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Workspace Feature Toggled
 
-A workspace feature flag changed. Confirm whether the feature increases sharing or weakens controls.
+A workspace feature flag changed. Adversaries may enable sharing or weaken controls to broaden data exposure or persist access.
+
+Escalate when the feature increases sharing or reduces security controls without an approved change. Close as a false positive for documented rollout toggles by administrators.
+
+#### Possible investigation steps
+
+- Identify the actor and which feature was enabled or disabled.
+- Determine whether the change increases sharing, external visibility, or weakens security controls.
+- Correlate with other admin actions by the same actor, such as role changes, invites, or exports.
+- Confirm whether a change request authorized the toggle.
+
+### False positive analysis
+
+- Administrators intentionally enable or disable workspace features during approved rollouts.
 
 ### Response and remediation
 
@@ -30,15 +42,13 @@ A workspace feature flag changed. Confirm whether the feature increases sharing 
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "58a99563-5ad7-4f1f-b618-717928747cea"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -53,7 +63,7 @@ tags = [
     "Rule Type: ES|QL",
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
-    "Mitre Atlas: AML.T0012",
+    "Mitre Atlas: AML.T0081",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -91,9 +101,9 @@ version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
 [[rule.threat_mappings.threat.technique]]
-id = "AML.T0012"
-name = "Valid Accounts"
-reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
 
 
 [rule.threat_mappings.threat.tactic]

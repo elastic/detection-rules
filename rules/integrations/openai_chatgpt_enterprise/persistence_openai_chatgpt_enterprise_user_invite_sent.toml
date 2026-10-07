@@ -17,37 +17,38 @@ from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
 name = "OpenAI ChatGPT Enterprise User Invite Sent"
-note = """
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise User Invite Sent
 
-A workspace invite was sent. Validate the invitee domain and role against onboarding policy.
+A workspace invite was sent. An adversary who compromises an administrator can invite a mailbox they control to gain durable access.
+
+Escalate when the invitee domain is unexpected, the invited role is privileged, or the actor is unusual. Close as a false positive for routine onboarding with an approved request.
 
 #### Possible investigation steps
 
-- Inspect invitee email fields and actor privilege.
-- Look for role promotions or owner changes near the invite.
+- Inspect invitee email fields, invited role, and actor privilege on the alert.
+- Compare the invitee domain with trusted corporate domains.
+- Look for role promotions, owner changes, or domain additions near the invite.
+- Determine whether the invite was accepted and what activity followed.
 
 ### False positive analysis
 
-- Routine onboarding invites with an HR/IT ticket.
+- IT and hiring workflows routinely invite new members during onboarding when the invitee and role are expected.
 
 ### Response and remediation
 
-- Revoke unauthorized pending invites and rotate compromised admin credentials.
+- Revoke unauthorized pending invites, remove the user if already accepted, and rotate compromised admin credentials.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "d0aaa2e8-9bde-4f3b-8599-c767958d45e3"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """

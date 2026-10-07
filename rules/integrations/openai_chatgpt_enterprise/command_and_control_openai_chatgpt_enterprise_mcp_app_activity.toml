@@ -7,39 +7,57 @@ updated_date = "2026/10/06"
 [rule]
 author = ["Elastic"]
 description = """
-Detects ChatGPT Enterprise app-log events where the app type is MCP. MCP apps connect ChatGPT to external systems and
-can move organizational data into third-party tools. Unexpected MCP usage may indicate unauthorized connector access
-or data staging.
+Detects the first ChatGPT Enterprise MCP app name used by a given user email within the rule history window. MCP apps
+connect ChatGPT to external systems and can move organizational data into third-party tools. Alerting on first-seen
+user and app pairs highlights new or unexpected connector usage rather than every routine approved MCP request.
 """
 false_positives = [
-    "Approved MCP apps such as Slack or ticketing connectors generate routine request logs during normal work.",
+    """
+    Approved MCP apps such as Slack or ticketing connectors generate routine traffic during normal work. First-seen
+    alerts are common during onboarding when a user first uses an approved app.
+    """,
 ]
 from = "now-9m"
-language = "esql"
+index = ["logs-openai_chatgpt_enterprise.app_log-*"]
+language = "kuery"
 license = "Elastic License v2"
-name = "OpenAI ChatGPT Enterprise MCP App Activity"
-note = """
-## Triage and analysis
+name = "OpenAI ChatGPT Enterprise Unusual MCP App Activity"
+note = """## Triage and analysis
 
-### Investigating OpenAI ChatGPT Enterprise MCP App Activity
+### Investigating OpenAI ChatGPT Enterprise Unusual MCP App Activity
 
-An MCP app executed in ChatGPT. Validate whether the app and query are approved for the user and workspace.
+First-seen MCP app name for this `user.email` within the rule history window. MCP apps can move organizational data
+into third-party tools.
+
+Escalate when the app is not in the approved inventory, the query looks like bulk data access, or the user recently
+had suspicious authentication activity. Close as a false positive when the app is approved for that user.
+
+#### Possible investigation steps
+
+- Identify the user and app (`openai_chatgpt_enterprise.app_log.app_name`, `app_id`).
+- Review `openai_chatgpt_enterprise.app_log.query` and conversation identifiers when present.
+- Confirm whether the app is approved for the workspace and whether OAuth links for that app are expected.
+- Correlate with app-auth link events, conversation shares, or file downloads from the same user nearby.
+
+### False positive analysis
+
+- Approved MCP apps generate routine request logs. First-seen alerts often reflect a user adopting an already-approved
+  connector.
 
 ### Response and remediation
 
-- Disable unauthorized MCP apps, revoke linked credentials, and review conversation context for sensitive data.
+- Disable unauthorized MCP apps, revoke linked credentials, and review conversation context for sensitive data
+  exposure.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
-    "https://github.com/elastic/integrations/issues/20898",
-    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
 ]
 risk_score = 47
 rule_id = "05b8a893-4683-450f-984d-7b52ca2aa4dd"
-setup = """
-## Setup
+setup = """## Setup
 
-Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -50,29 +68,21 @@ tags = [
     "Data Source: OpenAI ChatGPT Enterprise",
     "Service: OpenAI ChatGPT Enterprise",
     "Use Case: Threat Detection",
+    "Use Case: UEBA",
     "Resources: Investigation Guide",
-    "Rule Type: ES|QL",
+    "Rule Type: New Terms",
     "Tactic: Command and Control",
     "Tactic: Collection",
-    "Mitre Atlas: AML.T0081",
+    "Mitre Atlas: AML.T0053",
 ]
 timestamp_override = "event.ingested"
-type = "esql"
+type = "new_terms"
 
 query = '''
-from logs-openai_chatgpt_enterprise.app_log-* metadata _id, _version, _index
-| where
-    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
-    openai_chatgpt_enterprise.app_log.app_type == "MCP"
-| keep
-    _id, _version, _index, @timestamp, user.id, user.email,
-    openai_chatgpt_enterprise.app_log.app_id,
-    openai_chatgpt_enterprise.app_log.app_name,
-    openai_chatgpt_enterprise.app_log.app_type,
-    openai_chatgpt_enterprise.app_log.conversation_id,
-    openai_chatgpt_enterprise.app_log.query,
-    openai_chatgpt_enterprise.app_log.log_type,
-    data_stream.*
+data_stream.dataset: "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_type: "MCP" and
+    user.email: * and
+    openai_chatgpt_enterprise.app_log.app_name: *
 '''
 
 
@@ -108,15 +118,15 @@ version = "2026.08"
 [[rule.threat_mappings.threat]]
 framework = "MITRE ATLAS"
 [[rule.threat_mappings.threat.technique]]
-id = "AML.T0081"
-name = "Modify AI Agent Configuration"
-reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
 
 
 [rule.threat_mappings.threat.tactic]
-id = "AML.TA0009"
-name = "Collection"
-reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
 
 [rule.investigation_fields]
 field_names = [
@@ -128,3 +138,9 @@ field_names = [
     "openai_chatgpt_enterprise.app_log.query",
 ]
 
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user.email", "openai_chatgpt_enterprise.app_log.app_name"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
