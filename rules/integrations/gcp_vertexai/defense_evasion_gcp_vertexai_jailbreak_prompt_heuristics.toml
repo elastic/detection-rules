@@ -1,0 +1,185 @@
+[metadata]
+creation_date = "2026/10/02"
+integration = ["gcp_vertexai"]
+maturity = "production"
+min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
+min_stack_version = "9.3.0"
+updated_date = "2026/10/02"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects Vertex AI GenerateContent prompts that match common jailbreak / instruction-override heuristics (for example
+ignore previous instructions, DAN or developer mode, unrestricted-AI language, or explicit safety-filter bypass).
+Typical prompt_response_logs exports do not populate HARM_CATEGORY_JAILBREAK (unlike hate/harassment/dangerous
+ratings); Model Armor findings remain the preferred first-party jailbreak signal when that API is enabled.
+"""
+false_positives = [
+    """
+    Approved red-team or evaluation prompts that deliberately include jailbreak strings. Exclude known test principals
+    or lower severity for those models.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "GCP Vertex AI Jailbreak Prompt Heuristics"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Jailbreak Prompt Heuristics
+
+The user prompt matched common jailbreak / instruction-override language (for example "ignore
+previous instructions", DAN/"Do Anything Now", or "bypass the safety filter"). This is a content
+heuristic on prompt text — not a Model Armor finding or a Gemini `HARM_CATEGORY_JAILBREAK`
+safety rating (that category is often absent from prompt_response_logs). Read the response to
+see whether the model refused or complied.
+
+#### Possible investigation steps
+
+- Read `full_request.contents.parts.text` and `full_response.candidates.content.parts.text`. Confirm
+  intent is instruction override or filter bypass versus an innocent mention of the word
+  "jailbreak".
+- Note `finish_reason`: `STOP` with a helpful reply after a jailbreak attempt is higher priority
+  than a clear refusal; `SAFETY` means the provider blocked generation.
+- Correlate with `logs-gcp_vertexai.auditlogs-*` GenerateContent in the same window for `source.ip`
+  and `client.user.email`.
+- Check for related alerts: repeated refusals, elevated safety ratings, credentials in prompt, or
+  BLOCK_NONE from the same caller/model.
+
+### False positive analysis
+
+- Approved red-team, evaluation, or Model Armor test suites that deliberately include jailbreak
+  strings. Exclude known test principals or models.
+- Documentation that mentions "developer mode" or "without restrictions" in a non-adversarial
+  context. Read the full prompt before escalating.
+
+### Response and remediation
+
+- If not an approved test: investigate the calling principal/IP, restrict or rotate credentials, and
+  add application-side input filtering.
+- Prefer enabling Model Armor / AI Protection for a first-party jailbreak or prompt-injection signal
+  when available.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+    "https://cloud.google.com/blog/products/identity-security/introducing-ai-protection-security-for-the-ai-era",
+    "https://github.com/elastic/integrations/issues/20740",
+]
+risk_score = 47
+rule_id = "42cc9ad9-4ad1-4702-8abc-7d55096f6ee0"
+setup = """## Setup
+
+Requires GCP Vertex AI `prompt_response_logs`. For a higher-fidelity jailbreak signal, enable Model Armor / AI Protection
+and ingest those findings separately when available.
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-gcp_vertexai.prompt_response_logs-* metadata _id, _version, _index
+| where data_stream.dataset == "gcp_vertexai.prompt_response_logs"
+| eval request_text = to_lower(coalesce(mv_concat(gcp.vertexai.prompt_response_logs.full_request.contents.parts.text, " "), ""))
+| where
+    request_text rlike ".*ignore (all |your )?(previous|prior) instructions.*" or
+    request_text rlike ".*disregard (your |all |the )?(system|developer|prior).*" or
+    request_text rlike ".*(dan|stan|aim|dude) mode.*" or
+    request_text rlike ".*do anything now.*" or
+    request_text like "*bypass*safety*" or
+    request_text like "*bypass*content*filter*" or
+    request_text like "*bypass*content*polic*" or
+    request_text like "*no safety filter*" or
+    request_text rlike ".*without (any |your |content |safety )?restrictions?.*" or
+    request_text like "*no content restriction*" or
+    request_text like "*unrestricted ai*" or
+    request_text like "*jailbreak*" or
+    request_text like "*forget everything you were told*" or
+    request_text like "*you are dan*" or
+    request_text like "*developer mode*" or
+    request_text like "*override your safety*" or
+    request_text like "*hidden system prompt*" or
+    request_text like "*ignore the content policy*" or
+    request_text like "*ignore all previous*" or
+    request_text like "*ignore prior instructions*" or
+    request_text like "*ignore your previous*"
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    cloud.project.id,
+    gcp.vertexai.prompt_response_logs.model,
+    gcp.vertexai.prompt_response_logs.api_method,
+    gcp.vertexai.prompt_response_logs.full_request.contents.parts.text,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text,
+    gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "cloud.project.id",
+    "gcp.vertexai.prompt_response_logs.model",
+    "gcp.vertexai.prompt_response_logs.api_method",
+    "gcp.vertexai.prompt_response_logs.full_request.contents.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.content.parts.text",
+    "gcp.vertexai.prompt_response_logs.full_response.candidates.finish_reason",
+]
+
