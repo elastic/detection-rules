@@ -3,7 +3,7 @@ bypass_bbr_timing = true
 creation_date = "2023/07/13"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/07"
 
 [rule]
 author = ["Elastic"]
@@ -37,7 +37,13 @@ type = "new_terms"
 query = '''
 host.os.type:windows and event.category:process and event.type:start and
   (
-    (process.name.caseless:"reg.exe" and process.args:"query") or
+    (process.name.caseless:"reg.exe" and
+     process.args:(
+       "query" or "querY" or "queRy" or "queRY" or "quEry" or "quErY" or "quERy" or "quERY" or
+       "qUery" or "qUerY" or "qUeRy" or "qUeRY" or "qUEry" or "qUErY" or "qUERy" or "qUERY" or
+       "Query" or "QuerY" or "QueRy" or "QueRY" or "QuEry" or "QuErY" or "QuERy" or "QuERY" or
+       "QUery" or "QUerY" or "QUeRy" or "QUeRY" or "QUEry" or "QUErY" or "QUERy" or "QUERY"
+     )) or
     (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and
      process.args:(
        ("get-childitem" or "Get-ChildItem" or "gci" or "dir" or "ls" or
