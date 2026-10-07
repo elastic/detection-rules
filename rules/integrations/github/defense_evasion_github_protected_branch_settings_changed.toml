@@ -2,7 +2,7 @@
 creation_date = "2023/08/29"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/30"
+updated_date = "2026/09/18"
 
 [rule]
 author = ["Elastic"]
@@ -10,10 +10,7 @@ description = """
 This rule detects setting modifications for protected branches of a GitHub repository. Branch protection rules can be
 used to enforce certain workflows or requirements before a contributor can push changes to a branch in your repository.
 Changes to these protected branch settings should be investigated and verified as legitimate activity. Unauthorized
-changes could be used to lower your organization's security posture and leave you exposed for future attacks. Push-time
-enforcement events (`protected_branch.rejected_ref_update` and `protected_branch.policy_override`) are intentionally
-excluded because they do not modify branch protection settings; force-push overrides are covered by the "High Number of
-Protected Branch Force Pushes by User" and "Several Failed Protected Branch Force Pushes by User" rules.
+changes could be used to lower your organization's security posture and leave you exposed for future attacks.
 """
 from = "now-9m"
 index = ["logs-github.audit-*"]
@@ -77,7 +74,6 @@ type = "eql"
 query = '''
 configuration where data_stream.dataset == "github.audit"
   and github.category == "protected_branch" and event.type == "change"
-  and not event.action in ("protected_branch.rejected_ref_update", "protected_branch.policy_override")
 '''
 
 
