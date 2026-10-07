@@ -1,0 +1,170 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["aws"]
+maturity = "production"
+updated_date = "2026/10/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the successful creation of an Amazon Bedrock AgentCore Browser or Code Interpreter with an execution IAM role
+and public network access. These sandboxes run agent-generated code or automated browsing on the caller's behalf, and
+the attached role lets the sandbox call other AWS services. Public network mode removes the sandbox's network
+containment, so a sandbox steered by prompt injection, malicious tool output, or code-execution abuse can reach the
+internet and pivot into other AWS resources with the role's permissions. Review the role scope and whether public
+egress is required.
+"""
+false_positives = [
+    """
+    Approved AgentCore Browsers or Code Interpreters that require public egress, such as a code interpreter installing
+    packages or a browser tool reaching external sites, created by a known platform or CI/CD principal. Validate the
+    caller, the attached execution role, and whether VPC or sandbox network mode was required by policy.
+    """,
+]
+from = "now-9m"
+index = ["logs-aws.cloudtrail-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS Bedrock AgentCore with Public Network Browser or Code Interpreter Sandbox"
+note = """## Triage and analysis
+
+### Investigating AWS Bedrock AgentCore with Public Network Browser or Code Interpreter Sandbox
+
+Amazon Bedrock AgentCore Code Interpreter and Browser sandboxes act for the caller. The Code Interpreter executes agent-generated code, and the Browser drives automated web sessions. Either can be created with an IAM execution role (`executionRoleArn`) that the sandbox assumes when it calls other AWS services. Setting `networkMode=PUBLIC` removes network-level containment. A sandbox then compromised through prompt injection, malicious tool output, or code-execution abuse can reach the public internet and pivot into other AWS resources using that role. Researchers have also shown paths for stealing the role's temporary credentials from a Code Interpreter and reusing them outside the sandbox.
+
+`CreateBrowser` and `CreateCodeInterpreter` are management-plane events logged to CloudTrail by default. Later `StartBrowserSession` and `StartCodeInterpreterSession` calls are data-plane events and are not in a default management-events trail.
+
+### Possible investigation steps
+
+- Check the caller identity (`aws.cloudtrail.user_identity.arn`) and `source.ip` against expected provisioning principals. Unexpected users, roles, or source addresses creating a public AgentCore Browser or Code Interpreter should be investigated.
+- Examine `aws.cloudtrail.request_parameters` for `executionRoleArn` and `networkMode=PUBLIC`. Treat the role as the permissions a compromised sandbox would inherit: list the AWS services it can call, and decide whether public egress is required or whether VPC or sandbox network mode would keep the workload contained.
+- Review the IAM PassRole permission of the calling identity and whether it is constrained by `iam:PassedToService` conditions.
+- Check for a subsequent `StartBrowserSession` or `StartCodeInterpreterSession` from the same caller against the new resource. Those events require data-plane logging.
+- Pivot on the execution role for later AWS API calls from outside AgentCore, which can indicate the role's credentials were used beyond the workload.
+
+### False positive analysis
+
+- Platform engineering or infrastructure-as-code pipelines that intentionally create a public Browser or Code Interpreter with a scoped execution role. Confirm the principal, role, and network mode match the approved design.
+- Workloads that must reach the public internet. Prefer VPC network mode with explicit egress where isolation is required.
+
+### Response and remediation
+
+- If the configuration is not approved, delete the Browser or Code Interpreter to stop new sessions and revoke active sessions of the execution role. Assume a public sandbox may already have been steered by untrusted prompts, tool output, or executed code.
+- Replace public network mode with VPC or sandbox mode so a compromised sandbox cannot reach the internet, and reduce the execution role to the minimum AWS API permissions the workload needs.
+- Constrain `iam:PassRole` for AgentCore creators with `iam:PassedToService` and a permissions boundary on roles that can be passed.
+- Enable data-plane logging for `bedrock-agentcore` so later session starts are visible.
+"""
+references = [
+    "https://www.beyondtrust.com/blog/entry/aws-agentcore-privilege-escalation",
+    "https://unit42.paloaltonetworks.com/bypass-of-aws-sandbox-network-isolation-mode/",
+    "https://sonraisecurity.com/blog/sandboxed-to-compromised-new-research-exposes-credential-exfiltration-paths-in-aws-code-interpreters/",
+]
+risk_score = 73
+rule_id = "86be0b1b-3984-4b26-bde6-46d33fe7bab1"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Platform: AWS",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS Bedrock",
+    "Service: AWS IAM",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Domain: GenAI",
+    "Mitre Atlas: AML.T0012",
+    "Mitre Atlas: AML.T0103",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.dataset: "aws.cloudtrail" and
+  event.provider: "bedrock-agentcore.amazonaws.com" and
+  event.action: (
+    "CreateCodeInterpreter" or
+    "CreateBrowser"
+  ) and
+  event.outcome: "success" and
+  aws.cloudtrail.request_parameters: (*executionRoleArn* and *networkMode=PUBLIC*)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0103"
+name = "Deploy AI Agent"
+reference = "https://atlas.mitre.org/techniques/AML.T0103/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.name",
+    "user_agent.original",
+    "source.ip",
+    "aws.cloudtrail.user_identity.arn",
+    "aws.cloudtrail.user_identity.type",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "event.action",
+    "event.provider",
+    "event.outcome",
+    "cloud.account.id",
+    "cloud.region",
+    "aws.cloudtrail.request_parameters",
+    "aws.cloudtrail.response_elements",
+]
