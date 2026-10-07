@@ -7,9 +7,10 @@ updated_date = "2026/10/06"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first ChatGPT Enterprise MCP app name used by a given user email within the rule history window. MCP apps
-connect ChatGPT to external systems and can move organizational data into third-party tools. Alerting on first-seen
-user and app pairs highlights new or unexpected connector usage rather than every routine approved MCP request.
+Detects the first ChatGPT Enterprise MCP app name used by a given user email within an organization in the rule
+history window. MCP apps connect ChatGPT to external systems and can move organizational data into third-party tools.
+Alerting on first-seen organization, user, and app triples highlights new or unexpected connector usage rather than
+every routine approved MCP request.
 """
 false_positives = [
     """
@@ -26,7 +27,7 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Unusual MCP App Activity
 
-First-seen MCP app name for this `user.email` within the rule history window. MCP apps can move organizational data
+First-seen MCP app name for this `organization.id` and `user.email` within the rule history window. MCP apps can move organizational data
 into third-party tools.
 
 Escalate when the app is not in the approved inventory, the query looks like bulk data access, or the user recently
@@ -71,7 +72,6 @@ tags = [
     "Use Case: UEBA",
     "Resources: Investigation Guide",
     "Rule Type: New Terms",
-    "Tactic: Command and Control",
     "Tactic: Collection",
     "Mitre Atlas: AML.T0053",
 ]
@@ -81,23 +81,11 @@ type = "new_terms"
 query = '''
 data_stream.dataset: "openai_chatgpt_enterprise.app_log" and
     openai_chatgpt_enterprise.app_log.app_type: "MCP" and
+    organization.id: * and
     user.email: * and
     openai_chatgpt_enterprise.app_log.app_name: *
 '''
 
-
-[[rule.threat]]
-framework = "MITRE ATT&CK"
-[[rule.threat.technique]]
-id = "T1219"
-name = "Remote Access Tools"
-reference = "https://attack.mitre.org/techniques/T1219/"
-
-
-[rule.threat.tactic]
-id = "TA0011"
-name = "Command and Control"
-reference = "https://attack.mitre.org/tactics/TA0011/"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -131,6 +119,7 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
+    "organization.id",
     "user.id",
     "user.email",
     "openai_chatgpt_enterprise.app_log.app_name",
@@ -140,7 +129,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.email", "openai_chatgpt_enterprise.app_log.app_name"]
+value = ["organization.id", "user.email", "openai_chatgpt_enterprise.app_log.app_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"

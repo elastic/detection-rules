@@ -7,9 +7,10 @@ updated_date = "2026/10/06"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first ChatGPT Enterprise Codex MCP tool name used by a given user email within the rule history window.
-Codex MCP tools can query external systems and pull organizational data into an agent session. Alerting on first-seen
-user and tool pairs highlights new or unexpected connector usage rather than every routine approved tool call.
+Detects the first ChatGPT Enterprise Codex MCP tool name used by a given user email within an organization in the
+rule history window. Codex MCP tools can query external systems and pull organizational data into an agent session.
+Alerting on first-seen organization, user, and tool triples highlights new or unexpected connector usage rather than
+every routine approved tool call.
 """
 false_positives = [
     """
@@ -26,7 +27,7 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Unusual Codex MCP Tool Call
 
-First-seen Codex MCP tool name for this `user.email` within the rule history window. MCP tools can move organizational
+First-seen Codex MCP tool name for this `organization.id` and `user.email` within the rule history window. MCP tools can move organizational
 data into external systems through Codex.
 
 Escalate when the tool or connector is not on the approved inventory, the actor is unexpected, or the same session also
@@ -73,7 +74,6 @@ tags = [
     "Resources: Investigation Guide",
     "Rule Type: New Terms",
     "Tactic: Collection",
-    "Tactic: Command and Control",
     "Mitre Atlas: AML.T0085",
 ]
 timestamp_override = "event.ingested"
@@ -82,6 +82,7 @@ type = "new_terms"
 query = '''
 data_stream.dataset: "openai_chatgpt_enterprise.codex_log" and
     event.action: "app_mcp_call" and
+    organization.id: * and
     user.email: * and
     gen_ai.tool.name: *
 '''
@@ -119,6 +120,7 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
 [rule.investigation_fields]
 field_names = [
     "@timestamp",
+    "organization.id",
     "user.id",
     "user.email",
     "gen_ai.tool.name",
@@ -129,7 +131,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["user.email", "gen_ai.tool.name"]
+value = ["organization.id", "user.email", "gen_ai.tool.name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
