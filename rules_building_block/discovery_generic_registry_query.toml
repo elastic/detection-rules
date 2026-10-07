@@ -12,10 +12,9 @@ description = """
 This rule identifies the execution of commands that can be used to query the Windows Registry. Adversaries may query the
 registry to gain situational awareness about the host, like installed security software, programs and settings.
 """
-from = "now-24h"
+from = "now-9m"
 index = ["logs-endpoint.events.process-*"]
-interval = "12h"
-language = "kuery"
+language = "eql"
 license = "Elastic License v2"
 name = "Query Registry using Built-in Tools"
 risk_score = 21
@@ -28,35 +27,24 @@ tags = [
     "Tactic: Discovery",
     "Rule Type: BBR",
     "Data Source: Elastic Defend",
-    "Rule Type: New Terms",
+    "Rule Type: Event Correlation (EQL)",
     "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "eql"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and
+process where host.os.type == "windows" and event.type == "start" and
   (
-    (process.name.caseless:"reg.exe" and
-     process.args:(
-       "query" or "querY" or "queRy" or "queRY" or "quEry" or "quErY" or "quERy" or "quERY" or
-       "qUery" or "qUerY" or "qUeRy" or "qUeRY" or "qUEry" or "qUErY" or "qUERy" or "qUERY" or
-       "Query" or "QuerY" or "QueRy" or "QueRY" or "QuEry" or "QuErY" or "QuERy" or "QuERY" or
-       "QUery" or "QUerY" or "QUeRy" or "QUeRY" or "QUEry" or "QUErY" or "QUERy" or "QUERY"
-     )) or
-    (process.name.caseless:("powershell.exe" or "powershell_ise.exe" or "pwsh.exe") and
-     process.args:(
-       ("get-childitem" or "Get-ChildItem" or "gci" or "dir" or "ls" or
-        "get-item" or "Get-Item" or "gi" or
-        "get-itemproperty" or "Get-ItemProperty" or "gp") and
-       ("hkcu" or "HKCU" or "hkey_current_user" or "HKEY_CURRENT_USER" or
-        "hkey_local_machine" or "HKEY_LOCAL_MACHINE" or
-        "hklm" or "HKLM" or registry\:\:*)
-      )
+    (process.name : "reg.exe" and process.args : "query") or
+    (
+      process.name : ("powershell.exe", "powershell_ise.exe", "pwsh.exe") and
+      process.args : ("get-childitem", "gci", "dir", "ls", "get-item", "gi", "get-itemproperty", "gp") and
+      process.args : ("hkcu", "hkey_current_user", "hkey_local_machine", "hklm", "registry::*")
     )
   ) and
-  not process.command_line : (
-    "C:\\Windows\\system32\\reg.exe  query hklm\\software\\microsoft\\windows\\softwareinventorylogging /v collectionstate /reg:64" or
+  not process.command_line in (
+    "C:\\Windows\\system32\\reg.exe  query hklm\\software\\microsoft\\windows\\softwareinventorylogging /v collectionstate /reg:64",
     "reg  query \"HKLM\\Software\\WOW6432Node\\Npcap\" /ve  "
   )
 '''
@@ -74,12 +62,3 @@ reference = "https://attack.mitre.org/techniques/T1012/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["host.id", "user.id"]
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
-
-
