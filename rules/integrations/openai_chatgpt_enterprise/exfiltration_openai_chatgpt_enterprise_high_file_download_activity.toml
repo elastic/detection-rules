@@ -1,0 +1,137 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of ChatGPT Enterprise file download audit events for the same user within a single calendar day.
+Bulk downloads can indicate staging of conversation attachments or workspace files for exfiltration.
+"""
+false_positives = [
+    "Users downloading many attachments during legitimate research or migration work.",
+]
+from = "now-24h"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise High File Download Activity"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise High File Download Activity
+
+One user downloaded many files in a day. Confirm business justification and destination systems.
+
+#### Possible investigation steps
+
+- Review file IDs and nearby conversation/share activity.
+- Check whether downloads coincide with unusual geo or user agents.
+
+### False positive analysis
+
+- Bulk export for approved projects.
+
+### Response and remediation
+
+- Suspend access if unauthorized and inventory downloaded content.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "a2977fac-7211-43a5-ba22-71c2f589bf86"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-*
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "file_download" and
+    user.id is not null
+| eval Esql.time_bucket = date_trunc(1 day, @timestamp)
+| stats
+    Esql.event_count = count(*),
+    Esql.file_id_values = values(openai_chatgpt_enterprise.audit_log.action_data.file_id),
+    Esql.source_ip_values = values(source.ip),
+    Esql.user_email_values = values(user.email),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.id, Esql.time_bucket
+| where Esql.event_count >= 30
+| keep user.id, Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.alert_suppression]
+group_by = ["user.id", "Esql.time_bucket"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+
+[rule.investigation_fields]
+field_names = [
+    "user.id",
+    "Esql.time_bucket",
+    "Esql.event_count",
+    "Esql.file_id_values",
+    "Esql.source_ip_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
+

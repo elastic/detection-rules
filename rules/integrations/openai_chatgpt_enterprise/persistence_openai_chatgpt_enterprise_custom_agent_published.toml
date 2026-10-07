@@ -1,0 +1,116 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise custom-agent events that create or publish an agent. Published agents with connectors,
+skills, and store visibility can establish durable automation and broaden data access beyond the original user.
+"""
+false_positives = [
+    "Platform teams publish approved custom agents during workspace rollouts.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Custom Agent Published"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Custom Agent Published
+
+A custom agent was created, updated, or published. Review connectors, skills, store visibility, and release notes.
+
+### Response and remediation
+
+- Unpublish or delete unauthorized agents and revoke connected OAuth links.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "c73d406c-4399-40f2-a255-4a42f8ead9e0"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0081",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.custom_agents_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.custom_agents_log" and
+    event.action in ("agent_created", "agent_published", "agent_updated")
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email,
+    gen_ai.agent.id, gen_ai.agent.name, gen_ai.agent.description, gen_ai.request.model,
+    openai_chatgpt_enterprise.custom_agents_log.client_id,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.publish_type,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.release_name,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.store_visible,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.workspace_capability,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "gen_ai.agent.id",
+    "gen_ai.agent.name",
+    "openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.store_visible",
+    "openai_chatgpt_enterprise.custom_agents_log.event_details.publish_type",
+]
+

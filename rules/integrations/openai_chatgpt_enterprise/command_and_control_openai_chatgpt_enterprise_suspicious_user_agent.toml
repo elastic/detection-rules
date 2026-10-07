@@ -1,0 +1,149 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects successful ChatGPT Enterprise authentication events where the user agent looks scripted (for example Python,
+curl, Go HTTP clients, or aiohttp) rather than a normal browser. Adversaries and automation often reuse stolen
+sessions or tokens with non-browser clients.
+"""
+false_positives = [
+    "Approved automation, compliance API tooling, or SSO libraries that use non-browser user agents.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent
+
+A successful auth event used a scripted user agent. Confirm whether the user or an approved integration owns that client.
+
+#### Possible investigation steps
+
+- Confirm `user_agent.original`, `source.ip`, and whether the user has approved CLI/API access.
+- Correlate with role changes, file downloads, or conversation shares from the same user shortly after.
+
+### False positive analysis
+
+- Compliance collectors and SSO libraries may use Python/Go user agents.
+
+### Response and remediation
+
+- Revoke sessions for the user, rotate credentials, and inventory automation using that user agent.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+]
+risk_score = 47
+rule_id = "c461f0cf-54df-4e93-bb05-076ea22fe84b"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Domain: Identity",
+    "Tactic: Command and Control",
+    "Tactic: Initial Access",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.auth_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.auth_log" and
+    event.action in ("login_success", "native_login_success", "token_issued") and
+    user_agent.original is not null and
+    (
+        to_lower(user_agent.original) like "*python*" or
+        to_lower(user_agent.original) like "*curl/*" or
+        to_lower(user_agent.original) like "*wget*" or
+        to_lower(user_agent.original) like "*httpie*" or
+        to_lower(user_agent.original) like "*go-http*" or
+        to_lower(user_agent.original) like "*aiohttp*"
+    )
+| keep _id, _version, _index, @timestamp, event.action, event.outcome, user.email, user.id, source.ip, source.geo.country_iso_code, user_agent.original, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.email",
+    "user.id",
+    "source.ip",
+    "source.geo.country_iso_code",
+    "user_agent.original",
+]
+

@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise app authentication events that link a third-party app to a user or workspace. Linking apps
+establishes durable OAuth-style access that adversaries can use to persist connectors after initial compromise.
+"""
+false_positives = [
+    "Users legitimately connect approved apps during onboarding.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise App Authentication Linked"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise App Authentication Linked
+
+An app was linked. Confirm app inventory approval and whether the actor recently had suspicious auth or audit activity.
+
+### Response and remediation
+
+- Unlink unauthorized apps and rotate related OAuth credentials.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "f453f820-61cf-4618-a2eb-7af304b36747"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0081",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_auth_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_auth_log" and
+    event.action == "link"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email,
+    openai_chatgpt_enterprise.app_auth_log.app_id,
+    openai_chatgpt_enterprise.app_auth_log.link_id,
+    openai_chatgpt_enterprise.app_auth_log.actor.type,
+    openai_chatgpt_enterprise.app_auth_log.principal.type,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.app_auth_log.app_id",
+    "openai_chatgpt_enterprise.app_auth_log.link_id",
+]
+

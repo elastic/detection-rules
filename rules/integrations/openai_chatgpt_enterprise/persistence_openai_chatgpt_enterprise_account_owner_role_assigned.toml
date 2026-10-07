@@ -1,0 +1,156 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events where a user role is updated to account-owner. Account owners control
+workspace membership, connectors, usage limits, and other security-sensitive settings. An adversary who promotes a
+compromised account to owner gains durable control-plane access.
+"""
+false_positives = [
+    "IT administrators legitimately promote users to account-owner during staffing changes.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Account Owner Role Assigned"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Account Owner Role Assigned
+
+A user was promoted to `account-owner`. Confirm change management and review subsequent privileged activity.
+
+#### Possible investigation steps
+
+- Identify actor (`user.id`) and target (`openai_chatgpt_enterprise.audit_log.action_data.user_id`).
+- Review invites, usage-limit changes, plugin policy updates, and log exports after the promotion.
+
+### False positive analysis
+
+- Planned ownership transfers with an approved ticket.
+
+### Response and remediation
+
+- Downgrade unauthorized owners, revoke sessions, and audit other IAM changes by the same actor.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 73
+rule_id = "109e5d9f-3436-4ea9-8660-1810b5d40237"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Domain: Identity",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "user_role_updated" and
+    (
+        openai_chatgpt_enterprise.audit_log.action_data.new_role == "account-owner" or
+        openai_chatgpt_enterprise.audit_log.action_data.role == "account-owner"
+    )
+| keep
+    _id, _version, _index, @timestamp, event.action, event.outcome, user.id, user.email, source.ip,
+    source.geo.country_iso_code, openai_chatgpt_enterprise.audit_log.action_data.role,
+    openai_chatgpt_enterprise.audit_log.action_data.new_role,
+    openai_chatgpt_enterprise.audit_log.action_data.previous_role,
+    openai_chatgpt_enterprise.audit_log.action_data.user_id,
+    openai_chatgpt_enterprise.audit_log.action_privilege,
+    openai_chatgpt_enterprise.audit_log.actor.type, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.audit_log.action_data.role",
+    "openai_chatgpt_enterprise.audit_log.action_data.new_role",
+    "openai_chatgpt_enterprise.audit_log.action_data.previous_role",
+    "openai_chatgpt_enterprise.audit_log.action_data.user_id",
+    "openai_chatgpt_enterprise.audit_log.action_privilege",
+    "source.ip",
+]
+

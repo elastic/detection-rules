@@ -1,0 +1,131 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise app-log events where the app type is MCP. MCP apps connect ChatGPT to external systems and
+can move organizational data into third-party tools. Unexpected MCP usage may indicate unauthorized connector access
+or data staging.
+"""
+false_positives = [
+    "Approved MCP apps such as Slack or ticketing connectors generate routine request logs during normal work.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise MCP App Activity"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise MCP App Activity
+
+An MCP app executed in ChatGPT. Validate whether the app and query are approved for the user and workspace.
+
+### Response and remediation
+
+- Disable unauthorized MCP apps, revoke linked credentials, and review conversation context for sensitive data.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "05b8a893-4683-450f-984d-7b52ca2aa4dd"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Command and Control",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0081",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_type == "MCP"
+| keep
+    _id, _version, _index, @timestamp, user.id, user.email, source.ip, source.geo.country_iso_code,
+    openai_chatgpt_enterprise.app_log.app_id,
+    openai_chatgpt_enterprise.app_log.app_name,
+    openai_chatgpt_enterprise.app_log.app_type,
+    openai_chatgpt_enterprise.app_log.conversation_id,
+    openai_chatgpt_enterprise.app_log.query,
+    openai_chatgpt_enterprise.app_log.log_type,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1219"
+name = "Remote Access Tools"
+reference = "https://attack.mitre.org/techniques/T1219/"
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.app_log.app_name",
+    "openai_chatgpt_enterprise.app_log.app_id",
+    "openai_chatgpt_enterprise.app_log.query",
+    "source.ip",
+]
+

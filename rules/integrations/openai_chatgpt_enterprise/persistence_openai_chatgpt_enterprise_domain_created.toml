@@ -1,0 +1,114 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events that create a workspace domain boundary entry. Domain changes can expand who
+is allowed to join or access the tenant and may establish persistence for attacker-controlled domains.
+"""
+false_positives = [
+    "Administrators add legitimate corporate domains during onboarding or M&A.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Domain Created"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Domain Created
+
+A domain was added to the workspace. Validate ownership of the domain and change request.
+
+### Response and remediation
+
+- Remove unauthorized domains and audit subsequent invites from that domain.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 73
+rule_id = "282c56ce-6124-4558-a5f0-d5c6c3cc3c2c"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "high"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Domain: Identity",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0012",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "domain_create"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.hostname,
+    openai_chatgpt_enterprise.audit_log.action_data.domains,
+    openai_chatgpt_enterprise.audit_log.action_data.domain_id,
+    openai_chatgpt_enterprise.audit_log.action_privilege, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.hostname",
+    "openai_chatgpt_enterprise.audit_log.action_data.domains",
+    "source.ip",
+]
+

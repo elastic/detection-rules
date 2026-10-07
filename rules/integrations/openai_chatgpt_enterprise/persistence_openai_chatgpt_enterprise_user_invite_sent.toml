@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events that invite a new user into the workspace. An adversary who compromises an
+administrator can invite a mailbox they control to gain durable access.
+"""
+false_positives = [
+    "IT and hiring workflows routinely invite new members during onboarding.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise User Invite Sent"
+note = """
+## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise User Invite Sent
+
+A workspace invite was sent. Validate the invitee domain and role against onboarding policy.
+
+#### Possible investigation steps
+
+- Inspect invitee email fields and actor privilege.
+- Look for role promotions or owner changes near the invite.
+
+### False positive analysis
+
+- Routine onboarding invites with an HR/IT ticket.
+
+### Response and remediation
+
+- Revoke unauthorized pending invites and rotate compromised admin credentials.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://github.com/elastic/integrations/issues/20898",
+    "https://github.com/elastic/integrations/tree/main/packages/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "d0aaa2e8-9bde-4f3b-8599-c767958d45e3"
+setup = """
+## Setup
+
+Requires the OpenAI ChatGPT Enterprise integration collecting compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Domain: Identity",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0125",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "invite_send"
+| keep
+    _id, _version, _index, @timestamp, event.action, event.outcome, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.email_addresses,
+    openai_chatgpt_enterprise.audit_log.action_data.email_address,
+    openai_chatgpt_enterprise.audit_log.action_data.role,
+    openai_chatgpt_enterprise.audit_log.action_privilege,
+    openai_chatgpt_enterprise.audit_log.action_result, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0125"
+name = "Create Account"
+reference = "https://atlas.mitre.org/techniques/AML.T0125/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.email_addresses",
+    "openai_chatgpt_enterprise.audit_log.action_data.role",
+    "openai_chatgpt_enterprise.audit_log.action_privilege",
+    "source.ip",
+]
+
