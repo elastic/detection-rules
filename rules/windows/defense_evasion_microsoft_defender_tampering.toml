@@ -2,7 +2,7 @@
 creation_date = "2021/10/18"
 integration = ["endpoint", "windows", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/07"
 
 [rule]
 author = ["Austin Songer"]
@@ -128,6 +128,12 @@ registry where host.os.type == "windows" and event.type == "change" and process.
         "DisableIOAVProtection", "DisableEnhancedNotifications", "DisableBlockAtFirstSeen", "DisableBehaviorMonitoring"
       ) and registry.data.strings : ("1", "0x00000001")
     )
+    or
+    (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\UX Configuration\\Notification_Suppress"
+     and registry.data.strings : ("1", "0x00000001"))
+    or
+    (registry.path : "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System\\EnableSmartScreen"
+     and registry.data.strings : ("0", "0x00000000"))
   ) and
   not process.executable : (
     "?:\\Windows\\system32\\svchost.exe", 
