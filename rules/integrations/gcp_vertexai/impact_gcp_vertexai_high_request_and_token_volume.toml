@@ -4,14 +4,15 @@ integration = ["gcp_vertexai"]
 maturity = "production"
 min_stack_comments = "gcp_vertexai prompt_response_logs requires integration 1.4.0+ (Kibana ^9.2.0)."
 min_stack_version = "9.3.0"
-updated_date = "2026/10/02"
+updated_date = "2026/10/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a high number of Vertex AI prompt-response log rows and combined input+output tokens for one model in the
-lookback window. High request and token volume can indicate model extraction, quota abuse, or a compromised caller. Tune
-thresholds for your baseline.
+Detects a high number of Vertex AI prompt-response log rows and high total token usage for one model in the
+lookback window. Totals use provider usage_metadata.total_token_count (includes thinking tokens when billed). High
+request and token volume can indicate model extraction, quota abuse, or a compromised caller. Tune thresholds for your
+baseline.
 """
 false_positives = [
     """
@@ -27,17 +28,19 @@ note = """## Triage and analysis
 
 ### Investigating GCP Vertex AI High Request and Token Volume
 
-One model exceeded both the request-count and combined input+output token thresholds in the
-lookback window. High volume can indicate model extraction, quota abuse, cost impact, or a
-compromised caller. This rule aggregates usage metadata; individual prompt text is not required on
-the alert.
+One model exceeded both the request-count and total-token thresholds in the lookback window.
+`Esql.total_tokens_sum` comes from `usage_metadata.total_token_count`, which includes thinking tokens
+when the provider reports them. High volume can indicate model extraction, quota abuse, cost impact,
+or a compromised caller. This rule aggregates usage metadata; individual prompt text is not required
+on the alert.
 
 #### Possible investigation steps
 
 - Note `gcp.vertexai.prompt_response_logs.model`, `cloud.project.id`, `Esql.event_count`,
   `Esql.prompt_tokens_sum`, `Esql.candidates_tokens_sum`, and `Esql.total_tokens_sum`.
 - Compare request count vs token sums: many short calls (scraping/extraction) vs fewer huge prompts
-  (context stuffing / data exfil via prompt).
+  (context stuffing / data exfil via prompt). When `Esql.total_tokens_sum` is much larger than
+  prompt+candidates, thinking tokens may dominate usage.
 - Pivot to `logs-gcp_vertexai.auditlogs-*` GenerateContent for `source.ip` and `client.user.email`
   concentration in the same window.
 - Sample `prompt_response_logs` for that model/time range to see whether content looks like
@@ -95,12 +98,12 @@ from logs-gcp_vertexai.prompt_response_logs-*
     Esql.event_count = count(*),
     Esql.prompt_tokens_sum = sum(gcp.vertexai.prompt_response_logs.full_response.usage_metadata.prompt_token_count),
     Esql.candidates_tokens_sum = sum(gcp.vertexai.prompt_response_logs.full_response.usage_metadata.candidates_token_count),
+    Esql.total_tokens_sum = sum(gcp.vertexai.prompt_response_logs.full_response.usage_metadata.total_token_count),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
   by
     gcp.vertexai.prompt_response_logs.model,
     cloud.project.id
-| eval Esql.total_tokens_sum = Esql.prompt_tokens_sum + Esql.candidates_tokens_sum
 | where Esql.event_count >= 100 and Esql.total_tokens_sum >= 10000
 | keep
     gcp.vertexai.prompt_response_logs.model,
