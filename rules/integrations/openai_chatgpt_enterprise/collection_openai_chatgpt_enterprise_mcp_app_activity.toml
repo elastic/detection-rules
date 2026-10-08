@@ -7,10 +7,10 @@ updated_date = "2026/10/06"
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first ChatGPT Enterprise MCP app name used by a given user email within an organization in the rule
+Detects the first time a ChatGPT Enterprise MCP app name is used by a given user email within an organization in the rule
 history window. MCP apps connect ChatGPT to external systems and can move organizational data into third-party tools.
-Alerting on first-seen organization, user, and app triples highlights new or unexpected connector usage rather than
-every routine approved MCP request.
+Alerting on first-seen organization, user, and app id triples highlights new or unexpected connector usage rather than
+every routine approved MCP request. App name is still required in the query for investigation context.
 """
 false_positives = [
     """
@@ -83,7 +83,8 @@ data_stream.dataset: "openai_chatgpt_enterprise.app_log" and
     openai_chatgpt_enterprise.app_log.app_type: "MCP" and
     organization.id: * and
     user.email: * and
-    openai_chatgpt_enterprise.app_log.app_name: *
+    openai_chatgpt_enterprise.app_log.app_name: * and
+    openai_chatgpt_enterprise.app_log.app_id: *
 '''
 
 
@@ -129,7 +130,7 @@ field_names = [
 
 [rule.new_terms]
 field = "new_terms_fields"
-value = ["organization.id", "user.email", "openai_chatgpt_enterprise.app_log.app_name"]
+value = ["organization.id", "user.email", "openai_chatgpt_enterprise.app_log.app_id"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-14d"
+value = "now-10d"

@@ -75,17 +75,15 @@ from logs-openai_chatgpt_enterprise.audit_log-*
     data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
     event.action == "conversation_delete" and
     user.id is not null
-| eval Esql.time_bucket = date_trunc(1 day, @timestamp)
 | stats
     Esql.event_count = count(*),
     Esql.conversation_id_values = values(openai_chatgpt_enterprise.audit_log.action_data.conversation_id),
     Esql.source_ip_values = values(source.ip),
-    Esql.user_email_values = values(user.email),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
-  by user.id, Esql.time_bucket
+  by user.id, user.email
 | where Esql.event_count >= 20
-| keep user.id, Esql.*
+| keep user.id, user.email, Esql.*
 '''
 
 
@@ -119,7 +117,7 @@ name = "Defense Evasion"
 reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
 [rule.alert_suppression]
-group_by = ["user.id", "Esql.time_bucket"]
+group_by = ["user.id"]
 missing_fields_strategy = "suppress"
 
 [rule.alert_suppression.duration]
@@ -129,7 +127,7 @@ value = 24
 [rule.investigation_fields]
 field_names = [
     "user.id",
-    "Esql.time_bucket",
+    "user.email",
     "Esql.event_count",
     "Esql.conversation_id_values",
     "Esql.source_ip_values",

@@ -12,6 +12,7 @@ conversation exports to understand defender visibility or stage sensitive transc
 """
 false_positives = [
     "Security and compliance teams download workspace logs for investigations, SIEM validation, or regulatory requests.",
+    "API-key driven collectors are excluded (actor.type != ACCOUNT_USER); human admin investigations may still alert.",
 ]
 from = "now-9m"
 language = "esql"
@@ -72,7 +73,8 @@ query = '''
 from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
 | where
     data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
-    event.action in ("download_workspace_log_file", "list_workspace_log_files")
+    event.action in ("download_workspace_log_file", "list_workspace_log_files") and
+    openai_chatgpt_enterprise.audit_log.actor.type == "ACCOUNT_USER"
 | keep
     _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
     openai_chatgpt_enterprise.audit_log.action_data.event_type,

@@ -75,17 +75,16 @@ from logs-openai_chatgpt_enterprise.audit_log-*
     data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
     event.action == "file_download" and
     user.id is not null
-| eval Esql.time_bucket = date_trunc(1 day, @timestamp)
 | stats
     Esql.event_count = count(*),
     Esql.file_id_values = values(openai_chatgpt_enterprise.audit_log.action_data.file_id),
+    Esql.file_format_values = values(openai_chatgpt_enterprise.audit_log.action_data.file_format),
     Esql.source_ip_values = values(source.ip),
-    Esql.user_email_values = values(user.email),
     Esql.timestamp_first_seen = min(@timestamp),
     Esql.timestamp_last_seen = max(@timestamp)
-  by user.id, Esql.time_bucket
+  by user.id, user.email
 | where Esql.event_count >= 30
-| keep user.id, Esql.*
+| keep user.id, user.email, Esql.*
 '''
 
 
@@ -119,7 +118,7 @@ name = "Exfiltration"
 reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 
 [rule.alert_suppression]
-group_by = ["user.id", "Esql.time_bucket"]
+group_by = ["user.id"]
 missing_fields_strategy = "suppress"
 
 [rule.alert_suppression.duration]
@@ -129,9 +128,10 @@ value = 24
 [rule.investigation_fields]
 field_names = [
     "user.id",
-    "Esql.time_bucket",
+    "user.email",
     "Esql.event_count",
     "Esql.file_id_values",
+    "Esql.file_format_values",
     "Esql.source_ip_values",
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",

@@ -12,6 +12,7 @@ establishes durable OAuth-style access that adversaries can use to persist conne
 """
 false_positives = [
     "Users legitimately connect approved apps during onboarding.",
+    "Common Google Drive/Gmail and Slack connector app_id values are excluded; other sanctioned connectors may still alert.",
 ]
 from = "now-9m"
 language = "esql"
@@ -72,7 +73,13 @@ query = '''
 from logs-openai_chatgpt_enterprise.app_auth_log-* metadata _id, _version, _index
 | where
     data_stream.dataset == "openai_chatgpt_enterprise.app_auth_log" and
-    event.action == "link"
+    event.action == "link" and
+    not openai_chatgpt_enterprise.app_auth_log.app_id in (
+        "connector_5f3c8c41a1e54ad7a76272c89e2554fa",
+        "connector_2128aebfecb84f64a069897515042a44",
+        "connector_947e0d954944416db111db556030eea6",
+        "asdk_app_69a1d78e929881919bba0dbda1f6436d"
+    )
 | keep
     _id, _version, _index, @timestamp, event.action, user.id, user.email,
     openai_chatgpt_enterprise.app_auth_log.app_id,

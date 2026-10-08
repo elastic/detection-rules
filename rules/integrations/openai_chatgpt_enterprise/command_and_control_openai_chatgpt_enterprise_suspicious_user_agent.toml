@@ -8,8 +8,8 @@ updated_date = "2026/10/06"
 author = ["Elastic"]
 description = """
 Detects successful ChatGPT Enterprise authentication events where the user agent looks scripted (for example Python,
-curl, Go HTTP clients, or aiohttp) rather than a normal browser. Adversaries and automation often reuse stolen
-sessions or tokens with non-browser clients.
+curl, Go HTTP clients, aiohttp, scrapers, or headless browsers) rather than a normal browser. Adversaries and
+automation often reuse stolen sessions or tokens with non-browser clients.
 """
 false_positives = [
     "Approved automation, compliance API tooling, or SSO libraries that use non-browser user agents.",
@@ -17,10 +17,10 @@ false_positives = [
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent"
+name = "OpenAI ChatGPT Enterprise Authentication from a Suspicious User Agent"
 note = """## Triage and analysis
 
-### Investigating OpenAI ChatGPT Enterprise Activity from a Suspicious User Agent
+### Investigating OpenAI ChatGPT Enterprise Authentication from a Suspicious User Agent
 
 A successful authentication event used a scripted user agent (for example Python, curl, Go HTTP clients, or similar) rather than a typical browser.
 
@@ -83,7 +83,28 @@ from logs-openai_chatgpt_enterprise.auth_log-* metadata _id, _version, _index
         to_lower(user_agent.original) like "*wget*" or
         to_lower(user_agent.original) like "*httpie*" or
         to_lower(user_agent.original) like "*go-http*" or
-        to_lower(user_agent.original) like "*aiohttp*"
+        to_lower(user_agent.original) like "*aiohttp*" or
+        to_lower(user_agent.original) like "*fasthttp*" or
+        to_lower(user_agent.original) like "*httpclient*" or
+        to_lower(user_agent.original) like "*postmanruntime*" or
+        to_lower(user_agent.original) like "*headlesschrome*" or
+        to_lower(user_agent.original) like "*phantomjs*" or
+        to_lower(user_agent.original) like "*selenium*" or
+        to_lower(user_agent.original) like "*okhttp*" or
+        to_lower(user_agent.original) like "*scrapy*" or
+        to_lower(user_agent.original) like "*hydra*" or
+        to_lower(user_agent.original) like "*patator*" or
+        to_lower(user_agent.original) like "*metasploit*" or
+        to_lower(user_agent.original) like "*curio*" or
+        to_lower(user_agent.original) like "*hyper*" or
+        to_lower(user_agent.original) like "*kali*" or
+        to_lower(user_agent.original) like "ruby*" or
+        to_lower(user_agent.original) like "node*" or
+        to_lower(user_agent.original) like "undici*" or
+        to_lower(user_agent.original) like "java*" or
+        to_lower(user_agent.original) like "php*" or
+        to_lower(user_agent.original) like "*bun*" or
+        to_lower(user_agent.original) like "*axios*"
     )
 | keep _id, _version, _index, @timestamp, event.action, event.outcome, user.email, user.id, source.ip, source.geo.country_iso_code, user_agent.original, data_stream.*
 '''
