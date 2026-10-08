@@ -1,0 +1,185 @@
+[metadata]
+creation_date = "2026/10/08"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a ChatGPT Enterprise Codex user invoking a high number of distinct MCP tools across multiple connectors within
+a 30-minute bucket. Broad tool and connector diversity in a short window can indicate compromised-account recon,
+unauthorized multi-system collection, or an agent rapidly enumerating organizational data sources.
+"""
+false_positives = [
+    """
+    Power users and legitimate multi-connector Codex workflows (for example Slack + GitHub + Google Drive in one
+    session) can approach these thresholds. Raise `Esql.gen_ai_tool_name_count_distinct` or
+    `Esql.connector_id_count_distinct` above your baseline before broad enablement.
+    """,
+]
+from = "now-60m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise High Codex MCP Tool Diversity"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise High Codex MCP Tool Diversity
+
+One user invoked many distinct Codex MCP tools across multiple connectors in a 30-minute bucket. That pattern can
+indicate compromised-account reconnaissance, unauthorized multi-system collection, or an agent rapidly enumerating
+connected data sources.
+
+Escalate when the tool set spans unexpected connectors, the actor is unusual for those systems, or nearby events show
+credential exposure, access-token creation, or bulk downloads. Close as a false positive for known power-user or
+approved automation baselines.
+
+#### Possible investigation steps
+
+- Review `Esql.gen_ai_tool_name_values`, `Esql.connector_id_values`, `Esql.event_count`, and the time bucket.
+- Confirm whether the connectors are approved for that user and whether the session aligns with a known project.
+- Pivot to nearby `app_mcp_result`, prompt, share, and download events for the same `user.email`.
+- Compare against the user's normal Codex MCP diversity over prior days.
+
+### False positive analysis
+
+- Engineers using several approved connectors in one Codex session commonly produce multi-tool bursts.
+- Tune thresholds to sit above your workspace p95/p99 for 30-minute buckets.
+
+### Response and remediation
+
+- Disable unauthorized connectors, revoke related OAuth links or Codex access tokens, and review data returned into
+  the session.
+- If account compromise is suspected, reset sessions and hunt for follow-on exfiltration.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "ec65644d-c9b9-4e4b-a89f-457c75b1dad8"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect Codex logs (`app_mcp_call`) into Elasticsearch.
+Tune the distinct-tool and distinct-connector thresholds above your normal Codex baseline before broad enablement.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.codex_log-*
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.codex_log" and
+    event.action == "app_mcp_call" and
+    user.email is not null and
+    organization.id is not null and
+    gen_ai.tool.name is not null
+| eval Esql.time_bucket = date_trunc(30 minutes, @timestamp)
+| stats
+    Esql.gen_ai_tool_name_count_distinct = count_distinct(gen_ai.tool.name),
+    Esql.connector_id_count_distinct = count_distinct(openai_chatgpt_enterprise.codex_log.event_details.tool_meta.connector_id),
+    Esql.event_count = count(*),
+    Esql.gen_ai_tool_name_values = values(gen_ai.tool.name),
+    Esql.connector_id_values = values(openai_chatgpt_enterprise.codex_log.event_details.tool_meta.connector_id),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by
+    user.email,
+    organization.id,
+    Esql.time_bucket
+| where
+    Esql.gen_ai_tool_name_count_distinct >= 10 and
+    Esql.connector_id_count_distinct >= 3
+| keep
+    user.email,
+    organization.id,
+    Esql.time_bucket,
+    Esql.gen_ai_tool_name_count_distinct,
+    Esql.connector_id_count_distinct,
+    Esql.event_count,
+    Esql.gen_ai_tool_name_values,
+    Esql.connector_id_values,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "organization.id", "Esql.time_bucket"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "organization.id",
+    "Esql.time_bucket",
+    "Esql.gen_ai_tool_name_count_distinct",
+    "Esql.connector_id_count_distinct",
+    "Esql.event_count",
+    "Esql.gen_ai_tool_name_values",
+    "Esql.connector_id_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]

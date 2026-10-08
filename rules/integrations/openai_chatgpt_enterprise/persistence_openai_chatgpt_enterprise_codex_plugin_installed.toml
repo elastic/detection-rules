@@ -1,0 +1,166 @@
+[metadata]
+creation_date = "2026/10/08"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first ChatGPT Enterprise Codex plugin install for a given `plugin_display_name` and `plugin_name` pair in
+the rule history window. Newly installed Codex plugins expand the tools and data sources available inside agent
+sessions; alerting on first-seen installs highlights unexpected connector enablement rather than every routine
+reinstall.
+"""
+false_positives = [
+    """
+    Approved rollout of Codex plugins such as Slack, Gmail, or Google Drive for engineering or support teams. Confirm
+    the plugin against your workspace connector inventory and change process before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-openai_chatgpt_enterprise.codex_log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Unusual Codex Plugin Installed"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Unusual Codex Plugin Installed
+
+First-seen Codex `plugin_installed` for this plugin pair (`plugin_display_name` / `plugin_name`) within the rule
+history window. Plugins can add connectors that pull mail, chat, or file content into Codex.
+
+Escalate when the plugin is not on the approved inventory, the installing user is unexpected, or nearby activity shows
+sensitive search bursts, MCP tool abuse, or access-token creation. Close as a false positive for approved connector
+rollouts.
+
+#### Possible investigation steps
+
+- Record `plugin_display_name`, `plugin_name`, and the installing user (`user.email` / `user.id`).
+- Confirm whether the plugin is approved in your ChatGPT Enterprise / Codex workspace inventory.
+- Review nearby Codex and app-log activity for the same user for MCP calls, Drive/Slack query bursts, or credential
+  exposure.
+- Search for the same plugin installed by other users to distinguish org-wide rollout from a single anomalous install.
+
+### False positive analysis
+
+- Planned enablement of common plugins (Slack, Gmail, Google Drive) during onboarding or team pilots.
+
+### Response and remediation
+
+- Remove unauthorized plugins, revoke related OAuth links, and review data accessed after the install.
+- If sensitive data may have been retrieved, follow your data-incident process for the session window.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "8f7fbc33-3fcc-4bf7-bd92-853f9c0f3a3c"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect Codex compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Use Case: UEBA",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Tactic: Persistence",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "openai_chatgpt_enterprise.codex_log" and
+    event.action: "plugin_installed" and
+    organization.id: * and
+    user.email: * and
+    openai_chatgpt_enterprise.codex_log.event_details.plugin_display_name: * and
+    openai_chatgpt_enterprise.codex_log.event_details.plugin_name: *
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1176"
+name = "Software Extensions"
+reference = "https://attack.mitre.org/techniques/T1176/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "organization.id",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.codex_log.event_details.plugin_display_name",
+    "openai_chatgpt_enterprise.codex_log.event_details.plugin_name",
+    "openai_chatgpt_enterprise.codex_log.client_id",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "openai_chatgpt_enterprise.codex_log.event_details.plugin_display_name",
+    "openai_chatgpt_enterprise.codex_log.event_details.plugin_name",
+]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"

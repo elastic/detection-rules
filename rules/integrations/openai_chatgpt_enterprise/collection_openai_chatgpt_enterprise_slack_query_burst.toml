@@ -1,0 +1,191 @@
+[metadata]
+creation_date = "2026/10/08"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a ChatGPT Enterprise user issuing ten or more distinct Slack app search queries in a five-minute bucket.
+Rapid multi-query Slack discovery through the connected app or MCP can indicate automated or scripted hunting across
+channels and messages for sensitive content. The distinct-query floor is set above routine single-thread lookups;
+legitimate power-user Slack search sessions may still exceed it and should be tuned per environment.
+"""
+false_positives = [
+    """
+    Incident responders, support engineers, or community managers who run many Slack search refinements in a short
+    window. Validate the query values and business context before escalating.
+    """,
+    """
+    Approved automation that uses ChatGPT's Slack connector for triage or knowledge lookup. Raise the distinct-query
+    threshold if those roles remain noisy.
+    """,
+]
+from = "now-30m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Slack Query Burst"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Slack Query Burst
+
+One user ran ten or more distinct Slack app searches in five minutes. That pattern can indicate using ChatGPT's Slack
+connector to enumerate channels or messages at volume for collection.
+
+Escalate when queries look like bulk discovery (many channels, sequential refinements, sensitive keywords), downloads
+or shares follow, or the actor is unexpected. Close as a false positive for approved IR/support search bursts.
+
+#### Possible investigation steps
+
+- Review `Esql.query_values`, `Esql.query_count_distinct`, and `Esql.event_count` on the alert.
+- Correlate with nearby conversation messages asking ChatGPT to search Slack or retrieve messages/files.
+- Check subsequent file downloads, conversation shares, or Codex MCP Slack tool calls from the same user.
+- Confirm whether the Slack MCP/app link is approved for that user.
+
+### False positive analysis
+
+- Support and IR teams commonly refine Slack searches many times in one session.
+- Tunable: raise `Esql.query_count_distinct` (default 10) above your baseline for heavy Slack-connector users.
+
+### Response and remediation
+
+- If unauthorized, revoke Slack app access for the user, review retrieved messages/files, and treat exposed content per
+  your data-incident process.
+- Hunt for follow-on downloads, shares, or external forwarding of the matched content.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "b3785d4f-ce8a-4c36-bdd6-5e652d26a8ca"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for the Slack app, including
+`log_type: request` rows with `openai_chatgpt_enterprise.app_log.query` populated.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Tactic: Discovery",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_log-*
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_name == "Slack" and
+    openai_chatgpt_enterprise.app_log.log_type == "request" and
+    openai_chatgpt_enterprise.app_log.query is not null and
+    user.email is not null
+| eval Esql.time_bucket = date_trunc(5 minutes, @timestamp)
+| stats
+    Esql.query_count_distinct = count_distinct(openai_chatgpt_enterprise.app_log.query),
+    Esql.event_count = count(*),
+    Esql.query_values = values(openai_chatgpt_enterprise.app_log.query),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by
+    user.email,
+    organization.id,
+    Esql.time_bucket
+| where Esql.query_count_distinct >= 10
+| keep
+    user.email,
+    organization.id,
+    Esql.time_bucket,
+    Esql.query_count_distinct,
+    Esql.event_count,
+    Esql.query_values,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "organization.id", "Esql.time_bucket"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "organization.id",
+    "Esql.time_bucket",
+    "Esql.query_count_distinct",
+    "Esql.event_count",
+    "Esql.query_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
