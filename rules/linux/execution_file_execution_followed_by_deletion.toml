@@ -2,7 +2,7 @@
 creation_date = "2023/08/28"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/08"
 
 [rule]
 author = ["Elastic"]
@@ -95,19 +95,16 @@ type = "eql"
 query = '''
 sequence by host.id, user.id with maxspan=1m
   [file where host.os.type == "linux" and event.action == "creation" and
-   process.name in ("curl", "wget", "fetch", "ftp", "sftp", "scp", "rsync", "ld") and
-   file.path : ("/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*",
-     "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
+   process.name in ("curl", "wget", "fetch", "ftp", "sftp", "scp", "rsync", "ld", "xdg-open") and
+   file.path like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.parent.name in ("bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
-   not process.parent.executable like (
-     "/tmp/VeeamApp*", "/tmp/rajh/spack-stage/*", "plz-out/bin/vault/bridge/test/e2e/base/bridge-dev",
-     "/usr/bin/ranlib", "/usr/bin/ar", "plz-out/bin/vault/bridge/test/e2e/base/local-k8s"
+   process.executable like (
+     "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*",
+     "/proc/*/fd/*", "?memfd:*", "memfd:*"
    )] by process.name
   [file where host.os.type == "linux" and event.action == "deletion" and
-   file.path : (
-     "/dev/shm/*", "/run/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*"
-    ) and not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch", "ld")] by file.name
+   file.path like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*") and
+   not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch", "ld")] by file.name
 '''
 
 [[rule.threat]]
