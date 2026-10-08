@@ -1,0 +1,188 @@
+[metadata]
+creation_date = "2026/09/10"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the assignment requirement being disabled on an IAM Identity Center application, followed by an Identity Center
+token being minted through that application. When assignmentRequired is true, only users and groups explicitly assigned
+to the application may use it. Setting it to false removes that gate, so every identity in the Identity Store becomes
+eligible, and the application's own entitlements apply to all of them. Pairing the configuration change with subsequent
+token issuance establishes that the widened application was actually used rather than merely reconfigured. The causal
+ordering is resolved per token, so the reported interval between the change and each token is always the true elapsed
+time, and an application whose assignment requirement was re-enabled before the token was minted does not match.
+"""
+false_positives = [
+    """
+    Applications intended to be available to the whole workforce are legitimately configured with the assignment
+    requirement disabled, and tokens follow immediately in normal use. The distinguishing evidence is whether the change
+    was recent and deliberate: reconcile the reported application against the set you intend to be directory-wide, and
+    exempt those applications rather than the behavior.
+    """,
+    """
+    An engineer building an application will often disable the assignment requirement and then immediately test token
+    issuance, producing this sequence within seconds. Compare the principal that disabled the requirement against the
+    principal that minted the token, both reported, and confirm the change appears in change management.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Application Opened to All Users and Used"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Application Opened to All Users and Used
+
+Detects the assignment requirement being disabled on an IAM Identity Center application, followed by an Identity Center token being minted through that application. When assignmentRequired is true, only users and groups explicitly assigned to the application may use it.
+
+### Possible investigation steps
+
+- Establish the blast radius. With the assignment requirement disabled, the application is no longer limited to its assigned users and groups; every identity in the Identity Store is eligible to use it. Whatever the application is entitled to reach therefore becomes reachable on behalf of any directory identity.
+- Compare the two principals. The alert reports which principal disabled the requirement and which principal minted tokens afterwards. The same operator doing both is consistent with someone widening an application in order to use it; a directory administrator disabling it while an unrelated workload mints tokens is more likely to be an onboarding change.
+- Check the interval. The reported minimum and maximum seconds between the change and each token show how tightly the two are coupled. Token issuance seconds after the change indicates the change was made in order to enable it.
+- Identify the identities the tokens were minted for. The alert reports the Identity Store subject of each token. A subject unrelated to the principal that minted the token indicates the widened application is being used to act as other users.
+- Trace the downstream access. Pivot from the application ARN and each token subject to `GetRoleCredentials` and the subsequent role sessions to determine what the tokens reached.
+
+### False positive analysis
+
+- Applications intended to be available to the whole workforce are legitimately configured with the assignment requirement disabled, and tokens follow immediately in normal use. The distinguishing evidence is whether the change was recent and deliberate: reconcile the reported application against the set you intend to be directory-wide, and exempt those applications rather than the behavior.
+- An engineer building an application will often disable the assignment requirement and then immediately test token issuance, producing this sequence within seconds. Compare the principal that disabled the requirement against the principal that minted the token, both reported, and confirm the change appears in change management.
+
+### Response and remediation
+
+- Remediate by re-enabling the assignment requirement and reviewing the application's assignments and entitlements. Re-enabling it prevents further eligibility but does not revoke tokens already minted.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_PutApplicationAssignmentConfiguration.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/assignuserstoapp.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateTokenWithIAM.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://awsteele.com/blog/2026/07/01/apps-can-now-impersonate-human-access-to-aws-via-iam-identity-center.html",
+]
+risk_score = 47
+rule_id = "9c4436e2-a0f5-508c-97b1-32426d2e0a95"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- The assignment configuration change and the token issuance must both fall inside the lookback for the correlation to resolve, because the assignmentRequired value is only present on the configuration event.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
+    (event.provider == "sso.amazonaws.com" AND event.action == "PutApplicationAssignmentConfiguration")
+    OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM"))
+| GROK aws.cloudtrail.request_parameters """[{,] ?applicationArn=%{DATA:Esql.gk_applicationarn_0}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_clientid_1}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?assignmentRequired=%{DATA:Esql.gk_assignmentrequired_2}[,}]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_3}[,}]"""
+| EVAL Esql.app = COALESCE(Esql.gk_applicationarn_0, Esql.gk_clientid_1),
+    Esql.assignment_required = Esql.gk_assignmentrequired_2,
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
+    Esql.subject = Esql.gk_identitystore_userid_3
+| EVAL Esql.stage = CASE(
+    event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "false", "opened",
+    event.action == "PutApplicationAssignmentConfiguration" AND Esql.assignment_required == "true", "closed",
+    event.action == "CreateTokenWithIAM", "token", "ignore")
+| EVAL Esql.cfg_record = CASE(Esql.stage IN ("opened", "closed"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.stage, "~", Esql.app, "~", Esql_priv.actor))
+| INLINE STATS Esql.cfg_history_values = VALUES(Esql.cfg_record)
+| WHERE Esql.stage == "token" AND Esql.app IS NOT NULL
+| MV_EXPAND Esql.cfg_history_values
+| DISSECT Esql.cfg_history_values "%{Esql.c_ms}~%{Esql.c_stage}~%{Esql.c_app}~%{Esql_priv.c_actor}"
+| EVAL Esql.c_time = TO_DATETIME(TO_LONG(Esql.c_ms))
+| WHERE Esql.c_app == Esql.app AND Esql.c_time < @timestamp
+| STATS Esql.opened_at = MAX(CASE(Esql.c_stage == "opened", Esql.c_time)),
+    Esql.closed_at = MAX(CASE(Esql.c_stage == "closed", Esql.c_time)),
+    Esql_priv.opened_by_values = VALUES(CASE(Esql.c_stage == "opened", Esql_priv.c_actor))
+    BY Esql.app,
+    cloud.account.id,
+    Esql.token_at = @timestamp,
+    aws.cloudtrail.request_id,
+    Esql_priv.actor,
+    Esql.subject
+| WHERE Esql.opened_at IS NOT NULL AND (Esql.closed_at IS NULL OR Esql.closed_at < Esql.opened_at)
+| EVAL Esql.gap = DATE_DIFF("seconds", Esql.opened_at, Esql.token_at)
+| STATS Esql.assignment_disabled_at = MIN(Esql.opened_at),
+    Esql_priv.disabled_by_values = VALUES(Esql_priv.opened_by_values),
+    Esql.first_token_at = MIN(Esql.token_at),
+    Esql.last_token_at = MAX(Esql.token_at),
+    Esql.tokens_count = COUNT(*),
+    Esql.min_seconds_open_before_token = MIN(Esql.gap),
+    Esql.max_seconds_open_before_token = MAX(Esql.gap),
+    Esql_priv.token_callers_values = VALUES(Esql_priv.actor),
+    Esql.token_subjects_values = VALUES(Esql.subject)
+    BY Esql.app,
+    cloud.account.id
+| KEEP Esql.*, Esql_priv.*, cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.alert_suppression]
+group_by = ["Esql.app"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.app",
+    "Esql.assignment_disabled_at",
+    "Esql_priv.disabled_by_values",
+    "Esql.first_token_at",
+    "Esql.tokens_count",
+    "Esql.min_seconds_open_before_token",
+    "Esql.max_seconds_open_before_token",
+    "Esql_priv.token_callers_values",
+    "Esql.token_subjects_values",
+    "cloud.account.id",
+]
+
+[rule.alert_suppression.duration]
+value = 130
+unit = "m"
+

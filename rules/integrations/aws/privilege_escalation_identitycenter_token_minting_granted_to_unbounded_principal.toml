@@ -1,0 +1,197 @@
+[metadata]
+creation_date = "2026/09/10"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. Verified on 9.6.0."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an IAM Identity Center application's IAM authentication method being written with an actor policy that allows
+token minting by an unbounded or cross-account principal. The actor policy attached to an application's IAM
+authentication method names which IAM principals may call sso-oauth:CreateTokenWithIAM for that application. Because the
+caller supplies the Identity Center identity context it wants a token for, any principal listed in that policy can mint
+an Identity Center token for any user the application can reach, and then exchange it for that user's AWS access. A
+principal of "*" therefore lets any AWS principal impersonate any Identity Center identity through the application, and
+an account root or an ARN outside the application's own account extends that ability beyond the account's trust
+boundary. Policies naming only same-account principal ARNs are treated as scoped and do not match.
+"""
+false_positives = [
+    """
+    A workload in another account that legitimately performs trusted identity propagation must be named in this policy,
+    so a cross-account entry can be expected by design. Confirm the named account and role belong to a workload you
+    operate and that the entry is recorded in change management. Narrow the policy to the specific role ARN rather than
+    the account root so that only the intended workload matches.
+    """,
+    """
+    An engineer prototyping an application may set the actor principal to "*" to get token issuance working before
+    narrowing it. This is worth alerting on regardless, because an application left in that state is an impersonation
+    path open to every principal in AWS. Treat it as a misconfiguration to correct rather than an exception to add.
+    """,
+]
+from = "now-65m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Token Minting Granted to Any Principal"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Token Minting Granted to Any Principal
+
+Detects an IAM Identity Center application's IAM authentication method being written with an actor policy that allows token minting by an unbounded or cross-account principal. The actor policy attached to an application's IAM authentication method names which IAM principals may call sso-oauth:CreateTokenWithIAM for that application.
+
+### Possible investigation steps
+
+- Read the exposure classification first. `any_aws_principal` means the actor policy principal is `*` and every principal in AWS, in any account, may mint Identity Center tokens through this application. `entire_account` means an account root was named, so every principal in that account qualifies. `cross_account` means a specific ARN outside the application's own account was named.
+- Understand what the grant confers. The caller of `sso-oauth:CreateTokenWithIAM` supplies the Identity Center identity context, so the token is minted for whichever identity the caller asks for rather than for the caller itself. Combined with this policy, a listed principal can obtain a token as an arbitrary Identity Center user and exchange it for that user's AWS access. This is an impersonation primitive, not merely broad access.
+- Identify who wrote it. The alert reports the granting principal. A permission-set session or a workload role widening the actor policy of an application it does not own is materially different from a directory administrator doing so during onboarding.
+- Establish whether it was used. Pivot on the reported application ARN to `sso-oauth.amazonaws.com` `CreateTokenWithIAM` events, then to `GetRoleCredentials` and the resulting role sessions. The `identitystore:UserId` in the token event's additional event data names the identity each token was minted for; compare it against the caller to spot impersonation.
+
+### False positive analysis
+
+- A workload in another account that legitimately performs trusted identity propagation must be named in this policy, so a cross-account entry can be expected by design. Confirm the named account and role belong to a workload you operate and that the entry is recorded in change management. Narrow the policy to the specific role ARN rather than the account root so that only the intended workload matches.
+- An engineer prototyping an application may set the actor principal to "*" to get token issuance working before narrowing it. This is worth alerting on regardless, because an application left in that state is an impersonation path open to every principal in AWS. Treat it as a misconfiguration to correct rather than an exception to add.
+
+### Response and remediation
+
+- Remediate by rewriting the actor policy to name only the specific same-account role ARNs that require token issuance. Removing the grant stops new tokens but does not invalidate tokens already minted or role sessions already established.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_PutApplicationAuthenticationMethod.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateTokenWithIAM.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/trustedidentitypropagation.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://awsteele.com/blog/2026/07/01/apps-can-now-impersonate-human-access-to-aws-via-iam-identity-center.html",
+]
+risk_score = 47
+rule_id = "d46abd77-5489-5c74-9f46-49b6c1602737"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- This rule evaluates a single event and needs no correlation window, so the 65-minute lookback covers delivery delay only.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.provider == "sso.amazonaws.com"
+    AND event.action == "PutApplicationAuthenticationMethod"
+    AND event.outcome == "success"
+| EVAL Esql.app = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
+    Esql.method_type = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethodType"),
+    Esql.principals = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal.AWS"),
+    Esql.granted_actions = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Action"), ","),
+    Esql.effect = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Effect"), ",")
+| WHERE Esql.method_type == "IAM" AND Esql.app IS NOT NULL AND Esql.effect LIKE "*Allow*"
+| EVAL Esql.app_account = REPLACE(Esql.app, "^arn:aws[a-z-]*:sso::([0-9]{12}):.*$", "$1")
+| MV_EXPAND Esql.principals
+| EVAL Esql.is_arn = Esql.principals RLIKE "arn:aws[a-z-]*:(iam|sts)::[0-9]{12}:.+"
+| EVAL Esql.principal_account = CASE(Esql.is_arn, REPLACE(Esql.principals, "^arn:aws[a-z-]*:(?:iam|sts)::([0-9]{12}):.*$", "$1"))
+| EVAL Esql.exposure = CASE(
+    Esql.principals == "*", "any_aws_principal",
+    Esql.principals RLIKE "arn:aws[a-z-]*:iam::[0-9]{12}:root", "entire_account",
+    Esql.is_arn AND Esql.principal_account != Esql.app_account, "cross_account",
+    "scoped")
+| WHERE Esql.exposure != "scoped"
+| STATS Esql.granted_at = MAX(@timestamp),
+    Esql.grants_count = COUNT(*),
+    Esql_priv.granting_principals_values = VALUES(Esql_priv.actor),
+    Esql.token_actions_granted_values = VALUES(Esql.granted_actions),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.user_agent_original_values = VALUES(user_agent.original)
+    BY Esql.app,
+    Esql.principals,
+    Esql.exposure,
+    Esql.app_account,
+    event.outcome,
+    event.action,
+    event.provider,
+    cloud.account.id,
+    cloud.region
+| KEEP Esql.*, Esql_priv.*, event.outcome, event.action, event.provider, cloud.account.id, cloud.region
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.alert_suppression]
+group_by = ["Esql.app", "Esql.principals"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.app",
+    "Esql.principals",
+    "Esql.exposure",
+    "Esql.granted_at",
+    "Esql_priv.granting_principals_values",
+    "Esql.token_actions_granted_values",
+    "Esql.app_account",
+    "Esql.grants_count",
+    "cloud.region",
+    "cloud.account.id",
+]
+
+[rule.alert_suppression.duration]
+value = 70
+unit = "m"
+

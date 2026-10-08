@@ -1,0 +1,212 @@
+[metadata]
+creation_date = "2026/09/17"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/09/17"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an identity-binding attribute being changed on an IAM Identity Center user. A trusted token issuer resolves an
+external claim against a named Identity Store attribute, commonly the provider's email claim against Identity Center
+userName, and SAML federation resolves a subject the same way. Whoever can write that attribute therefore decides which
+Identity Center identity an external assertion maps to, so rebinding it to a value the actor controls at the identity
+provider turns a legitimate external assertion into a token for the rebound identity, without altering a policy,
+assignment or permission set. CloudTrail masks the new value but records the attribute path in the clear, which is the
+signal this rule uses. Changes to attributes that no claim resolves against, such as displayName, do not match. Because
+the attribute is durable state, the rule reports the change itself and separately counts how many times that identity
+was used afterwards, so a rebind that has not yet been exercised still produces an alert.
+"""
+false_positives = [
+    """
+    Ordinary directory maintenance changes these attributes: a user's surname changes, an email address is corrected, or
+    a joiner-mover-leaver process rewrites userName to a new convention. These are legitimate and, in a directory of any
+    size, routine. The deciding evidence is whether the change was requested through your identity management process
+    and whether the new value corresponds to a real mailbox or account the user controls. Pay closest attention to
+    changes whose new value the actor could also control at the identity provider.
+    """,
+    """
+    Bulk directory migrations rewrite the binding attribute for many users at once and will produce one alert per user.
+    Suppress by identity store for the duration of a planned migration rather than exempting the behavior permanently.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Federated Identity Attribute Rebound"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Federated Identity Attribute Rebound
+
+Detects an identity-binding attribute being changed on an IAM Identity Center user. A trusted token issuer resolves an external claim against a named Identity Store attribute, commonly the provider's email claim against Identity Center userName, and SAML federation resolves a subject the same way.
+
+### Possible investigation steps
+
+- Read the attribute path first. It names which attribute was rewritten. `userName` is the attribute a trusted token issuer most commonly resolves its claim against, so a change there directly alters which Identity Center identity external assertions map to. `emails` and `externalId` are used by other issuer and provisioning configurations.
+- Establish what resolves against it. Enumerate the instance's trusted token issuers and read each `IdentityStoreAttributePath`; that is the definitive list of attributes that control assertion mapping in your environment. If nothing resolves against the changed attribute, the change is directory maintenance rather than a rebind.
+- Compare the actor against the target. The alert reports the principal that made the change and the Identity Store user it was made on. A principal rewriting the binding attribute of an account other than its own, particularly a privileged account, is the shape of a takeover; an identity-management automation doing it as part of a documented process is not.
+- Check whether the rebind has been exercised. `Esql.uses_after_change_count` counts token issuance and role-credential retrieval for that Identity Store subject after the change, and `Esql.seconds_to_first_use` shows how quickly. A token minted seconds after the change indicates the change was made in order to enable it. A count of zero does not mean the rebind is harmless; it means it has not been used yet.
+- Recover the new value out of band. CloudTrail masks `operations.attributeValue`, so resolve the current state with `aws identitystore describe-user --user-id` and compare it against what the directory should hold. Determine whether the new value is one the actor could assert at the identity provider.
+
+### False positive analysis
+
+- Ordinary directory maintenance changes these attributes: a user's surname changes, an email address is corrected, or a joiner-mover-leaver process rewrites userName to a new convention. These are legitimate and, in a directory of any size, routine. The deciding evidence is whether the change was requested through your identity management process and whether the new value corresponds to a real mailbox or account the user controls. Pay closest attention to changes whose new value the actor could also control at the identity provider.
+- Bulk directory migrations rewrite the binding attribute for many users at once and will produce one alert per user. Suppress by identity store for the duration of a planned migration rather than exempting the behavior permanently.
+
+### Response and remediation
+
+- Remediate by restoring the correct attribute value. Note that tokens already minted against the rebound identity remain valid until they expire, so revoke active sessions for that subject as well as correcting the attribute.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_UpdateUser.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/using-apps-with-trusted-token-issuer.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_CreateTrustedTokenIssuer.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-320a",
+]
+risk_score = 47
+rule_id = "b111266e-f338-5f85-8fa8-aaeadd6f8daa"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- CloudTrail masks operations.attributeValue but records operations.attributePath, so the rule matches on the path and the new value must be recovered with identitystore describe-user.
+- The subsequent-use count only sees token issuance and credential retrieval inside the lookback; a rebind exercised later still alerts on the change itself with a count of zero.
+- This rule reads Identity Center attribution fields that the AWS integration only maps from version 7.4.0 onward: aws.cloudtrail.user_identity.on_behalf_of.user_id, aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn and aws.cloudtrail.user_identity.credential_id. On an earlier integration those fields are absent and the rule cannot match, so AWS integration 7.4.0 or later is required rather than recommended.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
+    (event.provider IN ("identitystore.amazonaws.com", "sso-directory.amazonaws.com")
+    AND event.action IN ("UpdateUser", "UpdateUserName"))
+    OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM")
+    OR (event.provider == "sso.amazonaws.com" AND event.action == "GetRoleCredentials"))
+| GROK aws.cloudtrail.request_parameters """[{,] ?userId=%{DATA:Esql.gk_userid_0}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?userId=%{DATA:Esql.gk_user_userid_1}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identitystoreid_2}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directoryid_3}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_user_directoryid_4}[,}\]]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_5}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?attributePath=%{DATA:Esql.gk_operations_attributepath_6}[,}\]]"""
+| EVAL Esql.target_user = COALESCE( Esql.gk_userid_0, Esql.gk_user_userid_1),
+    Esql.identity_store = COALESCE( Esql.gk_identitystoreid_2, Esql.gk_directoryid_3, Esql.gk_user_directoryid_4),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
+    Esql.subject = COALESCE(Esql.gk_identitystore_userid_5, aws.cloudtrail.user_identity.on_behalf_of.user_id)
+| EVAL Esql.attribute_path = CASE(
+    event.action == "UpdateUserName", "userName",
+    MV_CONCAT(Esql.gk_operations_attributepath_6, ","))
+| EVAL Esql.is_attribute_write = event.action IN ("UpdateUser", "UpdateUserName")
+| EVAL Esql.binding_attribute = TO_LOWER(Esql.attribute_path) RLIKE ".*(username|emails|externalid).*"
+| EVAL Esql.use_record = CASE(NOT Esql.is_attribute_write AND Esql.subject IS NOT NULL,
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.subject, "~", Esql_priv.actor, "~", event.action))
+| INLINE STATS Esql.uses_values = VALUES(Esql.use_record)
+| WHERE Esql.is_attribute_write AND Esql.binding_attribute AND Esql.target_user IS NOT NULL
+| MV_EXPAND Esql.uses_values
+| DISSECT Esql.uses_values "%{Esql.u_ms}~%{Esql.u_subject}~%{Esql_priv.u_actor}~%{Esql.u_action}"
+| EVAL Esql.u_time = TO_DATETIME(TO_LONG(Esql.u_ms))
+| EVAL Esql.matched = CASE(Esql.u_subject == Esql.target_user AND Esql.u_time > @timestamp, 1, 0)
+| STATS Esql.uses_after_change_count = SUM(Esql.matched),
+    Esql.first_use_at = MIN(CASE(Esql.matched == 1, Esql.u_time)),
+    Esql_priv.using_principals_values = VALUES(CASE(Esql.matched == 1, Esql_priv.u_actor)),
+    Esql.use_actions_values = VALUES(CASE(Esql.matched == 1, Esql.u_action))
+    BY Esql.target_user,
+    Esql.attribute_path,
+    event.action,
+    event.provider,
+    Esql_priv.actor,
+    Esql.identity_store,
+    Esql.changed_at = @timestamp,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    cloud.account.id
+| EVAL Esql.seconds_to_first_use = DATE_DIFF("seconds", Esql.changed_at, Esql.first_use_at)
+| KEEP Esql.*,
+    Esql_priv.*,
+    aws.cloudtrail.request_id,
+    event.action,
+    event.provider,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["Esql.target_user", "Esql.attribute_path"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.changed_at",
+    "Esql.attribute_path",
+    "Esql.target_user",
+    "Esql_priv.actor",
+    "Esql.identity_store",
+    "Esql.uses_after_change_count",
+    "Esql.first_use_at",
+    "Esql.seconds_to_first_use",
+    "Esql.use_actions_values",
+    "Esql_priv.using_principals_values",
+    "aws.cloudtrail.request_id",
+]
+
+[rule.alert_suppression.duration]
+value = 130
+unit = "m"
+

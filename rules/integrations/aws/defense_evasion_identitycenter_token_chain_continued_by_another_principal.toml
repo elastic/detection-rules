@@ -1,0 +1,223 @@
+[metadata]
+creation_date = "2026/09/10"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/09/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an IAM Identity Center token chain established by one IAM principal being continued by a different principal
+through the refresh_token or token-exchange grant. The jwt-bearer grant requires a freshly signed assertion from the
+trusted token issuer, so it evidences that the user actually authenticated. The refresh_token and token-exchange grants
+require no assertion at all, only prior token material, so a principal holding a stolen refresh or access token can keep
+minting Identity Center tokens for that user indefinitely without the user and without the identity provider. Token
+issuance is correlated by application and Identity Store subject, and the alert fires only when the continuing principal
+never established a chain for that subject itself, so an application refreshing its own tokens across many sessions does
+not match. The role is compared rather than the session, so ordinary session rotation by the same workload is not
+treated as a different principal.
+"""
+false_positives = [
+    """
+    An architecture that deliberately separates token acquisition from token use, for example a broker component that
+    performs the jwt-bearer exchange and hands the refresh token to a separate worker role, produces this pattern by
+    design. Confirm whether the two reported principals belong to the same application, and if the split is intended,
+    exempt that specific pair of role ARNs rather than the behavior. Passing refresh tokens between principals is worth
+    reviewing regardless, because it widens the set of identities that can act as the user.
+    """,
+    """
+    If the establishing jwt-bearer exchange falls outside the lookback, a legitimate same-principal refresh can appear
+    to have no matching establishment. The rule requires at least one establishment by a different principal inside the
+    window before alerting, so this manifests as a missed detection rather than a false positive, but it does mean a
+    long-lived refresh cycle is only partially covered.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Token Refreshed by a Different Principal"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Token Refreshed by a Different Principal
+
+Detects an IAM Identity Center token chain established by one IAM principal being continued by a different principal through the refresh_token or token-exchange grant. The jwt-bearer grant requires a freshly signed assertion from the trusted token issuer, so it evidences that the user actually authenticated.
+
+### Possible investigation steps
+
+- Start with the two principals. The alert names the principal that established the token chain with a real identity-provider assertion and the principal that continued it without one. If the continuing principal is not part of the same application's architecture, the token material reached it by some path worth establishing: a leaked configuration value, a shared secret store, a compromised role, or a log.
+- Understand why the continuation needs no authentication. The `jwt-bearer` grant validates a signed assertion from the trusted token issuer. The `refresh_token` and `token-exchange` grants validate only the token presented. Whoever holds that token can therefore act as the Identity Store subject named in the alert for as long as the token remains valid, and each refresh issues a fresh token, so the access renews itself.
+- Read the token types. `Esql.issued_token_type` of `refresh_token` means the continuation obtained new long-lived material and can self-renew; `access_token` means a shorter-lived credential was minted. A `token-exchange` whose `requested_token_type` is a refresh token is an escalation from a short-lived credential to a durable one.
+- Establish what the tokens reached. Pivot on the reported subject and application to `sso.amazonaws.com` `GetRoleCredentials`, then to the resulting role sessions and their activity. The Identity Store subject is the identity the access was exercised as, which is not the same as the principal that made the call.
+- Check the interval. A continuation seconds after establishment is consistent with an automated handoff; one much later suggests token material was retained and reused.
+
+### False positive analysis
+
+- An architecture that deliberately separates token acquisition from token use, for example a broker component that performs the jwt-bearer exchange and hands the refresh token to a separate worker role, produces this pattern by design. Confirm whether the two reported principals belong to the same application, and if the split is intended, exempt that specific pair of role ARNs rather than the behavior. Passing refresh tokens between principals is worth reviewing regardless, because it widens the set of identities that can act as the user.
+- If the establishing jwt-bearer exchange falls outside the lookback, a legitimate same-principal refresh can appear to have no matching establishment. The rule requires at least one establishment by a different principal inside the window before alerting, so this manifests as a missed detection rather than a false positive, but it does mean a long-lived refresh cycle is only partially covered.
+
+### Response and remediation
+
+- Containment requires invalidating the token material, which deleting the application or its grants achieves; removing the refresh_token and token-exchange grants from the application prevents further self-renewal. Revoking the continuing principal's `sso-oauth:CreateTokenWithIAM` permission and reviewing the application's actor policy limits who can mint tokens at all; see the related actor-policy exposure rule.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateTokenWithIAM.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/trustedidentitypropagation.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_PutApplicationGrant.html",
+    "https://datatracker.ietf.org/doc/html/rfc8693",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://awsteele.com/blog/2026/07/01/apps-can-now-impersonate-human-access-to-aws-via-iam-identity-center.html",
+]
+risk_score = 73
+rule_id = "15a7de12-7ab8-5958-8995-f8a540295955"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- The establishing jwt-bearer issuance and the continuing refresh or exchange must both fall inside the lookback, because the establishing principal is only knowable from the earlier event.
+- The refresh_token and token-exchange grants must be registered on the application for this telemetry to exist at all; applications configured only for jwt-bearer cannot produce it.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Defense Evasion",
+    "Tactic: Credential Access",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.provider == "sso-oauth.amazonaws.com"
+    AND event.action == "CreateTokenWithIAM"
+    AND event.outcome == "success"
+| GROK aws.cloudtrail.request_parameters """[{,] ?clientId=%{DATA:Esql.gk_clientid_0}[,}]"""
+| GROK aws.cloudtrail.additional_eventdata """[{,] ?identitystore:UserId=%{DATA:Esql.gk_identitystore_userid_1}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?grantType=%{DATA:Esql.gk_granttype_2}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?requestedTokenType=%{DATA:Esql.gk_requestedtokentype_3}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?subjectTokenType=%{DATA:Esql.gk_subjecttokentype_4}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?issuedTokenType=%{DATA:Esql.gk_issuedtokentype_5}[,}]"""
+| EVAL Esql.app = Esql.gk_clientid_0,
+    Esql.subject = Esql.gk_identitystore_userid_1,
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
+    Esql.grant = Esql.gk_granttype_2,
+    Esql.requested_token_type = Esql.gk_requestedtokentype_3,
+    Esql.subject_token_type = Esql.gk_subjecttokentype_4,
+    Esql.issued_token_type = Esql.gk_issuedtokentype_5
+| EVAL Esql.stage = CASE(
+    Esql.grant == "urn:ietf:params:oauth:grant-type:jwt-bearer", "established",
+    Esql.grant IN ("refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"), "continued", "ignore")
+| EVAL Esql.chain_record = CASE(Esql.stage == "established",
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.app, "~", COALESCE(Esql.subject, "none"), "~", Esql_priv.actor))
+| INLINE STATS Esql.chain_history_values = VALUES(Esql.chain_record)
+| WHERE Esql.stage == "continued" AND Esql.app IS NOT NULL AND Esql.subject IS NOT NULL
+| MV_EXPAND Esql.chain_history_values
+| DISSECT Esql.chain_history_values "%{Esql.e_ms}~%{Esql.e_app}~%{Esql.e_subject}~%{Esql_priv.e_actor}"
+| EVAL Esql.e_time = TO_DATETIME(TO_LONG(Esql.e_ms))
+| WHERE Esql.e_app == Esql.app AND Esql.e_subject == Esql.subject AND Esql.e_time < @timestamp
+| STATS Esql.established_at = MAX(Esql.e_time),
+    Esql_priv.establishing_principals_values = VALUES(Esql_priv.e_actor),
+    Esql.own_chains_count = COUNT(CASE(Esql_priv.e_actor == Esql_priv.actor, 1)),
+    Esql.other_chains_count = COUNT(CASE(Esql_priv.e_actor != Esql_priv.actor, 1))
+    BY Esql.app,
+    Esql.subject,
+    Esql_priv.actor,
+    Esql.grant,
+    Esql.requested_token_type,
+    Esql.subject_token_type,
+    Esql.issued_token_type,
+    Esql.continued_at = @timestamp,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+| WHERE Esql.own_chains_count == 0 AND Esql.other_chains_count > 0
+| EVAL Esql.seconds_from_establish_to_continue = DATE_DIFF("seconds", Esql.established_at, Esql.continued_at)
+| KEEP Esql.*,
+    Esql_priv.*,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1528"
+name = "Steal Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1528/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.alert_suppression]
+group_by = ["Esql.subject", "Esql_priv.actor", "Esql.grant"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "aws.cloudtrail.request_id",
+    "Esql.app",
+    "Esql.subject",
+    "Esql_priv.actor",
+    "Esql_priv.establishing_principals_values",
+    "Esql.grant",
+    "Esql.requested_token_type",
+    "Esql.subject_token_type",
+    "Esql.issued_token_type",
+    "Esql.established_at",
+    "Esql.continued_at",
+    "Esql.seconds_from_establish_to_continue",
+]
+
+[rule.alert_suppression.duration]
+value = 130
+unit = "m"
+
