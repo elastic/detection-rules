@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a persistent environment variable named PATH with a leading or trailing invisible format character. This is a
+distinct variable, not proof that the real PATH search order changed.
+"""
+false_positives = [
+    """
+    Approved administration or configuration management; review the initiating process and the exact changed object.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "PATH-Lookalike Environment Variable With Invisible Character"
+note = """## Triage and analysis
+
+### Investigating PATH-Lookalike Environment Variable With Invisible Character
+
+A PATH name containing U+200C was persisted. A narrowly scoped low-severity name-deception rule can flag this without widening execution-masquerading rules to every Unicode filename.
+
+No process used the variable, and the real PATH was not modified. Intent and operational prevalence remain unvalidated. Test approved internationalized environment management before deployment.
+
+Validate change authorization, process ancestry and related activity before escalating.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1027.018/T1027.018.yaml",
+]
+risk_score = 21
+rule_id = "cdf8c95d-5cd9-5d95-9b5c-ff921c5fd540"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Platform: Windows",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.path : ("HKEY_USERS\\*\\Environment\\*", "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Environment\\*") and
+  registry.value : ("PATH​", "PATH‌", "PATH‍", "PATH﻿", "​PATH", "‌PATH", "‍PATH", "﻿PATH")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1112"
+name = "Modify Registry"
+reference = "https://attack.mitre.org/techniques/T1112/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
