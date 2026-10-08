@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["windows"]
+maturity = "development"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies PowerShell script blocks that add or replace Windows Defender path, process or extension exclusions. Script
+content covers commands invoked through script files when the cmdlet is absent from process arguments. Verify successful
+configuration separately.
+"""
+false_positives = ["Approved administration, configuration management and security troubleshooting."]
+from = "now-9m"
+index = ["logs-windows.powershell*", "winlogbeat-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Windows Defender Exclusion Added in PowerShell Script"
+note = """## Triage and analysis
+
+### Investigating Windows Defender Exclusion Added in PowerShell Script
+
+Confirm the changed setting or executed command, initiating process tree and account. Correlate with other suspicious behavior and approved change records. Verify effective settings before asserting loss of protection or recovery capability. Scope any future exceptions to evidence-backed management behavior.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+
+Script block content may include comments, strings, function definitions or unexecuted branches. Reconstruct fragmented script blocks and verify the effective Defender exclusion configuration before concluding that an exclusion was applied.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1685/T1685.yaml",
+]
+risk_score = 47
+rule_id = "28d72efb-8f25-522c-acba-805e68da853c"
+setup = """## Setup
+
+Enable and ingest PowerShell Script Block Logging (event 4104) using the Windows integration. Preserve complete script blocks, including fragments.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: PowerShell Logs",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:windows and event.code:"4104" and
+  powershell.file.script_block_text:("*Add-MpPreference*" or "*Set-MpPreference*") and
+  powershell.file.script_block_text:("*-ExclusionPath*" or "*-ExclusionProcess*" or "*-ExclusionExtension*") and
+  not powershell.file.script_block_text:("*__cmdletization_BindCommonParameters*" and "*Export-ModuleMember*")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
