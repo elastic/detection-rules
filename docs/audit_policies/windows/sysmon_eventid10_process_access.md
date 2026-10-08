@@ -22,11 +22,49 @@ The following example demonstrates a more targeted approach for Event ID 10 by f
         <ProcessAccess onmatch="include">
             <Rule groupRelation="and">
 		        <TargetImage condition="end with">\lsass.exe</TargetImage>
-		        <GrantedAccess condition="contains any">0x40;0x1000;0x1010;0x1038;0x1410;0x1418;0x1438;0x143a;0x100000;0x1f0fff;0x1f1fff;0x1f2fff;0x1f3fff;0x1fffff</GrantedAccess> <!--0x1400 too noisy-->
+		        <GrantedAccess condition="contains any">0x40;0x1000;0x1010;0x1038;0x14c0;0x1410;0x1418;0x1438;0x143a;0x100000;0x1f0fff;0x1f1fff;0x1f2fff;0x1f3fff;0x1fffff</GrantedAccess> <!--0x1400 too noisy-->
 	        </Rule>
         </ProcessAccess>
     </EventFiltering>
 </Sysmon>
+```
+
+For **Potential Credential Access via DuplicateHandle in LSASS**, add this optional filter inside `EventFiltering` to collect LSASS accessing other processes:
+
+```xml
+<RuleGroup groupRelation="and">
+    <ProcessAccess onmatch="include">
+        <SourceImage condition="image">lsass.exe</SourceImage>
+        <GrantedAccess condition="is">0x40</GrantedAccess>
+        <CallTrace condition="contains">UNKNOWN</CallTrace>
+    </ProcessAccess>
+</RuleGroup>
+```
+
+For the Event ID 10 portion of **Suspicious Process Creation CallTrace**, add this optional filter inside `EventFiltering`:
+
+```xml
+<RuleGroup groupRelation="and">
+    <ProcessAccess onmatch="include">
+        <CallTrace condition="contains">UNKNOWN</CallTrace>
+        <SourceImage condition="image">winword.exe</SourceImage>
+        <SourceImage condition="image">excel.exe</SourceImage>
+        <SourceImage condition="image">outlook.exe</SourceImage>
+        <SourceImage condition="image">powerpnt.exe</SourceImage>
+        <SourceImage condition="image">eqnedt32.exe</SourceImage>
+        <SourceImage condition="image">fltldr.exe</SourceImage>
+        <SourceImage condition="image">mspub.exe</SourceImage>
+        <SourceImage condition="image">msaccess.exe</SourceImage>
+        <SourceImage condition="image">cscript.exe</SourceImage>
+        <SourceImage condition="image">wscript.exe</SourceImage>
+        <SourceImage condition="image">rundll32.exe</SourceImage>
+        <SourceImage condition="image">regsvr32.exe</SourceImage>
+        <SourceImage condition="image">mshta.exe</SourceImage>
+        <SourceImage condition="image">wmic.exe</SourceImage>
+        <SourceImage condition="image">cmstp.exe</SourceImage>
+        <SourceImage condition="image">msxsl.exe</SourceImage>
+    </ProcessAccess>
+</RuleGroup>
 ```
 
 ## Related Rules
