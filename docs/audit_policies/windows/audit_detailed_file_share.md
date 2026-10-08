@@ -26,7 +26,7 @@ Audit Detailed File Share (Success,Failure)
 To enable this policy on a local machine, run the following command in an elevated command prompt:
 
 ```
-auditpol.exe /set /subcategory:"File Share" /success:enable /failure:disable
+auditpol.exe /set /subcategory:"Detailed File Share" /success:enable /failure:enable
 ```
 
 ## Event IDs
