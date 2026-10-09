@@ -2,21 +2,21 @@
 creation_date = "2025/06/13"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/08"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a sequence of events in Microsoft Entra ID indicative of suspicious cloud-based device registration via automated
-tooling like ROADtools or similar frameworks. This behavior involves adding a device via the Device Registration Service,
-followed by the assignment of registered users and owners — a pattern consistent with techniques used to establish persistence or
-acquire a Primary Refresh Token (PRT). ROADtools and similar tooling leave distinct telemetry signatures such as the
-`Microsoft.OData.Client` user agent. These sequences are uncommon in typical user behavior and may reflect abuse of device
-trust for session hijacking or silent token replay.
+Detects a sequence of events in Microsoft Entra ID indicative of suspicious cloud-based device registration via
+automated tooling like ROADtools or similar frameworks. This behavior involves adding a device via the Device
+Registration Service, followed by the assignment of registered users and owners — a pattern consistent with techniques
+used to establish persistence or acquire a Primary Refresh Token (PRT). ROADtools and similar tooling leave distinct
+telemetry signatures such as the `Microsoft.OData.Client` user agent. These sequences are uncommon in typical user
+behavior and may reflect abuse of device trust for session hijacking or silent token replay.
 """
 from = "now-30m"
-interval = "15m"
 index = ["filebeat-*", "logs-azure.auditlogs-*"]
+interval = "15m"
 language = "eql"
 license = "Elastic License v2"
 name = "Entra ID Unusual Cloud Device Registration"
@@ -66,7 +66,7 @@ This pattern has been observed in OAuth phishing and PRT abuse campaigns where a
 references = [
     "https://www.volexity.com/blog/2025/04/22/phishing-for-codes-russian-threat-actors-target-microsoft-365-oauth-workflows/",
     "https://github.com/dirkjanm/ROADtools",
-    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/"
+    "https://dirkjanm.io/introducing-roadtools-token-exchange-roadtx/",
 ]
 risk_score = 47
 rule_id = "90efea04-5675-11f0-8f80-f661ea17fbcd"
@@ -100,46 +100,50 @@ sequence by azure.correlation_id with maxspan=5m
     ) and
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "CloudAccountEnabled" and
     `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value` == "[true]"]
+// LOCAL TUNE (ia-trade-team#910): collapsed stages 2+3 into one order-agnostic stage and
+// dropped the brittle positional `modified_properties.2.new_value` URN check. In current
+// roadtx (1.22) telemetry that field is null on "Add registered users to device" and the
+// users/owner sub-events arrive in variable order, so the original 3-stage ordered sequence
+// never completes and the rule misses both default and OS-build-evaded roadtx registrations.
+// Stage 1 (Device Registration Service + Microsoft.OData.Client/Dsreg/DeviceRegistrationClient
+// UA + CloudAccountEnabled) stays high-fidelity and is OS-build/device-name independent.
 [any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered users to device" and
-    `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value` like "*urn:ms-drs:enterpriseregistration.windows.net*"]
-[any where data_stream.dataset == "azure.auditlogs" and
-    azure.auditlogs.operation_name == "Add registered owner to device"]
+    azure.auditlogs.operation_name in ("Add registered users to device", "Add registered owner to device")]
 '''
 
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.005"
 name = "Device Registration"
 reference = "https://attack.mitre.org/techniques/T1098/005/"
 
+
+
 [rule.threat.tactic]
 id = "TA0004"
 name = "Privilege Escalation"
 reference = "https://attack.mitre.org/tactics/TA0004/"
+
