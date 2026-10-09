@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects an attempt to create or modify a pod attached to the host PID namespace. HostPID allows a pod to
+access all the processes running on the host and could allow an attacker to take malicious action. When paired with
+ptrace this can be used to escalate privileges outside of the container. When paired with a privileged container, the
+pod can see all of the processes on the host. An attacker can enter the init system (PID 1) on the host. From there,
+they could execute a shell and continue to escalate privileges to root.
+'''
+false_positives = [
+    '''
+    An administrator or developer may want to use a pod that runs as root and shares the hosts IPC, Network, and PID
+    namespaces for debugging purposes. If something is going wrong in the cluster and there is no easy way to SSH onto
+    the host nodes directly, a privileged pod of this nature can be useful for viewing things like iptable rules and
+    network namespaces from the host's perspective. Add exceptions for trusted container images using the query field
+    "aws.eks.audit.requestObject.spec.container.image"
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Pod Created With HostPID"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Pod Created With HostPID
+Kubernetes allows pods to share the host's process ID (PID) namespace, enabling visibility into host processes. While useful for debugging, this can be exploited by attackers to escalate privileges, especially when combined with privileged containers. The detection rule identifies attempts to create or modify pods with HostPID enabled, excluding known safe images, to flag potential privilege escalation activities.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the user or service account responsible for the pod creation or modification attempt. Look for the `aws.eks.audit.user.username` field to determine who initiated the action.
+- Examine the `aws.eks.audit.requestObject.spec.containers.image` field to identify the container images used in the pod. Verify if any unknown or suspicious images are being deployed.
+- Check the `aws.eks.audit.annotations.authorization_k8s_io/decision` field to confirm that the action was allowed and investigate the context or reason for this decision.
+- Investigate the `aws.eks.audit.objectRef.resource` and `aws.eks.audit.verb` fields to understand the specific action taken (create, update, or patch) and the resource involved.
+- Assess the necessity and legitimacy of using HostPID in the pod's configuration by consulting with the relevant development or operations teams. Determine if there is a valid use case or if it was potentially misconfigured or maliciously set.
+- Review any recent changes in the Kubernetes environment or related configurations that might have led to this alert, focusing on changes around the time the alert was triggered.
+
+### False positive analysis
+
+- Known safe images like "docker.elastic.co/beats/elastic-agent:8.4.0" are already excluded, but other internal tools or monitoring agents that require HostPID for legitimate reasons might trigger false positives. Review and identify such images and add them to the exclusion list.
+- Development or testing environments often use HostPID for debugging purposes. Consider creating a separate rule or exception for these environments to prevent unnecessary alerts.
+- Some system maintenance tasks might require temporary use of HostPID. Document these tasks and schedule them during known maintenance windows, then adjust the rule to exclude these specific time frames.
+- Regularly review audit logs to identify patterns of benign HostPID usage. Use this information to refine the rule and reduce false positives by updating the exclusion criteria.
+- Collaborate with development and operations teams to understand legitimate use cases for HostPID in your environment, and adjust the rule to accommodate these scenarios without compromising security.
+
+### Response and remediation
+
+- Immediately isolate the affected pod to prevent further interaction with the host processes. This can be done by cordoning the node or deleting the pod if necessary.
+- Review and revoke any unnecessary permissions or roles that may have allowed the creation of pods with HostPID enabled. Ensure that only trusted users and service accounts have the ability to create such pods.
+- Conduct a thorough investigation of the container images used in the pod to ensure they are from trusted sources and have not been tampered with. Remove any untrusted or suspicious images from the registry.
+- Check for any unauthorized access or changes to the host system's processes and files. If any malicious activity is detected, take steps to restore affected systems from backups and patch any vulnerabilities.
+- Implement network segmentation to limit the communication between pods and the host system, reducing the risk of lateral movement by an attacker.
+- Enhance monitoring and logging to capture detailed audit logs of Kubernetes API activities, focusing on changes to pod specifications and the use of HostPID. This will aid in detecting similar threats in the future.
+- Escalate the incident to the security operations team for further analysis and to determine if additional security measures or incident response actions are required.'''
+references = [
+    "https://research.nccgroup.com/2021/11/10/detection-engineering-for-kubernetes-clusters/#part3-kubernetes-detections",
+    "https://kubernetes.io/docs/concepts/security/pod-security-policy/#host-namespaces",
+    "https://bishopfox.com/blog/kubernetes-pod-privilege-escalation",
+]
+risk_score = 47
+rule_id = "4ed8dfbd-d3a0-5ed2-b5d3-1fc2ed8fa4bc"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
+    "Threat: Container Escape",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset : "aws.eks_audit" and aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
+aws.eks.audit.objectRef.resource:"pods" and aws.eks.audit.verb:("create" or "update" or "patch") and
+aws.eks.audit.requestObject.spec.hostPID:true and
+not aws.eks.audit.requestObject.spec.containers.image: (
+  ghcr.io/aquasecurity/node-collector* or rancher/system-agent* or ghcr.io/kubereboot/kured* or
+  *elastic/elastic-agent* or registry.k8s.io/sig-storage/csi-node-driver-registrar* or quay.io/prometheus/node-exporter* or
+  docker.elastic.co/beats/elastic-agent* or quay.io/cephcsi/cephcsi* or registry.crowdstrike.com/falcon-sensor* or */sysdig/* or
+  rancher/mirrored-longhornio-longhorn-manager* or gcr.io/datadoghq/agent*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"

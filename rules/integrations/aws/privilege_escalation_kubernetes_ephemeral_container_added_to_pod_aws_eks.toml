@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Detects allowed updates to the pods/ephemeralcontainers subresource by a non-system identity. Ephemeral containers are
+commonly used for debugging (kubectl debug) but can also be abused to inject tooling into a running pod, access mounted
+secrets, and execute commands in the target pod context. Attackers with sufficient RBAC may use ephemeral containers to
+escalate privileges, move laterally, or establish persistence without deploying a new workload.
+'''
+false_positives = [
+    '''
+    Cluster operators or SREs may legitimately use ephemeral containers for debugging production workloads. Baseline
+    approved admin identities and tune exclusions for known automation.
+''',
+]
+from = "now-9m"
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Ephemeral Container Added to Pod"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Ephemeral Container Added to Pod
+Ephemeral containers allow adding a container to an existing pod for troubleshooting. When abused, they can be used to
+gain interactive access to a workload, read sensitive files, and run tools that were not present in the original image.
+
+### Possible investigation steps
+
+- Review the actor (user.name, groups), source.ip, and user_agent.original and confirm the identity is authorized to use ephemeral containers.
+- Inspect aws.eks.audit.objectRef (namespace, name) to identify the targeted pod and workload owner.
+- If request bodies are captured, review the ephemeral container image, command, and securityContext for privilege indicators.
+- Correlate with follow-on audit activity such as pod exec, secret reads, TokenRequest, or RBAC modifications.
+
+### Response and remediation
+
+- If unauthorized, remove excessive RBAC that grants update/patch on pods/ephemeralcontainers and rotate exposed credentials.
+- Quarantine or redeploy impacted workloads and hunt for additional compromised pods or identities.'''
+references = ["https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/"]
+risk_score = 47
+rule_id = "62a8cc5d-f743-5c5b-8a65-9ad074523ea6"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Execution",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"aws.eks_audit" and
+aws.eks.audit.objectRef.resource:"pods" and
+aws.eks.audit.objectRef.subresource:"ephemeralcontainers" and
+aws.eks.audit.verb:("update" or "patch") and
+aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
+not user.name:(
+  system\:node\:* or
+  system\:serviceaccount\:kube-system\:*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"

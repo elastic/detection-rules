@@ -1,0 +1,122 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Detects Kubernetes API requests where a user is impersonating a privileged cluster identity such as
+system:kube-controller-manager, system:admin, system:anonymous, or a member of the system:masters group. These
+identities have broad cluster-wide permissions including unrestricted access to all secrets, the ability to create
+tokens for any service account, schedule pods on any node, and modify RBAC policies. An attacker impersonating
+system:masters gains full cluster-admin equivalent access, while impersonating system:kube-controller-manager
+grants access to every secret in every namespace and the ability to mint service account tokens for lateral
+movement.
+'''
+false_positives = [
+    '''
+    Break-glass admin tooling, security scanners, or approved controllers that legitimately use impersonation with
+    privileged targets may match if not covered by exclusions. Map expected callers and expand `not user.name`
+    filters as needed for your environment.
+''',
+]
+from = "now-9m"
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS API Request Impersonating Privileged Identity"
+note = '''
+## Triage and analysis
+
+### Investigating AWS EKS API Request Impersonating Privileged Identity
+Compare the real actor (user.name, groups, source.ip, user_agent.original) with impersonated
+fields (aws.eks.audit.impersonatedUser.username, aws.eks.audit.impersonatedUser.groups). Confirm whether
+impersonation is authorized for that principal and target identity.
+
+### Possible investigation steps
+
+- Review aws.eks.audit.requestURI, aws.eks.audit.verb, and aws.eks.audit.objectRef for the scope of the
+  operation performed while impersonating.
+- Determine whether the real user or service account should have impersonate rights against the impersonated user
+  or group; inspect RBAC impersonate verb bindings and any recent changes.
+- Correlate with adjacent audit activity (secrets, tokens, RBAC writes, CSR approval) from the same source identity.
+- Hunt for repeated impersonation across namespaces or rapid pivoting after the event.
+
+### Response and remediation
+
+- Revoke or tighten impersonate permissions for unexpected identities; rotate credentials for any account that may
+  have abused impersonation.
+- If unauthorized, treat as cluster-wide credential risk: review secrets exposure, issued tokens, and RBAC drift;
+  engage incident response per policy.'''
+references = [
+    "https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation",
+]
+risk_score = 73
+rule_id = "292f6a8c-9b61-5fca-b7d1-9a4b42e4bc43"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:aws.eks_audit and
+aws.eks.audit.impersonatedUser.username:(* and not ("eks-event-service:event-controller" or eks\:*)) and
+aws.eks.audit.annotations.authorization_k8s_io/decision:allow and
+aws.eks.audit.verb:(create or delete or get or list or patch or update) and
+(aws.eks.audit.impersonatedUser.username:(admin or cluster-admin or kubernetes-admin or "system:admin" or "system:anonymous" or "system:apiserver" or "system:kube-controller-manager" or "system:kube-proxy" or "system:kube-scheduler" or "system:volume-scheduler" or system\:node\:* or system\:serviceaccount\:kube-system\:*) or aws.eks.audit.impersonatedUser.groups:(cluster-admin or "system:cluster-admins" or "system:masters")) and
+not user.name:("system:kube-controller-manager" or "system:kube-scheduler" or arn\:aws\:iam\:*\:role/aws-service-role* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKS* or arn\:aws\:sts\:*\:assumed-role/AWSServiceRoleForAmazonEKSNodegroup* or eks\:* or system\:node\:* or system\:serviceaccount\:kube-system\:*)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+id = "T1134"
+name = "Access Token Manipulation"
+reference = "https://attack.mitre.org/techniques/T1134/"

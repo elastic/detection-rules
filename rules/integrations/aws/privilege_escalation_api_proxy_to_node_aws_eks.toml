@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Detects non-system identities using the Kubernetes nodes/proxy API to proxy requests through the API server directly
+to a node's Kubelet. The nodes/proxy subresource allows any principal with this RBAC permission to reach the Kubelet
+API on any worker node without needing direct network access or Kubelet TLS certificates. Through this proxy path,
+an attacker can list all pod specifications including environment variable secrets, read Kubelet configuration and
+PKI material, retrieve container logs, and access running pod metadata across all workloads on the target node.
+Monitoring and health check endpoints such as /metrics, /healthz, and /stats are excluded to reduce noise from legitimate
+observability tooling.
+'''
+false_positives = [
+    '''
+    Legitimate kubelet debugging, node troubleshooting, or security tooling that uses the node proxy outside the
+    excluded metrics prefix may match. Baseline approved operators and automation identities.
+''',
+]
+from = "now-9m"
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS API Server Proxying Request to Kubelet"
+note = '''
+## Triage and analysis
+
+### Investigating AWS EKS API Server Proxying Request to Kubelet
+Review the user.name, source.ip, and user_agent.original fields to determine who initiated the proxy request and from
+where. Examine aws.eks.audit.requestURI to identify which Kubelet endpoint was proxied — the path after /proxy/
+maps directly to the Kubelet API path the attacker accessed.
+
+### Possible investigation steps
+
+- Check the proxied Kubelet path in requestURI to determine attacker intent:
+  - /proxy/pods — pod spec enumeration including environment variable secrets
+  - /proxy/exec or /proxy/run — command execution inside containers on that node
+  - /proxy/configz — Kubelet configuration and authentication settings
+  - /proxy/runningpods — active workload enumeration
+  - /proxy/containerLogs — log harvesting for leaked credentials
+- Identify how the principal obtained nodes/proxy permission by reviewing RBAC bindings
+- Check if a ServiceAccount token was created shortly before via the TokenRequest API - this
+  indicates the attacker minted a token specifically for this access.
+- Review whether the same principal accessed multiple nodes via proxy in a short window, which
+  indicates systematic lateral movement across the cluster.
+
+### False positive analysis
+
+- Prometheus, Datadog, and other monitoring agents scrape /metrics and /stats via nodes/proxy.
+  These endpoints are excluded by default. If additional monitoring paths generate noise, add
+  them to the requestURI exclusion.
+- Cluster administration tools that inspect node health via the proxy API can match. Correlate
+  with change management windows and verify the source identity.
+
+### Response and remediation
+
+- Immediately review the RBAC role granting nodes/proxy permission and determine if the binding
+  is authorized. Remove unauthorized bindings.
+- If /proxy/pods was accessed, assume all environment variable secrets on that node are compromised.
+  Rotate affected credentials, API keys, and database passwords.
+- If /proxy/exec or /proxy/run was accessed, treat the target node as compromised. Isolate the node,
+  review running containers for unauthorized modifications, and check for persistence mechanisms.
+- Audit all ClusterRoles for nodes/proxy permission — this is a powerful privilege that should be
+  restricted to infrastructure automation only, never granted to application service accounts.'''
+references = ["https://kubernetes.io/docs/concepts/cluster-administration/proxies/"]
+risk_score = 47
+rule_id = "b9ef6a04-6f0d-5b61-a308-405cf668f014"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Lateral Movement",
+    "Tactic: Discovery",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:"aws.eks_audit" and
+aws.eks.audit.objectRef.subresource:"proxy" and
+aws.eks.audit.objectRef.resource:"nodes" and
+not aws.eks.audit.requestURI:(*metrics* or *healthz* or *stats/summary* or *elastic-agent* or *configz*) and
+not user.name:(
+  system\:kube-controller-manager or
+  system\:kube-scheduler or
+  system\:serviceaccount\:kube-system\:* or
+  system\:node\:* or
+  eks\:*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat.technique]]
+id = "T1550"
+name = "Use Alternate Authentication Material"
+reference = "https://attack.mitre.org/techniques/T1550/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1550.001"
+name = "Application Access Token"
+reference = "https://attack.mitre.org/techniques/T1550/001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
