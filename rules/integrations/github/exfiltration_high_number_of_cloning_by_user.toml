@@ -2,7 +2,7 @@
 creation_date = "2025/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -72,25 +72,49 @@ type = "esql"
 query = '''
 from logs-github.audit-* metadata _id, _index, _version
 | where
-  data_stream.dataset == "github.audit" and event.type == "change" and event.action == "git.clone"
+  data_stream.dataset == "github.audit" and event.type == "change" and event.action == "git.clone" and
+  user.name is not null
 | stats
-  Esql.event_count = COUNT(*),
-  Esql.github_org_values = values(github.org),
-  Esql.github_repo_values = values(github.repo),
-  Esql.github_repository_public_values = values(github.repository_public),
-  Esql.github_token_id_values = values(github.token_id),
-  Esql.github_user_agent_values = values(github.user_agent),
-  Esql.user_name_values = values(user.name),
-  Esql.agent_id_values = values(agent.id),
-  Esql.data_stream_dataset_values = values(data_stream.dataset),
-  Esql.data_stream_namespace_values = values(data_stream.namespace)
-
-  by user.name
-
-| keep Esql.*
-
+  Esql.event_count = count(*),
+  event.start = min(@timestamp),
+  event.end = max(@timestamp),
+  user.id = values(user.id),
+  source.ip = values(github.actor_ip),
+  client.geo.country_iso_code = values(client.geo.country_iso_code),
+  user_agent.original = values(user_agent.original),
+  github.org = values(github.org),
+  github.repo = values(github.repo),
+  github.repository_public = values(github.repository_public),
+  github.transport_protocol_name = values(github.transport_protocol_name),
+  github.programmatic_access_type = values(github.programmatic_access_type),
+  github.token_id = values(github.token_id),
+  github.hashed_token = values(github.hashed_token),
+  agent.id = values(agent.id),
+  data_stream.dataset = values(data_stream.dataset),
+  data_stream.namespace = values(data_stream.namespace)
+  by user.name, event.action
 | where
   Esql.event_count >= 25
+| keep
+  user.name,
+  event.action,
+  Esql.event_count,
+  event.start,
+  event.end,
+  user.id,
+  source.ip,
+  client.geo.country_iso_code,
+  user_agent.original,
+  github.org,
+  github.repo,
+  github.repository_public,
+  github.transport_protocol_name,
+  github.programmatic_access_type,
+  github.token_id,
+  github.hashed_token,
+  agent.id,
+  data_stream.dataset,
+  data_stream.namespace
 '''
 
 [[rule.threat]]
