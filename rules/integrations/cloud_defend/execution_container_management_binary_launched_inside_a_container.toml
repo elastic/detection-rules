@@ -4,7 +4,7 @@ integration = ["cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/08"
 
 [rule]
 author = ["Elastic"]
@@ -108,10 +108,16 @@ process where host.os.type == "linux" and event.type == "start" and event.action
 ) and
 container.id like "*" and
 not (
-  process.parent.executable in ("/sbin/init", "/usr/bin/dockerd", "/usr/bin/runc", "/usr/bin/containerd-shim-runc-v2") or
-  process.working_directory == "/aws" or
-  (process.parent.args == "init" and process.parent.args == "runc") or
-  (process.parent.name == "busybox" and process.name == "kubectl")
+  process.parent.executable in (
+    "/bin/dockerd", "/usr/bin/dockerd", "/usr/local/bin/dockerd",
+    "/bin/containerd", "/usr/bin/containerd", "/usr/local/bin/containerd",
+    "/bin/crictl", "/usr/bin/crictl", "/usr/local/bin/crictl",
+    "/bin/runc", "/usr/bin/runc", "/usr/local/bin/runc",
+    "/bin/containerd-shim-runc-v2", "/usr/bin/containerd-shim-runc-v2", "/usr/local/bin/containerd-shim-runc-v2",
+    "/bin/docker-init", "/usr/bin/docker-init", "/usr/local/bin/docker-init",
+    "/sbin/init"
+  ) or
+  (process.parent.args == "init" and process.parent.args == "runc")
 )
 '''
 
