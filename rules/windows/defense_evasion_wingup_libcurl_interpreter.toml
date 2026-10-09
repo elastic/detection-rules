@@ -1,0 +1,86 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a trusted Notepad++ updater launching a command or script interpreter through libcurl.dll. This can indicate
+execution from a substituted updater library. The call stack requirement distinguishes this behavior from ordinary
+updater launches.
+"""
+false_positives = [
+    """
+    An approved custom updater or instrumented diagnostic build that launches an interpreter from libcurl.dll may match;
+    investigate module provenance before excluding it.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Command Interpreter Started by WinGUp through Libcurl"
+note = """## Triage and analysis
+
+### Investigating Command Interpreter Started by WinGUp through Libcurl
+
+Confirm that the interpreter is a direct child of the signed Notepad++ updater and that the parent thread call stack contains libcurl.dll. Inspect the child command, updater path, neighboring DLL hashes/signatures, file creation times, and subsequent activity. Correlate library-load events using the updater process entity ID.
+
+### False-positive analysis
+
+A custom updater or approved diagnostic build may invoke a shell. Verify the libcurl provenance and the exact calling module before considering a narrow exception. A valid signature on GUP.exe alone does not establish that its loaded DLL is trustworthy.
+
+### Response and remediation
+
+If the library is unauthorized, preserve the executable, DLL, hashes, and process tree; contain the affected host according to local procedures and replace the updater components from a verified vendor package. Search for the same DLL hash and execution pattern on other hosts.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1574.001/T1574.001.md",
+]
+risk_score = 47
+rule_id = "47b3d970-466f-44f5-ae0f-9e30405bfc5a"
+setup = "Requires Elastic Defend process events including the parent signature and parent-thread call-stack summary. Missing call-stack telemetry prevents this rule from matching."
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+process where host.os.type == "windows" and event.type == "start" and
+  process.name : ("cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe") and
+  process.parent.name : "gup.exe" and
+  process.parent.code_signature.subject_name == "Notepad++" and
+  process.parent.code_signature.trusted == true and
+  process.parent.thread.Ext.call_stack_summary : "*|libcurl.dll|*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1574"
+name = "Hijack Execution Flow"
+reference = "https://attack.mitre.org/techniques/T1574/"
+[[rule.threat.technique.subtechnique]]
+id = "T1574.001"
+name = "DLL"
+reference = "https://attack.mitre.org/techniques/T1574/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

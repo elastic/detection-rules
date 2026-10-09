@@ -2,7 +2,7 @@
 creation_date = "2020/10/19"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/10/06"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -114,13 +114,18 @@ type = "eql"
 query = '''
 process where host.os.type == "windows" and event.type == "start" and
   (process.name : "AdFind*.exe" or ?process.pe.original_file_name == "AdFind.exe") and
-  process.args : ("objectcategory=computer", "(objectcategory=computer)",
+  (
+    process.args : ("objectcategory=computer", "(objectcategory=computer)",
                   "objectcategory=person", "(objectcategory=person)",
                   "objectcategory=subnet", "(objectcategory=subnet)",
                   "objectcategory=group", "(objectcategory=group)",
                   "objectcategory=organizationalunit", "(objectcategory=organizationalunit)",
                   "objectcategory=attributeschema", "(objectcategory=attributeschema)",
                   "domainlist", "dcmodes", "adinfo", "dclist", "computers_pwnotreqd", "trustdmp")
+    or (process.args : "-sc" and process.args : ("admincountdmp", "exchaddresses")) or
+    (process.args : "-default" and process.args : "-s" and process.args : "base" and
+     process.args : "lockoutduration" and process.args : "pwdproperties")
+  )
 '''
 
 
