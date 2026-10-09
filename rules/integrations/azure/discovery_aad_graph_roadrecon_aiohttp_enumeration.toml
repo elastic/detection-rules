@@ -129,7 +129,7 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
   and azure.aadgraphactivitylogs.properties.api_version in ("1.61-internal", "1.6-internal")
 
 | eval Esql.ua_lower = to_lower(user_agent.original)
-| eval Esql.is_tool_ua = Esql.ua_lower like "*aiohttp*" or Esql.ua_lower like "python*" or Esql.ua_lower like "*fasthttp*"
+| eval Esql.scripting_user_agent = Esql.ua_lower like "*aiohttp*" or Esql.ua_lower like "python*" or Esql.ua_lower like "*fasthttp*"
 | eval Esql.target_endpoint = case(
     url.path like "*$batch*",                   "batch",
     url.path like "*/eligibleRoleAssignments*", "eligibleRoleAssignments",
@@ -154,32 +154,32 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
 | eval Esql.time_window = date_trunc(1 minutes, @timestamp)
 
 | stats
-    Esql.request_count        = count(*),
-    Esql.distinct_endpoints   = count_distinct(url.path),
-    Esql.collections          = values(Esql.target_endpoint),
-    Esql.tool_ua_seen         = max(case(Esql.is_tool_ua, 1, 0)),
-    Esql.api_versions         = values(azure.aadgraphactivitylogs.properties.api_version),
-    Esql.app_ids              = values(azure.aadgraphactivitylogs.properties.app_id),
-    Esql.user_agents          = values(user_agent.original),
-    Esql.http_methods         = values(http.request.method),
-    Esql.status_codes         = values(http.response.status_code),
-    Esql.source_ips           = values(source.ip),
-    Esql.source_asn_orgs      = values(source.`as`.organization.name),
-    Esql.source_countries     = values(source.geo.country_name),
-    Esql.actor_types          = values(azure.aadgraphactivitylogs.properties.actor_type),
-    Esql.client_auth_methods  = values(azure.aadgraphactivitylogs.properties.client_auth_method),
-    Esql.session_ids          = values(azure.aadgraphactivitylogs.properties.session_id),
-    Esql.sign_in_activity_ids = values(azure.aadgraphactivitylogs.properties.sign_in_activity_id),
-    Esql.scopes               = values(azure.aadgraphactivitylogs.properties.scopes),
-    Esql.first_seen           = min(@timestamp),
-    Esql.last_seen            = max(@timestamp)
+    Esql.request_count             = count(*),
+    Esql.distinct_endpoints        = count_distinct(url.path),
+    Esql.collections               = values(Esql.target_endpoint),
+    Esql.scripting_user_agent_seen = max(case(Esql.scripting_user_agent, 1, 0)),
+    Esql.api_versions              = values(azure.aadgraphactivitylogs.properties.api_version),
+    Esql.app_ids                   = values(azure.aadgraphactivitylogs.properties.app_id),
+    Esql.user_agents               = values(user_agent.original),
+    Esql.http_methods              = values(http.request.method),
+    Esql.status_codes              = values(http.response.status_code),
+    Esql.source_ips                = values(source.ip),
+    Esql.source_asn_orgs           = values(source.`as`.organization.name),
+    Esql.source_countries          = values(source.geo.country_name),
+    Esql.actor_types               = values(azure.aadgraphactivitylogs.properties.actor_type),
+    Esql.client_auth_methods       = values(azure.aadgraphactivitylogs.properties.client_auth_method),
+    Esql.session_ids               = values(azure.aadgraphactivitylogs.properties.session_id),
+    Esql.sign_in_activity_ids      = values(azure.aadgraphactivitylogs.properties.sign_in_activity_id),
+    Esql.scopes                    = values(azure.aadgraphactivitylogs.properties.scopes),
+    Esql.first_seen                = min(@timestamp),
+    Esql.last_seen                 = max(@timestamp)
   by
     user.id,
     azure.tenant_id,
     Esql.time_window
 
 | eval Esql.enum_detected = case(
-    Esql.tool_ua_seen == 1 and Esql.distinct_endpoints >= 5, true,
+    Esql.scripting_user_agent_seen == 1 and Esql.distinct_endpoints >= 5, true,
     Esql.distinct_endpoints >= 15, true,
     Esql.request_count >= 150, true,
     false
