@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -82,7 +82,7 @@ process where host.os.type == "windows" and event.type == "start" and
 
   /* false positives */
   not (process.args : "%TEMP%\\Spiceworks\\*" and process.parent.name : "wmiprvse.exe") and
-  not ?process.parent.executable : (
+  not (?process.parent.executable : (
         "?:\\Perl64\\bin\\perl.exe",
         "?:\\Program Files\\nodejs\\node.exe",
         "?:\\Program Files\\HP\\RS\\pgsql\\bin\\pg_dumpall.exe",
@@ -105,7 +105,7 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files (x86)\\Craneware\\Pricing Analyzer\\Craneware.Pricing.Shell.exe",
         "?:\\Program Files (x86)\\jumpcloud-agent-app\\jumpcloud-agent-app.exe",
         "?:\\Program Files\\PostgreSQL\\*\\bin\\pg_dumpall.exe",
-        "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and
+        "?:\\Program Files (x86)\\Vim\\vim*\\vimrun.exe") and ?process.parent.executable != null) and
   not (
         /* Crowdstrike doesn't populate process.parent.executable */
         data_stream.dataset == "crowdstrike.fdr" and

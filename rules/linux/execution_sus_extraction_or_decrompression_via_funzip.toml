@@ -2,7 +2,7 @@
 creation_date = "2023/06/26"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -104,10 +104,12 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where host.os.type == "linux" and event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
-((process.args == "tail" and process.args == "-c" and process.args == "funzip")) and
-not process.args : "/var/log/messages" and
-not ?process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/xargs") and
-not (process.parent.name in ("sh", "sudo") and ?process.parent.command_line : "*nessus_su*")
+process.args == "tail" and process.args == "-c" and process.args == "funzip" and
+not (
+  process.args : "/var/log/messages" or
+  ?process.parent.executable : ("/usr/bin/dracut", "/sbin/dracut", "/usr/bin/xargs") or
+  (process.parent.name in ("sh", "sudo") and ?process.parent.command_line : "*nessus_su*")
+)
 '''
 
 [[rule.threat]]

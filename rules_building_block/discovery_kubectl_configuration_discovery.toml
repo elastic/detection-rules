@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "cloud_defend"]
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -54,8 +54,11 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "executed", "process_started", "ProcessRollup2") and
 process.name == "kubectl" and process.args in ("get", "describe") and process.args in ("configmap", "configmaps") and
-not ?process.parent.args in (
-  "/hooks/schedule_sync_configmap.sh", "/service-fabric/generate-support-bundle.sh", "/hooks/onstartup_sync_configmap.sh"
+not (
+  ?process.parent.args in (
+    "/hooks/schedule_sync_configmap.sh", "/service-fabric/generate-support-bundle.sh", "/hooks/onstartup_sync_configmap.sh"
+  ) and
+  ?process.parent.args != null
 )
 '''
 

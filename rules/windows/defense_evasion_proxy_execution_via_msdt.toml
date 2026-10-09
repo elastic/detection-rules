@@ -2,7 +2,7 @@
 creation_date = "2022/05/31"
 integration = ["endpoint", "windows", "m365_defender", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -63,7 +63,7 @@ process where host.os.type == "windows" and event.type == "start" and
       process.args : ("?:\\WINDOWS\\diagnostics\\index\\PCWDiagnostic.xml", "PCWDiagnostic.xml", "?:\\Users\\Public\\*", "?:\\Windows\\Temp\\*")
     ) or
 
-    (process.pe.original_file_name == "msdt.exe" and not process.name : "msdt.exe" and process.name != null) or
+    (?process.pe.original_file_name == "msdt.exe" and not process.name : "msdt.exe" and process.name != null) or
 
     (
       ?process.pe.original_file_name == "msdt.exe" and
