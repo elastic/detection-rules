@@ -1,0 +1,129 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a high number of GitHub repository ZIP archive downloads by a single user. Adversaries use repo.download_zip to
+collect source without a git clone, including with classic PATs, fine-grained PATs, or OAuth tokens.
+"""
+false_positives = [
+    """
+    Developers downloading archives for offline review, backup jobs, or CI that fetches zipballs. Confirm the actor,
+    token type, and whether the repositories are expected.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Exfiltration via High Number of Repository ZIP Downloads"
+note = """## Triage and analysis
+
+### Investigating GitHub Exfiltration via High Number of Repository ZIP Downloads
+
+`repo.download_zip` is the audit action for archive/zipball downloads. Mass ZIP collection is a clone alternative that existing git.clone threshold rules miss.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.hashed_token`, `github.programmatic_access_type`, and `github.actor_ip`.
+- List distinct `github.repo` values and whether they are private.
+- Correlate with `git.clone`, collaborator changes, and `api.request` enumeration from the same token.
+
+### False positive analysis
+
+- Approved bulk archive export or disaster-recovery tooling.
+
+### Response and remediation
+
+- Revoke the token if unauthorized and review repository access for the actor.
+- Hunt for subsequent off-platform transfer from the same host or IP.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://github.blog/news-insights/company-news/security-alert-stolen-oauth-user-tokens/",
+    "https://docs.github.com/en/rest/repos/contents#download-a-repository-archive-zip",
+]
+risk_score = 47
+rule_id = "0fe75796-0258-4e19-a762-26228edcc468"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and event.action == "repo.download_zip"
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_org_values = values(github.org),
+  Esql.github_repo_values = values(github.repo),
+  Esql.github_programmatic_access_type_values = values(github.programmatic_access_type),
+  Esql.github_user_agent_values = values(github.user_agent),
+  Esql.agent_id_values = values(agent.id),
+  Esql.data_stream_dataset_values = values(data_stream.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace),
+  Esql_priv.github_token_id_values = values(github.token_id),
+  Esql_priv.user_name_values = values(user.name)
+  by user.name
+| keep user.name, Esql.*, Esql_priv.*
+| where Esql.event_count >= 8
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "Esql.event_count",
+    "Esql.github_org_values",
+    "Esql.github_repo_values",
+    "Esql.github_programmatic_access_type_values",
+    "Esql.github_user_agent_values",
+    "Esql_priv.github_token_id_values",
+    "Esql_priv.user_name_values",
+]
+
