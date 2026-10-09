@@ -98,9 +98,7 @@ sequence by host.id, user.id with maxspan=1m
    process.name in ("curl", "wget", "fetch", "ftp", "sftp", "scp", "rsync", "ld", "xdg-open") and
    file.path like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by file.name
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
-   process.executable like (
-     "/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*", "?memfd:*", "memfd:*"
-   )] by process.name
+   process.executable like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*")] by process.name
   [file where host.os.type == "linux" and event.action == "deletion" and
    file.path like ("/dev/shm/*", "/tmp/*", "/var/tmp/*", "/run/*", "/var/run/*", "/var/www/*", "/proc/*/fd/*") and
    not process.name in ("rm", "ld", "conftest", "link", "gcc", "getarch")] by file.name
