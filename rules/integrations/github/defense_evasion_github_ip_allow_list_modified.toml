@@ -1,0 +1,138 @@
+[metadata]
+creation_date = "2026/09/21"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects GitHub organization IP allow list entry create/delete or enable/disable of allow-list enforcement. Adversaries
+with org-owner access may add their own address, then enable enforcement, or remove legitimate entries to lock out
+administrators.
+"""
+false_positives = [
+    """
+    Network changes, office IP rotations, or VPN egress updates performed by org owners. Confirm the entry value and
+    that enforcement was not enabled unexpectedly.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub IP Allow List Modified"
+note = """## Triage and analysis
+
+### Investigating GitHub IP Allow List Modified
+
+IP allow list entries are often staged before enforcement. An attacker can add a malicious egress IP, then enable the list to persist access and lock out responders.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.actor_ip`, and `github.programmatic_access_type`.
+- In GitHub org authentication security settings, review the entry that was added or removed and whether the allow list is enabled.
+- Treat `ip_allow_list.enable` as higher urgency than an entry create: enforcement can lock out responders.
+- Correlate with unusual `git.clone` / `git.push` from new source IPs.
+
+### False positive analysis
+
+- Adding and removing a test entry during network onboarding.
+- Automation that syncs allow list entries from a CMDB.
+
+### Response and remediation
+
+- Remove unauthorized entries and confirm enforcement state matches policy.
+- Do not enable enforcement until trusted egress IPs are present, to avoid lockout.
+- Rotate credentials for the actor if the change was not approved.
+"""
+references = [
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/managing-allowed-ip-addresses-for-your-organization",
+]
+risk_score = 47
+rule_id = "aa11d33a-7c23-4e50-8d2e-f1c72803b61b"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in (
+      "ip_allow_list_entry.create",
+      "ip_allow_list_entry.destroy",
+      "ip_allow_list.enable",
+      "ip_allow_list.disable"
+    )
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.007"
+name = "Disable or Modify Cloud Firewall"
+reference = "https://attack.mitre.org/techniques/T1562/007/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.name",
+]
+
