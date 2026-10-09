@@ -1,0 +1,141 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rules detects an attempt to create or modify a pod attached to the host network. HostNetwork allows a pod to use
+the node network namespace. Doing so gives the pod access to any service running on localhost of the host. An attacker
+could use this access to snoop on network activity of other pods on the same node or bypass restrictive network policies
+applied to its given namespace.
+'''
+false_positives = [
+    '''
+    An administrator or developer may want to use a pod that runs as root and shares the hosts IPC, Network, and PID
+    namespaces for debugging purposes. If something is going wrong in the cluster and there is no easy way to SSH onto
+    the host nodes directly, a privileged pod of this nature can be useful for viewing things like iptable rules and
+    network namespaces from the host's perspective. Add exceptions for trusted container images using the query field
+    "aws.eks.audit.requestObject.spec.container.image"
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Pod Created With HostNetwork"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Pod Created With HostNetwork
+Kubernetes allows pods to connect to the host's network namespace using HostNetwork, granting them direct access to the node's network interfaces. This capability can be exploited by attackers to monitor or intercept network traffic, potentially bypassing network policies. The detection rule identifies suspicious pod creation or modification events with HostNetwork enabled, excluding known benign images, to flag potential privilege escalation attempts.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the source of the pod creation or modification event, focusing on the user or service account associated with the action.
+- Examine the pod's configuration details, especially the containers' images, to determine if any unauthorized or suspicious images are being used, excluding known benign images like "docker.elastic.co/beats/elastic-agent:8.4.0".
+- Investigate the network activity of the node where the pod is running to identify any unusual traffic patterns or potential data exfiltration attempts.
+- Check the Kubernetes RBAC (Role-Based Access Control) settings to ensure that the user or service account has appropriate permissions and is not overly privileged.
+- Assess the necessity of using HostNetwork for the pod in question and determine if it can be reconfigured to operate without this setting to reduce potential security risks.
+
+### False positive analysis
+
+- Pods used for monitoring or logging may require HostNetwork access to gather network data across nodes. Users can exclude these by adding their specific container images to the exception list in the detection rule.
+- Certain system-level services or infrastructure components might need HostNetwork for legitimate reasons, such as network plugins or ingress controllers. Identify these services and update the rule to exclude their specific images or namespaces.
+- Development or testing environments might frequently create pods with HostNetwork for debugging purposes. Consider creating a separate rule or environment-specific exceptions to avoid alert fatigue in these scenarios.
+- Pods that are part of a known and trusted deployment process, which require HostNetwork for valid operational reasons, should be documented and excluded from the rule to prevent unnecessary alerts.
+
+### Response and remediation
+
+- Immediately isolate the affected pod by cordoning the node to prevent new pods from being scheduled and draining existing pods to other nodes, except the suspicious one.
+- Terminate the suspicious pod to stop any potential malicious activity and prevent further network access.
+- Review and revoke any unnecessary permissions or roles associated with the service account used by the pod to limit privilege escalation opportunities.
+- Conduct a thorough audit of network policies to ensure they are correctly configured to prevent unauthorized access to the host network.
+- Escalate the incident to the security operations team for further investigation and to determine if any data was accessed or exfiltrated.
+- Implement additional monitoring and alerting for any future pod creations with HostNetwork enabled to quickly detect similar threats.
+- Review and update Kubernetes RBAC policies to enforce the principle of least privilege, ensuring only trusted entities can create pods with HostNetwork enabled.'''
+references = [
+    "https://research.nccgroup.com/2021/11/10/detection-engineering-for-kubernetes-clusters/#part3-kubernetes-detections",
+    "https://kubernetes.io/docs/concepts/security/pod-security-policy/#host-namespaces",
+    "https://bishopfox.com/blog/kubernetes-pod-privilege-escalation",
+]
+risk_score = 47
+rule_id = "28913636-ff63-5d1c-812f-4730a9ff8118"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
+    "Threat: Container Escape",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset:aws.eks_audit and aws.eks.audit.annotations.authorization_k8s_io/decision:allow and
+aws.eks.audit.objectRef.resource:pods and aws.eks.audit.verb:(create or patch or update) and
+aws.eks.audit.requestObject.spec.hostNetwork:true and
+not (
+  aws.eks.audit.requestObject.spec.containers.image:(
+    *eks/observability/aws-for-fluent-bit* or *eks/observability/cloudwatch-agent* or *elastic-agent* or *quay/tigera* or *tigera/operator* or
+    docker.io/bitnami/node-exporter* or docker.io/rancher/mirrored-calico-operator* or quay.io/calico/node* or quay.io/cephcsi/cephcsi* or
+    quay.io/frrouting/frr* or quay.io/metallb/speaker* or quay.io/prometheus/node-exporter* or rancher/system-agent* or
+    registry.crowdstrike.com/falcon-sensor* or registry.k8s.io/sig-storage/csi-node-driver-registrar*
+  ) or
+  aws.eks.audit.objectRef.namespace:(
+    calico or calico-system or cilium or elastic or ingress-nginx or kube-system or noname-security-posture or openebs or sysdig-agent
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"

@@ -1,0 +1,139 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects when a user creates a pod/container running in privileged mode. A highly privileged container has
+access to the node's resources and breaks the isolation between containers. If compromised, an attacker can use the
+privileged container to gain access to the underlying host. Gaining access to the host may provide the adversary with
+the opportunity to achieve follow-on objectives, such as establishing persistence, moving laterally within the
+environment, or setting up a command and control channel on the host.
+'''
+false_positives = [
+    '''
+    By default a container is not allowed to access any devices on the host, but a "privileged" container is given
+    access to all devices on the host. This allows the container nearly all the same access as processes running on the
+    host. An administrator may want to run a privileged container to use operating system administrative capabilities
+    such as manipulating the network stack or accessing hardware devices from within the cluster. Add exceptions for
+    trusted container images using the query field "aws.eks.audit.requestObject.spec.container.image"
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Privileged Pod Created"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Privileged Pod Created
+Kubernetes allows for the creation of privileged pods, which can access the host's resources, breaking container isolation. Adversaries may exploit this to escalate privileges, access sensitive data, or establish persistence. The detection rule identifies such events by monitoring audit logs for pod creation with privileged settings, excluding known safe images, to flag potential security threats.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the user or service account responsible for creating the privileged pod by examining the `aws.eks.audit.annotations.authorization_k8s_io/decision` and `aws.eks.audit.verb:create` fields.
+- Investigate the context of the privileged pod creation by checking the `aws.eks.audit.requestObject.spec.containers.image` field to determine if the image used is known or potentially malicious.
+- Assess the necessity and legitimacy of the privileged pod by consulting with the relevant development or operations teams to understand if there was a valid reason for its creation.
+- Examine the `aws.eks.audit.objectRef.resource:pods` field to identify the specific pod and its associated namespace, and verify if it aligns with expected deployment patterns or environments.
+- Check for any subsequent suspicious activities or anomalies in the Kubernetes environment that may indicate further exploitation attempts, such as lateral movement or data exfiltration, following the creation of the privileged pod.
+
+### False positive analysis
+
+- Known safe images like "docker.elastic.co/beats/elastic-agent:8.4.0" are already excluded from triggering alerts. Ensure that any additional internal or third-party images that are verified as safe are added to the exclusion list to prevent unnecessary alerts.
+- Development and testing environments often use privileged pods for legitimate purposes. Consider creating separate rules or exceptions for these environments to avoid false positives while maintaining security in production.
+- Automated deployment tools or scripts might create privileged pods as part of their normal operation. Review these tools and, if they are deemed safe, add their specific actions or images to the exclusion list.
+- Regularly review and update the exclusion list to reflect changes in your environment, such as new safe images or changes in deployment practices, to maintain an accurate detection rule.
+
+### Response and remediation
+
+- Immediately isolate the affected node to prevent further exploitation and lateral movement within the cluster. This can be done by cordoning and draining the node to stop new pods from being scheduled and to safely evict existing pods.
+- Terminate the privileged pod to stop any ongoing malicious activity. Ensure that the termination is logged for further analysis.
+- Conduct a thorough review of the audit logs to identify any unauthorized access or actions taken by the privileged pod. Focus on any attempts to access sensitive data or escalate privileges.
+- Reset credentials and access tokens that may have been exposed or compromised due to the privileged pod's access to the host's resources.
+- Patch and update the Kubernetes environment and any affected nodes to address vulnerabilities that may have been exploited to create the privileged pod.
+- Implement network segmentation and firewall rules to limit the communication capabilities of pods, especially those with elevated privileges, to reduce the risk of lateral movement.
+- Escalate the incident to the security operations team for a comprehensive investigation and to assess the need for further security measures or incident response actions.'''
+references = [
+    "https://media.defense.gov/2021/Aug/03/2002820425/-1/-1/1/CTR_KUBERNETES%20HARDENING%20GUIDANCE.PDF",
+    "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
+]
+risk_score = 47
+rule_id = "a6451c73-7be4-51ac-a4c7-1acded7a56b2"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Privilege Escalation",
+    "Rule Type: Custom Query (KQL)",
+    "Threat: Container Escape",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset : "aws.eks_audit" and aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
+aws.eks.audit.objectRef.resource:pods and aws.eks.audit.verb:create and aws.eks.audit.requestObject.spec.containers.securityContext.privileged:true and
+not aws.eks.audit.requestObject.spec.containers.image: (
+  *amazonaws.com/betsie/pipeline/pipeline-core* or mirror.gcr.io/aquasec/trivy* or rancher/mirrored-longhornio-longhorn-instance-manager* or quay.io/calico* or
+  rancher/system-agent* or openebs/m-exporter* or openebs/cstor-istgt* or ghcr.io/kubereboot/kured* or registry.k8s.io/sig-storage/csi-node-driver-registrar* or
+  registry.k8s.io/csi-secrets-store* or registry.gitlab.com/gitlab-org/gitlab-runner/gitlab-runner-helper* or sonarsource/sonar-scanner-cli* or
+  rancher/mirrored-longhornio-longhorn-engine* or jenkins/inbound-agent* or registry.k8s.io/dns/k8s-dns-node-cache* or
+  *amazonaws.com/eks/kube-proxy* or *amazonaws.com/eks/aws-efs-csi-driver* or *amazonaws.com/eks/livenessprobe* or *amazonaws.com/amazon-k8s-cni* or
+  *amazonaws.com/amazon/aws-network-policy-agent* or openebs/node-disk-manager* or openebs/node-disk-exporter* or
+  public.ecr.aws/eks-distro/kubernetes-csi/livenessprobe* or public.ecr.aws/eks-distro/kubernetes-csi/external-provisioner* or
+  amazon/aws-efs-csi-driver* or registry.k8s.io/kube-proxy* or registry.crowdstrike.com/falcon-sensor* or *octopus-deploy/tentacle* or */sysdig/*
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1611"
+name = "Escape to Host"
+reference = "https://attack.mitre.org/techniques/T1611/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"

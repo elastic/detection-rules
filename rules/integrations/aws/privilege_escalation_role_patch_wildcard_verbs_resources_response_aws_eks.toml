@@ -1,0 +1,110 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Flags an existing Role or ClusterRole being changed (patch or update) so the effective rules become cluster-admin-like:
+wildcard on every API resource and wildcard on every verb. That is usually a deliberate privilege expansion, not a typo.
+RequestResponse audit and the response body are required so the detection reads the merged role after apply; loopback
+source IPs are ignored.
+'''
+false_positives = [
+    '''
+    Platform installers, GitOps controllers, and emergency break-glass roles sometimes ship or widen wildcard
+    ClusterRoles; correlate with change records and narrow by user or service account when baselined.
+''',
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EKS RBAC Wildcard Elevation on Existing Role"
+note = '''
+## Triage and analysis
+
+### Investigating AWS EKS RBAC Wildcard Elevation on Existing Role
+Someone patched or updated a Role or ClusterRole so the stored rules grant star verbs and star resources—near
+cluster-admin breadth on that scope. Confirm the actor (user, group, impersonation), client, and non-loopback source
+IP; then see who can bind that role.
+
+### Possible investigation steps
+
+- Diff the role YAML before and after; list RoleBindings and ClusterRoleBindings that reference it and which subjects
+  gained the widened access.
+- In the same window, check secret reads, exec, and further RBAC changes from the same identity.
+
+### False positive analysis
+
+- Approved GitOps or vendor upgrades sometimes widen a known ClusterRole; allowlist stable automation when documented.
+
+### Response and remediation
+
+- Revert the role, drop unexpected bindings, rotate credentials for the actor, and block future wildcard RBAC outside
+  governed pipelines (policy-as-code, PR-only RBAC).'''
+references = ["https://kubernetes.io/docs/reference/access-authn-authz/rbac/"]
+risk_score = 73
+rule_id = "af625960-3595-5008-ad7b-7ed2a11becda"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+from logs-aws.eks_audit-* metadata _id, _index, _version
+| where
+  aws.eks.audit.objectRef.resource in ("roles", "clusterroles") and
+  aws.eks.audit.verb in ("update", "patch") and
+  `aws.eks.audit.annotations.authorization_k8s_io/decision` == "allow" and
+  aws.eks.audit.level == "RequestResponse" and
+  aws.eks.audit.stage == "ResponseComplete" and
+  aws.eks.audit.sourceIPs is not null and
+  not aws.eks.audit.sourceIPs in ("::1", "127.0.0.1") and
+  KQL(""" aws.eks.audit.responseObject.rules.verbs:"*" and aws.eks.audit.responseObject.rules.resources:"*" """)
+| keep user.name, user_agent.original, event.action, source.ip, aws.eks.audit.verb, aws.eks.audit.objectRef.resource, aws.eks.audit.objectRef.name, aws.eks.audit.requestURI, aws.eks.audit.user.username, aws.eks.audit.user.groups, `aws.eks.audit.annotations.authorization_k8s_io/decision`, event.original, _id, _version, _index, data_stream.namespace
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
