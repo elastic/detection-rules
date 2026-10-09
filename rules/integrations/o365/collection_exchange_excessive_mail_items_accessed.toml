@@ -2,7 +2,7 @@
 creation_date = "2025/06/17"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/21"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,7 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-index = ["filebeat-*", "logs-o365.audit-*"]
+index = ["logs-o365.audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "M365 Exchange Mailbox Items Accessed Excessively"
@@ -87,11 +87,12 @@ data_stream.dataset: "o365.audit" and
     event.provider: "Exchange" and
     event.action: "MailItemsAccessed" and
     event.code: "ExchangeItemAggregated" and
+    not source.as.organization.name: ("ZSCALER, INC." or "Zscaler Switzerland GmbH") and
     (
         (
             o365.audit.OperationProperties.Name: "IsThrottled" and
             o365.audit.OperationProperties.Value: "True"
-        ) or o365.audit.OperationCount >= 100
+        ) or o365.audit.OperationCount >= 250
     )
 '''
 
@@ -150,4 +151,12 @@ field_names = [
     "cloud.region",
     "cloud.service.name",
 ]
+
+[rule.alert_suppression]
+group_by = ["o365.audit.MailboxOwnerUPN"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
 
