@@ -1,0 +1,147 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects unusual request responses in Kubernetes audit logs through the use of the
+"new_terms" rule type. In production environments, default API requests are typically made by
+system components or trusted users, who are expected to have a consistent user agent and
+allowed response annotations. By monitoring for anomalies in the username and response
+annotations, this rule helps identify potential unauthorized access or misconfigurations
+in the Kubernetes environment.
+'''
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Unusual Decision by User Agent"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Unusual Decision by User Agent
+Kubernetes orchestrates containerized applications, relying on API requests for operations. Typically, these requests originate from system components or trusted users with consistent user agents. Adversaries might exploit this by using atypical user agents to mask unauthorized access or misconfigurations. The detection rule identifies anomalies in user agents and response annotations, signaling potential threats in the Kubernetes environment.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs for entries where the user_agent.original field is present to identify any unusual or unexpected user agents.
+- Cross-reference the identified user agents with known system components and trusted users to determine if the user agent is legitimate or potentially malicious.
+- Examine the aws.eks.audit.stage field for "ResponseComplete" entries to understand the context and outcome of the requests associated with the unusual user agent.
+- Investigate the source IP addresses and associated usernames in the audit logs to identify any patterns or anomalies that could indicate unauthorized access.
+- Check for any recent changes or deployments in the Kubernetes environment that might explain the presence of unusual user agents or unexpected behavior.
+- Assess the risk and impact of the detected anomaly by considering the sensitivity of the accessed resources and the permissions associated with the user account involved.
+
+### False positive analysis
+
+- System components or trusted users with legitimate but infrequent user agents may trigger the rule. To manage this, identify these user agents and add them to an exception list to prevent unnecessary alerts.
+- Automated scripts or tools used for maintenance or monitoring might use unique user agents. Regularly review these tools and update the exception list to include their user agents if they are verified as non-threatening.
+- New deployments or updates to Kubernetes components can introduce new user agents temporarily. Monitor these changes and adjust the rule exceptions accordingly to accommodate expected behavior during these periods.
+- Third-party integrations or plugins may use distinct user agents. Validate these integrations and, if deemed safe, include their user agents in the exception list to reduce false positives.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes node or cluster to prevent further unauthorized access or potential lateral movement by the adversary.
+- Review and terminate any suspicious or unauthorized sessions identified in the audit logs to cut off any active malicious activity.
+- Revoke and rotate credentials associated with the compromised user agent to prevent further unauthorized access using the same credentials.
+- Conduct a thorough review of the affected system's configurations and permissions to identify and rectify any misconfigurations or overly permissive access controls.
+- Implement additional monitoring and logging for the affected systems to detect any further anomalies or unauthorized activities promptly.
+- Escalate the incident to the security operations team for a comprehensive investigation and to determine if any data exfiltration or further compromise has occurred.
+- Update and enhance detection rules and alerts to better identify similar anomalies in user agents and response annotations in the future, ensuring quicker response times.
+
+### Amazon EKS identities
+
+On Amazon EKS, `user.name` is the username mapped by the cluster access entry (or `aws-auth` entry) of the calling IAM principal. When the access entry sets no `username`, the audit log records the raw principal ARN instead: `arn:aws:iam::<account>:user/<name>` for IAM users and `arn:aws:sts::<account>:assumed-role/<role>/<session>` for assumed roles, so every new role session is a new value for the identity fields this rule learns terms from. Set a stable `username` on access entries used by automation, or expect a first-seen alert per session.'''
+risk_score = 21
+rule_id = "437531d2-48a8-5934-8122-8b676582f311"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Defense Evasion",
+    "Tactic: Initial Access",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+data_stream.dataset:"aws.eks_audit" and aws.eks.audit.stage:"ResponseComplete" and
+user_agent.original:(* and not (*kubernetes/$Format)) and
+not (
+  user_agent.original:kubelet* and
+  not aws.eks.audit.objectRef.resource:(pods or nodes or csinodes or csidrivers or configmaps or secrets or events or leases or runtimeclasses) and
+  aws.eks.audit.verb:(get or list or watch or patch)
+)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = [
+    "aws.eks.audit.annotations.authorization_k8s_io/decision",
+    "aws.eks.audit.user.username",
+    "user_agent.original",
+]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-10d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"

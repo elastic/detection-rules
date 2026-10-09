@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+Flags exec into a pod when the URL-decoded command payload resembles reverse-shell or bind-shell
+one-liners invocation patterns. Legitimate debug sessions sometimes use similar building blocks, but together
+these patterns align with post-exploitation interactive access and command-and-control.
+'''
+from = "now-6m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS EKS Pod Exec Potential Reverse Shell"
+note = '''
+## Triage and analysis
+
+### Investigating AWS EKS Pod Exec Potential Reverse Shell
+The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and
+matches high-signal shell and socket idioms often used to obtain a allback shell from inside a container.
+
+### Possible investigation steps
+
+- Identify the actor (aws.eks.audit.user.username, groups, impersonation), source IP, and user agent
+  (human kubectl vs automation).
+- Resolve the target namespace, pod, and container from aws.eks.audit.objectRef.* and correlate with
+  workload ownership and change tickets.
+- Pull the raw and decoded URI from the alert document and replay the inferred command in a sandbox only if policy
+  allows—otherwise rely on audit and platform logs.
+- Hunt nearby events from the same identity: secret reads, pods/exec to other workloads, RoleBinding
+  changes, or anonymous API use.
+
+### False positive analysis
+
+- Security training, CTF-style images, or vendor diagnostics may include bash redirection or /dev/tcp examples;
+  baseline approved images and break-glass accounts.
+- Some observability or mesh sidecars use socat or sockets in ways that could overlap; validate container image and
+  command lineage.
+
+### Response and remediation
+
+- If malicious, terminate the exec session, isolate the workload or node, rotate credentials reachable from the
+  pod, and revoke pods/exec for the abused principal unless strictly required.'''
+references = []
+risk_score = 73
+rule_id = "cbb10288-ee36-5879-b457-0f4f495c132e"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: ES|QL",
+    "Threat: Reverse Shell",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+query = '''
+FROM logs-aws.eks_audit-* metadata _id, _index, _version
+| WHERE aws.eks.audit.objectRef.subresource == "exec"
+  AND aws.eks.audit.requestURI LIKE "*command=*"
+| EVAL decoded_uri = URL_DECODE(aws.eks.audit.requestURI)
+| GROK decoded_uri "%{DATA}/exec\\?%{DATA:raw_commands}&(?:container|stdin|stdout|stderr)=%{GREEDYDATA}"
+| EVAL command = REPLACE(raw_commands, "command=", "")
+| EVAL command = REPLACE(command, "&", " ")
+| EVAL Esql.executed_command = REPLACE(command, "\\+", " ")
+| WHERE Esql.executed_command IS NOT NULL
+| WHERE Esql.executed_command IS NOT NULL AND command RLIKE """.*(/dev/tcp/|/dev/udp/|zsh/net/tcp|zsh/net/udp|nc\s+-e|ncat\s+-e|netcat\s+-e|nc\s.*\s-c\s|mkfifo|socat\s.*exec|socat\s.*pty|bash\s+-i\s+>&|0>&1|>&\s*/dev/tcp|import\s+socket.*connect|import\s+pty.*spawn|socket\.socket.*connect|IO::Socket::INET|fsockopen|TCPSocket\.new|/inet/tcp/).*""" AND
+ // local service health check patterns
+  NOT command RLIKE """.*/dev/tcp/(localhost|127\.0\.0\.1)/(8080|8443|9090|3000|5000|8888|80|443).*"""
+| KEEP Esql.*, @timestamp, user.name, source.ip, user_agent.original, event.action, aws.eks.audit.objectRef.namespace, aws.eks.audit.objectRef.name, aws.eks.audit.requestURI, aws.eks.audit.user.username, data_stream.namespace, _id, _index, _version
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"

@@ -1,0 +1,72 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects attempts to create, update, or patch pods by an anonymous user. An anonymous user is a user that
+is not authenticated or authorized to access the Kubernetes API server. Creating, updating, or patching pods is a common
+activity for attackers to gain access to the cluster and execute commands.
+'''
+index = ["logs-aws.eks_audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS EKS Anonymous User Create/Update/Patch Pods Request"
+risk_score = 47
+rule_id = "f45ce149-3f1f-5788-b07a-926a8d82dd15"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where data_stream.dataset == "aws.eks_audit" and (
+    aws.eks.audit.user.username in ("system:anonymous", "system:unauthenticated") or
+    aws.eks.audit.impersonatedUser.username in ("system:anonymous", "system:unauthenticated") or
+    aws.eks.audit.user.username == null or
+    aws.eks.audit.user.username == ""
+  ) and aws.eks.audit.level in ("RequestResponse", "ResponseComplete", "Request") and aws.eks.audit.verb in ("create", "update", "patch") and
+aws.eks.audit.objectRef.resource == "pods"
+
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
