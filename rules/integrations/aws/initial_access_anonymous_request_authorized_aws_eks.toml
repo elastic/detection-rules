@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects when an unauthenticated user request is authorized within the cluster via an unusual user agent.
+Attackers may attempt to use anonymous accounts to gain initial access to the cluster or to avoid attribution of
+their activities within the cluster. This rule excludes the /healthz, /livez, /version and /.well-known/oauth-authorization-server
+endpoints which are commonly accessed anonymously.
+'''
+false_positives = [
+    '''
+    Anonymous access to the API server is a dangerous setting enabled by default. Common anonymous connections (e.g.,
+    health checks) have been excluded from this rule. All other instances of authorized anonymous requests should be
+    investigated.
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Anonymous Request Authorized by Unusual User Agent"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Anonymous Request Authorized by Unusual User Agent
+Kubernetes, a container orchestration platform, manages workloads and services. It uses authentication to control access. Adversaries might exploit anonymous access to perform unauthorized actions without leaving traces. The detection rule identifies unauthorized access by monitoring audit logs for anonymous requests that are allowed, excluding common health check endpoints, to flag potential misuse.
+
+### Possible investigation steps
+
+- Review the audit logs for the specific event.dataset:aws.eks_audit to identify the context and details of the anonymous request.
+- Examine the aws.eks.audit.user.username field to confirm if the request was made by "system:anonymous" or "system:unauthenticated" and assess the potential risk associated with these accounts.
+- Analyze the aws.eks.audit.requestURI to determine the target of the request and verify if it is outside the excluded endpoints (/healthz, /livez, /readyz), which could indicate suspicious activity.
+- Investigate the source IP address and other network metadata associated with the request to identify the origin and assess if it aligns with known or expected traffic patterns.
+- Check for any subsequent or related activities in the audit logs that might indicate further unauthorized actions or attempts to exploit the cluster.
+
+### False positive analysis
+
+- Health check endpoints like /healthz, /livez, and /readyz are already excluded, but ensure any custom health check endpoints are also excluded to prevent false positives.
+- Regularly scheduled maintenance tasks or automated scripts that use anonymous access for legitimate purposes should be identified and excluded from the rule to avoid unnecessary alerts.
+- Some monitoring tools might use anonymous requests for gathering metrics; verify these tools and exclude their specific request patterns if they are known to be safe.
+- Development environments might have different access patterns compared to production; consider creating separate rules or exceptions for non-production clusters to reduce noise.
+- Review the audit logs to identify any recurring anonymous requests that are part of normal operations and adjust the rule to exclude these specific cases.
+
+### Response and remediation
+
+- Immediately isolate the affected Kubernetes cluster to prevent further unauthorized access and potential lateral movement by the adversary.
+- Revoke any anonymous access permissions that are not explicitly required for the operation of the cluster, ensuring that all access is authenticated and authorized.
+- Conduct a thorough review of the audit logs to identify any unauthorized actions performed by anonymous users and assess the impact on the cluster.
+- Reset credentials and access tokens for any accounts that may have been compromised or used in conjunction with the anonymous access.
+- Implement network segmentation to limit the exposure of the Kubernetes API server to only trusted networks and users.
+- Escalate the incident to the security operations team for further investigation and to determine if additional clusters or systems are affected.
+- Enhance monitoring and alerting for unauthorized access attempts, focusing on detecting and responding to similar threats in the future.'''
+references = [
+    "https://media.defense.gov/2022/Aug/29/2003066362/-1/-1/0/CTR_KUBERNETES_HARDENING_GUIDANCE_1.2_20220829.PDF",
+]
+risk_score = 47
+rule_id = "08cf729b-3e3c-5508-bcba-974cea74413e"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Rule Type: New Terms",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+data_stream.dataset:"aws.eks_audit" and
+aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
+(aws.eks.audit.user.username:("system:anonymous" or "system:unauthenticated" or not *) or
+aws.eks.audit.impersonatedUser.username:("system:anonymous" or "system:unauthenticated")) and
+user_agent.original:(* and not (*kubernetes/$Format)) and
+not aws.eks.audit.requestURI:(/healthz* or /livez* or /readyz* or /version)
+'''
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.001"
+name = "Default Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/001/"
