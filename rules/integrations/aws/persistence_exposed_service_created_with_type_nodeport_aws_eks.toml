@@ -1,0 +1,136 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects an attempt to create or modify a service as type NodePort. The NodePort service allows a user to
+externally expose a set of labeled pods to the internet. This creates an open port on every worker node in the cluster
+that has a pod for that service. When external traffic is received on that open port, it directs it to the specific pod
+through the service representing it. A malicious user can configure a service as type Nodeport in order to intercept
+traffic from other pods or nodes, bypassing firewalls and other network security measures configured for load balancers
+within a cluster. This creates a direct method of communication between the cluster and the outside world, which could
+be used for more malicious behavior and certainly widens the attack surface of your cluster.
+'''
+false_positives = [
+    '''
+    Developers may have a legitimate use for NodePorts. For frontend parts of an application you may want to expose a
+    Service onto an external IP address without using cloud specific Loadbalancers. NodePort can be used to expose the
+    Service on each Node's IP at a static port (the NodePort). You'll be able to contact the NodePort Service from
+    outside the cluster, by requesting <NodeIP>:<NodePort>. NodePort unlike Loadbalancers, allow the freedom to set up
+    your own load balancing solution, configure environments that aren't fully supported by Kubernetes, or even to
+    expose one or more node's IPs directly.
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "AWS EKS Exposed Service Created With Type NodePort"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS Exposed Service Created With Type NodePort
+Kubernetes NodePort services enable external access to cluster pods by opening a port on each worker node. This can be exploited by attackers to bypass network security, intercept traffic, or establish unauthorized communication channels. The detection rule identifies suspicious NodePort service creation or modification by monitoring Kubernetes audit logs for specific actions and authorization decisions, helping to mitigate potential security risks.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the specific service that was created or modified with the type NodePort. Focus on entries where aws.eks.audit.objectRef.resource is "services" and aws.eks.audit.verb is "create", "update", or "patch".
+- Check the aws.eks.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed, ensuring that the service creation or modification was authorized.
+- Identify the user or service account responsible for the action by examining the relevant fields in the audit logs, such as the user identity or service account name.
+- Investigate the context of the NodePort service by reviewing the associated pods and their labels to understand what applications or services are being exposed externally.
+- Assess the network security implications by determining if the NodePort service could potentially bypass existing firewalls or security controls, and evaluate the risk of unauthorized access or data interception.
+- Verify if the NodePort service is necessary for legitimate business purposes or if it was created without proper justification, indicating potential malicious intent.
+
+### False positive analysis
+
+- Routine service updates or deployments may trigger the rule if NodePort services are part of standard operations. To manage this, create exceptions for specific namespaces or service accounts that are known to perform these actions regularly.
+- Development or testing environments often use NodePort services for ease of access. Exclude these environments from the rule by filtering based on labels or annotations that identify non-production clusters.
+- Automated deployment tools or scripts that configure services as NodePort for legitimate reasons can cause false positives. Identify these tools and add their service accounts to an exception list to prevent unnecessary alerts.
+- Internal services that require external access for legitimate business needs might be flagged. Document these services and apply exceptions based on their specific labels or annotations to avoid false alarms.
+- Temporary configurations during incident response or troubleshooting might involve NodePort services. Ensure that these activities are logged and approved, and consider temporary exceptions during the incident resolution period.
+
+### Response and remediation
+
+- Immediately isolate the affected NodePort service by removing or disabling it to prevent further unauthorized access or traffic interception.
+- Review and revoke any unauthorized access or permissions granted to users or service accounts that created or modified the NodePort service.
+- Conduct a thorough audit of network traffic logs to identify any suspicious or unauthorized external connections made through the NodePort service.
+- Implement network segmentation and firewall rules to restrict external access to critical services and ensure that only necessary ports are exposed.
+- Escalate the incident to the security operations team for further investigation and to assess potential impacts on the cluster's security posture.
+- Apply security patches and updates to Kubernetes components and worker nodes to mitigate any known vulnerabilities that could be exploited.
+- Enhance monitoring and alerting mechanisms to detect future unauthorized NodePort service creations or modifications promptly.'''
+references = [
+    "https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types",
+    "https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport",
+    "https://www.tigera.io/blog/new-vulnerability-exposes-kubernetes-to-man-in-the-middle-attacks-heres-how-to-mitigate/",
+]
+risk_score = 47
+rule_id = "896480e7-5171-58b6-930a-113a321db46d"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Tactic: Persistence",
+    "Tactic: Initial Access",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+query = '''
+data_stream.dataset : "aws.eks_audit"
+  and aws.eks.audit.annotations.authorization_k8s_io/decision:"allow"
+  and aws.eks.audit.objectRef.resource:"services"
+  and aws.eks.audit.verb:("create" or "update" or "patch")
+  and aws.eks.audit.requestObject.spec.type:"NodePort"
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat.technique]]
+id = "T1133"
+name = "External Remote Services"
+reference = "https://attack.mitre.org/techniques/T1133/"

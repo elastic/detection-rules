@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/08/03"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = '''
+This rule detects a user attempt to establish a shell session into a pod using the 'exec' command. Using the 'exec'
+command in a pod allows a user to establish a temporary shell session and execute any process/commands in the pod. An
+adversary may call bash to gain a persistent interactive shell which will allow access to any data the pod has
+permissions to, including secrets.
+'''
+false_positives = [
+    '''
+    An administrator may need to exec into a pod for a legitimate reason like debugging purposes. Containers built from
+    Linux and Windows OS images, tend to include debugging utilities. In this case, an admin may choose to run commands
+    inside a specific container with kubectl exec ${POD_NAME} -c ${CONTAINER_NAME} -- ${CMD} ${ARG1} ${ARG2} ...
+    ${ARGN}. For example, the following command can be used to look at logs from a running Cassandra pod: kubectl exec
+    cassandra --cat /var/log/cassandra/system.log . Additionally, the -i and -t arguments might be used to run a shell
+    connected to the terminal: kubectl exec -i -t cassandra -- sh
+''',
+]
+index = ["logs-aws.eks_audit-*"]
+language = "eql"
+license = "Elastic License v2"
+name = "AWS EKS User Exec into Pod"
+note = '''
+## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AWS EKS User Exec into Pod
+Kubernetes allows users to execute commands within a pod using the 'exec' command, facilitating temporary shell sessions for legitimate management tasks. However, adversaries can exploit this to gain unauthorized access, potentially exposing sensitive data. The detection rule identifies such misuse by monitoring audit logs for specific patterns, such as allowed 'exec' actions on pods, indicating possible malicious activity.
+
+### Possible investigation steps
+
+- Review the Kubernetes audit logs to identify the user who executed the 'exec' command by examining the event.dataset field for "aws.eks_audit".
+- Check the aws.eks.audit.annotations.authorization_k8s_io/decision field to confirm that the action was allowed and determine if the user had legitimate access.
+- Investigate the aws.eks.audit.objectRef.resource and aws.eks.audit.objectRef.subresource fields to verify that the action involved a pod and the 'exec' subresource.
+- Analyze the context of the pod involved, including its purpose and the data it has access to, to assess the potential impact of the unauthorized access.
+- Correlate the event with other logs or alerts to identify any suspicious patterns or repeated unauthorized access attempts by the same user or IP address.
+- Review the user's activity history to determine if there are other instances of unusual or unauthorized access attempts within the Kubernetes environment.
+
+### False positive analysis
+
+- Routine administrative tasks by DevOps teams can trigger the rule when they use 'exec' for legitimate management purposes. To handle this, create exceptions for specific user accounts or roles that are known to perform these tasks regularly.
+- Automated scripts or tools that use 'exec' for monitoring or maintenance can also cause false positives. Identify these scripts and whitelist their associated service accounts or IP addresses.
+- Scheduled jobs or cron tasks that require 'exec' to perform updates or checks within pods may be flagged. Exclude these by setting up time-based exceptions for known maintenance windows.
+- Development environments where frequent testing and debugging occur using 'exec' can lead to alerts. Implement environment-specific exclusions to reduce noise from non-production clusters.
+
+### Response and remediation
+
+- Immediately isolate the affected pod to prevent further unauthorized access or data exposure. This can be done by applying network policies or temporarily scaling down the pod.
+- Review the audit logs to identify the user or service account responsible for the 'exec' command and assess whether the access was legitimate or unauthorized.
+- Revoke or adjust permissions for the identified user or service account to prevent further unauthorized 'exec' actions. Ensure that only necessary permissions are granted following the principle of least privilege.
+- Conduct a thorough investigation of the pod's environment to identify any potential data exposure or tampering. Check for unauthorized changes to configurations, secrets, or data within the pod.
+- If unauthorized access is confirmed, rotate any exposed secrets or credentials that the pod had access to, and update any affected systems or services.
+- Escalate the incident to the security operations team for further analysis and to determine if additional systems or pods have been compromised.
+- Enhance monitoring and alerting for similar 'exec' actions in the future by ensuring that audit logs are continuously reviewed and that alerts are configured to notify the security team of any suspicious activity.'''
+references = [
+    "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+    "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
+]
+risk_score = 47
+rule_id = "53ff409e-c1c4-5fd6-91be-77801d230250"
+setup = '''
+This rule reads EKS control-plane audit logs collected by the AWS integration
+into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
+pipelines normalize each audit record under `aws.eks.audit.*`.
+
+Enable the `audit` control-plane log type on the EKS cluster, send its
+CloudWatch log group through the AWS integration, and confirm events carry
+`data_stream.dataset: aws.eks_audit` and
+`cloud.provider: aws` before enabling this rule.
+'''
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Containers",
+    "Platform: AWS",
+    "Platform: Kubernetes",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: Kubernetes API Server Audit Logs",
+    "Service: AWS EKS",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+any where data_stream.dataset == "aws.eks_audit" and aws.eks.audit.verb in ("create", "get") and
+aws.eks.audit.objectRef.subresource == "exec" and aws.eks.audit.stage in ("ResponseComplete", "ResponseStarted") and
+aws.eks.audit.level == "Request" and `aws.eks.audit.annotations.authorization_k8s_io/decision` == "allow" and
+not (
+  (aws.eks.audit.objectRef.namespace == "trident" and aws.eks.audit.objectRef.name like "trident-controller-*") or
+  (aws.eks.audit.objectRef.namespace == "vuls" and aws.eks.audit.requestURI like "/api/v1/namespaces/vuls/pods/vuls-*/exec?command=sh&command=-c&command=*+%2Fvuls%2Fresults*") or
+  (aws.eks.audit.objectRef.namespace == "git-runners" and aws.eks.audit.requestURI like (
+     "/api/v1/namespaces/git-runners/pods/runner-*/exec?command=sh&command=-c&command=if+%5B+-x+%2Fusr%2Flocal%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fusr%2Flocal%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fusr%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fusr%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fbin%2Fbash+%5D%3B+then%0A%09exec+%2Fbin%2Fbash+%0Aelif+%5B+-x+%2Fusr%2Flocal%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fusr%2Flocal%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fusr%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fusr%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fbin%2Fsh+%5D%3B+then%0A%09exec+%2Fbin%2Fsh+%0Aelif+%5B+-x+%2Fbusybox%2Fsh+%5D%3B+then%0A%09exec+%2Fbusybox%2Fsh+%0Aelse%0A%09echo+shell+not+found%0A%09exit+1%0Afi%0A%0A&container=*&container=*&stderr=true&stdin=true&stdout=true",
+     "/api/v1/namespaces/git-runners/pods/runner-*/exec?command=gitlab-runner-helper&command=read-logs&command=--path&command=%2Flogs-*%2Foutput.log&command=--offset&command=0&command=--wait-file-timeout&command=1m0s&container=*&container=*&stderr=true&stdout=true"
+  )) or
+  (aws.eks.audit.objectRef.namespace == "elasticsearch-cluster" and aws.eks.audit.requestURI like (
+    "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=elasticsearch&stdin=true&stdout=true&tty=true",
+    "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=elasticsearch&stderr=true&stdout=true",
+    "/api/v1/namespaces/elasticsearch-cluster/pods/*/exec?command=df&command=-h&container=kibana&stderr=true&stdout=true"
+  )) or
+  (aws.eks.audit.objectRef.namespace == "kube-system" and aws.eks.audit.requestURI like (
+    "api/v1/namespaces/kube-system/pods/*/exec?command=cilium&command=endpoint&command=list&command=-o&command=json&container=cilium-agent&stderr=true&stdout=true",
+    "/api/v1/namespaces/kube-system/pods/*/exec?command=cilium&command=status&command=-o&command=json&container=cilium-agent&stderr=true&stdout=true",
+    "/api/v1/namespaces/kube-system/pods/*/exec?command=sh&command=-c&command=clear%3B+%28bash+%7C%7C+ash+%7C%7C+sh%29&container=*&stdin=true&stdout=true&tty=true"
+  ))
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
