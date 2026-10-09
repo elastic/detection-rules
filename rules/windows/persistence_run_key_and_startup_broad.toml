@@ -2,7 +2,7 @@
 creation_date = "2020/11/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/05"
+updated_date = "2026/10/07"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -148,7 +148,7 @@ registry where host.os.type == "windows" and event.type == "change" and
   /* add common legitimate changes without being too restrictive as this is one of the most abused AESPs */
   not registry.data.strings : "ctfmon.exe /n" and
   not (registry.value : "Application Restart #*" and process.name : "csrss.exe") and
-  not user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
+  not (user.id : ("S-1-5-18", "S-1-5-19", "S-1-5-20") and not process.name: "powershell.exe") and
   not registry.data.strings : ("*:\\Program Files\\*",
                                "*:\\Program Files (x86)\\*",
                                "*:\\Users\\*\\AppData\\Local\\*",
