@@ -3,15 +3,15 @@ creation_date = "2026/03/31"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/01"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects Elastic Defend alerts (behavior, malicious file, memory signature, shellcode) where the alerted process has a
-package-manager install context in its ancestry: npm (Node.js), PyPI (pip / Python / uv), or Rust (cargo). Install-time
-spawn chains are a common path for supply-chain and postinstall abuse; this Higher-Order rule surfaces Defend alerts
-whose process tree includes such activity for prioritization.
+package-manager install context in its ancestry: npm (Node.js), PyPI (pip / Python / uv), Rust (cargo), Composer (PHP),
+RubyGems (Ruby), Go, or Gradle. Install-time spawn chains are a common path for supply-chain and postinstall abuse;
+this Higher-Order rule surfaces Defend alerts whose process tree includes such activity for prioritization.
 """
 from = "now-9m"
 language = "esql"
@@ -22,7 +22,7 @@ note = """## Triage and analysis
 ### Investigating Elastic Defend Alert from Package Manager Install Ancestry
 
 Elastic Defend raised an alert on a process whose ancestry includes a parent that was involved in a package install
-(npm, pip/PyPI, or cargo/crates.io). That can indicate malicious postinstall scripts, dependency confusion, or
+(npm, pip/PyPI, cargo/crates.io, composer, gem, go, or gradle). That can indicate malicious postinstall scripts, dependency confusion, or
 compromised packages.
 
 ### Possible investigation steps
@@ -36,7 +36,7 @@ compromised packages.
 
 ### False positive analysis
 
-- Normal `npm install`, `pip install`, and `cargo build` / `cargo install` during development or CI can produce alerts
+- Normal `npm install`, `pip install`, `cargo build` / `cargo install`, `composer install`, `gem install`, `go install`, and `gradle build` during development or CI can produce alerts
   on descendant processes. Tune by excluding known-safe Defend rule names, paths, or command-line patterns.
 
 ### Response and remediation
@@ -103,6 +103,31 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
       process.parent.command_line LIKE "*cargo build*" OR
       process.parent.command_line LIKE "*cargo run*" OR
       process.parent.command_line LIKE "*cargo fetch*"), true,
+
+    // composer (PHP / Packagist ecosystem)
+    (process.parent.name LIKE "php*" OR process.parent.name LIKE "composer*") AND (
+      process.parent.command_line LIKE "*composer*install*" OR
+      process.parent.command_line LIKE "*composer*require*" OR
+      process.parent.command_line LIKE "*composer*update*" OR
+      process.parent.command_line LIKE "*composer*run-script*"), true,
+
+    // gem / bundler (Ruby / RubyGems ecosystem)
+    (process.parent.name LIKE "ruby*" OR process.parent.name IN ("gem", "bundle")) AND (
+      process.parent.command_line LIKE "*gem install*" OR
+      process.parent.command_line LIKE "*bundle install*" OR
+      process.parent.command_line LIKE "*bundle exec*"), true,
+
+    // go (Go / pkg.go.dev ecosystem)
+    process.parent.name IN ("go", "go.exe") AND (
+      process.parent.command_line LIKE "*go install*" OR
+      process.parent.command_line LIKE "*go get*" OR
+      process.parent.command_line LIKE "*go generate*"), true,
+
+    // gradle (Java/Kotlin/Groovy build-script ecosystem)
+    (process.parent.name LIKE "java*" OR process.parent.name IN ("gradle", "gradle.exe", "gradlew")) AND
+    process.parent.command_line LIKE "*gradle*" AND (
+      process.parent.command_line LIKE "*build*" OR
+      process.parent.command_line LIKE "*assemble*"), true,
 
     false
   )
