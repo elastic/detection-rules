@@ -2,7 +2,7 @@
 creation_date = "2024/11/04"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -105,7 +105,7 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 process.name in ("cat", "less", "more", "strings", "find", "xargs") and
-process.parent.executable != null and 
+process.parent.name != null and
 process.args like (
   "/etc/security/*", "/etc/pam.d/*", "/etc/login.defs", "/lib/security/*", "/lib64/security/*",
   "/usr/lib/security/*", "/usr/lib64/security/*", "/usr/lib/x86_64-linux-gnu/security/*",
@@ -122,7 +122,7 @@ process.args like (
   ) or
   ?process.parent.args in ("/opt/imperva/ragent/bin/get_sys_resources.sh", "/usr/sbin/lynis", "./terra_linux.sh") or
   process.args == "/usr/bin/coreutils" or
-  (process.parent.name == "pwsh" and process.parent.command_line like "*Evaluate-STIG*") or
+  (process.parent.name == "pwsh" and ?process.parent.command_line like "*Evaluate-STIG*") or
   ?process.parent.executable like (
     "/usr/sap/audit_scripts/auto_audit_gral.sh", "/opt/saltstack/salt/bin/python3*", "/opt/puppetlabs/puppet/bin/ruby"
   ) or

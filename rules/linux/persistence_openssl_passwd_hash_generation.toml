@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/01/16"
-integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_funnel"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,6 @@ index = [
     "logs-endpoint.events.process*",
     "endgame-*",
     "auditbeat-*",
-    "logs-auditd_manager.auditd-*",
     "logs-crowdstrike.fdr*",
     "logs-sentinel_one_cloud_funnel.*",
 ]
@@ -94,7 +93,6 @@ tags = [
     "Tactic: Persistence",
     "Data Source: Elastic Endgame",
     "Data Source: Elastic Defend",
-    "Data Source: Auditd Manager",
     "Data Source: Crowdstrike",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
@@ -108,7 +106,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed") and process.name == "openssl"
-and process.args == "passwd" and ?process.args_count >= 4 and
+and process.args == "passwd" and process.args_count >= 4 and
 not process.args in ("-help", "--help", "-h")
 '''
 
