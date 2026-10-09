@@ -2,21 +2,31 @@
 creation_date = "2026/05/20"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an Azure AD Graph (graph.windows.net) burst from a user-agent identifying as "aiohttp" (the default HTTP library
-used by ROADrecon's "gather" command) where a single calling identity issues many requests in a short window. ROADrecon
-walks every interesting directory object type via aiohttp, producing a large volume of requests from one
-user / source IP / UA triple. The combination of "aiohttp" UA with a burst threshold is a structural ROADrecon
-signature; legitimate first-party Microsoft components do not identify as aiohttp.
+Detects a burst of Azure AD Graph (graph.windows.net) directory enumeration by a single identity, keyed on the internal
+API version that ROADrecon hardcodes (`1.61-internal`, with `1.6-internal` as a related tooling value) plus a per-user
+request burst. ROADrecon's `gather` command walks the directory via this internal API version regardless of transport,
+so the detection survives its built-in evasions: the default run uses the `aiohttp` user-agent across ~16 collections,
+`gather --evade` routes every read through a single `/$batch` OData endpoint under a benign `Microsoft ADO.NET Data
+Services` user-agent, and `gather -ua` sets an arbitrary browser user-agent. A lower burst threshold applies when a
+scripting user-agent (`aiohttp`/`python`) is present and a higher volume threshold applies otherwise, which catches all
+three variants while excluding the first-party Microsoft components that occasionally touch the internal API version at
+low volume.
 """
 false_positives = [
     """
-    Developer activity using aiohttp against AAD Graph for prototyping. Rare in production tenants and typically
-    low-volume; the burst threshold limits exposure.
+    Legitimate first-party Microsoft components (for example the Azure Graph Client Library used by portal or Office
+    experiences) occasionally call AAD Graph with the internal API version, but at single-digit to low-double-digit
+    volume; the burst thresholds exclude them. Validate the calling `azure.aadgraphactivitylogs.properties.app_id` and
+    user if a low-volume match appears.
+    """,
+    """
+    Developer activity using aiohttp or python HTTP libraries against AAD Graph for prototyping. Rare in production
+    tenants and typically low-volume.
     """,
     """
     Authorized red team activity exercising ROADrecon. Document the engagement window and add exceptions on the source
@@ -33,22 +43,27 @@ note = """## Triage and analysis
 
 This is an ES|QL aggregation rule. Alert documents contain summarized fields per burst window: the calling identity, the tenant, and a one-minute bucket. The alert itself is the signal that something resembling ROADrecon's `gather` walk happened against AAD Graph; the actual investigation happens against the raw `logs-azure.aadgraphactivitylogs-*` events for the same identity and window.
 
+The rule anchors on the hardcoded internal API version and a per-user burst rather than the user-agent alone, so it catches all three `gather` transports:
+
+- Default: `aiohttp` user-agent across ~16 directory collections.
+- `--evade`: a single `/$batch` OData endpoint under a `Microsoft ADO.NET Data Services` user-agent (defeats user-agent and distinct-endpoint based matching).
+- `-ua <value>`: an arbitrary browser user-agent.
+
 ### Possible investigation steps
 
 - Confirm the burst by filtering raw AAD Graph activity for the alerting user, tenant, and time window.
     - Filter `logs-azure.aadgraphactivitylogs-*` on the alerting user, tenant, and burst window.
-    - ROADrecon's full `gather` walks ~16 directory collections; five or more in a single minute is the structural fingerprint.
-- Tool fingerprint: aiohttp UA plus the hardcoded internal API version.
-    - `user_agent.original` contains `aiohttp`.
-    - `api_version = 1.61-internal` (hardcoded in `gather.py`, returns internal-only fields like `strongAuthenticationDetail`).
-    - No first-party Microsoft component identifies as aiohttp or pins `1.61-internal`.
+    - A default `gather` walks ~16 collections (many distinct `url.path`); `--evade` concentrates volume on `/$batch` (high `request_count`, one path).
+- Tool fingerprint: the internal API version is the primary anchor.
+    - `api_version = 1.61-internal` (hardcoded in `gather.py`, returns internal-only fields like `strongAuthenticationDetail`). No first-party Microsoft component pins this at volume.
+    - `user_agent.original` is a secondary tell: `aiohttp`/`python` (overt), `Microsoft ADO.NET Data Services` with `/$batch` (the `--evade` signature), or a browser string (`-ua`).
 - Calling client + auth method: the typical device-code-flow ROADrecon entrypoint.
     - ROADrecon is usually pointed at the Azure CLI client (`04b07795-…`) via the `-c` flag.
     - Uses a public-client auth method (no client secret or certificate).
 - HTTP shape distinguishes enumeration from operator follow-on.
-    - `gather` reads only, so GETs dominate.
+    - `gather` reads only, so GETs dominate (the `--evade` `/$batch` requests are POSTs to the batch endpoint).
     - A 403/404 tail indicates the identity probing endpoints it lacks permission for.
-    - PATCH / POST / DELETE in the same burst means the operator did more than enumerate.
+    - PATCH / POST / DELETE against directory objects in the same burst means the operator did more than enumerate.
 - Source posture: residential ISP, generic VPS, or anonymising-network egress raises triage priority.
 - Pivot to sign-in logs (`logs-azure.signinlogs-*`) via the sign-in correlation ID on each AAD Graph event to land on the originating token-mint.
 - Pivot to audit logs (`logs-azure.auditlogs-*`) for any directory writes by the same user near the burst that suggest persistence or modification activity.
@@ -81,6 +96,7 @@ This is an ES|QL aggregation rule. Alert documents contain summarized fields per
 references = [
     "https://github.com/dirkjanm/ROADtools",
     "https://github.com/dirkjanm/ROADtools/blob/master/roadrecon/roadtools/roadrecon/gather.py",
+    "https://unit42.paloaltonetworks.com/roadtools-cloud-attacks/",
     "https://learn.microsoft.com/en-us/graph/migrate-azure-ad-graph-overview",
 ]
 risk_score = 73
@@ -110,9 +126,12 @@ query = '''
 from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
 
 | where data_stream.dataset == "azure.aadgraphactivitylogs"
-  and to_lower(user_agent.original) like "*aiohttp*"
+  and azure.aadgraphactivitylogs.properties.api_version in ("1.61-internal", "1.6-internal")
 
-| eval Esql.target_endpoints = case(
+| eval Esql.ua_lower = to_lower(user_agent.original)
+| eval Esql.is_tool_ua = Esql.ua_lower like "*aiohttp*" or Esql.ua_lower like "python*" or Esql.ua_lower like "*fasthttp*"
+| eval Esql.target_endpoint = case(
+    url.path like "*$batch*",                   "batch",
     url.path like "*/eligibleRoleAssignments*", "eligibleRoleAssignments",
     url.path like "*/roleAssignments*",         "roleAssignments",
     url.path like "*/users*",                   "users",
@@ -131,34 +150,41 @@ from logs-azure.aadgraphactivitylogs-* metadata _id, _version, _index
     url.path like "*/tenantDetails*",           "tenantDetails",
     "other"
   )
-| where Esql.target_endpoints != "other"
 
 | eval Esql.time_window = date_trunc(1 minutes, @timestamp)
 
 | stats
-    Esql.request_count                = count(*),
-    Esql.distinct_endpoints           = count_distinct(Esql.target_endpoints),
-    Esql.api_versions                 = values(azure.aadgraphactivitylogs.properties.api_version),
-    Esql.app_ids                      = values(azure.aadgraphactivitylogs.properties.app_id),
-    Esql.user_agent                   = values(user_agent.original),
-    Esql.http_methods                 = values(http.request.method),
-    Esql.status_codes                 = values(http.response.status_code),
-    Esql.source_ips                   = values(source.ip),
-    Esql.source_asn_orgs              = values(source.`as`.organization.name),
-    Esql.source_countries             = values(source.geo.country_name),
-    Esql.actor_types                  = values(azure.aadgraphactivitylogs.properties.actor_type),
-    Esql.client_auth_methods          = values(azure.aadgraphactivitylogs.properties.client_auth_method),
-    Esql.session_ids                  = values(azure.aadgraphactivitylogs.properties.session_id),
-    Esql.sign_in_activity_ids         = values(azure.aadgraphactivitylogs.properties.sign_in_activity_id),
-    Esql.scopes                       = values(azure.aadgraphactivitylogs.properties.scopes),
-    Esql.first_seen                   = min(@timestamp),
-    Esql.last_seen                    = max(@timestamp)
+    Esql.request_count        = count(*),
+    Esql.distinct_endpoints   = count_distinct(url.path),
+    Esql.collections          = values(Esql.target_endpoint),
+    Esql.tool_ua_seen         = max(case(Esql.is_tool_ua, 1, 0)),
+    Esql.api_versions         = values(azure.aadgraphactivitylogs.properties.api_version),
+    Esql.app_ids              = values(azure.aadgraphactivitylogs.properties.app_id),
+    Esql.user_agents          = values(user_agent.original),
+    Esql.http_methods         = values(http.request.method),
+    Esql.status_codes         = values(http.response.status_code),
+    Esql.source_ips           = values(source.ip),
+    Esql.source_asn_orgs      = values(source.`as`.organization.name),
+    Esql.source_countries     = values(source.geo.country_name),
+    Esql.actor_types          = values(azure.aadgraphactivitylogs.properties.actor_type),
+    Esql.client_auth_methods  = values(azure.aadgraphactivitylogs.properties.client_auth_method),
+    Esql.session_ids          = values(azure.aadgraphactivitylogs.properties.session_id),
+    Esql.sign_in_activity_ids = values(azure.aadgraphactivitylogs.properties.sign_in_activity_id),
+    Esql.scopes               = values(azure.aadgraphactivitylogs.properties.scopes),
+    Esql.first_seen           = min(@timestamp),
+    Esql.last_seen            = max(@timestamp)
   by
     user.id,
     azure.tenant_id,
     Esql.time_window
 
-| where Esql.distinct_endpoints >= 5
+| eval Esql.enum_detected = case(
+    Esql.tool_ua_seen == 1 and Esql.distinct_endpoints >= 5, true,
+    Esql.distinct_endpoints >= 15, true,
+    Esql.request_count >= 150, true,
+    false
+  )
+| where Esql.enum_detected == true
 
 | keep
     user.id,
@@ -206,4 +232,3 @@ reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.investigation_fields]
 field_names = ["user.id", "azure.tenant_id"]
-
