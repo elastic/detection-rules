@@ -2,17 +2,15 @@
 creation_date = "2026/10/06"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/06"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects an unusually high number of ChatGPT Enterprise conversation deletion events for the same user within a single
-calendar day. Mass deletion can indicate an attempt to remove conversation history or cover tracks after misuse.
+Detects an unusually high number of ChatGPT Enterprise conversation deletion events for the same user within a rolling
+24-hour lookback. Mass deletion can indicate an attempt to remove conversation history or cover tracks after misuse.
 """
-false_positives = [
-    "Users purging old chats during workspace hygiene or retention cleanup.",
-]
+false_positives = ["Users purging old chats during workspace hygiene or retention cleanup."]
 from = "now-24h"
 interval = "1h"
 language = "esql"
@@ -22,7 +20,8 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Excessive Conversation Deletion
 
-One user deleted a large number of conversations in a single day. Mass deletion can remove useful investigative context after misuse or data staging.
+One user deleted a large number of conversations in a rolling 24-hour window. Mass deletion can remove useful
+investigative context after misuse or data staging.
 
 Escalate when deletions follow downloads, shares, or credential-bearing prompts, or when the user has no retention-cleanup role. Close as a false positive for documented retention cleanup or migration tooling.
 
@@ -99,7 +98,6 @@ reference = "https://attack.mitre.org/techniques/T1070/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -120,10 +118,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 group_by = ["user.id"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 24
-
 [rule.investigation_fields]
 field_names = [
     "user.id",
@@ -134,4 +128,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
 

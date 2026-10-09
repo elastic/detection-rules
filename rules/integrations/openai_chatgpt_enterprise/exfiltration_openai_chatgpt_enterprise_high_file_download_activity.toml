@@ -2,17 +2,15 @@
 creation_date = "2026/10/06"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/06"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a high number of ChatGPT Enterprise file download audit events for the same user within a single calendar day.
-Bulk downloads can indicate staging of conversation attachments or workspace files for exfiltration.
+Detects a high number of ChatGPT Enterprise file download audit events for the same user within a rolling 24-hour
+lookback. Bulk downloads can indicate staging of conversation attachments or workspace files for exfiltration.
 """
-false_positives = [
-    "Users downloading many attachments during legitimate research or migration work.",
-]
+false_positives = ["Users downloading many attachments during legitimate research or migration work."]
 from = "now-24h"
 interval = "1h"
 language = "esql"
@@ -22,7 +20,8 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise High File Download Activity
 
-One user downloaded a large number of files in a single day. Bulk downloads can stage conversation attachments or workspace files for exfiltration.
+One user downloaded a large number of files in a rolling 24-hour window. Bulk downloads can stage conversation
+attachments or workspace files for exfiltration.
 
 Escalate when there is no business justification, downloads coincide with unusual geo or user agents, or shares and deletions follow. Close as a false positive for approved research, migration, or export projects.
 
@@ -100,7 +99,6 @@ reference = "https://attack.mitre.org/techniques/T1567/"
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -121,10 +119,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 group_by = ["user.id"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 24
-
 [rule.investigation_fields]
 field_names = [
     "user.id",
@@ -136,4 +130,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
 

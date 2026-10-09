@@ -9,11 +9,11 @@ updated_date = "2026/10/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects ChatGPT Enterprise Gmail connector activity that sends a message to a recipient. Adversaries who abuse a linked
-Gmail connector after session compromise can exfiltrate data or perform lateral phishing by sending mail on behalf of
-the user.
+Detects ChatGPT Enterprise Gmail connector `send_email` responses. Adversaries who abuse a linked Gmail connector after
+session compromise can exfiltrate data or perform lateral phishing by sending mail on behalf of the user. Draft-only
+activity (`create_draft`) is excluded.
 """
-false_positives = ["Users legitimately asking ChatGPT to draft or send mail through an approved Gmail connector."]
+false_positives = ["Users legitimately asking ChatGPT to send mail through an approved Gmail connector."]
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
@@ -22,20 +22,19 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Gmail Message Sent via Connector
 
-ChatGPT used the linked Gmail connector to send mail. That can be legitimate assistance or abuse for exfiltration or
+ChatGPT completed a Gmail connector `send_email` call. That can be legitimate assistance or abuse for exfiltration or
 phishing after connector or session compromise.
 
-Escalate when the recipient is unexpected, the subject or body looks like phishing or data staging, or nearby activity
-shows sensitive Gmail or Drive discovery. Close as a false positive for approved send-on-behalf workflows.
+Escalate when the recipient or content on the paired request is unexpected, the message looks like phishing or data
+staging, or nearby activity shows sensitive Gmail or Drive discovery. Close as a false positive for approved
+send-on-behalf workflows.
 
 #### Possible investigation steps
 
-- Review `user.email`, `Esql.destination_email`, and `openai_chatgpt_enterprise.app_log.input` (subject and body when
-  present).
-- Correlate with nearby Gmail discovery searches, Google Drive downloads, or unusual authentication activity for the
-  same user.
+- Review `user.email`, `Esql.gmail_action`, and `openai_chatgpt_enterprise.app_log.output` (sent message and thread IDs).
+- Correlate with the preceding Gmail `request` from the same user (subject, body, and `to` are on the request event).
+- Correlate with nearby Gmail discovery searches, Google Drive downloads, or unusual authentication activity.
 - Confirm whether Gmail connector use and outbound send are approved for that user.
-- Check the recipient mailbox or message headers if the send reached an external address.
 
 ### False positive analysis
 
@@ -55,8 +54,8 @@ risk_score = 47
 rule_id = "7184e35d-5605-4283-badf-435e1974e488"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for the Gmail app
-(`app_type: SERVICE`) with flattened `openai_chatgpt_enterprise.app_log.input` fields, including `to`.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect Gmail `app_log` response events where
+`openai_chatgpt_enterprise.app_log.output` includes `response.action_name` (for example `send_email`).
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -83,15 +82,16 @@ from logs-openai_chatgpt_enterprise.app_log-* metadata _id, _version, _index
     data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
     openai_chatgpt_enterprise.app_log.app_name == "Gmail" and
     openai_chatgpt_enterprise.app_log.app_type == "SERVICE" and
-    openai_chatgpt_enterprise.app_log.input is not null
-| eval Esql.destination_email = field_extract(openai_chatgpt_enterprise.app_log.input, "to")
-| where Esql.destination_email is not null
+    openai_chatgpt_enterprise.app_log.output is not null
+| eval Esql.gmail_action = field_extract(openai_chatgpt_enterprise.app_log.output, "response.action_name")
+| where Esql.gmail_action == "send_email"
 | keep
     _id, _version, _index, @timestamp, user.id, user.email,
-    Esql.destination_email,
+    Esql.gmail_action,
     openai_chatgpt_enterprise.app_log.app_name,
     openai_chatgpt_enterprise.app_log.app_type,
-    openai_chatgpt_enterprise.app_log.input,
+    openai_chatgpt_enterprise.app_log.log_type,
+    openai_chatgpt_enterprise.app_log.output,
     data_stream.*
 '''
 
@@ -153,7 +153,7 @@ field_names = [
     "@timestamp",
     "user.email",
     "user.id",
-    "Esql.destination_email",
+    "Esql.gmail_action",
     "openai_chatgpt_enterprise.app_log.input",
     "openai_chatgpt_enterprise.app_log.app_name",
 ]

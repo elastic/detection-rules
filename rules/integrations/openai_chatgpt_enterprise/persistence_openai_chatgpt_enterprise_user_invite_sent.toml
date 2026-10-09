@@ -2,7 +2,7 @@
 creation_date = "2026/10/06"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/06"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -10,9 +10,7 @@ description = """
 Detects ChatGPT Enterprise audit events that invite a new user into the workspace. An adversary who compromises an
 administrator can invite a mailbox they control to gain durable access.
 """
-false_positives = [
-    "IT and hiring workflows routinely invite new members during onboarding.",
-]
+false_positives = ["IT and hiring workflows routinely invite new members during onboarding."]
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
@@ -73,7 +71,8 @@ query = '''
 from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
 | where
     data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
-    event.action == "invite_send"
+    event.action == "invite_send" and
+    event.outcome == "success"
 | keep
     _id, _version, _index, @timestamp, event.action, event.outcome, user.id, user.email, source.ip,
     openai_chatgpt_enterprise.audit_log.action_data.email_addresses,
@@ -96,11 +95,11 @@ name = "Cloud Account"
 reference = "https://attack.mitre.org/techniques/T1136/003/"
 
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"

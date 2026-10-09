@@ -90,10 +90,10 @@ from logs-openai_chatgpt_enterprise.app_log-*
     openai_chatgpt_enterprise.app_log.input is not null and
     user.email is not null
 | eval
-    Esql.download_raw_file = field_extract(openai_chatgpt_enterprise.app_log.input, "download_raw_file"),
+    Esql.download_raw_file = to_lower(field_extract(openai_chatgpt_enterprise.app_log.input, "download_raw_file")),
     Esql.download_url = field_extract(openai_chatgpt_enterprise.app_log.input, "url"),
     Esql.time_bucket = date_trunc(1 hour, @timestamp)
-| where Esql.download_raw_file is not null
+| where Esql.download_raw_file == "true"
 | stats
     Esql.download_count = count_distinct(Esql.download_url),
     Esql.download_url_values = values(Esql.download_url),
