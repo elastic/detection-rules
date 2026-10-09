@@ -14,7 +14,10 @@ document types, or queries matching credential, financial, HR, or legal themes. 
 connector after session compromise often search mail for high-value content before exfiltration or send-as abuse.
 """
 false_positives = [
-    "HR, legal, finance, or IR users who legitimately search Gmail for attachments, payroll, or contract terms via ChatGPT.",
+    """
+    HR, legal, finance, or IR users who legitimately search Gmail for attachments, payroll, or contract terms via
+    ChatGPT.
+    """,
 ]
 from = "now-9m"
 language = "esql"
@@ -24,25 +27,29 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Suspicious Gmail Discovery
 
-A Gmail connector search matched attachment/document-type hunting or sensitive themes (credentials, financial, HR, or
-legal). That can indicate collection staging through ChatGPT after connector or session abuse.
+A Gmail connector search matched attachment or document-type hunting, or sensitive themes (credentials, financial, HR,
+or legal). That can indicate collection staging through ChatGPT after connector or session abuse.
 
-Escalate when searches are broad (`has:attachment` plus many `filename:` filters), credentials keywords appear, or
-nearby Gmail sends / Drive downloads follow. Close as a false positive for approved HR/legal/finance research.
+Escalate when searches are broad (`has:attachment` plus many `filename:` filters), credential keywords appear, or
+nearby Gmail sends or Drive downloads follow. Close as a false positive for approved HR, legal, or finance research.
 
 #### Possible investigation steps
 
 - Review `Esql.email_search_query` and the boolean match flags on the alert.
-- Correlate with Gmail send events, Google Drive downloads, or unusual auth activity for the same user.
+- Correlate with Gmail send events, Google Drive downloads, or unusual authentication activity for the same user.
 - Confirm whether Gmail connector use is approved for that user and whether the search matches their role.
+- Check whether the same user recently linked the Gmail connector or created Codex access tokens.
 
 ### False positive analysis
 
-- Power users refining attachment searches or payroll/legal lookups can match these patterns.
+- HR, legal, finance, or incident-response users refining attachment searches or payroll and contract lookups can match
+  these patterns when using an approved Gmail connector.
 
 ### Response and remediation
 
-- Revoke Gmail connector access if unauthorized and hunt for follow-on sends or downloads of matched content.
+- Revoke Gmail connector access if unauthorized, review retrieved mail and attachments, and treat exposed content per
+  your data-incident process.
+- Hunt for follow-on Gmail sends, Drive downloads, or conversation shares from the same user.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
@@ -52,8 +59,8 @@ risk_score = 47
 rule_id = "b05745b3-4bab-42f3-8040-d26d42b8eec1"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for the Gmail app with
-`app_type: SERVICE` and flattened `openai_chatgpt_enterprise.app_log.input` (including `query`).
+This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for the Gmail app
+(`app_type: SERVICE`) with flattened `openai_chatgpt_enterprise.app_log.input` fields, including `query`.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -135,7 +142,6 @@ reference = "https://attack.mitre.org/techniques/T1083/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -178,3 +184,4 @@ field_names = [
     "Esql.match_legal",
     "openai_chatgpt_enterprise.app_log.input",
 ]
+

@@ -2,18 +2,16 @@
 creation_date = "2026/10/08"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects ChatGPT Enterprise audit events where a workspace compliance log file is deleted
-(`delete_workspace_log_file`). Deleting exported audit or conversation log archives can remove evidence from
+Detects ChatGPT Enterprise audit events where a workspace compliance log file is deleted (`delete_workspace_log_file`).
+Adversaries with privileged access may delete exported audit or conversation log archives to remove evidence from
 compliance workflows and hinder investigation.
 """
-false_positives = [
-    "Administrators deleting expired workspace log archives under an approved retention policy.",
-]
+false_positives = ["Administrators deleting expired workspace log archives under an approved retention policy."]
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
@@ -22,24 +20,29 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Workspace Log File Deleted
 
-A workspace compliance log archive was deleted. That can remove investigator access to authentication, conversation, or Codex exports.
+A workspace compliance log archive was deleted. That can remove investigator access to authentication, conversation, or
+Codex exports and may be used to cover tracks after misuse.
 
-Escalate when the actor is unexpected, deletions follow downloads or privileged changes, or there is no retention-policy ticket. Close as a false positive for documented retention cleanup by approved admins.
+Escalate when the actor is unexpected, deletions follow downloads or privileged changes, or there is no retention-policy
+ticket. Close as a false positive for documented retention cleanup by approved admins.
 
 #### Possible investigation steps
 
 - Identify the actor (`user.id`, `user.email`) and source IP.
 - Note `openai_chatgpt_enterprise.audit_log.action_data.log_file_id` and related event type fields.
-- Correlate with nearby `list_workspace_log_files` / `download_workspace_log_file` activity from the same actor.
+- Correlate with nearby `list_workspace_log_files` or `download_workspace_log_file` activity from the same actor.
 - Confirm whether the deletion matches an approved retention or purge job.
+- Review other privileged audit activity by the same actor, such as role changes, invites, or feature toggles.
 
 ### False positive analysis
 
-- Retention policies may delete aged workspace log archives on a schedule using admin accounts.
+- Retention policies may delete aged workspace log archives on a schedule using approved admin accounts.
 
 ### Response and remediation
 
 - Preserve remaining exports, review the actor's recent privileged activity, and tighten who can delete workspace logs.
+- If the deletion appears unauthorized, inventory other exports or deletions by the same actor and revoke sessions or
+  admin access as appropriate.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
@@ -95,7 +98,6 @@ reference = "https://attack.mitre.org/techniques/T1070/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -124,3 +126,4 @@ field_names = [
     "openai_chatgpt_enterprise.audit_log.actor.type",
     "source.ip",
 ]
+

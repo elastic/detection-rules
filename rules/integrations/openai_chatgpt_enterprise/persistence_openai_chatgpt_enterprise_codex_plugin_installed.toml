@@ -2,15 +2,15 @@
 creation_date = "2026/10/08"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects the first ChatGPT Enterprise Codex plugin install for a given `plugin_display_name` and `plugin_name` pair in
+Detects the first ChatGPT Enterprise Codex plugin install for a given plugin display name and plugin name pair within
 the rule history window. Newly installed Codex plugins expand the tools and data sources available inside agent
-sessions; alerting on first-seen installs highlights unexpected connector enablement rather than every routine
-reinstall.
+sessions; adversaries can enable unexpected connectors to persist access to mail, chat, or file systems after initial
+compromise.
 """
 false_positives = [
     """
@@ -27,8 +27,8 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Unusual Codex Plugin Installed
 
-First-seen Codex `plugin_installed` for this plugin pair (`plugin_display_name` / `plugin_name`) within the rule
-history window. Plugins can add connectors that pull mail, chat, or file content into Codex.
+A Codex plugin was installed for the first time for this plugin pair within the rule history window. Plugins can add
+connectors that pull mail, chat, or file content into Codex sessions.
 
 Escalate when the plugin is not on the approved inventory, the installing user is unexpected, or nearby activity shows
 sensitive search bursts, MCP tool abuse, or access-token creation. Close as a false positive for approved connector
@@ -37,8 +37,8 @@ rollouts.
 #### Possible investigation steps
 
 - Record `plugin_display_name`, `plugin_name`, and the installing user (`user.email` / `user.id`).
-- Confirm whether the plugin is approved in your ChatGPT Enterprise / Codex workspace inventory.
-- Review nearby Codex and app-log activity for the same user for MCP calls, Drive/Slack query bursts, or credential
+- Confirm whether the plugin is approved in your ChatGPT Enterprise or Codex workspace inventory.
+- Review nearby Codex and app-log activity for the same user for MCP calls, Drive or Slack query bursts, or credential
   exposure.
 - Search for the same plugin installed by other users to distinguish org-wide rollout from a single anomalous install.
 
@@ -115,7 +115,6 @@ reference = "https://attack.mitre.org/techniques/T1213/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -164,3 +163,5 @@ value = [
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-14d"
+
+

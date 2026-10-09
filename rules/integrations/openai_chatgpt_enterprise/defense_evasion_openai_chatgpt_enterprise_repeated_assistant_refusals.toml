@@ -2,14 +2,15 @@
 creation_date = "2026/10/08"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects three or more ChatGPT Enterprise assistant messages for the same user whose text matches common policy-refusal
-phrases (cannot assist/help/fulfill/provide/answer, unable to assist, against my guidelines, and similar) within the
-lookback window. A refusal burst can indicate jailbreak probing, policy-bypass attempts, or automated unsafe prompting.
+phrases (cannot assist, cannot help, cannot fulfill, unable to assist, against my guidelines, and similar) within the
+lookback window. A refusal burst can indicate jailbreak probing, policy-bypass attempts, or automated unsafe prompting
+intended to evade model safety controls.
 """
 false_positives = [
     """
@@ -33,9 +34,9 @@ note = """## Triage and analysis
 One user received three or more assistant replies whose text matches common refusal phrasing in the lookback window.
 That pattern can indicate jailbreak probing, attempts to elicit disallowed content, or scripted unsafe prompting.
 
-Escalate when the sampled messages are clear hard refusals, the prompts nearby look adversarial, or the same user also
-triggers credential-exposure or unusual Codex MCP activity. Close as a false positive for approved eval suites or
-partial phrases inside otherwise helpful answers.
+Escalate when the sampled messages are clear hard refusals, nearby prompts look adversarial, or the same user also
+triggers credential-exposure or unusual Codex MCP activity. Close as a false positive for approved security evaluations
+or partial phrases inside otherwise helpful answers.
 
 #### Possible investigation steps
 
@@ -47,13 +48,14 @@ partial phrases inside otherwise helpful answers.
 ### False positive analysis
 
 - Approved red-team or model-evaluation traffic that intentionally elicits refusals.
-- Soft refusals embedded in longer helpful answers (for example, declining malware while offering defensive guidance).
+- Soft refusals embedded in longer helpful answers (for example, declining malware assistance while offering defensive
+  guidance).
 
 ### Response and remediation
 
 - If probing is unauthorized, restrict the account, review recent conversations, and hunt for successful bypasses after
   the refusal burst.
-- Feed confirmed jailbreak prompts into prompt-security controls and user awareness where appropriate.
+- Use confirmed jailbreak prompts to improve prompt-security controls and user awareness where appropriate.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
@@ -139,7 +141,6 @@ reference = "https://attack.mitre.org/techniques/T1562/"
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -172,10 +173,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 group_by = ["user.email", "organization.id"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 1
-
 [rule.investigation_fields]
 field_names = [
     "user.email",
@@ -186,3 +183,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

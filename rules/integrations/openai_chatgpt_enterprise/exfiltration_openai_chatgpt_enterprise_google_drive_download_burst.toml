@@ -10,11 +10,14 @@ updated_date = "2026/10/09"
 author = ["Elastic"]
 description = """
 Detects a ChatGPT Enterprise user downloading five or more distinct Google Drive files through the Drive connector
-within a one-hour window (`download_raw_file` present on app-log input). Bulk Drive retrieval via ChatGPT can indicate
-staging of organizational files for exfiltration after connector or session abuse.
+within a one-hour window. Adversaries who abuse a linked Drive connector after session compromise often stage bulk file
+retrieval before sharing, forwarding, or other exfiltration.
 """
 false_positives = [
-    "Users exporting or reviewing many Drive files through ChatGPT during approved research or migration work.",
+    """
+    Users exporting or reviewing many Drive files through ChatGPT during approved research, eDiscovery, or migration
+    work.
+    """,
 ]
 from = "now-2h"
 interval = "15m"
@@ -25,25 +28,28 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Google Drive Download Burst
 
-One user retrieved five or more distinct Google Drive URLs through ChatGPT in an hour. That pattern can indicate
-bulk collection via the Drive connector.
+One user retrieved five or more distinct Google Drive files through ChatGPT in an hour. That pattern can indicate bulk
+collection via the Drive connector ahead of exfiltration.
 
-Escalate when downloads follow sensitive Drive searches, Gmail discovery/sends, or unusual auth activity. Close as a
-false positive for approved bulk export or research projects.
+Escalate when downloads follow sensitive Drive searches, Gmail discovery or sends, or unusual authentication activity.
+Close as a false positive for approved bulk export or research projects.
 
 #### Possible investigation steps
 
 - Review `Esql.download_count`, `Esql.download_url_values`, and the time bucket on the alert.
 - Correlate with nearby Google Drive sensitive query bursts or Gmail connector activity from the same user.
 - Confirm whether Drive connector downloads are approved for that user and volume.
+- Check subsequent conversation shares or external forwarding of the retrieved content.
 
 ### False positive analysis
 
-- Migration, eDiscovery, or research workflows may download many Drive files in a short window.
+- Migration, eDiscovery, or research workflows may download many Drive files in a short window through an approved
+  connector.
 
 ### Response and remediation
 
 - Revoke Drive connector access if unauthorized and inventory downloaded files for data exposure.
+- Hunt for follow-on shares, Gmail sends, or additional downloads from the same user in the surrounding window.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
@@ -53,8 +59,8 @@ risk_score = 47
 rule_id = "0930e461-a831-4510-a180-4f5e3861ed51"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for Google Drive with
-`log_type: request` and flattened `openai_chatgpt_enterprise.app_log.input` fields `download_raw_file` and `url`.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for Google Drive, including
+request logs with flattened `openai_chatgpt_enterprise.app_log.input` fields `download_raw_file` and `url`.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -123,17 +129,12 @@ framework = "MITRE ATT&CK"
 id = "T1213"
 name = "Data from Information Repositories"
 reference = "https://attack.mitre.org/techniques/T1213/"
-[[rule.threat.technique.subtechnique]]
-id = "T1213.002"
-name = "Sharepoint"
-reference = "https://attack.mitre.org/techniques/T1213/002/"
 
 
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -166,10 +167,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
 group_by = ["user.email", "Esql.time_bucket"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 1
-
 [rule.investigation_fields]
 field_names = [
     "user.email",
@@ -179,3 +176,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

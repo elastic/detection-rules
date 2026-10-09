@@ -9,13 +9,11 @@ updated_date = "2026/10/09"
 [rule]
 author = ["Elastic"]
 description = """
-Detects ChatGPT Enterprise Gmail connector activity that sends a message (`openai_chatgpt_enterprise.app_log.input.to`
-populated). Adversaries who abuse a linked Gmail connector after session compromise can exfiltrate data or perform
-lateral phishing by sending mail on behalf of the user.
+Detects ChatGPT Enterprise Gmail connector activity that sends a message to a recipient. Adversaries who abuse a linked
+Gmail connector after session compromise can exfiltrate data or perform lateral phishing by sending mail on behalf of
+the user.
 """
-false_positives = [
-    "Users legitimately asking ChatGPT to draft or send mail through an approved Gmail connector.",
-]
+false_positives = ["Users legitimately asking ChatGPT to draft or send mail through an approved Gmail connector."]
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
@@ -24,26 +22,30 @@ note = """## Triage and analysis
 
 ### Investigating OpenAI ChatGPT Enterprise Gmail Message Sent via Connector
 
-ChatGPT used the linked Gmail connector to send mail (`to` present on the app-log input). That can be legitimate
-assistance or abuse for exfiltration / phishing after connector or session compromise.
+ChatGPT used the linked Gmail connector to send mail. That can be legitimate assistance or abuse for exfiltration or
+phishing after connector or session compromise.
 
-Escalate when the recipient is unexpected, the subject/body looks like phishing or data staging, or nearby activity
-shows sensitive Gmail/Drive discovery. Close as a false positive for approved send-on-behalf workflows.
+Escalate when the recipient is unexpected, the subject or body looks like phishing or data staging, or nearby activity
+shows sensitive Gmail or Drive discovery. Close as a false positive for approved send-on-behalf workflows.
 
 #### Possible investigation steps
 
-- Review `user.email`, `Esql.destination_email`, and `openai_chatgpt_enterprise.app_log.input` (subject/body when present).
-- Correlate with nearby Gmail discovery searches, Google Drive downloads, or unusual auth geo/UA for the same user.
+- Review `user.email`, `Esql.destination_email`, and `openai_chatgpt_enterprise.app_log.input` (subject and body when
+  present).
+- Correlate with nearby Gmail discovery searches, Google Drive downloads, or unusual authentication activity for the
+  same user.
 - Confirm whether Gmail connector use and outbound send are approved for that user.
-- Check the recipient mailbox / message headers if the send reached an external address.
+- Check the recipient mailbox or message headers if the send reached an external address.
 
 ### False positive analysis
 
-- Assistants that send calendar notes, status updates, or approved outbound mail through Gmail will match.
+- Users who send calendar notes, status updates, or other approved outbound mail through the Gmail connector will match.
 
 ### Response and remediation
 
-- Revoke Gmail connector access if unauthorized, review sent mail, and treat exposed content per your data-incident process.
+- Revoke Gmail connector access if unauthorized, review sent mail, and treat exposed content per your data-incident
+  process.
+- Hunt for additional sends, sensitive Gmail searches, or Drive downloads from the same user in the surrounding window.
 """
 references = [
     "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
@@ -53,8 +55,8 @@ risk_score = 47
 rule_id = "7184e35d-5605-4283-badf-435e1974e488"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for the Gmail app with
-`app_type: SERVICE` and flattened `openai_chatgpt_enterprise.app_log.input` (including `to`).
+This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for the Gmail app
+(`app_type: SERVICE`) with flattened `openai_chatgpt_enterprise.app_log.input` fields, including `to`.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -118,7 +120,6 @@ reference = "https://attack.mitre.org/techniques/T1534/"
 id = "TA0008"
 name = "Lateral Movement"
 reference = "https://attack.mitre.org/tactics/TA0008/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -156,3 +157,4 @@ field_names = [
     "openai_chatgpt_enterprise.app_log.input",
     "openai_chatgpt_enterprise.app_log.app_name",
 ]
+

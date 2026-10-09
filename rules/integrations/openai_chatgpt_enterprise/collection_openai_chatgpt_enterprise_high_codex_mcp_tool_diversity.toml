@@ -2,13 +2,13 @@
 creation_date = "2026/10/08"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects a ChatGPT Enterprise Codex user invoking a high number of distinct MCP tools across multiple connectors within
-a 30-minute bucket. Broad tool and connector diversity in a short window can indicate compromised-account recon,
+Detects a ChatGPT Enterprise Codex user invoking a high number of distinct MCP tools across multiple connectors within a
+30-minute bucket. Broad tool and connector diversity in a short window can indicate compromised-account recon,
 unauthorized multi-system collection, or an agent rapidly enumerating organizational data sources.
 """
 false_positives = [
@@ -45,7 +45,8 @@ approved automation baselines.
 ### False positive analysis
 
 - Engineers using several approved connectors in one Codex session commonly produce multi-tool bursts.
-- Tune thresholds to sit above your workspace p95/p99 for 30-minute buckets.
+- Raise the distinct-tool or distinct-connector thresholds above your normal 30-minute Codex baseline if approved
+  power users remain noisy.
 
 ### Response and remediation
 
@@ -61,8 +62,9 @@ risk_score = 47
 rule_id = "ec65644d-c9b9-4e4b-a89f-457c75b1dad8"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration to collect Codex logs (`app_mcp_call`) into Elasticsearch.
-Tune the distinct-tool and distinct-connector thresholds above your normal Codex baseline before broad enablement.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect Codex compliance logs into Elasticsearch,
+including `app_mcp_call` events. Tune the distinct-tool and distinct-connector thresholds above your normal Codex
+baseline before broad enablement.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -133,7 +135,6 @@ reference = "https://attack.mitre.org/techniques/T1213/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -166,10 +167,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
 group_by = ["user.email", "organization.id", "Esql.time_bucket"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 1
-
 [rule.investigation_fields]
 field_names = [
     "user.email",
@@ -183,3 +180,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+

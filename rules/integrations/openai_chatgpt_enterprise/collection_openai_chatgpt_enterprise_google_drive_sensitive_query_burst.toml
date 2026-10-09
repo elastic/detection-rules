@@ -2,16 +2,15 @@
 creation_date = "2026/10/08"
 integration = ["openai_chatgpt_enterprise"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects a ChatGPT Enterprise user issuing five or more distinct Google Drive app search queries in a five-minute bucket
 where at least one query matches sensitive-data themes (payroll, payslip, confidential, payment, NDA, credentials, and
-similar). Rapid multi-term Drive discovery through the connected app can indicate attempts to locate and retrieve
-sensitive files via ChatGPT. The distinct-query floor is set for real-world connector noise; short lab demos with fewer
-search terms may not alert.
+similar). Adversaries who abuse a linked Drive connector after session compromise often run rapid multi-term searches to
+locate high-value files before download or sharing.
 """
 false_positives = [
     """
@@ -19,8 +18,8 @@ false_positives = [
     terms across several queries. Validate the query values and business context before escalating.
     """,
     """
-    Power users iterating many related document titles in one session. Raise thresholds further if approved roles remain
-    noisy.
+    Power users iterating many related document titles in one session. Raise the distinct-query or sensitive-query
+    thresholds if approved roles remain noisy.
     """,
 ]
 from = "now-30m"
@@ -34,28 +33,28 @@ note = """## Triage and analysis
 
 One user ran five or more distinct Google Drive searches in five minutes, with at least one query matching
 sensitive-data themes. That pattern can indicate using ChatGPT's Google Drive connector to discover payroll,
-confidential, payment, NDA, or credential-related files. Fewer-term lab reproductions may sit under this floor.
+confidential, payment, NDA, or credential-related files ahead of collection or exfiltration.
 
 Escalate when queries look like bulk sensitive discovery, downloads or shares follow, or the actor is unexpected for
-those document types. Close as a false positive for approved HR/legal/finance research.
+those document types. Close as a false positive for approved HR, legal, or finance research.
 
 #### Possible investigation steps
 
 - Review `Esql.query_values`, `Esql.sensitive_query_count`, and `Esql.query_count_distinct` on the alert.
 - Correlate with nearby conversation messages asking ChatGPT to search or download Drive files.
 - Check subsequent file downloads, conversation shares, or Codex MCP Drive tool calls from the same user.
-- Confirm whether the Google Drive MCP/app link is approved for that user.
+- Confirm whether the Google Drive connector is approved for that user and whether the search matches their role.
 
 ### False positive analysis
 
 - HR, payroll, legal, and vendor teams commonly search for NDA, payroll, or contract terms.
-- Tunable: raise `Esql.query_count_distinct` (default 5) or `Esql.sensitive_query_count` above your baseline.
-- Short demos with only two or three search terms will not meet the real-world distinct-query floor.
+- Raise `Esql.query_count_distinct` (default 5) or `Esql.sensitive_query_count` above your baseline if approved roles
+  remain noisy.
 
 ### Response and remediation
 
-- If unauthorized, revoke Google Drive app access for the user, review retrieved files, and treat exposed documents per
-  your data-incident process.
+- If unauthorized, revoke Google Drive connector access for the user, review retrieved files, and treat exposed
+  documents per your data-incident process.
 - Hunt for follow-on downloads, shares, or external forwarding of the matched content.
 """
 references = [
@@ -66,8 +65,8 @@ risk_score = 47
 rule_id = "8de28a44-6ec1-4d04-8ee0-2562f15d06c5"
 setup = """## Setup
 
-This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for the Google Drive app,
-including `log_type: request` rows with `openai_chatgpt_enterprise.app_log.query` populated.
+This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for the Google Drive app,
+including request logs with `openai_chatgpt_enterprise.app_log.query` populated.
 
 https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
 """
@@ -155,11 +154,6 @@ framework = "MITRE ATT&CK"
 id = "T1213"
 name = "Data from Information Repositories"
 reference = "https://attack.mitre.org/techniques/T1213/"
-[[rule.threat.technique.subtechnique]]
-id = "T1213.002"
-name = "Sharepoint"
-reference = "https://attack.mitre.org/techniques/T1213/002/"
-
 
 
 [rule.threat.tactic]
@@ -178,7 +172,6 @@ reference = "https://attack.mitre.org/techniques/T1083/"
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat_mappings]]
 framework = "MITRE ATLAS"
 version = "2026.08"
@@ -211,10 +204,6 @@ reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
 group_by = ["user.email", "organization.id", "Esql.time_bucket"]
 missing_fields_strategy = "suppress"
 
-[rule.alert_suppression.duration]
-unit = "h"
-value = 1
-
 [rule.investigation_fields]
 field_names = [
     "user.email",
@@ -227,3 +216,8 @@ field_names = [
     "Esql.timestamp_first_seen",
     "Esql.timestamp_last_seen",
 ]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
