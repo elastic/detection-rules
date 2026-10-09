@@ -1,0 +1,158 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise Gmail connector activity that sends a message (`openai_chatgpt_enterprise.app_log.input.to`
+populated). Adversaries who abuse a linked Gmail connector after session compromise can exfiltrate data or perform
+lateral phishing by sending mail on behalf of the user.
+"""
+false_positives = [
+    "Users legitimately asking ChatGPT to draft or send mail through an approved Gmail connector.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Gmail Message Sent via Connector"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Gmail Message Sent via Connector
+
+ChatGPT used the linked Gmail connector to send mail (`to` present on the app-log input). That can be legitimate
+assistance or abuse for exfiltration / phishing after connector or session compromise.
+
+Escalate when the recipient is unexpected, the subject/body looks like phishing or data staging, or nearby activity
+shows sensitive Gmail/Drive discovery. Close as a false positive for approved send-on-behalf workflows.
+
+#### Possible investigation steps
+
+- Review `user.email`, `Esql.destination_email`, and `openai_chatgpt_enterprise.app_log.input` (subject/body when present).
+- Correlate with nearby Gmail discovery searches, Google Drive downloads, or unusual auth geo/UA for the same user.
+- Confirm whether Gmail connector use and outbound send are approved for that user.
+- Check the recipient mailbox / message headers if the send reached an external address.
+
+### False positive analysis
+
+- Assistants that send calendar notes, status updates, or approved outbound mail through Gmail will match.
+
+### Response and remediation
+
+- Revoke Gmail connector access if unauthorized, review sent mail, and treat exposed content per your data-incident process.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "7184e35d-5605-4283-badf-435e1974e488"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for the Gmail app with
+`app_type: SERVICE` and flattened `openai_chatgpt_enterprise.app_log.input` (including `to`).
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Tactic: Lateral Movement",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_name == "Gmail" and
+    openai_chatgpt_enterprise.app_log.app_type == "SERVICE" and
+    openai_chatgpt_enterprise.app_log.input is not null
+| eval Esql.destination_email = field_extract(openai_chatgpt_enterprise.app_log.input, "to")
+| where Esql.destination_email is not null
+| keep
+    _id, _version, _index, @timestamp, user.id, user.email,
+    Esql.destination_email,
+    openai_chatgpt_enterprise.app_log.app_name,
+    openai_chatgpt_enterprise.app_log.app_type,
+    openai_chatgpt_enterprise.app_log.input,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1534"
+name = "Internal Spearphishing"
+reference = "https://attack.mitre.org/techniques/T1534/"
+
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "user.id",
+    "Esql.destination_email",
+    "openai_chatgpt_enterprise.app_log.input",
+    "openai_chatgpt_enterprise.app_log.app_name",
+]

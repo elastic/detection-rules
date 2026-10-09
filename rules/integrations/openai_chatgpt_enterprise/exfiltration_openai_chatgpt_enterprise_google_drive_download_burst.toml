@@ -1,0 +1,181 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a ChatGPT Enterprise user downloading five or more distinct Google Drive files through the Drive connector
+within a one-hour window (`download_raw_file` present on app-log input). Bulk Drive retrieval via ChatGPT can indicate
+staging of organizational files for exfiltration after connector or session abuse.
+"""
+false_positives = [
+    "Users exporting or reviewing many Drive files through ChatGPT during approved research or migration work.",
+]
+from = "now-2h"
+interval = "15m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Google Drive Download Burst"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Google Drive Download Burst
+
+One user retrieved five or more distinct Google Drive URLs through ChatGPT in an hour. That pattern can indicate
+bulk collection via the Drive connector.
+
+Escalate when downloads follow sensitive Drive searches, Gmail discovery/sends, or unusual auth activity. Close as a
+false positive for approved bulk export or research projects.
+
+#### Possible investigation steps
+
+- Review `Esql.download_count`, `Esql.download_url_values`, and the time bucket on the alert.
+- Correlate with nearby Google Drive sensitive query bursts or Gmail connector activity from the same user.
+- Confirm whether Drive connector downloads are approved for that user and volume.
+
+### False positive analysis
+
+- Migration, eDiscovery, or research workflows may download many Drive files in a short window.
+
+### Response and remediation
+
+- Revoke Drive connector access if unauthorized and inventory downloaded files for data exposure.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "0930e461-a831-4510-a180-4f5e3861ed51"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration collecting `app_log` events for Google Drive with
+`log_type: request` and flattened `openai_chatgpt_enterprise.app_log.input` fields `download_raw_file` and `url`.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Exfiltration",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0025",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_log-*
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_name == "Google Drive" and
+    openai_chatgpt_enterprise.app_log.log_type == "request" and
+    openai_chatgpt_enterprise.app_log.input is not null and
+    user.email is not null
+| eval
+    Esql.download_raw_file = field_extract(openai_chatgpt_enterprise.app_log.input, "download_raw_file"),
+    Esql.download_url = field_extract(openai_chatgpt_enterprise.app_log.input, "url"),
+    Esql.time_bucket = date_trunc(1 hour, @timestamp)
+| where Esql.download_raw_file is not null
+| stats
+    Esql.download_count = count_distinct(Esql.download_url),
+    Esql.download_url_values = values(Esql.download_url),
+    Esql.timestamp_first_seen = min(@timestamp),
+    Esql.timestamp_last_seen = max(@timestamp)
+  by user.email, Esql.time_bucket
+| where Esql.download_count >= 5
+| keep
+    user.email,
+    Esql.time_bucket,
+    Esql.download_count,
+    Esql.download_url_values,
+    Esql.timestamp_first_seen,
+    Esql.timestamp_last_seen
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.002"
+name = "Sharepoint"
+reference = "https://attack.mitre.org/techniques/T1213/002/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0025"
+name = "Exfiltration via Cyber Means"
+reference = "https://atlas.mitre.org/techniques/AML.T0025/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+[rule.alert_suppression]
+group_by = ["user.email", "Esql.time_bucket"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
+[rule.investigation_fields]
+field_names = [
+    "user.email",
+    "Esql.time_bucket",
+    "Esql.download_count",
+    "Esql.download_url_values",
+    "Esql.timestamp_first_seen",
+    "Esql.timestamp_last_seen",
+]
