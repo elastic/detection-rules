@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies successful account creation where the target name is Administrator with a single leading or trailing ASCII
+space. Detects a deceptive account name, not proven privilege escalation.
+"""
+false_positives = [
+    """
+    Approved administration or configuration management; review the initiating process and the exact changed object.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.security-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Local Administrator-Lookalike Account Created With Whitespace"
+note = """## Triage and analysis
+
+### Investigating Local Administrator-Lookalike Account Created With Whitespace
+
+The exact attributed 4720 event records user.effective.name as Administrator followed by a space. Use the audited target identity instead of requiring a net.exe child process; the actor/broker is SYSTEM/lsass.exe.
+
+This narrow English-name heuristic covers one leading/trailing ASCII space, not renamed/localized built-in accounts, repeated whitespace or Unicode confusables. No Administrators group membership was proven. It relies on this Elastic Defend mapping; other Windows event integrations require separate mapping tests.
+
+Validate change authorization, process ancestry and related activity before escalating.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1564/T1564.yaml",
+]
+risk_score = 47
+rule_id = "8c7c471e-bc27-5242-a292-798385559715"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Platform: Windows",
+    "Rule Type: Event Correlation (EQL)",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+iam where host.os.type == "windows" and event.code == "4720" and event.outcome == "success" and
+  user.effective.name : ("Administrator ", " Administrator")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1036"
+name = "Masquerading"
+reference = "https://attack.mitre.org/techniques/T1036/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
