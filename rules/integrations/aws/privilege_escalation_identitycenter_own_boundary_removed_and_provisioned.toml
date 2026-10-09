@@ -1,0 +1,228 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an Identity Center role receiving an explicit permissions-boundary denial for IAM user creation, removing the
+boundary from its own observed permission set, receiving a successful SSO-forwarded boundary removal on its actual IAM
+role, and successfully creating the same previously denied IAM user within 30 minutes. Exact native actor and target
+attribution are required. A boundary restoration or an intervening removal by another administrator cancels the relevant
+chain. This proves successful use after self-removal of an observed restriction without a custom boundary inventory.
+"""
+false_positives = [
+    """
+    An approved emergency or security test that confirms an explicit boundary denial, lets the affected SSO role remove
+    its own boundary, and retries the same IAM user creation successfully.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Role Removed Its Own Permissions Boundary"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Role Removed Its Own Permissions Boundary
+
+Detects an Identity Center role receiving an explicit permissions-boundary denial for IAM user creation, removing the boundary from its own observed permission set, receiving a successful SSO-forwarded boundary removal on its actual IAM role, and successfully creating the same previously denied IAM user within 30 minutes. Exact native actor and target attribution are required.
+
+### Possible investigation steps
+
+- Inspect the original CreateUser authorization error. It must explicitly attribute the denial to a permissions boundary and contain the same IAM user ARN later returned by successful CreateUser. Generic AccessDenied, an unrelated target, or an accepted asynchronous provisioning request is insufficient. The boundary can be customer-managed: its restrictive effect comes from AWS authorization evidence rather than a policy-name assumption.
+- The permission-set creation event supplies its immutable name and ARN. The name must match the native reserved SSO role, and the ARN must match the boundary removal. Missing mapping history prevents a match. Verify the successful DeleteRolePermissionsBoundary event forwarded by SSO targets the exact acting role. The preserved session ARN, role issuer, onBehalfOf user and identity store join that effect to the original actor; the forwarded access key can differ. All records must share the recipient account. The validated path is in the Identity Center management account; cross-account records or service-role effects lacking the original onBehalfOf identity do not match.
+- A restoration before the IAM effect, another administrator performing the last permission-set removal, or an IAM boundary restoration before final use cancels the match. Authorized emergency procedures and security tests can reproduce the full chain. Confirm the change authorization and examine the created IAM user for subsequent credentials or policies. This detector covers an explicit boundary denial of IAM user creation, not every possible denied API or implicit boundary restriction.
+- These queries read standard AWS CloudTrail fields and calculate correlations at query time. The 125-minute lookback bounds the available context; it is not a complete inventory. Missing history does not become an assumed attachment, protected-resource label or authorization decision. The behavior window for the final access change is 30 minutes where specified. AWS event time determines order; same-second stages deliberately do not match. Review late or missing CloudTrail delivery when investigating a missed detection.
+
+### False positive analysis
+
+- An approved emergency or security test that confirms an explicit boundary denial, lets the affected SSO role remove its own boundary, and retries the same IAM user creation successfully.
+
+### Response and remediation
+
+- Use the source request IDs to recover original CloudTrail events. Confirm the actor's authority and the change request before remediation. If the sequence is unexplained, preserve evidence, contain the acting credentials, and remove unwanted access through established incident-response procedures.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_DeletePermissionsBoundaryFromPermissionSet.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ProvisionPermissionSet.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/referencingpermissionsets.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/sso-cloudtrail-use-cases.html",
+    "https://github.com/HackTricks-wiki/hacktricks-cloud/blob/74335dc4ee4248d4c10c69a5698341121bd2183d/src/pentesting-cloud/aws-security/aws-privilege-escalation/aws-sso-and-identitystore-privesc/README.md",
+    "https://www.cloudquery.io/blog/aws-priv-esc-identity-center",
+]
+risk_score = 73
+rule_id = "39641975-8ba6-5704-be14-128f1fd6890d"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- This rule reads Identity Center attribution fields that the AWS integration only maps from version 7.4.0 onward: aws.cloudtrail.user_identity.on_behalf_of.user_id, aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn and aws.cloudtrail.user_identity.credential_id. On an earlier integration those fields are absent and the rule cannot match, so AWS integration 7.4.0 or later is required rather than recommended.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND aws.cloudtrail.recipient_account_id IS NOT NULL
+    AND aws.cloudtrail.request_id IS NOT NULL
+    AND ( (event.provider == "sso.amazonaws.com" AND event.outcome == "success" AND event.action IN ("CreatePermissionSet", "DeletePermissionSet", "PutPermissionsBoundaryToPermissionSet", "DeletePermissionsBoundaryFromPermissionSet")) OR (event.provider == "iam.amazonaws.com" AND event.action IN ("CreateUser", "DeleteRolePermissionsBoundary", "PutRolePermissionsBoundary")))
+| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permissionsetarn_0}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?permissionSet=\[?\{[^{}]*?permissionSetArn=%{DATA:Esql.gk_permissionset_permissionsetarn_1}[,}\]]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?permissionSet=\[?\{[^{}]*?name=%{DATA:Esql.gk_permissionset_name_2}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?roleName=%{DATA:Esql.gk_rolename_3}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?user=\[?\{[^{}]*?arn=%{DATA:Esql.gk_user_arn_4}[,}\]]"""
+| EVAL Esql_priv.actor = aws.cloudtrail.user_identity.arn,
+    Esql_priv.actor_role = aws.cloudtrail.user_identity.session_context.session_issuer.arn,
+    Esql.ps = COALESCE(Esql.gk_permissionsetarn_0, Esql.gk_permissionset_permissionsetarn_1),
+    Esql.created_name = Esql.gk_permissionset_name_2,
+    Esql.target_role = Esql.gk_rolename_3,
+    Esql_priv.target_user = Esql.gk_user_arn_4
+| GROK aws.cloudtrail.error_message "on resource: (?<Esql.denied_target>arn:[^ ]+:user/[^ ]+) "
+| EVAL Esql.stage = CASE(
+    event.action == "CreateUser" AND event.outcome == "failure" AND aws.cloudtrail.error_code IN ("AccessDenied", "AccessDeniedException") AND aws.cloudtrail.error_message LIKE "*with an explicit deny in a permissions boundary:*", "denied",
+    event.outcome != "success", "ignore",
+    event.action == "CreateUser", "use", event.action == "CreatePermissionSet", "create",
+    event.action == "DeletePermissionSet", "delete", event.action == "DeletePermissionsBoundaryFromPermissionSet", "elevate", event.action == "PutPermissionsBoundaryToPermissionSet", "replace", event.action == "DeleteRolePermissionsBoundary" AND aws.cloudtrail.user_identity.invoked_by == "sso.amazonaws.com", "effect", event.action == "PutRolePermissionsBoundary", "restore", "ignore")
+| EVAL Esql.identity = CONCAT(COALESCE(Esql_priv.actor, "unknown"), "|", COALESCE(Esql_priv.actor_role, "unknown"), "|", COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id, "unknown"), "|", COALESCE(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn, "unknown"))
+| EVAL Esql.ps_record = CASE(Esql.stage IN ("create", "delete", "elevate", "replace"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.ps, "|", COALESCE(Esql.created_name, "unknown"), "|", Esql.identity)),
+    Esql.iam_record = CASE(Esql.stage IN ("effect", "restore", "denied"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", COALESCE(Esql.target_role, "unknown"), "|", COALESCE(Esql.denied_target, "unknown"), "|", Esql.identity))
+| INLINE STATS Esql.ps_history_values = VALUES(Esql.ps_record),
+    Esql.iam_history_values = VALUES(Esql.iam_record)
+    BY aws.cloudtrail.recipient_account_id
+| WHERE Esql.stage == "use"
+    AND Esql_priv.target_user IS NOT NULL
+    AND aws.cloudtrail.user_identity.access_key_id IS NOT NULL
+    AND aws.cloudtrail.user_identity.on_behalf_of.user_id IS NOT NULL
+    AND aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn IS NOT NULL
+    AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
+| EVAL Esql.role_name = REPLACE(Esql_priv.actor_role, "^.*/", "")
+| EVAL Esql.actor_ps_name = REPLACE(REPLACE(Esql.role_name, "^AWSReservedSSO_", ""), "_[0-9a-f]{16}$", "")
+| MV_EXPAND Esql.iam_history_values
+| DISSECT Esql.iam_history_values "%{Esql.iam_ms}|%{Esql.iam_request}|%{Esql.iam_stage}|%{Esql.iam_role}|%{Esql.iam_user}|%{Esql_priv.iam_actor}|%{Esql.iam_issuer}|%{Esql.iam_subject}|%{Esql.iam_store}"
+| EVAL Esql.iam_time = TO_DATETIME(TO_LONG(Esql.iam_ms)),
+    Esql.same_actor = Esql_priv.iam_actor == Esql_priv.actor
+    AND Esql.iam_issuer == Esql_priv.actor_role
+    AND Esql.iam_subject == aws.cloudtrail.user_identity.on_behalf_of.user_id
+    AND Esql.iam_store == aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn
+| WHERE Esql.iam_time < @timestamp AND Esql.iam_time >= @timestamp - 30 minutes
+| STATS Esql.denied_at = MIN(CASE(Esql.iam_stage == "denied" AND Esql.same_actor == true AND Esql.iam_user == Esql_priv.target_user, Esql.iam_time)),
+    Esql.effective_at = MAX(CASE(Esql.iam_stage == "effect" AND Esql.same_actor == true AND Esql.iam_role == Esql.role_name, Esql.iam_time)),
+    Esql.restored_at = MAX(CASE(Esql.iam_stage == "restore" AND Esql.iam_role == Esql.role_name, Esql.iam_time)),
+    Esql.ps_history_values = VALUES(Esql.ps_history_values),
+    Esql.iam_request_ids_values = VALUES(Esql.iam_request),
+    Esql.source_ip_values = VALUES(source.ip)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql_priv.actor,
+    Esql_priv.actor_role,
+    Esql.actor_ps_name,
+    aws.cloudtrail.user_identity.on_behalf_of.user_id,
+    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn,
+    Esql_priv.target_user
+| WHERE Esql.denied_at < Esql.effective_at AND (Esql.restored_at IS NULL OR Esql.restored_at < Esql.effective_at)
+| MV_EXPAND Esql.ps_history_values
+| DISSECT Esql.ps_history_values "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.change_stage}|%{Esql.permission_set_arn}|%{Esql.ps_name}|%{Esql_priv.change_actor}|%{Esql.change_issuer}|%{Esql.change_user}|%{Esql.change_store}"
+| EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms)),
+    Esql.same_changer = Esql_priv.change_actor == Esql_priv.actor
+    AND Esql.change_issuer == Esql_priv.actor_role
+    AND Esql.change_user == aws.cloudtrail.user_identity.on_behalf_of.user_id
+    AND Esql.change_store == aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn
+| WHERE Esql.change_time < Esql.effective_at
+| STATS Esql.created_at = MAX(CASE(Esql.change_stage == "create" AND Esql.ps_name == Esql.actor_ps_name, Esql.change_time)),
+    Esql.elevated_at = MAX(CASE(Esql.change_stage == "elevate" AND Esql.same_changer == true, Esql.change_time)),
+    Esql.replaced_at = MAX(CASE(Esql.change_stage == "replace" OR (Esql.change_stage == "elevate" AND Esql.same_changer == false), Esql.change_time)),
+    Esql.deleted_at = MAX(CASE(Esql.change_stage == "delete", Esql.change_time)),
+    Esql.source_request_ids_values = VALUES(Esql.change_request),
+    Esql.iam_request_ids_values = VALUES(Esql.iam_request_ids_values),
+    Esql.source_ip_values = VALUES(Esql.source_ip_values)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql_priv.actor,
+    Esql_priv.actor_role,
+    Esql.actor_ps_name,
+    aws.cloudtrail.user_identity.on_behalf_of.user_id,
+    aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn,
+    Esql.permission_set_arn,
+    Esql_priv.target_user,
+    Esql.denied_at,
+    Esql.effective_at
+| WHERE Esql.created_at < Esql.elevated_at
+    AND Esql.denied_at < Esql.elevated_at
+    AND Esql.deleted_at IS NULL
+    AND (Esql.replaced_at IS NULL OR Esql.replaced_at < Esql.elevated_at)
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.request_id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "Esql.permission_set_arn",
+    "Esql_priv.actor_role",
+    "Esql_priv.target_user",
+    "Esql.denied_at",
+    "Esql.elevated_at",
+    "Esql.effective_at",
+    "Esql.source_request_ids_values",
+    "Esql.iam_request_ids_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 130
+

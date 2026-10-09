@@ -1,0 +1,202 @@
+[metadata]
+creation_date = "2026/09/09"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3. Verified on 9.6.0."
+min_stack_version = "9.6.0"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an inline policy containing an explicit Deny statement being removed from an IAM Identity Center permission set
+by a principal other than the one that set it, and then provisioned so the removal reaches the reserved roles in the
+assigned accounts. DeleteInlinePolicyFromPermissionSet carries only the permission-set ARN, so the removed document is
+recovered from the preceding PutInlinePolicyToPermissionSet on the same permission set and is required to contain an
+Effect of Deny. That requirement is what separates removing a guardrail from removing an ordinary Allow policy, which is
+not an escalation. Removals where the Deny had already been superseded by a later policy, removals by the same principal
+that set the Deny, and removals never followed by provisioning do not match.
+"""
+false_positives = [
+    """
+    A deliberate guardrail retirement performed by a different operator from the one who created it, and then
+    provisioned as part of the same change. Compare the removing principal against the approved permission-set owners
+    and confirm the change appears in change management. Note that a Deny statement is not necessarily a security
+    control; it may have been a scoping decision, so read the recovered document before treating the removal as an
+    escalation.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Deny Policy Removed and Provisioned"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Deny Policy Removed and Provisioned
+
+Detects an inline policy containing an explicit Deny statement being removed from an IAM Identity Center permission set by a principal other than the one that set it, and then provisioned so the removal reaches the reserved roles in the assigned accounts. DeleteInlinePolicyFromPermissionSet carries only the permission-set ARN, so the removed document is recovered from the preceding PutInlinePolicyToPermissionSet on the same permission set and is required to contain an Effect of Deny.
+
+### Possible investigation steps
+
+- Read the permission set, the principal that set the Deny, the principal that removed it, and the Deny lifetime. The rule only fires when those two principals differ, because a policy set and removed by the same operator is ordinarily authoring rather than a control being lifted.
+- Recover the removed document from the preceding `PutInlinePolicyToPermissionSet` on the same permission set. The rule requires an `Effect` of `Deny` to be present, matched with tolerance for whitespace around the JSON colon, but it does not evaluate which actions or resources were denied. Read the document to establish what the Deny actually restricted before concluding privileges expanded.
+- Confirm the provisioning timestamp. Removing an inline policy from a permission set changes the definition; provisioning is what rewrites the `AWSReservedSSO_*` role in each assigned account. The alert requires provisioning after the removal, so the change has reached the accounts.
+- Identify every account and principal assigned to the permission set. All of them gained whatever the Deny previously withheld.
+- This rule detects removal of an inline Deny only. Detaching a managed policy that carried a Deny, or removing a permissions boundary, are separate paths; the boundary path is covered by the dedicated own-boundary rule.
+
+### False positive analysis
+
+- A deliberate guardrail retirement performed by a different operator from the one who created it, and then provisioned as part of the same change. Compare the removing principal against the approved permission-set owners and confirm the change appears in change management. Note that a Deny statement is not necessarily a security control; it may have been a scoping decision, so read the recovered document before treating the removal as an escalation.
+
+### Response and remediation
+
+- Reinstate the removed Deny statement on the permission set and re-provision it, then confirm the previously denied action fails again.
+- Review what the provisioned role did between removal and reinstatement; the guardrail was absent for that entire window.
+- Where the Deny encoded a standing control, move it to a permissions boundary or a service control policy so a permission-set edit cannot remove it.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_DeleteInlinePolicyFromPermissionSet.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ProvisionPermissionSet.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://github.com/HackTricks-wiki/hacktricks-cloud/blob/74335dc4ee4248d4c10c69a5698341121bd2183d/src/pentesting-cloud/aws-security/aws-privilege-escalation/aws-sso-and-identitystore-privesc/README.md",
+]
+risk_score = 73
+rule_id = "8a2118bd-89ec-5cb9-ba81-3abbdf618b29"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- The removed policy document is only available on the preceding PutInlinePolicyToPermissionSet event, so both the put and the delete must be inside the lookback.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.provider == "sso.amazonaws.com"
+    AND event.outcome == "success"
+    AND event.action IN ("PutInlinePolicyToPermissionSet", "DeleteInlinePolicyFromPermissionSet", "ProvisionPermissionSet")
+| EVAL Esql.ps = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "permissionSetArn"),
+    Esql.document = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "inlinePolicy"),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn)
+| EVAL Esql.restricting = Esql.document RLIKE """.*\"Effect\" *: *\"Deny\".*"""
+| EVAL Esql.stage = CASE(
+    event.action == "PutInlinePolicyToPermissionSet" AND Esql.restricting, "restrict",
+    event.action == "PutInlinePolicyToPermissionSet", "replace",
+    event.action == "DeleteInlinePolicyFromPermissionSet", "remove",
+    event.action == "ProvisionPermissionSet", "provision", "ignore")
+| EVAL Esql.ps_record = CASE(Esql.stage IN ("restrict", "replace", "provision"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", Esql.stage, "|", COALESCE(Esql_priv.actor, "unknown")))
+| INLINE STATS Esql.ps_history_values = VALUES(Esql.ps_record) BY Esql.ps
+| WHERE Esql.stage == "remove" AND Esql.ps IS NOT NULL AND Esql_priv.actor IS NOT NULL
+| EVAL Esql.removed_by = Esql_priv.actor
+| MV_EXPAND Esql.ps_history_values
+| DISSECT Esql.ps_history_values "%{Esql.p_ms}|%{Esql.p_stage}|%{Esql_priv.p_actor}"
+| EVAL Esql.p_time = TO_DATETIME(TO_LONG(Esql.p_ms))
+| STATS Esql.deny_set_at = MAX(CASE(Esql.p_stage == "restrict" AND Esql.p_time < @timestamp, Esql.p_time)),
+    Esql.replaced_at = MAX(CASE(Esql.p_stage == "replace" AND Esql.p_time < @timestamp, Esql.p_time)),
+    Esql.provisioned_after_removal_at = MIN(CASE(Esql.p_stage == "provision" AND Esql.p_time > @timestamp, Esql.p_time)),
+    Esql_priv.deny_setters_values = VALUES(CASE(Esql.p_stage == "restrict" AND Esql.p_time < @timestamp, Esql_priv.p_actor))
+    BY Esql.ps,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.removed_by,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+| WHERE Esql.deny_set_at IS NOT NULL
+    AND (Esql.replaced_at IS NULL OR Esql.replaced_at < Esql.deny_set_at)
+    AND Esql.provisioned_after_removal_at IS NOT NULL
+    AND NOT MV_CONCAT(Esql_priv.deny_setters_values, ",") == Esql.removed_by
+| EVAL Esql.deny_lifetime_seconds = DATE_DIFF("seconds", Esql.deny_set_at, @timestamp)
+| KEEP Esql.*,
+    Esql_priv.*,
+    @timestamp,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["Esql.ps"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "Esql.ps",
+    "Esql.deny_set_at",
+    "Esql.deny_lifetime_seconds",
+    "Esql.provisioned_after_removal_at",
+    "Esql.removed_by",
+    "Esql_priv.deny_setters_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 130
+

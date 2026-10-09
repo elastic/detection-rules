@@ -1,0 +1,201 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3. Verified on 9.6.0."
+min_stack_version = "9.6.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an IAM principal from another AWS account being denied CreateTokenWithIAM, followed by an unconditional
+wildcard-principal application trust policy and successful JWT-bearer token issuance to that same principal for the same
+application within 30 minutes. Exact-principal onboarding, policies with conditions or Deny statements, failed issuance
+and trust closure before issuance do not match. This demonstrates expansion of a previously enforced token-caller
+boundary; application assignment and token contents still constrain what the resulting token can access.
+"""
+false_positives = [
+    """
+    An authorized application migration that intentionally changes an excluded cross-account broker to an unconditional
+    wildcard-principal trust policy and then tests JWT-bearer token issuance. Prefer validating the broker requirement
+    before creating an exception.
+    """,
+]
+from = "now-65m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Denied Token Caller Succeeded After Trust Opened"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Denied Token Caller Succeeded After Trust Opened
+
+Detects an IAM principal from another AWS account being denied CreateTokenWithIAM, followed by an unconditional wildcard-principal application trust policy and successful JWT-bearer token issuance to that same principal for the same application within 30 minutes. Exact-principal onboarding, policies with conditions or Deny statements, failed issuance and trust closure before issuance do not match.
+
+### Possible investigation steps
+
+- Inspect the application ARN, foreign caller ARN, denial request, trust-change requests and successful token request. Assumed-role callers are correlated using their native session-issuer ARN, while IAM users use their ARN. The caller account must differ from the account encoded in the application ARN; source-IP novelty is not used.
+- The policy check accepts only an Allow for the exact CreateTokenWithIAM action, Resource *, and wildcard principal. Because flattened mappings lose statement boundaries, it deliberately rejects mixed effect/action/resource/principal sets and any Condition or Not* policy element across the statement set. It does not combine an Allow from one constrained statement with a wildcard from another and call that unrestricted access. More complex policies are outside this rule's scope.
+- Validate whether an integration deliberately opened token-caller trust. A specific broker principal or conditioned wildcard policy is a silent control. Token service success does not prove access to an AWS role or a downstream application resource. Review the JWT issuer, assignment requirements, scopes and application logs. If the trust expansion is unexplained, restrict the actor policy, investigate both the changing credential and external caller, and assess issued sessions and downstream access.
+
+### False positive analysis
+
+- An authorized application migration that intentionally changes an excluded cross-account broker to an unconditional wildcard-principal trust policy and then tests JWT-bearer token issuance. Prefer validating the broker requirement before creating an exception.
+
+### Response and remediation
+
+- Restore the authentication method to its scoped form, naming only the principals that legitimately call the application, and confirm the previously denied caller is denied again.
+- Treat tokens issued while the trust was open as compromised: delete the application's grants to invalidate issued token material, then review the role sessions those tokens produced.
+- Review whether the principal that opened the trust should hold `sso:PutApplicationAuthenticationMethod`, and scope it to a change-managed identity.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_PutApplicationAuthenticationMethod.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateTokenWithIAM.html",
+    "https://www.elastic.co/docs/reference/query-languages/esql/functions-operators/string-functions/field_extract",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://awsteele.com/blog/2026/07/01/apps-can-now-impersonate-human-access-to-aws-via-iam-identity-center.html",
+]
+risk_score = 73
+rule_id = "6fe63fa9-b547-5b20-858a-42eeb7f3fa55"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Persistence",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail" AND (
+    (event.provider == "sso.amazonaws.com" AND event.action IN ("PutApplicationAuthenticationMethod", "DeleteApplicationAuthenticationMethod", "DeleteApplication"))
+    OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM"))
+    AND aws.cloudtrail.request_id IS NOT NULL
+| EVAL Esql.application_arn = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"), FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "clientId")),
+    Esql_priv.caller_arn = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn),
+    Esql.policy_effect = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Effect"),
+    Esql.policy_action = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Action"),
+    Esql.policy_resource = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Resource"),
+    Esql.policy_principal = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal.AWS"), FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethod.iam.actorPolicy.Statement.Principal")),
+    Esql.parameters = TO_STRING(aws.cloudtrail.flattened.request_parameters)
+| WHERE Esql.application_arn IS NOT NULL
+| GROK Esql.application_arn "^arn:[^:]+:sso::(?<Esql.application_account>[0-9]{12}):application/.*$"
+| EVAL Esql.public_trust = MV_COUNT(Esql.policy_effect) == 1
+    AND MV_FIRST(Esql.policy_effect) == "Allow"
+    AND MV_COUNT(Esql.policy_action) == 1
+    AND MV_FIRST(Esql.policy_action) == "sso-oauth:CreateTokenWithIAM"
+    AND MV_COUNT(Esql.policy_resource) == 1
+    AND MV_FIRST(Esql.policy_resource) == "*"
+    AND MV_COUNT(Esql.policy_principal) == 1
+    AND MV_FIRST(Esql.policy_principal) == "*"
+    AND NOT Esql.parameters LIKE "*authenticationMethod.iam.actorPolicy.Statement.Condition*"
+    AND NOT Esql.parameters LIKE "*authenticationMethod.iam.actorPolicy.Statement.Not*"
+| EVAL Esql.stage = CASE(
+    event.provider == "sso.amazonaws.com" AND event.outcome == "success" AND event.action == "PutApplicationAuthenticationMethod"
+    AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "authenticationMethodType") == "IAM" AND Esql.public_trust == true, "public",
+    event.provider == "sso.amazonaws.com" AND event.outcome == "success", "closed",
+    event.action == "CreateTokenWithIAM" AND event.outcome == "failure"
+    AND aws.cloudtrail.error_code IN ("AccessDenied", "AccessDeniedException"), "denied",
+    event.action == "CreateTokenWithIAM" AND event.outcome == "success"
+    AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType") == "urn:ietf:params:oauth:grant-type:jwt-bearer"
+    AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "tokenType") == "Bearer", "issued", "ignore")
+| EVAL Esql.record = CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage)
+| INLINE STATS Esql.config_history_values = VALUES(CASE((Esql.stage == "public" OR Esql.stage == "closed"), Esql.record))
+    BY Esql.application_arn
+| WHERE Esql.stage IN ("denied", "issued")
+    AND Esql_priv.caller_arn IS NOT NULL
+    AND Esql.application_account IS NOT NULL
+    AND cloud.account.id != Esql.application_account
+| INLINE STATS Esql.denial_history_values = VALUES(CASE(Esql.stage == "denied", Esql.record))
+    BY Esql.application_arn,
+    Esql_priv.caller_arn
+| WHERE Esql.stage == "issued"
+| MV_EXPAND Esql.denial_history_values
+| DISSECT Esql.denial_history_values "%{Esql.denied_ms}|%{Esql.denied_request}|%{Esql.denied_stage}"
+| EVAL Esql.denied_time = TO_DATETIME(TO_LONG(Esql.denied_ms))
+| WHERE Esql.denied_time < @timestamp AND Esql.denied_time >= @timestamp - 30 minutes
+| STATS Esql.denied_at = MAX(Esql.denied_time),
+    Esql.denied_requests_values = VALUES(Esql.denied_request),
+    Esql.config_history_values = VALUES(Esql.config_history_values),
+    Esql.source_ip_values = VALUES(source.ip)
+    BY Esql.application_arn,
+    Esql_priv.caller_arn,
+    cloud.account.id,
+    aws.cloudtrail.request_id,
+    @timestamp
+| MV_EXPAND Esql.config_history_values
+| DISSECT Esql.config_history_values "%{Esql.config_ms}|%{Esql.config_request}|%{Esql.config_stage}"
+| EVAL Esql.config_time = TO_DATETIME(TO_LONG(Esql.config_ms))
+| WHERE Esql.config_time > Esql.denied_at AND Esql.config_time < @timestamp
+| STATS Esql.public_trust_at = MAX(CASE(Esql.config_stage == "public", Esql.config_time)),
+    Esql.closed_trust_at = MAX(CASE(Esql.config_stage == "closed", Esql.config_time)),
+    Esql.config_requests_values = VALUES(Esql.config_request),
+    Esql.denied_requests_values = VALUES(Esql.denied_requests_values),
+    Esql.source_ip_values = VALUES(Esql.source_ip_values)
+    BY Esql.application_arn,
+    Esql_priv.caller_arn,
+    cloud.account.id,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.denied_at
+| WHERE Esql.public_trust_at IS NOT NULL
+    AND (Esql.closed_trust_at IS NULL OR Esql.closed_trust_at < Esql.public_trust_at)
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*, cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.request_id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "cloud.account.id",
+    "Esql.application_arn",
+    "Esql_priv.caller_arn",
+    "Esql.denied_at",
+    "Esql.public_trust_at",
+    "Esql.denied_requests_values",
+    "Esql.config_requests_values",
+    "Esql.source_ip_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 70
+

@@ -1,0 +1,207 @@
+[metadata]
+creation_date = "2026/09/10"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/09/10"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the IAM Identity Center access-control attribute configuration being created, changed or removed. That
+configuration maps identity-source values into session tags which permission-set policies consume as
+aws:PrincipalTag/<key>, so it decides what value every federated session presents to every policy condition built on
+those tags. Repointing an existing attribute at a different identity-source path changes the tag value for all sessions
+without altering a single policy document, which makes it a quiet way to satisfy a condition the actor should not
+satisfy. Because the change is instance-wide and rare, the rule reports every successful write and classifies it against
+the previous configuration when one is inside the lookback: attribute_redirected when the key set is unchanged but a
+source path moved, attribute_set_changed when keys were added or removed, and configuration_removed for a deletion. The
+deletion request carries only the instance ARN, so the mapping that was removed is recovered from the preceding write.
+"""
+false_positives = [
+    """
+    Initial onboarding of attribute-based access control produces a create followed by updates as the mapping is
+    refined, and appears as no_prior_configuration_in_window then attribute_set_changed. This is expected and
+    infrequent. Confirm the change appears in change management and that the source paths point at attributes your
+    identity provider actually supplies.
+    """,
+    """
+    An organization that does not use attribute-based access control at all is unaffected in practice: with no
+    permission-set policy referencing aws:PrincipalTag, changing the mapping alters no authorization outcome. The event
+    is still worth reviewing, because the configuration is a precondition an attacker would establish before adding a
+    tag-conditioned policy.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center ABAC Attribute Mapping Changed"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center ABAC Attribute Mapping Changed
+
+Detects the IAM Identity Center access-control attribute configuration being created, changed or removed. That configuration maps identity-source values into session tags which permission-set policies consume as aws:PrincipalTag/<key>, so it decides what value every federated session presents to every policy condition built on those tags.
+
+### Possible investigation steps
+
+- Read the change classification first. `attribute_redirected` is the highest-fidelity case: the set of attribute keys is unchanged, so nothing appears to have been added, but at least one key now draws its value from a different identity-source path. Every session tag built on that key therefore changes value silently. `attribute_set_changed` means keys were added or removed. `configuration_removed` means attribute-based access control was switched off instance-wide, which causes any policy condition requiring a tag to stop matching.
+- Compare the previous and current mappings, both reported. The alert carries the prior key list and prior source list alongside the new ones, including for deletions, where the removed mapping is recovered from the preceding write.
+- Establish whether anything consumes these tags. Enumerate permission-set inline and managed policies for conditions on `aws:PrincipalTag/<key>` using the keys named in the alert. If no policy references them, the change altered no authorization outcome and is a precondition rather than an escalation. If a policy does reference them, determine what access the new source path grants and to whom.
+- Consider who controls the new source path. The impersonation logic is that whoever can set their own value for the attribute the mapping now reads can present whatever tag that policy requires. An attribute the user can edit on their own directory record is materially worse than one only an administrator can set.
+- Identify the actor and whether they are an Identity Center administrator by role. A permission-set session changing the attribute configuration that governs its own tags is a self-referential escalation.
+- Review sessions established after the change: pivot to `AssumeRoleWithSAML` and `GetRoleCredentials` for the window following the change and inspect what those sessions reached.
+
+### False positive analysis
+
+- Initial onboarding of attribute-based access control produces a create followed by updates as the mapping is refined, and appears as no_prior_configuration_in_window then attribute_set_changed. This is expected and infrequent. Confirm the change appears in change management and that the source paths point at attributes your identity provider actually supplies.
+- An organization that does not use attribute-based access control at all is unaffected in practice: with no permission-set policy referencing aws:PrincipalTag, changing the mapping alters no authorization outcome. The event is still worth reviewing, because the configuration is a precondition an attacker would establish before adding a tag-conditioned policy.
+
+### Response and remediation
+
+- Restore the previous attribute mapping, which the alert reports from the preceding write, then confirm permission-set policies that consume `aws:PrincipalTag` evaluate as intended.
+- Review sessions established after the change: a redirected attribute alters which policy conditions a session satisfies, so access granted in that window may exceed what the entitlement intended.
+- Restrict `sso:UpdateInstanceAccessControlAttributeConfiguration` to a change-managed identity, since the configuration is instance-wide and affects every permission set using ABAC.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/attributesforaccesscontrol.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_UpdateInstanceAccessControlAttributeConfiguration.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/configure-abac.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+]
+risk_score = 47
+rule_id = "769cffca-6409-5494-9cba-05ce9d1e87d3"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- The attribute keys and source paths arrive as two parallel multi-value arrays, which are compared as sorted sets through MV_CONCAT rather than paired positionally, because element order is not guaranteed to survive as submitted.
+- These operations exist only on organization instances of Identity Center; account instances reject them.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail" AND event.provider == "sso.amazonaws.com" AND event.outcome == "success"
+    AND event.action IN ("CreateInstanceAccessControlAttributeConfiguration",
+    "UpdateInstanceAccessControlAttributeConfiguration",
+    "DeleteInstanceAccessControlAttributeConfiguration")
+| GROK aws.cloudtrail.request_parameters """[{,] ?instanceArn=%{DATA:Esql.gk_instancearn_0}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?accessControlAttributes=\[?\{[^{}]*?key=%{DATA:Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_key_1}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?value=\[?\{[^{}]*?source=%{DATA:Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_value_source_2}[,}\]]"""
+| EVAL Esql.instance = Esql.gk_instancearn_0,
+    Esql.attribute_keys = MV_CONCAT(Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_key_1, ","),
+    Esql.attribute_sources = MV_CONCAT(Esql.gk_instanceaccesscontrolattributeconfiguration_accesscontrolattributes_value_source_2, ","),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown")
+| EVAL Esql.record = CASE(Esql.attribute_keys IS NOT NULL,
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", Esql.instance, "~", Esql.attribute_keys, "~", Esql.attribute_sources, "~", Esql_priv.actor))
+| INLINE STATS Esql.history_values = VALUES(Esql.record)
+| WHERE Esql.instance IS NOT NULL
+| MV_EXPAND Esql.history_values
+| DISSECT Esql.history_values "%{Esql.h_ms}~%{Esql.h_instance}~%{Esql.h_keys}~%{Esql.h_sources}~%{Esql_priv.h_actor}"
+| EVAL Esql.h_prior = CASE(Esql.h_instance == Esql.instance AND TO_DATETIME(TO_LONG(Esql.h_ms)) < @timestamp, Esql.history_values)
+| STATS Esql.previous = MAX(Esql.h_prior)
+    BY Esql.instance,
+    event.action,
+    Esql.attribute_keys,
+    Esql.attribute_sources,
+    Esql_priv.actor,
+    Esql.changed_at = @timestamp,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.provider,
+    cloud.account.id
+| DISSECT Esql.previous "%{Esql.p_ms}~%{Esql.p_instance}~%{Esql.p_keys}~%{Esql.p_sources}~%{Esql_priv.p_actor}"
+| EVAL Esql.previous_at = TO_DATETIME(TO_LONG(Esql.p_ms))
+| EVAL Esql.change = CASE(
+    event.action == "DeleteInstanceAccessControlAttributeConfiguration", "configuration_removed",
+    Esql.previous IS NULL, "no_prior_configuration_in_window",
+    Esql.p_keys == Esql.attribute_keys AND Esql.p_sources != Esql.attribute_sources, "attribute_redirected",
+    Esql.p_keys != Esql.attribute_keys, "attribute_set_changed", "no_change")
+| KEEP Esql.*,
+    Esql_priv.*,
+    aws.cloudtrail.request_id,
+    event.action,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.provider,
+    cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1484"
+name = "Domain or Tenant Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1484/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["Esql.instance", "Esql.change"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.changed_at",
+    "Esql.change",
+    "Esql.instance",
+    "Esql.attribute_keys",
+    "Esql.attribute_sources",
+    "Esql.p_keys",
+    "Esql.p_sources",
+    "Esql.previous_at",
+    "Esql_priv.actor",
+    "Esql_priv.p_actor",
+    "aws.cloudtrail.request_id",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 130
+

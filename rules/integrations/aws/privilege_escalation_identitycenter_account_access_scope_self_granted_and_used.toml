@@ -1,0 +1,208 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3. Verified on 9.6.0."
+min_stack_version = "9.6.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an IAM Identity Center user enabling the sso:account:access scope on an application for their own token subject,
+followed by a JWT-bearer token issued with that scope and an AWS role-credential retrieval linked by the exact Identity
+Center credential ID. Scope enablement by a separate administrator during ordinary application onboarding does not
+match, because the rule requires the subject that receives the token to be the same identity that enabled the scope.
+Scope removal before issuance also cancels the match. This turns an application into a credential broker for its own
+operator; application assignment and the target permission set still constrain what the retrieved credentials can reach.
+"""
+false_positives = [
+    """
+    An authorized operator who both administers an application and legitimately consumes its tokens, for example a
+    single-owner integration under test. Prefer validating that scope administration and token consumption are separated
+    identities before creating an exception.
+    """,
+]
+from = "now-65m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Account-Access Scope Self-Granted and Used"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Account-Access Scope Self-Granted and Used
+
+Detects an IAM Identity Center user enabling the sso:account:access scope on an application for their own token subject, followed by a JWT-bearer token issued with that scope and an AWS role-credential retrieval linked by the exact Identity Center credential ID. Scope enablement by a separate administrator during ordinary application onboarding does not match, because the rule requires the subject that receives the token to be the same identity that enabled the scope.
+
+### Possible investigation steps
+
+- Inspect the application ARN, the enabling actor, the token subject and the retrieved target account and role. The rule requires that the `sso:account:access` scope was enabled by an identity whose `on_behalf_of.user_id` equals the subject the token was later issued for; scope changes made by a different administrator are treated as ordinary onboarding and are not matched.
+- Token-to-credential linkage is exact rather than inferred. The Identity Center credential ID is read from `additional_eventdata` on `CreateTokenWithIAM` and matched to `user_identity.credential_id` on `GetRoleCredentials`, so the alert names the specific token that produced the AWS credentials.
+- Confirm whether the same principal is expected to administer application scope and consume its tokens. Separation of those two roles is the control this behavior removes. A prior `DeleteApplicationAccessScope` immediately before the self-enablement is a strong signal that an administrator had deliberately closed the scope.
+- Review the target account and permission-set role from `service_event_details`. Successful credential retrieval does not by itself prove downstream access; pivot to activity performed under that role session.
+- Scope enablement alone is supported AWS behavior and is not sufficient evidence. Treat the self-enablement plus exact credential linkage as the finding.
+
+### False positive analysis
+
+- An authorized operator who both administers an application and legitimately consumes its tokens, for example a single-owner integration under test. Prefer validating that scope administration and token consumption are separated identities before creating an exception.
+
+### Response and remediation
+
+- Remove the account-access scope from the application and confirm the subject can no longer retrieve role credentials through it.
+- Treat credentials retrieved while the scope was enabled as compromised, and review what the resulting role sessions did in the target account.
+- Separate the permission to modify application scopes from the identities that consume the application.
+"""
+references = [
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_PutApplicationAccessScope.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateTokenWithIAM.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/PortalAPIReference/API_GetRoleCredentials.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/sso-cloudtrail-use-cases.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://awsteele.com/blog/2026/07/01/apps-can-now-impersonate-human-access-to-aws-via-iam-identity-center.html",
+]
+risk_score = 73
+rule_id = "6777528e-5de4-5719-81ae-5c0dafa31d80"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- This rule reads Identity Center attribution fields that the AWS integration only maps from version 7.4.0 onward: aws.cloudtrail.user_identity.on_behalf_of.user_id, aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn and aws.cloudtrail.user_identity.credential_id. On an earlier integration those fields are absent and the rule cannot match, so AWS integration 7.4.0 or later is required rather than recommended.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND aws.cloudtrail.request_id IS NOT NULL
+    AND event.outcome == "success"
+    AND ( (event.provider == "sso.amazonaws.com" AND event.action IN ("PutApplicationAccessScope", "DeleteApplicationAccessScope", "DeleteApplication", "GetRoleCredentials")) OR (event.provider == "sso-oauth.amazonaws.com" AND event.action == "CreateTokenWithIAM"))
+| EVAL Esql.app = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "applicationArn"), FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "clientId")),
+    Esql.scope_val = MV_CONCAT(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "scope"), ","),
+    Esql.subject = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitystore:UserId"), aws.cloudtrail.user_identity.on_behalf_of.user_id),
+    Esql_priv.credential = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.additional_eventdata, "identitycenter:CredentialId"), aws.cloudtrail.user_identity.credential_id),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn)
+| EVAL Esql.stage = CASE(
+    event.action == "PutApplicationAccessScope" AND Esql.scope_val == "sso:account:access", "scope_on",
+    event.action IN ("DeleteApplicationAccessScope", "DeleteApplication"), "scope_off",
+    event.action == "CreateTokenWithIAM" AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "grantType") == "urn:ietf:params:oauth:grant-type:jwt-bearer"
+    AND Esql.scope_val LIKE "*sso:account:access*" AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "tokenType") == "Bearer", "token",
+    event.action == "GetRoleCredentials", "use", "ignore")
+| EVAL Esql.scope_record = CASE(Esql.stage IN ("scope_on", "scope_off"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", COALESCE(Esql_priv.actor, "unknown"), "|", COALESCE(aws.cloudtrail.user_identity.on_behalf_of.user_id, "unknown")))
+| INLINE STATS Esql.scope_history_values = VALUES(Esql.scope_record) BY Esql.app
+| EVAL Esql.token_record = CASE(Esql.stage == "token" AND Esql.subject IS NOT NULL,
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.app, "|", Esql.subject))
+| INLINE STATS Esql.tokens_values = VALUES(Esql.token_record),
+    Esql.token_scope_history_values = VALUES(Esql.scope_history_values)
+    BY Esql_priv.credential
+| WHERE Esql.stage == "use"
+    AND Esql_priv.credential IS NOT NULL
+    AND FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "account_id") IS NOT NULL
+| EVAL Esql.target_account = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "account_id"),
+    Esql.role_name = FIELD_EXTRACT(aws.cloudtrail.flattened.service_event_details, "role_name")
+| MV_EXPAND Esql.tokens_values
+| DISSECT Esql.tokens_values "%{Esql.token_ms}|%{Esql.token_request}|%{Esql.token_app}|%{Esql.token_subject}"
+| EVAL Esql.token_time = TO_DATETIME(TO_LONG(Esql.token_ms))
+| WHERE Esql.token_time <= @timestamp AND Esql.token_time >= @timestamp - 30 minutes
+| MV_EXPAND Esql.token_scope_history_values
+| DISSECT Esql.token_scope_history_values "%{Esql.sc_ms}|%{Esql.sc_request}|%{Esql.sc_stage}|%{Esql_priv.sc_actor}|%{Esql.sc_subject}"
+| EVAL Esql.sc_time = TO_DATETIME(TO_LONG(Esql.sc_ms))
+| WHERE Esql.sc_time < Esql.token_time AND Esql.sc_time >= @timestamp - 30 minutes
+| STATS Esql.scope_enabled_at = MAX(CASE(Esql.sc_stage == "scope_on", Esql.sc_time)),
+    Esql.scope_removed_at = MAX(CASE(Esql.sc_stage == "scope_off", Esql.sc_time)),
+    Esql.self_enabled_at = MAX(CASE(Esql.sc_stage == "scope_on" AND Esql.sc_subject == Esql.token_subject, Esql.sc_time)),
+    Esql_priv.scope_actors_values = VALUES(Esql_priv.sc_actor),
+    Esql.scope_requests_values = VALUES(Esql.sc_request),
+    Esql.source_ip_values = VALUES(source.ip)
+    BY Esql.token_app,
+    Esql.token_subject,
+    Esql_priv.credential,
+    Esql.target_account,
+    Esql.role_name,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.token_time,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+| WHERE Esql.self_enabled_at IS NOT NULL
+    AND (Esql.scope_removed_at IS NULL OR Esql.scope_removed_at < Esql.self_enabled_at)
+| KEEP Esql.*,
+    Esql_priv.*,
+    @timestamp,
+    aws.cloudtrail.request_id,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.action,
+    event.provider,
+    cloud.account.id
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.request_id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "Esql.token_app",
+    "Esql.token_subject",
+    "Esql_priv.credential",
+    "Esql.target_account",
+    "Esql.role_name",
+    "Esql.self_enabled_at",
+    "Esql_priv.scope_actors_values",
+    "Esql.scope_requests_values",
+    "Esql.source_ip_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 70
+

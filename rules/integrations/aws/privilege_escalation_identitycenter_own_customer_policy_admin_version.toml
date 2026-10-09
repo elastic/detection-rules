@@ -1,0 +1,208 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL FIELD_EXTRACT: Technical Preview since 9.5, no GA. INLINE STATS GA 9.3, JSON_EXTRACT GA 9.5. Verified on 9.6.0."
+min_stack_version = "9.6.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a native AWSReservedSSO role creating and immediately activating, or reactivating an observed older,
+unconditional administrator version of a customer-managed IAM policy observed attached to that exact role by the SSO
+service. The exact policy ARN, role name, service-origin attachment and native caller session-issuer ARN must agree, and
+a subsequent detach before activation cancels the match. This identifies a self-directed administrator-policy activation
+without assuming that every customer policy is attached to Identity Center.
+"""
+false_positives = [
+    """
+    An authorized bootstrap or security test in which an SSO role updates a customer policy attached to itself to an
+    unconditional administrator version.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Role Activated Admin Policy Version on Itself"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Role Activated Admin Policy Version on Itself
+
+Detects a native AWSReservedSSO role creating and immediately activating, or reactivating an observed older, unconditional administrator version of a customer-managed IAM policy observed attached to that exact role by the SSO service. The exact policy ARN, role name, service-origin attachment and native caller session-issuer ARN must agree, and a subsequent detach before activation cancels the match.
+
+### Possible investigation steps
+
+- Review the native AttachRolePolicy event with invokedBy sso.amazonaws.com and the activation made by the affected reserved SSO role. Immediate activation requires CreatePolicyVersion request setAsDefault and response isDefaultVersion both true. Older-version activation requires SetDefaultPolicyVersion and a preceding CreatePolicyVersion document with the exact policy ARN and version ID. Creating a non-default version is a silent control until it is activated.
+- The exact policy ARN must be observed attached to the exact role within the lookback. A similarly named policy or a role outside the reserved Identity Center path is insufficient. JSON_EXTRACT parses the native policyDocument string conservatively: only a single flat unconditional Allow/Action */Resource * statement is accepted. The older administrator version must be observed in the lookback; an unknown version never inherits administrator status from a different version. Deletion before activation cancels the affected version. A limited version remains silent even when another observed version is administrator.
+- Verify why the role could mutate its own granting policy. Authorized testing or bootstrap can match. The rule identifies administrator-policy activation, not proof that the prior version lacked administrator access or that SCPs and boundaries permit every action. Review the actual before/after policy versions and subsequent role activity.
+- These queries read standard AWS CloudTrail fields and calculate correlations at query time. The 125-minute lookback bounds the available context; it is not a complete inventory. Missing history does not become an assumed attachment, protected-resource label or authorization decision. The behavior window for the final access change is 30 minutes where specified. AWS event time determines order; same-second stages deliberately do not match. Review late or missing CloudTrail delivery when investigating a missed detection.
+
+### False positive analysis
+
+- An authorized bootstrap or security test in which an SSO role updates a customer policy attached to itself to an unconditional administrator version.
+
+### Response and remediation
+
+- Use the source request IDs to recover original CloudTrail events. Confirm the actor's authority and the change request before remediation. If the sequence is unexplained, preserve evidence, contain the acting credentials, and remove unwanted access through established incident-response procedures.
+"""
+references = [
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreatePolicyVersion.html",
+    "https://docs.aws.amazon.com/IAM/latest/APIReference/API_SetDefaultPolicyVersion.html",
+    "https://www.elastic.co/docs/reference/query-languages/esql/functions-operators/string-functions/json_extract",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_grammar.html",
+    "https://github.com/HackTricks-wiki/hacktricks-cloud/blob/74335dc4ee4248d4c10c69a5698341121bd2183d/src/pentesting-cloud/aws-security/aws-privilege-escalation/aws-sso-and-identitystore-privesc/README.md",
+    "https://www.cloudquery.io/blog/aws-priv-esc-identity-center",
+]
+risk_score = 73
+rule_id = "a55b5dfa-5e31-5bb0-839a-cc781869a2f1"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.provider == "iam.amazonaws.com"
+    AND event.outcome == "success"
+    AND event.action IN ("AttachRolePolicy", "DetachRolePolicy", "CreatePolicyVersion", "SetDefaultPolicyVersion", "DeletePolicyVersion")
+    AND aws.cloudtrail.recipient_account_id IS NOT NULL
+    AND aws.cloudtrail.request_id IS NOT NULL
+| EVAL Esql.policy_arn = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "policyArn"),
+    Esql.attached_role = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "roleName"),
+    Esql_priv.actor_role = aws.cloudtrail.user_identity.session_context.session_issuer.arn,
+    Esql.version_id = COALESCE(FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "versionId"), FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "policyVersion.versionId"))
+| EVAL Esql.document = FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "policyDocument")
+| EVAL Esql.statements = JSON_EXTRACT(Esql.document, "Statement")
+| EVAL Esql.statement = CASE(STARTS_WITH(Esql.statements, "["),
+    CASE(Esql.statements RLIKE "\\[ *\\{[^{}]*\\} *\\]", JSON_EXTRACT(Esql.statements, "[0]")),
+    CASE(Esql.statements RLIKE "\\{[^{}]*\\}", Esql.statements))
+| EVAL Esql.is_admin = JSON_EXTRACT(Esql.statement, "Effect") == "Allow"
+    AND JSON_EXTRACT(Esql.statement, "Action") == "*"
+    AND JSON_EXTRACT(Esql.statement, "Resource") == "*"
+    AND NOT Esql.statement LIKE "*NotAction*"
+    AND NOT Esql.statement LIKE "*NotResource*"
+    AND NOT Esql.statement LIKE "*Condition*"
+| EVAL Esql.stage = CASE(event.action == "AttachRolePolicy" AND aws.cloudtrail.user_identity.invoked_by == "sso.amazonaws.com", "attach",
+    event.action == "DetachRolePolicy", "detach", event.action == "CreatePolicyVersion", "version",
+    event.action == "SetDefaultPolicyVersion", "activate", event.action == "DeletePolicyVersion", "delete", "ignore")
+| EVAL Esql.record = CASE(Esql.stage IN ("attach", "detach"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", Esql.attached_role)),
+    Esql.version_record = CASE(Esql.stage IN ("version", "delete"),
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.version_id, "|",
+    CASE(Esql.stage == "version" AND Esql.is_admin == true, "admin", "other")))
+| INLINE STATS Esql.history_values = VALUES(Esql.record),
+    Esql.versions_values = VALUES(Esql.version_record)
+    BY aws.cloudtrail.recipient_account_id,
+    Esql.policy_arn
+| WHERE aws.cloudtrail.user_identity.access_key_id IS NOT NULL AND (Esql.stage == "activate"
+    OR (Esql.stage == "version" AND FIELD_EXTRACT(aws.cloudtrail.flattened.request_parameters, "setAsDefault") == "true" AND FIELD_EXTRACT(aws.cloudtrail.flattened.response_elements, "policyVersion.isDefaultVersion") == "true"))
+    AND Esql_priv.actor_role RLIKE "arn:[^:]+:iam::[0-9]{12}:role/aws-reserved/sso[.]amazonaws[.]com/([a-z0-9-]+/)?AWSReservedSSO_.+_[0-9a-f]{16}"
+| EVAL Esql.role_name = REPLACE(Esql_priv.actor_role, "^.*/", "")
+| MV_EXPAND Esql.versions_values
+| DISSECT Esql.versions_values "%{Esql.version_ms}|%{Esql.version_request}|%{Esql.observed_version}|%{Esql.version_kind}"
+| EVAL Esql.version_time = TO_DATETIME(TO_LONG(Esql.version_ms))
+| WHERE Esql.observed_version == Esql.version_id AND (
+    (Esql.stage == "activate" AND Esql.version_time < @timestamp)
+    OR (Esql.stage == "version" AND Esql.version_request == aws.cloudtrail.request_id))
+| STATS Esql.admin_version_created_at = MAX(CASE(Esql.version_kind == "admin", Esql.version_time)),
+    Esql.version_invalidated_at = MAX(CASE(Esql.version_kind == "other", Esql.version_time)),
+    Esql.version_creation_requests_values = VALUES(Esql.version_request),
+    Esql.history_values = VALUES(Esql.history_values),
+    Esql.source_ip_values = VALUES(source.ip)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.policy_arn,
+    Esql_priv.actor_role,
+    Esql.role_name,
+    Esql.version_id
+| WHERE Esql.admin_version_created_at IS NOT NULL
+    AND (Esql.version_invalidated_at IS NULL OR Esql.version_invalidated_at < Esql.admin_version_created_at)
+| MV_EXPAND Esql.history_values
+| DISSECT Esql.history_values "%{Esql.attachment_ms}|%{Esql.attachment_request}|%{Esql.attachment_stage}|%{Esql.attachment_role}"
+| EVAL Esql.attachment_time = TO_DATETIME(TO_LONG(Esql.attachment_ms))
+| WHERE Esql.attachment_role == Esql.role_name AND Esql.attachment_time < @timestamp
+| STATS Esql.attached_at = MAX(CASE(Esql.attachment_stage == "attach", Esql.attachment_time)),
+    Esql.detached_at = MAX(CASE(Esql.attachment_stage == "detach", Esql.attachment_time)),
+    Esql.source_request_ids_values = VALUES(Esql.attachment_request),
+    Esql.source_ip_values = VALUES(Esql.source_ip_values),
+    Esql.version_creation_requests_values = VALUES(Esql.version_creation_requests_values)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.policy_arn,
+    Esql_priv.actor_role,
+    Esql.version_id,
+    Esql.admin_version_created_at
+| WHERE Esql.attached_at IS NOT NULL AND (Esql.detached_at IS NULL OR Esql.detached_at < Esql.attached_at)
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.request_id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "Esql.policy_arn",
+    "Esql_priv.actor_role",
+    "Esql.version_id",
+    "Esql.admin_version_created_at",
+    "Esql.attached_at",
+    "Esql.source_request_ids_values",
+    "Esql.version_creation_requests_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 130
+

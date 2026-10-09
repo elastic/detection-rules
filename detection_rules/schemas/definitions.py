@@ -300,6 +300,7 @@ EXPECTED_RULE_TAGS = [
     "Service: AWS EventBridge",
     "Service: AWS GuardDuty",
     "Service: AWS IAM",
+    "Service: AWS IAM Identity Center",
     "Service: AWS IoT",
     "Service: AWS KMS",
     "Service: AWS Lambda",

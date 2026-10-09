@@ -1,0 +1,224 @@
+[metadata]
+creation_date = "2026/10/01"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/10/01"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects an IAM Identity Center SCIM provisioning tenant or bearer token being created, and reports any SCIM provisioning
+activity that follows. A SCIM bearer token is a long-lived credential that authorises the holder to create, modify and
+delete Identity Store users, groups and group memberships through the SCIM endpoint. It is not an Identity Center
+identity, it is not covered by any permission set, and the operations it performs appear under a separate event source
+with the token's access key as the only attribution. Creating an additional tenant or token therefore establishes a
+durable identity-management channel outside the Identity Center entitlement model, and is the precondition for
+SCIM-driven privileged group changes and attribute rebinding. Deletion of a tenant or token is reported as context, not
+required.
+"""
+false_positives = [
+    """
+    Onboarding or re-onboarding an identity provider for automatic provisioning legitimately creates a tenant and a
+    bearer token, and AWS requires token rotation, so a periodic CreateBearerToken is expected. Confirm the creation
+    corresponds to a planned onboarding or a scheduled rotation, and that the number of active tokens afterwards matches
+    what your identity provider needs. More tokens than providers is the condition worth investigating.
+    """,
+]
+from = "now-125m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center SCIM Provisioning Token Created"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center SCIM Provisioning Token Created
+
+Detects an IAM Identity Center SCIM provisioning tenant or bearer token being created, and reports any SCIM provisioning activity that follows. A SCIM bearer token is a long-lived credential that authorises the holder to create, modify and delete Identity Store users, groups and group memberships through the SCIM endpoint.
+
+### Possible investigation steps
+
+- Understand what the token confers. The holder can create, modify and delete Identity Store users, groups and memberships through the SCIM endpoint. That is sufficient to add an attacker-controlled user to a group carrying an administrative permission set, or to rewrite a user's binding attributes, without holding any Identity Center entitlement and without appearing in Identity Center's own authorisation model.
+- Read the reported SCIM activity. `Esql.scim_operations_after_count` counts operations observed under `identitystore-scim.amazonaws.com` after the creation, and the reported operations and source addresses show what the token did and from where. SCIM payload values are masked by AWS, but `operations[].op` and `operations[].path` are not, so the kind of change is visible even where the new value is not.
+- Attribute the usage. SCIM events carry no Identity Center identity; the only attribution is `userIdentity.accessKeyId`, which identifies the token. Use it to separate activity by token, and compare the source address against your identity provider's published egress ranges. Provisioning traffic from an address unrelated to your provider indicates a stolen token.
+
+### False positive analysis
+
+- Onboarding or re-onboarding an identity provider for automatic provisioning legitimately creates a tenant and a bearer token, and AWS requires token rotation, so a periodic CreateBearerToken is expected. Confirm the creation corresponds to a planned onboarding or a scheduled rotation, and that the number of active tokens afterwards matches what your identity provider needs. More tokens than providers is the condition worth investigating.
+
+### Response and remediation
+
+- Establish whether the creation was expected. A SCIM bearer token is created when an identity provider is connected for automatic provisioning and when a token is rotated; outside those two cases it should not appear. Confirm against change management and against the number of identity providers you actually provision from.
+- Enumerate the current state out of band with the Identity Center console's automatic-provisioning view, and revoke any token that does not correspond to a provider you operate. Revoking a token immediately stops further SCIM operations but does not reverse identity changes already made, so review users, groups and memberships created or modified in the window.
+"""
+references = [
+    "https://docs.aws.amazon.com/service-authorization/latest/reference/list_sso-directory.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/scim-logging-using-cloudtrail.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/provision-automatically.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/userguide/rotate-token.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+    "https://ammune.ai/blog/scim-api-security-best-practices",
+]
+risk_score = 73
+rule_id = "907803c1-0b2b-571c-83d7-889068cdf776"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- Token and tenant operations are Identity Store console APIs emitted under sso-directory.amazonaws.com, while the provisioning operations they authorise are emitted under identitystore-scim.amazonaws.com, so both event sources must be collected.
+- AWS notes that SCIM events are only emitted for access tokens created from September 2024 onward; a token older than that must be rotated before its activity appears in CloudTrail.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Rule Type: ES|QL",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail" AND event.outcome == "success" AND (
+    (event.provider == "sso-directory.amazonaws.com" AND event.action IN (
+    "CreateBearerToken", "DeleteBearerToken", "CreateProvisioningTenant", "DeleteProvisioningTenant"))
+    OR event.provider == "identitystore-scim.amazonaws.com")
+| GROK aws.cloudtrail.request_parameters """[{,] ?directoryId=%{DATA:Esql.gk_directoryid_0}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?identityStoreId=%{DATA:Esql.gk_identitystoreid_1}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?user=\[?\{[^{}]*?directoryId=%{DATA:Esql.gk_user_directoryid_2}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?tenantId=%{DATA:Esql.gk_tenantid_3}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?provisioningTenantId=%{DATA:Esql.gk_provisioningtenantid_4}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?op=%{DATA:Esql.gk_httpbody_operations_op_5}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?operations=\[?\{[^{}]*?path=%{DATA:Esql.gk_httpbody_operations_path_6}[,}\]]"""
+| EVAL Esql.directory = COALESCE( Esql.gk_directoryid_0, Esql.gk_identitystoreid_1, Esql.gk_user_directoryid_2),
+    Esql.tenant = COALESCE( Esql.gk_tenantid_3, Esql.gk_provisioningtenantid_4),
+    Esql_priv.actor = COALESCE(aws.cloudtrail.user_identity.session_context.session_issuer.arn, aws.cloudtrail.user_identity.arn, "unknown"),
+    Esql.scim_op = MV_CONCAT(Esql.gk_httpbody_operations_op_5, ","),
+    Esql.scim_path = MV_CONCAT(Esql.gk_httpbody_operations_path_6, ",")
+| EVAL Esql.token_change = event.provider == "sso-directory.amazonaws.com"
+| EVAL Esql.scim_record = CASE(NOT Esql.token_change,
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "~", event.action, "~",
+    COALESCE(aws.cloudtrail.user_identity.access_key_id, "unknown"), "~",
+    COALESCE(Esql.scim_op, "none"), "~", COALESCE(Esql.scim_path, "none")))
+| INLINE STATS Esql.scim_activity_values = VALUES(Esql.scim_record)
+| WHERE Esql.token_change AND event.action IN ("CreateBearerToken", "CreateProvisioningTenant")
+| MV_EXPAND Esql.scim_activity_values
+| DISSECT Esql.scim_activity_values "%{Esql.s_ms}~%{Esql.s_action}~%{Esql_priv.s_key}~%{Esql.s_op}~%{Esql.s_path}"
+| EVAL Esql.s_time = TO_DATETIME(TO_LONG(Esql.s_ms))
+| EVAL Esql.after_creation = CASE(Esql.s_time > @timestamp, 1, 0)
+| STATS Esql.scim_operations_after_count = SUM(Esql.after_creation),
+    Esql.first_scim_operation_at = MIN(CASE(Esql.after_creation == 1, Esql.s_time)),
+    Esql.scim_operations_values = VALUES(CASE(Esql.after_creation == 1, Esql.s_action)),
+    Esql_priv.scim_access_keys_values = VALUES(CASE(Esql.after_creation == 1, Esql_priv.s_key)),
+    Esql.scim_patch_operations_values = VALUES(CASE(Esql.after_creation == 1, Esql.s_op)),
+    Esql.scim_patch_paths_values = VALUES(CASE(Esql.after_creation == 1, Esql.s_path))
+    BY Esql.created_at = @timestamp,
+    event.action,
+    Esql.directory,
+    Esql.tenant,
+    Esql_priv.actor,
+    aws.cloudtrail.request_id,
+    cloud.account.id,
+    source.ip,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.provider
+| EVAL Esql.seconds_to_first_scim_operation = DATE_DIFF("seconds", Esql.created_at, Esql.first_scim_operation_at)
+| KEEP Esql.*,
+    Esql_priv.*,
+    event.action,
+    aws.cloudtrail.request_id,
+    cloud.account.id,
+    source.ip,
+    user.name,
+    cloud.region,
+    event.outcome,
+    user_agent.original,
+    event.provider
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.alert_suppression]
+group_by = ["Esql.directory", "event.action"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.created_at",
+    "event.action",
+    "Esql.directory",
+    "Esql.tenant",
+    "Esql_priv.actor",
+    "Esql.scim_operations_after_count",
+    "Esql.first_scim_operation_at",
+    "Esql.seconds_to_first_scim_operation",
+    "Esql.scim_operations_values",
+    "Esql_priv.scim_access_keys_values",
+    "Esql.scim_patch_operations_values",
+    "Esql.scim_patch_paths_values",
+    "aws.cloudtrail.request_id",
+    "source.ip",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 130
+

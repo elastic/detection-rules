@@ -1,0 +1,246 @@
+[metadata]
+creation_date = "2026/09/08"
+integration = ["aws"]
+maturity = "production"
+min_stack_comments = "ES|QL VALUES GA 9.4 is the binding constraint."
+min_stack_version = "9.4.0"
+updated_date = "2026/09/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects one AWS credential stopping a CloudTrail trail, creating a new IAM Identity Center permission set, attaching the
+exact AWS AdministratorAccess managed policy, and requesting a user or group assignment within 30 minutes. The trail
+stop must precede permission-set creation, and a restart by any actor before the assignment cancels that trail sequence.
+This combines audit disruption with construction of a new administrator entitlement, following behavior described by AWS
+incident responders. It does not claim that every trail stopped or that provisioning completed.
+"""
+false_positives = [
+    """
+    A coordinated, authorized logging migration and creation of a new AdministratorAccess entitlement performed by the
+    same credential. Validate both changes and the affected trail before suppressing the alert.
+    """,
+]
+from = "now-65m"
+interval = "10m"
+language = "esql"
+license = "Elastic License v2"
+name = "AWS Identity Center Admin Assigned After CloudTrail Logging Stopped"
+note = """## Triage and analysis
+
+### Investigating AWS Identity Center Admin Assigned After CloudTrail Logging Stopped
+
+Detects one AWS credential stopping a CloudTrail trail, creating a new IAM Identity Center permission set, attaching the exact AWS AdministratorAccess managed policy, and requesting a user or group assignment within 30 minutes. The trail stop must precede permission-set creation, and a restart by any actor before the assignment cancels that trail sequence.
+
+### Possible investigation steps
+
+- Review the exact trail, recipient account, access key, newly created permission set and assigned principal. The stop, creation, attachment and assignment must be ordered within 30 minutes and performed with the same credential. Trail-name and ARN forms are normalized at query time; the cancellation check includes restarts by another actor. Independent organization or account trails must retain the later events for the correlation to be observable.
+- Confirm whether the stopped trail was needed and whether the combined logging and privileged-access change was authorized. A stopped disposable or redundant trail is not by itself evidence of compromise. Review the complete chain and other security-control changes, using the source request IDs returned by the query.
+
+### False positive analysis
+
+- A coordinated, authorized logging migration and creation of a new AdministratorAccess entitlement performed by the same credential. Validate both changes and the affected trail before suppressing the alert.
+
+### Response and remediation
+
+- Verify the asynchronous account-assignment result and the actual member-account role. If unexplained, restore necessary audit coverage, contain the acting credentials, investigate the assigned user or group, and revoke unwanted access through normal incident procedures. Restarts and resource cleanup after the assignment do not invalidate an already observed chain.
+"""
+references = [
+    "https://aws.amazon.com/blogs/security/unauthorized-tactic-spotlight-initial-access-through-a-third-party-identity-provider/",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_CreateAccountAssignment.html",
+    "https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_AttachManagedPolicyToPermissionSet.html",
+    "https://www.elastic.co/docs/reference/integrations/aws/cloudtrail",
+]
+risk_score = 73
+rule_id = "ddde0ac7-002f-5a94-b392-c1e669a13ed2"
+setup = """## Setup
+
+This rule reads the AWS integration CloudTrail data stream `logs-aws.cloudtrail-*`.
+
+- Collect management read and write events from the Identity Center owner account, and from the member accounts the rules correlate into.
+- Keep the integration's default Keyword and Flattened event-information setting; it is what stores the request and response payloads these queries read.
+- No custom pipeline, mappings, registry, enrich policy or lookup index is required. The standard Fleet final pipeline may remove `event.original`; these queries do not use it.
+- Verified on Elasticsearch 9.6.0 with AWS integration 8.1.3.
+- This rule reads Identity Center attribution fields that the AWS integration only maps from version 7.4.0 onward: aws.cloudtrail.user_identity.on_behalf_of.user_id, aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn and aws.cloudtrail.user_identity.credential_id. On an earlier integration those fields are absent and the rule cannot match, so AWS integration 7.4.0 or later is required rather than recommended.
+
+Queries order stages by AWS event time, so measure CloudTrail delivery latency in your environment before shortening any lookback."""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Platform: AWS",
+    "Data Source: AWS",
+    "Data Source: Amazon Web Services",
+    "Data Source: AWS CloudTrail",
+    "Service: AWS IAM Identity Center",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Rule Type: ES|QL",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-aws.cloudtrail-*
+| WHERE data_stream.dataset == "aws.cloudtrail"
+    AND event.outcome == "success"
+    AND ((event.provider == "sso.amazonaws.com" AND event.action IN ("CreatePermissionSet", "AttachManagedPolicyToPermissionSet", "DetachManagedPolicyFromPermissionSet", "DeletePermissionSet", "CreateAccountAssignment")) OR (event.provider == "cloudtrail.amazonaws.com" AND event.action IN ("StopLogging", "StartLogging", "CreateTrail")))
+    AND aws.cloudtrail.recipient_account_id IS NOT NULL
+    AND aws.cloudtrail.request_id IS NOT NULL
+| GROK aws.cloudtrail.request_parameters """[{,] ?permissionSetArn=%{DATA:Esql.gk_permissionsetarn_0}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?permissionSet=\[?\{[^{}]*?permissionSetArn=%{DATA:Esql.gk_permissionset_permissionsetarn_1}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?managedPolicyArn=%{DATA:Esql.gk_managedpolicyarn_2}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?principalId=%{DATA:Esql.gk_principalid_3}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?principalType=%{DATA:Esql.gk_principaltype_4}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?targetId=%{DATA:Esql.gk_targetid_5}[,}]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?targetType=%{DATA:Esql.gk_targettype_6}[,}]"""
+| GROK aws.cloudtrail.response_elements """[{,] ?accountAssignmentCreationStatus=\[?\{[^{}]*?status=%{DATA:Esql.gk_accountassignmentcreationstatus_status_7}[,}\]]"""
+| GROK aws.cloudtrail.request_parameters """[{,] ?name=%{DATA:Esql.gk_name_8}[,}]"""
+| EVAL Esql.permission_set_arn = COALESCE(Esql.gk_permissionsetarn_0, Esql.gk_permissionset_permissionsetarn_1),
+    Esql.policy_arn = Esql.gk_managedpolicyarn_2,
+    Esql.principal_id = Esql.gk_principalid_3,
+    Esql.principal_type = Esql.gk_principaltype_4,
+    Esql.target_account = Esql.gk_targetid_5,
+    Esql.target_type = Esql.gk_targettype_6,
+    Esql.assignment_status = Esql.gk_accountassignmentcreationstatus_status_7
+| EVAL Esql.stage = CASE(
+    event.action == "CreatePermissionSet", "create",
+    event.action == "AttachManagedPolicyToPermissionSet" AND Esql.policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "admin",
+    event.action == "DetachManagedPolicyFromPermissionSet" AND Esql.policy_arn IN ("arn:aws:iam::aws:policy/AdministratorAccess", "arn:aws-us-gov:iam::aws:policy/AdministratorAccess", "arn:aws-cn:iam::aws:policy/AdministratorAccess"), "detach",
+    event.action == "DeletePermissionSet", "delete",
+    event.action == "CreateAccountAssignment", "assign",
+    event.action == "StopLogging", "stop",
+    event.action IN ("StartLogging", "CreateTrail"), "start", "ignore")
+| EVAL Esql.record = CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", COALESCE(aws.cloudtrail.user_identity.access_key_id, "unknown"))
+| EVAL Esql.trail_name = REPLACE(Esql.gk_name_8, "^arn:[^:]+:cloudtrail:[^:]+:[0-9]{12}:trail/", "")
+| EVAL Esql.log_record = CASE(Esql.stage IN ("stop", "start") AND Esql.trail_name IS NOT NULL,
+    CONCAT(TO_STRING(TO_LONG(@timestamp)), "|", aws.cloudtrail.request_id, "|", Esql.stage, "|", COALESCE(aws.cloudtrail.user_identity.access_key_id, "unknown"), "|", cloud.region, ":", Esql.trail_name))
+| INLINE STATS Esql.log_history_values = VALUES(Esql.log_record) BY aws.cloudtrail.recipient_account_id
+| INLINE STATS Esql.ps_history_values = VALUES(CASE((Esql.stage == "create" OR Esql.stage == "admin" OR Esql.stage == "detach" OR Esql.stage == "delete"), Esql.record))
+    BY aws.cloudtrail.recipient_account_id,
+    Esql.permission_set_arn
+| WHERE Esql.stage == "assign"
+    AND aws.cloudtrail.user_identity.access_key_id IS NOT NULL
+    AND Esql.permission_set_arn IS NOT NULL
+    AND Esql.target_type == "AWS_ACCOUNT"
+    AND Esql.target_account IS NOT NULL
+    AND Esql.principal_id IS NOT NULL
+    AND Esql.assignment_status IN ("IN_PROGRESS", "SUCCEEDED")
+    AND Esql.principal_type IN ("USER", "GROUP")
+| MV_EXPAND Esql.ps_history_values
+| DISSECT Esql.ps_history_values "%{Esql.change_ms}|%{Esql.change_request}|%{Esql.change_stage}|%{Esql.change_key}"
+| EVAL Esql.change_time = TO_DATETIME(TO_LONG(Esql.change_ms))
+| WHERE Esql.change_time < @timestamp AND Esql.change_time >= @timestamp - 30 minutes
+| STATS Esql.created_at = MIN(CASE(Esql.change_stage == "create" AND Esql.change_key == aws.cloudtrail.user_identity.access_key_id, Esql.change_time)),
+    Esql.admin_attached_at = MAX(CASE(Esql.change_stage == "admin" AND Esql.change_key == aws.cloudtrail.user_identity.access_key_id, Esql.change_time)),
+    Esql.admin_detached_at = MAX(CASE(Esql.change_stage == "detach", Esql.change_time)),
+    Esql.deleted_at = MAX(CASE(Esql.change_stage == "delete", Esql.change_time)),
+    Esql.source_request_ids_values = VALUES(Esql.change_request),
+    Esql_priv.actor_arns_values = VALUES(aws.cloudtrail.user_identity.arn),
+    Esql.actor_user_ids_values = VALUES(aws.cloudtrail.user_identity.on_behalf_of.user_id),
+    Esql.actor_identity_stores_values = VALUES(aws.cloudtrail.user_identity.on_behalf_of.identity_store_arn),
+    Esql.source_ip_values = VALUES(source.ip),
+    Esql.log_history_values = VALUES(Esql.log_history_values)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    Esql.permission_set_arn,
+    Esql.target_account,
+    Esql.principal_id,
+    Esql.principal_type,
+    aws.cloudtrail.request_id,
+    @timestamp
+| WHERE Esql.created_at IS NOT NULL
+    AND Esql.created_at < Esql.admin_attached_at
+    AND Esql.admin_attached_at < @timestamp
+    AND (Esql.admin_detached_at IS NULL OR Esql.admin_detached_at < Esql.admin_attached_at)
+    AND Esql.deleted_at IS NULL
+| MV_EXPAND Esql.log_history_values
+| DISSECT Esql.log_history_values "%{Esql.log_ms}|%{Esql.log_request}|%{Esql.log_stage}|%{Esql_priv.log_actor_key}|%{Esql.trail_key}"
+| EVAL Esql.log_time = TO_DATETIME(TO_LONG(Esql.log_ms))
+| WHERE Esql.log_time < @timestamp AND Esql.log_time >= @timestamp - 30 minutes
+| STATS Esql.logging_stopped_at = MAX(CASE(Esql.log_stage == "stop" AND Esql_priv.log_actor_key == aws.cloudtrail.user_identity.access_key_id AND Esql.log_time < Esql.created_at, Esql.log_time)),
+    Esql.logging_restarted_at = MAX(CASE(Esql.log_stage == "start", Esql.log_time)),
+    Esql.source_request_ids_values = VALUES(Esql.source_request_ids_values),
+    Esql.log_request_ids_values = VALUES(Esql.log_request),
+    Esql_priv.actor_arns_values = VALUES(Esql_priv.actor_arns_values),
+    Esql.source_ip_values = VALUES(Esql.source_ip_values)
+    BY aws.cloudtrail.recipient_account_id,
+    aws.cloudtrail.user_identity.access_key_id,
+    Esql.permission_set_arn,
+    Esql.target_account,
+    Esql.principal_id,
+    Esql.principal_type,
+    aws.cloudtrail.request_id,
+    @timestamp,
+    Esql.created_at,
+    Esql.admin_attached_at,
+    Esql.trail_key
+| WHERE Esql.logging_stopped_at < Esql.created_at
+    AND (Esql.logging_restarted_at IS NULL OR Esql.logging_restarted_at < Esql.logging_stopped_at)
+| KEEP Esql.*, Esql_priv.*, @timestamp, aws.cloudtrail.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.alert_suppression]
+group_by = ["aws.cloudtrail.request_id"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "aws.cloudtrail.request_id",
+    "aws.cloudtrail.recipient_account_id",
+    "aws.cloudtrail.user_identity.access_key_id",
+    "Esql.permission_set_arn",
+    "Esql.target_account",
+    "Esql.principal_id",
+    "Esql.principal_type",
+    "Esql.trail_key",
+    "Esql.logging_stopped_at",
+    "Esql.created_at",
+    "Esql.admin_attached_at",
+    "Esql.source_request_ids_values",
+    "Esql.log_request_ids_values",
+]
+
+[rule.alert_suppression.duration]
+unit = "m"
+value = 70
+
