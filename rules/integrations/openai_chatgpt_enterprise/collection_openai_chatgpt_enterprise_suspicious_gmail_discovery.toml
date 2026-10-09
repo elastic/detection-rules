@@ -1,0 +1,187 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+min_stack_comments = "field_extract (flattened field support) is available starting in 9.5.0, as a Technical Preview function; GA in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise Gmail connector searches that look like sensitive discovery: attachment hunts across multiple
+document types, or queries matching credential, financial, HR, or legal themes. Attackers abusing a linked Gmail
+connector after session compromise often search mail for high-value content before exfiltration or send-as abuse.
+"""
+false_positives = [
+    """
+    HR, legal, finance, or IR users who legitimately search Gmail for attachments, payroll, or contract terms via
+    ChatGPT.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Suspicious Gmail Discovery"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Suspicious Gmail Discovery
+
+A Gmail connector search matched attachment or document-type hunting, or sensitive themes (credentials, financial, HR,
+or legal). That can indicate collection staging through ChatGPT after connector or session abuse.
+
+Escalate when searches are broad (`has:attachment` plus many `filename:` filters), credential keywords appear, or
+nearby Gmail sends or Drive downloads follow. Close as a false positive for approved HR, legal, or finance research.
+
+#### Possible investigation steps
+
+- Review `Esql.email_search_query` and the boolean match flags on the alert.
+- Correlate with Gmail send events, Google Drive downloads, or unusual authentication activity for the same user.
+- Confirm whether Gmail connector use is approved for that user and whether the search matches their role.
+- Check whether the same user recently linked the Gmail connector or created Codex access tokens.
+
+### False positive analysis
+
+- HR, legal, finance, or incident-response users refining attachment searches or payroll and contract lookups can match
+  these patterns when using an approved Gmail connector.
+
+### Response and remediation
+
+- Revoke Gmail connector access if unauthorized, review retrieved mail and attachments, and treat exposed content per
+  your data-incident process.
+- Hunt for follow-on Gmail sends, Drive downloads, or conversation shares from the same user.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "b05745b3-4bab-42f3-8040-d26d42b8eec1"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect `app_log` events for the Gmail app
+(`app_type: SERVICE`) with flattened `openai_chatgpt_enterprise.app_log.input` fields, including `query`.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Tactic: Discovery",
+    "Mitre Atlas: AML.T0053",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.app_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.app_log" and
+    openai_chatgpt_enterprise.app_log.app_name == "Gmail" and
+    openai_chatgpt_enterprise.app_log.app_type == "SERVICE" and
+    openai_chatgpt_enterprise.app_log.input is not null
+| eval Esql.email_search_query = to_lower(field_extract(openai_chatgpt_enterprise.app_log.input, "query"))
+| eval
+    Esql.attachment_search = Esql.email_search_query rlike """.*has:attachment.*""",
+    Esql.document_extension = Esql.email_search_query rlike """.*filename:(pdf|doc|docx|xls|xlsx|csv|ppt|pptx|txt|rtf|odt|ods|zip|7z|rar).*""",
+    Esql.multiple_filetypes = Esql.email_search_query rlike """.*filename:[a-z0-9]+.*filename:[a-z0-9]+.*""",
+    Esql.match_financial = Esql.email_search_query rlike """.*(payslip|paystub|payroll|salary|compensation|bonus|bank.account|swift|routing.number|invoice|tax.return|w2|w-2|1099).*""",
+    Esql.match_hr = Esql.email_search_query rlike """.*(employment.contract|offer.letter|employment.agreement|employee.records|passport|national.insurance|social.security|ssn|date.of.birth|personal.data).*""",
+    Esql.match_legal = Esql.email_search_query rlike """.*(confidential|restricted|internal.only|legal|settlement|merger|acquisition).*""",
+    Esql.match_credentials = Esql.email_search_query rlike """.*(password|passwd|credential|api.key|secret.key|private.key|access.token|client.secret|recovery.code|backup.code|ssh.key).*"""
+| where
+    (Esql.attachment_search == true and (Esql.document_extension == true or Esql.multiple_filetypes == true)) or
+    Esql.match_credentials == true or
+    Esql.match_financial == true or
+    Esql.match_legal == true or
+    Esql.match_hr == true
+| keep
+    _id, _version, _index, @timestamp, user.id, user.email,
+    Esql.email_search_query,
+    Esql.attachment_search,
+    Esql.document_extension,
+    Esql.multiple_filetypes,
+    Esql.match_financial,
+    Esql.match_hr,
+    Esql.match_legal,
+    Esql.match_credentials,
+    openai_chatgpt_enterprise.app_log.input,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1083"
+name = "File and Directory Discovery"
+reference = "https://attack.mitre.org/techniques/T1083/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.email",
+    "Esql.email_search_query",
+    "Esql.attachment_search",
+    "Esql.document_extension",
+    "Esql.multiple_filetypes",
+    "Esql.match_credentials",
+    "Esql.match_financial",
+    "Esql.match_hr",
+    "Esql.match_legal",
+    "openai_chatgpt_enterprise.app_log.input",
+]
+

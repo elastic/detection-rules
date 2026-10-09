@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events where workspace compliance log files are listed or downloaded. Attackers pull
+audit and conversation exports to understand defender visibility or stage sensitive transcript data before further
+abuse.
+"""
+false_positives = [
+    """
+    Security and compliance teams download workspace logs for investigations, SIEM validation, or regulatory requests.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Workspace Log Files Accessed"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Workspace Log Files Accessed
+
+A workspace compliance log archive was listed or downloaded by an account user. These exports can include authentication,
+conversation, and Codex activity that is useful for both legitimate compliance work and attacker reconnaissance.
+
+Escalate when the actor is unexpected or exports coincide with other privileged changes. Close as a false positive for
+documented SIEM or compliance collection jobs performed by approved admins.
+
+#### Possible investigation steps
+
+- Identify the actor (`user.id`, `user.email`) and source IP.
+- Note which log types were requested in `openai_chatgpt_enterprise.audit_log.action_data` (for example AUTH_LOG,
+  CONVERSATION_MESSAGE, or CODEX_LOG).
+- Correlate with other privileged audit activity from the same actor in the surrounding window, such as role changes,
+  invites, or feature toggles.
+- Confirm whether the download matches an approved compliance or SIEM collection workflow.
+
+### False positive analysis
+
+- Security and compliance teams routinely download workspace logs for investigations, SIEM ingestion, or regulatory
+  requests when using approved admin accounts.
+
+### Response and remediation
+
+- Revoke unauthorized sessions and determine whether export data left the organization.
+- If the download was unauthorized, inventory other exports by the same actor and tighten who can access workspace logs.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "802d8451-fa0f-4449-98f0-31abaaabcf4d"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Collection",
+    "Mitre Atlas: AML.T0085",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action in ("download_workspace_log_file", "list_workspace_log_files") and
+    openai_chatgpt_enterprise.audit_log.actor.type == "ACCOUNT_USER"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.event_type,
+    openai_chatgpt_enterprise.audit_log.action_data.log_file_id,
+    openai_chatgpt_enterprise.audit_log.action_privilege,
+    openai_chatgpt_enterprise.audit_log.actor.type, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1530"
+name = "Data from Cloud Storage"
+reference = "https://attack.mitre.org/techniques/T1530/"
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0085"
+name = "Data from AI Services"
+reference = "https://atlas.mitre.org/techniques/AML.T0085/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0009"
+name = "Collection"
+reference = "https://atlas.mitre.org/tactics/AML.TA0009/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.event_type",
+    "openai_chatgpt_enterprise.audit_log.action_data.log_file_id",
+    "openai_chatgpt_enterprise.audit_log.action_privilege",
+    "openai_chatgpt_enterprise.audit_log.actor.type",
+    "source.ip",
+]
+

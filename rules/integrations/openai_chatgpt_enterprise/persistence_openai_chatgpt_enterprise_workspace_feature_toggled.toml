@@ -1,0 +1,124 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise audit events that toggle a workspace feature flag (for example GPT sharing). Adversaries may
+enable sharing or weaken controls to persist access or broaden data exposure.
+"""
+false_positives = [
+    "Administrators intentionally enable or disable workspace features during rollout.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Workspace Feature Toggled"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Workspace Feature Toggled
+
+A workspace feature flag changed. Adversaries may enable sharing or weaken controls to broaden data exposure or persist access.
+
+Escalate when the feature increases sharing or reduces security controls without an approved change. Close as a false positive for documented rollout toggles by administrators.
+
+#### Possible investigation steps
+
+- Identify the actor and which feature was enabled or disabled.
+- Determine whether the change increases sharing, external visibility, or weakens security controls.
+- Correlate with other admin actions by the same actor, such as role changes, invites, or exports.
+- Confirm whether a change request authorized the toggle.
+
+### False positive analysis
+
+- Administrators intentionally enable or disable workspace features during approved rollouts.
+
+### Response and remediation
+
+- Revert unauthorized feature changes and review other admin actions by the same actor.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "58a99563-5ad7-4f1f-b618-717928747cea"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Tactic: Defense Evasion",
+    "Mitre Atlas: AML.T0081",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.audit_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.audit_log" and
+    event.action == "workspace_toggle_feature"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email, source.ip,
+    openai_chatgpt_enterprise.audit_log.action_data.feature,
+    openai_chatgpt_enterprise.audit_log.action_data.value,
+    openai_chatgpt_enterprise.audit_log.action_data.value_bool,
+    openai_chatgpt_enterprise.audit_log.action_privilege, data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "openai_chatgpt_enterprise.audit_log.action_data.feature",
+    "openai_chatgpt_enterprise.audit_log.action_data.value",
+    "openai_chatgpt_enterprise.audit_log.action_privilege",
+    "source.ip",
+]
+
