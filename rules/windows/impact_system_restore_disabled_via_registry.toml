@@ -1,0 +1,82 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry settings that request disabling System Restore or its configuration interface. This detects a
+setting change; it does not establish removal of restore points or successful loss of recovery capability.
+"""
+false_positives = ["Approved administration, configuration management and security troubleshooting."]
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Windows System Restore Disabled via Registry"
+note = """## Triage and analysis
+
+### Investigating Windows System Restore Disabled via Registry
+
+Confirm the changed setting or executed command, initiating process tree and account. Correlate with other suspicious behavior and approved change records. Verify effective settings before asserting loss of protection or recovery capability. Scope any future exceptions to evidence-backed management behavior.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1490/T1490.yaml",
+]
+risk_score = 47
+rule_id = "22ecf41d-6e17-540f-802a-ce32deac3095"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Impact",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.data.strings : ("1", "0x00000001") and
+  registry.path : (
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\SystemRestore\\DisableSR",
+    "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\SystemRestore\\DisableConfig",
+    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore\\DisableSR",
+    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SystemRestore\\DisableConfig"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1490"
+name = "Inhibit System Recovery"
+reference = "https://attack.mitre.org/techniques/T1490/"
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
