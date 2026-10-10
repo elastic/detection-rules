@@ -1,0 +1,84 @@
+[metadata]
+creation_date = "2023/01/30"
+maturity = "development"
+updated_date = "2023/01/30"
+
+[rule]
+author = ["Jason Deyalsingh"]
+description = """
+This detection identifies an ISO mounted from a zip existing in a temp directory, which is a procedure used by Qakbot to
+perform MOTW bypass. Mark of the web tags exist on Windows operating systems, to inform the user and system when certain
+files were downloaded from the internet. This tag attempts to block or otherwise subvert certain potentially unsafe
+actions from being performed. Mark of the web bypass techniques attempt to deliver files to the end user without this
+tag set, allowing potentially unsafe actions to be taken.
+"""
+from = "now-9m"
+index = ["winlogbeat-*"]
+language = "eql"
+license = "MIT"
+name = "ISO mounted from zip temporary directory"
+note = """## Investigation Suggestions:
+
+The ISO run within the temporary directory should be investigated as possible malware.  Attempt to identify and evaluate the carrier email message that delivered the ISO as a possible phishing email or investigate the domain or website the ISO was downloaded from.  Continue to monitor the endpoint for the "Wermgr running reconnaissance commands" alert which identifies suspicious activity that has been seen occurring after this activity and can be used to confirm the threat as a true positive.
+
+##Responses or Remediations:
+If confirmed as malicious activity, contain the endpoint prior to remediating.  Check all outgoing network connections from the endpoint to identify possible C2.  This activity has been associated with ransomware activity and lateral movement using Brute Ratel and Cobalt Strike.  
+
+##False Positives
+Users can legitimately download a zipped ISO file as a developer or network admin role.  
+"""
+references = [
+    "https://www.trendmicro.com/en_us/research/22/j/black-basta-infiltrates-networks-via-qakbot-brute-ratel-and-coba.html",
+]
+risk_score = 50
+rule_id = "bf8b1cf5-94ca-4b3a-bff8-407fede0917c"
+severity = "medium"
+tags = ["Elastic", "Host", "Windows", "Threat Detection", "Defense Evasion"]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+any where event.code=="1" and winlog.channel=="Microsoft-Windows-VHDMP-Operational" and winlog.event_data.VhdFileName like~ ("*Temp*","*.zip*","*.iso")
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1027"
+name = "Obfuscated Files or Information"
+reference = "https://attack.mitre.org/techniques/T1027/"
+
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.005"
+name = "Mark-of-the-Web Bypass"
+reference = "https://attack.mitre.org/techniques/T1553/005/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1204"
+name = "User Execution"
+reference = "https://attack.mitre.org/techniques/T1204/"
+[[rule.threat.technique.subtechnique]]
+id = "T1204.002"
+name = "Malicious File"
+reference = "https://attack.mitre.org/techniques/T1204/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
