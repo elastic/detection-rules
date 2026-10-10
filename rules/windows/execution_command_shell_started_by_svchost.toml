@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/10"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -143,10 +143,19 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.parent.name:svchost.exe and 
-process.name:(CMD.EXE or Cmd.exe or cmd.exe) and 
-process.command_line:(* and not "\"cmd.exe\" /C sc control hptpsmarthealthservice 211") and 
-not process.args:(".\inetsrv\iissetup.exe /keygen " or "C:\Program" or "C:\Program Files (x86)\Kaspersky Lab\NetworkAgent\klmover.exe" or "C:\Program Files (x86)\Sentry\SA\adluminupdater.exe" or "C:\Program Files\WinRAR" or "C:\Program Files\WinRAR\uninstall.exe" or "hpdiags://BatteryStatusTest" or hptpsmarthealthservice or icacls or taskkill or w32tm or *.BAT* or *.CMD* or *.bat* or *.cmd*)
+host.os.type:windows and event.category:process and event.type:start and process.parent.name:svchost.exe and
+process.name.caseless:cmd.exe and
+process.command_line:(* and not "\"cmd.exe\" /C sc control hptpsmarthealthservice 211") and
+not process.args:(
+  ".\inetsrv\iissetup.exe /keygen " or "C:\Program Files (x86)\Kaspersky Lab\NetworkAgent\klmover.exe" or
+  "C:\Program Files (x86)\Sentry\SA\adluminupdater.exe" or "C:\Program Files\WinRAR" or
+  "C:\Program Files\WinRAR\uninstall.exe" or "hpdiags://BatteryStatusTest" or hptpsmarthealthservice or
+  icacls or taskkill or w32tm
+) and
+not process.args:(
+  C\:\\Windows\\*.bat or C\:\\Windows\\*.BAT or C\:\\Windows\\*.cmd or C\:\\Windows\\*.CMD or
+  C\:\\Program*Files*\\*.bat or C\:\\Program*Files*\\*.BAT or C\:\\Program*Files*\\*.cmd or C\:\\Program*Files*\\*.CMD
+)
 '''
 
 
