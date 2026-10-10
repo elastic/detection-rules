@@ -152,9 +152,18 @@ not process.args:(
   "C:\Program Files\WinRAR\uninstall.exe" or "hpdiags://BatteryStatusTest" or hptpsmarthealthservice or
   icacls or taskkill or w32tm
 ) and
-not process.args:(
-  C\:\\Windows\\*.bat or C\:\\Windows\\*.BAT or C\:\\Windows\\*.cmd or C\:\\Windows\\*.CMD or
-  C\:\\Program*Files*\\*.bat or C\:\\Program*Files*\\*.BAT or C\:\\Program*Files*\\*.cmd or C\:\\Program*Files*\\*.CMD
+not (
+  process.args_count <= 3 and process.args:(/c or /C) and
+  process.args:(
+    C\:\\Windows\\*.bat or C\:\\Windows\\*.BAT or C\:\\Windows\\*.cmd or C\:\\Windows\\*.CMD or
+    C\:\\Program*Files*\\*.bat or C\:\\Program*Files*\\*.BAT or C\:\\Program*Files*\\*.cmd or C\:\\Program*Files*\\*.CMD
+  ) and
+  not process.args:(
+    *C\:\\Windows\\* * or *C\:\\Program*Files*\\* * or C\:\\ProgramData\\* or
+    C\:\\Windows\\Temp\\* or C\:\\Windows\\temp\\* or C\:\\Windows\\TEMP\\* or
+    C\:\\Windows\\Tasks\\* or C\:\\Windows\\tasks\\* or C\:\\Windows\\tracing\\* or C\:\\Windows\\Tracing\\*
+  ) and
+  not process.command_line:(*&* or *|* or *^* or *\<* or *\>* or *..*)
 )
 '''
 
