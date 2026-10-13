@@ -13,6 +13,7 @@ To enable PowerShell Script Block logging across a group of servers using Active
 ```
 Computer Configuration >
 Administrative Templates >
+Windows Components >
 Windows PowerShell >
 Turn on PowerShell Script Block Logging (Enable)
 ```
