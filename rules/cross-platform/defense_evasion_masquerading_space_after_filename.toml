@@ -2,7 +2,7 @@
 creation_date = "2022/10/18"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/03/24"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
@@ -39,7 +39,7 @@ In Linux and macOS environments, file execution is determined by the file's true
 ### False positive analysis
 
 - Processes like "ls", "find", "grep", and "xkbcomp" are known to be safe and can be excluded from triggering the rule by adding them to the exception list.
-- Executables located in directories such as "/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", and "/tmp/ansible-admin/*" are typically non-threatening and should be excluded to prevent false positives.
+- Executables located in directories such as "/opt/nessus_agent/*" and "/opt/gitlab/sv/gitlab-exporter/*" are typically non-threatening and should be excluded to prevent false positives.
 - Parent processes with arguments like "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", and "/etc/rubrik/start_stop_agent.sh" are generally safe and can be added to the exclusion list to avoid unnecessary alerts.
 - Regularly review and update the exception list to ensure that only verified safe processes and paths are excluded, maintaining the effectiveness of the detection rule.
 
@@ -74,6 +74,13 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Threat: Masquerading",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+    "Platform: macOS",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -81,7 +88,7 @@ query = '''
 process where host.os.type:("linux","macos") and event.type == "start" and
 process.executable regex~ """/[a-z0-9\s_\-\\./]+\s""" and not (
   process.name in ("ls", "find", "grep", "xkbcomp") or
-  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*", "/tmp/ansible-admin/*") or
+  process.executable like ("/opt/nessus_agent/*", "/opt/gitlab/sv/gitlab-exporter/*") or
   process.parent.args in (
     "./check_rubrik", "/usr/bin/check_mk_agent", "/etc/rubrik/start_stop_bootstrap.sh", "/etc/rubrik/start_stop_agent.sh"
   ) or

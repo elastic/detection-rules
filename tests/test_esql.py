@@ -7,11 +7,21 @@
 
 import unittest
 
+from esql.features import feature_available
+from esql.versions import Version
+
+from detection_rules.config import load_current_package_version
 from detection_rules.esql import (
+    get_esql_lookup_join_targets,
     get_esql_query_indices,
     get_esql_query_source_groups,
+    get_esql_query_source_patterns,
     replace_esql_query_sources,
 )
+
+
+def _current_package() -> Version:
+    return Version.parse(load_current_package_version())
 
 
 def replace_with_group_position(query: str) -> str:
@@ -47,6 +57,9 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_subqueries_are_grouped_by_their_own_sources(self):
         """Test that subqueries reading different indices are grouped and replaced separately."""
+        # Grammars before 9.5 keep the inner query but drop its FROM index patterns.
+        if _current_package() < Version(9, 5):
+            self.skipTest("Subquery FROM index spans require the 9.5 grammar")
         query = "FROM\n(\n  FROM logs-a-* METADATA _id\n  | WHERE x\n),\n(\n  FROM logs-b-* METADATA _id\n)\n| WHERE y"
         groups = get_esql_query_source_groups(query)
         self.assertListEqual([group.indices for group in groups], [["logs-a-*"], ["logs-b-*"]])
@@ -59,6 +72,8 @@ class TestESQLQuerySources(unittest.TestCase):
 
     def test_subqueries_reading_the_same_sources_share_a_group(self):
         """Test that subqueries reading the same indices share one group, and so one set of indices."""
+        if _current_package() < Version(9, 5):
+            self.skipTest("Subquery FROM index spans require the 9.5 grammar")
         query = "FROM (FROM logs-a-* METADATA _id | WHERE x), (FROM logs-a-* METADATA _id | WHERE y) | WHERE z"
         groups = get_esql_query_source_groups(query)
         self.assertListEqual([group.indices for group in groups], [["logs-a-*"]])
@@ -87,3 +102,40 @@ class TestESQLQuerySources(unittest.TestCase):
         """Test that a query with no FROM clause yields no groups."""
         self.assertListEqual(get_esql_query_source_groups("| WHERE x == 1"), [])
         self.assertListEqual(get_esql_query_indices("| WHERE x == 1"), [])
+
+    def test_lookup_join_targets_are_not_from_sources(self):
+        query = "FROM logs-a-* METADATA _id\n| LOOKUP JOIN threat_list ON host.name\n| WHERE x == 1"
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
+        self.assertListEqual(get_esql_lookup_join_targets(query), ["threat_list"])
+
+    def test_source_patterns_keep_cluster_prefix(self):
+        """Source patterns keep the written cluster prefix alongside the local index."""
+        query = "FROM remote:logs-a-*, logs-b-*, remote:logs-a-* METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(
+            get_esql_query_source_patterns(query),
+            [("remote:logs-a-*", "logs-a-*"), ("logs-b-*", "logs-b-*")],
+        )
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*", "logs-b-*"])
+
+    def test_double_colon_cluster_prefix_strips_to_local_index(self):
+        """A cluster:: prefix is not part of the local index pattern."""
+        query = "FROM remote::logs-a-* METADATA _id\n| WHERE x == 1"
+        self.assertListEqual(
+            get_esql_query_source_patterns(query),
+            [("remote::logs-a-*", "logs-a-*")],
+        )
+        self.assertListEqual(get_esql_query_indices(query), ["logs-a-*"])
+        self.assertListEqual(get_esql_query_source_groups(query)[0].indices, ["logs-a-*"])
+
+    def test_configured_parse_reads_feature_gated_sources(self):
+        """Source extraction uses the current package config, including COMPLETION and nested KQL."""
+        completion = """
+        FROM logs-a-*
+        | COMPLETION triage_result = "x" WITH { "inference_id": "model" }
+        """
+        nested = 'FROM logs-b-* | WHERE KQL("NOT process.name : cmd.exe")'
+        self.assertListEqual(get_esql_query_indices(nested), ["logs-b-*"])
+        # 8.19 accepts COMPLETION ... WITH identifier, not a map literal.
+        if feature_available("completion", _current_package()):
+            self.assertListEqual(get_esql_query_indices(completion), ["logs-a-*"])
+            self.assertListEqual(get_esql_query_source_groups(completion)[0].indices, ["logs-a-*"])

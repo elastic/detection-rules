@@ -2,7 +2,7 @@
 creation_date = "2025/02/21"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/07/02"
+updated_date = "2026/10/02"
 
 [rule]
 author = ["Elastic"]
@@ -81,14 +81,20 @@ For more details on Elastic Defend refer to the [helper guide](https://www.elast
 """
 severity = "high"
 tags = [
-  "Domain: Endpoint",
-  "OS: Linux",
-  "Use Case: Threat Detection",
-  "Tactic: Defense Evasion",
-  "Tactic: Execution",
-  "Data Source: Elastic Defend",
-  "Resources: Investigation Guide",
-  "Data Source: Crowdstrike",
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Execution",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Data Source: Crowdstrike",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Encoding-Based Obfuscation",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -121,7 +127,7 @@ sequence by host.id, process.parent.entity_id with maxspan=3s
     (?process.parent.name == "zsh" and ?process.parent.command_line like "*extendedglob*") or
     (process.name like "python*" and ?process.parent.name == "python*") or
     process.args like "/tmp/apt-key-gpghome*" or
-    ?process.parent.executable like ("/home/*/.aimee-code/bin/claude", "/home/*/.aimee-code/bin/opencode") or
+    ?process.parent.executable like ("/home/*/bin/claude", "/home/*/bin/opencode") or
     ?process.parent.command_line like "*/home/*/.claude/shell-snapshots/snapshot-*"
   )]
 '''

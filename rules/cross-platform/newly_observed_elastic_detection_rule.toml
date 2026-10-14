@@ -1,7 +1,7 @@
 [metadata]
 creation_date = "2026/01/07"
 maturity = "production"
-updated_date = "2026/04/27"
+updated_date = "2026/09/28"
 
 [rule]
 author = ["Elastic"]
@@ -18,7 +18,15 @@ name = "Newly Observed High Severity Detection Alert"
 risk_score = 73
 rule_id = "1a3d5b36-b995-4ace-9b85-8a0af429ccf6"
 severity = "high"
-tags = ["Use Case: Threat Detection", "Rule Type: Higher-Order Rule", "Resources: Investigation Guide"]
+tags = [
+    "Use Case: Threat Detection",
+    "Rule Type: Higher-Order Rule",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: ES|QL",
+    "Domain: Endpoint",
+]
 timestamp_override = "event.ingested"
 type = "esql"
 
@@ -49,7 +57,7 @@ FROM .alerts-security.*
 // fist time seen in the last 5 days - defined in the rule schedule Additional look-back time
 | eval Esql.recent = DATE_DIFF("minute", Esql.first_time_seen, now())
 // first time seen is within 10m of the rule execution time
-| where Esql.recent <= 10 and Esql.agent_id_distinct_count == 1 and Esql.alerts_count <= 10 and (Esql.last_time_seen == Esql.first_time_seen)
+| where Esql.recent <= 10 and Esql.agent_id_distinct_count == 1 and Esql.alerts_count <= 10
 
 // Move single values to their corresponding ECS fields for alerts exclusion
 | eval host.id = mv_min(Esql.host_id_values)

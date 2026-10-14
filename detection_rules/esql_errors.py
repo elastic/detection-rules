@@ -5,11 +5,7 @@
 
 """ESQL exceptions."""
 
-from collections.abc import Sequence
-
-from elasticsearch import Elasticsearch  # type: ignore[reportMissingTypeStubs]
-
-from .misc import ClientError, getdefault
+from .misc import ClientError
 
 __all__ = (
     "EsqlKibanaBaseError",
@@ -19,71 +15,61 @@ __all__ = (
     "EsqlTypeMismatchError",
     "EsqlUnknownIndexError",
     "EsqlUnsupportedTypeError",
+    "public_esql_error",
 )
 
 
-def cleanup_empty_indices(
-    elastic_client: Elasticsearch, index_patterns: Sequence[str] = ("rule-test-*", "test-*")
-) -> None:
-    """Delete empty indices matching the given patterns."""
-    if getdefault("skip_empty_index_cleanup")():
-        return
-    for pattern in index_patterns:
-        indices = elastic_client.cat.indices(index=pattern, format="json")
-        empty_indices = [index["index"] for index in indices if index["docs.count"] == "0"]  # type: ignore[reportMissingTypeStubs]
-        for empty_index in empty_indices:
-            _ = elastic_client.indices.delete(index=empty_index)
-
-
 class EsqlKibanaBaseError(ClientError):
-    """Base class for ESQL exceptions with cleanup logic."""
+    """Base class for offline ES|QL validation errors."""
 
-    def __init__(
-        self,
-        message: str,
-        elastic_client: Elasticsearch,
-    ) -> None:
-        cleanup_empty_indices(elastic_client)
+    def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlSchemaError(EsqlKibanaBaseError):
-    """Error in ESQL schema. Validated via Kibana until AST is available."""
+    """Error in an ES|QL schema check."""
 
 
 class EsqlUnsupportedTypeError(EsqlKibanaBaseError):
-    """Error in ESQL type validation using unsupported type."""
+    """Error in ES|QL type validation using an unsupported type."""
 
 
 class EsqlSyntaxError(EsqlKibanaBaseError):
-    """Error with ESQL syntax."""
+    """Error with ES|QL syntax."""
 
 
 class EsqlTypeMismatchError(ClientError):
-    """Error when validating types in ESQL. Can occur in stack or local schema comparison."""
+    """Error when an ES|QL expression compares incompatible types."""
 
-    def __init__(
-        self,
-        message: str,
-        elastic_client: Elasticsearch | None = None,
-    ) -> None:
-        if elastic_client:
-            cleanup_empty_indices(elastic_client)
+    def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlSemanticError(ClientError):
-    """Error with ESQL semantics. Validated through regex enforcement."""
+    """Error with ES|QL semantics."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
 
 
 class EsqlUnknownIndexError(ClientError):
-    """Error with ESQL Indices. Validated through regex enforcement."""
+    """Error when an ES|QL FROM or LOOKUP JOIN pattern is unknown."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message, original_error=self)
+
+
+def public_esql_error(exc: BaseException) -> Exception:
+    """Map a parser exception onto a detection-rules ES|QL error."""
+    import esql
+
+    if isinstance(exc, esql.EsqlSyntaxError):
+        return EsqlSyntaxError(str(exc))
+    if isinstance(exc, esql.EsqlSchemaError):
+        return EsqlSchemaError(str(exc))
+    if isinstance(exc, esql.EsqlTypeMismatchError):
+        return EsqlTypeMismatchError(str(exc))
+    return EsqlSemanticError(str(exc))
 
 
 ESQL_EXCEPTION_TYPES = (

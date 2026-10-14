@@ -50,6 +50,39 @@ class TestHunt(unittest.TestCase):
         self.assertEqual(config.name, "Denial of Service or Resource Exhaustion Attacks Detection")
         self.assertEqual(config.language, "ES|QL")
 
+    def test_invalid_esql_query_is_rejected(self):
+        """A hunt query that is not valid ES|QL fails before the keep/stats check."""
+        with self.assertRaises(ValueError) as caught:
+            Hunt(
+                author="Elastic",
+                description="Broken syntax.",
+                integration=["endpoint"],
+                uuid="00000000-0000-0000-0000-000000000001",
+                name="Broken hunt",
+                language=["ES|QL"],
+                license="Elastic License v2",
+                query=["FROM logs-* | WHERE"],
+            )
+        self.assertIn("invalid ES|QL", str(caught.exception))
+
+    def test_elastic_esql_query_needs_keep_or_stats_by(self):
+        """Elastic hunts need a KEEP or STATS ... BY; a subquery KEEP counts."""
+        base = {
+            "author": "Elastic",
+            "description": "Keep/stats check.",
+            "integration": ["endpoint"],
+            "uuid": "00000000-0000-0000-0000-000000000002",
+            "name": "Keep check hunt",
+            "language": ["ES|QL"],
+            "license": "Elastic License v2",
+        }
+        with self.assertRaises(ValueError) as caught:
+            Hunt(**base, query=['FROM logs-* | WHERE host.name == "x" | STATS c = COUNT(*)'])
+        self.assertIn("'stats by' or 'keep'", str(caught.exception))
+
+        Hunt(**base, query=["FROM logs-* | STATS c = COUNT(*) BY host.name"])
+        Hunt(**base, query=["FROM logs-* | KEEP host.name"])
+
     def test_load_toml_files(self):
         """Test loading and validating all Hunt TOML files in the hunting directory."""
 
