@@ -28,7 +28,7 @@ This alert promotes an Endpoint rule finding about candidate credentials or expl
 
 ### Possible investigation steps
 
-- Read `Endpoint.agent_exposure.stage`: input covers reported paste/drop attempts, submission covers a submission boundary, and persistence covers a later local session snapshot. These are independent opportunities; a persistence finding does not prove that an earlier detector was bypassed.
+- Read `event.Ext.agent_exposure.stage`: input covers reported paste/drop attempts, submission covers a submission boundary, and persistence covers a later local session snapshot. These are independent opportunities; a persistence finding does not prove that an earlier detector was bypassed.
 - Review `harness`, `evidence`, `evidence_trust`, `process_role` and `application_attribution` before attributing the action. A user-session report is not proof that the vendor accepted content; a scan trigger is not necessarily the credential author.
 - Use static `detector_ids` and `ruleset_version` to identify the candidate category and classifier release. Review `scan_complete` and `history_omitted`; partial or unavailable coverage must not be interpreted as a benign result.
 - Confirm the workflow and disposition with the affected user through an approved channel. Do not ask them to paste the credential or confidential document into a ticket or chat.
@@ -55,7 +55,7 @@ Requires Elastic Defend's content-exposure feature, its versioned classifier cat
 
 Use this rule with the other feature-specific Defend promotion rules when the generic Endpoint Security (Elastic Defend) rule (UUID: 9a1a2dae-0b5f-4c3d-8305-a268d404c306) is disabled. Enabling this rule alongside that catch-all rule produces duplicate Security alerts for the same native findings. The catch-all remains unchanged so existing installations do not lose coverage.
 
-The endpoint-package companion adds indexed `Endpoint.agent_exposure` metadata for investigation. This rule filters on the existing `event` fields and preserves the native message, severity and risk score. Local blocking/confirmation is a separate Endpoint policy, and persistence is detection-only.
+The endpoint-package companion adds indexed `event.Ext.agent_exposure` metadata for investigation. This rule filters on the existing `event` fields and preserves the native message, severity and risk score. Local blocking/confirmation is a separate Endpoint policy, and persistence is detection-only.
 """
 severity = "medium"
 tags = [

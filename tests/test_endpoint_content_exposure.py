@@ -25,8 +25,12 @@ class TestContentExposurePromotion(unittest.TestCase):
         for stage in ("input", "submission", "persistence"):
             with self.subTest(stage=stage):
                 event = {
-                    "event": {"kind": "alert", "module": "endpoint", "code": "content_exposure"},
-                    "Endpoint": {"agent_exposure": {"stage": stage}},
+                    "event": {
+                        "kind": "alert",
+                        "module": "endpoint",
+                        "code": "content_exposure",
+                        "Ext": {"agent_exposure": {"stage": stage}},
+                    },
                 }
                 self.assertTrue(self.matches(event))
                 self.assertTrue(self.catch_all_matches(event))
