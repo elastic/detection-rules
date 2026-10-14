@@ -3,7 +3,7 @@ creation_date = "2020/07/08"
 integration = ["endpoint"]
 maturity = "production"
 promotion = true
-updated_date = "2026/09/18"
+updated_date = "2026/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -27,6 +27,10 @@ note = """## Triage and analysis
 ### Investigating Endpoint Security (Elastic Defend)
 
 Elastic Defend is a robust endpoint security solution that monitors and protects systems by analyzing events and generating alerts for suspicious activities. Adversaries may exploit endpoints by executing unauthorized code or manipulating system processes. The detection rule leverages event data to identify alerts from Elastic Defend, focusing on potential threats while excluding non-relevant modules, thus enabling timely investigation of endpoint anomalies.
+
+### Content exposure findings
+
+For `event.code: content_exposure`, investigate the credential or sensitivity-label candidate using `Endpoint.agent_exposure.stage`, `evidence`, `evidence_trust`, `process_role`, `detector_ids` and scan completeness. Input/submission findings do not prove successful upload, and persistence does not identify the credential author. Matched content is intentionally omitted. Do not request the secret in chat; confirm exposure with its owner and rotate an active credential when appropriate. Malware cleanup or automatic host isolation is not justified by this candidate finding alone. Apply the compromise-oriented guidance below only when additional evidence supports it.
 
 ### Possible investigation steps
 
@@ -65,6 +69,7 @@ If this rule is disabled, you will not receive alerts for Elastic Defend alerts.
 If this rule is enabled, along with the related rules listed below, you will receive duplicate alerts for the same events. To avoid this, it is recommended to disable this generic rule and enable the more specific rules that capture these alerts separately.
 
 Related rules:
+- Sensitive Content Exposure - Elastic Defend (UUID: 9e5566a2-8a46-4ea7-b208-7a9831146c8f)
 - Behavior - Detected - Elastic Defend (UUID: 0f615fe4-eaa2-11ee-ae33-f661ea17fbce)
 - Behavior - Prevented - Elastic Defend (UUID: eb804972-ea34-11ee-a417-f661ea17fbce)
 - Malicious File - Detected - Elastic Defend (UUID: f2c3caa6-ea34-11ee-a417-f661ea17fbce)
