@@ -3,7 +3,7 @@ creation_date = "2026/02/27"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/25"
+updated_date = "2026/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -68,6 +68,8 @@ type = "esql"
 
 query = '''
 FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _version, _index 
+// Content exposure is not evidence of host compromise. Preserve legacy events without a code.
+| WHERE event.code IS NULL OR event.code != "content_exposure"
 | EVAL is_genai_spawn =  TO_LOWER(process.parent.name) IN (
         "claude", "claude.exe", "cursor", "cursor.exe", "cursor helper", "cursor helper (plugin)",
         "codex", "codex.exe", "cody", "cody.exe", "copilot", "copilot.exe", "gemini-cli", "gemini-cli.exe",
@@ -139,5 +141,4 @@ reference = "https://atlas.mitre.org/techniques/AML.T0053/"
 id = "AML.TA0005"
 name = "Execution"
 reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
-
 

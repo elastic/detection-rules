@@ -2,7 +2,7 @@
 creation_date = "2025/11/18"
 integration = ["endpoint", "panw", "fortinet_fortigate", "suricata"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -46,6 +46,8 @@ type = "esql"
 
 query = '''
 FROM logs-* metadata _id
+// Content exposure is not evidence of host compromise. Preserve legacy events without a code.
+| WHERE event.code IS NULL OR event.code != "content_exposure"
 | WHERE
         // Elastic Defend Alerts
         (event.module == "endpoint" and data_stream.dataset == "endpoint.alerts") or

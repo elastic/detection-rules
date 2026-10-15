@@ -9,6 +9,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
+import eql
 import kql
 
 
@@ -56,3 +57,21 @@ class TestContentExposurePromotion(unittest.TestCase):
                 self.assertTrue(
                     self.catch_all_matches({"event": {"kind": "alert", "module": "endpoint", "code": code}})
                 )
+
+    def test_exposure_does_not_start_telemetry_loss_correlation(self) -> None:
+        path = Path(__file__).parents[1] / "rules/cross-platform/defense_evasion_missing_events_after_alert.toml"
+        query = tomllib.loads(path.read_text())["rule"]["query"]
+        # Exercise the actual starting-event predicate, independently of the later
+        # missing-event timer (not implemented by the local Python EQL engine).
+        predicate = query.split("[any where", 1)[1].split("]", 1)[0]
+        for code in ("content_exposure", "behavior", "malicious_file", "ransomware", None):
+            with self.subTest(code=code):
+                engine = eql.PythonEngine()
+                output = []
+                engine.add_output_hook(output.append)
+                engine.add_query(eql.parse_query(f"any where {predicate}"))
+                event = {"data_stream": {"dataset": "endpoint.alerts"}, "event": {}}
+                if code is not None:
+                    event["event"]["code"] = code
+                engine.stream_events([eql.Event("any", 0, event)])
+                self.assertEqual(bool(output), code != "content_exposure")

@@ -3,7 +3,7 @@ creation_date = "2026/03/31"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -69,6 +69,8 @@ type = "esql"
 query = '''
 FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _version, _index
 
+// Content exposure is not evidence of host compromise. Preserve legacy events without a code.
+| WHERE event.code IS NULL OR event.code != "content_exposure"
 | EVAL is_pkg_install = CASE(
     // npm  npx  yarn  pnpm (Node.js ecosystem)
     process.parent.name IN ("node", "node.exe") AND (
