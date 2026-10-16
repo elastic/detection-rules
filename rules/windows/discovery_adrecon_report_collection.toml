@@ -1,0 +1,85 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a PowerShell process creating the ordered user, computer SPN, and summary CSV reports associated with default
+ADRecon output. This indicates directory reconnaissance and does not establish malicious intent; authorized inventory
+and security audits can generate this behavior.
+"""
+false_positives = ["Authorized Active Directory inventory, security assessments, and audits using ADRecon."]
+from = "now-9m"
+index = ["logs-endpoint.events.file-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "ADRecon Directory Report Collection"
+note = """## Triage and analysis
+
+### Investigating ADRecon Directory Report Collection
+
+- Review the PowerShell process, its parent, command line, user and executable provenance. Correlate the three CSV files by process.entity_id and confirm that they belong to the same report directory.
+- Check available PowerShell script-block logs and related network activity for ADRecon execution and directory queries. The report sequence alone does not establish the contents of those reports or successful collection of every directory object.
+- Confirm whether the user and host were authorized to perform directory inventory or a security assessment. Review subsequent activity for unexpected access to the collected reports or additional discovery.
+
+### False positive analysis
+
+Authorized ADRecon inventory, audits and penetration tests create the same reports. Confirm the approved scope and timing before taking response actions. Use narrowly scoped exceptions for a verified workflow if needed; do not exclude PowerShell or an entire user-writable directory.
+
+### Response and remediation
+
+If the activity is unauthorized, preserve the script, process tree and generated reports and investigate the account's access and related host activity. Follow the organization's incident response process before isolating a host or restricting an account.
+"""
+references = ["https://github.com/adrecon/ADRecon"]
+risk_score = 21
+rule_id = "391a01ba-8a8e-4619-a574-29d7ff707684"
+setup = "Requires Elastic Defend file-creation events with process.entity_id, process.name and file.path. All three report events must be ingested for the sequence to match."
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+sequence by process.entity_id with maxspan=5m
+  [file where host.os.type == "windows" and event.type == "creation" and
+   process.name : ("powershell.exe", "pwsh.exe") and
+   file.path : "*\\ADRecon-Report-*\\CSV-Files\\Users.csv"]
+  [file where host.os.type == "windows" and event.type == "creation" and
+   process.name : ("powershell.exe", "pwsh.exe") and
+   file.path : "*\\ADRecon-Report-*\\CSV-Files\\ComputerSPNs.csv"]
+  [file where host.os.type == "windows" and event.type == "creation" and
+   process.name : ("powershell.exe", "pwsh.exe") and
+   file.path : "*\\ADRecon-Report-*\\CSV-Files\\AboutADRecon.csv"]
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1087"
+name = "Account Discovery"
+reference = "https://attack.mitre.org/techniques/T1087/"
+[[rule.threat.technique.subtechnique]]
+id = "T1087.002"
+name = "Domain Account"
+reference = "https://attack.mitre.org/techniques/T1087/002/"
+
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
