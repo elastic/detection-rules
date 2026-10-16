@@ -84,9 +84,6 @@ tags = [
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
     "Resources: Investigation Guide",
-    "Noise: Low",
-    "Performance: Normal",
-    "Profile: Recommended",
     "Threat: Unauthorized AI Usage",
     "Rule Type: Event Correlation (EQL)",
     "Platform: Windows",
@@ -101,13 +98,17 @@ type = "eql"
 query = '''
 process where event.type == "start" and event.action in ("exec", "start") and
 (
-  process.name in (
-    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+  process.name like~ (
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox", "mksh",
     "timeout", "env", "bun",
     "bash.exe", "sh.exe", "env.exe", "timeout.exe", "bun.exe",
-    "cmd.exe", "powershell.exe", "pwsh", "pwsh.exe",
+    "cmd.exe", "powershell.exe", "pwsh", "pwsh.exe", "powershell_ise.exe",
     "osascript",
     "wscript.exe", "cscript.exe", "mshta.exe"
+  ) or
+  ?process.pe.original_file_name in (
+    "Cmd.Exe", "PowerShell.EXE", "pwsh.dll", "powershell_ise.EXE",
+    "wscript.exe", "cscript.exe", "MSHTA.EXE"
   ) or
   process.name like~ (
     ".*",
@@ -160,6 +161,11 @@ name = "PowerShell"
 reference = "https://attack.mitre.org/techniques/T1059/001/"
 
 [[rule.threat.technique.subtechnique]]
+id = "T1059.002"
+name = "AppleScript"
+reference = "https://attack.mitre.org/techniques/T1059/002/"
+
+[[rule.threat.technique.subtechnique]]
 id = "T1059.003"
 name = "Windows Command Shell"
 reference = "https://attack.mitre.org/techniques/T1059/003/"
@@ -170,15 +176,19 @@ name = "Unix Shell"
 reference = "https://attack.mitre.org/techniques/T1059/004/"
 
 [[rule.threat.technique.subtechnique]]
+id = "T1059.005"
+name = "Visual Basic"
+reference = "https://attack.mitre.org/techniques/T1059/005/"
+
+[[rule.threat.technique.subtechnique]]
 id = "T1059.006"
 name = "Python"
 reference = "https://attack.mitre.org/techniques/T1059/006/"
 
-
-[[rule.threat.technique]]
-id = "T1203"
-name = "Exploitation for Client Execution"
-reference = "https://attack.mitre.org/techniques/T1203/"
+[[rule.threat.technique.subtechnique]]
+id = "T1059.007"
+name = "JavaScript"
+reference = "https://attack.mitre.org/techniques/T1059/007/"
 
 
 [rule.threat.tactic]
