@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise Codex events that create an access token. Codex access tokens enable automated CLI or
+environment access and can be abused for persistence or lateral automation after account compromise. Treat tokens with
+a missing `expires_at` as higher priority during triage.
+"""
+false_positives = [
+    "Developers create Codex tokens for CI runners and local environments.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Codex Access Token Created"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Codex Access Token Created
+
+A Codex access token was created. These tokens enable automated CLI or environment access and can be abused for persistence or automation after account compromise.
+
+Escalate when the token owner or purpose is unclear, the creator is unexpected, or tool and MCP activity follows immediately. Close as a false positive for documented CI or local development token creation.
+
+#### Possible investigation steps
+
+- Identify the creator (`user.email` / `user.id`) and token-related fields on the alert.
+- Confirm the intended automation use and whether a ticket or runbook covers the token.
+- Review subsequent Codex tool calls, MCP activity, or security-scan changes from the same user or client.
+- Inventory other active Codex tokens for the same user.
+
+### False positive analysis
+
+- Developers create Codex tokens for CI runners and local development environments as part of normal workflows.
+
+### Response and remediation
+
+- Revoke unauthorized tokens and review subsequent Codex tool and MCP activity.
+- Rotate related credentials if the token may have been exposed.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "0280b13a-65a8-4475-8f43-c8304b7e3467"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0083",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.codex_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.codex_log" and
+    event.action == "access_token_created"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email,
+    openai_chatgpt_enterprise.codex_log.client_id,
+    openai_chatgpt_enterprise.codex_log.event_details.access_token_id,
+    openai_chatgpt_enterprise.codex_log.event_details.access_token_name,
+    openai_chatgpt_enterprise.codex_log.event_details.created_by_user_id,
+    openai_chatgpt_enterprise.codex_log.event_details.expires_at,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0083"
+name = "Credentials from AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0083/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0013"
+name = "Credential Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0013/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "user.email",
+    "openai_chatgpt_enterprise.codex_log.event_details.access_token_name",
+    "openai_chatgpt_enterprise.codex_log.event_details.access_token_id",
+    "openai_chatgpt_enterprise.codex_log.client_id",
+]
+
