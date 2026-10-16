@@ -4,7 +4,7 @@ integration = ["endpoint", "auditd_manager", "crowdstrike", "sentinel_one_cloud_
 maturity = "production"
 min_stack_comments = "Defend for Containers integration was re-introduced in 9.3.0"
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -119,10 +119,10 @@ process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
 process.name in ("curl", "socat", "nc", "netcat", "ncat", "nc.traditional") and
 process.args like ("*/var/run/docker.sock*", "*/run/docker.sock*") and
-process.parent.executable != null and
+?process.parent.name != null and
 not (
-  process.parent.executable in ("/usr/sbin/sshd", "/www/server/panel/BT-Panel") or
-  process.parent.args in ("/usr/libexec/netdata/plugins.d/cgroup-name.sh", "/docker-entrypoint")
+  (?process.parent.executable in ("/usr/sbin/sshd", "/www/server/panel/BT-Panel") and ?process.parent.executable != null) or
+  (?process.parent.args in ("/usr/libexec/netdata/plugins.d/cgroup-name.sh", "/docker-entrypoint") and ?process.parent.args != null)
 )
 '''
 

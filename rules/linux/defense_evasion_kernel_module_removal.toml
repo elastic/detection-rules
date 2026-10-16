@@ -2,7 +2,7 @@
 creation_date = "2020/04/24"
 integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -117,8 +117,8 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2") and
 ) and
 process.parent.name in ("sudo", "bash", "dash", "ash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and
 not (
-  ?process.parent.args like "/var/tmp/rpm-tmp*" or
-  ?process.working_directory like~ ("/tmp/makeself*NVIDIA-Linux*", "/tmp/self*NVIDIA-Linux*")
+  (?process.parent.args like "/var/tmp/rpm-tmp*" and ?process.parent.args != null) or
+  (?process.working_directory like~ ("/tmp/makeself*NVIDIA-Linux*", "/tmp/self*NVIDIA-Linux*") and ?process.working_directory != null)
 )
 '''
 
