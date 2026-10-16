@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/08/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/08/23"
+
+[rule]
+author = ["Elastic", "descambiado"]
+description = """
+Identifies the creation, modification, or deletion of a Conditional Access named location in Entra ID.
+Named locations define the trusted or excluded IP ranges and countries that Conditional Access policies
+evaluate. An attacker with Conditional Access Administrator or Global Administrator privileges can widen
+a trusted IP range to include an attacker-controlled address, or remove a country restriction, without
+touching the Conditional Access policy object itself. Existing policies stay enabled and visible in
+monitoring dashboards, so alerts that watch for policy state changes do not fire.
+"""
+false_positives = [
+    """
+    Authorized updates to named locations reflecting legitimate network changes, such as an office
+    relocation or an ISP change.
+    Consolidation or renaming of named location objects during a Conditional Access review.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID Named Location Modified"
+note = """## Triage and analysis
+
+### Investigating Entra ID Named Location Modified
+
+Named locations are IP range or country definitions that Conditional Access policies reference as a
+condition. Widening a trusted IP range or deleting a named location neutralizes any policy that depends
+on it, without changing the policy's own enabled state.
+
+#### Possible investigation steps
+
+- Identify the actor who made the change (`azure.auditlogs.properties.initiated_by`) and verify whether
+  it was authorized by a change management ticket.
+- Compare `modifiedProperties.oldValue` and `newValue` for the `NamedLocation` field in the event's
+  `target_resources` to see exactly which IP ranges or countries were added, removed, or deleted.
+- Identify which Conditional Access policies reference this named location and assess whether the change
+  weakens their effective coverage.
+- Review sign-in logs for authentications from IP ranges newly included in the modified location in the
+  hours following the change.
+- Check whether the named location was marked as trusted (`isTrusted`) before or after the change --
+  moving an attacker-controlled range into a trusted location has a materially higher impact than a
+  change to an excluded location.
+
+### False positive analysis
+
+- Legitimate IP range updates from office moves or ISP changes are common. Compare the change against
+  network change management records before treating it as suspicious.
+- Broad ranges added from cloud hosting providers (for example a /8 or /16) rather than a specific
+  corporate IP are a stronger indicator of misuse than a narrow, specific addition.
+
+### Response and remediation
+
+- Restore the named location to its prior definition via Entra ID > Conditional Access > Named locations.
+  Deleted named locations can be restored within 30 days.
+- Review the effectiveness of every Conditional Access policy that references the affected named
+  location.
+- Review sign-in logs for activity from IPs newly covered by the modified range.
+- Lock or reset the credentials of the actor account if the change is confirmed unauthorized.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/conditional-access/location-condition",
+    "https://attack.mitre.org/techniques/T1562/001/",
+]
+risk_score = 47
+rule_id = "109fffd9-a887-40f1-87b3-cbccf5ac2d66"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Configuration Audit",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+azure.auditlogs.operation_name: ("Add named location" or "Update named location" or "Delete named location") and
+azure.auditlogs.properties.category: "Policy" and
+event.outcome: ("Success" or "success")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
