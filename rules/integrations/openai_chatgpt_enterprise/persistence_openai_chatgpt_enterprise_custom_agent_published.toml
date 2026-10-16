@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/06"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise custom-agent publish events (`agent_published`). Publishing an agent with connectors,
+skills, or store visibility can establish durable automation and broaden data access beyond the original user.
+"""
+false_positives = [
+    "Platform teams publish approved custom agents during workspace rollouts.",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Custom Agent Published"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Custom Agent Published
+
+A custom agent was published. Published agents with connectors, skills, and store visibility can establish durable automation and broaden data access.
+
+Escalate when visibility is broader than expected, connectors are sensitive, or the publisher is not authorized to release agents. Close as a false positive for approved platform rollouts.
+
+#### Possible investigation steps
+
+- Identify the actor and agent identifiers on the alert.
+- Review connectors, skills, store visibility, and any release notes or description fields.
+- Confirm whether publication matches an approved change request.
+- Look for related trigger creation or OAuth link events from the same actor.
+
+### False positive analysis
+
+- Platform teams publish approved custom agents during controlled workspace rollouts.
+
+### Response and remediation
+
+- Unpublish or delete unauthorized agents and revoke connected OAuth links.
+- Review recent agent runs if the agent may already have executed.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+    "https://platform.openai.com/docs/compliance",
+]
+risk_score = 47
+rule_id = "c73d406c-4399-40f2-a255-4a42f8ead9e0"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch.
+
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Persistence",
+    "Mitre Atlas: AML.T0081",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.custom_agents_log-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.custom_agents_log" and
+    event.action == "agent_published"
+| keep
+    _id, _version, _index, @timestamp, event.action, user.id, user.email,
+    gen_ai.agent.id,
+    openai_chatgpt_enterprise.custom_agents_log.client_id,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.publish_type,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.release_name,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.store_visible,
+    openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.workspace_capability,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1176"
+name = "Software Extensions"
+reference = "https://attack.mitre.org/techniques/T1176/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.id",
+    "gen_ai.agent.id",
+    "openai_chatgpt_enterprise.custom_agents_log.event_details.agent_fields.store_visible",
+    "openai_chatgpt_enterprise.custom_agents_log.event_details.publish_type",
+]
+
