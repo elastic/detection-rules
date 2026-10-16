@@ -1,0 +1,92 @@
+[metadata]
+creation_date = "2026/10/06"
+integration = ["endpoint"]
+maturity = "development"
+updated_date = "2026/10/08"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies registry changes that configure .NET tracing or the Application Event Log autologger to be disabled. This
+detects a configuration change; it does not prove that a running session stopped producing telemetry.
+"""
+false_positives = [
+    "Approved configuration management, troubleshooting, performance tuning, and security policy changes",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.registry-*"]
+interval = "5m"
+language = "eql"
+license = "Elastic License v2"
+name = "Windows ETW Settings Disabled via Registry"
+note = """## Triage and analysis
+
+### Investigating Windows ETW Settings Disabled via Registry
+
+Confirm the changed registry value, process and account. Identify the initiating process tree and related service or configuration changes.
+Check whether the change was authorized through configuration management. Correlate with suspicious execution, persistence and other defense impairment signals.
+Verify the effective security or logging configuration before asserting that protection was disabled. Follow the incident response process when additional evidence confirms compromise.
+Approved policy changes and troubleshooting can produce the same event. Add exceptions only after reviewing representative evidence, and retain scope to the specific management process and behavior.
+
+### False positive analysis
+
+Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+
+### Response and remediation
+
+Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1685/T1685.yaml",
+]
+risk_score = 47
+rule_id = "5b582f35-29c2-5b33-8576-8c70d3abe8ec"
+setup = """## Setup
+
+Collect the event category and fields used by this rule with Elastic Defend. Setup instructions: https://ela.st/install-elastic-defend
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+registry where host.os.type == "windows" and event.type == "change" and
+  registry.data.strings : ("0", "0x00000000") and
+  registry.path : (
+    "HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\ETWEnabled",
+    "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Environment\\COMPlus_ETWEnabled",
+    "HKEY_USERS\\*\\Environment\\COMPlus_ETWEnabled",
+    "HKLM\\SYSTEM\\ControlSet*\\Control\\WMI\\Autologger\\EventLog-Application\\Start"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
