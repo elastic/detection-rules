@@ -1,0 +1,117 @@
+[metadata]
+creation_date = "2026/10/14"
+integration = ["endpoint"]
+maturity = "development"
+promotion = true
+updated_date = "2026/10/14"
+
+[rule]
+author = ["Elastic"]
+description = """
+Generates a Security alert when Elastic Defend reports candidate credentials or explicit sensitivity labels in an AI
+tool. Covers input, submission and local persistence findings; it does not establish malware, credential validity or
+successful upload.
+"""
+enabled = false
+from = "now-2m"
+index = ["logs-endpoint.alerts-*"]
+interval = "1m"
+language = "kuery"
+license = "Elastic License v2"
+max_signals = 1000
+name = "Sensitive Content Exposure - Elastic Defend"
+note = """## Triage and analysis
+
+### Investigating Sensitive Content Exposure - Elastic Defend
+
+This alert promotes an Endpoint rule finding about candidate credentials or explicit sensitivity labels observed in an AI tool. It does not establish malware, credential validity or a successful provider upload. Matched content is deliberately omitted.
+
+### Possible investigation steps
+
+- Read `event.Ext.agent_exposure.stage`: input covers reported paste/drop attempts, submission covers a submission boundary, and persistence covers a later local session snapshot. These are independent opportunities; a persistence finding does not prove that an earlier detector was bypassed.
+- Review `harness`, `evidence`, `evidence_trust`, `process_role` and `application_attribution` before attributing the action. A user-session report is not proof that the vendor accepted content; a scan trigger is not necessarily the credential author.
+- Use static `detector_ids` and `ruleset_version` to identify the candidate category and classifier release. Review `scan_complete` and `history_omitted`; partial or unavailable coverage must not be interpreted as a benign result.
+- Confirm the workflow and disposition with the affected user through an approved channel. Do not ask them to paste the credential or confidential document into a ticket or chat.
+- Establish whether the tool accepted the content, whether a local copy persisted, and whether provider-side retention applies. An alert alone does not establish these outcomes or an Allow once/Block decision.
+
+### False positive analysis
+
+- Synthetic test tokens, examples, placeholders and public identifiers may match syntax patterns without granting access.
+- Explicit confidentiality markings indicate labels, not semantic document classification.
+- Tune the classifier catalog or the relevant Endpoint stage rule using bounded evidence. Avoid excluding every event from a signed AI tool solely because its publisher is trusted.
+
+### Response and remediation
+
+- If an active credential was exposed, revoke or rotate it through its owner and review relevant access logs.
+- Follow the organization's data-handling process for any confirmed confidential content. Coordinate supported local/provider retention cleanup while preserving necessary investigation evidence.
+- Investigate compromise or credential harvesting if separate evidence supports it. This candidate finding alone is not a reason to quarantine the AI application or automatically isolate the host.
+"""
+risk_score = 47
+rule_id = "9e5566a2-8a46-4ea7-b208-7a9831146c8f"
+rule_name_override = "message"
+setup = """## Setup
+
+Requires Elastic Defend's content-exposure feature, its versioned classifier catalog and the independent input/submission/persistence Endpoint rules. Enable only after the supported Endpoint and integration releases have been assigned and qualified.
+
+Use this rule with the other feature-specific Defend promotion rules when the generic Endpoint Security (Elastic Defend) rule (UUID: 9a1a2dae-0b5f-4c3d-8305-a268d404c306) is disabled. Enabling this rule alongside that catch-all rule produces duplicate Security alerts for the same native findings. The catch-all remains unchanged so existing installations do not lose coverage.
+
+The endpoint-package companion adds indexed `event.Ext.agent_exposure` metadata for investigation. This rule filters on the existing `event` fields and preserves the native message, severity and risk score. Local blocking/confirmation is a separate Endpoint policy, and persistence is detection-only.
+"""
+severity = "medium"
+tags = [
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Domain: Endpoint",
+    "Domain: GenAI",
+    "OS: Windows",
+    "OS: Linux",
+    "OS: macOS",
+    "Platform: Windows",
+    "Platform: Linux",
+    "Platform: macOS",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+event.kind:alert and event.module:(endpoint and not endgame) and event.code:content_exposure
+'''
+
+
+[[rule.exceptions_list]]
+id = "endpoint_list"
+list_id = "endpoint_list"
+namespace_type = "agnostic"
+type = "endpoint"
+
+[[rule.risk_score_mapping]]
+field = "event.risk_score"
+operator = "equals"
+value = ""
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "low"
+value = "21"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "medium"
+value = "47"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "high"
+value = "73"
+
+[[rule.severity_mapping]]
+field = "event.severity"
+operator = "equals"
+severity = "critical"
+value = "99"
+
+

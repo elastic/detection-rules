@@ -2,7 +2,7 @@
 creation_date = "2026/02/10"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/14"
 
 [rule]
 author = ["Elastic"]
@@ -74,7 +74,8 @@ type = "eql"
 
 query = '''
 sequence by host.id with maxspan=10m
- [any where data_stream.dataset == "endpoint.alerts"]
+ [any where data_stream.dataset == "endpoint.alerts" and
+    (event.code == null or event.code != "content_exposure")]
  ![any where event.category in ("process", "library", "registry", "network", "dns", "file")]
 '''
 
