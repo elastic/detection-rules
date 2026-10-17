@@ -1,0 +1,127 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects enabling of private repository forking on a GitHub organization. Allowing forks of private repositories lets
+code leave the organization into personal forks, which is a common collection path after an org-owner compromise.
+"""
+false_positives = [
+    """
+    Planned policy change to allow inner-source forks. Confirm change tickets and that the setting is reverted if it was
+    a test.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Private Repository Forking Enabled"
+note = """## Triage and analysis
+
+### Investigating GitHub Private Repository Forking Enabled
+
+`private_repository_forking.enable` is an organization policy change. Follow with `repo.fork` if present.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.org`, and `github.actor_ip`.
+- Check whether private repos were forked afterward and to which accounts.
+
+### False positive analysis
+
+- Approved inner-source programs that temporarily enable forking.
+
+### Response and remediation
+
+- Disable private repository forking unless required. Review forks created in the same window and transfer or delete unauthorized copies.
+"""
+references = [
+    "https://docs.github.com/en/organizations/managing-organization-settings/managing-the-forking-policy-for-your-organization",
+]
+risk_score = 47
+rule_id = "fa2a3164-4e7e-4760-8831-f717e85e1088"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "private_repository_forking.enable"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.visibility
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.visibility",
+]
+
