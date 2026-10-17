@@ -37,9 +37,9 @@ type = "esql"
 
 query = '''
 from logs-endpoint.alerts-*, logs-checkpoint_email.event-* metadata _id
-// Email or Elastic Defend alerts where user name is populated
 // Content exposure is not evidence of host compromise. Preserve legacy events without a code.
-| WHERE event.code IS NULL OR event.code != "content_exposure"
+| where event.code IS NULL OR event.code != "content_exposure"
+// Email or Elastic Defend alerts where user name is populated
 | where
   (event.category == "email" and event.kind == "alert" and destination.user.name is not null) or
   (event.module == "endpoint" and data_stream.dataset == "endpoint.alerts" and user.name is not null)
