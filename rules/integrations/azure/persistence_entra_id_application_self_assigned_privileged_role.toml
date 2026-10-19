@@ -88,7 +88,8 @@ type = "esql"
 query = '''
 from logs-azure.auditlogs-* metadata _id, _version, _index
 // role assignments performed by an application (service principal actor)
-| where azure.auditlogs.operation_name in (
+| where data_stream.dataset == "azure.auditlogs"
+  and azure.auditlogs.operation_name in (
     "Add member to role",
     "Add member to role outside of PIM (permanent)",
     "Add member to role in PIM completed (permanent)",
