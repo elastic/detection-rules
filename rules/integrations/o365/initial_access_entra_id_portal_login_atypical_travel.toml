@@ -2,7 +2,7 @@
 creation_date = "2024/09/04"
 integration = ["o365"]
 maturity = "production"
-updated_date = "2026/09/16"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -66,6 +66,13 @@ tags = [
     "Use Case: Identity and Access Audit",
     "Tactic: Initial Access",
     "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Threat: Impossible Travel",
+    "Rule Type: New Terms",
+    "Platform: Microsoft 365",
+    "Domain: SaaS",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -87,23 +94,31 @@ data_stream.dataset:o365.audit and
         d7b530a4-7680-4c23-a8bf-c52c121d2e87
     )) and
     o365.audit.ExtendedProperties.RequestType:(* and not (
+        "BulkAADJToken:BulkAADJTokenPoll" or
         "Cmsi:Cmsi" or
         "Consent:Set" or
+        "DeviceAuth:PKeyAuth" or
         "DeviceAuth:ReprocessTls" or
+        "Federation:externalauthcallback" or
         "Federation:oauth2claimsprovider" or
         "Federation:oauth2msa" or
+        "KerberosProxy:kerberos" or
         "Kmsi:kmsi" or
         "Login:reprocess" or
         "Login:resume" or
         "MessagePrompt:MessagePrompt" or
-        "OAuth2:Authorize" or
         "OAuth2:Token" or
-        "OrgIdWsFederation:federation" or 
+        "OrgIdWsFederation:federation" or
+        "OrgIdWsTrust2:extsts" or
         "PermitSso:PermitSso" or
+        "RegionalCacheAuth:regionalcacheauthtoken" or
+        "SAS:BeginAuth" or
         "SAS:EndAuth" or
         "SAS:ProcessAuth" or
         "SSPR:end" or
         "Saml2:processrequest" or
+        "UserInfo:Index" or
+        "WebNativeBridgeController:WebNativeBridgeReprocess" or
         "WsFederation:wsfederation"
     )) and
     not user_agent.original:(*Android* or *PKeyAuth* or *WebView* or *iPad* or *iPhone*)
@@ -146,4 +161,4 @@ field = "new_terms_fields"
 value = ["o365.audit.UserId", "source.geo.country_name", "source.geo.region_name"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
-value = "now-10d"
+value = "now-14d"
