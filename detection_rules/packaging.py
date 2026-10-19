@@ -658,18 +658,21 @@ class Package:
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
         drifts: list[dict[str, Any]] = []
 
+        # Snapshot the current package's rule files before any historical version is written next to them,
+        # so later iterations never pick up a historical file as "the current rule" (one file per rule_id here).
+        current_rule_paths: dict[str, Path] = {path.name.rsplit("_", 1)[0]: path for path in rules_dir.glob("*_*.json")}
+
         # iterates over historical rules from previous package and writes them to disk
         for historical_rule_contents in historical_rules.values():
             rule_id = historical_rule_contents["attributes"]["rule_id"]
             historical_rule_version = historical_rule_contents["attributes"]["version"]
 
             # checks if the rule exists in the current package first
-            current_rule_path = list(rules_dir.glob(f"{rule_id}*.json"))
-            if not current_rule_path:
+            current_rule_path = current_rule_paths.get(rule_id)
+            if current_rule_path is None:
                 continue
 
             # load the current rule from disk
-            current_rule_path = current_rule_path[0]
             current_rule_json = json.load(current_rule_path.open(encoding="UTF-8"))
             current_rule_version = current_rule_json["attributes"]["version"]
 

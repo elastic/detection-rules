@@ -22,7 +22,7 @@ from dataclasses import astuple, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
-from typing import Any
+from typing import Any, cast
 
 import click
 import eql.utils  # type: ignore[reportMissingTypeStubs]
@@ -454,11 +454,13 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
                 # Measure the bump from the highest version already shipped for the rule, including
                 # stack_emit channels, so a baseline that skips past a shipped emit version
                 # (baseline 3 + emit 4 -> baseline 5) is not reported as a double bump.
-                shipped = [int(base_version)] if base_version is not None else []
-                shipped += [int(e["version"]) for e in (base_val.get("stack_emit") or {}).values() if e.get("version")]
-                if shipped:
-                    base_version = max(shipped)
-                changes.append((key, branch_name, base_version, branch_version))
+                shipped_versions: list[int] = [] if base_version is None else [int(base_version)]
+                emit_entries = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
+                shipped_versions.extend(
+                    int(entry["version"]) for entry in emit_entries.values() if entry.get("version")
+                )
+                resolved_base: int = max(shipped_versions) if shipped_versions else int(base_version or 0)
+                changes.append((key, branch_name, resolved_base, branch_version))
     return changes
 
 

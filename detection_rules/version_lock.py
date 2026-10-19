@@ -140,7 +140,8 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
 
 def max_shipped_emit_version(lock_entry: dict[str, Any]) -> int | None:
     """Return the highest version any stack_emit channel of a lock entry has shipped, if any."""
-    versions = [int(e["version"]) for e in (lock_entry.get("stack_emit") or {}).values() if e.get("version")]
+    emit_entries = cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {})
+    versions = [int(entry["version"]) for entry in emit_entries.values() if entry.get("version")]
     return max(versions) if versions else None
 
 

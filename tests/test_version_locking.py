@@ -99,8 +99,9 @@ class TestShippedVersionFloor(unittest.TestCase):
             }
             with mock.patch("detection_rules.packaging.CURRENT_RELEASE_PATH", release):
                 drifts = Package.add_historical_rules(historical, "9.5.9")
+            self.assertTrue((rules_dir / "rid_3.json").exists())  # historical v3 written as before
+            self.assertEqual(json.loads((rules_dir / "rid_4.json").read_text()), current)  # current v4 untouched
 
-        self.assertTrue((rules_dir / "rid_3.json").exists() or True)  # historical v3 handled as before
         self.assertEqual(len(drifts), 1)
         self.assertEqual(drifts[0]["rule_id"], "rid")
         self.assertEqual(drifts[0]["version"], 4)
@@ -117,10 +118,8 @@ class TestShippedVersionFloor(unittest.TestCase):
         from detection_rules.rule_loader import RuleCollection
         from detection_rules.version_lock import VersionLock
 
-        rc = RuleCollection()
-        rule = rc.load_file(
-            Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
-        )
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        rule = RuleCollection().load_file(rule_path)  # only to read id / name / type for the lock entry
         lock_entry = {
             "rule_name": rule.name,
             "sha256": "0" * 64,  # anything but the real hash: the rule is "tuned"
@@ -141,7 +140,16 @@ class TestShippedVersionFloor(unittest.TestCase):
             dep_path.write_text("{}")
             lock = VersionLock(lock_path, dep_path, name="test")
 
+            # `version_lock` on rule contents is a cached_property, so the lock has to be in place before the
+            # rule is loaded (the collection hands it to every rule it loads); patching the global alone is not
+            # enough once another test has touched the property on a cached contents object.
+            rc = RuleCollection()
+            rc._version_lock = lock  # noqa: SLF001
+            rule = rc.load_file(rule_path)
+            rule.contents.__dict__.pop("version_lock", None)
+
             with mock.patch("detection_rules.rule.loaded_version_lock", lock):
+                self.assertIs(rule.contents.version_lock, lock)
                 self.assertTrue(rule.contents.is_dirty)
                 self.assertEqual(rule.contents.autobumped_version, 4)  # the pre-fix number
 
