@@ -36,6 +36,10 @@ principal. The privileged role list is exact: roles Microsoft marks as privilege
 administrative control over major services. Because role assignment is normal administrator work, treat the alert as a
 prompt to confirm the assignment was expected.
 
+The rule evaluates the same operations as the application self-assignment rule: direct assignments and the PIM assignment
+operations. The "outside of PIM" operation is a PIM alert that records only the role, not the member, so it is not
+evaluated; the direct assignment it accompanies is.
+
 #### Possible investigation steps
 
 - Identify who assigned the role (`Esql.actor_id`, with `azure.auditlogs.properties.initiated_by.user.userPrincipalName` or `azure.auditlogs.properties.initiated_by.app.displayName`), who received it (`Esql.member_id` and `Esql.member_type`), and the role (`Esql.role_name`).
@@ -83,23 +87,42 @@ type = "esql"
 
 query = '''
 from logs-azure.auditlogs-* metadata _id, _version, _index
-// direct role assignments; the member is the first target and the role is the second
+// role assignments, matching the same operations as the application self-assignment rule
 | where data_stream.dataset == "azure.auditlogs"
-  and azure.auditlogs.operation_name == "Add member to role"
+  and azure.auditlogs.operation_name in (
+    "Add member to role",
+    "Add member to role outside of PIM (permanent)",
+    "Add member to role in PIM completed (permanent)",
+    "Add member to role in PIM completed (timebound)",
+    "Add eligible member to role in PIM completed (permanent)",
+    "Add eligible member to role in PIM completed (timebound)"
+  )
   and event.outcome in ("success", "Success")
 // the actor can be a user or an application
 | eval Esql.actor_id = coalesce(azure.auditlogs.properties.initiated_by.user.id, azure.auditlogs.properties.initiated_by.app.servicePrincipalId)
 | eval Esql.actor_type = case(azure.auditlogs.properties.initiated_by.user.id is not null, "user", "service_principal")
-| eval Esql.member_id = `azure.auditlogs.properties.target_resources.0.id`
-| eval Esql.member_type = `azure.auditlogs.properties.target_resources.0.type`
+// the member is the account among the first two targets; the position differs by operation, and the "outside of PIM"
+// operation is a PIM alert that records only the role, so it has no member and is dropped below
+| eval Esql.member_id = case(
+    `azure.auditlogs.properties.target_resources.0.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.0.id`,
+    `azure.auditlogs.properties.target_resources.1.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.1.id`,
+    null
+  )
+| eval Esql.member_type = case(
+    `azure.auditlogs.properties.target_resources.0.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.0.type`,
+    `azure.auditlogs.properties.target_resources.1.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.1.type`,
+    null
+  )
 // one account assigning the role to a different account; self-assignment by an application has its own rule
 | where Esql.actor_id is not null and Esql.member_id is not null and Esql.actor_id != Esql.member_id
-// the role name sits in a different modified_properties slot depending on the operation
+// the role name is in a modified property for direct assignments, or the display name of the role target otherwise
 | eval Esql.role_name_raw = coalesce(
     case(`azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, null),
     case(`azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`, null),
     case(`azure.auditlogs.properties.target_resources.0.modified_properties.2.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value`, null),
-    case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null)
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.type` == "Role", `azure.auditlogs.properties.target_resources.0.display_name`, null),
+    case(`azure.auditlogs.properties.target_resources.1.type` == "Role", `azure.auditlogs.properties.target_resources.1.display_name`, null)
   )
 | eval Esql.role_name = replace(Esql.role_name_raw, "\"", "")
 // privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, plus other
