@@ -138,6 +138,26 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
     return lock_contents
 
 
+def max_shipped_emit_version(lock_entry: dict[str, Any]) -> int | None:
+    """Return the highest version any stack_emit channel of a lock entry has shipped, if any."""
+    versions = [int(e["version"]) for e in (lock_entry.get("stack_emit") or {}).values() if e.get("version")]
+    return max(versions) if versions else None
+
+
+def floor_baseline_past_dropped_epoch(lock_entry: dict[str, Any], dropped_emit_version: int) -> int:
+    """Keep a rule_id + version pair immutable when a stack_emit epoch is dropped.
+
+    A package built for a stack with emit transforms ships ``stack_emit[epoch].version`` (baseline + 1) while
+    the baseline stays put. When the transforms later become a no-op the epoch is dropped and that stack ships
+    the baseline number instead. If the baseline was meanwhile bumped by ``locked + 1`` it is the very number
+    the epoch already shipped, so the same rule_id + version ships twice with different content (issue #7012).
+    Move the baseline past the dropped emit version before the epoch goes away.
+    """
+    if int(lock_entry["version"]) <= dropped_emit_version:
+        lock_entry["version"] = dropped_emit_version + 1
+    return int(lock_entry["version"])
+
+
 class VersionLock:
     """Version handling for rule files and collections."""
 
@@ -404,6 +424,16 @@ class VersionLock:
                     # comparing against the baseline lock hash (which strips related_integrations).
                     if emit_hash == untransformed_hash:
                         if epoch_key in stack_emit:
+                            dropped_version = int(stack_emit[epoch_key].get("version") or 0)
+                            if not exclude_version_update:
+                                floored = floor_baseline_past_dropped_epoch(lock_from_file, dropped_version)
+                                if floored == dropped_version + 1:
+                                    log_changes(
+                                        rule,
+                                        "stack_emit",
+                                        floored,
+                                        f"baseline moved past dropped epoch {epoch_key} version {dropped_version}",
+                                    )
                             stack_emit = dict(stack_emit)
                             del stack_emit[epoch_key]
                             if stack_emit:

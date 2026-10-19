@@ -651,9 +651,15 @@ class Package:
     def add_historical_rules(
         historical_rules: dict[str, dict[str, Any]],
         manifest_version: str,
-    ) -> list[dict[str, Any]] | None:
-        """Adds historical rules to existing build package."""
+    ) -> list[dict[str, Any]]:
+        """Adds historical rules to existing build package.
+
+        Returns the list of shipped-content drifts: rules whose asset in the previous package has the same
+        rule_id + version as the asset about to ship but different content. A shipped rule_id + version pair
+        must be immutable, otherwise Kibana's prebuilt-rule diff flags the installed rule as customized.
+        """
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
+        drifts: list[dict[str, Any]] = []
 
         # iterates over historical rules from previous package and writes them to disk
         for historical_rule_contents in historical_rules.values():
@@ -676,6 +682,23 @@ class Package:
                 historical_rule_path = rules_dir / f"{rule_id}_{historical_rule_version}.json"
                 with historical_rule_path.open("w", encoding="UTF-8") as file:
                     json.dump(historical_rule_contents, file)
+            else:
+                previous_attrs = historical_rule_contents["attributes"]
+                current_attrs = current_rule_json["attributes"]
+                changed = sorted(
+                    k for k in set(previous_attrs) | set(current_attrs) if previous_attrs.get(k) != current_attrs.get(k)
+                )
+                if changed:
+                    drifts.append(
+                        {
+                            "rule_id": rule_id,
+                            "version": current_rule_version,
+                            "rule_name": current_attrs.get("name"),
+                            "fields": changed,
+                        }
+                    )
+
+        return drifts
 
 
 @cached

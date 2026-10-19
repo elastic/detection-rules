@@ -451,6 +451,13 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
+                # Measure the bump from the highest version already shipped for the rule, including
+                # stack_emit channels, so a baseline that skips past a shipped emit version
+                # (baseline 3 + emit 4 -> baseline 5) is not reported as a double bump.
+                shipped = [int(base_version)] if base_version is not None else []
+                shipped += [int(e["version"]) for e in (base_val.get("stack_emit") or {}).values() if e.get("version")]
+                if shipped:
+                    base_version = max(shipped)
                 changes.append((key, branch_name, base_version, branch_version))
     return changes
 

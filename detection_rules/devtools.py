@@ -121,6 +121,12 @@ def dev_group() -> None:
 @click.option("--generate-navigator", is_flag=True, help="Generate ATT&CK navigator files")
 @click.option("--generate-docs", is_flag=True, default=False, help="Generate markdown documentation")
 @click.option("--update-message", type=str, help="Update message for new package")
+@click.option(
+    "--fail-on-shipped-content-drift",
+    is_flag=True,
+    default=False,
+    help="Fail when a rule asset with the same rule_id and version as the previous package has different content",
+)
 @click.pass_context
 def build_release(  # noqa: PLR0913, PLR0917
     ctx: click.Context,
@@ -129,6 +135,7 @@ def build_release(  # noqa: PLR0913, PLR0917
     generate_navigator: bool,
     generate_docs: str,
     update_message: str,
+    fail_on_shipped_content_drift: bool = False,
     release: str | None = None,
     verbose: bool = True,
 ) -> Package:
@@ -190,8 +197,21 @@ def build_release(  # noqa: PLR0913, PLR0917
     )
     limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=hist_versions_num)
 
-    _ = package.add_historical_rules(limited_historical_rules, registry_data["version"])
+    drifts = package.add_historical_rules(limited_historical_rules, registry_data["version"])
     click.echo(f"[+] Adding historical rules from {previous_pkg_version} package")
+
+    if drifts:
+        click.echo(
+            f"[!] {len(drifts)} rule asset(s) keep the version shipped in {previous_pkg_version} but have different "
+            "content. A shipped rule_id + version must be immutable (issue #7012):"
+        )
+        for drift in drifts:
+            fields = ", ".join(drift["fields"])
+            click.echo(f"    - {drift['rule_id']} v{drift['version']} {drift['rule_name']}: {fields}")
+        if fail_on_shipped_content_drift:
+            raise click.ClickException(
+                "Shipped content drift detected; bump the affected rule versions before releasing."
+            )
 
     # NOTE: stopgap solution until security doc migration
     if generate_docs:
