@@ -1,0 +1,159 @@
+[metadata]
+creation_date = "2026/10/15"
+integration = ["zscaler_zpa"]
+maturity = "production"
+min_stack_comments = "FIELD_EXTRACT for flattened fields is a Technical Preview function in 9.5.0 and generally available in 9.6.0."
+min_stack_version = "9.5.0"
+updated_date = "2026/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a change to the roles assigned to a Zscaler Private Access (ZPA) administrator. An attacker with
+control-plane access may assign a more privileged role to an account to expand access or preserve administrative
+control.
+"""
+false_positives = [
+    """
+    Administrator onboarding, role changes, break-glass procedures, and identity-management automation can trigger this
+    rule. Verify the target account, old and new role sets, actor, and approved change before closing the alert.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Zscaler ZPA Administrator Roles Changed"
+note = """## Triage and analysis
+
+### Investigating Zscaler ZPA Administrator Roles Changed
+
+ZPA administrators can change access policy, identity configuration, App Connectors, Service Edges, provisioning keys,
+and Log Receivers. This rule extracts role names from the flattened old and new audit values and alerts only when those
+role sets differ. A role removal is also detected because it may be part of account takeover or access disruption.
+
+#### Possible investigation steps
+
+- Compare `Esql.old_roles` and `Esql.new_roles` to identify added and removed permissions.
+- Identify the initiating administrator using `user.name`, `user.email`, `user.id`, and `related.user`.
+- Identify the target using `user.target.email`, `zscaler_zpa.audit.object.name`, and
+  `zscaler_zpa.audit.object.id`. The object name is not guaranteed to be an email address.
+- Confirm that the target requires the new access and that the resulting role assignment follows least privilege.
+- Review prior sign-in activity and nearby audit events associated with the actor and ZPA session.
+- Search for subsequent policy, identity-provider, provisioning-key, private-infrastructure, and Log Receiver changes
+  by the actor or target.
+
+### False positive analysis
+
+- Approved administrator lifecycle and least-privilege changes are expected. Prefer exceptions scoped to documented
+  automation identities rather than excluding privileged users globally.
+
+### Response and remediation
+
+- If unauthorized, restore the approved roles and disable affected administrator accounts as appropriate.
+- Revoke active sessions and rotate credentials for the initiating and target accounts when compromise is suspected.
+- Review all control-plane actions performed by both identities and restore trusted ZPA configuration.
+- Preserve ZPA audit logs and correlate with identity-provider and endpoint activity for the affected administrators.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/zscaler_zpa",
+    "https://help.zscaler.com/zpa/understanding-audit-log-fields",
+]
+risk_score = 73
+rule_id = "3eaef5ec-4a6b-4bd0-96ac-a125690855d4"
+setup = """## Setup
+
+This rule requires Elastic Stack 9.5.0 or later, the Elastic **Zscaler ZPA** integration, and the ZPA **Audit** data
+stream. `FIELD_EXTRACT`, used to read role names from flattened audit values, is Technical Preview in 9.5 and generally
+available in 9.6.
+
+Configure a ZPA Log Receiver to send Audit logs in the JSON response format documented by the integration. Verify that
+administrator update events populate `zscaler_zpa.audit.value.old`, `zscaler_zpa.audit.value.new`, and the actor and
+object identity fields.
+
+This draft has not been tested against an administrator role-change fixture or live ZPA telemetry. Validate the role
+path and values in your environment before enabling the rule for production use.
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Domain: Network",
+    "Domain: SaaS",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Zscaler",
+    "Data Source: Zscaler ZPA",
+    "Platform: Zscaler",
+    "Resources: Investigation Guide",
+    "Noise: Unknown",
+    "Performance: Fast",
+    "Rule Type: ES|QL",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-zscaler_zpa.audit-* metadata _id, _index, _version
+| where
+    data_stream.dataset == "zscaler_zpa.audit" and
+    zscaler_zpa.audit.object.type == "Administrator" and
+    zscaler_zpa.audit.operation_type == "Update"
+| eval
+    Esql.old_roles = FIELD_EXTRACT(zscaler_zpa.audit.value.old, "roles.name"),
+    Esql.new_roles = FIELD_EXTRACT(zscaler_zpa.audit.value.new, "roles.name")
+| where not (
+    MV_CONTAINS(Esql.old_roles, Esql.new_roles) and
+    MV_CONTAINS(Esql.new_roles, Esql.old_roles)
+  )
+| keep
+    _id, _index, _version, @timestamp, event.*, organization.*, user.*, related.*, data_stream.*,
+    zscaler_zpa.audit.*, Esql.old_roles, Esql.new_roles
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.id",
+    "organization.id",
+    "user.name",
+    "user.email",
+    "user.id",
+    "user.target.email",
+    "related.user",
+    "zscaler_zpa.audit.operation_type",
+    "zscaler_zpa.audit.object.type",
+    "zscaler_zpa.audit.object.name",
+    "zscaler_zpa.audit.object.id",
+    "zscaler_zpa.audit.session.id",
+    "Esql.old_roles",
+    "Esql.new_roles",
+]
+

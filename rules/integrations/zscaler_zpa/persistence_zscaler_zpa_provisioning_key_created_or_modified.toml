@@ -1,0 +1,121 @@
+[metadata]
+creation_date = "2026/10/15"
+integration = ["zscaler_zpa"]
+maturity = "production"
+updated_date = "2026/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies creation or modification of a Zscaler Private Access (ZPA) infrastructure provisioning key. Provisioning keys
+are enrollment credentials for App Connectors, Private Service Edges, machines, and microsegmentation components.
+Unexpected key activity may enable unauthorized infrastructure enrollment or extend the usability of an existing key.
+"""
+false_positives = [
+    """
+    ZPA deployment, autoscaling, disaster-recovery preparation, key rotation, and planned capacity changes can create or
+    modify provisioning keys. Confirm the component group, key reuse limit, signing certificate, actor, and approved
+    deployment request.
+    """,
+]
+from = "now-9m"
+index = ["logs-zscaler_zpa.audit-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Zscaler ZPA Infrastructure Provisioning Key Created or Modified"
+note = """## Triage and analysis
+
+### Investigating Zscaler ZPA Infrastructure Provisioning Key Created or Modified
+
+Provisioning keys enroll components into ZPA and are credentials that must be protected. This rule covers the
+vendor-documented App Connector, Cloud Connector, Private Service Edge, machine, and microsegmentation provisioning-key
+object types. Creation may establish a new enrollment path, while an update may increase reuse, change the associated
+group, or alter certificate-related settings. The audit event alone does not prove that the key was exported or used.
+
+#### Possible investigation steps
+
+- Identify the actor using `user.name`, `user.email`, `user.id`, and `related.user`.
+- Review the exact key class, name, and identifier in `zscaler_zpa.audit.object.*`.
+- Review the event details in Discover for group association, maximum reuse, enabled status, and signing-certificate
+  changes. Treat provisioning-key values as sensitive and avoid copying them into cases or messages.
+- Confirm that the key is tied to an approved deployment, autoscaling event, rotation, or recovery exercise.
+- Search for subsequent App Connector, Private Service Edge, machine, or microsegmentation component enrollment and
+  status events.
+- Review nearby administrator authentication and audit activity from the same actor and ZPA session.
+
+### False positive analysis
+
+- Infrastructure teams routinely create keys when deploying or scaling ZPA components. Validate the requested quantity,
+  reuse limit, group, and key lifetime; avoid broad exclusions for infrastructure administrators.
+
+### Response and remediation
+
+- If unauthorized, disable or delete the key, prevent further reuse, and remove unapproved enrolled components.
+- Rotate related enrollment credentials and certificates according to Zscaler guidance.
+- Revoke suspicious administrative sessions and review the actor for other control-plane changes.
+- Validate the identity, network location, and configuration of every component enrolled during the exposure window.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/zscaler_zpa",
+    "https://help.zscaler.com/zpa/understanding-audit-log-fields",
+    "https://help.zscaler.com/zpa/about-connector-provisioning-keys",
+]
+risk_score = 47
+rule_id = "1d561926-57ca-478c-b31b-9e4ba5875e14"
+setup = """## Setup
+
+This rule requires the Elastic **Zscaler ZPA** integration and the ZPA **Audit** data stream.
+
+Configure a ZPA Log Receiver to send Audit logs in the JSON response format documented by the integration. Verify that
+provisioning-key events populate `zscaler_zpa.audit.object.type`, `zscaler_zpa.audit.operation_type`, the object
+identity fields, and the initiating administrator fields.
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "Domain: Network",
+    "Domain: SaaS",
+    "Use Case: Configuration Audit",
+    "Data Source: Zscaler",
+    "Data Source: Zscaler ZPA",
+    "Platform: Zscaler",
+    "Resources: Investigation Guide",
+    "Noise: Unknown",
+    "Performance: Fast",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "zscaler_zpa.audit" and
+zscaler_zpa.audit.operation_type: ("Create" or "Update") and
+zscaler_zpa.audit.object.type: (
+  "App Connector Provisioning Key" or
+  "Cloud Connector Provisioning Key" or
+  "Machine Provisioning Key" or
+  "Microsegmentation Provisioning Key" or
+  "Private Service Edge Provisioning Key"
+)
+'''
+
+
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.id",
+    "event.type",
+    "organization.id",
+    "user.name",
+    "user.email",
+    "user.id",
+    "related.user",
+    "zscaler_zpa.audit.operation_type",
+    "zscaler_zpa.audit.object.type",
+    "zscaler_zpa.audit.object.name",
+    "zscaler_zpa.audit.object.id",
+    "zscaler_zpa.audit.session.id",
+]
+

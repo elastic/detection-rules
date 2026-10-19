@@ -1,0 +1,130 @@
+[metadata]
+creation_date = "2026/10/15"
+integration = ["zscaler_zpa"]
+maturity = "production"
+updated_date = "2026/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation of a Zscaler Private Access (ZPA) administrator account. An attacker with control-plane access
+may create an administrator to establish persistent privileged access to ZPA policy, identity, logging, and private
+infrastructure configuration.
+"""
+false_positives = [
+    """
+    Administrator onboarding, break-glass account creation, and identity-management automation can trigger this rule.
+    Verify the target account, assigned roles, actor, and approved change before closing the alert.
+    """,
+]
+from = "now-9m"
+index = ["logs-zscaler_zpa.audit-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Zscaler ZPA Administrator Created"
+note = """## Triage and analysis
+
+### Investigating Zscaler ZPA Administrator Created
+
+ZPA administrators can change access policy, identity configuration, App Connectors, Service Edges, provisioning keys,
+and Log Receivers. An unexpected administrator may provide durable access to the ZPA control plane.
+
+#### Possible investigation steps
+
+- Identify the initiating administrator using `user.name`, `user.email`, `user.id`, and `related.user`.
+- Identify the target using `user.target.email`, `user.target.roles`, `zscaler_zpa.audit.object.name`, and
+  `zscaler_zpa.audit.object.id`. The object name is the audit resource name and is not guaranteed to be an email address.
+- Inspect `zscaler_zpa.audit.value.new` for the target account's settings and assigned roles.
+- Confirm that the target requires ZPA administrative access and that the assigned role follows least privilege.
+- Review prior sign-in activity for the actor and the associated ZPA audit session.
+- Search for subsequent policy, identity-provider, provisioning-key, private-infrastructure, and Log Receiver changes by
+  the actor or target.
+
+### False positive analysis
+
+- Approved administrator lifecycle workflows are expected. Prefer exceptions scoped to documented automation
+  identities rather than excluding privileged users globally.
+
+### Response and remediation
+
+- If unauthorized, disable or remove the target administrator.
+- Revoke active sessions and rotate credentials for the initiating and target accounts as appropriate.
+- Review all control-plane actions performed by both identities and restore trusted ZPA policy and infrastructure state.
+- Preserve ZPA audit logs and correlate with identity-provider and endpoint activity for the affected administrators.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/zscaler_zpa",
+    "https://help.zscaler.com/zpa/understanding-audit-log-fields",
+]
+risk_score = 73
+rule_id = "1d7fdf65-f598-4347-8201-5a280940dee3"
+setup = """## Setup
+
+This rule requires the Elastic **Zscaler ZPA** integration and the ZPA **Audit** data stream.
+
+Configure a ZPA Log Receiver to send Audit logs in the JSON response format documented by the integration. Verify that
+administrator creation events populate `zscaler_zpa.audit.object.type`, `zscaler_zpa.audit.operation_type`,
+`zscaler_zpa.audit.value.new`, the actor fields, and `user.target.roles`.
+"""
+severity = "high"
+tags = [
+    "Domain: Identity",
+    "Domain: Network",
+    "Domain: SaaS",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Zscaler",
+    "Data Source: Zscaler ZPA",
+    "Platform: Zscaler",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "zscaler_zpa.audit" and
+zscaler_zpa.audit.object.type: "Administrator" and
+zscaler_zpa.audit.operation_type: "Create"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1136"
+name = "Create Account"
+reference = "https://attack.mitre.org/techniques/T1136/"
+[[rule.threat.technique.subtechnique]]
+id = "T1136.003"
+name = "Cloud Account"
+reference = "https://attack.mitre.org/techniques/T1136/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.id",
+    "organization.id",
+    "user.name",
+    "user.email",
+    "user.id",
+    "user.target.email",
+    "user.target.roles",
+    "related.user",
+    "zscaler_zpa.audit.operation_type",
+    "zscaler_zpa.audit.object.type",
+    "zscaler_zpa.audit.object.name",
+    "zscaler_zpa.audit.object.id",
+    "zscaler_zpa.audit.session.id",
+    "zscaler_zpa.audit.value.new",
+]
+

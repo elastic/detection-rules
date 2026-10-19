@@ -1,0 +1,133 @@
+[metadata]
+creation_date = "2026/10/15"
+integration = ["zscaler_zpa"]
+maturity = "production"
+updated_date = "2026/10/15"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the deletion of a Log Receiver in Zscaler Private Access (ZPA). ZPA Log Streaming Service receivers deliver
+audit, user, browser, and infrastructure telemetry to external analytics platforms. Deleting a receiver can interrupt
+security monitoring and create a blind spot for subsequent ZPA activity.
+"""
+false_positives = [
+    """
+    Administrators may delete obsolete Log Receivers during planned migrations, collector replacement, disaster-recovery
+    testing, or ZPA tenant decommissioning. Verify the change against an approved request and confirm that another
+    receiver preserves the required telemetry before closing the alert.
+    """,
+]
+from = "now-9m"
+index = ["logs-zscaler_zpa.audit-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Zscaler ZPA Log Receiver Deleted"
+note = """## Triage and analysis
+
+### Investigating Zscaler ZPA Log Receiver Deleted
+
+The ZPA Log Streaming Service (LSS) uses Log Receivers to send ZPA telemetry through an App Connector to an external
+collector. Deleting a receiver may be an approved pipeline change, but an attacker with administrative access could use
+the same action to suppress evidence before modifying policies, identities, connectors, or private infrastructure.
+
+#### Possible investigation steps
+
+- Identify the actor using `user.name`, `user.email`, `user.id`, and `related.user`.
+- Review `zscaler_zpa.audit.object.name` and `zscaler_zpa.audit.object.id` to identify the deleted receiver.
+- Inspect `zscaler_zpa.audit.value.old` for the prior receiver destination and configuration.
+- Confirm that the deletion is covered by an approved change and that replacement receivers are active.
+- Search for nearby ZPA audit events from the same actor or session, especially administrator, policy, provisioning-key,
+  App Connector, Private Service Edge, and logging changes.
+- Check Elastic Agent and network telemetry for the last event received from the deleted receiver and determine the
+  beginning of any visibility gap.
+
+### False positive analysis
+
+- Planned collector migrations and retirement of duplicate or obsolete receivers are expected. Validate the change
+  owner, maintenance window, and continuity of required log streams rather than excluding administrators globally.
+
+### Response and remediation
+
+- If unauthorized, restore a trusted Log Receiver configuration and verify that ingestion resumes.
+- Revoke the responsible ZPA session, rotate affected administrator credentials, and review the account for compromise.
+- Reconstruct activity during the visibility gap from ZPA-retained logs and other available identity or network sources.
+- Review other receiver, policy, identity, and private-infrastructure changes made before and after the deletion.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/zscaler_zpa",
+    "https://help.zscaler.com/zpa/about-log-streaming-service",
+    "https://help.zscaler.com/zpa/understanding-audit-log-fields",
+]
+risk_score = 47
+rule_id = "83f42b24-746f-4a6c-8f7f-3a9c75366ef7"
+setup = """## Setup
+
+This rule requires the Elastic **Zscaler ZPA** integration and the ZPA **Audit** data stream.
+
+Configure a ZPA Log Receiver to send Audit logs in the JSON response format documented by the integration. Verify that
+events are indexed in `logs-zscaler_zpa.audit-*` and populate `data_stream.dataset`,
+`zscaler_zpa.audit.operation_type`, `zscaler_zpa.audit.object.type`, the object identity fields, and the actor fields.
+Use an independent or redundant Audit Log Receiver so deletion of one receiver does not prevent its deletion event from
+reaching Elastic.
+"""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Domain: SaaS",
+    "Use Case: Log Auditing",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Zscaler",
+    "Data Source: Zscaler ZPA",
+    "Platform: Zscaler",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "zscaler_zpa.audit" and
+zscaler_zpa.audit.operation_type: "Delete" and
+zscaler_zpa.audit.object.type: "Log Receiver"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.id",
+    "event.type",
+    "organization.id",
+    "user.name",
+    "user.email",
+    "user.id",
+    "related.user",
+    "zscaler_zpa.audit.operation_type",
+    "zscaler_zpa.audit.object.type",
+    "zscaler_zpa.audit.object.name",
+    "zscaler_zpa.audit.object.id",
+    "zscaler_zpa.audit.session.id",
+    "zscaler_zpa.audit.value.old",
+]
+
