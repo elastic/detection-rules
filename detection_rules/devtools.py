@@ -18,7 +18,7 @@ import typing
 import urllib.parse
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 import click
@@ -197,7 +197,10 @@ def build_release(  # noqa: PLR0913, PLR0917
     )
     limited_historical_rules = sde.keep_latest_versions(historical_rules, num_versions=hist_versions_num)
 
-    drifts = package.add_historical_rules(limited_historical_rules, registry_data["version"])
+    # Compare against every asset the previous package published, not only the versions kept as history.
+    manifest_version = cast("str", registry_data["version"])
+    drifts = package.find_shipped_content_drift(historical_rules, manifest_version)
+    package.add_historical_rules(limited_historical_rules, manifest_version)
     click.echo(f"[+] Adding historical rules from {previous_pkg_version} package")
 
     if drifts:

@@ -86,34 +86,46 @@ class TestShippedVersionFloor(unittest.TestCase):
         tuned = {"r": {"rule_name": "x", "version": 4, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 5}}}}
         self.assertEqual(check_double_bumps(compare_versions(base, tuned)), [])
 
-    def test_add_historical_rules_reports_same_version_content_drift(self):
-        """A previous-package asset with the same version but different content is reported, not silently kept."""
+    def test_shipped_content_drift_is_found_outside_the_history_retention_limit(self):
+        """A published asset with the generated version but different content is reported, even when the
+        history copied into the package is trimmed to the latest versions and no longer contains it."""
         import json
         import tempfile
         from pathlib import Path
         from unittest import mock
 
+        from detection_rules.integrations import SecurityDetectionEngine
         from detection_rules.packaging import Package
+
+        def asset(version: int, query: str) -> dict:
+            return {"attributes": {"rule_id": "rid", "version": version, "name": "n", "query": query, "tags": ["a"]}}
 
         with tempfile.TemporaryDirectory() as tmp:
             release = Path(tmp)
             rules_dir = release / "fleet" / "9.5.9" / "kibana" / "security_rule"
             rules_dir.mkdir(parents=True)
-            current = {"attributes": {"rule_id": "rid", "version": 4, "name": "n", "query": "new", "tags": ["a"]}}
-            (rules_dir / "rid_4.json").write_text(json.dumps(current))
-            historical = {
-                "rid_3": {"attributes": {"rule_id": "rid", "version": 3, "name": "n", "query": "v3", "tags": ["a"]}},
-                "rid_4": {"attributes": {"rule_id": "rid", "version": 4, "name": "n", "query": "old", "tags": []}},
-            }
+            generated = asset(4, "new")
+            (rules_dir / "rid_4.json").write_text(json.dumps(generated))
+            # the previous package published v4..v7; v4 shipped with different content
+            published = {f"rid_{v}": asset(v, "old" if v == 4 else f"v{v}") for v in (4, 5, 6, 7)}
+            retained = SecurityDetectionEngine().keep_latest_versions(published, num_versions=3)
+            self.assertNotIn("rid_4", retained)  # the colliding version is outside the retention limit
+
             with mock.patch("detection_rules.packaging.CURRENT_RELEASE_PATH", release):
-                drifts = Package.add_historical_rules(historical, "9.5.9")
-            self.assertTrue((rules_dir / "rid_3.json").exists())  # historical v3 written as before
-            self.assertEqual(json.loads((rules_dir / "rid_4.json").read_text()), current)  # current v4 untouched
+                drifts = Package.find_shipped_content_drift(published, "9.5.9")
+                Package.add_historical_rules(retained, "9.5.9")
+
+            # history copied as before, generated asset untouched
+            self.assertEqual(
+                sorted(p.name for p in rules_dir.glob("*.json")),
+                ["rid_4.json", "rid_5.json", "rid_6.json", "rid_7.json"],
+            )
+            self.assertEqual(json.loads((rules_dir / "rid_4.json").read_text()), generated)
 
         self.assertEqual(len(drifts), 1)
         self.assertEqual(drifts[0]["rule_id"], "rid")
         self.assertEqual(drifts[0]["version"], 4)
-        self.assertEqual(drifts[0]["fields"], ["query", "tags"])
+        self.assertEqual(drifts[0]["fields"], ["query"])
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_manage_versions_route_a_skips_shipped_emit_version(self):

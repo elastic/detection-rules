@@ -648,19 +648,57 @@ class Package:
         return bulk_upload_docs, importable_rules_docs
 
     @staticmethod
+    def _current_rule_files(manifest_version: str) -> dict[str, Path]:
+        """Map rule_id -> generated asset path for the package being built (one file per rule_id)."""
+        rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
+        return {path.name.rsplit("_", 1)[0]: path for path in rules_dir.glob("*_*.json")}
+
+    @staticmethod
+    def find_shipped_content_drift(
+        published_rules: dict[str, dict[str, Any]],
+        manifest_version: str,
+    ) -> list[dict[str, Any]]:
+        """Compare the generated assets with every rule asset of the previously published package.
+
+        A rule_id + version that has shipped must never change content, otherwise Kibana's prebuilt-rule
+        diff flags the installed rule as customized. Call this with the full previous package, before any
+        retention limit is applied to the historical copies, so no published version is skipped.
+        """
+        current_rule_paths = Package._current_rule_files(manifest_version)
+        drifts: list[dict[str, Any]] = []
+        for published in published_rules.values():
+            attrs: dict[str, Any] = published.get("attributes") or {}
+            rule_id: str | None = attrs.get("rule_id")
+            current_rule_path = current_rule_paths.get(rule_id) if rule_id else None
+            if current_rule_path is None:
+                continue
+            current_attrs: dict[str, Any] = json.load(current_rule_path.open(encoding="UTF-8"))["attributes"]
+            if attrs.get("version") != current_attrs.get("version"):
+                continue
+            keys: set[str] = set(attrs) | set(current_attrs)
+            changed: list[str] = sorted(k for k in keys if attrs.get(k) != current_attrs.get(k))
+            if changed:
+                drifts.append(
+                    {
+                        "rule_id": rule_id,
+                        "version": current_attrs.get("version"),
+                        "rule_name": current_attrs.get("name"),
+                        "fields": changed,
+                    }
+                )
+        return drifts
+
+    @staticmethod
     def add_historical_rules(
         historical_rules: dict[str, dict[str, Any]],
         manifest_version: str,
-    ) -> list[dict[str, Any]]:
-        """Adds historical rules to existing build package and
-        returns the list of shipped-content drifts
-        """
+    ) -> None:
+        """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
-        drifts: list[dict[str, Any]] = []
 
         # Snapshot the current package's rule files before any historical version is written next to them,
-        # so later iterations never pick up a historical file as "the current rule" (one file per rule_id here).
-        current_rule_paths: dict[str, Path] = {path.name.rsplit("_", 1)[0]: path for path in rules_dir.glob("*_*.json")}
+        # so later iterations never pick up a historical file as "the current rule".
+        current_rule_paths = Package._current_rule_files(manifest_version)
 
         # iterates over historical rules from previous package and writes them to disk
         for historical_rule_contents in historical_rules.values():
@@ -682,23 +720,6 @@ class Package:
                 historical_rule_path = rules_dir / f"{rule_id}_{historical_rule_version}.json"
                 with historical_rule_path.open("w", encoding="UTF-8") as file:
                     json.dump(historical_rule_contents, file)
-            else:
-                previous_attrs = historical_rule_contents["attributes"]
-                current_attrs = current_rule_json["attributes"]
-                changed = sorted(
-                    k for k in set(previous_attrs) | set(current_attrs) if previous_attrs.get(k) != current_attrs.get(k)
-                )
-                if changed:
-                    drifts.append(
-                        {
-                            "rule_id": rule_id,
-                            "version": current_rule_version,
-                            "rule_name": current_attrs.get("name"),
-                            "fields": changed,
-                        }
-                    )
-
-        return drifts
 
 
 @cached
