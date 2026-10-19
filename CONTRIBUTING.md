@@ -157,7 +157,7 @@ Some of the required metadata captured in a rule file:
 | **risk_score**       |          | Integer to rank the risk relative to other rules. Leave blank if unknown        |
 | **rule_id**          |     ✓    | Automatically generated UUID for the rule                                       |
 | **severity**         |     ✓    | Severity of the matching results (e.g., `low`, `medium`, `high`, `critical`)     |
-| **tags**             |          | Array of tags for grouping the rule (e.g., `APM`, `Linux`, `Packetbeat`, ...)    |
+| **tags**             |          | Array of `Category: Value` tags. See `docs-dev/rule-tag-taxonomy.md`. Rules whose query uses ES\|QL `COMPLETION` **must** include `Resources: LLM` so users can identify LLM-backed detections. |
 | **threat**           |     ✓    | Mapping to a threat framework, such as MITRE ATT&CK®                            |
 | **to**               |          | Relative end time of a rule (e.g. `now`)                                        |
 | **type**             |     ✓    | Execution type of the rule (`query` or `machine_learning`)                      |

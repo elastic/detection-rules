@@ -1,0 +1,101 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a shell `rm` of a path under `/var/log` or of a `*.log` name. Those files hold shell commands,
+authentication, and hostd activity. Removing them takes away the record of what changed on the host.
+"""
+false_positives = [
+    """
+    An administrator deletes a rotated log under `/var/log` during a documented maintenance window.
+    Confirm the path and the change ticket.
+    """,
+]
+from = "now-9m"
+index = ["logs-vsphere.log-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Host Logs Deleted with rm"
+note = """## Triage and analysis
+
+### Investigating ESXi Host Logs Deleted with rm
+
+shell.log records the typed command. The rule matches a line that contains rm together with a /var/log/ path or a *.log name, such as [root]: rm -f /var/log/hostd.log or [root]: rm *.log.
+
+#### Possible investigation steps
+
+- Read message and note the path that was deleted.
+- On the host, list /var/log and see which files are missing, including shell.log, auth.log, and hostd.log.
+- Review account changes, firewall changes, and VM power events from the same session that are still in the index.
+
+### False positive analysis
+
+Deleting one rotated log during maintenance can be expected. rm *.log removes every log name in the current directory and should be explained by a ticket.
+
+### Response and remediation
+
+- If the delete was not approved, isolate the host and preserve any remaining logs before they rotate.
+- Rotate credentials used in that shell session.
+- Confirm remote syslog still has a copy of the deleted host logs.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 73
+rule_id = "15db4d31-a54f-5837-8f77-a350382faac5"
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:vsphere.log and event.module:vsphere and message:(rm and ("*.log" or "/var/log/*"))
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.002"
+name = "Clear Linux or Mac System Logs"
+reference = "https://attack.mitre.org/techniques/T1070/002/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "message",
+    "event.original",
+    "host.hostname",
+    "log.file.path",
+]

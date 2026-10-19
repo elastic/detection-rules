@@ -2,7 +2,7 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/05/03"
+updated_date = "2026/10/05"
 
 [rule]
 author = ["Elastic"]
@@ -49,6 +49,12 @@ tags = [
     "Data Source: Microsoft Defender XDR",
     "Data Source: Sysmon",
     "Data Source: Crowdstrike",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Web Shell",
+    "Rule Type: New Terms",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -80,11 +86,7 @@ host.os.type:windows and event.category:process and event.type:start and process
 
     (process.name:cmd.exe and process.args:("/V:ON" and "--header-html")) or
 
-    (process.parent.args:"WebCession" and process.args:E\:\\Data\\CLM\\cession\\*.bat) or
-
-    (process.parent.executable :"D:\\AiDKlinik\\php\\php-cgi.exe" and process.args:D\:\\AiDKlinik\\web*) or
-
-    (process.parent.args :"E:/wamp64/bin/apache/apache2.4.62.1" and process.args:node*) or
+    (process.parent.args :"E:/wamp64/bin/apache/apache*" and process.args:node*) or
 
     (process.parent.name:"php.exe" and process.name:"cmd.exe" and process.args:("/V:ON" and "/E:ON"))
   )
