@@ -1,0 +1,187 @@
+[metadata]
+creation_date = "2026/10/01"
+integration = ["azure_ai_foundry"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "The Microsoft Foundry integration is compatible with 9.3 and above."
+updated_date = "2026/10/05"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a Microsoft Foundry chat, sent through API Management, where Azure sets jailbreak.detected on the prompt.
+The flag is on the prompt filter when the call is allowed through, and on the error body when the filter blocks the
+call.
+"""
+false_positives = [
+    """
+    Approved prompt-security tests that send known jailbreak strings, such as DAN or "ignore previous instructions".
+    Exclude that source IP or API Management subscription.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Microsoft Foundry Jailbreak Detected"
+note = """## Triage and analysis
+
+### Investigating Microsoft Foundry Jailbreak Detected
+
+Foundry marked the prompt as a jailbreak. On a blocked call the flag is
+error.innererror.content_filter_result.jailbreak.detected and the backend response code is 400. On a call that was
+allowed through, the flag is prompt_filter_results.content_filter_results.jailbreak.detected and the response code
+is 200. A 200 with the flag set means the filter annotated the prompt and still sent it to the model.
+
+#### Possible investigation steps
+
+- Read the prompt on the alert. Confirm it is an instruction to ignore or override the model's rules.
+- Check backend_response_code. 400 means the filter blocked the call. 200 means the prompt was annotated and the
+  model still answered. Read the assistant reply on a 200.
+- Identify the caller from source.ip, user agent, and apim_subscription_id, and the target from the model and URL path.
+- Look for other GatewayLogs from the same IP or subscription in the same window, including repeated refusals.
+
+### False positive analysis
+
+- Red-team and application tests that deliberately send jailbreak prompts. Exclude that source IP or subscription.
+
+### Response and remediation
+
+- If the caller is not approved, disable or rotate the API Management subscription key and block the source IP.
+- On a 200, review the assistant reply for a bypassed instruction, and tighten the content filter from annotate to
+  block if this deployment should refuse jailbreak prompts.
+"""
+references = [
+    "https://www.elastic.co/docs/reference/integrations/azure_ai_foundry",
+    "https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/content-filter",
+]
+risk_score = 47
+rule_id = "a8eadd55-e6da-4df6-becd-910cd0da19f7"
+setup = """## Setup
+
+This rule needs the Microsoft Foundry integration collecting Azure API Management GatewayLogs with the backend
+response body. jailbreak.detected is inside that body. Log the request body as well so the prompt is on the alert.
+Foundry RequestResponse logs do not carry this flag.
+
+- Use an API Management tier that emits resource logs. Developer or higher works. Consumption does not.
+- Send the GatewayLogs category to the Event Hub the integration reads.
+- Log the backend response body in API diagnostics. Log the request body to keep the prompt for triage.
+
+https://www.elastic.co/docs/reference/integrations/azure_ai_foundry
+"""
+severity = "medium"
+tags = [
+    "Data Source: Microsoft Foundry",
+    "Use Case: Threat Detection",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Azure",
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Service: Azure API Management",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure_ai_foundry.logs-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "azure_ai_foundry.logs" and
+    azure.ai_foundry.category == "GatewayLogs" and
+    (
+        azure.ai_foundry.properties.backend_response_body.prompt_filter_results.content_filter_results.jailbreak.detected == true or
+        azure.ai_foundry.properties.backend_response_body.error.innererror.content_filter_result.jailbreak.detected == true or
+        azure.ai_foundry.properties.backend_response_body.choices.content_filter_results.jailbreak.detected == true
+    )
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    source.ip,
+    azure.ai_foundry.properties.user_agent,
+    azure.ai_foundry.properties.apim_subscription_id,
+    azure.ai_foundry.properties.api_id,
+    azure.ai_foundry.properties.operation_id,
+    azure.ai_foundry.properties.backend_response_body.model,
+    azure.ai_foundry.properties.backend_response_code,
+    azure.ai_foundry.service_name,
+    azure.resource.group,
+    url.domain,
+    url.path,
+    source.geo.country_iso_code,
+    source.geo.city_name,
+    source.as.organization.name,
+    azure.ai_foundry.properties.backend_request_body.messages.content,
+    azure.ai_foundry.properties.backend_response_body.choices.message.content,
+    azure.ai_foundry.properties.backend_response_body.prompt_filter_results.content_filter_results.jailbreak.detected,
+    azure.ai_foundry.properties.backend_response_body.error.innererror.content_filter_result.jailbreak.detected,
+    azure.ai_foundry.properties.backend_response_body.choices.content_filter_results.jailbreak.detected
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "source.ip",
+    "azure.ai_foundry.properties.user_agent",
+    "azure.ai_foundry.properties.apim_subscription_id",
+    "azure.ai_foundry.properties.api_id",
+    "azure.ai_foundry.properties.operation_id",
+    "azure.ai_foundry.properties.backend_response_body.model",
+    "azure.ai_foundry.properties.backend_response_code",
+    "azure.ai_foundry.service_name",
+    "azure.resource.group",
+    "url.domain",
+    "url.path",
+    "source.geo.country_iso_code",
+    "source.geo.city_name",
+    "source.as.organization.name",
+    "azure.ai_foundry.properties.backend_request_body.messages.content",
+    "azure.ai_foundry.properties.backend_response_body.choices.message.content",
+    "azure.ai_foundry.properties.backend_response_body.prompt_filter_results.content_filter_results.jailbreak.detected",
+    "azure.ai_foundry.properties.backend_response_body.error.innererror.content_filter_result.jailbreak.detected",
+    "azure.ai_foundry.properties.backend_response_body.choices.content_filter_results.jailbreak.detected",
+]

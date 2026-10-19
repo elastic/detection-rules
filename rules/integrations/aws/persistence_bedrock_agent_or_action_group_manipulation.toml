@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,7 @@ rule_id = "a953f6d5-01cd-4f4c-94dc-207e34965cac"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS",
     "Data Source: AWS CloudTrail",
     "Data Source: Amazon Web Services",
@@ -102,8 +102,9 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: New Terms",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0081",
+    "Mitre Atlas: AML.T0053",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -127,16 +128,43 @@ data_stream.dataset: "aws.cloudtrail" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1505"
 name = "Server Software Component"
 reference = "https://attack.mitre.org/techniques/T1505/"
 
+
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0053"
+name = "AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0053/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0081"
+name = "Modify AI Agent Configuration"
+reference = "https://atlas.mitre.org/techniques/AML.T0081/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
 
 [rule.investigation_fields]
 field_names = [
@@ -163,3 +191,5 @@ value = ["aws.cloudtrail.user_identity.arn"]
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+

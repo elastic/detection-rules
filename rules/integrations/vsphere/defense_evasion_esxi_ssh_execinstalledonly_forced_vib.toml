@@ -1,0 +1,166 @@
+[metadata]
+creation_date = "2026/09/30"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/09/30"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects three changes on the same ESXi host within 1 hour: SSH enabled, ExecInstalledOnly turned off, and a
+VIB install with `-f` or `--force` and `--no-sig-check`. Together they open a remote shell, allow unsigned code to
+run, and bypass VIB signature checks. That sequence prepares the host to receive and run a package the normal
+controls would reject.
+"""
+false_positives = [
+    """
+    A documented maintenance window can enable SSH, relax ExecInstalledOnly, and force-install a vendor VIB on the
+    same host. Confirm the change ticket and the VIB name before treating the sequence as malicious.
+    """,
+]
+from = "now-1h"
+language = "esql"
+license = "Elastic License v2"
+name = "ESXi Host Prepared for an Unsigned Install"
+note = """## Triage and analysis
+
+### Investigating ESXi Host Prepared for an Unsigned Install
+
+The rule counts three behaviors on one host and alerts only when all three occur in the same 1-hour window.
+SSH enablement is hostsvc/enable_ssh or the hostd sentence SSH access has been enabled. ExecInstalledOnly is
+the kernel setting set to FALSE, or the advanced setting /User/ExecInstalledOnly set with -i 0. The install
+is vib install with the -f or --force switch and --no-sig-check.
+
+#### Possible investigation steps
+
+- Read Esql.message_values and confirm each count is at least 1.
+- Compare Esql.span_minutes with the change window. The three lines should sit close together.
+- On the host, run esxcli software vib list and look for a VIB that was not part of the approved image.
+- Check esxcli system settings kernel list -o execInstalledOnly and whether SSH is still enabled.
+
+### False positive analysis
+
+Vendor recovery and lab image builds sometimes force a VIB while SSH is open. The VIB name and the ticket should match.
+
+### Response and remediation
+
+- If the change was not approved, remove the unexpected VIB and set ExecInstalledOnly back to TRUE.
+- Disable SSH when remote shell access is no longer required.
+- Preserve shell.log and hostd.log for the host before rotating credentials.
+"""
+references = [
+    "https://lolesxi-project.github.io/LOLESXi/#",
+    "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
+    "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
+]
+setup = """## Setup
+
+This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+"""
+risk_score = 99
+rule_id = "12c56e4a-8d36-5dab-a5b6-5322db31c901"
+severity = "critical"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Lateral Movement",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: VMware ESXi",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-vsphere.log-*
+| WHERE data_stream.dataset == "vsphere.log" AND event.module == "vsphere" and host.ip is not null
+| EVAL Esql.message_lower = TO_LOWER(message)
+| EVAL
+    Esql.ssh_enabled = CASE(
+      Esql.message_lower LIKE "*ssh access has been enabled*" OR Esql.message_lower LIKE "*hostsvc/enable_ssh*",
+      1, 0
+    ),
+    Esql.exec_installed_only_disabled = CASE(
+      Esql.message_lower LIKE "*execinstalledonly*" AND (
+        Esql.message_lower LIKE "*false*" OR Esql.message_lower LIKE "* -i 0*" OR Esql.message_lower LIKE "* -v 0*"
+      ),
+      1, 0
+    ),
+    Esql.vib_force_install = CASE(
+      Esql.message_lower LIKE "*vib install*" AND (
+        Esql.message_lower LIKE "* -f *" OR Esql.message_lower LIKE "* -f"
+        OR Esql.message_lower LIKE "* --force *" OR Esql.message_lower LIKE "* --force"
+      ),
+      1, 0
+    )
+| WHERE Esql.ssh_enabled == 1 OR Esql.exec_installed_only_disabled == 1 OR Esql.vib_force_install == 1
+| STATS
+    Esql.ssh_enabled_count = SUM(Esql.ssh_enabled),
+    Esql.exec_installed_only_disabled_count = SUM(Esql.exec_installed_only_disabled),
+    Esql.vib_force_install_count = SUM(Esql.vib_force_install),
+    Esql.message_values = VALUES(message),
+    Esql.log_file_path_values = VALUES(vsphere.log.file.path),
+    Esql.first_seen = MIN(@timestamp),
+    Esql.last_seen = MAX(@timestamp)
+  BY host.ip
+| WHERE Esql.ssh_enabled_count > 0
+    AND Esql.exec_installed_only_disabled_count > 0
+    AND Esql.vib_force_install_count > 0
+| KEEP host.ip, Esql.ssh_enabled_count, Esql.exec_installed_only_disabled_count, Esql.vib_force_install_count,
+    Esql.message_values, Esql.log_file_path_values, Esql.first_seen, Esql.last_seen
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[[rule.threat.technique]]
+id = "T1553"
+name = "Subvert Trust Controls"
+reference = "https://attack.mitre.org/techniques/T1553/"
+[[rule.threat.technique.subtechnique]]
+id = "T1553.006"
+name = "Code Signing Policy Modification"
+reference = "https://attack.mitre.org/techniques/T1553/006/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
+
+[rule.investigation_fields]
+field_names = [
+    "host.ip",
+    "Esql.ssh_enabled_count",
+    "Esql.exec_installed_only_disabled_count",
+    "Esql.vib_force_install_count",
+    "Esql.message_values",
+    "Esql.log_file_path_values",
+    "Esql.first_seen",
+    "Esql.last_seen",
+]
