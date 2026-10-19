@@ -2,29 +2,31 @@
 creation_date = "2026/08/06"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/08/07"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["clivoa"]
 description = """
 This rule detects an unexpected child process spawned by Homebrew's own bundled Ruby interpreter
-(`vendor/portable-ruby`) during a `brew install --cask` operation. Homebrew Cask `preflight`/`postflight`/`uninstall`
-stanzas run arbitrary Ruby code at install time, including shelling out via `system_command`. A malicious cask from
-a third-party tap, or a compromised or typosquatted first-party one, can use this to execute code with the
-installing user's privileges. Homebrew is the dominant developer package manager on macOS, which makes install-time
-hooks an attractive execution path.
+(`vendor/portable-ruby`) during a `brew install --cask` operation for a binary-artifact cask. Homebrew Cask
+`preflight`/`postflight`/`uninstall` stanzas run arbitrary Ruby code at install time, including shelling out via
+`system_command`. A malicious cask from a third-party tap, or a compromised or typosquatted first-party one, can use
+this to execute code with the installing user's privileges. Homebrew is the dominant developer package manager on macOS,
+which makes install-time hooks an attractive execution path.
 """
 false_positives = [
     """
     Homebrew's own internal package-management work runs as children of the same bundled Ruby interpreter and is
-    indistinguishable at the process-tree level from a cask author's hook code. The exclusion list was measured
-    from real clean-cask installs rather than assumed, but a Homebrew version that shells out to a utility not on
-    that list will match. Compare the child process against a clean install on the same Homebrew version.
+    indistinguishable at the process-tree level from a cask author's hook code. Fixed utilities Homebrew invokes
+    directly are excluded by name, and the `bash`/`sh` probes it runs are excluded only when their command line names
+    one of Homebrew's own helper lookups (`getconf`, `xcode-select`, `mdfind`, `pkgutil`), so a shell hook that does
+    anything else still matches. A Homebrew version that shells out to a helper not covered by either list will match;
+    compare the child against a clean install on the same Homebrew version.
     """,
     """
     `app`-artifact casks, which are most casks in practice, invoke Gatekeeper and registration tooling such as
-    `codesign`, `spctl`, `mdimport` and `lsregister` as part of Homebrew's normal install flow. These are not in
-    the tested exclusion list and will match. Measure them in your environment before deploying broadly.
+    `codesign`, `spctl`, `mdimport` and `lsregister` as part of Homebrew's normal install flow. These are not in the
+    tested exclusion list and will match. Measure them in your environment before deploying broadly.
     """,
     """
     Formula source builds spawn a much wider legitimate child set than casks, including `git`, `curl`, `clang`,
@@ -63,6 +65,17 @@ A match here most often means a cask's `preflight`/`postflight`/`uninstall` Ruby
 - See this rule's `false_positives` field: `app`-artifact casks are expected to trigger this on their own normal
   Gatekeeper/registration steps until the exclusion list is extended with real measured data; formula (non-cask)
   builds are out of scope entirely and not covered by this rule's exclusion list.
+
+### Response and remediation
+
+- Determine the cask and its tap. Treat a hook that spawned a shell, an interpreter, or a network client as
+  execution under the installing user and move to containment while you confirm intent.
+- Capture the full process tree and command lines before the Caskroom is modified further, then remove the cask
+  with `brew uninstall --cask` and remove or disable the tap it came from.
+- If the hook reached the network or wrote outside the Caskroom, treat the host as potentially compromised: hunt
+  for persistence (LaunchAgents/LaunchDaemons), rotate any credentials reachable from the user's session, and
+  review outbound connections from the process tree.
+- Report a malicious first-party cask to Homebrew, and for a third-party tap warn other users of that tap.
 """
 references = [
     "https://docs.brew.sh/Cask-Cookbook#stanza-preflight",
@@ -96,7 +109,11 @@ process where event.action == "exec" and host.os.type == "macos" and
  process.parent.executable like~ "*/Homebrew/vendor/portable-ruby/*" and
  not process.name in (
    "env", "xattr", "chmod", "chown", "tar", "bsdtar", "ln", "hdiutil", "xargs", "defaults", "clang", "sysctl",
-   "bash", "sh", "getconf", "mdfind", "pkgutil", "xcode-select"
+   "getconf", "mdfind", "pkgutil", "xcode-select", "tput"
+ ) and
+ not (
+   process.name in~ ("bash", "sh") and
+   process.command_line like~ ("*getconf*", "*xcode-select*", "*mdfind*", "*pkgutil*")
  )
 '''
 
@@ -112,11 +129,12 @@ id = "T1195.002"
 name = "Compromise Software Supply Chain"
 reference = "https://attack.mitre.org/techniques/T1195/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -124,7 +142,9 @@ id = "T1059"
 name = "Command and Scripting Interpreter"
 reference = "https://attack.mitre.org/techniques/T1059/"
 
+
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+
