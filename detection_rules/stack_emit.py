@@ -133,6 +133,21 @@ def _apply_related_integrations_gte(obj: dict[str, Any], stack: Version, context
             entry["version"] = f">={version[1:]}"
 
 
+def _apply_mitre_atlas(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
+    """Append MITRE ATLAS threat entries from threat_mappings on stacks that ship ATLAS.
+
+    Registered as a 9.6 emit epoch so 9.6 packages allocate a new stack_emit version when
+    ATLAS changes the payload. 9.5 packages keep the 9.5 epoch and never see ATLAS
+    (stripped below in apply_emit_transforms, and this transform is not applicable there).
+    """
+    _ = stack
+    atlas_entries = _atlas_entries_from_mappings(context)
+    if not atlas_entries:
+        return
+    without_atlas = [entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"]
+    obj["threat"] = without_atlas + atlas_entries
+
+
 # Registry of value/field transforms. Append new breaking changes here.
 # Lock epochs key off min_stack — do not add a row per package minor.
 EMIT_TRANSFORMS: tuple[EmitTransform, ...] = (
@@ -148,11 +163,12 @@ EMIT_TRANSFORMS: tuple[EmitTransform, ...] = (
         affects=("related_integrations",),
         apply=_apply_related_integrations_gte,
     ),
-    # ATLAS is gated in apply_emit_transforms (9.6+) and is not an emit epoch.
-    # stack_emit stores a hash and version, not the payload, so a 9.6 hash
-    # cannot make a 9.5 package emit MITRE ATLAS. Registering a 9.6 transform
-    # would move emit_epoch_key(9.6) off "9.5" and write stack_emit["9.6"] for
-    # every rule whose payload already differs from the baseline.
+    EmitTransform(
+        id="mitre_atlas",
+        min_stack=MITRE_ATLAS_MIN_STACK,
+        affects=("threat",),
+        apply=_apply_mitre_atlas,
+    ),
 )
 
 
@@ -194,20 +210,14 @@ def apply_emit_transforms(
     """
     stack_ver = parse_stack(stack if stack is not None else load_current_package_version())
     ctx = context or EmitContext()
-    # One-line gate: never ship ATLAS below 9.6 (8.19 API schema and Kibana lack support).
+    # Never ship ATLAS below 9.6 (8.19 API schema and Kibana lack support), even if present
+    # on the authored payload. The mitre_atlas emit transform adds mappings only on 9.6+.
     if stack_ver < MITRE_ATLAS_MIN_STACK and "threat" in obj:
         obj["threat"] = [
             entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"
         ]
     for transform in transforms_for_stack(stack_ver):
         transform.apply(obj, stack_ver, ctx)
-    if stack_ver >= MITRE_ATLAS_MIN_STACK:
-        atlas_entries = _atlas_entries_from_mappings(ctx)
-        if atlas_entries:
-            without_atlas = [
-                entry for entry in _threat_entries(obj.get("threat")) if entry.get("framework") != "MITRE ATLAS"
-            ]
-            obj["threat"] = without_atlas + atlas_entries
     return obj
 
 
