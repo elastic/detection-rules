@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2020/08/14"
-integration = ["endpoint", "m365_defender"]
+integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 [transform]
 [[transform.osquery]]
 label = "Osquery - Retrieve DNS Cache"
@@ -36,7 +36,7 @@ Detects attempts to exploit privilege escalation vulnerabilities related to the 
 CVE-2020-1048 and CVE-2020-1337.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file-*", "endgame-*", "logs-m365_defender.event-*"]
+index = ["logs-endpoint.events.file-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "Suspicious Print Spooler SPL File Created"
@@ -75,7 +75,8 @@ The Print Spooler service has some known vulnerabilities that attackers can abus
 
 ### False positive analysis
 
-- If this activity is expected and noisy in your environment, consider adding exceptions — preferably with a combination of process executable and file conditions.
+- Business applications that print directly, such as accounting, ERP, or document management software, can write SPL files during normal printing. Common built-in Windows apps, browsers, and LibreOffice are already excluded.
+- If this activity is expected and noisy in your environment, consider adding exceptions, preferably with a combination of process executable and file conditions.
 
 ### Response and remediation
 
@@ -117,10 +118,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Privilege Escalation",
     "Resources: Investigation Guide",
-    "Data Source: Elastic Endgame",
     "Use Case: Vulnerability",
     "Data Source: Elastic Defend",
-    "Data Source: Microsoft Defender XDR",
     "Noise: Medium",
     "Performance: Normal",
     "Threat: Vulnerability Exploit",
@@ -149,7 +148,6 @@ file where host.os.type == "windows" and event.type != "deletion" and
             ("?:\\Windows\\System32\\mmc.exe",
              "\\Device\\Mup\\*.exe",
              "?:\\Windows\\System32\\svchost.exe",
-             "?:\\Windows\\System32\\mmc.exe",
              "?:\\Windows\\System32\\printui.exe",
              "?:\\Windows\\System32\\mstsc.exe",
              "?:\\Windows\\System32\\spool\\*.exe",
@@ -157,7 +155,23 @@ file where host.os.type == "windows" and event.type != "deletion" and
              "?:\\Program Files (x86)\\*.exe",
              "?:\\PROGRA~1\\*.exe",
              "?:\\PROGRA~2\\*.exe",
-             "?:\\Windows\\System32\\rundll32.exe")
+             "?:\\Windows\\System32\\rundll32.exe",
+             "?:\\Windows\\explorer.exe",
+             "?:\\Windows\\System32\\mspaint.exe",
+             "?:\\Windows\\System32\\SnippingTool.exe",
+             "?:\\Windows\\System32\\notepad.exe",
+             "?:\\Windows\\System32\\xpsrchvw.exe",
+             "?:\\Program Files\\LibreOffice\\program\\soffice.bin",
+             "?:\\Program Files (x86)\\LibreOffice\\program\\soffice.bin") and
+
+  /* Signed Browsers */
+  not (
+    process.name : ("chrome.exe", "firefox.exe", "brave.exe", "opera.exe", "msedge.exe") and
+    process.code_signature.trusted == true and
+    process.code_signature.subject_name : (
+      "Google LLC", "Mozilla Corporation", "Brave Software, Inc.", "Opera Norway AS", "Microsoft Corporation"
+    )
+  )
 '''
 
 

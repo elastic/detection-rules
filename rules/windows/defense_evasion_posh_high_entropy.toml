@@ -2,7 +2,7 @@
 creation_date = "2026/01/08"
 integration = ["windows"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -135,7 +135,9 @@ event.category:process and host.os.type:windows and powershell.file.script_block
   not file.directory: (
         "C:\Program Files (x86)\Microsoft Intune Management Extension\Content\DetectionScripts" or
         "C:\Program Files\Microsoft Azure AD Connect Health Agent\Products\AdFederationService\AdfsDiagnostics\AdfsToolbox\diagnosticsModule\Private"
-  )
+  ) and
+  not (file.directory: "C:\ProgramData\Qualys\QualysTemp" and user.id: "S-1-5-18") and
+  not (file.directory: C\:\\Program*Files\\WindowsPowerShell\\Modules\\dbatools* and file.name: "allcommands.ps1")
 '''
 
 
