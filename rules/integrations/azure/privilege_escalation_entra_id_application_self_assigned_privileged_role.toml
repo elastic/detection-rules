@@ -112,10 +112,9 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
     case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null)
   )
 | eval Esql.role_name = replace(Esql.role_name_raw, "\"", "")
-// privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, the roles
-// TrustedSec places in Tier 1 (administrative control of major service components) that Microsoft does not mark, and a
-// few additional roles that grant control over mailboxes, devices, partner access, or Microsoft support access to
-// data. TrustedSec Tier 0 roles are all marked by Microsoft. Matched by exact role name, not by pattern.
+// privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, plus other
+// built-in roles with administrative control over major Entra and Microsoft 365 services or access to tenant data.
+// Matched by exact role name, not by pattern.
 | where to_lower(Esql.role_name) in (
     // marked PRIVILEGED by Microsoft
     "agent id administrator", "ai administrator", "ai reader", "application administrator", "application developer",
@@ -129,7 +128,7 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
     "password administrator", "privileged authentication administrator", "privileged role administrator",
     "security administrator", "security operator", "security reader", "tenant governance administrator",
     "user administrator",
-    // TrustedSec Tier 1, not marked privileged by Microsoft
+    // not marked privileged by Microsoft, but with administrative control over major services
     "attribute assignment administrator", "authentication policy administrator", "cloud app security administrator",
     "compliance administrator", "directory synchronization accounts", "dynamics 365 administrator",
     "exchange administrator", "external id user flow administrator", "global secure access administrator",
