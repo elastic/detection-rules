@@ -13,7 +13,9 @@ do
     echo $BRANCH
     git checkout $BRANCH
     git pull
-    python -m detection_rules dev build-release --update-version-lock
+    # --fail-on-shipped-content-drift: stop the lock run if any asset keeps a version already published
+    # for this branch but has different content (a shipped rule_id + version must be immutable, see #7012)
+    python -m detection_rules dev build-release --update-version-lock --fail-on-shipped-content-drift
 
     # Reset deprecated_rules.json after all branches except the last to prevent
     # branch-specific deprecations from leaking across checkouts (e.g. D4C rules
