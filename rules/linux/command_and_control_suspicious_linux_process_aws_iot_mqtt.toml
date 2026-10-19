@@ -31,16 +31,17 @@ note = """## Triage and analysis
 
 ### Investigating Suspicious Linux Process Connection to AWS IoT Core MQTT
 
-AWS IoT Core supports direct MQTT over TLS with X.509 client certificates on TCP/8883 and on TCP/443. Default AWS IoT
-data endpoints are account- and region-specific and normally follow
-`<account-specific-prefix>-ats.iot.<region>.amazonaws.com`. An attacker can provision a broker in an account they
+AWS IoT Core supports direct MQTT over TLS with X.509 client certificates on TCP/8883 and on TCP/443. AWS IoT data
+endpoints are account- and region-specific. ATS endpoints normally follow
+`<account-specific-prefix>-ats.iot.<region>.amazonaws.com`, while legacy endpoints omit `-ats`. China regions can use
+`<account-specific-prefix>.ats.iot.<region>.amazonaws.com.cn`. An attacker can provision a broker in an account they
 control, place matching client credentials and an agent on a compromised host, and use the broker as a rendezvous point
 for command and control.
 
-This rule requires the same Linux process to resolve a default AWS IoT ATS endpoint and then attempt an outbound
-connection on TCP/443 or TCP/8883 within one minute. The process must run from a temporary, hidden, boot, log, or
-per-user runtime path. The DNS-to-connection sequence identifies the service without decrypting TLS. It does not reveal
-MQTT client IDs, topics, commands, results, or file content.
+This rule requires the same Linux process to successfully resolve an AWS IoT data endpoint and then attempt an outbound
+TCP connection to one of the resolved IP addresses on port 443 or 8883 within one minute. The process must run from a
+temporary, hidden, boot, log, or per-user runtime path. The DNS-to-connection sequence identifies the service without
+decrypting TLS. It does not reveal MQTT client IDs, topics, commands, results, or file content.
 
 ### Possible investigation steps
 
@@ -56,9 +57,8 @@ MQTT client IDs, topics, commands, results, or file content.
   outbound byte volume. These can support file transfer or command execution but do not establish transferred content.
 - Search for the same endpoint, process hash, executable path, certificate fingerprint, user, and parent chain across
   the environment.
-- The sequence does not prove that the connection used the DNS answer. A process using an explicit proxy or making
-  multiple concurrent connections can create an incidental DNS-to-port correlation. Validate the destination address
-  and packet-level SNI where available.
+- The sequence confirms that the destination IP appeared in the DNS answer, but shared or rotating AWS infrastructure
+  can still create an incidental correlation. Validate packet-level SNI and application protocol where available.
 
 ### False positive analysis
 
@@ -93,7 +93,7 @@ This rule requires Elastic Defend network events from Linux hosts.
 
 Linux DNS events from Elastic Defend require Elastic Stack 9.3.0 or later. The integration policy must collect DNS
 lookup and network connection events with `process.entity_id`, `process.executable`, `dns.question.name`,
-`destination.ip`, and `destination.port`.
+`dns.resolved_ip`, `destination.ip`, `destination.port`, and `network.transport`.
 
 TLS decryption is not required. The rule uses process-attributed DNS and connection metadata. Packet-level TLS telemetry
 is recommended during investigation to confirm SNI and, for direct MQTT with X.509 authentication on TCP/443, the
@@ -120,11 +120,13 @@ type = "eql"
 query = '''
 sequence by host.id, process.entity_id with maxspan=1m
   [network where host.os.type == "linux" and
-    event.action in ("lookup_requested", "lookup_result") and
-    dns.question.name like~ (
-      "*-ats.iot.*.amazonaws.com",
-      "*-ats.iot.*.amazonaws.com.cn",
-      "*.ats.iot.*.amazonaws.com.cn"
+    event.action == "lookup_result" and
+    dns.question.name regex~ (
+      """[^.]+-ats\.iot\.[^.]+\.amazonaws\.com""",
+      """[^.]+\.iot\.[^.]+\.amazonaws\.com""",
+      """[^.]+-ats\.iot\.[^.]+\.amazonaws\.com\.cn""",
+      """[^.]+\.ats\.iot\.[^.]+\.amazonaws\.com\.cn""",
+      """[^.]+\.iot\.[^.]+\.amazonaws\.com\.cn"""
     ) and
     (
       process.executable like (
@@ -139,10 +141,11 @@ sequence by host.id, process.entity_id with maxspan=1m
         "/root/.*"
       ) or
       process.name like ".*"
-    )]
+    )] by dns.resolved_ip
   [network where host.os.type == "linux" and
     event.action == "connection_attempted" and
     network.direction in ("egress", "outbound") and
+    network.transport == "tcp" and
     destination.port in (443, 8883) and
     not (
       destination.ip == null or
@@ -177,7 +180,7 @@ sequence by host.id, process.entity_id with maxspan=1m
         "FE80::/10",
         "FF00::/8"
       )
-    )]
+    )] by destination.ip
 '''
 
 
@@ -215,4 +218,5 @@ field_names = [
     "destination.ip",
     "destination.port",
     "network.direction",
+    "network.transport",
 ]
