@@ -2,7 +2,7 @@
 creation_date = "2020/02/18"
 integration = ["network_traffic", "panw", "fortinet_fortigate", "pfsense"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
@@ -51,6 +51,14 @@ type = "query"
 query = '''
 (data_stream.dataset:(fortinet_fortigate.log or network_traffic.flow) or event.category:(network or network_traffic)) and
   network.transport:tcp and destination.port >= 5800 and destination.port <= 5810 and
+  not event.type:denied and
+  not event.action:(Reject or block or client-rst or connection-denied or denied or deny or
+    flow_denied or flow_dropped or flow_terminated or server-rst or timeout) and
+  not (event.action:network_flow and not network.packets > 1) and
+  not (
+    data_stream.dataset:panw.panos and
+    network.application:("incomplete" or "insufficient-data" or "not-applicable")
+  ) and
   not source.ip:(
     10.0.0.0/8 or
     127.0.0.0/8 or
@@ -151,3 +159,11 @@ reference = "https://attack.mitre.org/techniques/T1190/"
 id = "TA0001"
 name = "Initial Access"
 reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["source.ip", "destination.ip"]
+missing_fields_strategy = "doNotSuppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
