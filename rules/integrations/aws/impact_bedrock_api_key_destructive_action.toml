@@ -2,7 +2,7 @@
 creation_date = "2026/07/06"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -79,9 +79,11 @@ tags = [
     "Platform: AWS",
     "Domain: GenAI",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0012",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 FROM logs-aws.cloudtrail-* METADATA _id, _version, _index
 | WHERE event.provider == "bedrock.amazonaws.com"
@@ -107,11 +109,11 @@ id = "T1485"
 name = "Data Destruction"
 reference = "https://attack.mitre.org/techniques/T1485/"
 
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
 [[rule.threat.technique]]
@@ -123,7 +125,26 @@ id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+
