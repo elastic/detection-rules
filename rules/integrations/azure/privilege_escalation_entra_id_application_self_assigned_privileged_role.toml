@@ -41,11 +41,11 @@ other applications.
 #### Possible investigation steps
 
 - Identify the application with `azure.auditlogs.properties.initiated_by.app.displayName`, `azure.auditlogs.properties.initiated_by.app.appId` and `Esql.actor_sp_id`, and the role in `Esql.role_name`.
-- Determine the owner tenant. In Entra, open Enterprise applications and check the application's owner organization, or look up `app_owner_tenant_id` on its service principal sign-ins. A multi-tenant vendor app owned by another tenant that promotes itself is the highest-risk case. For the October 2026 ConnectWise Cloud Backup (SkyKick) activity, the vendor owner tenant is `3f9cd7a0-127a-4ed4-bf06-2f830d5616b7`.
-- Pull the service principal sign-ins for the same application around the alert. Compare source addresses and user agents against the vendor's documented egress. For ConnectWise Cloud Backup the normal egress is Azure private IPv6; hosting-provider addresses such as `144.172.64.128`, `144.172.64.99` and `144.172.64.60`, or scripting clients such as `Python-urllib/3.12`, are suspicious.
+- Determine the owner tenant. In Entra, open Enterprise applications and check the application's owner organization, or look up `app_owner_tenant_id` on its service principal sign-ins. A multi-tenant vendor app owned by another tenant that promotes itself is the highest-risk case.
+- Pull the service principal sign-ins for the same application around the alert. Compare source addresses and user agents against the application's expected egress. Hosting-provider or VPN addresses and scripting clients such as Python or curl are suspicious for an application that normally runs in its vendor's cloud.
 - Pull the audit log for the same service principal around the alert: `Add service principal credentials`, `Update application – Certificates and secrets management`, `Add app role assignment to service principal`, `Add owner to application`.
 - Review what the application did with the new role: mailbox, SharePoint, Teams and Graph activity, and any directory changes.
-- Check whether the same application ID exists in other tenants you manage; this activity was seen across many tenants in a short time.
+- Check whether the same application ID exists in other tenants you manage; a compromised vendor credential can be used against many tenants in a short time.
 
 ### False positive analysis
 
@@ -63,7 +63,7 @@ references = [
     "https://www.huntress.com/blog/vendor-credential-enables-unauthorized-access",
     "https://www.todyl.com/blog/investigation-unauthorized-access-through-the-connectwise-cloud-backup-microsoft-365-app",
     "https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference",
-    "https://status.connectwise.com/pages/incident/619cf82551fec9053d612f09/6ad263692dc48705ab3da2cb"
+    "https://trustedsec.com/blog/managing-privileged-roles-in-microsoft-entra-id-a-pragmatic-approach",
 ]
 risk_score = 73
 rule_id = "a069c60c-06c5-4b73-be9d-9f2201e020d4"
@@ -112,13 +112,38 @@ from logs-azure.auditlogs-* metadata _id, _version, _index
     case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null)
   )
 | eval Esql.role_name = replace(Esql.role_name_raw, "\"", "")
+// privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, the roles
+// TrustedSec places in Tier 1 (administrative control of major service components) that Microsoft does not mark, and a
+// few additional roles that grant control over mailboxes, devices, partner access, or Microsoft support access to
+// data. TrustedSec Tier 0 roles are all marked by Microsoft. Matched by exact role name, not by pattern.
 | where to_lower(Esql.role_name) in (
-    "global administrator", "privileged role administrator", "privileged authentication administrator",
-    "application administrator", "cloud application administrator", "exchange administrator",
-    "sharepoint administrator", "user administrator", "authentication administrator",
-    "security administrator", "conditional access administrator", "intune administrator",
-    "helpdesk administrator", "hybrid identity administrator", "groups administrator",
-    "teams administrator", "compliance administrator", "directory writers", "cloud device administrator"
+    // marked PRIVILEGED by Microsoft
+    "agent id administrator", "ai administrator", "ai reader", "application administrator", "application developer",
+    "attribute provisioning administrator", "attribute provisioning reader", "authentication administrator",
+    "authentication extensibility administrator", "authentication extensibility password administrator",
+    "b2c ief keyset administrator", "cloud application administrator", "cloud device administrator",
+    "conditional access administrator", "directory writers", "domain name administrator",
+    "entra soc identity responder", "external identity provider administrator", "global administrator",
+    "global reader", "helpdesk administrator", "hybrid identity administrator", "identity governance administrator",
+    "intune administrator", "lifecycle workflows administrator", "partner tier1 support", "partner tier2 support",
+    "password administrator", "privileged authentication administrator", "privileged role administrator",
+    "security administrator", "security operator", "security reader", "tenant governance administrator",
+    "user administrator",
+    // TrustedSec Tier 1, not marked privileged by Microsoft
+    "attribute assignment administrator", "authentication policy administrator", "cloud app security administrator",
+    "compliance administrator", "directory synchronization accounts", "dynamics 365 administrator",
+    "exchange administrator", "external id user flow administrator", "global secure access administrator",
+    "groups administrator", "knowledge administrator", "microsoft 365 backup administrator",
+    "microsoft 365 migration administrator", "on premises directory sync account", "power platform administrator",
+    "sharepoint administrator", "skype for business administrator", "teams administrator",
+    "teams telephony administrator", "windows 365 administrator", "yammer administrator",
+    // additional roles: mailbox permissions, local administrator on joined devices (current and previous display
+    // name), delegated partner access to the tenant, and approval of Microsoft support access to customer data
+    "exchange recipient administrator", "azure ad joined device local administrator",
+    "microsoft entra joined device local administrator", "customer delegated admin relationship administrator",
+    "customer lockbox access approver", "entra customer lockbox approver",
+    // legacy display name of Global Administrator
+    "company administrator"
   )
 | drop Esql.role_name_raw
 | keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index, data_stream.namespace
