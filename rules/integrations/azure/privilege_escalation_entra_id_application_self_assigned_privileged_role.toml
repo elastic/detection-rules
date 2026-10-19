@@ -8,10 +8,9 @@ updated_date = "2026/10/19"
 author = ["Elastic"]
 description = """
 Identifies an Entra ID application (service principal) assigning itself to a privileged directory role. An application
-has no normal reason to promote itself, and a multi-tenant vendor application never should. The audit event does not
-carry the application's owner tenant, so the rule does not try to separate vendor, local and Microsoft applications:
-any service principal self-assigning a privileged role alerts. Adversaries may compromise vendor application credentials
-and then escalate privileges to Exchange Administrator or Global Administrator, or subsequently add client secrets to
+typically does not promote itself, and a multi-tenant vendor application is even more uncommon. Any service principal 
+self-assigning a privileged role should be investigated. Adversaries may compromise vendor application credentials and
+then escalate privileges to Exchange Administrator or Global Administrator, or subsequently add client secrets to
 other applications.
 """
 false_positives = [
@@ -33,9 +32,11 @@ note = """## Triage and analysis
 
 ### Investigating Entra ID Application Self-Assigned to Privileged Role
 
-This rule fires when a service principal is the actor of a directory role assignment and is also the member being
-added, and the role is on the privileged list. It does not use sign-in data, so it does not know who owns the
-application; establish that during triage.
+Identifies an Entra ID application (service principal) assigning itself to a privileged directory role. An application
+typically does not promote itself, and a multi-tenant vendor application is even more uncommon. Any service principal 
+self-assigning a privileged role should be investigated. Adversaries may compromise vendor application credentials and
+then escalate privileges to Exchange Administrator or Global Administrator, or subsequently add client secrets to
+other applications.
 
 #### Possible investigation steps
 
