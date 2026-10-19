@@ -2,7 +2,7 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -74,15 +74,13 @@ confirm whether the change was authorized.
 - Restrict `bedrock:DeleteAutomatedReasoningPolicy` and `bedrock:UpdateAutomatedReasoningPolicy*` permissions
   to a small set of administrative roles and enforce approval workflows.
 """
-references = [
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/automated-reasoning.html"
-]
+references = ["https://docs.aws.amazon.com/bedrock/latest/userguide/automated-reasoning.html"]
 risk_score = 47
 rule_id = "2d7822a5-418c-4cde-a96e-e337d77b67e7"
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS",
     "Data Source: AWS CloudTrail",
     "Data Source: Amazon Web Services",
@@ -97,7 +95,6 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: Custom Query (KQL)",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
 ]
 timestamp_override = "event.ingested"
@@ -116,21 +113,31 @@ data_stream.dataset: "aws.cloudtrail" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
 [rule.investigation_fields]
 field_names = [
@@ -150,3 +157,4 @@ field_names = [
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements",
 ]
+

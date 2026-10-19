@@ -2,7 +2,7 @@
 creation_date = "2026/06/05"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -75,7 +75,7 @@ that could enable such corpus poisoning.
 - Restrict Bedrock Agent knowledge base and data source mutation permissions to a small set of trusted roles.
 """
 references = [
-    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_Operations_Agents_for_Amazon_Bedrock.html"
+    "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_Operations_Agents_for_Amazon_Bedrock.html",
 ]
 risk_score = 47
 rule_id = "7811b5f7-9e07-4999-87aa-a950365cd327"
@@ -87,11 +87,10 @@ are Bedrock CloudTrail **data events** that are off by default. Without Bedrock 
 provides only **partial coverage** — it will see config changes but not direct document ingestion/deletion, the primary poisoning 
 vector. Enable Bedrock data-event logging for full coverage.
 """
-
 severity = "medium"
 tags = [
     "Domain: Cloud",
-    "Domain: LLM",
+    "Domain: GenAI",
     "Data Source: AWS",
     "Data Source: AWS CloudTrail",
     "Data Source: Amazon Web Services",
@@ -106,8 +105,9 @@ tags = [
     "Threat: Unauthorized AI Usage",
     "Rule Type: New Terms",
     "Platform: AWS",
-    "Domain: GenAI",
     "Service: AWS Bedrock",
+    "Mitre Atlas: AML.T0070",
+    "Mitre Atlas: AML.T0059",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -131,21 +131,48 @@ data_stream.dataset: "aws.cloudtrail" and
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1565"
 name = "Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1565.001"
 name = "Stored Data Manipulation"
 reference = "https://attack.mitre.org/techniques/T1565/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0040"
 name = "Impact"
 reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0070"
+name = "RAG Poisoning"
+reference = "https://atlas.mitre.org/techniques/AML.T0070/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0006"
+name = "Persistence"
+reference = "https://atlas.mitre.org/tactics/AML.TA0006/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0059"
+name = "Erode Dataset Integrity"
+reference = "https://atlas.mitre.org/techniques/AML.T0059/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0011"
+name = "Impact"
+reference = "https://atlas.mitre.org/tactics/AML.TA0011/"
 
 [rule.investigation_fields]
 field_names = [
@@ -168,7 +195,8 @@ field_names = [
 [rule.new_terms]
 field = "new_terms_fields"
 value = ["cloud.account.id"]
-
 [[rule.new_terms.history_window_start]]
 field = "history_window_start"
 value = "now-7d"
+
+
