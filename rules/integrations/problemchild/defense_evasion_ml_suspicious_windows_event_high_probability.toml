@@ -2,14 +2,14 @@
 creation_date = "2023/10/16"
 integration = ["problemchild", "endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_version = "9.6.0"
+updated_date = "2026/10/19"
 
 [rule]
 author = ["Elastic"]
 description = """
 A supervised machine learning model (ProblemChild) has identified a suspicious Windows process event with high
-probability of it being malicious activity. Alternatively, the model's blocklist identified the event as being
-malicious.
+probability of it being malicious activity.
 """
 from = "now-10m"
 index = ["logs-endpoint.events.process-*"]
@@ -23,11 +23,11 @@ note = """## Triage and analysis
 
 ### Investigating Machine Learning Detected a Suspicious Windows Event with a High Malicious Probability Score
 
-The detection leverages a machine learning model, ProblemChild, to identify potentially malicious Windows processes by analyzing patterns and assigning a high probability score to suspicious activities. Adversaries may exploit legitimate processes to evade detection, often using techniques like masquerading. This rule flags high-risk events by focusing on processes with a high malicious probability score or those identified by a blocklist, excluding known benign activities.
+The detection leverages a machine learning model, ProblemChild, to identify potentially malicious Windows processes by analyzing patterns and assigning a high probability score to suspicious activities. Adversaries may exploit legitimate processes to evade detection, often using techniques like masquerading. This rule flags high-risk events by focusing on processes with a high malicious probability score.
 
 ### Possible investigation steps
 
-- Review the process details flagged by the ProblemChild model, focusing on those with a prediction probability greater than 0.98 or identified by the blocklist.
+- Review the process details flagged by the ProblemChild model, focusing on those with a prediction probability greater than 0.98.
 - Examine the command-line arguments of the suspicious process to identify any unusual or unexpected patterns, excluding those matching known benign patterns like "*C:\\\\WINDOWS\\\\temp\\\\nessus_*.txt*" or "*C:\\\\WINDOWS\\\\temp\\\\nessus_*.tmp*".
 - Check the parent process of the flagged event to determine if it is a legitimate process or if it has been potentially compromised.
 - Investigate the user account associated with the process to assess if it has been involved in any other suspicious activities or if it has elevated privileges that could be exploited.
@@ -40,7 +40,7 @@ The detection leverages a machine learning model, ProblemChild, to identify pote
 - Legitimate software updates or installations might be flagged if they mimic known malicious patterns. Users should review the process details and whitelist trusted software update processes.
 - System administration tools that perform actions similar to those used in attacks could be misidentified. Users should verify the legitimacy of these tools and exclude them from the rule if they are part of regular administrative tasks.
 - Custom scripts or automation tools that are not widely recognized might be flagged. Users should ensure these scripts are secure and add them to an allowlist if they are part of routine operations.
-- Frequent false positives from specific processes can be managed by adjusting the threshold of the machine learning model or refining the blocklist to better distinguish between benign and malicious activities.
+- Frequent false positives from specific processes can be managed by adjusting the threshold of the machine learning model.
 
 ### Response and remediation
 
@@ -99,8 +99,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-process where ((problemchild.prediction == 1 and problemchild.prediction_probability > 0.98) or
-blocklist_label == 1) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*") and
+process where (problemchild.prediction == 1 and problemchild.prediction_probability > 0.98) and not process.args : ("*C:\\WINDOWS\\temp\\nessus_*.txt*", "*C:\\WINDOWS\\temp\\nessus_*.tmp*") and
 process.parent.executable != null and not user.id in ("S-1-5-18", "S-1-5-19", "S-1-5-20") and
 not process.parent.name : ("cmd.exe", "powershell.exe", "Perplexity.exe", "vmtoolsd.exe", "Code.exe", "explorer.exe", "git.exe") and
 not (process.name : "msedgewebview2.exe" and process.parent.name : "msedgewebview2.exe") and
