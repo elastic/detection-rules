@@ -652,11 +652,8 @@ class Package:
         historical_rules: dict[str, dict[str, Any]],
         manifest_version: str,
     ) -> list[dict[str, Any]]:
-        """Adds historical rules to existing build package.
-
-        Returns the list of shipped-content drifts: rules whose asset in the previous package has the same
-        rule_id + version as the asset about to ship but different content. A shipped rule_id + version pair
-        must be immutable, otherwise Kibana's prebuilt-rule diff flags the installed rule as customized.
+        """Adds historical rules to existing build package and
+           returns the list of shipped-content drifts
         """
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
         drifts: list[dict[str, Any]] = []

@@ -40,7 +40,7 @@ class TestVersionLock(unittest.TestCase):
 
 
 class TestShippedVersionFloor(unittest.TestCase):
-    """A rule_id + version pair shipped through any lock channel must never be reused (issue #7012)."""
+    """A rule_id + version pair shipped through any lock channel must never be reused."""
 
     def test_floor_moves_baseline_past_dropped_epoch_version(self):
         """Baseline bumped to 4 while the epoch being dropped shipped 4 -> baseline becomes 5."""

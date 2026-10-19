@@ -203,7 +203,7 @@ def build_release(  # noqa: PLR0913, PLR0917
     if drifts:
         click.echo(
             f"[!] {len(drifts)} rule asset(s) keep the version shipped in {previous_pkg_version} but have different "
-            "content. A shipped rule_id + version must be immutable (issue #7012):"
+            "content. A shipped rule_id + version must be immutable."
         )
         for drift in drifts:
             fields = ", ".join(drift["fields"])
