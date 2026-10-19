@@ -653,7 +653,7 @@ class Package:
         manifest_version: str,
     ) -> list[dict[str, Any]]:
         """Adds historical rules to existing build package and
-           returns the list of shipped-content drifts
+        returns the list of shipped-content drifts
         """
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
         drifts: list[dict[str, Any]] = []

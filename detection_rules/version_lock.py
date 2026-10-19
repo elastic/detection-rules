@@ -145,8 +145,7 @@ def max_shipped_emit_version(lock_entry: dict[str, Any]) -> int | None:
 
 
 def floor_baseline_past_dropped_epoch(lock_entry: dict[str, Any], dropped_emit_version: int) -> int:
-    """Keep a rule_id + version pair immutable when a stack_emit epoch is dropped.
-    """
+    """Keep a rule_id + version pair immutable when a stack_emit epoch is dropped."""
     if int(lock_entry["version"]) <= dropped_emit_version:
         lock_entry["version"] = dropped_emit_version + 1
     return int(lock_entry["version"])
