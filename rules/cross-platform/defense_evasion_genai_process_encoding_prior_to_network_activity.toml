@@ -2,7 +2,7 @@
 creation_date = "2025/12/04"
 integration = ["endpoint", "windows", "sentinel_one_cloud_funnel", "m365_defender"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
@@ -73,8 +73,6 @@ tags = [
     "Data Source: Microsoft Defender XDR",
     "Data Source: SentinelOne",
     "Resources: Investigation Guide",
-    "Domain: LLM",
-    "Mitre Atlas: T0086",
     "Noise: Low",
     "Performance: Normal",
     "Profile: Recommended",
@@ -84,6 +82,7 @@ tags = [
     "Platform: Linux",
     "Platform: macOS",
     "Domain: GenAI",
+    "Mitre Atlas: AML.T0086",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -168,25 +167,22 @@ sequence by process.entity_id with maxspan=30s
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1027"
 name = "Obfuscated Files or Information"
 reference = "https://attack.mitre.org/techniques/T1027/"
 
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1560"
 name = "Archive Collected Data"
 reference = "https://attack.mitre.org/techniques/T1560/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1560.001"
 name = "Archive via Utility"
@@ -197,20 +193,38 @@ id = "T1560.002"
 name = "Archive via Library"
 reference = "https://attack.mitre.org/techniques/T1560/002/"
 
+
+
 [rule.threat.tactic]
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1030"
 name = "Data Transfer Size Limits"
 reference = "https://attack.mitre.org/techniques/T1030/"
 
+
 [rule.threat.tactic]
 id = "TA0010"
 name = "Exfiltration"
 reference = "https://attack.mitre.org/tactics/TA0010/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0086"
+name = "Exfiltration via AI Agent Tool Invocation"
+reference = "https://atlas.mitre.org/techniques/AML.T0086/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0010"
+name = "Exfiltration"
+reference = "https://atlas.mitre.org/tactics/AML.TA0010/"
+
+

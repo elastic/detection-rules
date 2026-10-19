@@ -2,24 +2,23 @@
 creation_date = "2026/06/04"
 integration = ["aws"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/25"
 
 [rule]
 author = ["Elastic"]
 description = """
 Detects deletion, weakening, or version management of AWS Bedrock guardrails via the DeleteGuardrail, UpdateGuardrail,
-DeleteEnforcedGuardrailConfiguration, or PutEnforcedGuardrailConfiguration APIs. Bedrock
-guardrails enforce content, topic, word, and sensitive-information policies on model invocations. Deleting a guardrail,
-loosening its policies, removing or overwriting the organization-enforced guardrail configuration, or creating a new
-version to enforce a weakened configuration allows an adversary to bypass these protections — the cloud control-plane
-equivalent of disabling a security tool. This activity should be validated against approved change management and the
-responsible identity.
+DeleteEnforcedGuardrailConfiguration, or PutEnforcedGuardrailConfiguration APIs. Bedrock guardrails enforce content,
+topic, word, and sensitive-information policies on model invocations. Deleting a guardrail, loosening its policies,
+removing or overwriting the organization-enforced guardrail configuration, or creating a new version to enforce a
+weakened configuration allows an adversary to bypass these protections — the cloud control-plane equivalent of disabling
+a security tool. This activity should be validated against approved change management and the responsible identity.
 """
 false_positives = [
-  """
-  Platform or ML engineering teams may legitimately tune, iterate on, or decommission guardrails as part of normal
-  development. If this is expected in your environment, the responsible identities can be exempted from the rule.
-  """,
+    """
+    Platform or ML engineering teams may legitimately tune, iterate on, or decommission guardrails as part of normal
+    development. If this is expected in your environment, the responsible identities can be exempted from the rule.
+    """,
 ]
 from = "now-6m"
 index = ["logs-aws.cloudtrail-*"]
@@ -66,7 +65,7 @@ intent before accepting the change.
 references = [
     "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteGuardrail.html",
     "https://docs.aws.amazon.com/bedrock/latest/APIReference/API_UpdateGuardrail.html",
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html"
+    "https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html",
 ]
 risk_score = 47
 rule_id = "cdf7b922-909c-440c-8df0-0efe72aa7bea"
@@ -105,21 +104,31 @@ data_stream.dataset: "aws.cloudtrail"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
 [[rule.threat.technique]]
 id = "T1562"
 name = "Impair Defenses"
 reference = "https://attack.mitre.org/techniques/T1562/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1562.001"
 name = "Disable or Modify Tools"
 reference = "https://attack.mitre.org/techniques/T1562/001/"
 
+
+
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
 
 [rule.investigation_fields]
 field_names = [
@@ -138,3 +147,4 @@ field_names = [
     "aws.cloudtrail.request_parameters",
     "aws.cloudtrail.response_elements",
 ]
+
