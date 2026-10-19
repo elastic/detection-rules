@@ -451,15 +451,19 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
-                # Measure the bump from the highest version already shipped for the rule, including
-                # stack_emit channels, so a baseline that skips past a shipped emit version
-                # (baseline 3 + emit 4 -> baseline 5) is not reported as a double bump.
-                shipped_versions: list[int] = [] if base_version is None else [int(base_version)]
-                emit_entries = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
-                shipped_versions.extend(
-                    int(entry["version"]) for entry in emit_entries.values() if entry.get("version")
-                )
-                resolved_base: int = max(shipped_versions) if shipped_versions else int(base_version or 0)
+                # A stack_emit epoch that was dropped on the branch had already shipped its version, and the
+                # baseline is floored past it (baseline 3 + emit 4 -> baseline 5, see #7012). Measure that bump
+                # from the retired epoch's version so it is not reported as a double bump. Epochs that are
+                # still present are left out on purpose: baseline 3 + emit 4 -> baseline 5 + emit 6 advanced
+                # both channels twice and must still be flagged, so that case compares baseline to baseline.
+                base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
+                branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
+                retired_versions = [
+                    int(entry["version"])
+                    for epoch, entry in base_emit.items()
+                    if epoch not in branch_emit and entry.get("version")
+                ]
+                resolved_base: int = max([int(base_version or 0), *retired_versions])
                 changes.append((key, branch_name, resolved_base, branch_version))
     return changes
 

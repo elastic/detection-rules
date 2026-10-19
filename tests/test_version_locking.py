@@ -78,6 +78,14 @@ class TestShippedVersionFloor(unittest.TestCase):
         plain_changes = compare_versions({"r": {"rule_name": "x", "version": 3}}, branch)
         self.assertEqual(check_double_bumps(plain_changes), [("r", "x", 3, 5)])
 
+        # retained epoch: both channels advanced twice, still a double bump
+        retained = {"r": {"rule_name": "x", "version": 5, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 6}}}}
+        self.assertEqual(check_double_bumps(compare_versions(base, retained)), [("r", "x", 3, 5)])
+
+        # retained epoch, ordinary tuning: baseline 3 -> 4 and emit 4 -> 5 is fine
+        tuned = {"r": {"rule_name": "x", "version": 4, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 5}}}}
+        self.assertEqual(check_double_bumps(compare_versions(base, tuned)), [])
+
     def test_add_historical_rules_reports_same_version_content_drift(self):
         """A previous-package asset with the same version but different content is reported, not silently kept."""
         import json
@@ -111,19 +119,23 @@ class TestShippedVersionFloor(unittest.TestCase):
     def test_manage_versions_route_a_skips_shipped_emit_version(self):
         """Replay of issue #7012: baseline 3 + stack_emit 4, rule tuned -> baseline 5, not 4."""
         import json
+        import shutil
         import tempfile
+        import tomllib
         from pathlib import Path
         from unittest import mock
 
+        from detection_rules.config import load_current_package_version
         from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import emit_epoch_key, parse_stack
         from detection_rules.version_lock import VersionLock
 
         rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
-        rule = RuleCollection().load_file(rule_path)  # only to read id / name / type for the lock entry
+        toml = tomllib.loads(rule_path.read_text())["rule"]
         lock_entry = {
-            "rule_name": rule.name,
+            "rule_name": toml["name"],
             "sha256": "0" * 64,  # anything but the real hash: the rule is "tuned"
-            "type": rule.contents.type,
+            "type": toml["type"],
             "version": 3,
             "stack_emit": {
                 "9.5": {
@@ -133,28 +145,35 @@ class TestShippedVersionFloor(unittest.TestCase):
                 }
             },
         }
+        # The collision only exists where an emit epoch applies (package stack 9.5+). On 8.19 / 9.3 / 9.4
+        # checkouts no transforms apply, manage_versions never reaches the epoch removal, and the stack
+        # cannot be pinned to 9.5 because those branches carry no 9.5 schemas, so the replay is skipped there.
+        if emit_epoch_key(parse_stack(load_current_package_version())) is None:
+            self.skipTest("no stack_emit epoch applies to this checkout's package stack")
+
         with tempfile.TemporaryDirectory() as tmp:
             lock_path = Path(tmp) / "version.lock.json"
             dep_path = Path(tmp) / "deprecated_rules.json"
-            lock_path.write_text(json.dumps({rule.id: lock_entry}))
+            lock_path.write_text(json.dumps({toml["rule_id"]: lock_entry}))
             dep_path.write_text("{}")
             lock = VersionLock(lock_path, dep_path, name="test")
 
-            # `version_lock` on rule contents is a cached_property, so the lock has to be in place before the
-            # rule is loaded (the collection hands it to every rule it loads); patching the global alone is not
-            # enough once another test has touched the property on a cached contents object.
+            # Load fresh contents from a copy: load_file() hands back the default collection's shared rule
+            # object for a known path, and `version_lock` on contents is a cached_property, so a shared
+            # object would keep whichever lock it saw first and leak this temporary one to later tests.
+            rule_copy = Path(tmp) / rule_path.name
+            shutil.copy(rule_path, rule_copy)
             rc = RuleCollection()
-            rc._version_lock = lock  # noqa: SLF001
-            rule = rc.load_file(rule_path)
-            rule.contents.__dict__.pop("version_lock", None)
+            rc._version_lock = lock  # noqa: SLF001  # handed to every rule this collection loads
+            rule = rc.load_file(rule_copy)
+            self.assertIs(rule.contents.version_lock, lock)
 
             with mock.patch("detection_rules.rule.loaded_version_lock", lock):
-                self.assertIs(rule.contents.version_lock, lock)
                 self.assertTrue(rule.contents.is_dirty)
                 self.assertEqual(rule.contents.autobumped_version, 4)  # the pre-fix number
 
                 changed, _, _ = lock.manage_versions(rc, save_changes=True, verbose=False)
-            saved = json.loads(lock_path.read_text())[rule.id]
+            saved = json.loads(lock_path.read_text())[toml["rule_id"]]
 
         self.assertIn(rule.id, changed)
         self.assertGreaterEqual(saved["version"], 5)
