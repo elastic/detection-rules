@@ -1,0 +1,167 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving startup configuration for interactive Linux tools such as Bash completion,
+Vim, GDB, tmux, and GNU Screen. These files may contain commands, scripts, plugins, or directives that execute when a
+user starts the associated tool. Adversaries may abuse these trusted initialization paths to establish persistence.
+"""
+false_positives = [
+    "Legitimate tool installation, plugin deployment, user customization, and configuration-management activity.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Interactive Tool Startup Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Interactive Tool Startup Configuration File Activity
+
+Interactive tools commonly load configuration, completion definitions, plugins, and command files when they start.
+Several of these formats intentionally support command execution. Unauthorized changes can therefore cause code to run
+when a user opens a shell, editor, debugger, or terminal multiplexer, often without modifying a conventional service or
+scheduled task.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Determine whether the file is an active startup path for the installed tool and account. Confirm compiled or runtime
+  paths where applicable, because GDB, Vim, and Screen locations can vary by build and distribution.
+- Retrieve the file and inspect it for shell commands, executable Vim functions or autocommands, GDB `shell` or Python
+  directives, tmux `run-shell` or `if-shell` commands, Screen `exec` or command-bearing window definitions, and
+  unexpected bash-completion top-level statements.
+- Establish file provenance and compare the content with package manifests, deployment records, trusted dotfiles, and
+  peer systems.
+- Correlate the change with subsequent starts of the affected program and unusual shells, interpreters, detached
+  processes, or network connections created beneath it.
+- Check for referenced scripts, plugins, binaries, and additional persistence artifacts written by the same process or
+  account.
+
+### False positive analysis
+
+- Package installation and upgrades can add system-wide completion definitions, Vim plugins, and debugger
+  configuration.
+- Users and administrators routinely customize their own development and terminal tools. Validate the writer, content,
+  and expected change-management context before creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed configuration and any referenced executable content before remediation.
+- Remove unauthorized directives or files and restore approved configuration from a trusted source.
+- Terminate malicious child processes and investigate any accounts, credentials, or sessions exposed through the
+  affected tool.
+- Scope matching content, paths, writers, and resulting process ancestry across the environment.
+"""
+references = [
+    "https://github.com/scop/bash-completion/blob/main/doc/configuration.md",
+    "https://vimhelp.org/starting.txt.html#initialization",
+    "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Initialization-Files.html",
+    "https://man7.org/linux/man-pages/man1/tmux.1.html",
+    "https://www.gnu.org/software/screen/manual/screen.html#Customization",
+]
+risk_score = 21
+rule_id = "96453c44-a896-4080-82a6-daeac2e925b4"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/bash_completion",
+    "/etc/bash_completion.d/*",
+    "/usr/share/bash-completion/completions/*",
+    "/usr/local/share/bash-completion/completions/*",
+    "/home/*/.bash_completion",
+    "/root/.bash_completion",
+    "/home/*/.local/share/bash-completion/completions/*",
+    "/root/.local/share/bash-completion/completions/*",
+    "/etc/vimrc",
+    "/etc/vim/vimrc",
+    "/etc/vim/vimrc.local",
+    "/etc/vim/vimrc.d/*",
+    "/usr/share/vim/vim*/plugin/*.vim",
+    "/usr/local/share/vim/vim*/plugin/*.vim",
+    "/home/*/.vimrc",
+    "/root/.vimrc",
+    "/home/*/.vim/plugin/*.vim",
+    "/root/.vim/plugin/*.vim",
+    "/home/*/.config/vim/vimrc",
+    "/root/.config/vim/vimrc",
+    "/etc/gdbinit",
+    "/etc/gdb/gdbinit",
+    "/etc/gdb/gdbinit.d/*",
+    "/home/*/.gdbinit",
+    "/root/.gdbinit",
+    "/home/*/.config/gdb/gdbinit",
+    "/root/.config/gdb/gdbinit",
+    "/etc/tmux.conf",
+    "/etc/tmux/*.conf",
+    "/usr/local/etc/tmux.conf",
+    "/home/*/.tmux.conf",
+    "/root/.tmux.conf",
+    "/home/*/.config/tmux/tmux.conf",
+    "/root/.config/tmux/tmux.conf",
+    "/etc/screenrc",
+    "/usr/local/etc/screenrc",
+    "/home/*/.screenrc",
+    "/root/.screenrc"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
