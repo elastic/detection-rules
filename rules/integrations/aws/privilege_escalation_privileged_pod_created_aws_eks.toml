@@ -4,32 +4,31 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 This rule detects when a user creates a pod/container running in privileged mode. A highly privileged container has
 access to the node's resources and breaks the isolation between containers. If compromised, an attacker can use the
 privileged container to gain access to the underlying host. Gaining access to the host may provide the adversary with
 the opportunity to achieve follow-on objectives, such as establishing persistence, moving laterally within the
 environment, or setting up a command and control channel on the host.
-'''
+"""
 false_positives = [
-    '''
+    """
     By default a container is not allowed to access any devices on the host, but a "privileged" container is given
     access to all devices on the host. This allows the container nearly all the same access as processes running on the
     host. An administrator may want to run a privileged container to use operating system administrative capabilities
     such as manipulating the network stack or accessing hardware devices from within the cluster. Add exceptions for
     trusted container images using the query field "aws.eks.audit.requestObject.spec.container.image"
-''',
+    """,
 ]
 index = ["logs-aws.eks_audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EKS Privileged Pod Created"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -60,15 +59,14 @@ Kubernetes allows for the creation of privileged pods, which can access the host
 - Reset credentials and access tokens that may have been exposed or compromised due to the privileged pod's access to the host's resources.
 - Patch and update the Kubernetes environment and any affected nodes to address vulnerabilities that may have been exploited to create the privileged pod.
 - Implement network segmentation and firewall rules to limit the communication capabilities of pods, especially those with elevated privileges, to reduce the risk of lateral movement.
-- Escalate the incident to the security operations team for a comprehensive investigation and to assess the need for further security measures or incident response actions.'''
+- Escalate the incident to the security operations team for a comprehensive investigation and to assess the need for further security measures or incident response actions."""
 references = [
     "https://media.defense.gov/2021/Aug/03/2002820425/-1/-1/1/CTR_KUBERNETES%20HARDENING%20GUIDANCE.PDF",
     "https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
 ]
 risk_score = 47
 rule_id = "a6451c73-7be4-51ac-a4c7-1acded7a56b2"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -76,7 +74,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -97,6 +95,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 data_stream.dataset : "aws.eks_audit" and aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
 aws.eks.audit.objectRef.resource:pods and aws.eks.audit.verb:create and aws.eks.audit.requestObject.spec.containers.securityContext.privileged:true and
@@ -112,28 +111,29 @@ not aws.eks.audit.requestObject.spec.containers.image: (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat.technique]]
 id = "T1611"
 name = "Escape to Host"
 reference = "https://attack.mitre.org/techniques/T1611/"
 
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1610"
+name = "Deploy Container"
+reference = "https://attack.mitre.org/techniques/T1610/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat.technique]]
-id = "T1610"
-name = "Deploy Container"
-reference = "https://attack.mitre.org/techniques/T1610/"
