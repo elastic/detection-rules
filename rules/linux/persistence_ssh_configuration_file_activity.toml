@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving OpenSSH server and client configuration, configuration drop-ins, and
+session initialization files. Adversaries may alter these files to weaken authentication controls, redirect SSH
+connections, change daemon behavior, or execute commands when a user establishes an SSH session.
+"""
+false_positives = [
+    "Legitimate OpenSSH installation, administration, configuration management, and user-specific client configuration.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "SSH Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SSH Configuration File Activity
+
+OpenSSH uses system-wide and per-user files to control server authentication, client connections, and commands executed
+when an SSH session starts. Unexpected activity affecting these files can introduce persistent session-triggered
+execution, weaken access controls, redirect connections through attacker-controlled infrastructure, or expose credentials
+through malicious client directives.
+
+### Possible investigation steps
+
+- Identify the affected file, operation, responsible process, parent process, user, timestamp, and process command line.
+- Determine whether the change belongs to an approved OpenSSH installation, administrative action, configuration
+  deployment, or user-specific client update.
+- Review server configuration for changes to authentication, root login, authorized-key handling, command execution,
+  forwarding, subsystem, logging, and included configuration paths.
+- Review client configuration for unexpected `Host`, `Match`, `Include`, `ProxyCommand`, `ProxyJump`,
+  `LocalCommand`, `RemoteCommand`, forwarding, identity, certificate, or hostname directives.
+- Treat changes to `sshrc` and per-user `.ssh/rc` files as executable-content changes and inspect all commands, sourced
+  files, and outbound connection behavior.
+- Resolve included configuration files and compare the effective configuration with trusted baselines and peer systems.
+- Correlate the activity with SSH daemon reloads or restarts, subsequent remote logins, unusual child processes of
+  `sshd`, and network connections initiated during SSH sessions.
+
+### False positive analysis
+
+- OpenSSH package installation and upgrades can write system configuration and drop-in files.
+- Administrators and configuration-management systems commonly maintain server settings.
+- Users may legitimately create or update their own client configuration. Validate the writer and content before
+  introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed file and related process telemetry before restoring trusted configuration.
+- Remove unauthorized session initialization commands and malicious client or server directives.
+- Validate the effective OpenSSH configuration, reload or restart the daemon when required, and confirm expected
+  authentication and forwarding controls.
+- Review sessions and credentials potentially exposed while the configuration was active.
+- Scope matching files, directives, writers, and initiating accounts across the environment.
+"""
+references = [
+    "https://man.openbsd.org/sshd_config",
+    "https://man.openbsd.org/ssh_config",
+    "https://man.openbsd.org/sshd",
+]
+risk_score = 21
+rule_id = "46b082d7-ac87-44e0-87b7-f06b86176e6d"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Lateral Movement",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/ssh/sshd_config",
+    "/etc/ssh/sshd_config.d/*",
+    "/etc/ssh/ssh_config",
+    "/etc/ssh/ssh_config.d/*",
+    "/etc/ssh/sshrc",
+    "/home/*/.ssh/config",
+    "/home/*/.ssh/rc",
+    "/root/.ssh/config",
+    "/root/.ssh/rc"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1546.004"
+name = "Unix Shell Configuration Modification"
+reference = "https://attack.mitre.org/techniques/T1546/004/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1021"
+name = "Remote Services"
+reference = "https://attack.mitre.org/techniques/T1021/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1021.004"
+name = "SSH"
+reference = "https://attack.mitre.org/techniques/T1021/004/"
+
+[rule.threat.tactic]
+id = "TA0008"
+name = "Lateral Movement"
+reference = "https://attack.mitre.org/tactics/TA0008/"
