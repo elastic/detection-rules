@@ -106,19 +106,7 @@ query = '''
 process where host.os.type == "linux" and event.type == "start" and
   event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
   process.name == "apparmor_parser" and
-  process.args in ("-a", "--add", "-r", "--replace") and
-  not (
-    process.parent.executable like (
-      "/bin/dpkg", "/usr/bin/dpkg", "/usr/bin/dpkg-reconfigure", "/usr/bin/apt", "/usr/bin/apt-get",
-      "/usr/bin/snap", "/usr/lib/snapd/snapd", "/snap/snapd/*/usr/lib/snapd/snapd",
-      "/snap/snapd/current/usr/lib/snapd/snapd", "/lib/apparmor/apparmor.systemd",
-      "/usr/lib/apparmor/apparmor.systemd", "/usr/lib/rsyslog/reload-apparmor-profile",
-      "/usr/libexec/rsyslog/reload-apparmor-profile", "/usr/sbin/snapd-apparmor",
-      "/usr/lib/snapd/snapd-apparmor"
-    ) or
-    process.parent.name == "snapd-apparmor" or
-    process.parent.args like "/var/lib/dpkg/info/*"
-  )
+  process.args in ("-a", "--add", "-r", "--replace")
 '''
 
 [[rule.threat]]
