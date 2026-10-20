@@ -4,21 +4,20 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-Detects the creation or modification of several sensitive workloads, such as DaemonSets, Deployments,
-or CronJobs, by an unusual user agent, source IP and username, which may indicate privilege escalation
-or unauthorized access within the cluster.
-'''
+description = """
+Detects the creation or modification of several sensitive workloads, such as DaemonSets, Deployments, or CronJobs, by an
+unusual user agent, source IP and username, which may indicate privilege escalation or unauthorized access within the
+cluster.
+"""
 index = ["logs-aws.eks_audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EKS Unusual Kubernetes Sensitive Workload Modification"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -38,6 +37,7 @@ This rule detects allowed create or patch activity against sensitive Kubernetes 
 
 - A legitimate on-call engineer performs an emergency `kubectl` create/patch to a Deployment/CronJob/DaemonSet from a new workstation, VPN egress IP, or updated kubectl version, producing an unusual user_agent/source IP/username combination despite being authorized.
 - A routine automation path changes (e.g., CI runner or service account rotated/migrated to a new node pool or network segment) and continues applying standard workload updates, causing the same create/patch activity to appear anomalous due to the new origin and client identity.
+- On Amazon EKS, `user.name` is the username mapped by the cluster access entry (or `aws-auth` entry) of the calling IAM principal. When the access entry sets no `username`, the audit log records the raw principal ARN instead: `arn:aws:iam::<account>:user/<name>` for IAM users and `arn:aws:sts::<account>:assumed-role/<role>/<session>` for assumed roles, so every new role session is a new value for the identity fields this rule learns terms from. Set a stable `username` on access entries used by automation, or expect a first-seen alert per session.
 
 ### Response and remediation
 
@@ -46,19 +46,14 @@ This rule detects allowed create or patch activity against sensitive Kubernetes 
 - Revoke and rotate the credential used for the change (user token/cert or service account token), invalidate related kubeconfigs, and review/remove any newly created RBAC bindings, secrets, or service accounts tied to the same actor.
 - Quarantine affected nodes and pods for analysis by cordoning/draining nodes that ran the new pods and collecting pod logs, container filesystem snapshots, and network egress details to identify payloads and persistence.
 - Escalate to the incident response/on-call security team immediately if the change introduced privileged containers, hostPath mounts, hostNetwork, new external images/registries, or any unexpected DaemonSet creation across multiple nodes.
-- Harden by enforcing admission controls to restrict privileged settings and sensitive namespaces, requiring changes via approved automation identities, and tightening RBAC so only designated deployment controllers can create/patch DaemonSets, Deployments, and CronJobs.
-
-### Amazon EKS identities
-
-On Amazon EKS, `user.name` is the username mapped by the cluster access entry (or `aws-auth` entry) of the calling IAM principal. When the access entry sets no `username`, the audit log records the raw principal ARN instead: `arn:aws:iam::<account>:user/<name>` for IAM users and `arn:aws:sts::<account>:assumed-role/<role>/<session>` for assumed roles, so every new role session is a new value for the identity fields this rule learns terms from. Set a stable `username` on access entries used by automation, or expect a first-seen alert per session.'''
+- Harden by enforcing admission controls to restrict privileged settings and sensitive namespaces, requiring changes via approved automation identities, and tightening RBAC so only designated deployment controllers can create/patch DaemonSets, Deployments, and CronJobs."""
 references = [
     "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
     "https://flare.io/learn/resources/blog/teampcp-cloud-native-ransomware",
 ]
 risk_score = 21
 rule_id = "a6ee626d-fb50-55c9-b55d-b9e6930aedf0"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -66,7 +61,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -86,6 +81,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 data_stream.dataset:"aws.eks_audit" and user_agent.original:* and
 aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
@@ -96,46 +92,47 @@ not aws.eks.audit.annotations.authorization_k8s_io/reason:"AmazonEKSClusterAdmin
 not user.name:eks\:*
 '''
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["user_agent.original", "source.ip", "aws.eks.audit.user.username"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.006"
 name = "Additional Container Cluster Roles"
 reference = "https://attack.mitre.org/techniques/T1098/006/"
 
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original", "source.ip", "aws.eks.audit.user.username"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1098.006"
-name = "Additional Container Cluster Roles"
-reference = "https://attack.mitre.org/techniques/T1098/006/"
+

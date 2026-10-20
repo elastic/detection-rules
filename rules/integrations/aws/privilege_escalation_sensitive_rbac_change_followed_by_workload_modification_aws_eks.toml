@@ -4,23 +4,21 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-Detects a sequence where a principal creates or modifies a Role/ClusterRole to include high-risk permissions
-(e.g., wildcard access or escalation verbs) and then creates or patches a workload resource (DaemonSet,
-Deployment, or CronJob) shortly after, which may indicate RBAC-based privilege escalation followed by payload
-deployment. This pattern is often used by adversaries to gain unauthorized access to sensitive resources and
-deploy malicious payloads.
-'''
+description = """
+Detects a sequence where a principal creates or modifies a Role/ClusterRole to include high-risk permissions (e.g.,
+wildcard access or escalation verbs) and then creates or patches a workload resource (DaemonSet, Deployment, or CronJob)
+shortly after, which may indicate RBAC-based privilege escalation followed by payload deployment. This pattern is often
+used by adversaries to gain unauthorized access to sensitive resources and deploy malicious payloads.
+"""
 index = ["logs-aws.eks_audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS EKS Sensitive RBAC Change Followed by Workload Modification"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -48,14 +46,13 @@ This rule detects when a user grants or broadens high-risk permissions in a Role
 - Rotate credentials and access paths exposed through the workload (service account tokens, kubeconfig files, mounted secrets, cloud keys) and invalidate any newly issued tokens tied to the actor.
 - For eradication and recovery, redeploy workloads from trusted Git/registry sources, block the suspicious images/digests in admission controls, and verify no persistence remains via CronJobs, DaemonSets, webhook configurations, or additional RBAC bindings.
 - Escalate to incident response and platform leadership if the RBAC change included wildcard permissions or escalation verbs, if the workload ran privileged/hostNetwork/hostPID, or if sensitive secrets were accessed or exfiltration is suspected.
-- Harden by enforcing least-privilege RBAC, requiring peer approval for RBAC changes, restricting workload mutations via GitOps-only service accounts, and using admission policies to deny privileged pods, hostPath mounts, and unapproved registries.'''
+- Harden by enforcing least-privilege RBAC, requiring peer approval for RBAC changes, restricting workload mutations via GitOps-only service accounts, and using admission policies to deny privileged pods, hostPath mounts, and unapproved registries."""
 references = [
     "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#overly-permissive-role-based-access-control",
 ]
 risk_score = 47
 rule_id = "ec47ee94-cb26-593f-87b2-ab7037626cb7"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -63,7 +60,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -83,6 +80,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 sequence by user.name with maxspan=5m
   [any where data_stream.dataset == "aws.eks_audit" and
@@ -100,38 +98,39 @@ sequence by user.name with maxspan=5m
   ]
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0004"
-name = "Privilege Escalation"
-reference = "https://attack.mitre.org/tactics/TA0004/"
-
 [[rule.threat.technique]]
 id = "T1098"
 name = "Account Manipulation"
 reference = "https://attack.mitre.org/techniques/T1098/"
-
 [[rule.threat.technique.subtechnique]]
 id = "T1098.006"
 name = "Additional Container Cluster Roles"
 reference = "https://attack.mitre.org/techniques/T1098/006/"
 
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.006"
+name = "Additional Container Cluster Roles"
+reference = "https://attack.mitre.org/techniques/T1098/006/"
+
+
 
 [rule.threat.tactic]
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[[rule.threat.technique]]
-id = "T1098"
-name = "Account Manipulation"
-reference = "https://attack.mitre.org/techniques/T1098/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1098.006"
-name = "Additional Container Cluster Roles"
-reference = "https://attack.mitre.org/techniques/T1098/006/"
