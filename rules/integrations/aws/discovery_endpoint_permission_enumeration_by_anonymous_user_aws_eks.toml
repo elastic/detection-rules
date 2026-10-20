@@ -4,21 +4,20 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-This rule detects potential endpoint enumeration attempts by an anonymous user. An anonymous user is a user that
-is not authenticated or authorized to access the Kubernetes API server. By looking for a series of failed API requests,
-on multiple endpoints, and a limited number of documents, this rule can detect automated permission enumeration attempts.
+description = """
+This rule detects potential endpoint enumeration attempts by an anonymous user. An anonymous user is a user that is not
+authenticated or authorized to access the Kubernetes API server. By looking for a series of failed API requests, on
+multiple endpoints, and a limited number of documents, this rule can detect automated permission enumeration attempts.
 This behavior is uncommon for regular Kubernetes clusters.
-'''
+"""
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EKS Potential Endpoint Permission Enumeration Attempt by Anonymous User Detected"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -46,14 +45,11 @@ This detects a burst of Kubernetes API requests from an unauthenticated identity
 - Validate whether any requests from the same source returned successful responses (especially reads of secrets/configmaps, tokenreviews/subjectaccessreviews, or CRDs) and, if so, rotate impacted service account tokens and credentials and perform a targeted review of recently issued tokens and new ClusterRoleBindings.
 - Recover by re-enabling API access in a controlled manner (private endpoint/VPN, bastion, or mTLS), confirming expected kubectl and controller functionality, and monitoring for renewed bursts of failed requests across many request URIs from unauthenticated identities.
 - Escalate to the incident response lead and platform security team if any anonymous request succeeded, if the probing repeats from multiple external IPs, or if follow-on activity appears (new privileged RBAC, pod exec, or secret reads) within 24 hours of the enumeration attempt.
-- Harden by enforcing least-privilege RBAC, enabling and retaining full audit logging for authn/authz failures, applying API server rate limits/WAF rules for repeated 401/403/404 sweeps, and continuously validating that the API endpoint is not publicly reachable.'''
-references = [
-    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access",
-]
+- Harden by enforcing least-privilege RBAC, enabling and retaining full audit logging for authn/authz failures, applying API server rate limits/WAF rules for repeated 401/403/404 sweeps, and continuously validating that the API endpoint is not publicly reachable."""
+references = ["https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access"]
 risk_score = 47
 rule_id = "a3dfb1f3-1613-5b16-b6cd-68edee3c54dd"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -61,7 +57,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -81,6 +77,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-aws.eks_audit-* metadata _id, _index, _version
 | where (
@@ -146,33 +143,34 @@ from logs-aws.eks_audit-* metadata _id, _index, _version
 | keep Esql.*, aws.eks.audit.sourceIPs, user_agent.original
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0007"
-name = "Discovery"
-reference = "https://attack.mitre.org/tactics/TA0007/"
-
 [[rule.threat.technique]]
 id = "T1613"
 name = "Container and Resource Discovery"
 reference = "https://attack.mitre.org/techniques/T1613/"
 
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1595"
+name = "Active Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/"
+[[rule.threat.technique.subtechnique]]
+id = "T1595.003"
+name = "Wordlist Scanning"
+reference = "https://attack.mitre.org/techniques/T1595/003/"
+
+
 
 [rule.threat.tactic]
 id = "TA0043"
 name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
 
-[[rule.threat.technique]]
-id = "T1595"
-name = "Active Scanning"
-reference = "https://attack.mitre.org/techniques/T1595/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1595.003"
-name = "Wordlist Scanning"
-reference = "https://attack.mitre.org/techniques/T1595/003/"

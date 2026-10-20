@@ -4,21 +4,20 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-Flags exec into a pod when the URL-decoded command payload resembles reverse-shell or bind-shell
-one-liners invocation patterns. Legitimate debug sessions sometimes use similar building blocks, but together
-these patterns align with post-exploitation interactive access and command-and-control.
-'''
+description = """
+Flags exec into a pod when the URL-decoded command payload resembles reverse-shell or bind-shell one-liners invocation
+patterns. Legitimate debug sessions sometimes use similar building blocks, but together these patterns align with
+post-exploitation interactive access and command-and-control.
+"""
 from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EKS Pod Exec Potential Reverse Shell"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EKS Pod Exec Potential Reverse Shell
 The rule inspects Kubernetes audit exec requestURI values, URL-decodes them, parses the command query fragment, and
@@ -45,12 +44,11 @@ matches high-signal shell and socket idioms often used to obtain a allback shell
 ### Response and remediation
 
 - If malicious, terminate the exec session, isolate the workload or node, rotate credentials reachable from the
-  pod, and revoke pods/exec for the abused principal unless strictly required.'''
-references = []
+  pod, and revoke pods/exec for the abused principal unless strictly required."""
+references = ["https://attack.mitre.org/techniques/T1609/", "https://attack.mitre.org/techniques/T1059/"]
 risk_score = 73
 rule_id = "cbb10288-ee36-5879-b457-0f4f495c132e"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -58,7 +56,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "high"
 tags = [
     "Domain: Cloud",
@@ -78,6 +76,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 FROM logs-aws.eks_audit-* metadata _id, _index, _version
 | WHERE aws.eks.audit.objectRef.subresource == "exec"
@@ -94,20 +93,22 @@ FROM logs-aws.eks_audit-* metadata _id, _index, _version
 | KEEP Esql.*, @timestamp, user.name, source.ip, user_agent.original, event.action, aws.eks.audit.objectRef.namespace, aws.eks.audit.objectRef.name, aws.eks.audit.requestURI, aws.eks.audit.user.username, data_stream.namespace, _id, _index, _version
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
 
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
-[[rule.threat.technique]]
-id = "T1059"
-name = "Command and Scripting Interpreter"
-reference = "https://attack.mitre.org/techniques/T1059/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+

@@ -4,23 +4,21 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-This rule detects when a forbidden request is made from an unusual user agent in a Kubernetes environment.
-Adversary tooling may use non-standard or unexpected user agents to interact with the Kubernetes API, which
-can indicate an attempt to evade detection or blend in with legitimate traffic. In combination with a forbidden
-request, this behavior can suggest an adversary is attempting to exploit vulnerabilities or misconfigurations
-in the Kubernetes cluster.
-'''
+description = """
+This rule detects when a forbidden request is made from an unusual user agent in a Kubernetes environment. Adversary
+tooling may use non-standard or unexpected user agents to interact with the Kubernetes API, which can indicate an
+attempt to evade detection or blend in with legitimate traffic. In combination with a forbidden request, this behavior
+can suggest an adversary is attempting to exploit vulnerabilities or misconfigurations in the Kubernetes cluster.
+"""
 index = ["logs-aws.eks_audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EKS Forbidden Request from Unusual User Agent"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -52,11 +50,10 @@ Kubernetes, a container orchestration platform, manages applications across clus
 - Patch any identified vulnerabilities or misconfigurations in the Kubernetes environment that may have been exploited, ensuring all components are up to date with the latest security patches.
 - Implement stricter access controls and user agent validation to prevent non-standard user agents from interacting with the Kubernetes API unless explicitly allowed.
 - Escalate the incident to the security operations team for further investigation and to determine if additional containment or remediation actions are necessary.
-- Enhance monitoring and alerting for similar activities by tuning detection systems to recognize patterns associated with this type of threat, ensuring rapid response to future incidents.'''
+- Enhance monitoring and alerting for similar activities by tuning detection systems to recognize patterns associated with this type of threat, ensuring rapid response to future incidents."""
 risk_score = 47
 rule_id = "fceb911b-abb1-5a79-a12e-510c284d2669"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -64,7 +61,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -84,6 +81,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 data_stream.dataset:"aws.eks_audit" and
 aws.eks.audit.stage:"ResponseComplete" and
@@ -92,13 +90,6 @@ user_agent.original:(* and not (*kubernetes/$Format)) and
 not user.name:eks\:*
 '''
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["user_agent.original"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -107,16 +98,24 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat.technique]]
-id = "T1613"
-name = "Container and Resource Discovery"
-reference = "https://attack.mitre.org/techniques/T1613/"
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
+
+

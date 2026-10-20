@@ -4,29 +4,29 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-This rule detects when a service account or node attempts to enumerate their own permissions via the selfsubjectaccessreview
-or selfsubjectrulesreview APIs via an unusual user agent. This is highly unusual behavior for non-human identities like
-service accounts and nodes. An adversary may have gained access to credentials/tokens and this could be an attempt to
-determine what privileges they have to facilitate further movement or execution within the cluster.
-'''
+description = """
+This rule detects when a service account or node attempts to enumerate their own permissions via the
+selfsubjectaccessreview or selfsubjectrulesreview APIs via an unusual user agent. This is highly unusual behavior for
+non-human identities like service accounts and nodes. An adversary may have gained access to credentials/tokens and this
+could be an attempt to determine what privileges they have to facilitate further movement or execution within the
+cluster.
+"""
 false_positives = [
-    '''
+    """
     An administrator may submit this request as an "impersonatedUser" to determine what privileges a particular service
     account has been granted. However, an adversary may utilize the same technique as a means to determine the
     privileges of another token other than that of the compromised account.
-''',
+    """,
 ]
 index = ["logs-aws.eks_audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EKS Suspicious Self-Subject Review via Unusual User Agent"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -58,7 +58,7 @@ Kubernetes uses APIs like selfsubjectaccessreview and selfsubjectrulesreview to 
 - Implement network segmentation and access controls to limit the ability of compromised identities to interact with sensitive resources or other parts of the cluster.
 - Escalate the incident to the security operations team for further investigation and to determine if additional systems or data have been affected.
 - Enhance monitoring and alerting for similar suspicious activities by tuning detection systems to recognize patterns of unauthorized privilege enumeration attempts.
-- Review and update Kubernetes role-based access control (RBAC) policies to ensure that service accounts and nodes have the minimum necessary permissions, reducing the risk of privilege abuse.'''
+- Review and update Kubernetes role-based access control (RBAC) policies to ensure that service accounts and nodes have the minimum necessary permissions, reducing the risk of privilege abuse."""
 references = [
     "https://www.paloaltonetworks.com/apps/pan/public/downloadResource?pagePath=/content/pan/en_US/resources/whitepapers/kubernetes-privilege-escalation-excessive-permissions-in-popular-platforms",
     "https://kubernetes.io/docs/reference/access-authn-authz/authorization/#checking-api-access",
@@ -66,8 +66,7 @@ references = [
 ]
 risk_score = 21
 rule_id = "87248e90-9b92-500c-8641-bf240ad3f232"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -75,7 +74,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -94,6 +93,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
+
 query = '''
 data_stream.dataset : "aws.eks_audit" and
 aws.eks.audit.annotations.authorization_k8s_io/decision:"allow" and
@@ -104,33 +104,35 @@ aws.eks.audit.objectRef.resource:("selfsubjectaccessreviews" or "selfsubjectrule
 ) and user_agent.original:(* and not (*kubernetes/$Format))
 '''
 
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["user_agent.original"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1069"
+name = "Permission Groups Discovery"
+reference = "https://attack.mitre.org/techniques/T1069/"
+[[rule.threat.technique.subtechnique]]
+id = "T1069.003"
+name = "Cloud Groups"
+reference = "https://attack.mitre.org/techniques/T1069/003/"
+
+
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat.technique]]
-id = "T1069"
-name = "Permission Groups Discovery"
-reference = "https://attack.mitre.org/techniques/T1069/"
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["user_agent.original"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"
 
-[[rule.threat.technique.subtechnique]]
-id = "T1069.003"
-name = "Cloud Groups"
-reference = "https://attack.mitre.org/techniques/T1069/003/"
 
-[[rule.threat.technique]]
-id = "T1613"
-name = "Container and Resource Discovery"
-reference = "https://attack.mitre.org/techniques/T1613/"

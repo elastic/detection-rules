@@ -4,23 +4,22 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 This rule detects attempts to create resources in Kubernetes clusters that are forbidden by the authorization policy. It
 specifically looks for creation requests that are denied with a "forbid" decision, indicating that the user or service
 account does not have the necessary permissions to perform the action. This activity is commonly associated with
 adversaries attempting to create resources in a Kubernetes environment without proper authorization, which can lead to
 unauthorized access, manipulation of cluster resources, lateral movement and/or privilege escalation.
-'''
+"""
 index = ["logs-aws.eks_audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS EKS Forbidden Creation Request"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -54,11 +53,10 @@ Kubernetes, a container orchestration platform, manages applications across clus
 - Conduct a thorough audit of recent Kubernetes audit logs to identify any other unauthorized access attempts or suspicious activities that may have occurred around the same time as the detected alert.
 - Escalate the incident to the security operations team for further investigation and to determine if there is a broader security incident or breach. Provide them with all relevant logs and findings.
 - Implement additional monitoring and alerting for similar unauthorized creation attempts in the future. This can include setting up alerts for any "forbid" decisions in the audit logs to ensure rapid detection and response.
-- Consider deploying additional security tools or services, such as intrusion detection systems or anomaly detection solutions, to enhance the security posture of the Kubernetes environment and prevent similar threats.'''
+- Consider deploying additional security tools or services, such as intrusion detection systems or anomaly detection solutions, to enhance the security posture of the Kubernetes environment and prevent similar threats."""
 risk_score = 47
 rule_id = "85fe3b35-cc25-5a12-9bad-2a9ba0e73d98"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -66,7 +64,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -85,10 +83,13 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 any where data_stream.dataset == "aws.eks_audit" and aws.eks.audit.verb == "create" and
-aws.eks.audit.stage == "ResponseComplete" and `aws.eks.audit.annotations.authorization_k8s_io/decision` == "forbid"
+aws.eks.audit.stage == "ResponseComplete" and `aws.eks.audit.annotations.authorization_k8s_io/decision` == "forbid" and
+user.name != null and not user.name in ("system:kube-scheduler", "system:kube-controller-manager")
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -97,3 +98,4 @@ framework = "MITRE ATT&CK"
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
+

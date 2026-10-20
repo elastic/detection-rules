@@ -4,24 +4,22 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-Detects pod or attach exec API calls where the decoded request query implies **curl** or wget fetching an
-**https** URL. Attackers with permission to exec into workloads often run one-liners to stage tooling, pull
-scripts or binaries, or exfiltrate data over HTTPS—activity that should be rare compared to shells, debuggers, or
-expected health checks. The rule decodes the audit requestURI, reconstructs a readable command string from
-repeated command parameters, and applies **noise filters** for common cluster health and OIDC/JWKS endpoints so
-benign automation is less likely to alert.
-'''
+description = """
+Detects pod or attach exec API calls where the decoded request query implies **curl** or wget fetching an **https** URL.
+Attackers with permission to exec into workloads often run one-liners to stage tooling, pull scripts or binaries, or
+exfiltrate data over HTTPS—activity that should be rare compared to shells, debuggers, or expected health checks. The
+rule decodes the audit requestURI, reconstructs a readable command string from repeated command parameters, and applies
+**noise filters** for common cluster health and OIDC/JWKS endpoints so benign automation is less likely to alert.
+"""
 from = "now-6m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EKS Pod Exec with Curl or Wget to HTTPS"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EKS Pod Exec with Curl or Wget to HTTPS
 Kubernetes audit logs record exec (and similar attach) calls on requestURI, including URL-encoded
@@ -49,12 +47,11 @@ flags curl or wget combined with https, excluding several ommon health, localhos
 ### Response and remediation
 
 - Rotate any secrets accessible from the pod, cordon or delete the workload if compromised, and tighten RBAC so only
-  required principals retain **`pods/exec`** on sensitive namespaces.'''
-references = []
+  required principals retain **`pods/exec`** on sensitive namespaces."""
+references = ["https://attack.mitre.org/techniques/T1609/", "https://attack.mitre.org/techniques/T1105/"]
 risk_score = 73
 rule_id = "7a12c6d0-720a-5763-a1f7-39ae37727f22"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -62,7 +59,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "high"
 tags = [
     "Domain: Cloud",
@@ -82,6 +79,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 FROM logs-aws.eks_audit-* metadata _id, _index, _version
 | WHERE aws.eks.audit.objectRef.subresource == "exec"
@@ -97,28 +95,29 @@ FROM logs-aws.eks_audit-* metadata _id, _index, _version
 | KEEP Esql.*, @timestamp, user.name, source.ip, user_agent.original, event.action, aws.eks.audit.objectRef.namespace, aws.eks.audit.objectRef.name, aws.eks.audit.requestURI, aws.eks.audit.user.username, data_stream.namespace, _id, _index, _version
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
-
-[rule.threat.tactic]
-id = "TA0002"
-name = "Execution"
-reference = "https://attack.mitre.org/tactics/TA0002/"
-
 [[rule.threat.technique]]
 id = "T1609"
 name = "Container Administration Command"
 reference = "https://attack.mitre.org/techniques/T1609/"
 
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
 
 [rule.threat.tactic]
 id = "TA0011"
 name = "Command and Control"
 reference = "https://attack.mitre.org/tactics/TA0011/"
 
-[[rule.threat.technique]]
-id = "T1105"
-name = "Ingress Tool Transfer"
-reference = "https://attack.mitre.org/techniques/T1105/"

@@ -4,20 +4,19 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 This rule detects potential endpoint enumeration attempts by a single user and source IP address. By looking for a
-combination of failed/successful API requests across multiple endpoints and a limited number of documents, this rule
-can detect automated permission enumeration attempts. This behavior is uncommon for regular Kubernetes clusters.
-'''
+combination of failed/successful API requests across multiple endpoints and a limited number of documents, this rule can
+detect automated permission enumeration attempts. This behavior is uncommon for regular Kubernetes clusters.
+"""
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EKS Potential Endpoint Permission Enumeration Attempt Detected"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -44,14 +43,11 @@ Detects a single Kubernetes identity from one IP issuing a burst of API calls ac
 - Eradicate the access path by rotating any credentials the identity could have used (OIDC refresh tokens, client certs, static kubeconfigs) and removing unexpected RBAC RoleBindings/ClusterRoleBindings or groups that grant broad read access discovered during review.
 - Validate impact and recover by reviewing what endpoints returned successful data during the burst (especially secrets, configmaps, nodes, pods, and RBAC objects), rotating any exposed application secrets, and restarting affected workloads after credential updates.
 - Escalate immediately to incident response if the same identity subsequently creates/patches RBAC bindings, deploys privileged pods/daemonsets, performs exec/port-forward, or accesses secret data across multiple namespaces.
-- Harden by enforcing least-privilege RBAC for humans and service accounts, segmenting API access with network controls (private endpoint/VPN allowlists), and enabling short-lived tokens with regular rotation plus alerting on repeated mixed allow/deny probing across many resources.'''
-references = [
-    "https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access",
-]
+- Harden by enforcing least-privilege RBAC for humans and service accounts, segmenting API access with network controls (private endpoint/VPN allowlists), and enabling short-lived tokens with regular rotation plus alerting on repeated mixed allow/deny probing across many resources."""
+references = ["https://heilancoos.github.io/research/2025/12/16/kubernetes.html#unauthenticated-api-access"]
 risk_score = 47
 rule_id = "64376548-53f9-53f3-869c-02c7d136b572"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -59,7 +55,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -78,6 +74,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-aws.eks_audit-* metadata _id, _index, _version
 | where aws.eks.audit.stage == "ResponseComplete" and aws.eks.audit.verb in ("get", "list", "watch", "create", "update", "patch")
@@ -108,15 +105,17 @@ from logs-aws.eks_audit-* metadata _id, _index, _version
 | keep Esql.*, aws.eks.audit.user.username, aws.eks.audit.sourceIPs
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat.technique]]
-id = "T1613"
-name = "Container and Resource Discovery"
-reference = "https://attack.mitre.org/techniques/T1613/"

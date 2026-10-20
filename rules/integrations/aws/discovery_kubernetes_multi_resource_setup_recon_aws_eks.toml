@@ -4,26 +4,25 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 Adversaries who land credentials in a cluster—or abuse an over-privileged token—often map the environment before
 exfiltration or privilege escalation. A practical first pass is to learn where workloads run, how the cluster is
-partitioned, and what RBAC exists at namespace vs cluster scope. Rapid get/list traffic across distinct
-API resource kinds that answer those questions (namespaces, workloads, roles, cluster-wide roles) is a common
-setup and orientation pattern for both interactive attackers and automated recon scripts. It is less typical for
-steady-state controllers, which usually touch a narrow set of resources repeatedly. This rule highlights that
-cross-resource burst from a single client fingerprint within a one-minute bucket so analysts can separate routine
-automation from potential discovery and permission reconnaissance ahead of follow-on actions.
-'''
+partitioned, and what RBAC exists at namespace vs cluster scope. Rapid get/list traffic across distinct API resource
+kinds that answer those questions (namespaces, workloads, roles, cluster-wide roles) is a common setup and orientation
+pattern for both interactive attackers and automated recon scripts. It is less typical for steady-state controllers,
+which usually touch a narrow set of resources repeatedly. This rule highlights that cross-resource burst from a single
+client fingerprint within a one-minute bucket so analysts can separate routine automation from potential discovery and
+permission reconnaissance ahead of follow-on actions.
+"""
 from = "now-11m"
 language = "esql"
 license = "Elastic License v2"
 name = "AWS EKS Multi-Resource Discovery"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 ### Investigating AWS EKS Multi-Resource Discovery
 The rule groups Kubernetes audit `get`/`list` events on namespaces, pods, roles, and clusterroles into one-minute windows
@@ -51,12 +50,11 @@ object types the caller attempted to reach.
 ### Response and remediation
 
 - If malicious, revoke or rotate the implicated credentials, review and tighten RBAC, and inspect for data access or
-  persistence established after the burst.'''
+  persistence established after the burst."""
 references = ["https://microsoft.github.io/Threat-Matrix-for-Kubernetes/"]
 risk_score = 47
 rule_id = "67ff2b08-37af-53ce-a19e-00acca8515e0"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -64,7 +62,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -83,6 +81,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "esql"
+
 query = '''
 from logs-aws.eks_audit-* metadata _id, _index, _version
 | eval Esql.time_interval = date_trunc(1 minute, @timestamp)
@@ -103,15 +102,17 @@ from logs-aws.eks_audit-* metadata _id, _index, _version
 | keep Esql.*, aws.eks.audit.user.username, user.name, source.ip, user_agent.original
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1613"
+name = "Container and Resource Discovery"
+reference = "https://attack.mitre.org/techniques/T1613/"
+
 
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
-[[rule.threat.technique]]
-id = "T1613"
-name = "Container and Resource Discovery"
-reference = "https://attack.mitre.org/techniques/T1613/"
