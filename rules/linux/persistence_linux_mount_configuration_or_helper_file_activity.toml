@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving the Linux filesystem table or filesystem-specific mount helpers. Entries in
+/etc/fstab can cause filesystems to be mounted during boot or through mount -a. For filesystem types requiring external
+support, mount can delegate processing to executable mount.<type> helpers in privileged system directories. Adversaries
+may combine a persistent mount entry with a malicious helper to execute code during boot or administrative mount
+operations.
+"""
+false_positives = [
+    "Legitimate storage configuration, filesystem utility installation, operating-system updates, and configuration-management activity.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Mount Configuration or Helper File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Mount Configuration or Helper File Activity
+
+Linux uses `/etc/fstab` to describe filesystems that can be mounted during boot or by `mount -a`. When a filesystem type
+requires userspace support, `mount` can execute a filesystem-specific `mount.<type>` helper from a privileged helper
+directory. A new type in `/etc/fstab` paired with a new or modified matching helper can therefore create a durable
+execution path. Either artifact can also be legitimate, so their content, provenance, and relationship are important.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- For `/etc/fstab`, retrieve the file and identify new or changed source, target, filesystem type, option, dump, and
+  filesystem-check fields.
+- For a `mount.<type>` helper, verify ownership, permissions, package provenance, file type, signature or hash, and
+  whether the helper type appears in `/etc/fstab` or recent mount commands.
+- Prioritize an uncommon filesystem type that appears in both `/etc/fstab` and a newly written helper, especially when
+  the helper is a script, references an unexpected executable, or creates unusual child processes.
+- Correlate the change with boot activity, `systemctl daemon-reload`, `mount -a`, direct `mount` execution, generated
+  mount units, unexpected shells, and network connections.
+- Treat files under `/run/systemd/generator` as derived output. Trace them back to `/etc/fstab` or another durable
+  configuration source rather than treating them as the persistence artifact.
+
+### False positive analysis
+
+- Administrators and provisioning systems commonly update `/etc/fstab` when attaching storage or building hosts.
+- Filesystem packages legitimately install helpers such as `mount.nfs` or `mount.cifs`. Validate package ownership and
+  deployment context before creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed configuration and helper before remediation.
+- Remove unauthorized entries or helpers and restore trusted files from package or configuration baselines.
+- Unmount unauthorized filesystems using approved procedures and review files exposed or written through the mount.
+- Investigate commands executed by the helper and any activity that occurred while the mount path was active.
+- Scope matching filesystem types, helper hashes, mount targets, writers, and resulting process ancestry across the
+  environment.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man5/fstab.5.html",
+    "https://man7.org/linux/man-pages/man8/mount.8.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd-fstab-generator.html",
+]
+risk_score = 21
+rule_id = "29bbc3dc-2677-4dc2-8a3a-645ae3e23837"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/fstab",
+    "/sbin/mount.*",
+    "/sbin/fs.d/mount.*",
+    "/sbin/fs/mount.*",
+    "/usr/sbin/mount.*",
+    "/usr/sbin/fs.d/mount.*",
+    "/usr/sbin/fs/mount.*"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
