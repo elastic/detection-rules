@@ -2,7 +2,7 @@
 creation_date = "2023/04/03"
 integration = ["endpoint", "windows", "system"]
 maturity = "production"
-updated_date = "2026/09/14"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
@@ -41,6 +41,12 @@ tags = [
     "Data Source: Elastic Endgame",
     "Data Source: Windows Security Event Logs",
     "Data Source: Sysmon",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Threat: Remote Management Tool Abuse",
+    "Rule Type: New Terms",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "new_terms"
@@ -281,18 +287,10 @@ host.os.type: "windows" and
         )
   ) and
   not (process.pe.original_file_name : ("G2M.exe" or "Updater.exe" or "powershell.exe") and process.code_signature.subject_name : "LogMeIn, Inc.") and
-  not (
-    process.code_signature.trusted : true and (
-      (process.code_signature.subject_name : "N-ABLE TECHNOLOGIES LTD" and
-       not process.name.caseless : ("BASupSrvc.exe" or "AgentMon.exe" or "CagService.exe")) or
-      (process.code_signature.subject_name : "ZOHO Corporation Private Limited" and
-       not process.name.caseless : ("ZohoMeeting.exe" or "zohotray.exe" or "ZohoURS.exe" or "ZohoURSService.exe" or "ZA_Access.exe" or "za_connect.exe" or "Zaservice.exe" or "ZMAgent.exe")) or
-      (process.code_signature.subject_name : "Splashtop Inc." and
-       not process.name.caseless : ("Splashtop-streamer.exe" or "SplashtopSOS.exe" or "spsrv.exe" or "strwinclt.exe" or "sragent.exe" or "SRService.exe" or "srmanager.exe" or "srserver.exe")) or
-      (process.code_signature.subject_name : ("TeamViewer Germany GmbH" or "TeamViewer GmbH" or "TeamViewer") and
-       process.name : "crashpad_handler.exe")
-    )
-  )
+  not (process.code_signature.subject_name : "N-ABLE TECHNOLOGIES LTD" and not process.name.caseless : ("BASupSrvc.exe" or "AgentMon.exe")) and
+  not (process.code_signature.subject_name : "ZOHO Corporation Private Limited" and not process.name.caseless : ("ZA_Access.exe" or "za_connect.exe" or "Zaservice.exe" or "ZMAgent.exe" or "ZohoMeeting.exe" or "zohotray.exe" or "ZohoURS.exe" or "ZohoURSService.exe" or "ManageEngine_Remote_Access_Plus.exe")) and
+  not (process.code_signature.subject_name : "Splashtop Inc." and not process.name.caseless : ("Splashtop-streamer.exe" or "SplashtopSOS.exe" or "spsrv.exe" or "sragent.exe" or "SRService.exe" or "srmanager.exe" or "srserver.exe" or "strwinclt.exe")) and
+  not (process.code_signature.subject_name : "TeamViewer Germany GmbH" and not process.name.caseless : ("teamviewer.exe" or "teamviewer_desktop.exe" or "teamviewer_service.exe"))
 '''
 
 
