@@ -1,0 +1,161 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Linux auditing and logging configuration. Adversaries may alter these files
+to suppress, filter, redirect, or shorten the retention of security telemetry. Audit dispatcher plugins and some syslog
+outputs can also invoke external programs, providing a trusted, event-triggered execution path.
+"""
+false_positives = [
+    "Legitimate auditing or logging administration, package installation, and configuration-management activity.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Audit and Logging Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Audit and Logging Configuration File Activity
+
+Linux auditing and logging components rely on privileged configuration files to determine which events are collected,
+where records are stored or forwarded, and whether external programs process them. Unauthorized changes can create
+telemetry gaps, redirect records away from defenders, reduce retention, or configure execution through audit dispatcher
+plugins and command-capable syslog destinations.
+
+### Possible investigation steps
+
+- Review the affected file, operation, responsible process, parent process, user, timestamp, and process command line.
+- Determine whether the change belongs to an approved package transaction, logging deployment, security-policy update,
+  or configuration-management run.
+- For audit rules, look for removed watches, reduced syscall coverage, broad `never` or exclusion rules, and altered
+  identity or permission filters.
+- For audit plugin definitions, inspect whether the plugin is active and review its executable path, arguments, format,
+  direction, and event type.
+- For rsyslog and syslog-ng, inspect included files, filters, discarded messages, remote destinations, and command-capable
+  outputs such as `omprog` or `program()`.
+- For journald, review storage mode, retention limits, rate limits, forwarding, sealing, and namespace settings that could
+  reduce or redirect telemetry.
+- Correlate the change with daemon reloads or restarts, configuration validation commands, child processes of `auditd`,
+  `rsyslogd`, or `syslog-ng`, and changes in event volume or forwarding.
+- Compare the effective configuration with package metadata, source-controlled policy, change records, and known-good
+  hosts.
+
+### False positive analysis
+
+- Operating-system and security packages can create or replace audit and logging configuration.
+- Administrators and configuration-management systems commonly update collection, forwarding, and retention policy.
+  Validate the writer and resulting effective configuration before introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed configuration and related process telemetry before restoring trusted policy.
+- Remove unauthorized plugins, command-capable outputs, filters, or retention changes.
+- Validate configuration syntax, reload the affected service using approved procedures, and verify that collection and
+  forwarding resume as expected.
+- Review telemetry gaps and activity occurring while logging may have been impaired or redirected.
+- Scope matching files, directives, executable paths, destinations, and initiating accounts across the environment.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man5/auditd-plugins.5.html",
+    "https://man7.org/linux/man-pages/man7/audit.rules.7.html",
+    "https://www.rsyslog.com/doc/configuration/modules/omprog.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/journald.conf.html",
+]
+risk_score = 21
+rule_id = "d9731c36-9f59-4752-9ea5-5d9073d1578b"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/audit/auditd.conf",
+    "/etc/audit/audit.rules",
+    "/etc/audit/rules.d/*.rules",
+    "/etc/audit/plugins.d/*.conf",
+    "/etc/audisp/plugins.d/*.conf",
+    "/etc/rsyslog.conf",
+    "/etc/rsyslog.d/*.conf",
+    "/etc/syslog-ng/syslog-ng.conf",
+    "/etc/syslog-ng/conf.d/*.conf",
+    "/etc/systemd/journald.conf",
+    "/etc/systemd/journald.conf.d/*.conf"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
