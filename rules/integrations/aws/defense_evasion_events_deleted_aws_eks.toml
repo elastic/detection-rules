@@ -4,25 +4,27 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/20"
 
 [rule]
 author = ["Elastic"]
-description = '''
-This rule detects the deletion of Kubernetes events, which can indicate an attempt to cover up malicious
-activity or misconfigurations. Adversaries may delete events to remove traces of their actions, making it
-harder for defenders to investigate and respond to incidents.
-'''
+description = """
+This rule detects the deletion of Kubernetes events, which can indicate an attempt to cover up malicious activity or
+misconfigurations. Adversaries may delete events to remove traces of their actions, making it harder for defenders to
+investigate and respond to incidents.
+"""
 false_positives = [
-    "Administrators may delete Kubernetes Event objects during routine troubleshooting or cleanup. Confirm the actor, scope, and timing before treating the activity as malicious.",
+    """
+    Administrators may delete Kubernetes Event objects during routine troubleshooting or cleanup. Confirm the actor,
+    scope, and timing before treating the activity as malicious.
+    """,
 ]
 from = "now-6m"
 index = ["logs-aws.eks_audit-*"]
 language = "kuery"
 license = "Elastic License v2"
 name = "AWS EKS Events Deleted"
-note = '''
- ## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -54,11 +56,10 @@ Kubernetes, a container orchestration platform, logs events to track activities 
 - Implement stricter logging and monitoring policies to ensure that any future deletions of Kubernetes events are detected and alerted in real-time.
 - Escalate the incident to the security operations center (SOC) for a comprehensive analysis of potential breaches and to determine if additional systems or data were affected.
 - Coordinate with the incident response team to conduct a root cause analysis and identify any vulnerabilities or misconfigurations that allowed the event deletion to occur.
-- Update and reinforce security policies and procedures to prevent similar incidents, including enhancing detection capabilities for defense evasion tactics as outlined in MITRE ATT&CK.'''
+- Update and reinforce security policies and procedures to prevent similar incidents, including enhancing detection capabilities for defense evasion tactics as outlined in MITRE ATT&CK."""
 risk_score = 21
 rule_id = "9f717eba-243c-5e10-bfca-9cd8c4ed60f1"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -66,7 +67,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "low"
 tags = [
     "Domain: Cloud",
@@ -85,6 +86,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "query"
+
 query = '''
 data_stream.dataset:"aws.eks_audit" and
 aws.eks.audit.verb:("delete" or "deletecollection") and
@@ -93,20 +95,22 @@ aws.eks.audit.stage:"ResponseComplete" and
 not user.name:"system:serviceaccount:kube-system:namespace-controller"
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+[[rule.threat.technique.subtechnique]]
+id = "T1070.004"
+name = "File Deletion"
+reference = "https://attack.mitre.org/techniques/T1070/004/"
+
+
 
 [rule.threat.tactic]
 id = "TA0005"
 name = "Defense Evasion"
 reference = "https://attack.mitre.org/tactics/TA0005/"
 
-[[rule.threat.technique]]
-id = "T1070"
-name = "Indicator Removal"
-reference = "https://attack.mitre.org/techniques/T1070/"
-
-[[rule.threat.technique.subtechnique]]
-id = "T1070.004"
-name = "File Deletion"
-reference = "https://attack.mitre.org/techniques/T1070/004/"
