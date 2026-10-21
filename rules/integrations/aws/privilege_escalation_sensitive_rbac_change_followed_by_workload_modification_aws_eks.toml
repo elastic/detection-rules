@@ -4,7 +4,7 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/20"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
@@ -14,6 +14,7 @@ wildcard access or escalation verbs) and then creates or patches a workload reso
 shortly after, which may indicate RBAC-based privilege escalation followed by payload deployment. This pattern is often
 used by adversaries to gain unauthorized access to sensitive resources and deploy malicious payloads.
 """
+from = "now-6m"
 index = ["logs-aws.eks_audit-*"]
 language = "eql"
 license = "Elastic License v2"
@@ -82,7 +83,7 @@ timestamp_override = "event.ingested"
 type = "eql"
 
 query = '''
-sequence by user.name with maxspan=5m
+sequence by orchestrator.cluster.name, user.name with maxspan=5m
   [any where data_stream.dataset == "aws.eks_audit" and
    `aws.eks.audit.annotations.authorization_k8s_io/decision` == "allow" and
     aws.eks.audit.objectRef.resource in ("roles", "clusterroles") and
@@ -92,6 +93,8 @@ sequence by user.name with maxspan=5m
    `aws.eks.audit.annotations.authorization_k8s_io/decision` == "allow" and
     aws.eks.audit.objectRef.resource in ("daemonsets", "deployments", "cronjobs") and
     aws.eks.audit.verb in ("create", "patch") and
+    /* skip controller status writes and HPA / kubectl scale patches */
+    not aws.eks.audit.objectRef.subresource in ("status", "scale") and
     /* reduce control-plane / bootstrap noise */
     not aws.eks.audit.user.groups == "system:masters" and
     not startsWith(user.name, "eks:")
