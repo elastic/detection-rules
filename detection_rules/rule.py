@@ -55,6 +55,7 @@ from .stack_emit import (
     apply_emit_transforms,
     emit_epoch_key,
     parse_stack,
+    resolve_stack_emit_entry,
     transforms_for_stack,
 )
 from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
@@ -1291,14 +1292,26 @@ class BaseRuleContents(ABC):
         locked_emit = self.version_lock.get_stack_emit_hash(self.id, package_stack)
 
         if transforms_noop:
-            # a stale real epoch is dirty and needs a relock. a baseline boundary row (transforms [], sha of the
-            # untransformed payload, written when an older epoch would otherwise be inherited) is current as
-            # long as its hash matches, so the stack keeps shipping the baseline number
-            return locked_emit is not None and locked_emit != emit_hash
+            # a stale real epoch is dirty; a baseline boundary row is dirty only once it stops mirroring the
+            # serving baseline (see StackEmitEntry)
+            return locked_emit is not None and self._emit_row_is_stale(package_stack)
 
         if locked_emit is None:
             return True
         return locked_emit != emit_hash
+
+    def _emit_row_is_stale(self, package_stack: Version) -> bool:
+        """For a no-op payload: a real epoch row is stale; a boundary row is stale once it no longer mirrors
+        the serving baseline's version and hash."""
+        stack_emit = self.version_lock.version_lock[self.id].to_dict().get("stack_emit")
+        row = resolve_stack_emit_entry(stack_emit, package_stack) or {}
+        if row.get("transforms") != []:
+            return True
+        min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
+        stack_key = f"{min_stack.major}.{min_stack.minor}"
+        locked_hash = self.version_lock.get_locked_hash(self.id, stack_key)
+        locked_version = int(self.version_lock.get_locked_version(self.id, stack_key) or 0)
+        return row.get("sha256") != locked_hash or int(row.get("version") or 0) != locked_version
 
     def get_untransformed_hashable_content(self) -> dict[str, Any]:
         """API payload with build-time fields but without stack emit transforms."""

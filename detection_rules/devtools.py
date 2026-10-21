@@ -204,16 +204,20 @@ def build_release(  # noqa: PLR0913, PLR0917
     click.echo(f"[+] Adding historical rules from {previous_pkg_version} package")
 
     if drifts:
+        # related_integrations is excluded from the baseline hash on purpose (see get_hashable_content), so
+        # a change there never bumps a version today; report it, but only fail on fields the lock versions
+        unversioned = {"related_integrations"}
+        hard = [d for d in drifts if set(d["fields"]) - unversioned]
         click.echo(
             f"[!] {len(drifts)} rule asset(s) keep the version shipped in {previous_pkg_version} but have different "
-            "content. A shipped rule_id + version must be immutable."
+            f"content ({len(hard)} on versioned fields). A shipped rule_id + version must be immutable."
         )
         for drift in drifts:
             fields = ", ".join(drift["fields"])
             click.echo(f"    - {drift['rule_id']} v{drift['version']} {drift['rule_name']}: {fields}")
-        if fail_on_shipped_content_drift:
+        if fail_on_shipped_content_drift and hard:
             raise click.ClickException(
-                "Shipped content drift detected; bump the affected rule versions before releasing."
+                "Shipped content drift detected on versioned fields; bump the affected rules before releasing."
             )
 
     # NOTE: stopgap solution until security doc migration

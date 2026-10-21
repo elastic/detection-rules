@@ -464,14 +464,16 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
                 base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
                 branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
                 _, top_stack = baseline_entry_for_stack(base_val, str(base_val.get("min_stack_version") or ""))
-                scoped = epochs_serving_range(base_emit, *baseline_stack_range(base_val, top_stack))
+                served = baseline_stack_range(base_val, top_stack)
+                scoped = epochs_serving_range(base_emit, *served)
+                scoped_branch = epochs_serving_range(branch_emit, *served)
                 dropped = [
                     epoch for epoch in scoped if epoch not in branch_emit or branch_emit[epoch].get("transforms") == []
                 ]
                 became_boundary = [
                     epoch
-                    for epoch, row in branch_emit.items()
-                    if row.get("transforms") == [] and base_emit.get(epoch, {}).get("transforms") != []
+                    for epoch in scoped_branch
+                    if branch_emit[epoch].get("transforms") == [] and base_emit.get(epoch, {}).get("transforms") != []
                 ]
                 dropped += [epoch for epoch in became_boundary if epoch not in dropped]
                 shipped = [int(base_emit[epoch]["version"]) for epoch in scoped if base_emit[epoch].get("version")]

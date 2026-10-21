@@ -51,8 +51,8 @@ class StackEmitEntry:
     """Version/hash for a stack emit epoch (shared across minors that inherit the same transforms).
 
     ``transforms: []`` marks a baseline boundary: the transforms are a no-op for this epoch's stacks but an
-    older epoch would be inherited without the row, so the row pins those stacks to the baseline version
-    (``version`` equals the serving baseline, ``sha256`` is the untransformed payload hash).
+    older epoch would be inherited without the row, so the row pins those stacks to the baseline. It mirrors
+    the serving baseline entry (same ``version`` and ``sha256``) and moves only when that entry moves.
     """
 
     sha256: definitions.Sha256
@@ -483,16 +483,16 @@ class VersionLock:
                         # would this epoch's own stacks fall back to an older epoch once its row is gone?
                         inherits_older = resolve_stack_emit_entry(older_epochs, parse_stack(epoch_key)) is not None
                         if existing_row is not None and existing_row.get("transforms") == []:
-                            # boundary row: keep it pinned to the serving baseline (route A may have moved it)
+                            # boundary row: a mirror of the serving baseline (same version, same hash), so it
+                            # follows the baseline's own policy and only moves when the baseline moves
                             baseline_entry, _ = baseline_entry_for_stack(lock_from_file, stripped_version)
-                            if existing_row.get("sha256") != untransformed_hash or int(existing_row["version"]) != int(
-                                baseline_entry["version"]
-                            ):
-                                stack_emit[epoch_key] = {
-                                    "sha256": untransformed_hash,
-                                    "version": int(baseline_entry["version"]),
-                                    "transforms": [],
-                                }
+                            mirror = {
+                                "sha256": baseline_entry["sha256"],
+                                "version": int(baseline_entry["version"]),
+                                "transforms": [],
+                            }
+                            if existing_row != mirror:
+                                stack_emit[epoch_key] = mirror
                                 lock_from_file["stack_emit"] = stack_emit
                                 log_changes(
                                     rule,
@@ -535,7 +535,11 @@ class VersionLock:
                             # without a row these stacks would inherit the older epoch's number again, and the
                             # emit-dirty bump would then reuse a published version for the baseline content.
                             # pin them to the baseline instead
-                            stack_emit[epoch_key] = {"sha256": untransformed_hash, "version": floored, "transforms": []}
+                            stack_emit[epoch_key] = {
+                                "sha256": baseline_entry["sha256"],
+                                "version": floored,
+                                "transforms": [],
+                            }
                             lock_from_file["stack_emit"] = stack_emit
                             log_changes(
                                 rule,
