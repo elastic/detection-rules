@@ -113,15 +113,15 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-sequence by host.id with maxspan=3s
+sequence by host.id, process.parent.entity_id with maxspan=3s
   [network where host.os.type == "linux" and event.type == "start" and
    event.action == "connection_accepted" and process.name == "systemd"
-  ] by process.entity_id
+  ]
   [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
    process.parent.name == "systemd" and
    process.name in ("bash", "dash", "sh", "ash", "tcsh", "csh", "zsh", "ksh", "fish", "mksh", "busybox") and
    (process.args in ("-i", "-li", "-il") or process.interactive == true)
-  ] by process.parent.entity_id
+  ]
 '''
 
 [[rule.threat]]
