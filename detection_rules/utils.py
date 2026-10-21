@@ -31,8 +31,6 @@ import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
 
-from .lock_ranges import baseline_entry_for_stack, epochs_for_baseline
-
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
 ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
@@ -460,10 +458,13 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
                 # advanced both channels twice and must still be flagged.
                 # only epochs that serve the top-level entry count here: dropping an older fork's epoch must not
                 # relax the comparison of the top-level baseline
+                from .stack_emit import epochs_serving_range
+                from .version_lock import baseline_entry_for_stack, baseline_stack_range
+
                 base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
                 branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
                 _, top_stack = baseline_entry_for_stack(base_val, str(base_val.get("min_stack_version") or ""))
-                scoped = epochs_for_baseline(base_val, top_stack)
+                scoped = epochs_serving_range(base_emit, *baseline_stack_range(base_val, top_stack))
                 dropped = [epoch for epoch in scoped if epoch not in branch_emit]
                 shipped = [int(base_emit[epoch]["version"]) for epoch in scoped if base_emit[epoch].get("version")]
                 resolved_base: int = max([int(base_version or 0), *shipped]) if dropped else int(base_version or 0)

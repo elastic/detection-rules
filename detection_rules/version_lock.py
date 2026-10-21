@@ -13,10 +13,15 @@ import click
 from semver import Version
 
 from .config import load_current_package_version, parse_rules_config
-from .lock_ranges import baseline_entry_for_stack, emit_versions_for_baseline, floor_baseline_past_shipped
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
-from .stack_emit import emit_epoch_key, parse_stack, resolve_stack_emit_entry, transforms_for_stack
+from .stack_emit import (
+    emit_epoch_key,
+    epochs_serving_range,
+    parse_stack,
+    resolve_stack_emit_entry,
+    transforms_for_stack,
+)
 from .utils import cached
 
 RULES_CONFIG = parse_rules_config()
@@ -137,6 +142,70 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
                 prev_lock["type"] = rule_type
 
     return lock_contents
+
+
+def baseline_entry_for_stack(lock_entry: dict[str, Any], stripped_stack: str) -> tuple[dict[str, Any], str | None]:
+    """Return the baseline entry that packages for ``stripped_stack`` ship, and the stack it is keyed on.
+
+    A fork under ``previous`` is keyed on its stack. The top-level entry is keyed on its ``min_stack_version``
+    only when the rule has forks; an unforked rule ships the top-level entry to every stack, so it is unkeyed.
+    Mirrors VersionLock.get_locked_version on raw lock contents.
+    """
+    previous = cast("dict[str, dict[str, Any]]", lock_entry.get("previous") or {})
+    fork = previous.get(stripped_stack)
+    if fork is not None:
+        return fork, stripped_stack
+    if previous and lock_entry.get("min_stack_version"):
+        return lock_entry, str(lock_entry["min_stack_version"])
+    return lock_entry, None
+
+
+def baseline_stack_range(lock_entry: dict[str, Any], entry_stack: str | None) -> tuple[Version | None, Version | None]:
+    """Stacks served by a baseline entry: from its key up to the next fork or top-level key (None = unbounded)."""
+    if entry_stack is None:
+        return None, None
+    lower = parse_stack(entry_stack)
+    boundaries = [parse_stack(s) for s in cast("dict[str, Any]", lock_entry.get("previous") or {})]
+    if lock_entry.get("min_stack_version"):
+        boundaries.append(parse_stack(str(lock_entry["min_stack_version"])))
+    uppers = [b for b in boundaries if b > lower]
+    return lower, (min(uppers) if uppers else None)
+
+
+def emit_versions_for_baseline(
+    lock_entry: dict[str, Any], entry_stack: str | None, exclude_epoch: str | None = None
+) -> list[int]:
+    """Versions shipped by the epochs that serve any stack the given baseline entry serves.
+
+    ``exclude_epoch`` leaves one epoch out, for callers about to renumber it.
+    """
+    stack_emit = cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {})
+    lower, upper = baseline_stack_range(lock_entry, entry_stack)
+    return [
+        int(stack_emit[epoch]["version"])
+        for epoch in epochs_serving_range(stack_emit, lower, upper)
+        if epoch != exclude_epoch and stack_emit[epoch].get("version")
+    ]
+
+
+def floor_baseline_past_shipped(baseline_entry: dict[str, Any], shipped_versions: list[int], label: str = "") -> int:
+    """Move a baseline past every version its epochs have shipped, so the number is never reused (#7012).
+
+    Raises before touching the entry when a fork would leave its ``max_allowable_version`` range, which is
+    reserved for the newer baseline; that fork then needs a wider buffer, not a silent collision.
+    """
+    current = int(baseline_entry["version"])
+    if not shipped_versions or current > max(shipped_versions):
+        return current
+    floored = max(shipped_versions) + 1
+    max_allowable = baseline_entry.get("max_allowable_version")
+    if max_allowable is not None and floored > int(max_allowable):
+        raise ValueError(
+            f"Forked rule{': ' + label if label else ''}: dropping its emit epoch needs baseline {floored}, above "
+            f"the fork's max allowable version {max_allowable}"
+        )
+    baseline_entry["version"] = floored
+    return floored
 
 
 class VersionLock:

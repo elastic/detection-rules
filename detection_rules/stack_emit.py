@@ -229,6 +229,29 @@ def resolve_stack_emit_entry(
     return max(candidates, key=lambda item: item[0])[1]
 
 
+def epochs_serving_range(
+    stack_emit: dict[str, dict[str, Any]] | None,
+    lower: Version | None,
+    upper: Version | None,
+) -> list[str]:
+    """Epoch keys that ship on any stack in [lower, upper); None means unbounded.
+
+    An epoch serves every stack from its key up to the next epoch key (the inheritance rule behind
+    resolve_stack_emit_entry), so a 9.5 epoch serves 9.6 packages until a 9.6 epoch exists.
+    """
+    if not stack_emit:
+        return []
+    keys = sorted(parse_stack(key) for key in stack_emit)
+    served: list[str] = []
+    for key in stack_emit:
+        start = parse_stack(key)
+        later = [k for k in keys if k > start]
+        end = later[0] if later else None
+        if (upper is None or start < upper) and (lower is None or end is None or lower < end):
+            served.append(key)
+    return served
+
+
 def rewrite_tactic_tags(
     tags: list[str] | None,
     baseline_threat: list[dict[str, Any]] | None,
