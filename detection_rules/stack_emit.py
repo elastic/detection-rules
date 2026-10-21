@@ -134,12 +134,7 @@ def _apply_related_integrations_gte(obj: dict[str, Any], stack: Version, context
 
 
 def _apply_mitre_atlas(obj: dict[str, Any], stack: Version, context: EmitContext) -> None:
-    """Append MITRE ATLAS threat entries from threat_mappings on stacks that ship ATLAS.
-
-    Registered as a 9.6 emit epoch so 9.6 packages allocate a new stack_emit version when
-    ATLAS changes the payload. 9.5 packages keep the 9.5 epoch and never see ATLAS
-    (stripped below in apply_emit_transforms, and this transform is not applicable there).
-    """
+    """Append MITRE ATLAS threat entries from threat_mappings on stacks that ship ATLAS."""
     _ = stack
     atlas_entries = _atlas_entries_from_mappings(context)
     if not atlas_entries:
