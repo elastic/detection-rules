@@ -13,6 +13,7 @@ import click
 from semver import Version
 
 from .config import load_current_package_version, parse_rules_config
+from .lock_ranges import baseline_entry_for_stack, emit_versions_for_baseline, floor_baseline_past_shipped
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
 from .stack_emit import emit_epoch_key, parse_stack, resolve_stack_emit_entry, transforms_for_stack
@@ -136,62 +137,6 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
                 prev_lock["type"] = rule_type
 
     return lock_contents
-
-
-def baseline_entry_for_stack(lock_entry: dict[str, Any], stripped_stack: str) -> tuple[dict[str, Any], str | None]:
-    """Return the baseline entry that packages for ``stripped_stack`` ship, and the stack it is keyed on.
-
-    A forked rule keeps older stacks under ``previous[<major.minor>]``; everything else ships the top-level
-    entry (keyed on its ``min_stack_version`` when it has forks, otherwise unkeyed). Mirrors get_locked_version.
-    """
-    fork = cast("dict[str, dict[str, Any]]", lock_entry.get("previous") or {}).get(stripped_stack)
-    if fork is not None:
-        return fork, stripped_stack
-    return lock_entry, lock_entry.get("min_stack_version")
-
-
-def _stack(stack: str) -> Version:
-    """Parse a major.minor lock key into a comparable Version."""
-    return Version.parse(stack, optional_minor_and_patch=True)
-
-
-def emit_versions_for_baseline(
-    lock_entry: dict[str, Any], entry_stack: str | None, exclude_epoch: str | None = None
-) -> list[int]:
-    """Versions shipped by the stack_emit epochs that the given baseline entry serves.
-
-    An epoch belongs to the baseline entry whose stack range contains it: for a fork ``previous[s]`` that is
-    ``s <= epoch < next higher stack``; for the top-level entry it is every epoch at or above its
-    ``min_stack_version`` (every epoch when the rule has no forks). ``exclude_epoch`` leaves one epoch out,
-    for callers about to renumber it.
-    """
-    emit_entries = {
-        epoch: e
-        for epoch, e in cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {}).items()
-        if epoch != exclude_epoch
-    }
-    if entry_stack is None:
-        return [int(e["version"]) for e in emit_entries.values() if e.get("version")]
-
-    lower = _stack(entry_stack)
-    boundaries: list[Version] = [_stack(s) for s in cast("dict[str, Any]", lock_entry.get("previous") or {})]
-    if lock_entry.get("min_stack_version"):
-        boundaries.append(_stack(str(lock_entry["min_stack_version"])))
-    uppers: list[Version] = [b for b in boundaries if b > lower]
-    upper: Version | None = min(uppers) if uppers else None
-    return [
-        int(e["version"])
-        for epoch, e in emit_entries.items()
-        if e.get("version") and lower <= _stack(epoch) and (upper is None or _stack(epoch) < upper)
-    ]
-
-
-def floor_baseline_past_shipped(baseline_entry: dict[str, Any], shipped_versions: list[int]) -> int:
-    """Move a baseline past every version its stack_emit epochs have shipped, so a rule_id + version pair that
-    went out through an emit channel is never reused by the baseline (issue #7012)."""
-    if shipped_versions and int(baseline_entry["version"]) <= max(shipped_versions):
-        baseline_entry["version"] = max(shipped_versions) + 1
-    return int(baseline_entry["version"])
 
 
 class VersionLock:
@@ -477,7 +422,7 @@ class VersionLock:
                             baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
                             shipped = emit_versions_for_baseline(lock_from_file, entry_stack)
                             before = int(baseline_entry["version"])
-                            floored = floor_baseline_past_shipped(baseline_entry, shipped)
+                            floored = floor_baseline_past_shipped(baseline_entry, shipped, f"{rule.id} - {rule.name}")
                             if floored != before:
                                 log_changes(
                                     rule,

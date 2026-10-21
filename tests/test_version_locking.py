@@ -102,6 +102,51 @@ class TestShippedVersionFloor(unittest.TestCase):
         self.assertIs(top, entry)
         self.assertEqual(emit_versions_for_baseline(entry, top_stack), [108])
 
+    def test_inherited_epoch_counts_for_an_unforked_rule_above_its_key(self):
+        """9.6 inherits epoch 9.5. An unforked rule with min_stack_version 9.6 ships the top-level entry to 9.6
+        packages, which shipped the 9.5 epoch's number, so the floor must clear it."""
+        from detection_rules.version_lock import (
+            baseline_entry_for_stack,
+            emit_versions_for_baseline,
+            floor_baseline_past_shipped,
+        )
+
+        entry = {
+            "version": 4,  # bumped from 3 by route A
+            "min_stack_version": "9.6",
+            "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
+        }
+        baseline, stack = baseline_entry_for_stack(entry, "9.6")
+        self.assertIs(baseline, entry)
+        self.assertIsNone(stack)  # unforked: unkeyed, serves every stack
+        self.assertEqual(emit_versions_for_baseline(entry, stack), [4])
+        self.assertEqual(floor_baseline_past_shipped(baseline, [4]), 5)
+
+        # forked at 9.6 with only a 9.5 epoch: that epoch serves 9.5 and, by inheritance, 9.6, so both the
+        # fork and the top-level entry see it
+        forked = {
+            "version": 107,
+            "min_stack_version": "9.6",
+            "previous": {"9.5": {"version": 6, "max_allowable_version": 104}},
+            "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 7}},
+        }
+        self.assertEqual(emit_versions_for_baseline(forked, "9.5"), [7])
+        self.assertEqual(emit_versions_for_baseline(forked, "9.6"), [7])
+        # once a 9.6 epoch exists the 9.5 epoch stops at 9.6
+        forked["stack_emit"]["9.6"] = {"sha256": "c" * 64, "version": 108}
+        self.assertEqual(emit_versions_for_baseline(forked, "9.5"), [7])
+        self.assertEqual(emit_versions_for_baseline(forked, "9.6"), [108])
+
+    def test_floor_refuses_to_leave_a_forks_allowable_range(self):
+        """Route C accepted 103 -> 104 with max 104; dropping an epoch that shipped 104 must raise, not write 105
+        into the range reserved for the newer baseline."""
+        from detection_rules.version_lock import floor_baseline_past_shipped
+
+        fork = {"version": 104, "max_allowable_version": 104}
+        with self.assertRaises(ValueError):
+            floor_baseline_past_shipped(fork, [104], "rid - name")
+        self.assertEqual(fork["version"], 104)  # untouched
+
     def test_floor_is_noop_when_baseline_already_above(self):
         """A baseline above every shipped emit version is left untouched."""
         from detection_rules.version_lock import floor_baseline_past_shipped
@@ -138,6 +183,21 @@ class TestShippedVersionFloor(unittest.TestCase):
         # retained epoch: both channels advanced twice, still a double bump
         retained = {"r": {"rule_name": "x", "version": 5, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 6}}}}
         self.assertEqual(check_double_bumps(compare_versions(base, retained)), [("r", "x", 3, 5)])
+
+        # dropping an older fork's epoch must not relax the top-level comparison: 107 -> 109 is a double bump
+        forked_base = {
+            "r": {
+                "rule_name": "x",
+                "version": 107,
+                "min_stack_version": "9.6",
+                "previous": {"9.5": {"version": 6, "max_allowable_version": 104}},
+                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 7}, "9.6": {"sha256": "c" * 64, "version": 108}},
+            }
+        }
+        forked_branch = {
+            "r": {"rule_name": "x", "version": 109, "stack_emit": {"9.6": {"sha256": "d" * 64, "version": 110}}}
+        }
+        self.assertEqual(check_double_bumps(compare_versions(forked_base, forked_branch)), [("r", "x", 107, 109)])
 
         # retained epoch, ordinary tuning: baseline 3 -> 4 and emit 4 -> 5 is fine
         tuned = {"r": {"rule_name": "x", "version": 4, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 5}}}}

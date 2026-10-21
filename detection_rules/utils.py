@@ -31,6 +31,8 @@ import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
 
+from .lock_ranges import baseline_entry_for_stack, epochs_for_baseline
+
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
 ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
@@ -456,13 +458,15 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
                 # bump from the highest shipped version so it is not reported as a double bump. When no epoch
                 # was dropped the baselines compare directly: baseline 3 + emit 4 -> baseline 5 + emit 6
                 # advanced both channels twice and must still be flagged.
+                # only epochs that serve the top-level entry count here: dropping an older fork's epoch must not
+                # relax the comparison of the top-level baseline
                 base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
                 branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
-                epoch_dropped = any(epoch not in branch_emit for epoch in base_emit)
-                shipped = [int(entry["version"]) for entry in base_emit.values() if entry.get("version")]
-                resolved_base: int = (
-                    max([int(base_version or 0), *shipped]) if epoch_dropped else int(base_version or 0)
-                )
+                _, top_stack = baseline_entry_for_stack(base_val, str(base_val.get("min_stack_version") or ""))
+                scoped = epochs_for_baseline(base_val, top_stack)
+                dropped = [epoch for epoch in scoped if epoch not in branch_emit]
+                shipped = [int(base_emit[epoch]["version"]) for epoch in scoped if base_emit[epoch].get("version")]
+                resolved_base: int = max([int(base_version or 0), *shipped]) if dropped else int(base_version or 0)
                 changes.append((key, branch_name, resolved_base, branch_version))
     return changes
 
