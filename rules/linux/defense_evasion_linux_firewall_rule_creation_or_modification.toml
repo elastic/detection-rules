@@ -2,7 +2,7 @@
 creation_date = "2026/09/14"
 integration = ["endpoint", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/15"
+updated_date = "2026/10/04"
 
 [rule]
 author = ["Elastic"]
@@ -131,6 +131,10 @@ event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "p
     process.args like~ ("deny", "allow", "reject") and
     not process.args in ("delete", "--dry-run")
   )
+) and
+not process.parent.name in (
+  "dockerd", "netavark", "cilium-agent", "tailscaled", "k3s",
+  "firewalld", "fail2ban-server", "libvirtd", "kubelet"
 )
 '''
 

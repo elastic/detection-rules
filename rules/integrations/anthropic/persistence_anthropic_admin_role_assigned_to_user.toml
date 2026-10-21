@@ -2,7 +2,7 @@
 creation_date = "2026/09/12"
 integration = ["anthropic"]
 maturity = "production"
-updated_date = "2026/09/25"
+updated_date = "2026/10/07"
 
 [rule]
 author = ["Elastic"]
@@ -82,7 +82,7 @@ from logs-anthropic.audit-* metadata _id, _version, _index
     data_stream.dataset == "anthropic.audit" and
     mv_contains(event.category, "iam") and
     event.action == "claude_user_role_updated" and
-    anthropic.audit.current_role == "admin"
+    anthropic.audit.current_role in ("admin", "owner", "membership_admin")
 | keep _id, _version, _index, @timestamp, event.*, organization.*, user.*, source.*, user_agent.*, anthropic.audit.*, data_stream.*
 '''
 
