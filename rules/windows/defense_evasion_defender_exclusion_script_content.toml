@@ -2,14 +2,13 @@
 creation_date = "2026/10/07"
 integration = ["windows"]
 maturity = "development"
-updated_date = "2026/10/08"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies PowerShell script blocks that add or replace Windows Defender path, process or extension exclusions. Script
-content covers commands invoked through script files when the cmdlet is absent from process arguments. Verify successful
-configuration separately.
+Identifies PowerShell script blocks containing commands to add or replace Microsoft Defender Antivirus path, process, or
+extension exclusions.
 """
 false_positives = ["Approved administration, configuration management and security troubleshooting."]
 from = "now-9m"
@@ -20,19 +19,20 @@ license = "Elastic License v2"
 name = "Windows Defender Exclusion Added in PowerShell Script"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Windows Defender Exclusion Added in PowerShell Script
 
-Confirm the changed setting or executed command, initiating process tree and account. Correlate with other suspicious behavior and approved change records. Verify effective settings before asserting loss of protection or recovery capability. Scope any future exceptions to evidence-backed management behavior.
+Review the cmdlet, exclusion parameters, initiating account, and process ancestry. Reconstruct fragmented script blocks to understand the complete command. Script content can include comments, strings, function definitions, or unexecuted branches, so verify the effective Defender exclusion configuration to determine whether the command changed it.
 
 ### False positive analysis
 
-Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+Approved administration, software installation, and security troubleshooting can add exclusions. Confirm the excluded paths, processes, or extensions against approved change records. Scope exceptions to the specific management process and expected exclusions.
 
 ### Response and remediation
 
-Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
-
-Script block content may include comments, strings, function definitions or unexecuted branches. Reconstruct fragmented script blocks and verify the effective Defender exclusion configuration before concluding that an exclusion was applied.
+Preserve the script blocks and configuration evidence. Restore unauthorized exclusions to the approved baseline and review activity involving the affected files or processes. Escalate through the incident response process when related activity indicates compromise.
 """
 references = [
     "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1685/T1685.yaml",
@@ -53,8 +53,6 @@ tags = [
     "Platform: Windows",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "query"

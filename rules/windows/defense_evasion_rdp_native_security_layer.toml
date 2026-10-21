@@ -2,13 +2,12 @@
 creation_date = "2026/10/07"
 integration = ["endpoint"]
 maturity = "development"
-updated_date = "2026/10/08"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies a registry change setting an RDP listener SecurityLayer to zero. This is a transport security configuration
-signal, separate from enabling RDP or disabling NLA.
+Identifies registry changes that configure an RDP listener to use native RDP security.
 """
 false_positives = [
     """
@@ -23,21 +22,20 @@ license = "Elastic License v2"
 name = "RDP Listener Configured to Use Native RDP Security"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating RDP Listener Configured to Use Native RDP Security
 
-The observed SecurityLayer=0 write selects native RDP security. The existing NLA rule tests UserAuthentication, a different setting. A separate configuration-stage rule preserves that distinction.
-
-No remote session or resulting transport negotiation was tested. Compatibility administration can legitimately use this setting; review change control and related authentication evidence.
-
-Validate change authorization, process ancestry and related activity before escalating.
+Identify the RDP listener, initiating process, and account responsible for setting SecurityLayer to zero, which selects native RDP security. Verify the effective listener configuration and review authentication and session evidence to determine whether it was used. Check UserAuthentication separately when assessing Network Level Authentication (NLA).
 
 ### False positive analysis
 
-Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+Approved compatibility changes and troubleshooting can select native RDP security. Confirm the listener and process ancestry against change records. Scope exceptions to the specific management process and expected listener configuration.
 
 ### Response and remediation
 
-Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+Preserve the registry events and related session evidence. Restore unauthorized listener settings to the approved baseline and verify the effective configuration. Investigate unexpected remote sessions or account activity through the incident response process.
 """
 references = [
     "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1112/T1112.yaml",
@@ -56,8 +54,6 @@ tags = [
     "Data Source: Elastic Defend",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
     "Platform: Windows",
     "Rule Type: Event Correlation (EQL)",
 ]

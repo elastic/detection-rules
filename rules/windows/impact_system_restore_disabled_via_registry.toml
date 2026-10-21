@@ -2,13 +2,12 @@
 creation_date = "2026/10/07"
 integration = ["endpoint"]
 maturity = "development"
-updated_date = "2026/10/08"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies registry settings that request disabling System Restore or its configuration interface. This detects a
-setting change; it does not establish removal of restore points or successful loss of recovery capability.
+Identifies registry changes that configure System Restore or its configuration interface to be disabled.
 """
 false_positives = ["Approved administration, configuration management and security troubleshooting."]
 from = "now-9m"
@@ -19,17 +18,20 @@ license = "Elastic License v2"
 name = "Windows System Restore Disabled via Registry"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating Windows System Restore Disabled via Registry
 
-Confirm the changed setting or executed command, initiating process tree and account. Correlate with other suspicious behavior and approved change records. Verify effective settings before asserting loss of protection or recovery capability. Scope any future exceptions to evidence-backed management behavior.
+Identify the DisableSR or DisableConfig value, initiating process, and account. Check the effective System Restore configuration and the availability of existing restore points to assess the impact. Correlate the change with backup tampering, shadow copy deletion, or other recovery impairment activity.
 
 ### False positive analysis
 
-Approved administration, software installation, troubleshooting and configuration management can produce this activity. Verify the exact target, initiating identity, process ancestry and change authorization. Assess representative operational volume before enabling the rule; do not use the lab baseline as a production noise estimate.
+Approved system configuration, troubleshooting, and recovery policy changes can modify these values. Confirm the target value and process ancestry against change records. Scope exceptions to the specific management process and expected configuration.
 
 ### Response and remediation
 
-Preserve the relevant events and confirm whether the setting or identity was used. Restore unauthorized changes through the established response process. Escalate based on the surrounding evidence and observed impact; the matching configuration or script content alone does not establish compromise.
+Preserve the registry events and related process activity. Restore unauthorized settings to the approved baseline and verify recovery options with the system owner. Escalate when related activity indicates deliberate interference with recovery.
 """
 references = [
     "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1490/T1490.yaml",
@@ -50,8 +52,6 @@ tags = [
     "Platform: Windows",
     "Use Case: Threat Detection",
     "Resources: Investigation Guide",
-    "Noise: Medium",
-    "Performance: Normal",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
