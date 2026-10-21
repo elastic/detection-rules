@@ -4,32 +4,32 @@ integration = ["aws"]
 maturity = "production"
 min_stack_comments = "The AWS integration adds the aws.eks_audit data stream in package 8.9.0, which requires Kibana 9.6.0 or later."
 min_stack_version = "9.6.0"
-updated_date = "2026/10/09"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
-description = '''
+description = """
 This rule detects a user attempt to establish a shell session into a pod using the 'exec' command. Using the 'exec'
 command in a pod allows a user to establish a temporary shell session and execute any process/commands in the pod. An
 adversary may call bash to gain a persistent interactive shell which will allow access to any data the pod has
 permissions to, including secrets.
-'''
+"""
 false_positives = [
-    '''
+    """
     An administrator may need to exec into a pod for a legitimate reason like debugging purposes. Containers built from
     Linux and Windows OS images, tend to include debugging utilities. In this case, an admin may choose to run commands
     inside a specific container with kubectl exec ${POD_NAME} -c ${CONTAINER_NAME} -- ${CMD} ${ARG1} ${ARG2} ...
     ${ARGN}. For example, the following command can be used to look at logs from a running Cassandra pod: kubectl exec
     cassandra --cat /var/log/cassandra/system.log . Additionally, the -i and -t arguments might be used to run a shell
     connected to the terminal: kubectl exec -i -t cassandra -- sh
-''',
+    """,
 ]
+from = "now-6m"
 index = ["logs-aws.eks_audit-*"]
 language = "eql"
 license = "Elastic License v2"
 name = "AWS EKS User Exec into Pod"
-note = '''
-## Triage and analysis
+note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
@@ -61,15 +61,14 @@ Kubernetes allows users to execute commands within a pod using the 'exec' comman
 - Conduct a thorough investigation of the pod's environment to identify any potential data exposure or tampering. Check for unauthorized changes to configurations, secrets, or data within the pod.
 - If unauthorized access is confirmed, rotate any exposed secrets or credentials that the pod had access to, and update any affected systems or services.
 - Escalate the incident to the security operations team for further analysis and to determine if additional systems or pods have been compromised.
-- Enhance monitoring and alerting for similar 'exec' actions in the future by ensuring that audit logs are continuously reviewed and that alerts are configured to notify the security team of any suspicious activity.'''
+- Enhance monitoring and alerting for similar 'exec' actions in the future by ensuring that audit logs are continuously reviewed and that alerts are configured to notify the security team of any suspicious activity."""
 references = [
     "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
     "https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/",
 ]
 risk_score = 47
 rule_id = "53ff409e-c1c4-5fd6-91be-77801d230250"
-setup = '''
-This rule reads EKS control-plane audit logs collected by the AWS integration
+setup = """This rule reads EKS control-plane audit logs collected by the AWS integration
 into `logs-aws.eks_audit-*`, where the AWS EKS audit ingest
 pipelines normalize each audit record under `aws.eks.audit.*`.
 
@@ -77,7 +76,7 @@ Enable the `audit` control-plane log type on the EKS cluster, send its
 CloudWatch log group through the AWS integration, and confirm events carry
 `data_stream.dataset: aws.eks_audit` and
 `cloud.provider: aws` before enabling this rule.
-'''
+"""
 severity = "medium"
 tags = [
     "Domain: Cloud",
@@ -96,6 +95,7 @@ tags = [
 ]
 timestamp_override = "event.ingested"
 type = "eql"
+
 query = '''
 any where data_stream.dataset == "aws.eks_audit" and aws.eks.audit.verb in ("create", "get") and
 aws.eks.audit.objectRef.subresource == "exec" and aws.eks.audit.stage in ("ResponseComplete", "ResponseStarted") and
@@ -120,15 +120,17 @@ not (
 )
 '''
 
+
 [[rule.threat]]
 framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1609"
+name = "Container Administration Command"
+reference = "https://attack.mitre.org/techniques/T1609/"
+
 
 [rule.threat.tactic]
 id = "TA0002"
 name = "Execution"
 reference = "https://attack.mitre.org/tactics/TA0002/"
 
-[[rule.threat.technique]]
-id = "T1609"
-name = "Container Administration Command"
-reference = "https://attack.mitre.org/techniques/T1609/"
