@@ -1,0 +1,160 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a previously unseen command line executed directly by systemd that references a hidden file or directory.
+Adversaries may configure systemd units to execute payloads stored in concealed filesystem locations for persistence or
+privilege escalation.
+"""
+false_positives = [
+    "Legitimate systemd services may execute software, scripts, or configuration stored in hidden directories.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Unusual Hidden Payload Execution via systemd"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unusual Hidden Payload Execution via systemd
+
+Systemd can execute commands through services and through units activated by timers, paths, sockets, devices, or other
+events. Adversaries may configure a unit to launch a payload from a hidden file or directory, allowing the payload to
+run automatically under the privileges assigned to that unit.
+
+This rule identifies process arguments containing a hidden path component when the process is launched directly by
+systemd. It uses a new-terms comparison of the command line and host to highlight executions that have not appeared on
+that host during the history window. The rule does not restrict the number of process arguments, allowing it to detect
+interpreted scripts and payloads that require command-line options.
+
+### Possible investigation steps
+
+- Review the complete command line, executable, arguments, user, working directory, and the referenced hidden path.
+- Identify the systemd unit responsible for the process. Inspect its fragment path, unit contents, drop-ins,
+  `ExecStart` directives, activation mechanism, effective user, and enablement state.
+- Determine whether the hidden artifact belongs to an approved package, application, deployment, or administrative
+  workflow. Compare its owner, permissions, hash, timestamps, and contents with package metadata and known-good hosts.
+- Review recent creation or modification of system and user unit files, daemon reloads, unit enablement, and unit starts.
+- Examine descendant processes, file activity, and network connections for additional suspicious behavior.
+- Correlate the event with authentication, privilege escalation, software installation, and configuration-management
+  activity on the host.
+
+### False positive analysis
+
+- Some legitimate applications place executables or supporting files in hidden installation directories and launch them
+  through systemd.
+- A newly installed or changed service may produce a first-seen command line even when the activity is authorized.
+  Confirm the software provenance and change record before creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Isolate the host if the unit or hidden payload is unauthorized.
+- Preserve the unit files, drop-ins, payload, journal records, and related process telemetry before remediation.
+- Stop and disable the malicious unit, remove unauthorized artifacts, run `systemctl daemon-reload`, and verify that the
+  execution does not recur.
+- Investigate commands and connections produced by the payload and scope matching unit names, paths, hashes, and command
+  lines across the environment.
+- Restore affected configuration from trusted sources and rotate credentials exposed to the service or its descendants.
+"""
+references = [
+    "https://www.elastic.co/security-labs/primer-on-persistence-mechanisms",
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html",
+]
+risk_score = 21
+rule_id = "8df64018-f8e3-43df-a21b-b6fa8a6c636b"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+query = '''
+event.category:process and host.os.type:linux and event.type:start and event.action:exec and
+process.parent.name:systemd and process.args:*/.* and process.command_line:*
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1543"
+name = "Create or Modify System Process"
+reference = "https://attack.mitre.org/techniques/T1543/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1543.002"
+name = "Systemd Service"
+reference = "https://attack.mitre.org/techniques/T1543/002/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id", "process.command_line"]
+
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-5d"
