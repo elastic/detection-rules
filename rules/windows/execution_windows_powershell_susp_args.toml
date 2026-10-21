@@ -2,7 +2,7 @@
 creation_date = "2024/09/06"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/08/28"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
@@ -76,6 +76,12 @@ tags = [
     "Data Source: Crowdstrike",
     "Data Source: Elastic Endgame",
     "Resources: Investigation Guide",
+    "Noise: High",
+    "Performance: Normal",
+    "Profile: Aggressive",
+    "Threat: Script-Based Execution",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
@@ -94,8 +100,6 @@ process where host.os.type == "windows" and event.type == "start" and
         "?:\\Program Files\\*.exe",
         "?:\\Program Files (x86)\\*.exe"
   ) and
-
-  not process.parent.name : ("CompatTelRunner.exe", "SenseIR.exe") and
 
   (
     process.command_line : (
@@ -166,8 +170,7 @@ process where host.os.type == "windows" and event.type == "start" and
       /* exclude known process and network inventory collection patterns */
       not process.command_line : (
         "*Get-CimInstance -Class Win32_Process*ConvertTo-Csv*Select-Object*$_.Replace*",
-        "*function replace_unallowed*$s.replace*Get-Counter*Network Adapter*",
-        "*rename-item*$_.Name.Replace*"
+        "*function replace_unallowed*$s.replace*Get-Counter*Network Adapter*"
       )
     ) or
 
@@ -191,8 +194,11 @@ process where host.os.type == "windows" and event.type == "start" and
     not process.command_line : (
       "*Use-Icinga -Minimal*",
       "*& {$j = sajb {Add-Type -AssemblyName*",
-      "*$j = sajb {*wjb $j*rcjb $j*",
-      "*WebClient*).OpenRead(*"
+      "*WebClient*OpenRead*www.google.com*CanRead*",
+      "*SHA256CryptoServiceProvider*HDX*CtxGfx*",
+      "*SNC_isWmi*",
+      "*Invoke-WebRequest*169.254.169.254*latest*",
+      "*Invoke-WebRequest*fd00:ec2*latest*"
     )
 '''
 
