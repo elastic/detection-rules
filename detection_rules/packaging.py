@@ -649,7 +649,7 @@ class Package:
 
     @staticmethod
     def _current_rule_files(manifest_version: str) -> dict[str, Path]:
-        """Map rule_id -> generated asset path for the package being built (one file per rule_id)."""
+        """Maps rule_id to the generated asset path of the package being built."""
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
         return {path.name.rsplit("_", 1)[0]: path for path in rules_dir.glob("*_*.json")}
 
@@ -658,12 +658,9 @@ class Package:
         published_rules: dict[str, dict[str, Any]],
         manifest_version: str,
     ) -> list[dict[str, Any]]:
-        """Compare the generated assets with every rule asset of the previously published package.
-
-        A rule_id + version that has shipped must never change content, otherwise Kibana's prebuilt-rule
-        diff flags the installed rule as customized. Call this with the full previous package, before any
-        retention limit is applied to the historical copies, so no published version is skipped.
-        """
+        """Finds generated assets that keep a published rule version but differ in content."""
+        # a shipped rule_id + version must never change content, otherwise Kibana flags the rule as customized.
+        # pass the full previous package, before the historical copies are trimmed, so no version is skipped
         current_rule_paths = Package._current_rule_files(manifest_version)
         drifts: list[dict[str, Any]] = []
         for published in published_rules.values():
@@ -696,8 +693,8 @@ class Package:
         """Adds historical rules to existing build package."""
         rules_dir = CURRENT_RELEASE_PATH / "fleet" / manifest_version / "kibana" / "security_rule"
 
-        # Snapshot the current package's rule files before any historical version is written next to them,
-        # so later iterations never pick up a historical file as "the current rule".
+        # snapshot the current package rule files before historical versions are written next to them,
+        # so later iterations never pick up a historical file as the current rule
         current_rule_paths = Package._current_rule_files(manifest_version)
 
         # iterates over historical rules from previous package and writes them to disk

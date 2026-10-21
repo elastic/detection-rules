@@ -138,18 +138,60 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
     return lock_contents
 
 
-def max_shipped_emit_version(lock_entry: dict[str, Any]) -> int | None:
-    """Return the highest version any stack_emit channel of a lock entry has shipped, if any."""
-    emit_entries = cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {})
-    versions = [int(entry["version"]) for entry in emit_entries.values() if entry.get("version")]
-    return max(versions) if versions else None
+def baseline_entry_for_stack(lock_entry: dict[str, Any], stripped_stack: str) -> tuple[dict[str, Any], str | None]:
+    """Return the baseline entry that packages for ``stripped_stack`` ship, and the stack it is keyed on.
+
+    A forked rule keeps older stacks under ``previous[<major.minor>]``; everything else ships the top-level
+    entry (keyed on its ``min_stack_version`` when it has forks, otherwise unkeyed). Mirrors get_locked_version.
+    """
+    fork = cast("dict[str, dict[str, Any]]", lock_entry.get("previous") or {}).get(stripped_stack)
+    if fork is not None:
+        return fork, stripped_stack
+    return lock_entry, lock_entry.get("min_stack_version")
 
 
-def floor_baseline_past_dropped_epoch(lock_entry: dict[str, Any], dropped_emit_version: int) -> int:
-    """Keep a rule_id + version pair immutable when a stack_emit epoch is dropped."""
-    if int(lock_entry["version"]) <= dropped_emit_version:
-        lock_entry["version"] = dropped_emit_version + 1
-    return int(lock_entry["version"])
+def _stack(stack: str) -> Version:
+    """Parse a major.minor lock key into a comparable Version."""
+    return Version.parse(stack, optional_minor_and_patch=True)
+
+
+def emit_versions_for_baseline(
+    lock_entry: dict[str, Any], entry_stack: str | None, exclude_epoch: str | None = None
+) -> list[int]:
+    """Versions shipped by the stack_emit epochs that the given baseline entry serves.
+
+    An epoch belongs to the baseline entry whose stack range contains it: for a fork ``previous[s]`` that is
+    ``s <= epoch < next higher stack``; for the top-level entry it is every epoch at or above its
+    ``min_stack_version`` (every epoch when the rule has no forks). ``exclude_epoch`` leaves one epoch out,
+    for callers about to renumber it.
+    """
+    emit_entries = {
+        epoch: e
+        for epoch, e in cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {}).items()
+        if epoch != exclude_epoch
+    }
+    if entry_stack is None:
+        return [int(e["version"]) for e in emit_entries.values() if e.get("version")]
+
+    lower = _stack(entry_stack)
+    boundaries: list[Version] = [_stack(s) for s in cast("dict[str, Any]", lock_entry.get("previous") or {})]
+    if lock_entry.get("min_stack_version"):
+        boundaries.append(_stack(str(lock_entry["min_stack_version"])))
+    uppers: list[Version] = [b for b in boundaries if b > lower]
+    upper: Version | None = min(uppers) if uppers else None
+    return [
+        int(e["version"])
+        for epoch, e in emit_entries.items()
+        if e.get("version") and lower <= _stack(epoch) and (upper is None or _stack(epoch) < upper)
+    ]
+
+
+def floor_baseline_past_shipped(baseline_entry: dict[str, Any], shipped_versions: list[int]) -> int:
+    """Move a baseline past every version its stack_emit epochs have shipped, so a rule_id + version pair that
+    went out through an emit channel is never reused by the baseline (issue #7012)."""
+    if shipped_versions and int(baseline_entry["version"]) <= max(shipped_versions):
+        baseline_entry["version"] = max(shipped_versions) + 1
+    return int(baseline_entry["version"])
 
 
 class VersionLock:
@@ -418,16 +460,32 @@ class VersionLock:
                     # comparing against the baseline lock hash (which strips related_integrations).
                     if emit_hash == untransformed_hash:
                         if epoch_key in stack_emit:
-                            dropped_version = int(stack_emit[epoch_key].get("version") or 0)
-                            if not exclude_version_update:
-                                floored = floor_baseline_past_dropped_epoch(lock_from_file, dropped_version)
-                                if floored == dropped_version + 1:
-                                    log_changes(
-                                        rule,
-                                        "stack_emit",
-                                        floored,
-                                        f"baseline moved past dropped epoch {epoch_key} version {dropped_version}",
-                                    )
+                            if exclude_version_update:
+                                # a hash-only update (dev update-lock-versions) must not drop the epoch: the stack
+                                # would ship the baseline number next, and that needs the bump below
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    lock_from_file.get("version"),
+                                    f"epoch {epoch_key} kept: transforms are a no-op but dropping it needs a version "
+                                    "bump; run build-release --update-version-lock",
+                                )
+                                continue
+                            # the stack losing its epoch ships the baseline from now on: the fork entry on route C,
+                            # the top-level entry otherwise. move it past every version an epoch in its stack range
+                            # has shipped, the dropped one included, so no package line sees a reused version
+                            baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
+                            shipped = emit_versions_for_baseline(lock_from_file, entry_stack)
+                            before = int(baseline_entry["version"])
+                            floored = floor_baseline_past_shipped(baseline_entry, shipped)
+                            if floored != before:
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    floored,
+                                    f"baseline for {entry_stack or 'latest'} moved past shipped emit versions "
+                                    f"{sorted(shipped)} on dropping epoch {epoch_key}",
+                                )
                             stack_emit = dict(stack_emit)
                             del stack_emit[epoch_key]
                             if stack_emit:
@@ -448,15 +506,25 @@ class VersionLock:
                     stack_emit = cast("dict[str, dict[str, Any]]", lock_from_file.setdefault("stack_emit", {}))
                     existing_emit = stack_emit.get(epoch_key)
 
-                    baseline_version = int(lock_from_file.get("version") or 1)
-                    other_emit_versions = [
-                        int(e["version"]) for k, e in stack_emit.items() if k != epoch_key and e.get("version")
-                    ]
+                    # number the epoch from the baseline entry that ships for this stack (the fork on route C, the
+                    # top-level entry otherwise) and above the other epochs in that entry's range. a fork's epochs
+                    # stay inside the fork's allowable range so the baseline can be floored past them later
+                    baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
+                    baseline_version = int(baseline_entry.get("version") or 1)
+                    other_emit_versions = emit_versions_for_baseline(
+                        lock_from_file, entry_stack, exclude_epoch=epoch_key
+                    )
                     floor = max([baseline_version, *other_emit_versions])
                     if exclude_version_update and existing_emit:
                         new_emit_version = int(existing_emit["version"])
                     else:
                         new_emit_version = floor + 1
+                    max_allowable = baseline_entry.get("max_allowable_version")
+                    if max_allowable is not None and new_emit_version > int(max_allowable):
+                        raise ValueError(
+                            f"Forked rule: {rule.id} - {rule.name}: stack_emit epoch {epoch_key} needs version "
+                            f"{new_emit_version}, above the fork's max allowable version {max_allowable}"
+                        )
 
                     stack_emit[epoch_key] = {
                         "sha256": emit_hash,

@@ -42,27 +42,73 @@ class TestVersionLock(unittest.TestCase):
 class TestShippedVersionFloor(unittest.TestCase):
     """A rule_id + version pair shipped through any lock channel must never be reused."""
 
-    def test_floor_moves_baseline_past_dropped_epoch_version(self):
-        """Baseline bumped to 4 while the epoch being dropped shipped 4 -> baseline becomes 5."""
-        from detection_rules.version_lock import floor_baseline_past_dropped_epoch, max_shipped_emit_version
+    def test_floor_clears_every_epoch_the_baseline_serves(self):
+        """Dropping the 9.5 epoch must move the baseline past the retained 9.6 epoch as well: a 9.5-line user
+        on the floored baseline who moves to the 9.6 line must not meet the same version with other content."""
+        from detection_rules.version_lock import (
+            baseline_entry_for_stack,
+            emit_versions_for_baseline,
+            floor_baseline_past_shipped,
+        )
 
         entry = {
             "rule_name": "x",
             "sha256": "a" * 64,
             "type": "query",
-            "version": 4,
-            "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
+            "version": 4,  # already bumped by route A from 3
+            "stack_emit": {
+                "9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                "9.6": {"sha256": "c" * 64, "version": 5, "transforms": ["mitre_attack_v19", "mitre_atlas"]},
+            },
         }
-        self.assertEqual(max_shipped_emit_version(entry), 4)
-        self.assertEqual(floor_baseline_past_dropped_epoch(entry, 4), 5)
-        self.assertEqual(entry["version"], 5)
+        baseline, stack = baseline_entry_for_stack(entry, "9.5")
+        self.assertIs(baseline, entry)
+        self.assertIsNone(stack)  # no forks: the top-level entry serves every stack
+        shipped = emit_versions_for_baseline(entry, stack)
+        self.assertEqual(sorted(shipped), [4, 5])
+        self.assertEqual(floor_baseline_past_shipped(baseline, shipped), 6)
+        self.assertEqual(entry["version"], 6)
+
+    def test_floor_targets_the_fork_that_ships_the_stack(self):
+        """Route C: a rule forked at 9.6 keeps 9.5 under previous["9.5"]; dropping the 9.5 epoch floors that
+        fork past the 9.5 epoch only, and leaves the 9.6 top-level entry and epoch alone."""
+        from detection_rules.version_lock import (
+            baseline_entry_for_stack,
+            emit_versions_for_baseline,
+            floor_baseline_past_shipped,
+        )
+
+        entry = {
+            "rule_name": "x",
+            "sha256": "a" * 64,
+            "type": "query",
+            "version": 107,
+            "min_stack_version": "9.6",
+            "previous": {"9.5": {"version": 6, "max_allowable_version": 104, "sha256": "d" * 64, "type": "query"}},
+            "stack_emit": {
+                "9.5": {"sha256": "b" * 64, "version": 6, "transforms": ["mitre_attack_v19"]},
+                "9.6": {"sha256": "c" * 64, "version": 108, "transforms": ["mitre_attack_v19", "mitre_atlas"]},
+            },
+        }
+        fork, stack = baseline_entry_for_stack(entry, "9.5")
+        self.assertIs(fork, entry["previous"]["9.5"])
+        self.assertEqual(stack, "9.5")
+        self.assertEqual(emit_versions_for_baseline(entry, stack), [6])  # 9.6 epoch is outside the fork's range
+        self.assertEqual(floor_baseline_past_shipped(fork, emit_versions_for_baseline(entry, stack)), 7)
+        self.assertEqual(entry["previous"]["9.5"]["version"], 7)
+        self.assertEqual(entry["version"], 107)
+
+        top, top_stack = baseline_entry_for_stack(entry, "9.6")
+        self.assertIs(top, entry)
+        self.assertEqual(emit_versions_for_baseline(entry, top_stack), [108])
 
     def test_floor_is_noop_when_baseline_already_above(self):
-        """A baseline above the dropped emit version is left untouched."""
-        from detection_rules.version_lock import floor_baseline_past_dropped_epoch
+        """A baseline above every shipped emit version is left untouched."""
+        from detection_rules.version_lock import floor_baseline_past_shipped
 
         entry = {"version": 10}
-        self.assertEqual(floor_baseline_past_dropped_epoch(entry, 4), 10)
+        self.assertEqual(floor_baseline_past_shipped(entry, [4, 5]), 10)
+        self.assertEqual(floor_baseline_past_shipped(entry, []), 10)
         self.assertEqual(entry["version"], 10)
 
     def test_double_bump_check_understands_shipped_emit_versions(self):
@@ -74,6 +120,17 @@ class TestShippedVersionFloor(unittest.TestCase):
         changes = compare_versions(base, branch)
         self.assertEqual(changes, [("r", "x", 4, 5)])
         self.assertEqual(check_double_bumps(changes), [])
+
+        # two epochs, 9.5 dropped: the baseline clears the retained 9.6 epoch too (3 -> 6), measured from 5
+        two = {
+            "r": {
+                "rule_name": "x",
+                "version": 3,
+                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4}, "9.6": {"sha256": "c" * 64, "version": 5}},
+            }
+        }
+        kept = {"r": {"rule_name": "x", "version": 6, "stack_emit": {"9.6": {"sha256": "c" * 64, "version": 5}}}}
+        self.assertEqual(check_double_bumps(compare_versions(two, kept)), [])
 
         plain_changes = compare_versions({"r": {"rule_name": "x", "version": 3}}, branch)
         self.assertEqual(check_double_bumps(plain_changes), [("r", "x", 3, 5)])
@@ -184,10 +241,96 @@ class TestShippedVersionFloor(unittest.TestCase):
                 self.assertTrue(rule.contents.is_dirty)
                 self.assertEqual(rule.contents.autobumped_version, 4)  # the pre-fix number
 
-                changed, _, _ = lock.manage_versions(rc, save_changes=True, verbose=False)
+                # a hash-only update (dev update-lock-versions) must not drop the epoch without the bump
+                lock.manage_versions(rc, exclude_version_update=True, save_changes=True, verbose=False)
+                hash_only = json.loads(lock_path.read_text())[toml["rule_id"]]
+                self.assertEqual(hash_only["version"], 3)
+                self.assertEqual(hash_only["stack_emit"]["9.5"]["version"], 4)
+                self.assertNotEqual(hash_only["sha256"], "0" * 64)  # the hash itself was updated
+
+                # the real lock run drops the epoch and floors the baseline past it
+                lock_path.write_text(json.dumps({toml["rule_id"]: lock_entry}))
+                lock = VersionLock(lock_path, dep_path, name="test")
+                rc = RuleCollection()
+                rc._version_lock = lock  # noqa: SLF001
+                rule = rc.load_file(rule_copy)
+                with mock.patch("detection_rules.rule.loaded_version_lock", lock):
+                    changed, _, _ = lock.manage_versions(rc, save_changes=True, verbose=False)
             saved = json.loads(lock_path.read_text())[toml["rule_id"]]
 
         self.assertIn(rule.id, changed)
         self.assertGreaterEqual(saved["version"], 5)
-        for emit in (saved.get("stack_emit") or {}).values():
-            self.assertGreater(emit["version"], saved["version"])
+        self.assertNotIn("stack_emit", saved)
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_forked_rule_epoch_is_numbered_from_the_fork(self):
+        """Route C: a rule whose older stack lives under previous[...] gets its epoch numbered from that fork
+        (fork 6 -> 7 on the tuning, epoch 8), never from the top-level entry (107), and inside the fork's
+        allowable range; the top-level entry is untouched."""
+        import json
+        import shutil
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from unittest import mock
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import emit_epoch_key, parse_stack
+        from detection_rules.version_lock import VersionLock
+
+        package_epoch = emit_epoch_key(parse_stack(load_current_package_version()))
+        if package_epoch is None:
+            self.skipTest("no stack_emit epoch applies to this checkout's package stack")
+
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        text = rule_path.read_text()
+        # the fork lives on the package epoch's stack; drop the Persistence tag so the MITRE v19 transform is not
+        # a no-op and the epoch gets (re)numbered rather than dropped
+        text = text.replace("creation_date = ", f'min_stack_version = "{package_epoch}"\ncreation_date = ', 1)
+        text = text.replace('    "Tactic: Persistence",\n', "", 1)
+        toml = tomllib.loads(text)
+        self.assertEqual(toml["metadata"]["min_stack_version"], package_epoch)
+        self.assertNotIn("Tactic: Persistence", toml["rule"]["tags"])
+
+        next_minor = f"{parse_stack(package_epoch).major}.{parse_stack(package_epoch).minor + 1}"
+        lock_entry = {
+            "rule_name": toml["rule"]["name"],
+            "sha256": "a" * 64,
+            "type": toml["rule"]["type"],
+            "version": 107,
+            "min_stack_version": next_minor,  # the top-level entry serves the next stack
+            "previous": {
+                package_epoch: {
+                    "rule_name": toml["rule"]["name"],
+                    "sha256": "0" * 64,  # tuned on this fork
+                    "type": toml["rule"]["type"],
+                    "version": 6,
+                    "max_allowable_version": 104,
+                }
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path = Path(tmp) / "version.lock.json"
+            dep_path = Path(tmp) / "deprecated_rules.json"
+            lock_path.write_text(json.dumps({toml["rule"]["rule_id"]: lock_entry}))
+            dep_path.write_text("{}")
+            lock = VersionLock(lock_path, dep_path, name="test")
+
+            rule_copy = Path(tmp) / rule_path.name
+            rule_copy.write_text(text)
+            rc = RuleCollection()
+            rc._version_lock = lock  # noqa: SLF001
+            rule = rc.load_file(rule_copy)
+            self.assertEqual(rule.contents.saved_version, 6)  # resolved from the fork
+
+            with mock.patch("detection_rules.rule.loaded_version_lock", lock):
+                self.assertTrue(rule.contents.is_dirty)
+                changed, _, _ = lock.manage_versions(rc, save_changes=True, verbose=False)
+            saved = json.loads(lock_path.read_text())[toml["rule"]["rule_id"]]
+
+        self.assertIn(rule.id, changed)
+        self.assertEqual(saved["version"], 107)  # top-level entry untouched
+        self.assertEqual(saved["previous"][package_epoch]["version"], 7)  # route C bump on the fork
+        self.assertEqual(saved["stack_emit"][package_epoch]["version"], 8)  # numbered from the fork, not 108
+        shutil.rmtree(tmp, ignore_errors=True)

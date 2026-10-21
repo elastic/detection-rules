@@ -451,19 +451,18 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
-                # A stack_emit epoch that was dropped on the branch had already shipped its version, and the
-                # baseline is floored past it (baseline 3 + emit 4 -> baseline 5, see #7012). Measure that bump
-                # from the retired epoch's version so it is not reported as a double bump. Epochs that are
-                # still present are left out on purpose: baseline 3 + emit 4 -> baseline 5 + emit 6 advanced
-                # both channels twice and must still be flagged, so that case compares baseline to baseline.
+                # When a stack_emit epoch is dropped on the branch, the baseline is floored past every version
+                # the rule's epochs had shipped (baseline 3 + emit 4 -> baseline 5, see #7012). Measure that
+                # bump from the highest shipped version so it is not reported as a double bump. When no epoch
+                # was dropped the baselines compare directly: baseline 3 + emit 4 -> baseline 5 + emit 6
+                # advanced both channels twice and must still be flagged.
                 base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
                 branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
-                retired_versions = [
-                    int(entry["version"])
-                    for epoch, entry in base_emit.items()
-                    if epoch not in branch_emit and entry.get("version")
-                ]
-                resolved_base: int = max([int(base_version or 0), *retired_versions])
+                epoch_dropped = any(epoch not in branch_emit for epoch in base_emit)
+                shipped = [int(entry["version"]) for entry in base_emit.values() if entry.get("version")]
+                resolved_base: int = (
+                    max([int(base_version or 0), *shipped]) if epoch_dropped else int(base_version or 0)
+                )
                 changes.append((key, branch_name, resolved_base, branch_version))
     return changes
 
