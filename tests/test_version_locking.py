@@ -199,6 +199,41 @@ class TestShippedVersionFloor(unittest.TestCase):
         }
         self.assertEqual(check_double_bumps(compare_versions(forked_base, forked_branch)), [("r", "x", 107, 109)])
 
+        # newest epoch pinned to the baseline (transforms []) while the older one remains: 3 -> 6 is the floor
+        pinned = {
+            "r": {
+                "rule_name": "x",
+                "version": 6,
+                "stack_emit": {
+                    "9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                    "9.6": {"sha256": "e" * 64, "version": 6, "transforms": []},
+                },
+            }
+        }
+        two["r"]["stack_emit"]["9.5"]["transforms"] = ["mitre_attack_v19"]
+        two["r"]["stack_emit"]["9.6"]["transforms"] = ["mitre_attack_v19", "mitre_atlas"]
+        self.assertEqual(check_double_bumps(compare_versions(two, pinned)), [])
+
+        # a boundary row added for an epoch that had no row, over an inherited older epoch: 3 -> 5 is the floor
+        inherited = {
+            "r": {
+                "rule_name": "x",
+                "version": 3,
+                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
+            }
+        }
+        boundary_added = {
+            "r": {
+                "rule_name": "x",
+                "version": 5,
+                "stack_emit": {
+                    "9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                    "9.6": {"sha256": "e" * 64, "version": 5, "transforms": []},
+                },
+            }
+        }
+        self.assertEqual(check_double_bumps(compare_versions(inherited, boundary_added)), [])
+
         # retained epoch, ordinary tuning: baseline 3 -> 4 and emit 4 -> 5 is fine
         tuned = {"r": {"rule_name": "x", "version": 4, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 5}}}}
         self.assertEqual(check_double_bumps(compare_versions(base, tuned)), [])
@@ -394,3 +429,191 @@ class TestShippedVersionFloor(unittest.TestCase):
         self.assertEqual(saved["previous"][package_epoch]["version"], 7)  # route C bump on the fork
         self.assertEqual(saved["stack_emit"][package_epoch]["version"], 8)  # numbered from the fork, not 108
         shutil.rmtree(tmp, ignore_errors=True)
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_dropping_the_newest_epoch_pins_its_stacks_to_the_baseline(self):
+        """Baseline 3 with 9.5 = 4 and 9.6 = 5. The 9.6 transforms become a no-op: without a 9.6 row the 9.6
+        packages would inherit the 9.5 row and the emit-dirty bump would ship v5 again with baseline content.
+        The lock must floor the baseline to 6 and pin 9.6 to it with a boundary row, and serialization must
+        then ship 6 for 9.6 and report the rule clean. A later tuning refreshes the row to the new baseline."""
+        import json
+        import shutil
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from unittest import mock
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import parse_stack
+        from detection_rules.version_lock import VersionLock
+
+        if parse_stack(load_current_package_version()) < parse_stack("9.6"):
+            self.skipTest("models a 9.6 epoch distinct from 9.5; needs a 9.6+ package stack")
+
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        toml = tomllib.loads(rule_path.read_text())["rule"]
+        # the transforms are a no-op for this rule (it already carries its tactic tags); make the package epoch
+        # "9.6" so a 9.5 epoch is older than the one being evaluated
+        epoch_patches = [
+            mock.patch(f"detection_rules.{module}.emit_epoch_key", return_value="9.6")
+            for module in ("version_lock", "rule")
+        ]
+
+        def load(rc_lock: VersionLock, path: Path):
+            rc = RuleCollection()
+            rc._version_lock = rc_lock  # noqa: SLF001
+            return rc, rc.load_file(path)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            rule_copy = Path(tmp) / rule_path.name
+            shutil.copy(rule_path, rule_copy)
+            lock_path = Path(tmp) / "version.lock.json"
+            dep_path = Path(tmp) / "deprecated_rules.json"
+            dep_path.write_text("{}")
+
+            # clean baseline (real hash), two real epochs
+            probe = RuleCollection().load_file(rule_copy)  # fresh contents; only the hash is needed
+            entry = {
+                "rule_name": toml["name"],
+                "sha256": probe.contents.get_hash(),
+                "type": toml["type"],
+                "version": 3,
+                "stack_emit": {
+                    "9.5": {"sha256": "1" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                    "9.6": {"sha256": "2" * 64, "version": 5, "transforms": ["mitre_attack_v19", "mitre_atlas"]},
+                },
+            }
+            lock_path.write_text(json.dumps({toml["rule_id"]: entry}))
+            lock = VersionLock(lock_path, dep_path, name="test")
+            rc, rule = load(lock, rule_copy)
+            with epoch_patches[0], epoch_patches[1], mock.patch("detection_rules.rule.loaded_version_lock", lock):
+                self.assertFalse(rule.contents.is_dirty)
+                self.assertTrue(rule.contents.is_emit_dirty)  # stale real 9.6 epoch for a no-op payload
+                lock.manage_versions(rc, save_changes=True, verbose=False)
+                saved = json.loads(lock_path.read_text())[toml["rule_id"]]
+                self.assertEqual(saved["version"], 6)
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)  # older epoch untouched
+                self.assertEqual(saved["stack_emit"]["9.6"]["transforms"], [])
+                self.assertEqual(saved["stack_emit"]["9.6"]["version"], 6)
+                self.assertEqual(saved["stack_emit"]["9.6"]["sha256"], rule.contents.get_untransformed_hash())
+
+                # serialization against the saved lock: 9.6 ships the baseline number and is clean
+                relock = VersionLock(lock_path, dep_path, name="test")
+                _, rule2 = load(relock, rule_copy)
+                with mock.patch("detection_rules.rule.loaded_version_lock", relock):
+                    self.assertFalse(rule2.contents.is_emit_dirty)
+                    self.assertEqual(rule2.contents.shipped_version, 6)
+                    self.assertEqual(rule2.contents.to_api_format()["version"], 6)
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_boundary_row_follows_the_baseline_on_tuning(self):
+        """A boundary row pins its stacks to the baseline, so a tuning that moves the baseline (6 -> 7) must
+        refresh the row to 7 with the new untransformed hash, and leave the older epoch alone."""
+        import json
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from unittest import mock
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import parse_stack
+        from detection_rules.version_lock import VersionLock
+
+        if parse_stack(load_current_package_version()) < parse_stack("9.6"):
+            self.skipTest("models a 9.6 epoch distinct from 9.5; needs a 9.6+ package stack")
+
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        toml = tomllib.loads(rule_path.read_text())["rule"]
+        with tempfile.TemporaryDirectory() as tmp:
+            rule_copy = Path(tmp) / rule_path.name
+            rule_copy.write_text(rule_path.read_text().replace("Resources: Investigation Guide", "Resources: Tuned"))
+            lock_path = Path(tmp) / "version.lock.json"
+            dep_path = Path(tmp) / "deprecated_rules.json"
+            dep_path.write_text("{}")
+            entry = {
+                "rule_name": toml["name"],
+                "sha256": "0" * 64,  # the rule is tuned relative to the lock
+                "type": toml["type"],
+                "version": 6,
+                "stack_emit": {
+                    "9.5": {"sha256": "1" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                    "9.6": {"sha256": "3" * 64, "version": 6, "transforms": []},  # boundary row, now stale
+                },
+            }
+            lock_path.write_text(json.dumps({toml["rule_id"]: entry}))
+            lock = VersionLock(lock_path, dep_path, name="test")
+            rc = RuleCollection()
+            rc._version_lock = lock  # noqa: SLF001
+            rule = rc.load_file(rule_copy)
+            with (
+                mock.patch("detection_rules.version_lock.emit_epoch_key", return_value="9.6"),
+                mock.patch("detection_rules.rule.emit_epoch_key", return_value="9.6"),
+                mock.patch("detection_rules.rule.loaded_version_lock", lock),
+            ):
+                self.assertTrue(rule.contents.is_dirty)
+                lock.manage_versions(rc, save_changes=True, verbose=False)
+                saved = json.loads(lock_path.read_text())[toml["rule_id"]]
+                self.assertEqual(saved["version"], 7)
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)
+                self.assertEqual(
+                    saved["stack_emit"]["9.6"],
+                    {"sha256": rule.contents.get_untransformed_hash(), "version": 7, "transforms": []},
+                )
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_no_op_stack_inheriting_an_older_epoch_gets_a_boundary_row(self):
+        """Baseline 3 with only a 9.5 = 4 row. On the 9.6 epoch the transforms are a no-op but 9.6 inherits the
+        9.5 row, so it would ship 4 + 1 with baseline content. The lock must floor the baseline past 4 and pin
+        9.6 to it."""
+        import json
+        import shutil
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from unittest import mock
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import parse_stack
+        from detection_rules.version_lock import VersionLock
+
+        if parse_stack(load_current_package_version()) < parse_stack("9.6"):
+            self.skipTest("models a 9.6 epoch distinct from 9.5; needs a 9.6+ package stack")
+
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        toml = tomllib.loads(rule_path.read_text())["rule"]
+        with tempfile.TemporaryDirectory() as tmp:
+            rule_copy = Path(tmp) / rule_path.name
+            shutil.copy(rule_path, rule_copy)
+            lock_path = Path(tmp) / "version.lock.json"
+            dep_path = Path(tmp) / "deprecated_rules.json"
+            dep_path.write_text("{}")
+            probe = RuleCollection().load_file(rule_copy)  # fresh contents; only the hash is needed
+            entry = {
+                "rule_name": toml["name"],
+                "sha256": probe.contents.get_hash(),
+                "type": toml["type"],
+                "version": 3,
+                "stack_emit": {"9.5": {"sha256": "1" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
+            }
+            lock_path.write_text(json.dumps({toml["rule_id"]: entry}))
+            lock = VersionLock(lock_path, dep_path, name="test")
+            rc = RuleCollection()
+            rc._version_lock = lock  # noqa: SLF001
+            rule = rc.load_file(rule_copy)
+            with (
+                mock.patch("detection_rules.version_lock.emit_epoch_key", return_value="9.6"),
+                mock.patch("detection_rules.rule.emit_epoch_key", return_value="9.6"),
+                mock.patch("detection_rules.rule.loaded_version_lock", lock),
+            ):
+                self.assertTrue(rule.contents.is_emit_dirty)  # inherited 9.5 row, no-op payload
+                lock.manage_versions(rc, save_changes=True, verbose=False)
+                saved = json.loads(lock_path.read_text())[toml["rule_id"]]
+                self.assertEqual(saved["version"], 5)
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)
+                self.assertEqual(
+                    saved["stack_emit"]["9.6"],
+                    {"sha256": rule.contents.get_untransformed_hash(), "version": 5, "transforms": []},
+                )

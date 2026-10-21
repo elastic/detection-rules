@@ -1291,8 +1291,10 @@ class BaseRuleContents(ABC):
         locked_emit = self.version_lock.get_stack_emit_hash(self.id, package_stack)
 
         if transforms_noop:
-            # Stale emit epoch still present for a no-op transform set → needs prune/relock.
-            return locked_emit is not None
+            # a stale real epoch is dirty and needs a relock. a baseline boundary row (transforms [], sha of the
+            # untransformed payload, written when an older epoch would otherwise be inherited) is current as
+            # long as its hash matches, so the stack keeps shipping the baseline number
+            return locked_emit is not None and locked_emit != emit_hash
 
         if locked_emit is None:
             return True

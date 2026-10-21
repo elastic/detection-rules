@@ -48,7 +48,12 @@ class PreviousEntry(BaseEntry):
 
 @dataclass(frozen=True)
 class StackEmitEntry:
-    """Version/hash for a stack emit epoch (shared across minors that inherit the same transforms)."""
+    """Version/hash for a stack emit epoch (shared across minors that inherit the same transforms).
+
+    ``transforms: []`` marks a baseline boundary: the transforms are a no-op for this epoch's stacks but an
+    older epoch would be inherited without the row, so the row pins those stacks to the baseline version
+    (``version`` equals the serving baseline, ``sha256`` is the untransformed payload hash).
+    """
 
     sha256: definitions.Sha256
     version: definitions.PositiveInteger
@@ -473,10 +478,35 @@ class VersionLock:
                     # Transforms were a no-op for this rule — drop a stale epoch rather than
                     # comparing against the baseline lock hash (which strips related_integrations).
                     if emit_hash == untransformed_hash:
-                        if epoch_key in stack_emit:
-                            if exclude_version_update:
-                                # a hash-only update (dev update-lock-versions) must not drop the epoch: the stack
-                                # would ship the baseline number next, and that needs the bump below
+                        existing_row = stack_emit.get(epoch_key)
+                        older_epochs = {k: v for k, v in stack_emit.items() if k != epoch_key}
+                        # would this epoch's own stacks fall back to an older epoch once its row is gone?
+                        inherits_older = resolve_stack_emit_entry(older_epochs, parse_stack(epoch_key)) is not None
+                        if existing_row is not None and existing_row.get("transforms") == []:
+                            # boundary row: keep it pinned to the serving baseline (route A may have moved it)
+                            baseline_entry, _ = baseline_entry_for_stack(lock_from_file, stripped_version)
+                            if existing_row.get("sha256") != untransformed_hash or int(existing_row["version"]) != int(
+                                baseline_entry["version"]
+                            ):
+                                stack_emit[epoch_key] = {
+                                    "sha256": untransformed_hash,
+                                    "version": int(baseline_entry["version"]),
+                                    "transforms": [],
+                                }
+                                lock_from_file["stack_emit"] = stack_emit
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    baseline_entry["version"],
+                                    f"epoch {epoch_key} boundary refreshed",
+                                )
+                            continue
+                        if existing_row is None and not inherits_older:
+                            continue
+                        if exclude_version_update:
+                            # a hash-only update (dev update-lock-versions) must not drop or pin the epoch: the
+                            # stack would ship the baseline number next, and that needs the bump below
+                            if existing_row is not None:
                                 log_changes(
                                     rule,
                                     "stack_emit",
@@ -484,24 +514,37 @@ class VersionLock:
                                     f"epoch {epoch_key} kept: transforms are a no-op but dropping it needs a version "
                                     "bump; run build-release --update-version-lock",
                                 )
-                                continue
-                            # the stack losing its epoch ships the baseline from now on: the fork entry on route C,
-                            # the top-level entry otherwise. move it past every version an epoch in its stack range
-                            # has shipped, the dropped one included, so no package line sees a reused version
-                            baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
-                            shipped = emit_versions_for_baseline(lock_from_file, entry_stack)
-                            before = int(baseline_entry["version"])
-                            floored = floor_baseline_past_shipped(baseline_entry, shipped, f"{rule.id} - {rule.name}")
-                            if floored != before:
-                                log_changes(
-                                    rule,
-                                    "stack_emit",
-                                    floored,
-                                    f"baseline for {entry_stack or 'latest'} moved past shipped emit versions "
-                                    f"{sorted(shipped)} on dropping epoch {epoch_key}",
-                                )
-                            stack_emit = dict(stack_emit)
-                            del stack_emit[epoch_key]
+                            continue
+                        # the stack losing its epoch ships the baseline from now on: the fork entry on route C,
+                        # the top-level entry otherwise. move it past every version an epoch in its stack range
+                        # has shipped, the dropped one included, so no package line sees a reused version
+                        baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
+                        shipped = emit_versions_for_baseline(lock_from_file, entry_stack)
+                        before = int(baseline_entry["version"])
+                        floored = floor_baseline_past_shipped(baseline_entry, shipped, f"{rule.id} - {rule.name}")
+                        if floored != before:
+                            log_changes(
+                                rule,
+                                "stack_emit",
+                                floored,
+                                f"baseline for {entry_stack or 'latest'} moved past shipped emit versions "
+                                f"{sorted(shipped)} on dropping epoch {epoch_key}",
+                            )
+                        stack_emit = dict(stack_emit)
+                        if inherits_older:
+                            # without a row these stacks would inherit the older epoch's number again, and the
+                            # emit-dirty bump would then reuse a published version for the baseline content.
+                            # pin them to the baseline instead
+                            stack_emit[epoch_key] = {"sha256": untransformed_hash, "version": floored, "transforms": []}
+                            lock_from_file["stack_emit"] = stack_emit
+                            log_changes(
+                                rule,
+                                "stack_emit",
+                                floored,
+                                f"epoch {epoch_key} pinned to the baseline (transforms no-op)",
+                            )
+                        else:
+                            _ = stack_emit.pop(epoch_key, None)
                             if stack_emit:
                                 lock_from_file["stack_emit"] = stack_emit
                             else:
