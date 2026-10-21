@@ -59,7 +59,7 @@ from .stack_emit import (
     transforms_for_stack,
 )
 from .utils import PatchedTemplate, cached_method, convert_time_span, get_nested_value, set_nested_value
-from .version_lock import VersionLock, loaded_version_lock
+from .version_lock import VersionLock, loaded_version_lock, next_version_in_scope
 
 MIN_FLEET_PACKAGE_VERSION = "7.13.0"
 TIME_NOW = time.strftime("%Y/%m/%d")
@@ -1301,22 +1301,19 @@ class BaseRuleContents(ABC):
         return locked_emit != emit_hash
 
     def _emit_row_is_stale(self, package_stack: Version) -> bool:
-        """For a no-op payload: a real epoch row is stale; a boundary row is stale once it no longer mirrors
-        the serving baseline's version and hash."""
+        """For a no-op payload: a real epoch row is stale; a boundary row is stale once its hash no longer
+        matches the serving baseline's (its version is free to sit above the baseline, see the ordering rule)."""
         stack_emit = self.version_lock.version_lock[self.id].to_dict().get("stack_emit")
         row = resolve_stack_emit_entry(stack_emit, package_stack) or {}
         if row.get("transforms") != []:
             return True
         min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
-        stack_key = f"{min_stack.major}.{min_stack.minor}"
-        locked_hash = self.version_lock.get_locked_hash(self.id, stack_key)
-        locked_version = int(self.version_lock.get_locked_version(self.id, stack_key) or 0)
-        return row.get("sha256") != locked_hash or int(row.get("version") or 0) != locked_version
+        return row.get("sha256") != self.version_lock.get_locked_hash(self.id, f"{min_stack.major}.{min_stack.minor}")
 
     def get_untransformed_hashable_content(self) -> dict[str, Any]:
         """API payload with build-time fields but without stack emit transforms."""
         payload = self._hash_api_payload(apply_emit_transforms=False)
-        if self._uses_keep_star(payload):
+        if self.uses_keep_star(payload):
             payload.pop("required_fields", None)
         return payload
 
@@ -1395,7 +1392,7 @@ class BaseRuleContents(ABC):
         if version is None:
             return None
         if self.is_emit_dirty and not self.is_dirty:
-            return version + 1
+            return self._next_version_in_scope()
         return version
 
     @property
@@ -1410,8 +1407,15 @@ class BaseRuleContents(ABC):
         if version is None:
             return 1
 
-        # Auto-increment version if the rule is 'dirty' and not bypassing version lock
-        return version + 1 if self.is_dirty else version
+        # a dirty rule ships the next number the lock would assign: one above everything already present in
+        # the scope that serves this rule's stack, so an interim package never reuses an epoch's number
+        return self._next_version_in_scope() if self.is_dirty else version
+
+    def _next_version_in_scope(self) -> int:
+        """The number the next lock run would give this rule (see version_lock.next_version_in_scope)."""
+        min_stack = Version.parse(self.get_supported_version(), optional_minor_and_patch=True)
+        entry = self.version_lock.version_lock[self.id].to_dict()
+        return next_version_in_scope(entry, f"{min_stack.major}.{min_stack.minor}")
 
     def get_synthetic_version(self, use_default: bool) -> int | None:
         """
@@ -1462,7 +1466,8 @@ class BaseRuleContents(ABC):
             context=EmitContext(threat_mappings=getattr(self, "_emit_threat_mappings", None)),
         )
 
-    def _uses_keep_star(self, hashable_dict: dict[str, Any]) -> bool:
+    @staticmethod
+    def uses_keep_star(hashable_dict: dict[str, Any]) -> bool:
         """Check if this is an ES|QL rule that uses `| keep *` or fields ending with '*'."""
         if hashable_dict.get("language") != "esql":
             return False
@@ -1513,7 +1518,7 @@ class BaseRuleContents(ABC):
 
         # For ES|QL rules with `| keep *`, exclude required_fields since they're
         # non-deterministic (depend on integration schemas which vary by stack version)
-        if self._uses_keep_star(hashable_dict):
+        if self.uses_keep_star(hashable_dict):
             hashable_dict.pop("required_fields", None)
 
         return hashable_dict
@@ -1531,7 +1536,7 @@ class BaseRuleContents(ABC):
         """Return the stack-transformed API payload used for stack_emit hashing."""
         emit_dict = self._hash_api_payload(apply_emit_transforms=True)
         # Emit hash includes related_integrations so ^ vs >= participates in the epoch.
-        if self._uses_keep_star(emit_dict):
+        if self.uses_keep_star(emit_dict):
             emit_dict.pop("required_fields", None)
         return emit_dict
 

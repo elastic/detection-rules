@@ -22,7 +22,7 @@ from semver import Version
 from .config import load_current_package_version, parse_rules_config
 from .misc import JS_LICENSE, cached
 from .navigator import PUBLISHED_NAVIGATOR_LAYERS, Navigator, NavigatorBuilder
-from .rule import QueryRuleData, ThreatMapping, TOMLRule
+from .rule import BaseRuleContents, QueryRuleData, ThreatMapping, TOMLRule
 from .rule_loader import DeprecatedCollection, RuleCollection
 from .schemas import definitions
 from .utils import Ndjson, get_etc_path, get_path
@@ -675,12 +675,17 @@ class Package:
             keys: set[str] = set(attrs) | set(current_attrs)
             changed: list[str] = sorted(k for k in keys if attrs.get(k) != current_attrs.get(k))
             if changed:
+                # fields the lock hash leaves out on purpose never bump a version, so they cannot be enforced
+                unversioned = {"related_integrations"}
+                if BaseRuleContents.uses_keep_star(current_attrs):
+                    unversioned.add("required_fields")
                 drifts.append(
                     {
                         "rule_id": rule_id,
                         "version": current_attrs.get("version"),
                         "rule_name": current_attrs.get("name"),
                         "fields": changed,
+                        "versioned_fields": [k for k in changed if k not in unversioned],
                     }
                 )
         return drifts

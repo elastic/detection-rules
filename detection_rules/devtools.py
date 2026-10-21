@@ -204,10 +204,9 @@ def build_release(  # noqa: PLR0913, PLR0917
     click.echo(f"[+] Adding historical rules from {previous_pkg_version} package")
 
     if drifts:
-        # related_integrations is excluded from the baseline hash on purpose (see get_hashable_content), so
-        # a change there never bumps a version today; report it, but only fail on fields the lock versions
-        unversioned = {"related_integrations"}
-        hard = [d for d in drifts if set(d["fields"]) - unversioned]
+        # fields the lock hash leaves out (related_integrations; required_fields for ES|QL wildcard keep) never
+        # bump a version, so they are reported but only versioned fields fail the run
+        hard = [d for d in drifts if d["versioned_fields"]]
         click.echo(
             f"[!] {len(drifts)} rule asset(s) keep the version shipped in {previous_pkg_version} but have different "
             f"content ({len(hard)} on versioned fields). A shipped rule_id + version must be immutable."

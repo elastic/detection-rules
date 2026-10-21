@@ -22,7 +22,7 @@ from dataclasses import astuple, is_dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from string import Template
-from typing import Any, cast
+from typing import Any
 
 import click
 import eql.utils  # type: ignore[reportMissingTypeStubs]
@@ -456,28 +456,11 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
                 # bump from the highest shipped version so it is not reported as a double bump. When no epoch
                 # was dropped the baselines compare directly: baseline 3 + emit 4 -> baseline 5 + emit 6
                 # advanced both channels twice and must still be flagged.
-                # only epochs that serve the top-level entry count here: dropping an older fork's epoch must not
-                # relax the comparison of the top-level baseline
-                from .stack_emit import epochs_serving_range
-                from .version_lock import baseline_entry_for_stack, baseline_stack_range
+                # one lock run gives the baseline exactly one step above the highest version already present in
+                # its scope (see version_lock.next_version_in_scope), so that is the number a bump is measured from
+                from .version_lock import next_version_in_scope
 
-                base_emit = cast("dict[str, dict[str, Any]]", base_val.get("stack_emit") or {})
-                branch_emit = cast("dict[str, dict[str, Any]]", branch_json[key].get("stack_emit") or {})
-                _, top_stack = baseline_entry_for_stack(base_val, str(base_val.get("min_stack_version") or ""))
-                served = baseline_stack_range(base_val, top_stack)
-                scoped = epochs_serving_range(base_emit, *served)
-                scoped_branch = epochs_serving_range(branch_emit, *served)
-                dropped = [
-                    epoch for epoch in scoped if epoch not in branch_emit or branch_emit[epoch].get("transforms") == []
-                ]
-                became_boundary = [
-                    epoch
-                    for epoch in scoped_branch
-                    if branch_emit[epoch].get("transforms") == [] and base_emit.get(epoch, {}).get("transforms") != []
-                ]
-                dropped += [epoch for epoch in became_boundary if epoch not in dropped]
-                shipped = [int(base_emit[epoch]["version"]) for epoch in scoped if base_emit[epoch].get("version")]
-                resolved_base: int = max([int(base_version or 0), *shipped]) if dropped else int(base_version or 0)
+                resolved_base: int = next_version_in_scope(base_val, str(base_val.get("min_stack_version") or "")) - 1
                 changes.append((key, branch_name, resolved_base, branch_version))
     return changes
 

@@ -156,114 +156,38 @@ class TestShippedVersionFloor(unittest.TestCase):
         self.assertEqual(floor_baseline_past_shipped(entry, []), 10)
         self.assertEqual(entry["version"], 10)
 
-    def test_double_bump_check_understands_shipped_emit_versions(self):
-        """3 -> 5 is a normal step when emit shipped 4; 3 -> 5 with no emit channel is still a double bump."""
+    def test_double_bump_check_measures_from_the_highest_version_in_scope(self):
+        """One lock run moves the baseline exactly one above the highest version already present in its scope
+        (baseline and the epochs serving its stacks). That is the number a bump is measured from."""
         from detection_rules.utils import check_double_bumps, compare_versions
 
-        base = {"r": {"rule_name": "x", "version": 3, "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4}}}}
-        branch = {"r": {"rule_name": "x", "version": 5}}
-        changes = compare_versions(base, branch)
-        self.assertEqual(changes, [("r", "x", 4, 5)])
-        self.assertEqual(check_double_bumps(changes), [])
+        def entry(version, emit=None, **extra):
+            e = {"rule_name": "x", "version": version, **extra}
+            if emit:
+                e["stack_emit"] = {k: {"sha256": "b" * 64, "version": v, "transforms": t} for k, (v, t) in emit.items()}
+            return {"r": e}
 
-        # two epochs, 9.5 dropped: the baseline clears the retained 9.6 epoch too (3 -> 6), measured from 5
-        two = {
-            "r": {
-                "rule_name": "x",
-                "version": 3,
-                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4}, "9.6": {"sha256": "c" * 64, "version": 5}},
-            }
-        }
-        kept = {"r": {"rule_name": "x", "version": 6, "stack_emit": {"9.6": {"sha256": "c" * 64, "version": 5}}}}
-        self.assertEqual(check_double_bumps(compare_versions(two, kept)), [])
-
-        plain_changes = compare_versions({"r": {"rule_name": "x", "version": 3}}, branch)
-        self.assertEqual(check_double_bumps(plain_changes), [("r", "x", 3, 5)])
-
-        # retained epoch: both channels advanced twice, still a double bump
-        retained = {"r": {"rule_name": "x", "version": 5, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 6}}}}
-        self.assertEqual(check_double_bumps(compare_versions(base, retained)), [("r", "x", 3, 5)])
-
-        # dropping an older fork's epoch must not relax the top-level comparison: 107 -> 109 is a double bump
-        forked_base = {
-            "r": {
-                "rule_name": "x",
-                "version": 107,
-                "min_stack_version": "9.6",
-                "previous": {"9.5": {"version": 6, "max_allowable_version": 104}},
-                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 7}, "9.6": {"sha256": "c" * 64, "version": 108}},
-            }
-        }
-        forked_branch = {
-            "r": {"rule_name": "x", "version": 109, "stack_emit": {"9.6": {"sha256": "d" * 64, "version": 110}}}
-        }
-        self.assertEqual(check_double_bumps(compare_versions(forked_base, forked_branch)), [("r", "x", 107, 109)])
-
-        # newest epoch pinned to the baseline (transforms []) while the older one remains: 3 -> 6 is the floor
-        pinned = {
-            "r": {
-                "rule_name": "x",
-                "version": 6,
-                "stack_emit": {
-                    "9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
-                    "9.6": {"sha256": "e" * 64, "version": 6, "transforms": []},
-                },
-            }
-        }
-        two["r"]["stack_emit"]["9.5"]["transforms"] = ["mitre_attack_v19"]
-        two["r"]["stack_emit"]["9.6"]["transforms"] = ["mitre_attack_v19", "mitre_atlas"]
-        self.assertEqual(check_double_bumps(compare_versions(two, pinned)), [])
-
-        # a boundary row added for an epoch that had no row, over an inherited older epoch: 3 -> 5 is the floor
-        inherited = {
-            "r": {
-                "rule_name": "x",
-                "version": 3,
-                "stack_emit": {"9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
-            }
-        }
-        boundary_added = {
-            "r": {
-                "rule_name": "x",
-                "version": 5,
-                "stack_emit": {
-                    "9.5": {"sha256": "b" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
-                    "9.6": {"sha256": "e" * 64, "version": 5, "transforms": []},
-                },
-            }
-        }
-        self.assertEqual(check_double_bumps(compare_versions(inherited, boundary_added)), [])
-
-        # an older fork's epoch turning into a boundary must not relax the top-level comparison
-        fork_base = {
-            "r": {
-                "rule_name": "x",
-                "version": 107,
-                "min_stack_version": "9.7",
-                "previous": {"9.6": {"version": 6, "max_allowable_version": 104}},
-                "stack_emit": {
-                    "9.6": {"sha256": "b" * 64, "version": 7, "transforms": ["mitre_attack_v19"]},
-                    "9.7": {"sha256": "c" * 64, "version": 108, "transforms": ["mitre_attack_v19"]},
-                },
-            }
-        }
-        fork_branch = {
-            "r": {
-                "rule_name": "x",
-                "version": 109,
-                "min_stack_version": "9.7",
-                "previous": {"9.6": {"version": 7, "max_allowable_version": 104}},
-                "stack_emit": {
-                    "9.6": {"sha256": "d" * 64, "version": 7, "transforms": []},
-                    "9.7": {"sha256": "e" * 64, "version": 110, "transforms": ["mitre_attack_v19"]},
-                },
-            }
-        }
-        self.assertEqual(check_double_bumps(compare_versions(fork_base, fork_branch)), [("r", "x", 107, 109)])
-
-        # retained epoch, ordinary tuning: baseline 3 -> 4 and emit 4 -> 5 is fine
-        tuned = {"r": {"rule_name": "x", "version": 4, "stack_emit": {"9.5": {"sha256": "c" * 64, "version": 5}}}}
-        self.assertEqual(check_double_bumps(compare_versions(base, tuned)), [])
+        # no epochs: 3 -> 4 fine, 3 -> 5 is a double bump
+        self.assertEqual(check_double_bumps(compare_versions(entry(3), entry(4))), [])
+        self.assertEqual(check_double_bumps(compare_versions(entry(3), entry(5))), [("r", "x", 3, 5)])
+        # epoch at 4 in scope: the next baseline is 5, whether the epoch is dropped, kept or lifted
+        base = entry(3, {"9.5": (4, ["mitre_attack_v19"])})
+        self.assertEqual(check_double_bumps(compare_versions(base, entry(5))), [])
+        self.assertEqual(check_double_bumps(compare_versions(base, entry(5, {"9.5": (6, ["mitre_attack_v19"])}))), [])
+        self.assertEqual(check_double_bumps(compare_versions(base, entry(6))), [("r", "x", 4, 6)])
+        # two epochs: measured from the higher one
+        two = entry(3, {"9.5": (4, ["mitre_attack_v19"]), "9.6": (5, ["mitre_attack_v19", "mitre_atlas"])})
+        self.assertEqual(check_double_bumps(compare_versions(two, entry(6, {"9.6": (7, ["mitre_atlas"])}))), [])
+        self.assertEqual(check_double_bumps(compare_versions(two, entry(7))), [("r", "x", 5, 7)])
+        # a fork's epoch outside the top-level scope does not count: top-level 107 with 9.7 = 108 -> 109 is one step
+        forked = entry(
+            107,
+            {"9.6": (7, ["mitre_attack_v19"]), "9.7": (108, ["mitre_attack_v19"])},
+            min_stack_version="9.7",
+            previous={"9.6": {"version": 6, "max_allowable_version": 104}},
+        )
+        self.assertEqual(check_double_bumps(compare_versions(forked, entry(109))), [])
+        self.assertEqual(check_double_bumps(compare_versions(forked, entry(110))), [("r", "x", 108, 110)])
 
     def test_shipped_content_drift_is_found_outside_the_history_retention_limit(self):
         """A published asset with the generated version but different content is reported, even when the
@@ -305,6 +229,7 @@ class TestShippedVersionFloor(unittest.TestCase):
         self.assertEqual(drifts[0]["rule_id"], "rid")
         self.assertEqual(drifts[0]["version"], 4)
         self.assertEqual(drifts[0]["fields"], ["query"])
+        self.assertEqual(drifts[0]["versioned_fields"], ["query"])
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_manage_versions_route_a_skips_shipped_emit_version(self):
@@ -361,7 +286,7 @@ class TestShippedVersionFloor(unittest.TestCase):
 
             with mock.patch("detection_rules.rule.loaded_version_lock", lock):
                 self.assertTrue(rule.contents.is_dirty)
-                self.assertEqual(rule.contents.autobumped_version, 4)  # the pre-fix number
+                self.assertEqual(rule.contents.autobumped_version, 5)  # one above the epoch's 4, even in memory
 
                 # a hash-only update (dev update-lock-versions) must not drop the epoch without the bump
                 lock.manage_versions(rc, exclude_version_update=True, save_changes=True, verbose=False)
@@ -519,24 +444,30 @@ class TestShippedVersionFloor(unittest.TestCase):
                 self.assertTrue(rule.contents.is_emit_dirty)  # stale real 9.6 epoch for a no-op payload
                 lock.manage_versions(rc, save_changes=True, verbose=False)
                 saved = json.loads(lock_path.read_text())[toml["rule_id"]]
-                self.assertEqual(saved["version"], 6)
-                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)  # older epoch untouched
+                self.assertEqual(saved["version"], 6)  # floored past both epochs
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 7)  # lifted above the baseline, hash kept
+                self.assertEqual(saved["stack_emit"]["9.5"]["sha256"], "1" * 64)
                 self.assertEqual(saved["stack_emit"]["9.6"]["transforms"], [])
-                self.assertEqual(saved["stack_emit"]["9.6"]["version"], 6)
-                self.assertEqual(saved["stack_emit"]["9.6"]["sha256"], saved["sha256"])  # mirrors the baseline
+                self.assertEqual(saved["stack_emit"]["9.6"]["version"], 8)  # above 9.5
+                self.assertEqual(saved["stack_emit"]["9.6"]["sha256"], saved["sha256"])  # mirrors the baseline hash
 
-                # serialization against the saved lock: 9.6 ships the baseline number and is clean
+                # serialization against the saved lock: 9.6 ships 8 and is clean, 9.5 ships 7
                 relock = VersionLock(lock_path, dep_path, name="test")
                 _, rule2 = load(relock, rule_copy)
                 with mock.patch("detection_rules.rule.loaded_version_lock", relock):
                     self.assertFalse(rule2.contents.is_emit_dirty)
-                    self.assertEqual(rule2.contents.shipped_version, 6)
-                    self.assertEqual(rule2.contents.to_api_format()["version"], 6)
+                    self.assertEqual(rule2.contents.shipped_version, 8)
+                    self.assertEqual(rule2.contents.to_api_format()["version"], 8)
+                    # a 9.5 package built before the 9.5 lock pass: that row's hash is stale for this rule, so the
+                    # interim number is the next free one in scope, never the 8 that 9.6 ships
+                    with mock.patch("detection_rules.rule.load_current_package_version", return_value="9.5"):
+                        self.assertEqual(rule2.contents.to_api_format()["version"], 9)
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
     def test_boundary_row_follows_the_baseline_on_tuning(self):
-        """A boundary row pins its stacks to the baseline, so a tuning that moves the baseline (6 -> 7) must
-        refresh the row to 7 with the new untransformed hash, and leave the older epoch alone."""
+        """A tuning with a real 9.5 epoch at 7 and a stale boundary at 6: the baseline goes one above everything
+        in scope (8, not 7), the 9.5 epoch is lifted above it and the boundary above that, and the boundary
+        takes the new baseline hash."""
         import json
         import tempfile
         import tomllib
@@ -565,7 +496,7 @@ class TestShippedVersionFloor(unittest.TestCase):
                 "type": toml["type"],
                 "version": 6,
                 "stack_emit": {
-                    "9.5": {"sha256": "1" * 64, "version": 4, "transforms": ["mitre_attack_v19"]},
+                    "9.5": {"sha256": "1" * 64, "version": 7, "transforms": ["mitre_attack_v19"]},
                     "9.6": {"sha256": "3" * 64, "version": 6, "transforms": []},  # boundary row, now stale
                 },
             }
@@ -582,10 +513,10 @@ class TestShippedVersionFloor(unittest.TestCase):
                 self.assertTrue(rule.contents.is_dirty)
                 lock.manage_versions(rc, save_changes=True, verbose=False)
                 saved = json.loads(lock_path.read_text())[toml["rule_id"]]
-                self.assertEqual(saved["version"], 7)
-                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)
+                self.assertEqual(saved["version"], 8)  # one above the 9.5 epoch's 7, not locked + 1 = 7
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 9)  # lifted above the new baseline
                 self.assertEqual(
-                    saved["stack_emit"]["9.6"], {"sha256": saved["sha256"], "version": 7, "transforms": []}
+                    saved["stack_emit"]["9.6"], {"sha256": saved["sha256"], "version": 10, "transforms": []}
                 )
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
@@ -637,10 +568,10 @@ class TestShippedVersionFloor(unittest.TestCase):
                 self.assertTrue(rule.contents.is_emit_dirty)  # inherited 9.5 row, no-op payload
                 lock.manage_versions(rc, save_changes=True, verbose=False)
                 saved = json.loads(lock_path.read_text())[toml["rule_id"]]
-                self.assertEqual(saved["version"], 5)
-                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)
+                self.assertEqual(saved["version"], 5)  # floored past the inherited 9.5 epoch
+                self.assertEqual(saved["stack_emit"]["9.5"]["version"], 6)  # lifted above the baseline
                 self.assertEqual(
-                    saved["stack_emit"]["9.6"], {"sha256": saved["sha256"], "version": 5, "transforms": []}
+                    saved["stack_emit"]["9.6"], {"sha256": saved["sha256"], "version": 7, "transforms": []}
                 )
 
     @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
@@ -701,3 +632,70 @@ class TestShippedVersionFloor(unittest.TestCase):
                 self.assertNotIn(rule.id, changed)
                 self.assertEqual(json.loads(lock_path.read_text())[toml["rule_id"]], entry)
                 self.assertEqual(rule.contents.to_api_format()["version"], 6)
+
+    @unittest.skipIf(RULES_CONFIG.bypass_version_lock, "Version lock bypassed")
+    def test_new_epoch_inherits_an_older_row_with_the_same_payload(self):
+        """9.6 branch cut: on the 9.6 pass a tuned rule has no 9.6 row, but its 9.5 row (re-hashed by the 9.5 pass
+        just before) already carries the 9.6 payload. No 9.6 row may be written; 9.6 keeps inheriting 9.5. Only a
+        payload that really differs (ATLAS entries) earns a 9.6 row, numbered above everything in scope."""
+        import json
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from unittest import mock
+
+        from detection_rules.config import load_current_package_version
+        from detection_rules.rule_loader import RuleCollection
+        from detection_rules.stack_emit import parse_stack
+        from detection_rules.version_lock import VersionLock
+
+        if parse_stack(load_current_package_version()) < parse_stack("9.6"):
+            self.skipTest("models a 9.6 epoch distinct from 9.5; needs a 9.6+ package stack")
+
+        rule_path = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+        toml = tomllib.loads(rule_path.read_text())["rule"]
+        # a live transform: drop the Persistence tag so the MITRE v19 transform adds it back
+        text = rule_path.read_text().replace('    "Tactic: Persistence",\n', "", 1)
+
+        def run(inherit: bool) -> dict:
+            with tempfile.TemporaryDirectory() as tmp:
+                rule_copy = Path(tmp) / rule_path.name
+                rule_copy.write_text(text)
+                lock_path = Path(tmp) / "version.lock.json"
+                dep_path = Path(tmp) / "deprecated_rules.json"
+                dep_path.write_text("{}")
+                with mock.patch("detection_rules.rule.emit_epoch_key", return_value="9.6"):
+                    current_emit = RuleCollection().load_file(rule_copy).contents.get_emit_hash()
+                row = {
+                    "sha256": current_emit if inherit else "2" * 64,
+                    "version": 4,
+                    "transforms": ["mitre_attack_v19"],
+                }
+                entry = {"rule_name": toml["name"], "sha256": "0" * 64, "type": toml["type"], "version": 3}
+                entry["stack_emit"] = {"9.5": row}
+                lock_path.write_text(json.dumps({toml["rule_id"]: entry}))
+                lock = VersionLock(lock_path, dep_path, name="test")
+                rc = RuleCollection()
+                rc._version_lock = lock  # noqa: SLF001
+                rule = rc.load_file(rule_copy)
+                with (
+                    mock.patch("detection_rules.version_lock.emit_epoch_key", return_value="9.6"),
+                    mock.patch("detection_rules.rule.emit_epoch_key", return_value="9.6"),
+                    mock.patch("detection_rules.rule.loaded_version_lock", lock),
+                ):
+                    self.assertTrue(rule.contents.is_dirty)
+                    lock.manage_versions(rc, save_changes=True, verbose=False)
+                return json.loads(lock_path.read_text())[toml["rule_id"]]
+
+        # 9.5 row already carries the 9.6 payload: tuned baseline 5 (above the 9.5 epoch's 4), no 9.6 row
+        saved = run(inherit=True)
+        self.assertEqual(saved["version"], 5)
+        self.assertNotIn("9.6", saved["stack_emit"])
+        self.assertEqual(saved["stack_emit"]["9.5"]["version"], 6)  # lifted above the tuned baseline, hash kept
+
+        # 9.5 row carries a different payload: 9.6 gets its own row; the ordering pass then keeps 9.5 above the
+        # tuned baseline and 9.6 above 9.5 (5 < 6 < 7)
+        saved = run(inherit=False)
+        self.assertEqual(saved["version"], 5)
+        self.assertEqual(saved["stack_emit"]["9.5"]["version"], 6)
+        self.assertEqual(saved["stack_emit"]["9.6"]["version"], 7)

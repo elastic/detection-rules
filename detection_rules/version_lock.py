@@ -51,8 +51,9 @@ class StackEmitEntry:
     """Version/hash for a stack emit epoch (shared across minors that inherit the same transforms).
 
     ``transforms: []`` marks a baseline boundary: the transforms are a no-op for this epoch's stacks but an
-    older epoch would be inherited without the row, so the row pins those stacks to the baseline. It mirrors
-    the serving baseline entry (same ``version`` and ``sha256``) and moves only when that entry moves.
+    older epoch would be inherited without the row, so the row pins those stacks to the baseline content.
+    Its ``sha256`` is the serving baseline's (that is how staleness is detected); its ``version`` follows the
+    ordering rule like any other epoch (lift_epochs_in_scope).
     """
 
     sha256: definitions.Sha256
@@ -177,20 +178,52 @@ def baseline_stack_range(lock_entry: dict[str, Any], entry_stack: str | None) ->
     return lower, (min(uppers) if uppers else None)
 
 
-def emit_versions_for_baseline(
-    lock_entry: dict[str, Any], entry_stack: str | None, exclude_epoch: str | None = None
-) -> list[int]:
-    """Versions shipped by the epochs that serve any stack the given baseline entry serves.
-
-    ``exclude_epoch`` leaves one epoch out, for callers about to renumber it.
-    """
+def emit_versions_for_baseline(lock_entry: dict[str, Any], entry_stack: str | None) -> list[int]:
+    """Versions shipped by the epochs that serve any stack the given baseline entry serves."""
     stack_emit = cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {})
     lower, upper = baseline_stack_range(lock_entry, entry_stack)
     return [
         int(stack_emit[epoch]["version"])
         for epoch in epochs_serving_range(stack_emit, lower, upper)
-        if epoch != exclude_epoch and stack_emit[epoch].get("version")
+        if stack_emit[epoch].get("version")
     ]
+
+
+def next_version_in_scope(lock_entry: dict[str, Any], stripped_stack: str) -> int:
+    """The one numbering rule: a new version for any channel serving ``stripped_stack`` is one above every
+    version already present in that scope (the serving baseline and every epoch in its stack range), so a
+    number is never reused with different content on any stack line a user can move across."""
+    baseline_entry, entry_stack = baseline_entry_for_stack(lock_entry, stripped_stack)
+    return max([int(baseline_entry.get("version") or 0), *emit_versions_for_baseline(lock_entry, entry_stack)]) + 1
+
+
+def lift_epochs_in_scope(lock_entry: dict[str, Any], stripped_stack: str, label: str = "") -> list[str]:
+    """The one ordering rule: within a baseline's scope, versions must not decrease as the stack goes up.
+
+    After a baseline moved, an epoch for a higher stack may sit at or below it; a user moving up a stack line
+    would then see a lower version with different content. Such epochs are lifted (hash unchanged, so the
+    package re-ships the same content under the new number). Returns log lines for each lift.
+    """
+    baseline_entry, entry_stack = baseline_entry_for_stack(lock_entry, stripped_stack)
+    stack_emit = cast("dict[str, dict[str, Any]]", lock_entry.get("stack_emit") or {})
+    lower, upper = baseline_stack_range(lock_entry, entry_stack)
+    running = int(baseline_entry.get("version") or 0)
+    max_allowable = baseline_entry.get("max_allowable_version")
+    lifted: list[str] = []
+    for epoch in sorted(epochs_serving_range(stack_emit, lower, upper), key=parse_stack):
+        row = stack_emit[epoch]
+        version = int(row.get("version") or 0)
+        if version <= running:
+            version = running + 1
+            if max_allowable is not None and version > int(max_allowable):
+                raise ValueError(
+                    f"Forked rule{': ' + label if label else ''}: epoch {epoch} needs version {version}, above the "
+                    f"fork's max allowable version {max_allowable}"
+                )
+            lifted.append(f"epoch {epoch} lifted to {version} above the stacks below it")
+            row["version"] = version
+        running = version
+    return lifted
 
 
 def floor_baseline_past_shipped(baseline_entry: dict[str, Any], shipped_versions: list[int], label: str = "") -> int:
@@ -385,10 +418,13 @@ class VersionLock:
                         # 2) on the latest, after a breaking change has been locked
                         # Preserve existing stack_emit channels — never drop higher-stack emit rows.
                         existing_stack_emit = lock_from_file.get("stack_emit")
+                        floor = next_version_in_scope(lock_from_file, stripped_version) if lock_from_file else None
                         lock_from_file.update(lock_from_rule)
                         if existing_stack_emit is not None:
                             lock_from_file["stack_emit"] = existing_stack_emit
-                        new_version = lock_from_rule["version"]
+                        if floor is not None and not exclude_version_update and int(lock_from_file["version"]) < floor:
+                            lock_from_file["version"] = floor
+                        new_version = lock_from_file["version"]
 
                         # add the min_stack_version to the lock if it's explicitly set
                         if rule.contents.metadata.min_stack_version is not None:
@@ -453,8 +489,17 @@ class VersionLock:
                             )
 
                         if info_from_rule != info_from_file:
-                            lock_from_file["previous"][stripped_version].update(lock_from_rule)
-                            new_version = lock_from_rule["version"]
+                            floor = next_version_in_scope(lock_from_file, stripped_version)
+                            fork_entry = lock_from_file["previous"][stripped_version]
+                            fork_entry.update(lock_from_rule)
+                            if not exclude_version_update and int(fork_entry["version"]) < floor:
+                                if floor > max_allowable_version:
+                                    raise ValueError(
+                                        f"Forked rule: {rule.id} - {rule.name} needs version {floor}, above the max "
+                                        f"allowable version of {max_allowable_version}"
+                                    )
+                                fork_entry["version"] = floor
+                            new_version = fork_entry["version"]
                             log_changes(
                                 rule,
                                 route,
@@ -561,7 +606,10 @@ class VersionLock:
                             )
                         continue
 
-                    if stack_emit.get(epoch_key, {}).get("sha256") == emit_hash:
+                    # nothing to write when the row this epoch's stacks resolve to already carries this payload:
+                    # the key itself, or an older epoch they inherit (a 9.6 cut must not copy every 9.5 row)
+                    resolved = resolve_stack_emit_entry(stack_emit, parse_stack(epoch_key)) or {}
+                    if resolved.get("sha256") == emit_hash and resolved.get("transforms") != []:
                         continue
 
                     stack_emit = cast("dict[str, dict[str, Any]]", lock_from_file.setdefault("stack_emit", {}))
@@ -570,16 +618,11 @@ class VersionLock:
                     # number the epoch from the baseline entry that ships for this stack (the fork on route C, the
                     # top-level entry otherwise) and above the other epochs in that entry's range. a fork's epochs
                     # stay inside the fork's allowable range so the baseline can be floored past them later
-                    baseline_entry, entry_stack = baseline_entry_for_stack(lock_from_file, stripped_version)
-                    baseline_version = int(baseline_entry.get("version") or 1)
-                    other_emit_versions = emit_versions_for_baseline(
-                        lock_from_file, entry_stack, exclude_epoch=epoch_key
-                    )
-                    floor = max([baseline_version, *other_emit_versions])
+                    baseline_entry, _ = baseline_entry_for_stack(lock_from_file, stripped_version)
                     if exclude_version_update and existing_emit:
                         new_emit_version = int(existing_emit["version"])
                     else:
-                        new_emit_version = floor + 1
+                        new_emit_version = next_version_in_scope(lock_from_file, stripped_version)
                     max_allowable = baseline_entry.get("max_allowable_version")
                     if max_allowable is not None and new_emit_version > int(max_allowable):
                         raise ValueError(
@@ -598,6 +641,18 @@ class VersionLock:
                         new_emit_version,
                         f"epoch {epoch_key} hash updated ({', '.join(package_transforms)})",
                     )
+
+        # ordering pass: after the channels moved, keep every epoch above the stacks below it (see lift_epochs_in_scope)
+        if not exclude_version_update:
+            for rule in rules:
+                touched = rule.id in changed_rules or rule.id in new_rules or rule.id in emit_changed_rules
+                if not touched or rule.id not in lock_file_contents or rule.contents.metadata.maturity != "production":
+                    continue
+                min_stack = Version.parse(rule.contents.get_supported_version(), optional_minor_and_patch=True)
+                for msg in lift_epochs_in_scope(
+                    lock_file_contents[rule.id], f"{min_stack.major}.{min_stack.minor}", f"{rule.id} - {rule.name}"
+                ):
+                    log_changes(rule, "stack_emit", lock_file_contents[rule.id].get("version"), msg)
 
         for rule in rules.deprecated:
             if rule.id in newly_deprecated:
