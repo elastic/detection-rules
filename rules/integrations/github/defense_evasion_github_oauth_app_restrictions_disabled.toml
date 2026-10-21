@@ -1,0 +1,112 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects disabling of GitHub organization OAuth App access restrictions. When restrictions are off, any OAuth App a
+member authorizes can access organization data.
+"""
+false_positives = [
+    """
+    Briefly disabling restrictions to onboard an approved vendor app. Re-enable immediately and approve that app
+    explicitly instead when possible.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub OAuth App Access Restrictions Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub OAuth App Access Restrictions Disabled
+
+`org.disable_oauth_app_restrictions` turns off third-party OAuth App access restrictions. Follow with `oauth_authorization.create`.
+
+### Possible investigation steps
+
+- Identify `user.name` and OAuth grants created after the disable.
+- Re-enable restrictions and review third-party apps.
+
+### False positive analysis
+
+- App onboarding with a ticket.
+
+### Response and remediation
+
+- Re-enable OAuth App access restrictions. Revoke unexpected OAuth grants.
+"""
+references = [
+    "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/disabling-oauth-app-access-restrictions-for-your-organization",
+]
+risk_score = 47
+rule_id = "d5f49e8c-8dad-41a0-a4ad-b9bf584fee3a"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action == "org.disable_oauth_app_restrictions"
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+]
+
