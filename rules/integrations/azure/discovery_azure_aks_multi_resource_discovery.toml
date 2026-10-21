@@ -31,14 +31,14 @@ note = """## Triage and analysis
 
 AKS kube-audit events are carried under the flattened `azure.platformlogs.properties.log.*` subtree, so this rule uses
 `field_extract` to pull `stage`, `verb`, `objectRef.resource`, `objectRef.namespace`, `user.username`, `userAgent`,
-and `sourceIPs` into named `Esql.*`/`Esql_priv.*` fields. It groups `ResponseComplete`-stage `list`/`get` calls on
-orientation-related resources by `Esql_priv.username`, `Esql.user_agent`, and `azure.resource.id` (the AKS cluster),
+and `sourceIPs` into named `Esql.*`/`Esql.*` fields. It groups `ResponseComplete`-stage `list`/`get` calls on
+orientation-related resources by `Esql.username`, `Esql.user_agent`, and `azure.resource.id` (the AKS cluster),
 and alerts when the distinct `Esql.resource` cardinality for that identity/client fingerprint is 3 or greater,
 mirroring the Kubernetes ES|QL multi-resource discovery rule. Scoping by cluster keeps same-named identities (for
 example the default `masterclient` admin or a GitOps service account deployed to several clusters) from pooling
 across clusters and reaching the threshold on unrelated activity. Source IPs are not part of the group key because
 AKS `sourceIPs` carries the client IP alongside a control-plane proxy address (`172.31.x.x`) that varies across proxy
-replicas within a single session; they are instead collected into `Esql_priv.source_ip_values` for triage. Known
+replicas within a single session; they are instead collected into `Esql.source_ip_values` for triage. Known
 platform/control-plane identities (`aksService`, `hcpService`, `acsService`, `readinessChecker`, node and
 `kube-system`/`elastic-system` service accounts) and automation-tool user agents (Azure Arc, Helm, Terraform,
 `OpenAPI-Generator`) are excluded; `kubectl` is never excluded by user agent alone, since both admins and attackers
@@ -46,7 +46,7 @@ with a stolen token typically drive activity through it.
 
 ### Possible investigation steps
 
-- Review `Esql_priv.username`, `Esql.user_agent`, and `Esql_priv.source_ip_values` for the acting identity and client
+- Review `Esql.username`, `Esql.user_agent`, and `Esql.source_ip_values` for the acting identity and client
   fingerprint, confirm which cluster was targeted via `azure.resource.id`, bound the window with
   `Esql.earliest_timestamp`/`Esql.latest_timestamp`, and pivot into raw `kube-audit` logs for call ordering.
   Unexpected `kubectl` or custom user agents (for example `kubectl-recon`) from human-style identities, or the same
@@ -56,7 +56,7 @@ with a stolen token typically drive activity through it.
   namespace-scoped kind (for example `kubectl get pods -A`) surface as `(cluster-scoped)`; the latter is a broader
   enumeration than a single-namespace query.
 - Correlate with follow-on activity from the same identity/source IP: secret reads, `SelfSubjectAccessReview`
-  checks, pod exec, RBAC changes, and cross-reference the public address in `Esql_priv.source_ip_values` (ignoring
+  checks, pod exec, RBAC changes, and cross-reference the public address in `Esql.source_ip_values` (ignoring
   the `172.31.x.x` AKS control-plane proxy entries) against expected CI/CD or administrator egress ranges.
 
 ### False positive analysis
@@ -110,29 +110,30 @@ from logs-azure.platformlogs-* metadata _id, _index, _version
     Esql.verb = field_extract(azure.platformlogs.properties, "log.verb"),
     Esql.resource = field_extract(azure.platformlogs.properties, "log.objectRef.resource"),
     Esql.namespace = field_extract(azure.platformlogs.properties, "log.objectRef.namespace"),
-    Esql_priv.username = field_extract(azure.platformlogs.properties, "log.user.username"),
+    Esql.username = field_extract(azure.platformlogs.properties, "log.user.username"),
     Esql.user_agent = field_extract(azure.platformlogs.properties, "log.userAgent"),
-    Esql_priv.source_ips = field_extract(azure.platformlogs.properties, "log.sourceIPs")
+    Esql.source_ips = field_extract(azure.platformlogs.properties, "log.sourceIPs")
 | where Esql.stage == "ResponseComplete"
     and Esql.verb in ("list", "get")
     and Esql.resource in ("namespaces", "nodes", "pods", "roles", "clusterroles", "configmaps", "serviceaccounts", "rolebindings", "clusterrolebindings")
-    and Esql_priv.username is not null
+    and Esql.username is not null
     and (Esql.namespace is null or Esql.namespace != "elastic-system")
-    and not Esql_priv.username rlike "system:node:.*|system:serviceaccount:kube-system:.*|system:serviceaccount:elastic-system:.*"
-    and not Esql_priv.username in ("aksService", "hcpService", "readinessChecker", "acsService", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
+    and not Esql.username rlike "system:node:.*|system:serviceaccount:kube-system:.*|system:serviceaccount:elastic-system:.*"
+    and not Esql.username in ("aksService", "hcpService", "readinessChecker", "acsService", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler")
     and not Esql.user_agent rlike """(resourcesyncoperator|identityOperator|telegraf|clustermetadatasync|ConfigurationAgent|manager|extensionmanager)/.*\(linux/amd64\) kubernetes/\$Format|Helm/.*|.*Terraform.*|OpenAPI-Generator/.*"""
 | eval Esql.namespace = coalesce(Esql.namespace, "(cluster-scoped)")
 | stats
     Esql.unique_resources = count_distinct(Esql.resource),
     Esql.enumerated_resources = values(Esql.resource),
     Esql.enumerated_namespaces = values(Esql.namespace),
-    Esql_priv.source_ip_values = values(Esql_priv.source_ips),
+    Esql.source_ip_values = values(Esql.source_ips),
+    Esql.username_values = values(Esql.username),
     Esql.event_count = count(*),
     Esql.earliest_timestamp = min(@timestamp),
     Esql.latest_timestamp = max(@timestamp)
-  by Esql_priv.username, Esql.user_agent, azure.resource.id
+  by Esql.username, Esql.user_agent, azure.resource.id
 | where Esql.unique_resources >= 3
-| keep Esql.*, Esql_priv.*, azure.resource.id
+| keep Esql.*, azure.resource.id
 '''
 
 
@@ -150,7 +151,7 @@ name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.alert_suppression]
-group_by = ["Esql_priv.username", "Esql.user_agent", "azure.resource.id"]
+group_by = ["Esql.username", "Esql.user_agent", "azure.resource.id"]
 missing_fields_strategy = "suppress"
 
 [rule.alert_suppression.duration]
