@@ -2,7 +2,7 @@
 creation_date = "2025/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -76,24 +76,45 @@ from logs-github.audit-* metadata _id, _index, _version
   data_stream.dataset == "github.audit" and
   github.category == "pull_request" and
   event.type == "change" and
-  event.action == "pull_request.close"
+  event.action == "pull_request.close" and
+  user.name is not null
 | stats
-  Esql.document_count = COUNT(*),
-  Esql.github_org_values = values(github.org),
-  Esql.github_repo_values = values(github.repo),
-  Esql.github_user_agent_values = values(github.user_agent),
-  Esql.github_pull_request_url_values = values(github.pull_request_url),
-  Esql.user_name_values = values(user.name),
-  Esql.agent_id_values = values(agent.id),
-  Esql.data_stream_dataset_values = values(data_stream.dataset),
-  Esql.data_stream_namespace_values = values(data_stream.namespace)
-
-  by user.name
-
-| keep Esql.*
-
+  Esql.event_count = count(*),
+  event.start = min(@timestamp),
+  event.end = max(@timestamp),
+  user.id = values(user.id),
+  source.ip = values(github.actor_ip),
+  client.geo.country_iso_code = values(client.geo.country_iso_code),
+  user_agent.original = values(user_agent.original),
+  github.org = values(github.org),
+  github.repo = values(github.repo),
+  github.pull_request_url = values(github.pull_request_url),
+  github.programmatic_access_type = values(github.programmatic_access_type),
+  github.hashed_token = values(github.hashed_token),
+  agent.id = values(agent.id),
+  data_stream.dataset = values(data_stream.dataset),
+  data_stream.namespace = values(data_stream.namespace)
+  by user.name, event.action
 | where
-  Esql.document_count >= 10
+  Esql.event_count >= 10
+| keep
+  user.name,
+  event.action,
+  Esql.event_count,
+  event.start,
+  event.end,
+  user.id,
+  source.ip,
+  client.geo.country_iso_code,
+  user_agent.original,
+  github.org,
+  github.repo,
+  github.pull_request_url,
+  github.programmatic_access_type,
+  github.hashed_token,
+  agent.id,
+  data_stream.dataset,
+  data_stream.namespace
 '''
 
 [[rule.threat]]

@@ -4,7 +4,7 @@ integration = ["github"]
 maturity = "production"
 min_stack_comments = "Changing min stack to 9.3.0, the latest minimum supported version for 9.X releases."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -80,25 +80,49 @@ from logs-github.audit-* metadata _id, _index, _version
   event.type == "change" and
   event.action == "protected_branch.policy_override" and
   github.category == "protected_branch" and
-  mv_contains(github.reasons.code, "force_push")
+  mv_contains(github.reasons.code, "force_push") and
+  user.name is not null
 | stats
-  Esql.event_count = COUNT(*),
-  Esql.github_org_values = values(github.org),
-  Esql.github_repo_values = values(github.repo),
-  Esql.github_overridden_codes_values = values(github.overridden_codes),
-  Esql.github_reasons_code_values = values(github.reasons.code),
-  Esql.github_reasons_message_values = values(github.reasons.message),
-  Esql.user_name_values = values(user.name),
-  Esql.agent_id_values = values(agent.id),
-  Esql.data_stream_dataset_values = values(data_stream.dataset),
-  Esql.data_stream_namespace_values = values(data_stream.namespace)
-
-  by user.name
-
-| keep Esql.*
-
+  Esql.event_count = count(*),
+  event.start = min(@timestamp),
+  event.end = max(@timestamp),
+  user.id = values(user.id),
+  source.ip = values(github.actor_ip),
+  client.geo.country_iso_code = values(client.geo.country_iso_code),
+  user_agent.original = values(user_agent.original),
+  github.org = values(github.org),
+  github.repo = values(github.repo),
+  github.overridden_codes = values(github.overridden_codes),
+  github.reasons.code = values(github.reasons.code),
+  github.reasons.message = values(github.reasons.message),
+  github.programmatic_access_type = values(github.programmatic_access_type),
+  github.hashed_token = values(github.hashed_token),
+  agent.id = values(agent.id),
+  data_stream.dataset = values(data_stream.dataset),
+  data_stream.namespace = values(data_stream.namespace)
+  by user.name, event.action
 | where
   Esql.event_count >= 10
+| keep
+  user.name,
+  event.action,
+  Esql.event_count,
+  event.start,
+  event.end,
+  user.id,
+  source.ip,
+  client.geo.country_iso_code,
+  user_agent.original,
+  github.org,
+  github.repo,
+  github.overridden_codes,
+  github.reasons.code,
+  github.reasons.message,
+  github.programmatic_access_type,
+  github.hashed_token,
+  agent.id,
+  data_stream.dataset,
+  data_stream.namespace
 '''
 
 [[rule.threat]]

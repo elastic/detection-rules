@@ -2,7 +2,7 @@
 creation_date = "2025/12/05"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -87,7 +87,30 @@ from logs-github.audit-* metadata _id, _index, _version
     github.category == "protected_branch" and
     github.reasons.code == "workflow_updates" and
     match(github.reasons.message::STRING, "refusing to allow a GitHub App to create or update workflow")
-| keep *
+| eval
+    source.ip = github.actor_ip
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    user.id,
+    source.ip,
+    client.geo.country_iso_code,
+    user_agent.original,
+    github.programmatic_access_type,
+    github.hashed_token,
+    github.org,
+    github.repo,
+    github.branch,
+    github.category,
+    github.reasons.code,
+    github.reasons.message,
+    agent.id,
+    data_stream.dataset,
+    data_stream.namespace
 '''
 
 
