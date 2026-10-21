@@ -2,13 +2,13 @@
 creation_date = "2026/10/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
 description = """
-Identifies successful account creation where the target name is Administrator with a single leading or trailing ASCII
-space. Detects a deceptive account name, not proven privilege escalation.
+Identifies successful account creation where the target name is Administrator with one or more leading or trailing ASCII
+spaces. Adversaries may use this name to impersonate the built-in administrator account.
 """
 false_positives = [
     """
@@ -28,9 +28,9 @@ note = """## Triage and analysis
 
 ### Investigating Local Administrator-Lookalike Account Created With Whitespace
 
-The exact attributed 4720 event records user.effective.name as Administrator followed by a space. Use the audited target identity instead of requiring a net.exe child process; the actor/broker is SYSTEM/lsass.exe.
+Inspect the exact account name in user.effective.name in the successful 4720 event. Display the name with delimiters or inspect its code points because spaces can be difficult to distinguish in the UI. Review the creating identity and correlate process telemetry; the event may identify SYSTEM/lsass.exe as the actor or broker.
 
-This narrow English-name heuristic covers one leading/trailing ASCII space, not renamed/localized built-in accounts, repeated whitespace or Unicode confusables. No Administrators group membership was proven. It relies on this Elastic Defend mapping; other Windows event integrations require separate mapping tests.
+The rule matches the English name Administrator case-insensitively with one or more ASCII spaces before or after it, including spaces on both sides. It excludes the unpadded name and does not cover renamed or localized built-in accounts or Unicode confusables. Account creation alone does not establish membership in the Administrators group or privilege escalation. This rule uses the Elastic Defend security-event mapping; other Windows event integrations require separate mapping validation.
 
 Validate change authorization, process ancestry and related activity before escalating.
 
@@ -69,7 +69,7 @@ type = "eql"
 
 query = '''
 iam where host.os.type == "windows" and event.code == "4720" and event.outcome == "success" and
-  user.effective.name : ("Administrator ", " Administrator")
+  user.effective.name regex~ (" +Administrator *", " *Administrator +")
 '''
 
 

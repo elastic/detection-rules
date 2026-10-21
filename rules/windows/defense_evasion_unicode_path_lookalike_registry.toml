@@ -2,7 +2,7 @@
 creation_date = "2026/10/07"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/10/08"
+updated_date = "2026/10/21"
 
 [rule]
 author = ["Elastic"]
@@ -28,9 +28,9 @@ note = """## Triage and analysis
 
 ### Investigating PATH-Lookalike Environment Variable With Invisible Character
 
-A PATH name containing U+200C was persisted. A narrowly scoped low-severity name-deception rule can flag this without widening execution-masquerading rules to every Unicode filename.
+Inspect the registry value name as Unicode code points. The rule identifies a single U+200B ZERO WIDTH SPACE, U+200C ZERO WIDTH NON-JOINER, U+200D ZERO WIDTH JOINER, or U+FEFF ZERO WIDTH NO-BREAK SPACE before or after PATH. The explicit Unicode escapes in the query represent these characters, not the literal text of an escape sequence. The validating Atomic created PATH followed by U+200C.
 
-No process used the variable, and the real PATH was not modified. Intent and operational prevalence remain unvalidated. Test approved internationalized environment management before deployment.
+A matching name is a separate environment variable. Check its data and any subsequent use before inferring that the real PATH or executable search order changed. Review authorized internationalized environment management when assessing false positives.
 
 Validate change authorization, process ancestry and related activity before escalating.
 
@@ -70,7 +70,16 @@ type = "eql"
 query = '''
 registry where host.os.type == "windows" and event.type == "change" and
   registry.path : ("HKEY_USERS\\*\\Environment\\*", "HKLM\\SYSTEM\\ControlSet*\\Control\\Session Manager\\Environment\\*") and
-  registry.value : ("PATH​", "PATH‌", "PATH‍", "PATH﻿", "​PATH", "‌PATH", "‍PATH", "﻿PATH")
+  registry.value : (
+    /* U+200B ZERO WIDTH SPACE */
+    "PATH\u{200b}", "\u{200b}PATH",
+    /* U+200C ZERO WIDTH NON-JOINER */
+    "PATH\u{200c}", "\u{200c}PATH",
+    /* U+200D ZERO WIDTH JOINER */
+    "PATH\u{200d}", "\u{200d}PATH",
+    /* U+FEFF ZERO WIDTH NO-BREAK SPACE */
+    "PATH\u{feff}", "\u{feff}PATH"
+  )
 '''
 
 
