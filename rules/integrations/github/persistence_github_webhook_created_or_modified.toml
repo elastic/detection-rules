@@ -1,0 +1,148 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects creation or configuration change of a GitHub webhook. Attackers add a hook to copy push, pull request, and
+workflow payloads — including secrets that land in those events — to an external URL.
+"""
+false_positives = [
+    """
+    Installing a documented CI, chat, or ticketing integration that uses GitHub webhooks. Confirm the payload URL and
+    subscribed events with the repository owners.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Webhook Created or Configuration Changed"
+note = """## Triage and analysis
+
+### Investigating GitHub Webhook Created or Configuration Changed
+
+`hook.create` adds a webhook. `hook.config_changed` updates the payload URL or other hook settings. Either action can send repository events to an attacker-controlled endpoint.
+
+Lab telemetry: `hook.create` and `hook.config_changed` on `gh-lab-org/lab-app-1` from `bry4nsec` (inactive dummy URL on example.com).
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.repo`, `github.actor_ip`, and `github.programmatic_access_type`.
+- In repository Settings → Webhooks, inspect the payload URL, content type, and subscribed events. Treat unknown hosts as compromised.
+- Pivot to `git.push`, `repo.download_zip`, and Actions secret creates by the same actor.
+
+### False positive analysis
+
+- First-time install of Slack, Jira, or a deploy bot that registers a webhook.
+- Terraform or GitHub App automation that manages hooks.
+
+### Response and remediation
+
+- Delete unauthorized webhooks. Rotate secrets that may have been delivered in payloads.
+- Revoke the actor's tokens if the hook was not approved.
+"""
+references = [
+    "https://docs.github.com/en/webhooks/about-webhooks",
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/audit-log-events-for-your-organization",
+]
+risk_score = 21
+rule_id = "ac34a5d9-352e-434a-8a17-dc55a49ee740"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Collection",
+    "Tactic: Exfiltration",
+    "Tactic: Persistence",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit"
+    and event.action in ("hook.create", "hook.config_changed")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.hook_id,
+    github.name
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1213"
+name = "Data from Information Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/"
+[[rule.threat.technique.subtechnique]]
+id = "T1213.003"
+name = "Code Repositories"
+reference = "https://attack.mitre.org/techniques/T1213/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0009"
+name = "Collection"
+reference = "https://attack.mitre.org/tactics/TA0009/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1567"
+name = "Exfiltration Over Web Service"
+reference = "https://attack.mitre.org/techniques/T1567/"
+
+
+[rule.threat.tactic]
+id = "TA0010"
+name = "Exfiltration"
+reference = "https://attack.mitre.org/tactics/TA0010/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.hook_id",
+    "github.name",
+]
+
