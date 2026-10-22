@@ -4,7 +4,7 @@ integration = ["endpoint"]
 maturity = "production"
 min_stack_comments = "ES|QL FROM subqueries require Elastic Stack 9.5.0 or later."
 min_stack_version = "9.5.0"
-updated_date = "2026/09/16"
+updated_date = "2026/10/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,6 +22,37 @@ interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Potential RMM Execution from a Commonly Abused Web Service"
+note = """ ## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Potential RMM Execution from a Commonly Abused Web Service
+
+This rule detects signed remote monitoring software launched on Windows after delivery from a commonly abused hosting or file-sharing service, which may indicate covert remote access despite the software appearing legitimate. An attacker may send a user a social-engineering link to download a trusted remote-support executable, then launch it to establish interactive control while blending with legitimate administration activity.
+
+### Possible investigation steps
+
+- Confirm whether the RMM product, executing user, device, and observed timeframe align with approved software inventory, help-desk activity, or authorized administrator actions.
+- Reconstruct the delivery chain using browser, email, proxy, and file telemetry to identify the initiating link, sender, download time, and any social-engineering context.
+- Review the process ancestry, command line, descendants, and nearby persistence changes for scripted installation, unattended-access configuration, credential access, or shell execution.
+- Correlate DNS, network, and firewall telemetry with vendor infrastructure and extract available session identifiers, configuration artifacts, or remote operator details.
+- Hunt enterprise-wide for the same hash, executable path, source URL, user, and related destinations, then isolate affected hosts and remove unauthorized access mechanisms if malicious activity is confirmed.
+
+### False positive analysis
+
+- An authorized help-desk technician may download and run approved RMM software from a listed file-sharing or hosting domain, which can be confirmed against support tickets, administrator activity, and the approved software inventory.
+- An approved software deployment may retrieve a signed RMM installer from organization-controlled cloud storage, which can be validated by reviewing the origin URL, code-signature trust, file hash, deployment timing, and change records.
+
+### Response and remediation
+
+- Isolate affected Windows hosts from the network while preserving endpoint evidence, including the RMM executable, process tree, command line, source URL, configuration files, and network connections.
+- Terminate unauthorized RMM sessions and remove associated executables, services, scheduled tasks, startup entries, registry run keys, unattended-access settings, and newly created accounts or access tokens.
+- Escalate immediately to incident response if the RMM accessed privileged accounts, executed shells or credential tools, moved laterally, established persistence, or appeared on multiple systems.
+- Reset credentials and revoke active sessions for affected users and administrators, then block confirmed malicious hashes, download URLs, domains, and remote-service destinations across endpoint, web, DNS, email, and firewall controls.
+- Reimage compromised hosts or restore them from a verified known-good baseline, patch affected software, and validate that no unauthorized RMM components, accounts, persistence artifacts, or outbound connections remain before reconnecting them.
+- Prevent recurrence by allowlisting approved RMM products and deployment sources, restricting installation and unattended-access configuration to authorized administrators, and monitoring for RMM downloads from public hosting or file-sharing services.
+"""
 references = [
     "https://www.huntress.com/blog/series-of-unfortunate-rmm-events",
     "https://www.cloudflare.com/cloudforce-one/research/report/vercel-hosted-rmm-abuse-campaign-evolves-with-telegram-c2-for-victim-filtering/",
@@ -41,6 +72,7 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Command and Control",
     "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
 ]
 timestamp_override = "event.ingested"
 type = "esql"
