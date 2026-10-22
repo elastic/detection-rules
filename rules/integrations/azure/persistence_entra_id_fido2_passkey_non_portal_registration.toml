@@ -1,0 +1,111 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the registration of a FIDO2 or passkey authentication method for a Microsoft Entra ID user that was not
+initiated by the self-service combined registration portal (Microsoft App Access Panel). Registration through Microsoft
+Graph, a service principal, or another application can indicate scripted provisioning with tooling such as
+DSInternals.Passkeys or roadtx, which adversaries use after account takeover to register a shadow passkey for
+phishing-resistant persistence. Administrative provisioning on behalf of users follows the same path and should be
+baselined.
+"""
+false_positives = [
+    """
+    Administrators can legitimately register FIDO2 security keys or passkeys on behalf of users through Microsoft Graph
+    or PowerShell (for example during bulk onboarding or hardware-key provisioning), which also originates outside the
+    self-service portal. Baseline the applications and service principals that legitimately register authentication
+    methods in the environment and add them as exceptions. Investigate registrations initiated by an unexpected
+    application, by a service principal, where the initiator differs from the target user, or that follow an anomalous
+    sign-in or OAuth consent grant.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID FIDO2 Passkey Registered Outside the Self-Service Portal"
+note = """## Triage and analysis
+
+### Investigating Entra ID FIDO2 Passkey Registered Outside the Self-Service Portal
+
+A FIDO2 or passkey authentication method was registered for a user through a path other than the self-service combined registration portal. Legitimate end-user enrollment is initiated by the "Microsoft App Access Panel" application (`0000000c-0000-0000-c000-000000000000`). Registration via Microsoft Graph, a service principal, or another application can be legitimate admin provisioning, but it is also how adversaries establish persistence after account takeover: using a stolen token or a privileged application granted `UserAuthenticationMethod.ReadWrite.All`, they register an attacker-controlled passkey (a "shadow passkey") that is phishing-resistant and survives password resets and ordinary session revocation.
+
+### Possible investigation steps
+
+- Identify the initiating application or service principal (`azure.auditlogs.properties.initiated_by.app.displayName` / `initiated_by.app.appId` / `initiated_by.app.servicePrincipalId`) and determine whether it is an approved provisioning tool in the environment.
+- Compare the initiator (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) with the target (`azure.auditlogs.properties.target_resources.0.user_principal_name`). An initiator that differs from the target, or an app/service-principal initiator, is higher priority.
+- Inspect the registered authenticator in the event's `modifiedProperties`: `Fido2AuthenticationMethod.AaGuid` (compare against the organization's known-good AAGUIDs and known offensive-tooling AAGUIDs), `Fido2AuthenticationMethod.AttestationLevel` (`NotAttested` is lower assurance), and `Fido2AuthenticationMethod.PasskeyType` (`Synced` keys are portable off-device).
+- Correlate with `azure.signinlogs` and OAuth consent/application audit events shortly before the registration: look for an adversary-in-the-middle session, a device-code flow, or a newly consented application that holds `UserAuthenticationMethod.ReadWrite.All`.
+- Determine whether the target holds privileged roles; a shadow passkey on a privileged account is high impact.
+
+### False positive analysis
+
+- Administrative or scripted provisioning of FIDO2 keys/passkeys on behalf of users (Graph/PowerShell) also originates outside the portal. Baseline and except the approved provisioning applications and administrators.
+- If the initiating application is a sanctioned identity-lifecycle or helpdesk tool, confirm the target and timing align with an expected onboarding or provisioning activity.
+
+### Response and remediation
+
+- If the registration is unauthorized, delete the attacker-registered passkey and any attacker-registered device via Microsoft Graph or the Entra portal. Delete devices first to break device-bound PRT persistence, then revoke sessions and refresh tokens and reset credentials.
+- Review and revoke the application or consent grant that performed the registration, and audit other authentication methods added by the same principal.
+- Enforce a phishing-resistant Conditional Access authentication strength and restrict which applications can write authentication methods.
+"""
+references = [
+    "https://cybersecurity.bureauveritas.com/services/information-technology/pentesting-services/what-can-be-pentested/cloud-pentesting/abusing-fido2-passkeys",
+    "https://github.com/SpecterOps/pass-the-passkey",
+    "https://blog.icewolf.ch/archive/2024/10/25/register-FIDO2-passkey-in-entra-id-on-behalf-of-users-with-powershell/",
+    "https://www.elastic.co/security-labs/entra-id-oauth-phishing-detection",
+]
+risk_score = 47
+rule_id = "3d8b447d-6955-4859-9262-6c378d7afa15"
+setup = """#### Required Microsoft Entra ID Audit Logs
+This rule requires the Azure integration with Microsoft Entra ID Audit logs enabled and collected via Azure Event Hub.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Platform: Entra ID",
+    "Platform: Azure",
+    "Data Source: Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Rule Type: Custom Query (KQL)",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+    azure.auditlogs.operation_name: "User registered security info" and
+    azure.auditlogs.properties.result_reason: "User registered Fido2 Authentication Method" and
+    event.outcome: ("Success" or "success") and
+    not azure.auditlogs.properties.initiated_by.app.appId: "0000000c-0000-0000-c000-000000000000"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
