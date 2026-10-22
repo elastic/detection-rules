@@ -19,6 +19,7 @@ from detection_rules.config import load_current_package_version
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_min_supported_stack_version
 from detection_rules.stack_emit import emit_epoch_key, parse_stack
+from detection_rules.utils import check_double_bumps, check_reused_versions, compare_versions
 from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock, next_version
 
 
@@ -87,7 +88,7 @@ class TestNextVersion(unittest.TestCase):
         self.assertEqual(next_version(entry, "9.6"), 109)
 
 
-class TestManageVersionsRouteA(unittest.TestCase):
+class TestManageVersionsRoute(unittest.TestCase):
     """Test that a version shipped through any lock channel is never handed out again with an actual rule file."""
 
     RULE = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
@@ -145,3 +146,27 @@ class TestManageVersionsRouteA(unittest.TestCase):
         saved = self.run_lock()
         self.assertNotIn("stack_emit", saved)  # the no-op epoch was dropped
         self.assertEqual(saved["version"], 5)  # these stacks ship the baseline now; 4 is the number the epoch shipped
+
+
+class TestCheckVersionLock(unittest.TestCase):
+    """The lock PR check (dev check-version-lock) on a base lock and a branch lock."""
+
+    def entry(self, version: int, sha: str, epoch: int | None = None) -> dict:
+        lock = {"rule_name": "r", "sha256": sha * 64, "type": "query", "version": version}
+        if epoch is not None:
+            lock["stack_emit"] = {"9.5": {"sha256": "e" * 64, "version": epoch, "transforms": ["mitre_attack_v19"]}}
+        return lock
+
+    def test_bump_is_measured_from_the_highest_shipped_version(self):
+        base = {"with_epoch": self.entry(3, "a", epoch=4), "plain": self.entry(3, "a")}
+        branch = {"with_epoch": self.entry(5, "b", epoch=6), "plain": self.entry(5, "b")}
+        flagged = [rule_id for rule_id, *_ in check_double_bumps(compare_versions(base, branch))]
+        self.assertEqual(flagged, ["plain"])  # 3 -> 5 is a double bump only when nothing shipped 4
+
+    def test_a_shipped_version_with_new_content_is_flagged(self):
+        base = {"bug": self.entry(3, "a", epoch=4), "fork": self.entry(107, "a", epoch=108)}
+        branch = {
+            "bug": self.entry(4, "b", epoch=5),  # the #7012 bug: baseline takes 4, which 9.5 already shipped
+            "fork": {**self.entry(207, "b", epoch=208), "previous": {"9.4": self.entry(107, "a")}},  # route B copy
+        }
+        self.assertEqual(check_reused_versions(base, branch), [("bug", "r", "version", 4)])

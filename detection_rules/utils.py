@@ -30,6 +30,7 @@ import pytoml  # type: ignore[reportMissingTypeStubs]
 import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
+from detection_rules.version_lock import shipped_versions
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
@@ -443,7 +444,12 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict
 
 
 def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, int, int]]:
-    """Compare versions of two lock version file JSON objects."""
+    """Compare versions of two lock version file JSON objects.
+
+    The old version is the highest the rule had shipped through any channel, not the baseline alone: with a
+    stack_emit epoch at baseline+1 the next correct baseline is baseline+2, which is a single bump, not a double.
+    """
+
     changes: list[tuple[str, str, int, int]] = []
     for key, base_val in base_json.items():
         if key in branch_json:
@@ -451,8 +457,37 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
             branch_name = branch_json[key].get("rule_name")
             branch_version = branch_json[key].get("version")
             if base_version != branch_version:
-                changes.append((key, branch_name, base_version, branch_version))
+                changes.append((key, branch_name, max(shipped_versions(base_val, None)), branch_version))
     return changes
+
+
+def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
+    """Versions the base lock already shipped that the branch lock ships again with different content.
+
+    Each channel of an entry ships a (version, sha256) pair: the baseline, every fork under ``previous`` and every
+    ``stack_emit`` epoch. A number may only reappear with the same content (a fork is a copy of the baseline it
+    replaced); the same number with a new hash is two different assets under one version.
+    """
+
+    def channels(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
+        pairs = {"version": (entry["version"], entry["sha256"])}
+        forks: dict[str, dict[str, Any]] = entry.get("previous") or {}
+        for stack, fork in forks.items():
+            pairs[f"previous.{stack}"] = (fork["version"], fork["sha256"])
+        epochs: dict[str, dict[str, Any]] = entry.get("stack_emit") or {}
+        for epoch, row in epochs.items():
+            pairs[f"stack_emit.{epoch}"] = (row["version"], row["sha256"])
+        return pairs
+
+    reused: list[tuple[str, str, str, int]] = []
+    for key, base_val in base_json.items():
+        if key not in branch_json:
+            continue
+        shipped = dict(channels(base_val).values())  # version -> sha256
+        for channel, (version, sha256) in channels(branch_json[key]).items():
+            if shipped.get(version, sha256) != sha256:
+                reused.append((key, branch_json[key].get("rule_name"), channel, version))
+    return reused
 
 
 def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[str, str, int, int]]:
@@ -473,8 +508,8 @@ def check_version_lock_double_bumps(
     base_branch: str,
     branch: str = "",
     local_file: Path | None = None,
-) -> list[tuple[str, str, int, int]]:
-    """Check for double bumps in version changes of the result of compare versions of a version lock file."""
+) -> tuple[list[tuple[str, str, int, int]], list[tuple[str, str, str, int]]]:
+    """Check a version lock file against its base for double bumps and for reused versions."""
     base_json = load_json_from_branch(repo, file_path, base_branch)
     if local_file:
         with local_file.open("r") as f:
@@ -483,7 +518,7 @@ def check_version_lock_double_bumps(
         branch_json = load_json_from_branch(repo, file_path, branch)
 
     changes = compare_versions(base_json, branch_json)
-    return check_double_bumps(changes)
+    return check_double_bumps(changes), check_reused_versions(base_json, branch_json)
 
 
 def format_command_options(ctx: click.Context) -> str:
