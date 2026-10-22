@@ -2,20 +2,30 @@
 creation_date = "2025/12/16"
 integration = ["github"]
 maturity = "production"
-updated_date = "2026/09/18"
+min_stack_comments = "ES|QL IP_LOCATION requires 9.5.0+."
+min_stack_version = "9.5.0"
+updated_date = "2026/10/07"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects when there is activity on a private GitHub repository from an unusual IP address. Adversaries may
-access private repositories from unfamiliar IPs to exfiltrate sensitive code or data, potentially indicating
-a compromise or unauthorized access.
+Detects when a GitHub user pushes to or clones a private repository from a network (autonomous system) not previously
+seen for that user in the last 7 days. The source IP is resolved to its ASN at query time, so address churn inside the
+same ISP or cloud provider does not produce new alerts. Adversaries may access private repositories from unfamiliar
+networks to exfiltrate sensitive code or data, potentially indicating a compromise or unauthorized access.
 """
-from = "now-9m"
-index = ["logs-github.audit-*"]
-language = "kuery"
+false_positives = [
+    """
+    Developers travelling or switching between home, mobile and corporate networks will appear from a new ASN the first
+    time each is used. CI runners and cloud build services appear once per cloud provider ASN; add exceptions for known
+    automation identities if the volume is high.
+    """,
+]
+from = "now-10085m"
+interval = "5m"
+language = "esql"
 license = "Elastic License v2"
-name = "Github Activity on a Private Repository from an Unusual IP"
+name = "GitHub Activity on a Private Repository from an Unusual Network"
 references = [
     "https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack",
     "https://trigger.dev/blog/shai-hulud-postmortem",
@@ -37,14 +47,35 @@ tags = [
     "Performance: Fast",
     "Profile: Aggressive",
     "Threat: Supply Chain",
-    "Rule Type: New Terms",
+    "Rule Type: ES|QL",
     "Platform: GitHub",
     "Domain: SaaS",
 ]
 timestamp_override = "event.ingested"
-type = "new_terms"
+type = "esql"
 query = '''
-data_stream.dataset:"github.audit" and event.action:("git.push" or "git.clone") and github.repository_public:false
+FROM logs-github.audit-*
+| WHERE event.dataset == "github.audit" AND event.action IN ("git.push", "git.clone")
+  AND github.repository_public == false
+  AND user.name IS NOT NULL AND github.actor_ip IS NOT NULL
+| IP_LOCATION asn = github.actor_ip WITH { "database_file": "GeoLite2-ASN.mmdb", "properties": ["asn", "organization_name"] }
+| IP_LOCATION geo = github.actor_ip WITH { "properties": ["country_iso_code"] }
+| WHERE asn.asn IS NOT NULL
+| STATS Esql.event_count = COUNT(*),
+        Esql.first_seen = MIN(@timestamp),
+        Esql.last_seen = MAX(@timestamp),
+        Esql.ip_count = COUNT_DISTINCT(github.actor_ip),
+        Esql.ip_values = VALUES(github.actor_ip),
+        Esql.repo_values = VALUES(github.repo),
+        Esql.event_action_values = VALUES(event.action),
+        Esql.country_values = VALUES(geo.country_iso_code),
+        Esql.user_agent_values = VALUES(github.user_agent)
+  BY user.name, asn.asn, asn.organization_name
+// The 7-day history is the rule look-back (from = now-10085m). A user/ASN pair is new when its first
+// event falls inside the current interval; the 10m bound allows for the 5m interval plus scheduling drift.
+| WHERE DATE_DIFF("minute", Esql.first_seen, NOW()) <= 10
+| EVAL Esql.source_as_number = asn.asn, Esql.source_as_organization_name = asn.organization_name
+| KEEP user.name, Esql.*
 '''
 
 [[rule.threat]]
@@ -113,10 +144,3 @@ reference = "https://attack.mitre.org/techniques/T1213/003/"
 id = "TA0009"
 name = "Collection"
 reference = "https://attack.mitre.org/tactics/TA0009/"
-[rule.new_terms]
-field = "new_terms_fields"
-value = ["source.ip", "github.repo"]
-
-[[rule.new_terms.history_window_start]]
-field = "history_window_start"
-value = "now-7d"

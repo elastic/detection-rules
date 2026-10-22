@@ -2,7 +2,7 @@
 creation_date = "2025/11/26"
 integration = ["endpoint", "windows", "system", "m365_defender", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/09/30"
 
 [rule]
 author = ["Elastic"]
@@ -180,7 +180,23 @@ process where event.type == "start" and event.action in ("exec", "exec_event", "
      "gws"
    ) or
    process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "?:\\Users\\*")
- )
+ ) and
+not (
+  /* Runner orchestration layer. Runner.Worker writes every `run:` step to <work>/_temp/<guid>.<ext>
+     and launches the configured shell on it (bash/sh/pwsh/powershell/cmd/python built-ins all use
+     the same template), runs JavaScript actions as node <work>/_actions/<owner>/<repo>/<ref>/...,
+     and uses docker/tar for container and cache steps. Job-extension hook scripts (admin-configured,
+     arbitrary path) are intentionally not excluded. */
+  process.parent.name in ("Runner.Worker", "Runner.Worker.exe") and
+  (
+    (process.name : ("bash", "sh", "dash", "cmd.exe", "python", "python3", "python.exe") and
+     process.args : ("*/_temp/*", "*\\_temp\\*")) or
+    (process.name : ("pwsh", "pwsh.exe", "powershell.exe") and process.args : "*_temp*.ps1*") or
+    (process.name : ("node", "node.exe") and process.args : ("*/_actions/*", "*\\_actions\\*")) or
+    process.name : ("docker", "tar")
+  ) and
+  not process.executable : ("/tmp/*", "/private/tmp/*", "/var/tmp/*", "/dev/shm/*")
+)
 '''
 
 
