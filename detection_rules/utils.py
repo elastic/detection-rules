@@ -30,6 +30,7 @@ import pytoml  # type: ignore[reportMissingTypeStubs]
 import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
+from semver import Version
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
@@ -442,17 +443,43 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict
     return json.loads(data)
 
 
+def shipped_versions(lock_entry: dict[str, Any], stripped_stack: str | None) -> list[int]:
+    """Return every version a rule has shipped to a stack: its baseline plus the stack_emit epochs serving it."""
+    
+    previous: dict[str, dict[str, Any]] = lock_entry.get("previous") or {}
+    stack_emit: dict[str, dict[str, Any]] = lock_entry.get("stack_emit") or {}
+
+    fork = previous.get(stripped_stack) if stripped_stack else None
+    versions = [int((fork if fork is not None else lock_entry).get("version") or 0)]
+
+    if not previous:
+        return versions + [int(row["version"]) for row in stack_emit.values()]
+
+    parse = functools.partial(Version.parse, optional_minor_and_patch=True)
+    boundaries = sorted(parse(k) for k in (*previous, lock_entry["min_stack_version"]))
+    lower = parse(stripped_stack if fork is not None and stripped_stack else lock_entry["min_stack_version"])
+    upper = next((b for b in boundaries if b > lower), None)
+
+    epoch_keys = sorted(parse(k) for k in stack_emit)
+    for key, row in stack_emit.items():
+        start = parse(key)
+        end = next((k for k in epoch_keys if k > start), None)
+        if (upper is None or start < upper) and (end is None or end > lower):
+            versions.append(int(row["version"]))
+    return versions
+
+
+def next_version(lock_entry: dict[str, Any], stripped_stack: str | None) -> int:
+    """Return the next free version for a stack, one above every version the rule has shipped in the stack."""
+    return max(shipped_versions(lock_entry, stripped_stack)) + 1
+
+
 def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, int, int]]:
     """Compare versions of two lock version file JSON objects.
 
-    The old version is the highest the rule had shipped through any channel, not the baseline alone: with a
-    stack_emit epoch at baseline+1 the next correct baseline is baseline+2, which is a single bump, not a double.
+    The old version reported for a rule is the highest it had shipped through any channel, not just the baseline,
+    so a baseline that moves past a shipped epoch version reads as a single bump.
     """
-    # Imported inside the function on purpose. version_lock needs config, and config needs this module while it
-    # is still loading, so importing version_lock at the top of utils.py creates a circular import. By the time
-    # this function runs every module is loaded and the import is safe.
-    from .version_lock import shipped_versions
-
     changes: list[tuple[str, str, int, int]] = []
     for key, base_val in base_json.items():
         if key in branch_json:
@@ -465,14 +492,15 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
 
 
 def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
-    """Versions the base lock already shipped that the branch lock ships again with different content.
+    """Find versions the base lock already shipped that the branch lock ships again with different content.
 
-    Each channel of an entry ships a (version, sha256) pair: the baseline, every fork under ``previous`` and every
-    ``stack_emit`` epoch. A number may only reappear with the same content (a fork is a copy of the baseline it
-    replaced); the same number with a new hash is two different assets under one version.
+    Every channel of a lock entry (the baseline, each fork under previous, each stack_emit epoch) ships a version
+    with a hash of its content. A version may show up again with the same hash, which is what a new fork is, but
+    the same version with a different hash means two different rule payloads under one version.
     """
 
     def channels(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
+        """Map each channel of a lock entry to the version and hash it ships."""
         pairs = {"version": (entry["version"], entry["sha256"])}
         forks: dict[str, dict[str, Any]] = entry.get("previous") or {}
         for stack, fork in forks.items():

@@ -19,8 +19,8 @@ from detection_rules.config import load_current_package_version
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_min_supported_stack_version
 from detection_rules.stack_emit import emit_epoch_key, parse_stack
-from detection_rules.utils import check_double_bumps, check_reused_versions, compare_versions
-from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock, next_version
+from detection_rules.utils import check_double_bumps, check_reused_versions, compare_versions, next_version
+from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock
 
 
 class TestVersionLock(unittest.TestCase):

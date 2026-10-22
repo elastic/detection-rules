@@ -16,7 +16,7 @@ from .config import load_current_package_version, parse_rules_config
 from .mixins import LockDataclassMixin, MarshmallowDataclassMixin
 from .schemas import definitions
 from .stack_emit import emit_epoch_key, parse_stack, resolve_stack_emit_entry, transforms_for_stack
-from .utils import cached
+from .utils import cached, next_version
 
 RULES_CONFIG = parse_rules_config()
 
@@ -136,46 +136,6 @@ def add_rule_types_to_lock(lock_contents: dict[str, Any], rule_map: dict[str, An
                 prev_lock["type"] = rule_type
 
     return lock_contents
-
-
-def shipped_versions(lock_entry: dict[str, Any], stripped_stack: str | None) -> list[int]:
-    """All versions a rule has shipped to ``stripped_stack``: its baseline plus every stack_emit epoch on that stack."""
-    previous: dict[str, dict[str, Any]] = lock_entry.get("previous") or {}
-    stack_emit: dict[str, dict[str, Any]] = lock_entry.get("stack_emit") or {}
-
-    # 1. the baseline: the fork under `previous[<stack>]` if the rule was forked at this stack, else the top-level entry
-    fork = previous.get(stripped_stack) if stripped_stack else None
-    versions = [int((fork if fork is not None else lock_entry).get("version") or 0)]
-
-    # 2. unforked rule: the one baseline ships to every stack, so every epoch version was shipped alongside it
-    if not previous:
-        return versions + [int(row["version"]) for row in stack_emit.values()]
-
-    # 3. forked rule: each baseline entry owns a range of stacks, from its key up to the next fork key or the
-    #    top-level min_stack (the top-level entry is open-ended)
-    boundaries = sorted(parse_stack(k) for k in (*previous, lock_entry["min_stack_version"]))
-    lower = parse_stack(stripped_stack if fork is not None and stripped_stack else lock_entry["min_stack_version"])
-    upper = next((b for b in boundaries if b > lower), None)
-
-    # 4. an epoch likewise serves from its key up to the next epoch key (9.5 serves 9.5 until a 9.6 epoch exists);
-    #    count an epoch only if its range overlaps this entry's range, so a fork never sees an epoch that ships for
-    #    a newer stack.
-    epoch_keys = sorted(parse_stack(k) for k in stack_emit)
-    for key, row in stack_emit.items():
-        start = parse_stack(key)
-        end = next((k for k in epoch_keys if k > start), None)
-        if (upper is None or start < upper) and (end is None or end > lower):
-            versions.append(int(row["version"]))
-    return versions
-
-
-def next_version(lock_entry: dict[str, Any], stripped_stack: str | None) -> int:
-    """One above every version the serving entry has shipped through any channel.
-
-    Replaces ``locked + 1``: once a rule_id + version is in a published package its content is frozen, so a
-    number shipped by a stack_emit epoch must not be handed to the baseline later (or the other way round).
-    """
-    return max(shipped_versions(lock_entry, stripped_stack)) + 1
 
 
 class VersionLock:
@@ -481,8 +441,8 @@ class VersionLock:
                                 lock_from_file.get("version"),
                                 f"epoch {epoch_key} removed (transforms no-op)",
                             )
-                            # these stacks ship the baseline from now on: move it past the number the epoch shipped
-                            # (and past any epoch still in scope, via next_version) if it is not already there
+                            # these stacks ship the baseline from now on, so it must sit above the version the
+                            # epoch already shipped to them
                             forks: dict[str, dict[str, Any]] = lock_from_file.get("previous") or {}
                             baseline: dict[str, Any] = forks.get(stripped_version) or lock_from_file
                             if int(baseline["version"]) <= dropped_version:
@@ -505,8 +465,7 @@ class VersionLock:
                     if exclude_version_update and existing_emit:
                         new_emit_version = int(existing_emit["version"])
                     else:
-                        # same rule as the baseline: above everything the serving entry shipped, the row's own
-                        # previous number included (its content changed, so that number is frozen too)
+                        # the epoch content changed, so its old number is taken too; go above everything shipped
                         new_emit_version = next_version(lock_from_file, stripped_version)
 
                     stack_emit[epoch_key] = {
