@@ -1,0 +1,120 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/24"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects disabling of the GitHub two-factor authentication requirement at the enterprise or organization. Turning off
+required 2FA allows password-only access and is a high-impact identity control change.
+"""
+false_positives = [
+    "    Emergency access during an IdP outage. This should be rare, ticketed, and re-enabled immediately.\n    ",
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub MFA Requirement Disabled"
+note = """## Triage and analysis
+
+### Investigating GitHub MFA Requirement Disabled
+
+`business.disable_two_factor_requirement` and `org.disable_two_factor_requirement` weaken account takeover resistance for every member in scope.
+
+### Possible investigation steps
+
+- Identify `user.name`, `event.action`, and `github.actor_ip`.
+- Check for concurrent owner adds, PAT grants, and SSO changes.
+- Re-enable the 2FA requirement before investigating further if the change is unauthorized.
+
+### False positive analysis
+
+- Documented break-glass during authentication outages.
+
+### Response and remediation
+
+- Re-enable required 2FA. Force sign-out and review members without 2FA. Rotate tokens created after the disable.
+"""
+references = [
+    "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-two-factor-authentication-for-your-organization/requiring-two-factor-authentication-in-your-organization",
+]
+risk_score = 73
+rule_id = "e148c3cc-89f7-4a0c-a2f9-2d8fbe23e443"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Credential Access",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in ("business.disable_two_factor_requirement", "org.disable_two_factor_requirement")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1556"
+name = "Modify Authentication Process"
+reference = "https://attack.mitre.org/techniques/T1556/"
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+]
+
