@@ -2,7 +2,7 @@
 creation_date = "2026/10/21"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/10/21"
+updated_date = "2026/10/22"
 
 [rule]
 author = ["Elastic"]
@@ -21,7 +21,6 @@ false_positives = [
     """,
 ]
 from = "now-9m"
-interval = "5m"
 language = "esql"
 license = "Elastic License v2"
 name = "Entra ID Passkey Sign-In with ROADtools or DSInternals Authenticator Fingerprint"
@@ -87,10 +86,13 @@ FROM logs-azure.signinlogs-* METADATA _id, _index, _version
 | WHERE aaguid_raw == "00000000-0000-0000-0000-000000000000"
 | EVAL Esql.passkey_aaguid = aaguid_raw,
        Esql.passkey_provider = provider_raw,
-       user.name = azure.signinlogs.properties.user_principal_name
-| KEEP _id, _index, _version, @timestamp, user.name, source.ip, user_agent.original,
-       azure.signinlogs.properties.tenant_id, azure.signinlogs.properties.user_id,
-       azure.signinlogs.properties.app_display_name, Esql.passkey_provider, Esql.passkey_aaguid
+| KEEP _id, _index, _version, @timestamp,
+       azure.signinlogs.*,
+       source.*,
+       user.*,
+       user_agent.*,
+       event.outcome,
+       Esql.*
 '''
 
 
@@ -111,12 +113,3 @@ reference = "https://attack.mitre.org/techniques/T1098/001/"
 id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
-
-[rule.alert_suppression]
-group_by = ["azure.signinlogs.properties.user_id"]
-missing_fields_strategy = "suppress"
-
-[rule.alert_suppression.duration]
-unit = "h"
-value = 6
-
