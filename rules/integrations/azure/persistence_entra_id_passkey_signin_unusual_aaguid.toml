@@ -2,7 +2,7 @@
 creation_date = "2026/10/21"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/10/21"
+updated_date = "2026/10/22"
 
 [rule]
 author = ["Elastic"]
@@ -22,8 +22,7 @@ false_positives = [
     adoption will see first-seen AAGUIDs more often as adoption ramps.
     """,
 ]
-from = "now-7d"
-interval = "1h"
+from = "now-5d"
 language = "esql"
 license = "Elastic License v2"
 name = "Entra ID Passkey Sign-In with Unusual Authenticator AAGUID"
@@ -80,14 +79,23 @@ type = "esql"
 
 query = '''
 FROM logs-azure.signinlogs-*
+
+// successful sign-ins
 | WHERE azure.signinlogs.category == "SignInLogs"
     AND event.outcome == "success"
     AND azure.signinlogs.properties.authentication_details IS NOT NULL
     AND azure.signinlogs.properties.tenant_id IS NOT NULL
+
+// filter for Passkey or FIDO2 security key sign-ins
 | EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
 | WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
+
+// extract AAGUID from authentication method detail
+// ignore empty or zeroed AAGUIDs; separate rule
 | GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{UUID:aaguid_raw}"""
 | WHERE aaguid_raw IS NOT NULL AND aaguid_raw != "00000000-0000-0000-0000-000000000000"
+
+// aggregate sign-in statistics by tenant and AAGUID
 | STATS Esql.first_time_seen = MIN(@timestamp),
         Esql.last_time_seen = MAX(@timestamp),
         Esql.signin_count = COUNT(*),
@@ -98,12 +106,11 @@ FROM logs-azure.signinlogs-*
         Esql.user_agent_values = VALUES(user_agent.original),
         Esql.app_values = VALUES(azure.signinlogs.properties.app_display_name)
       BY Esql.tenant_id = azure.signinlogs.properties.tenant_id, Esql.passkey_aaguid = aaguid_raw
+
+// filter for recent sign-ins within the last 10 minutes
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
-| WHERE Esql.recent_minutes <= 70
-| EVAL user.name = MV_FIRST(Esql.user_values), source.ip = MV_FIRST(Esql.source_ip_values)
-| KEEP user.name, source.ip, Esql.tenant_id, Esql.passkey_aaguid,
-       Esql.provider_values, Esql.first_time_seen, Esql.last_time_seen, Esql.signin_count,
-       Esql.user_count, Esql.user_values, Esql.source_ip_values, Esql.user_agent_values, Esql.app_values
+| WHERE Esql.recent_minutes <= 10
+| KEEP Esql.*
 '''
 
 
