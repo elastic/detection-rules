@@ -126,3 +126,22 @@ class TestManageVersionsRouteA(unittest.TestCase):
         saved = self.run_lock()
         self.assertEqual(saved["version"], 5)  # was 4: the number the rule had already shipped
         self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)  # the 9.5 epoch had already shipped
+
+    def test_hash_only_run_never_drops_an_epoch(self):
+        """Command dev update-lock-versions cannot bump, so it must not drop a no-op epoch (its stacks would ship the baseline)."""
+        # the rule content already carries what the transforms would add, so this checkout's epoch is a no-op
+        key = emit_epoch_key(parse_stack(load_current_package_version()))
+        self.lock_entry["stack_emit"] = {key: {"sha256": "2" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}}
+        saved = self.run_lock(exclude_version_update=True)
+        self.assertEqual(saved["version"], 3)  # hash-only: no bump
+        self.assertEqual(saved["stack_emit"][key]["version"], 4)  # and the no-op epoch is still there
+        self.assertNotEqual(saved["sha256"], "0" * 64)  # the hash itself was refreshed
+
+    def test_dropping_a_no_op_epoch_moves_the_baseline_past_what_it_shipped(self):
+        """Rule untouched (lock holds its real hash), its epoch became a no-op: the epoch goes, baseline 3 -> 5 not 3."""
+        key = emit_epoch_key(parse_stack(load_current_package_version()))
+        self.lock_entry["sha256"] = RuleCollection().load_file(self.RULE).contents.get_hash()
+        self.lock_entry["stack_emit"] = {key: {"sha256": "2" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}}
+        saved = self.run_lock()
+        self.assertNotIn("stack_emit", saved)  # the no-op epoch was dropped
+        self.assertEqual(saved["version"], 5)  # these stacks ship the baseline now; 4 is the number the epoch shipped

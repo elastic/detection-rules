@@ -458,8 +458,19 @@ class VersionLock:
                     # comparing against the baseline lock hash (which strips related_integrations).
                     if emit_hash == untransformed_hash:
                         if epoch_key in stack_emit:
+                            if exclude_version_update:
+                                # a hash-only run (dev update-lock-versions) cannot bump, and dropping the epoch
+                                # hands its stacks the baseline number next; keep the row until a versioned run
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    lock_from_file.get("version"),
+                                    f"epoch {epoch_key} kept: transforms are a no-op but dropping it needs a "
+                                    "version bump (run build-release --update-version-lock)",
+                                )
+                                continue
                             stack_emit = dict(stack_emit)
-                            del stack_emit[epoch_key]
+                            dropped_version = int(stack_emit.pop(epoch_key)["version"])
                             if stack_emit:
                                 lock_from_file["stack_emit"] = stack_emit
                             else:
@@ -470,6 +481,19 @@ class VersionLock:
                                 lock_from_file.get("version"),
                                 f"epoch {epoch_key} removed (transforms no-op)",
                             )
+                            # these stacks ship the baseline from now on: move it past the number the epoch shipped
+                            # (and past any epoch still in scope, via next_version) if it is not already there
+                            forks: dict[str, dict[str, Any]] = lock_from_file.get("previous") or {}
+                            baseline: dict[str, Any] = forks.get(stripped_version) or lock_from_file
+                            if int(baseline["version"]) <= dropped_version:
+                                floor = next_version(lock_from_file, stripped_version)
+                                baseline["version"] = max(dropped_version + 1, floor)
+                                log_changes(
+                                    rule,
+                                    "stack_emit",
+                                    baseline["version"],
+                                    f"baseline moved past version {dropped_version} shipped by epoch {epoch_key}",
+                                )
                         continue
 
                     if stack_emit.get(epoch_key, {}).get("sha256") == emit_hash:
