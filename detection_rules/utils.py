@@ -30,7 +30,8 @@ import pytoml  # type: ignore[reportMissingTypeStubs]
 import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
-from detection_rules.version_lock import shipped_versions
+
+from .version_lock import shipped_versions
 
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
