@@ -8,11 +8,11 @@ updated_date = "2026/10/21"
 author = ["Elastic"]
 description = """
 Identifies the registration of a FIDO2 or passkey authentication method for a Microsoft Entra ID user that was not
-initiated by the self-service combined registration portal (Microsoft App Access Panel). Registration through Microsoft
-Graph, a service principal, or another application can indicate scripted provisioning with tooling such as
-DSInternals.Passkeys or roadtx, which adversaries use after account takeover to register a shadow passkey for
-phishing-resistant persistence. Administrative provisioning on behalf of users follows the same path and should be
-baselined.
+initiated by the self-service combined registration portal (Microsoft App Access Panel), My SignIns or My Profile. 
+Registration through Microsoft Graph, a service principal, or another application can indicate scripted provisioning
+with tooling such as DSInternals.Passkeys or roadtx, which adversaries use after account takeover to register a shadow
+passkey for phishing-resistant persistence. Administrative provisioning on behalf of users follows the same path and
+should be baselined.
 """
 false_positives = [
     """
@@ -84,10 +84,18 @@ type = "query"
 
 query = '''
 data_stream.dataset: "azure.auditlogs" and
-    azure.auditlogs.operation_name: "User registered security info" and
-    azure.auditlogs.properties.result_reason: "User registered Fido2 Authentication Method" and
-    event.outcome: ("Success" or "success") and
-    not azure.auditlogs.properties.initiated_by.app.appId: "0000000c-0000-0000-c000-000000000000"
+    (
+        azure.auditlogs.operation_name: "User registered security info" and
+        azure.auditlogs.properties.result_reason: "User registered Fido2 Authentication Method"
+    ) or (
+        azure.auditlogs.operation_name: "Admin registered security info" and
+        azure.auditlogs.properties.result_reason: "Admin registered Fido2 Authentication Method for user"
+    ) and event.outcome: ("Success" or "success") and
+    not azure.auditlogs.properties.initiated_by.app.appId: (
+        "0000000c-0000-0000-c000-000000000000",
+        "19db86c3-b2b9-44cc-b339-36da233a3be2",
+        "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
+    )
 '''
 
 
