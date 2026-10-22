@@ -2,7 +2,7 @@
 creation_date = "2021/08/24"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "m365_defender", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/10/05"
+updated_date = "2026/10/22"
 
 [rule]
 author = ["Elastic"]
@@ -60,12 +60,82 @@ timestamp_override = "event.ingested"
 type = "new_terms"
 
 query = '''
-host.os.type:windows and event.category:process and event.type:start and process.args : * and
-  process.parent.name:("w3wp.exe" or "httpd.exe" or "nginx.exe" or "php.exe" or "php-cgi.exe" or "tomcat.exe" or "ArcSOC.exe") and
-  (
-    process.name : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe") or
-    process.name.caseless : ("cmd.exe" or "cscript.exe" or "powershell.exe" or "pwsh.exe" or "powershell_ise.exe" or "wmic.exe" or "wscript.exe")
-  ) and
+host.os.type: "windows" and
+event.category: "process" and
+event.type: "start" and
+process.args:* and
+process.parent.name: (
+  "w3wp.exe" or
+  "httpd.exe" or
+  apache*.exe or
+  "nginx.exe" or
+  "php.exe" or
+  "php-cgi.exe" or
+  "php-win.exe" or
+  "phpdbg.exe" or
+  tomcat*.exe or
+  "ArcSOC.exe" or
+  "frankenphp.exe" or
+  "roadrunner.exe" or
+  "unit.exe" or
+  "caddy.exe" or
+  "lighttpd.exe" or
+  "iisexpress.exe"
+) and
+(
+  process.name: (
+    "cmd.exe" or
+    "cscript.exe" or
+    "powershell.exe" or
+    "pwsh.exe" or
+    "powershell_ise.exe" or
+    "wmic.exe" or
+    "wscript.exe" or
+    "mshta.exe" or
+    "rundll32.exe" or
+    "regsvr32.exe" or
+    "certutil.exe" or
+    "bitsadmin.exe" or
+    "curl.exe" or
+    "wget.exe" or
+    "whoami.exe" or
+    "hostname.exe" or
+    "ipconfig.exe" or
+    "net.exe" or
+    "net1.exe" or
+    "nltest.exe" or
+    "schtasks.exe" or
+    "sc.exe" or
+    "python.exe" or
+    "perl.exe"
+  ) or
+  process.name.caseless: (
+    "cmd.exe" or
+    "cscript.exe" or
+    "powershell.exe" or
+    "pwsh.exe" or
+    "powershell_ise.exe" or
+    "wmic.exe" or
+    "wscript.exe" or
+    "mshta.exe" or
+    "rundll32.exe" or
+    "regsvr32.exe" or
+    "certutil.exe" or
+    "bitsadmin.exe" or
+    "curl.exe" or
+    "wget.exe" or
+    "whoami.exe" or
+    "hostname.exe" or
+    "ipconfig.exe" or
+    "net.exe" or
+    "net1.exe" or
+    "nltest.exe" or
+    "schtasks.exe" or
+    "sc.exe" or
+    "python.exe" or
+    "perl.exe"
+  )
+) and 
   not
   (
     process.command_line : (
