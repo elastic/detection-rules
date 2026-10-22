@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2026/10/22"
+integration = ["nginx", "apache", "apache_tomcat"]
+maturity = "production"
+updated_date = "2026/10/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the first segmentation fault, SIGSEGV, signal 11 termination, or Windows access-violation status
+observed in web-server error logs for a host during the configured history window. An unexpected web-server crash can
+indicate attempted exploitation of a memory-safety vulnerability, including attempts that fail before code execution,
+although software defects and resource problems can produce the same behavior.
+"""
+false_positives = [
+    """
+    Web-server, runtime, module, extension, or application defects can legitimately crash a worker after an upgrade,
+    configuration change, or unusual request.
+    """,
+    """
+    Stress tests, fault-injection exercises, fuzzing, and authorized vulnerability testing may intentionally trigger
+    segmentation faults or access violations.
+    """,
+]
+from = "now-9m"
+index = [
+    "logs-apache.error-*",
+    "logs-apache_tomcat.catalina-*",
+    "logs-apache_tomcat.localhost-*",
+    "logs-nginx.error-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Occurrence of a Web Server Segmentation Fault"
+note = """## Triage and analysis
+
+### Investigating First Occurrence of a Web Server Segmentation Fault
+
+A segmentation fault is a memory-access violation that terminates a process or worker. A first-seen crash in an
+internet-facing service deserves prompt review because memory-corruption exploit attempts frequently terminate workers
+even when exploitation fails. This alert does not prove exploitation or successful code execution.
+
+### Possible investigation steps
+
+- Identify the affected `host.id`, process or worker identifier, signal or exception value, web-server module, and complete
+  error text. Determine whether one worker or the entire service terminated.
+- Review requests immediately preceding the crash, including `source.ip`, URL, method, status, content type, body size,
+  cookies, and user agent. Recover the original client from trusted edge logs when a proxy or container bridge is present.
+- Correlate the crash with fatal PHP errors, malformed multipart requests, repeated HTTP 500 responses, worker churn, and
+  known vulnerability signatures such as the PHP2Shell memory-exhaustion pattern.
+- Review endpoint telemetry for a core dump, unexpected child processes, file writes, outbound connections, privilege
+  changes, or persistence after the crash.
+- Determine whether a recent deployment, package upgrade, native extension, security test, or resource-pressure event can
+  explain the fault. Preserve a core dump and relevant binaries when available.
+
+### False positive analysis
+
+- Native modules, language runtimes, drivers, and third-party extensions can contain non-security defects that crash a
+  web worker. Recurrent crashes with the same stack after an approved change may be operational rather than adversarial.
+- Do not broadly exclude a host solely because it has a known stability issue; use a narrow exception for the understood
+  message, module, version, or maintenance window.
+
+### Response and remediation
+
+- Remove a repeatedly crashing or potentially exploited server from public traffic and preserve volatile and on-disk
+  evidence before restarting or rebuilding it.
+- Patch the web server, runtime, application, and native extensions. If exploitation cannot be ruled out, rebuild from a
+  trusted image and rotate credentials and secrets accessible to the service account.
+- Block confirmed malicious origins at the edge and hunt for the same crash signature and follow-on behavior on peer hosts.
+"""
+risk_score = 73
+rule_id = "98dd5283-970b-40a9-bc12-61661b25b514"
+severity = "high"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Tactic: Impact",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Fast",
+    "Profile: Recommended",
+    "Rule Type: New Terms",
+    "Service: Nginx",
+    "Service: Apache Tomcat",
+    "Service: Apache HTTP Server",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.id:* and
+event.dataset:(
+  "apache.error" or "nginx.error" or "apache_tomcat.catalina" or "apache_tomcat.localhost"
+) and (
+  message:(segfault or SIGSEGV or (Segmentation and fault) or (signal and 11) or "0xc0000005")
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+[[rule.threat.technique.subtechnique]]
+id = "T1499.004"
+name = "Application or System Exploitation"
+reference = "https://attack.mitre.org/techniques/T1499/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "host.ip",
+    "source.ip",
+    "process.pid",
+    "process.thread.id",
+    "event.dataset",
+    "log.file.path",
+    "message",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

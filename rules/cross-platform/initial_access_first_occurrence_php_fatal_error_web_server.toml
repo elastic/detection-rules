@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/10/22"
+integration = ["nginx", "apache", "apache_tomcat"]
+maturity = "production"
+updated_date = "2026/10/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule identifies the first PHP fatal error observed on a web server during the configured history window. PHP fatal
+errors are not inherently malicious, but a newly observed fatal condition can indicate exploitation of a previously
+unseen application or PHP engine failure. The rule is intentionally generic so it can identify both known and novel
+exploit attempts that terminate PHP request processing.
+"""
+false_positives = [
+    """
+    New deployments, application defects, dependency changes, resource exhaustion, and configuration errors can
+    legitimately produce a first-seen PHP fatal error.
+    """,
+    "Development, staging, and quality-assurance systems may generate frequent novel fatal errors during testing.",
+]
+from = "now-9m"
+index = [
+    "logs-apache.error-*",
+    "logs-apache_tomcat.catalina-*",
+    "logs-apache_tomcat.localhost-*",
+    "logs-nginx.error-*",
+]
+language = "kuery"
+license = "Elastic License v2"
+name = "First Occurrence of a PHP Fatal Error on a Web Server"
+note = """## Triage and analysis
+
+### Investigating First Occurrence of a PHP Fatal Error on a Web Server
+
+This rule establishes first-seen state by `host.id`, so it alerts when a host with no matching event in the history window
+produces a PHP fatal error. The alert does not establish malicious activity; it prioritizes a previously unseen condition
+for investigation and can provide generic coverage for exploitation paths that intentionally trigger fatal PHP states.
+
+### Possible investigation steps
+
+- Review the complete error text and identify the affected host, virtual host, PHP script, application, and PHP version.
+- Examine `source.ip` when present. It represents the immediate requester seen by the web server and may be a proxy,
+  load balancer, CDN node, NAT gateway, or container bridge rather than the original external client.
+- Correlate access logs for the same host and time with request methods, URLs, response codes, multipart bodies, session
+  activity, and unusual cookies. Determine whether many hosts or requests produced the same error.
+- Review endpoint telemetry for web-server or PHP-worker crashes, unusual child processes, file writes, and outbound
+  connections after the fatal error.
+- Compare the error with recent deployments, configuration changes, memory-limit changes, and application test activity.
+
+### False positive analysis
+
+- Fatal errors commonly result from application bugs, missing dependencies, incompatible upgrades, and resource limits.
+  Validate the stack trace and deployment history before treating the alert as exploitation.
+- Consider excluding tightly scoped, well-understood development hosts or known error strings rather than disabling the
+  rule across production PHP servers.
+
+### Response and remediation
+
+- Patch or roll back the affected application or PHP runtime after preserving relevant logs and process telemetry.
+- If the request or surrounding host behavior is suspicious, isolate the server, block the confirmed origin at the edge,
+  rotate exposed secrets, and scope similar errors across the environment.
+"""
+risk_score = 47
+rule_id = "0d173166-95b8-4813-bfb9-a6276813ca2a"
+severity = "medium"
+tags = [
+    "Domain: Web",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Data Source: Nginx",
+    "Data Source: Apache",
+    "Data Source: Apache Tomcat",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Fast",
+    "Profile: Recommended",
+    "Rule Type: New Terms",
+    "Service: Nginx",
+    "Service: Apache Tomcat",
+    "Service: Apache HTTP Server",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+host.id:* and
+event.dataset:(
+  "apache.error" or "nginx.error" or "apache_tomcat.catalina" or "apache_tomcat.localhost"
+) and (
+  message:(PHP and Fatal and error)
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "host.ip",
+    "source.ip",
+    "event.dataset",
+    "log.file.path",
+    "message",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["host.id"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-7d"

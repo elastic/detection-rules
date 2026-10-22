@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/10/22"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+This rule detects multiple web-server or PHP worker process terminations followed shortly by shell execution on the
+same Linux host. Repeated worker termination can occur while an attacker attempts to exploit memory corruption, and a
+subsequent shell may indicate successful code execution. The correlation does not require the shell to remain a direct
+child of the web server, providing complementary coverage to parent-child web-shell detections.
+"""
+false_positives = [
+    "A web-server restart, configuration reload, deployment, autoscaling operation, or package upgrade may terminate several workers before an administrator or automation framework starts a shell.",
+    "Health checks, crash-recovery scripts, debugging, and authorized security testing may produce the same sequence.",
+]
+from = "now-9m"
+index = ["logs-endpoint.events.process*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Multiple Web Server Process Terminations Followed by Shell Execution"
+note = """## Triage and analysis
+
+### Investigating Multiple Web Server Process Terminations Followed by Shell Execution
+
+This rule correlates at least three web-server or PHP worker process-end events with a shell start on the same host
+within one minute. It can identify successful exploitation after repeated crashes even when the final shell is not
+recorded as a direct child of the vulnerable process. The sequence is behavioral and does not prove exploitation.
+
+### Possible investigation steps
+
+- Review the terminated process names, entity identifiers, exit codes, parent processes, users, and command lines.
+  Determine whether the events represent worker crashes, a graceful reload, or a complete service restart.
+- Inspect the shell process command line, parent and ancestry fields, user, working directory, environment variables,
+  interactive status, and subsequent child processes.
+- Correlate the sequence with web access and error logs for fatal errors, segmentation faults, HTTP 500 responses,
+  unusual multipart requests, suspicious cookies, and the source IP that immediately preceded the terminations.
+- Review file, network, authentication, and process telemetry after the shell start for payload staging, download
+  activity, outbound connections, privilege escalation, credential access, or persistence.
+- Compare the timing with deployment, maintenance, package-management, autoscaling, and configuration-management logs.
+
+### False positive analysis
+
+- Web servers routinely replace workers during graceful reloads. A shell started by an administrator or automation
+  account during the same minute can satisfy the sequence without malicious activity.
+- Add narrowly scoped exceptions for verified management processes, service accounts, or maintenance windows. Avoid
+  excluding the web-server process names or shell names globally.
+
+### Response and remediation
+
+- If the shell or preceding requests are unexplained, remove the server from public traffic and isolate the host while
+  preserving process, web, network, file, and core-dump evidence.
+- Terminate malicious processes, remove dropped payloads and persistence, patch the exploited component, rotate secrets
+  available to the service account, and rebuild the host from a trusted image when compromise cannot be ruled out.
+- Hunt for the same request, crash pattern, shell command line, and follow-on indicators across peer web servers.
+"""
+risk_score = 73
+rule_id = "d2a99473-09c6-41d7-b465-bd4db11f00f8"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend. Use a policy configuration that collects process start and end
+events on Linux hosts running web servers or PHP workers.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Domain: Web",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Execution",
+    "Tactic: Initial Access",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Threat: Web Shell",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+sequence by host.id with maxspan=1m
+  [process where host.os.type == "linux" and event.type == "end" and
+   (process.name in ("apache2", "httpd", "httpd.worker", "nginx", "php-cgi", "php-fcgi", "sw-engine-fpm") or
+    process.name like ("php-fpm*", "lsphp*", "*.cgi", "*.fcgi"))] with runs=3
+  [process where host.os.type == "linux" and event.type == "start" and event.action == "exec" and
+   process.name in ("ash", "bash", "busybox", "dash", "ksh", "mksh", "sh", "zsh")]
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "host.id",
+    "host.name",
+    "host.ip",
+    "user.id",
+    "user.name",
+    "process.entity_id",
+    "process.parent.entity_id",
+    "process.parent.name",
+    "process.name",
+    "process.executable",
+    "process.command_line",
+    "process.exit_code",
+]
