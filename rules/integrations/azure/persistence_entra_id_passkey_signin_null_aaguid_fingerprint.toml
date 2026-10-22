@@ -23,10 +23,10 @@ false_positives = [
 from = "now-9m"
 language = "esql"
 license = "Elastic License v2"
-name = "Entra ID Passkey Sign-In with ROADtools or DSInternals Authenticator Fingerprint"
+name = "Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID"
 note = """## Triage and analysis
 
-### Investigating Entra ID Passkey Sign-In with ROADtools or DSInternals Authenticator Fingerprint
+### Investigating Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID
 
 A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`). Legitimate platform and hardware authenticators always report a real vendor AAGUID, so an all-zero value is the default fingerprint of offensive WebAuthn software authenticators such as ROADtools roadtx `registerpasskey` and DSInternals.Passkeys. Adversaries register these software passkeys after account takeover to establish phishing-resistant persistence that survives password resets and session revocation.
 
@@ -82,10 +82,13 @@ FROM logs-azure.signinlogs-* METADATA _id, _index, _version
     AND azure.signinlogs.properties.authentication_details IS NOT NULL
 | EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
 | WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
-| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{UUID:aaguid_raw}"""
-| WHERE aaguid_raw == "00000000-0000-0000-0000-000000000000"
+| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{DATA:aaguid_raw}""""
+| WHERE aaguid_raw IS NOT NULL AND (
+    aaguid_raw == "00000000-0000-0000-0000-000000000000"
+    OR NOT aaguid_raw RLIKE "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+  )
 | EVAL Esql.passkey_aaguid = aaguid_raw,
-       Esql.passkey_provider = provider_raw,
+       Esql.passkey_provider = provider_raw
 | KEEP _id, _index, _version, @timestamp,
        azure.signinlogs.*,
        source.*,
