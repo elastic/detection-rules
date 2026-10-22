@@ -489,6 +489,7 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
 
 def check_version_conflicts(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
     """Find versions already shipped in the base lock that the branch lock ships again with a different hash."""
+
     def shipped_hashes(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
         """Map each location in a lock entry (top level, previous fork, stack_emit epoch) to its version and hash."""
         hashes = {"version": (entry["version"], entry["sha256"])}

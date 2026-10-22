@@ -77,4 +77,3 @@ class TestNextVersion(unittest.TestCase):
         }
         self.assertEqual(next_version(entry, "9.5"), 8)
         self.assertEqual(next_version(entry, "9.6"), 109)
-
