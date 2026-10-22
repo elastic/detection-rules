@@ -5,12 +5,21 @@
 
 """Test version locking of rules."""
 
+import json
+import shutil
+import tempfile
+import tomllib
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from semver import Version
 
+from detection_rules.config import load_current_package_version
+from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.version_lock import RULES_CONFIG, loaded_version_lock
+from detection_rules.stack_emit import emit_epoch_key, parse_stack
+from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock, next_version
 
 
 class TestVersionLock(unittest.TestCase):
@@ -37,3 +46,83 @@ class TestVersionLock(unittest.TestCase):
                 f"currently supported min_stack ({min_version}). To address this, run the "
                 f"`dev trim-version-lock {min_version}` command.\n\n{err_str}"
             )
+
+
+class TestNextVersion(unittest.TestCase):
+    """Test that a version shipped through any lock channel is never handed out again."""
+
+    def test_unforked_rule_clears_its_epoch(self):
+        """Azure RBAC before the collision: baseline 3, 9.5 epoch shipped 4. Next must be 5, not 4."""
+        entry = {"version": 3, "stack_emit": {"9.5": {"version": 4, "sha256": "a" * 64, "transforms": ["x"]}}}
+        self.assertEqual(next_version(entry, "9.5"), 5)
+        self.assertEqual(next_version(entry, None), 5)
+
+    def test_unforked_rule_without_epoch_is_a_plain_bump(self):
+        """An unforked rule without an epoch is a plain bump."""
+        self.assertEqual(next_version({"version": 3}, "9.5"), 4)
+
+    def test_fork_ignores_epochs_that_ship_for_newer_stacks(self):
+        """The shape of forked rules on main: fork 8.19 at 5 (max 104), top-level 9.4 at 107, epoch 9.5 at 108."""
+        entry = {
+            "version": 107,
+            "min_stack_version": "9.4",
+            "previous": {"8.19": {"version": 5, "max_allowable_version": 104}},
+            "stack_emit": {"9.5": {"version": 108, "sha256": "a" * 64, "transforms": ["x"]}},
+        }
+        self.assertEqual(next_version(entry, "8.19"), 6)  # the fork never sees 108
+        self.assertEqual(next_version(entry, "9.4"), 109)  # the top-level entry does
+
+    def test_fork_counts_the_epoch_that_ships_for_its_own_stack(self):
+        """A forked rule at 9.5 whose 9.5 epoch shipped 7 must bump to 8, inside its range."""
+        entry = {
+            "version": 107,
+            "min_stack_version": "9.6",
+            "previous": {"9.5": {"version": 6, "max_allowable_version": 104}},
+            "stack_emit": {
+                "9.5": {"version": 7, "sha256": "a" * 64, "transforms": ["x"]},
+                "9.6": {"version": 108, "sha256": "b" * 64, "transforms": ["x", "y"]},
+            },
+        }
+        self.assertEqual(next_version(entry, "9.5"), 8)
+        self.assertEqual(next_version(entry, "9.6"), 109)
+
+
+class TestManageVersionsRouteA(unittest.TestCase):
+    """Test that a version shipped through any lock channel is never handed out again with an actual rule file."""
+
+    RULE = Path("rules/integrations/azure/privilege_escalation_azure_rbac_administrator_roles_assigned.toml")
+
+    def setUp(self):
+        # the collision needs a stack_emit epoch; 8.19 / 9.3 / 9.4 checkouts have no transforms and no epoch
+        if emit_epoch_key(parse_stack(load_current_package_version())) is None:
+            self.skipTest("no stack_emit epoch applies to this checkout's package stack")
+        self.toml = tomllib.loads(self.RULE.read_text())["rule"]
+        self.lock_entry = {
+            "rule_name": self.toml["name"],
+            "sha256": "0" * 64,  # not the real hash: the rule counts as tuned
+            "type": self.toml["type"],
+            "version": 3,
+            "stack_emit": {"9.5": {"sha256": "1" * 64, "version": 4, "transforms": ["mitre_attack_v19"]}},
+        }
+
+    def run_lock(self, **kwargs: bool) -> dict:
+        """Run manage_versions over a temp lock holding only the rule's entry; return the saved entry."""
+        with tempfile.TemporaryDirectory() as tmp:
+            lock_path, dep_path = Path(tmp) / "version.lock.json", Path(tmp) / "deprecated_rules.json"
+            lock_path.write_text(json.dumps({self.toml["rule_id"]: self.lock_entry}))
+            dep_path.write_text("{}")
+            lock = VersionLock(lock_path, dep_path, name="test")
+            # a copy, so the default collection's shared rule object never binds to this temporary lock
+            rule_copy = Path(tmp) / self.RULE.name
+            shutil.copy(self.RULE, rule_copy)
+            rc = RuleCollection()
+            rc._version_lock = lock  # noqa: SLF001
+            rc.load_file(rule_copy)
+            with mock.patch("detection_rules.rule.loaded_version_lock", lock):
+                lock.manage_versions(rc, save_changes=True, verbose=False, **kwargs)
+            return json.loads(lock_path.read_text())[self.toml["rule_id"]]
+
+    def test_tuned_rule_skips_the_version_its_epoch_shipped(self):
+        saved = self.run_lock()
+        self.assertEqual(saved["version"], 5)  # was 4: the number the rule had already shipped
+        self.assertEqual(saved["stack_emit"]["9.5"]["version"], 4)  # the 9.5 epoch had already shipped
