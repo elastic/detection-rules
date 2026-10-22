@@ -445,7 +445,7 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict
 
 def shipped_versions(lock_entry: dict[str, Any], stripped_stack: str | None) -> list[int]:
     """Return every version a rule has shipped to a stack: its baseline plus the stack_emit epochs serving it."""
-    
+
     previous: dict[str, dict[str, Any]] = lock_entry.get("previous") or {}
     stack_emit: dict[str, dict[str, Any]] = lock_entry.get("stack_emit") or {}
 
@@ -475,11 +475,7 @@ def next_version(lock_entry: dict[str, Any], stripped_stack: str | None) -> int:
 
 
 def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, int, int]]:
-    """Compare versions of two lock version file JSON objects.
-
-    The old version reported for a rule is the highest it had shipped through any channel, not just the baseline,
-    so a baseline that moves past a shipped epoch version reads as a single bump.
-    """
+    """Compare versions of two lock version file JSON objects, measuring each bump from the highest version shipped."""
     changes: list[tuple[str, str, int, int]] = []
     for key, base_val in base_json.items():
         if key in branch_json:
@@ -492,32 +488,28 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
 
 
 def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
-    """Find versions the base lock already shipped that the branch lock ships again with different content.
+    """Find versions already shipped in the base lock that the branch lock ships again with a different hash."""
 
-    Every channel of a lock entry (the baseline, each fork under previous, each stack_emit epoch) ships a version
-    with a hash of its content. A version may show up again with the same hash, which is what a new fork is, but
-    the same version with a different hash means two different rule payloads under one version.
-    """
-
-    def channels(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
-        """Map each channel of a lock entry to the version and hash it ships."""
-        pairs = {"version": (entry["version"], entry["sha256"])}
+    def shipped_hashes(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
+        """Map each location in a lock entry (top level, previous fork, stack_emit epoch) to its version and hash."""
+        hashes = {"version": (entry["version"], entry["sha256"])}
         forks: dict[str, dict[str, Any]] = entry.get("previous") or {}
         for stack, fork in forks.items():
-            pairs[f"previous.{stack}"] = (fork["version"], fork["sha256"])
+            hashes[f"previous.{stack}"] = (fork["version"], fork["sha256"])
         epochs: dict[str, dict[str, Any]] = entry.get("stack_emit") or {}
-        for epoch, row in epochs.items():
-            pairs[f"stack_emit.{epoch}"] = (row["version"], row["sha256"])
-        return pairs
+        for stack, epoch in epochs.items():
+            hashes[f"stack_emit.{stack}"] = (epoch["version"], epoch["sha256"])
+        return hashes
 
     reused: list[tuple[str, str, str, int]] = []
     for key, base_val in base_json.items():
         if key not in branch_json:
             continue
-        shipped = dict(channels(base_val).values())  # version -> sha256
-        for channel, (version, sha256) in channels(branch_json[key]).items():
-            if shipped.get(version, sha256) != sha256:
-                reused.append((key, branch_json[key].get("rule_name"), channel, version))
+        base_hashes = dict(shipped_hashes(base_val).values())  # version -> sha256
+        for location, (version, sha256) in shipped_hashes(branch_json[key]).items():
+            # a fork is a copy of the entry it replaced, so the same version with the same hash is expected
+            if base_hashes.get(version, sha256) != sha256:
+                reused.append((key, branch_json[key].get("rule_name"), location, version))
     return reused
 
 
