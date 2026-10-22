@@ -31,8 +31,6 @@ import yaml
 from eql.utils import load_dump  # type: ignore[reportMissingTypeStubs]
 from github.Repository import Repository
 
-from .version_lock import shipped_versions
-
 CURR_DIR = Path(__file__).resolve().parent
 ROOT_DIR = CURR_DIR.parent
 ETC_DIR = ROOT_DIR / "detection_rules" / "etc"
@@ -450,6 +448,10 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
     The old version is the highest the rule had shipped through any channel, not the baseline alone: with a
     stack_emit epoch at baseline+1 the next correct baseline is baseline+2, which is a single bump, not a double.
     """
+    # Imported inside the function on purpose. version_lock needs config, and config needs this module while it
+    # is still loading, so importing version_lock at the top of utils.py creates a circular import. By the time
+    # this function runs every module is loaded and the import is safe.
+    from .version_lock import shipped_versions
 
     changes: list[tuple[str, str, int, int]] = []
     for key, base_val in base_json.items():
