@@ -1,0 +1,135 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID using an Authenticator Attestation GUID (AAGUID)
+not previously seen in the tenant. A tenant-new AAGUID is an authenticator model the organization has not used before,
+which can be a newly adopted authenticator or an attacker-registered shadow passkey from tooling such as ROADtools
+roadtx or DSInternals.Passkeys. The all-zero AAGUID is excluded here and handled by a companion rule.
+"""
+false_positives = [
+    """
+    A user legitimately enrolling and then signing in with a new authenticator model the organization has not used
+    before (a newly adopted hardware key vendor, a new platform passkey provider, or a new phone) produces a first-seen
+    AAGUID for the tenant. Correlate the AAGUID with the known-good authenticators for the environment (the FIDO
+    Metadata Service or the public passkey AAGUID reference), confirm the user registered the passkey, and review the
+    source, device, and whether the registration was recent and self-service. Environments without meaningful passkey
+    adoption will see first-seen AAGUIDs more often as adoption ramps.
+    """,
+]
+from = "now-7d"
+interval = "1h"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Passkey Sign-In with Unusual Authenticator AAGUID"
+note = """## Triage and analysis
+
+### Investigating Entra ID Passkey Sign-In with Unusual Authenticator AAGUID
+
+A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID has not been seen for the tenant in the lookback window. The AAGUID identifies the authenticator model or provider; one that is new to the organization can be a newly adopted legitimate authenticator, or an attacker-registered shadow passkey being used for phishing-resistant persistence. Offensive tooling such as roadtx `registerpasskey` and DSInternals.Passkeys provisions software passkeys whose AAGUID does not match the organization's known authenticators.
+
+### Possible investigation steps
+
+- Resolve the AAGUID (`Esql.passkey_aaguid`) and provider string (`Esql.provider_values`) against the organization's known-good authenticators, the FIDO Metadata Service, or the public passkey AAGUID reference. An unknown or software-provider AAGUID on an account that normally uses a hardware key or platform passkey is higher priority. The all-zero AAGUID case (`00000000-0000-0000-0000-000000000000`, the ROADtools/DSInternals default) is excluded here and handled deterministically by the companion rule "Entra ID Passkey Sign-In with ROADtools or DSInternals Authenticator Fingerprint". Note that an operator can override the AAGUID to spoof a known-good value, so a familiar AAGUID does not clear the sign-in on its own.
+- Confirm the user actually registered this passkey: review the `User registered security info` / FIDO2 registration audit events for the user, who initiated them, and whether they were self-service and recent. Correlate with the companion rule for passkeys registered outside the self-service portal.
+- Review the sign-in context (`Esql.user_values`, `Esql.source_ip_values`, `Esql.user_agent_values`, `Esql.app_values`) for a hosting or VPS origin, an anomalous user agent, or a first-party client inconsistent with the user's norm.
+- Determine whether the target holds privileged roles; a shadow passkey on a privileged account is high impact.
+
+### False positive analysis
+
+- A genuinely new but legitimate authenticator model (new hardware key vendor, new platform passkey provider, new phone) produces a first-seen AAGUID. Baseline the organization's authenticators and add exceptions for approved AAGUIDs.
+- As passkey adoption ramps in an environment, first-seen AAGUIDs appear more often; tune the lookback and expect early volume.
+
+### Response and remediation
+
+- If the user did not enroll this authenticator, treat the account as potentially compromised: delete the attacker-registered passkey and any attacker-registered device (delete devices first to break device-bound PRT persistence), then revoke sessions and refresh tokens and reset credentials.
+- Enforce FIDO2 attestation and configure AAGUID key restrictions so only approved authenticators can be registered and used; without enforced attestation an attacker can spoof an allowed AAGUID.
+"""
+references = [
+    "https://specterops.io/wp-content/uploads/sites/3/2026/08/Pass-the-Passkey_A4_v2.pdf",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/how-to-authentication-passkeys-fido2",
+    "https://cybersecurity.bureauveritas.com/services/information-technology/pentesting-services/what-can-be-pentested/cloud-pentesting/abusing-fido2-passkeys",
+    "https://www.elastic.co/security-labs/entra-id-oauth-phishing-detection",
+]
+risk_score = 47
+rule_id = "369fad3d-6abd-4f98-a20f-07dc444fde6e"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Azure integration with Microsoft Entra ID Sign-In logs enabled and collected via Azure Event Hub.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Platform: Entra ID",
+    "Platform: Azure",
+    "Data Source: Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs-*
+| WHERE azure.signinlogs.category == "SignInLogs"
+    AND event.outcome == "success"
+    AND azure.signinlogs.properties.authentication_details IS NOT NULL
+    AND azure.signinlogs.properties.tenant_id IS NOT NULL
+| EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
+| WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
+| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{UUID:aaguid_raw}"""
+| WHERE aaguid_raw IS NOT NULL AND aaguid_raw != "00000000-0000-0000-0000-000000000000"
+| STATS Esql.first_time_seen = MIN(@timestamp),
+        Esql.last_time_seen = MAX(@timestamp),
+        Esql.signin_count = COUNT(*),
+        Esql.user_count = COUNT_DISTINCT(azure.signinlogs.properties.user_id),
+        Esql.provider_values = VALUES(provider_raw),
+        Esql.user_values = VALUES(azure.signinlogs.properties.user_principal_name),
+        Esql.source_ip_values = VALUES(source.ip),
+        Esql.user_agent_values = VALUES(user_agent.original),
+        Esql.app_values = VALUES(azure.signinlogs.properties.app_display_name)
+      BY Esql.tenant_id = azure.signinlogs.properties.tenant_id, Esql.passkey_aaguid = aaguid_raw
+| EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
+| WHERE Esql.recent_minutes <= 70
+| EVAL user.name = MV_FIRST(Esql.user_values), source.ip = MV_FIRST(Esql.source_ip_values)
+| KEEP user.name, source.ip, Esql.tenant_id, Esql.passkey_aaguid,
+       Esql.provider_values, Esql.first_time_seen, Esql.last_time_seen, Esql.signin_count,
+       Esql.user_count, Esql.user_values, Esql.source_ip_values, Esql.user_agent_values, Esql.app_values
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["Esql.tenant_id", "Esql.passkey_aaguid"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 24
+
