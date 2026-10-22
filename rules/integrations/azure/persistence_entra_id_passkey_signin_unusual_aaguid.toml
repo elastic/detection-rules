@@ -102,15 +102,31 @@ FROM logs-azure.signinlogs-*
         Esql.user_count = COUNT_DISTINCT(azure.signinlogs.properties.user_id),
         Esql.provider_values = VALUES(provider_raw),
         Esql.user_values = VALUES(azure.signinlogs.properties.user_principal_name),
+        Esql.app_values = VALUES(azure.signinlogs.properties.app_display_name),
+        Esql.app_id_values = VALUES(azure.signinlogs.properties.app_id),
+        Esql.resource_values = VALUES(azure.signinlogs.properties.resource_display_name),
+        Esql.client_app_used_values = VALUES(azure.signinlogs.properties.client_app_used),
+        Esql.incoming_token_type_values = VALUES(azure.signinlogs.properties.incoming_token_type),
         Esql.source_ip_values = VALUES(source.ip),
+        Esql.source_as_number_values = VALUES(source.`as`.number),
         Esql.user_agent_values = VALUES(user_agent.original),
-        Esql.app_values = VALUES(azure.signinlogs.properties.app_display_name)
-      BY Esql.tenant_id = azure.signinlogs.properties.tenant_id, Esql.passkey_aaguid = aaguid_raw
+        Esql.device_trust_type_values = VALUES(azure.signinlogs.properties.device_detail.trust_type),
+        Esql.device_is_managed_values = VALUES(azure.signinlogs.properties.device_detail.is_managed),
+        Esql.device_is_compliant_values = VALUES(azure.signinlogs.properties.device_detail.is_compliant),
+        Esql.conditional_access_status_values = VALUES(azure.signinlogs.properties.conditional_access_status),
+        Esql.auth_requirement_values = VALUES(azure.signinlogs.properties.authentication_requirement),
+        Esql.risk_state_values = VALUES(azure.signinlogs.properties.risk_state),
+        Esql.risk_level_during_signin_values = VALUES(azure.signinlogs.properties.risk_level_during_signin),
+        Esql.result_signature_values = VALUES(azure.signinlogs.result_signature),
+        Esql.correlation_id_values = VALUES(azure.signinlogs.properties.correlation_id),
+        Esql.session_id_values = VALUES(azure.signinlogs.properties.session_id),
+        Esql.unique_token_identifier_values = VALUES(azure.signinlogs.properties.unique_token_identifier)
+      BY azure.tenant_id, Esql.passkey_aaguid = aaguid_raw
 
 // filter for recent sign-ins within the last 10 minutes
 | EVAL Esql.recent_minutes = DATE_DIFF("minute", Esql.first_time_seen, NOW())
 | WHERE Esql.recent_minutes <= 10
-| KEEP Esql.*
+| KEEP Esql.*, azure.tenant_id
 '''
 
 
@@ -132,11 +148,4 @@ id = "TA0003"
 name = "Persistence"
 reference = "https://attack.mitre.org/tactics/TA0003/"
 
-[rule.alert_suppression]
-group_by = ["Esql.tenant_id", "Esql.passkey_aaguid"]
-missing_fields_strategy = "suppress"
-
-[rule.alert_suppression.duration]
-unit = "h"
-value = 24
 
