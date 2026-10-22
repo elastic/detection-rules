@@ -223,8 +223,7 @@ class LockDataclassMixin:
     @classmethod
     def load_from_file(cls, lock_file: Path | None = None) -> Any:
         """Load and validate a version lock file."""
-        # an explicit path must win over the class default, otherwise VersionLock(path) silently loads the repo lock
-        path = lock_file or getattr(cls, "file_path", None)
+        path = getattr(cls, "file_path", lock_file)
         if not path:
             raise ValueError("No file path found")
         contents = json.loads(path.read_text())
