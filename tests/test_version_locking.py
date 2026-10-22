@@ -5,21 +5,13 @@
 
 """Test version locking of rules."""
 
-import json
-import tempfile
 import unittest
-from pathlib import Path
-from typing import Any, ClassVar
-from unittest import mock
 
 from semver import Version
 
-from detection_rules.config import load_current_package_version
-from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_min_supported_stack_version
-from detection_rules.stack_emit import emit_epoch_key, parse_stack
 from detection_rules.utils import next_version
-from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock
+from detection_rules.version_lock import RULES_CONFIG, loaded_version_lock
 
 
 class TestVersionLock(unittest.TestCase):
