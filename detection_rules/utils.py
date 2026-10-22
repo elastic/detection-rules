@@ -487,9 +487,8 @@ def compare_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> 
     return changes
 
 
-def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
+def check_version_conflicts(base_json: dict[str, Any], branch_json: dict[str, Any]) -> list[tuple[str, str, str, int]]:
     """Find versions already shipped in the base lock that the branch lock ships again with a different hash."""
-
     def shipped_hashes(entry: dict[str, Any]) -> dict[str, tuple[int, str]]:
         """Map each location in a lock entry (top level, previous fork, stack_emit epoch) to its version and hash."""
         hashes = {"version": (entry["version"], entry["sha256"])}
@@ -501,7 +500,7 @@ def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]
             hashes[f"stack_emit.{stack}"] = (epoch["version"], epoch["sha256"])
         return hashes
 
-    reused: list[tuple[str, str, str, int]] = []
+    conflicts: list[tuple[str, str, str, int]] = []
     for key, base_val in base_json.items():
         if key not in branch_json:
             continue
@@ -509,8 +508,8 @@ def check_reused_versions(base_json: dict[str, Any], branch_json: dict[str, Any]
         for location, (version, sha256) in shipped_hashes(branch_json[key]).items():
             # a fork is a copy of the entry it replaced, so the same version with the same hash is expected
             if base_hashes.get(version, sha256) != sha256:
-                reused.append((key, branch_json[key].get("rule_name"), location, version))
-    return reused
+                conflicts.append((key, branch_json[key].get("rule_name"), location, version))
+    return conflicts
 
 
 def check_double_bumps(changes: list[tuple[str, str, int, int]]) -> list[tuple[str, str, int, int]]:
@@ -532,7 +531,7 @@ def check_version_lock_double_bumps(
     branch: str = "",
     local_file: Path | None = None,
 ) -> tuple[list[tuple[str, str, int, int]], list[tuple[str, str, str, int]]]:
-    """Check a version lock file against its base for double bumps and for reused versions."""
+    """Check a version lock file against its base for double bumps and for conflicting versions."""
     base_json = load_json_from_branch(repo, file_path, base_branch)
     if local_file:
         with local_file.open("r") as f:
@@ -541,7 +540,7 @@ def check_version_lock_double_bumps(
         branch_json = load_json_from_branch(repo, file_path, branch)
 
     changes = compare_versions(base_json, branch_json)
-    return check_double_bumps(changes), check_reused_versions(base_json, branch_json)
+    return check_double_bumps(changes), check_version_conflicts(base_json, branch_json)
 
 
 def format_command_options(ctx: click.Context) -> str:

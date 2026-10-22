@@ -394,13 +394,13 @@ def check_version_lock(  # noqa: PLR0913, PLR0915, PLR0917
     client = github.authenticated_client
     repo = client.get_repo("elastic/detection-rules")
     double_bumps = []
-    reused = []
-    comment_body = "No double bumps or reused versions detected."
+    conflicts = []
+    comment_body = "No double bumps or version conflicts detected."
 
     def format_comment_body(
-        double_bumps: list[tuple[str, str, int, int]], reused: list[tuple[str, str, str, int]]
+        double_bumps: list[tuple[str, str, int, int]], conflicts: list[tuple[str, str, str, int]]
     ) -> str:
-        """Format the comment body for double bumps and reused versions."""
+        """Format the comment body for double bumps and version conflicts."""
         comment_body = f"{len(double_bumps)} Double bumps detected:\n\n"
         comment_body += "<details>\n"
         comment_body += "<summary>Click to expand the list of double bumps</summary>\n\n"
@@ -410,13 +410,13 @@ def check_version_lock(  # noqa: PLR0913, PLR0915, PLR0917
             comment_body += f"  - **Removed**: {removed}\n"
             comment_body += f"  - **Added**: {added}\n"
         comment_body += "\n</details>\n"
-        comment_body += f"\n{len(reused)} Reused versions detected (same version, different content):\n\n"
+        comment_body += f"\n{len(conflicts)} Version conflicts detected (same version, different content):\n\n"
         comment_body += "<details>\n"
-        comment_body += "<summary>Click to expand the list of reused versions</summary>\n\n"
-        for rule_id, rule_name, channel, version in reused:
+        comment_body += "<summary>Click to expand the list of version conflicts</summary>\n\n"
+        for rule_id, rule_name, location, version in conflicts:
             comment_body += f"- **Rule ID**: {rule_id}\n"
             comment_body += f"  - **Rule Name**: {rule_name}\n"
-            comment_body += f"  - **Channel**: {channel}\n"
+            comment_body += f"  - **Location**: {location}\n"
             comment_body += f"  - **Version**: {version}\n"
         comment_body += "\n</details>\n"
         return comment_body
@@ -436,20 +436,20 @@ def check_version_lock(  # noqa: PLR0913, PLR0915, PLR0917
     if pr_number:
         click.echo(f"Fetching version lock file from PR #{pr_number}")
         pr = repo.get_pull(pr_number)
-        double_bumps, reused = check_version_lock_double_bumps(
+        double_bumps, conflicts = check_version_lock_double_bumps(
             repo=repo, file_path="detection_rules/etc/version.lock.json", base_branch="main", branch=pr.head.ref
         )
     else:
         click.echo(f"Using local version lock file: {local_file}")
-        double_bumps, reused = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
+        double_bumps, conflicts = check_version_lock_double_bumps(repo=repo, file_path=local_file, base_branch="main")
 
-    if double_bumps or reused:
+    if double_bumps or conflicts:
         click.echo(f"{len(double_bumps)} Double bumps detected")
-        click.echo(f"{len(reused)} Reused versions detected")
-        for rule_id, rule_name, channel, version in reused:
-            click.echo(f"  {rule_id} ({rule_name}): {channel} ships version {version} again with new content")
+        click.echo(f"{len(conflicts)} Version conflicts detected")
+        for rule_id, rule_name, location, version in conflicts:
+            click.echo(f"  {rule_id} ({rule_name}): {location} ships version {version} with different content")
         if comment and pr_number:
-            comment_body = format_comment_body(double_bumps, reused)
+            comment_body = format_comment_body(double_bumps, conflicts)
             if pr:
                 _ = pr.create_issue_comment(comment_body)
         if save_double_bumps:

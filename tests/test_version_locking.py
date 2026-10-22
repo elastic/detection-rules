@@ -19,7 +19,7 @@ from detection_rules.config import load_current_package_version
 from detection_rules.rule_loader import RuleCollection
 from detection_rules.schemas import get_min_supported_stack_version
 from detection_rules.stack_emit import emit_epoch_key, parse_stack
-from detection_rules.utils import check_double_bumps, check_reused_versions, compare_versions, next_version
+from detection_rules.utils import check_double_bumps, check_version_conflicts, compare_versions, next_version
 from detection_rules.version_lock import RULES_CONFIG, VersionLock, loaded_version_lock
 
 
@@ -163,10 +163,10 @@ class TestCheckVersionLock(unittest.TestCase):
         flagged = [rule_id for rule_id, *_ in check_double_bumps(compare_versions(base, branch))]
         self.assertEqual(flagged, ["plain"])  # 3 -> 5 is a double bump only when nothing shipped 4
 
-    def test_a_shipped_version_with_new_content_is_flagged(self):
+    def test_a_shipped_version_with_different_content_is_flagged(self):
         base = {"bug": self.entry(3, "a", epoch=4), "fork": self.entry(107, "a", epoch=108)}
         branch = {
             "bug": self.entry(4, "b", epoch=5),  # the #7012 bug: baseline takes 4, which 9.5 already shipped
             "fork": {**self.entry(207, "b", epoch=208), "previous": {"9.4": self.entry(107, "a")}},  # route B copy
         }
-        self.assertEqual(check_reused_versions(base, branch), [("bug", "r", "version", 4)])
+        self.assertEqual(check_version_conflicts(base, branch), [("bug", "r", "version", 4)])
