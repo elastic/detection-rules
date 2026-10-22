@@ -1,0 +1,145 @@
+[metadata]
+creation_date = "2026/09/22"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects a burst of GitHub api.request events against secret, git tree/contents, zipball, membership, hook, installation,
+or private repository listing routes. This pattern is used for credential discovery and source collection after token
+theft. Requires enterprise audit log streaming with API Request Events enabled.
+"""
+false_positives = [
+    """
+    Org-wide backup, secret-rotation, or inventory scripts that list secrets, hooks, and repositories. Allowlist known
+    automation tokens and user agents.
+    """,
+]
+from = "now-9m"
+interval = "8m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub API Sensitive Resource Enumeration"
+note = """## Triage and analysis
+
+### Investigating GitHub API Sensitive Resource Enumeration
+
+`api.request` is streaming-only. Sensitive routes include Actions/Dependabot/environment secrets, public-keys, git trees, contents, zipball, org repo lists, members, hooks, installations, and PATs.
+
+### Possible investigation steps
+
+- Review distinct `github.route` values, `github.status_code`, `github.programmatic_access_type`, and `github.user_agent`.
+- Correlate with `git.clone`, `repo.download_zip`, and secret-scanning alerts from the same `github.hashed_token`.
+- Treat user agents containing trufflehog or nord-stream as credential-stealer tooling.
+
+### False positive analysis
+
+- Internal inventory or GitHub App servers enumerating installations and repos.
+
+### Response and remediation
+
+- Revoke the token, rotate listed secrets, and review PAT/OAuth grants for the actor.
+"""
+references = [
+    "https://securitylabs.datadoghq.com/articles/mapping-out-your-unknown-threat-hunters-guide-to-github/",
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise#enabling-api-request-events",
+]
+risk_score = 47
+rule_id = "ad112f18-b658-4cd8-ae1e-cb3c18a938ca"
+setup = """## Setup
+
+Requires the Elastic GitHub integration (`logs-github.audit-*`), GitHub Enterprise audit log streaming, and **Enable API Request Events** on the enterprise. `api.request` is not available via the REST audit-log API.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Discovery",
+    "Tactic: Credential Access",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  data_stream.dataset == "github.audit" and event.action == "api.request" and
+  (
+    github.route like "*secrets*" or
+    github.route like "*public-key*" or
+    github.route like "*git/trees*" or
+    github.route like "*contents*" or
+    github.route like "*zipball*" or
+    github.route like "*hooks*" or
+    github.route like "*installations*" or
+    github.route like "*members*" or
+    github.route like "*outside_collaborators*" or
+    github.route like "*personal-access-token*" or
+    github.route == "/organizations/:organization_id/repos"
+  )
+| stats
+  Esql.event_count = COUNT(*),
+  Esql.github_route_values = values(github.route),
+  Esql.github_org_values = values(github.org),
+  Esql.github_programmatic_access_type_values = values(github.programmatic_access_type),
+  Esql.github_user_agent_values = values(github.user_agent),
+  Esql.agent_id_values = values(agent.id),
+  Esql.data_stream_dataset_values = values(data_stream.dataset),
+  Esql.data_stream_namespace_values = values(data_stream.namespace),
+  Esql_priv.github_token_id_values = values(github.token_id),
+  Esql_priv.user_name_values = values(user.name)
+  by user.name
+| keep user.name, Esql.*, Esql_priv.*
+| where Esql.event_count >= 15
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1526"
+name = "Cloud Service Discovery"
+reference = "https://attack.mitre.org/techniques/T1526/"
+
+
+[rule.threat.tactic]
+id = "TA0007"
+name = "Discovery"
+reference = "https://attack.mitre.org/tactics/TA0007/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1552"
+name = "Unsecured Credentials"
+reference = "https://attack.mitre.org/techniques/T1552/"
+[[rule.threat.technique.subtechnique]]
+id = "T1552.001"
+name = "Credentials In Files"
+reference = "https://attack.mitre.org/techniques/T1552/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0006"
+name = "Credential Access"
+reference = "https://attack.mitre.org/tactics/TA0006/"
+
+[rule.investigation_fields]
+field_names = [
+    "user.name",
+    "Esql.event_count",
+    "Esql.github_route_values",
+    "Esql.github_org_values",
+    "Esql.github_programmatic_access_type_values",
+    "Esql.github_user_agent_values",
+    "Esql_priv.github_token_id_values",
+    "Esql_priv.user_name_values",
+]
+
