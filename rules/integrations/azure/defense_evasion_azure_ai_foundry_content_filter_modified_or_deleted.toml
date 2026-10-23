@@ -7,11 +7,11 @@ updated_date = "2026/10/23"
 [rule]
 author = ["Elastic"]
 description = """
-Identifies the creation, modification, or deletion of a content filter (RAI policy) or the deletion of a custom
-blocklist on a Microsoft Foundry (Azure AI Services) account. Content filters decide which prompt and completion
-categories, jailbreak attempts, and protected material a model deployment blocks. An adversary with control of the
-account can weaken or remove these filters so that harmful prompts and outputs are no longer blocked or logged as
-filtered, which removes a guardrail and the detections that depend on its verdicts.
+Identifies the creation, modification, or deletion of a content filter (RAI policy) or a custom blocklist on a
+Microsoft Foundry (Azure AI Services) account. Content filters decide which prompt and completion categories,
+jailbreak attempts, and protected material a model deployment blocks. An adversary with control of the account can
+weaken or remove these filters so that harmful prompts and outputs are no longer blocked or logged as filtered, which
+removes a guardrail and the detections that depend on its verdicts.
 """
 false_positives = [
     """
@@ -34,8 +34,8 @@ note = """## Triage and analysis
 
 Microsoft Foundry content filters are stored as RAI policies on the AI Services account
 (`Microsoft.CognitiveServices/accounts/raiPolicies`) and are referenced by each model deployment. Custom blocklists
-(`raiBlocklists`) add term-level blocking on top of those policies. This rule fires when a policy is written or
-deleted, or a blocklist is deleted.
+(`raiBlocklists`) add term-level blocking on top of those policies. This rule fires when a policy or blocklist is
+written or deleted.
 
 ### Possible investigation steps
 
@@ -96,6 +96,7 @@ data_stream.dataset: "azure.activitylogs" and
 azure.activitylogs.operation_name: (
     "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIPOLICIES/WRITE" or
     "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIPOLICIES/DELETE" or
+    "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIBLOCKLISTS/WRITE" or
     "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIBLOCKLISTS/DELETE"
 ) and event.outcome: "success"
 '''
