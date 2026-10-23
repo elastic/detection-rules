@@ -1,0 +1,168 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Linux graphical login and session initialization hooks used by X11 and
+common display managers. These files can execute commands as root or as the authenticating user when a graphical display
+or desktop session starts. Adversaries may modify them to establish persistence or event-triggered execution.
+"""
+false_positives = [
+    """
+    Legitimate display-manager installation, desktop administration, user customization, and configuration-management
+    activity.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Graphical Session Hook File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Graphical Session Hook File Activity
+
+Linux graphical logins are assembled by session wrappers, display managers, desktop components, and sometimes a
+per-user systemd manager. X11 session scripts and display-manager hooks may execute automatically when a display starts,
+after authentication, before a user session opens, or when the session closes. Depending on the hook, commands can run
+as root or as the authenticating user. Unexpected changes to these paths can therefore provide durable execution without
+using a conventional system service or scheduled task.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Identify the active display manager and session type. Xsession, GDM, LightDM, SDDM, and xdm hooks have different
+  loaders, execution contexts, and trigger points, and X11-specific files may not execute during a Wayland session.
+- Retrieve the changed file and inspect it for shell commands, interpreters, detached execution, network connections,
+  credential access, referenced scripts, and non-standard executable paths.
+- For LightDM and SDDM configuration, review command-bearing directives such as session, display, greeter, and setup
+  scripts. Resolve each configured path and examine the referenced file.
+- For GDM hooks, determine whether the affected script runs during display initialization, after authentication, before
+  session startup, or after session termination, and establish whether it executes as root or as the session user.
+- For graphical-session target links, inspect the linked user service, its `ExecStart` directive, enablement state, and
+  whether the desktop environment activates `graphical-session.target`.
+- Correlate the file activity with subsequent graphical logins, display-manager restarts, and unusual shells,
+  interpreters, detached processes, or network connections beneath the display manager, session wrapper, or user
+  systemd instance.
+- Compare the file with package manifests, configuration-management records, trusted user dotfiles, and equivalent
+  systems to establish provenance.
+
+### False positive analysis
+
+- Display-manager and desktop-package installation or upgrades may replace system session scripts.
+- Administrators may legitimately configure login-time setup scripts, while users may maintain `.xprofile`,
+  `.xsession`, `.xsessionrc`, or `.xinitrc`. Validate the writer, content, and expected change context before creating a
+  narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the changed file and any referenced scripts or executables before remediation.
+- Remove unauthorized commands, restore trusted configuration, and verify ownership and permissions.
+- Terminate malicious processes and review sessions, credentials, and network activity exposed while the hook was
+  active.
+- Scope matching files, directives, writers, payloads, and resulting process ancestry across graphical Linux systems.
+"""
+references = [
+    "https://manpages.debian.org/bookworm/x11-common/Xsession.5.en.html",
+    "https://docs.oracle.com/cd/E88353_01/html/E72487/gdm-8.html",
+    "https://github.com/canonical/lightdm/blob/main/data/lightdm.conf",
+    "https://manpages.debian.org/stable/sddm/sddm.conf.5.en.html",
+]
+risk_score = 21
+rule_id = "a7815681-30ad-4fe6-9c83-82b2f23fc787"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/X11/Xsession",
+    "/etc/X11/Xsession.d/*",
+    "/etc/X11/xdm/Xsetup*",
+    "/etc/X11/xdm/Xstartup*",
+    "/etc/X11/xdm/Xsession*",
+    "/etc/X11/xdm/Xreset*",
+    "/etc/gdm/Init/*",
+    "/etc/gdm/PostLogin/*",
+    "/etc/gdm/PreSession/*",
+    "/etc/gdm/PostSession/*",
+    "/etc/gdm3/Init/*",
+    "/etc/gdm3/PostLogin/*",
+    "/etc/gdm3/PreSession/*",
+    "/etc/gdm3/PostSession/*",
+    "/etc/lightdm/lightdm.conf",
+    "/etc/lightdm/lightdm.conf.d/*.conf",
+    "/etc/sddm.conf",
+    "/etc/sddm.conf.d/*.conf",
+    "/etc/sddm/scripts/*",
+    "/usr/share/sddm/scripts/*",
+    "/home/*/.xinitrc",
+    "/home/*/.xprofile",
+    "/home/*/.xsession",
+    "/home/*/.xsessionrc",
+    "/root/.xinitrc",
+    "/root/.xprofile",
+    "/root/.xsession",
+    "/root/.xsessionrc",
+    "/home/*/.config/systemd/user/graphical-session.target.wants/*",
+    "/root/.config/systemd/user/graphical-session.target.wants/*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1037"
+name = "Boot or Logon Initialization Scripts"
+reference = "https://attack.mitre.org/techniques/T1037/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
