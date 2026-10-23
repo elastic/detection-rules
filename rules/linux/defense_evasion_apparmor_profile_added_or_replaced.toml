@@ -1,0 +1,128 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects apparmor_parser being used to add a new AppArmor profile or replace an existing profile in the kernel. Attackers
+with sufficient privileges may load permissive or malicious policy to weaken application confinement, grant access to
+otherwise restricted resources, or alter execution behavior.
+"""
+false_positives = [
+    "Authorized profile deployment, policy tuning, service installation, and AppArmor administration.",
+]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "AppArmor Profile Added or Replaced"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating AppArmor Profile Added or Replaced
+
+`apparmor_parser` compiles AppArmor policy and loads it into the kernel. The `--add` (`-a`) option adds profiles that are
+not already loaded, while `--replace` (`-r`) replaces existing profiles or adds them when absent. These operations are
+expected during some package installations and approved policy administration, but an attacker with root privileges can
+use them to weaken confinement or load unauthorized policy.
+
+### Possible investigation steps
+
+- Review the full command line, source profile path, user, working directory, terminal, and parent and ancestor process
+  chain.
+- Determine whether the execution is associated with an authorized package transaction, AppArmor service action,
+  configuration-management run, application deployment, or documented administrative change.
+- Retrieve the source policy and inspect it for complain-mode flags, broad file or network access, dangerous capabilities,
+  execution transitions, aliases, variables, and includes that expand the target application's privileges.
+- Check for recent file activity under `/etc/apparmor.d/`, especially new profiles, local overrides, and links beneath
+  `disable/` or `force-complain/`.
+- Use trusted AppArmor status tooling to identify the loaded profile and its mode, and compare the policy with package
+  metadata, source control, and known-good hosts.
+- Correlate the load with application restarts, denied-action changes, privilege escalation, and suspicious activity by
+  the process governed by the affected profile.
+
+### False positive analysis
+
+- Administrators and deployment tooling may load new or revised policy while installing, hardening, or troubleshooting
+  applications.
+- Package and service workflows may invoke `apparmor_parser` indirectly. Validate unusual parent processes and source
+  paths against change records before creating an exception.
+
+### Response and remediation
+
+- Isolate the host if an unauthorized policy was loaded for a sensitive or exposed application.
+- Preserve the source policy, command line, process lineage, and related filesystem telemetry.
+- Remove the unauthorized policy, restore trusted profile files, and reload approved profiles in enforce mode using
+  trusted administration tools.
+- Review activity performed by the affected application while its confinement may have been weakened.
+- Scope the profile, source path, account, and initiating process across the environment, and rebuild the host if
+  root-level compromise cannot be confidently excluded.
+"""
+references = [
+    "https://apparmor.net/man/master/apparmor_parser/",
+    "https://apparmor.net/man/master/apparmor.d/",
+]
+risk_score = 21
+rule_id = "badca3e9-5f7c-4b3d-9dd1-5f815b6ddeb5"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend, Elastic Endgame, CrowdStrike Falcon, SentinelOne, Auditd Manager,
+or Auditbeat.
+
+For Elastic Defend, install the integration through Fleet, enroll the Linux host, and use the Complete EDR configuration
+preset to collect process events. For other supported integrations, configure the integration to ingest Linux process
+execution events into the indices listed by this rule.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  process.name == "apparmor_parser" and
+  process.args in ("-a", "--add", "-r", "--replace")
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
