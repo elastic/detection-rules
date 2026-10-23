@@ -1,0 +1,118 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/22"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a successful passkey or FIDO2 sign-in to Microsoft Entra ID reporting an all-zero Authenticator Attestation
+GUID (AAGUID). Legitimate platform and hardware authenticators report a vendor AAGUID, while an all-zero value is the
+default of the offensive WebAuthn software authenticators in ROADtools roadtx and DSInternals.Passkeys, which
+adversaries use to register shadow passkeys for phishing-resistant persistence. An operator can override the AAGUID, so
+enforce FIDO2 attestation and key restrictions to close that gap.
+"""
+false_positives = [
+    """
+    Rare non-malicious WebAuthn implementations or test authenticators can present an all-zero AAGUID. Confirm the user
+    legitimately registered the passkey and that the registration and sign-in context (source, device, timing) is
+    expected before escalating. Legitimate platform and hardware authenticators do not use an all-zero AAGUID.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID"
+note = """## Triage and analysis
+
+### Investigating Entra ID Passkey Sign-In with Nonattestable Authenticator AAGUID
+
+A user successfully signed in with a passkey or FIDO2 authenticator whose AAGUID is all zeros (`00000000-0000-0000-0000-000000000000`). Legitimate platform and hardware authenticators always report a real vendor AAGUID, so an all-zero value is the default fingerprint of offensive WebAuthn software authenticators such as ROADtools roadtx `registerpasskey` and DSInternals.Passkeys. Adversaries register these software passkeys after account takeover to establish phishing-resistant persistence that survives password resets and session revocation.
+
+### Possible investigation steps
+
+- Confirm the user did not knowingly register a new passkey. Review the `User registered security info` / FIDO2 registration audit events for the user and determine who initiated the registration, whether it was self-service, and when it occurred relative to this sign-in.
+- Review the sign-in context (`user.name`, `source.ip`, `user_agent.original`, `azure.signinlogs.properties.app_display_name`) for a hosting or VPS origin, an anomalous or automation user agent, or a client inconsistent with the user's norm.
+- Determine whether the target holds privileged roles; a shadow passkey on a privileged account is high impact.
+- Correlate with recent adversary-in-the-middle sign-ins, OAuth consent grants holding `UserAuthenticationMethod.ReadWrite.All`, device registrations, or PRT issuance for the same user.
+
+### False positive analysis
+
+- An all-zero AAGUID is not produced by legitimate platform or hardware authenticators, so false positives are rare. A non-malicious test or custom WebAuthn implementation is the main benign cause; confirm the user and registration context.
+
+### Response and remediation
+
+- Treat the account as potentially compromised: delete the attacker-registered passkey and any attacker-registered device (delete devices first to break device-bound PRT persistence), then revoke sessions and refresh tokens and reset credentials.
+- Review and revoke any application or consent grant that could have registered the passkey, and audit other authentication methods added for the user.
+- Enforce FIDO2 attestation and configure AAGUID key restrictions so only approved authenticators can be registered and used.
+"""
+references = [
+    "https://specterops.io/wp-content/uploads/sites/3/2026/08/Pass-the-Passkey_A4_v2.pdf",
+    "https://github.com/dirkjanm/ROADtools",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/how-to-authentication-passkeys-fido2",
+    "https://www.elastic.co/security-labs/entra-id-oauth-phishing-detection",
+]
+risk_score = 73
+rule_id = "26ca4e6b-9c67-4d51-a23a-e3eccbbee3ec"
+setup = """#### Required Microsoft Entra ID Sign-In Logs
+This rule requires the Azure integration with Microsoft Entra ID Sign-In logs enabled and collected via Azure Event Hub.
+"""
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Platform: Entra ID",
+    "Platform: Azure",
+    "Data Source: Entra ID Sign-In Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+    "Profile: Beta",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-azure.signinlogs-* METADATA _id, _index, _version
+| WHERE azure.signinlogs.category == "SignInLogs"
+    AND event.outcome == "success"
+    AND azure.signinlogs.properties.authentication_details IS NOT NULL
+| EVAL ad = TO_STRING(azure.signinlogs.properties.authentication_details)
+| WHERE ad LIKE "*Passkey (*" OR ad LIKE "*FIDO2 security key*"
+| GROK ad """"authentication_method_detail":"%{DATA:provider_raw} - %{DATA:aaguid_raw}""""
+| WHERE aaguid_raw IS NOT NULL AND (
+    aaguid_raw == "00000000-0000-0000-0000-000000000000"
+    OR NOT aaguid_raw RLIKE "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+  )
+| EVAL Esql.passkey_aaguid = aaguid_raw,
+       Esql.passkey_provider = provider_raw
+| KEEP _id, _index, _version, @timestamp,
+       azure.signinlogs.*,
+       source.*,
+       user.*,
+       user_agent.*,
+       event.outcome,
+       Esql.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.001"
+name = "Additional Cloud Credentials"
+reference = "https://attack.mitre.org/techniques/T1098/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
