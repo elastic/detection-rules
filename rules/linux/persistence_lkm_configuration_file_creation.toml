@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/12/17"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/10/21"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -12,7 +12,11 @@ or replace these files to alter module-loading behavior, execute commands throug
 kernel modules during startup.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Loadable Kernel Module Configuration File Activity"
@@ -62,6 +66,8 @@ tags = [
     "Tactic: Persistence",
     "Tactic: Defense Evasion",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Noise: Medium",
     "Performance: Normal",
@@ -93,7 +99,7 @@ file.path like (
     "./usr/bin/qemu-aarch64-static", "/.envbuilder/bin/envbuilder"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
+  ?file.Ext.original.extension == "dpkg-new" or
   process.executable like (
     "/nix/store/*", "/var/lib/dpkg/info/kmod.postinst", "/tmp/vmis.*", "/snap/*", "/dev/fd/*",
     "/usr/libexec/platform-python*", "./snap/snapd/*/snap-update-ns"
