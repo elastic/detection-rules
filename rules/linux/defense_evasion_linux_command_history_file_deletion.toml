@@ -1,0 +1,162 @@
+[metadata]
+creation_date = "2026/10/21"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the deletion of Linux shell, database client, and interactive command history files. Adversaries may delete
+these files to remove evidence of commands executed during an intrusion and hinder forensic investigation.
+"""
+false_positives = [
+    "Users, administrators, or maintenance scripts may intentionally remove command history for privacy or cleanup.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Command History File Deletion"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Command History File Deletion
+
+Interactive shells and command-line clients commonly preserve commands in history files beneath the user's home
+directory. This includes traditional shell histories and histories maintained by database clients such as MySQL,
+PostgreSQL, SQLite, Redis, and MongoDB. Service accounts may use home directories below locations such as `/var/lib`,
+causing their history files to fall outside conventional `/home` and `/root` monitoring.
+
+Adversaries may remove these files after interactive access, database discovery, credential access, or data collection
+to destroy evidence of their activity. This rule detects the completed file deletion regardless of the utility,
+interpreter, or custom tool responsible.
+
+### Possible investigation steps
+
+- Review the deleted filename and full path to identify the affected account, shell, database client, or interpreter.
+- Examine the responsible process, parent process, command line, user, working directory, executable hash, and process
+  ancestry.
+- Determine whether the deletion followed an interactive login, SSH session, privilege escalation, database client
+  execution, or access through a service account.
+- Correlate the event with authentication, process, file, and network activity from the same host and account before the
+  deletion.
+- Check whether the history path was subsequently recreated, redirected to `/dev/null`, replaced with a symbolic link,
+  or disabled through an environment variable or client configuration.
+- Recover the history file from endpoint snapshots, backups, filesystem journals, or forensic acquisition where
+  possible.
+
+### False positive analysis
+
+- Users or administrators may intentionally clear command history for privacy or to remove sensitive statements.
+- Host deprovisioning, home-directory cleanup, account removal, and ephemeral workload teardown may legitimately delete
+  history files. Confirm that the deletion belongs to an expected lifecycle operation before creating an exception.
+
+### Response and remediation
+
+- Isolate the host if the deletion is associated with unauthorized access or other suspicious activity.
+- Preserve process telemetry, authentication records, database logs, and recoverable filesystem evidence.
+- Investigate the commands and activity that preceded the deletion and scope related account use across the environment.
+- Restore expected history configuration and remove unauthorized redirections, symbolic links, or environment changes
+  that suppress future history.
+- Reset credentials and secrets exposed during the affected session when compromise is confirmed.
+"""
+references = [
+    "https://attack.mitre.org/techniques/T1070/003/",
+    "https://dev.mysql.com/doc/refman/9.1/en/mysql-logging.html",
+    "https://www.postgresql.org/docs/current/app-psql.html",
+    "https://redis.io/docs/latest/develop/tools/cli/",
+]
+risk_score = 47
+rule_id = "367409cf-6353-4319-9247-b8ef94e13888"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type == "deletion" and
+file.name in (
+  ".bash_history",
+  ".zsh_history",
+  ".sh_history",
+  ".ksh_history",
+  ".ash_history",
+  ".csh_history",
+  ".tcsh_history",
+  "fish_history",
+  ".mysql_history",
+  ".psql_history",
+  ".sqlite_history",
+  ".rediscli_history",
+  ".dbshell",
+  "mongosh_repl_history"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1070"
+name = "Indicator Removal"
+reference = "https://attack.mitre.org/techniques/T1070/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1070.003"
+name = "Clear Command History"
+reference = "https://attack.mitre.org/techniques/T1070/003/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
