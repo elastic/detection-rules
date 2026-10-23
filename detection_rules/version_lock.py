@@ -310,7 +310,8 @@ class VersionLock:
                         # 2) on the latest, after a breaking change has been locked
                         # Preserve existing stack_emit channels — never drop higher-stack emit rows.
                         existing_stack_emit = lock_from_file.get("stack_emit")
-                        # the rule bumps from its locked baseline; the lock must also clear what its epochs shipped
+                        # If a stack_emit entry already shipped the proposed version, the lock takes the 
+                        # next free version instead so no shipped version is used twice for the same stack version.
                         floor = next_version(lock_from_file, stripped_version) if lock_from_file else None
                         lock_from_file.update(lock_from_rule)
                         if existing_stack_emit is not None:
@@ -382,7 +383,8 @@ class VersionLock:
                             )
 
                         if info_from_rule != info_from_file:
-                            # same floor as route A, applied to the fork that ships for this stack
+                            # The fork cannot pass its max_allowable_version, so fail if the next free 
+                            # version is exceeding max_allowable_version.
                             floor = next_version(lock_from_file, stripped_version)
                             previous_entry.update(lock_from_rule)
                             if not exclude_version_update and previous_entry["version"] < floor:

@@ -444,7 +444,7 @@ def load_json_from_branch(repo: Repository, file_path: str, branch: str) -> dict
 
 
 def shipped_versions(lock_entry: dict[str, Any], stripped_stack: str | None) -> list[int]:
-    """Return every version a rule has shipped to a stack: its baseline plus the stack_emit epochs serving it."""
+    """Return every version a rule has shipped to a stack, from its baseline and from stack_emit."""
 
     previous: dict[str, dict[str, Any]] = lock_entry.get("previous") or {}
     stack_emit: dict[str, dict[str, Any]] = lock_entry.get("stack_emit") or {}
