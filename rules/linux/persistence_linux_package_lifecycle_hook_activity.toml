@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2026/10/20"
-integration = ["endpoint"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/10/20"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -15,7 +15,13 @@ false_positives = [
     "Legitimate package installation, kernel maintenance, certificate updates, and approved configuration management.",
 ]
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Linux Package Lifecycle Hook Activity"
@@ -81,7 +87,8 @@ risk_score = 21
 rule_id = "703b43a3-3c07-4d19-a8c7-b071da2dfb3b"
 setup = """## Setup
 
-This rule requires data coming in from Elastic Defend.
+This rule requires Linux file event data from Elastic Defend, a supported third-party EDR, or the Auditbeat
+file_integrity module. When using Auditbeat, configure file_integrity to watch the paths covered by this rule.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
@@ -112,6 +119,9 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Rule Type: Event Correlation (EQL)",
     "Platform: Linux",
