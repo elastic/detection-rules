@@ -76,11 +76,13 @@ version of the local `atlas-v*.json.gz` file, currently `2026.08`). Do **not** p
 entries in the baseline `[[rule.threat]]` field — that field remains MITRE ATT&CK.
 
 - **Stack < 9.6** (8.19 / 9.4 / 9.5 packages) — ATLAS entries are stripped and never
-  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. This gate
-  lives in `apply_emit_transforms` and does **not** create a new `stack_emit` epoch,
-  so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
-- **Stack ≥ 9.6** — `apply_emit_transforms` appends ATLAS `threat_mappings` onto the
-  shipped `threat` array alongside ATT&CK.
+  shipped. 8.19 Kibana API schemas do not allow `MITRE ATLAS` in `threat`. The strip
+  lives in `apply_emit_transforms`; the `mitre_atlas` emit transform is not applicable
+  below 9.6, so release-branch version locks stay on the 9.5 ATT&CK-v19 row.
+- **Stack ≥ 9.6** — the `mitre_atlas` emit transform (`min_stack` 9.6) appends ATLAS
+  `threat_mappings` onto the shipped `threat` array alongside ATT&CK. That transform
+  opens a dedicated `stack_emit["9.6"]` epoch so 9.6 packages do not reuse a 9.5
+  `rule_id` + version with different threat content.
 
 Refresh ATLAS data the same way as ATT&CK:
 
@@ -104,14 +106,19 @@ The shared, backported `version.lock.json` may include optional emit epochs per 
       "sha256": "<hash of transformed package payload>",
       "version": 13,
       "transforms": ["mitre_attack_v19", "related_integrations_gte"]
+    },
+    "9.6": {
+      "sha256": "<hash including ATLAS when present>",
+      "version": 14,
+      "transforms": ["mitre_attack_v19", "related_integrations_gte", "mitre_atlas"]
     }
   }
 }
 ```
 
 - Keys are **emit epochs** (newest applicable transform `min_stack`), not every package minor.
-- 9.5 is the ATT&CK v19 epoch. ATLAS shipping is stack-gated in `apply_emit_transforms`
-  and does **not** add a `9.6` epoch, so 9.6 packages keep inheriting `stack_emit["9.5"]`.
+- 9.5 is the ATT&CK v19 epoch. 9.6 is the ATLAS epoch (`mitre_atlas`); packages on 9.6+
+  prefer `stack_emit["9.6"]` when locked, and inherit `9.5` only until that row exists.
 - ≤9.4 packages ship the baseline `version`; 9.5+ ships the inherited emit `version`.
 - Baseline dirty checks never compare against emit hashes (avoids lock oscillation across branches).
 
