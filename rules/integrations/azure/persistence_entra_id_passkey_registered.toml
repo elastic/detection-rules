@@ -1,0 +1,113 @@
+[metadata]
+creation_date = "2026/10/09"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/09"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the registration of a Microsoft Entra ID passkey (FIDO2) authentication method for a user. Passkey enrollment
+is a low-frequency, high-value event: a passkey is a durable, phishing-resistant credential, and an unexpected
+registration can indicate an adversary planting persistence on a compromised account (for example via ROADtools `roadtx
+registerpasskey`). This is a broad, low-severity awareness rule that surfaces every passkey registration with per-user
+suppression so each user's enrollment is reviewed once; pair it with the higher-fidelity non-self-service-client rule
+for sharper alerting.
+"""
+false_positives = [
+    """
+    Expected user-driven passkey enrollment through the My Sign-Ins portal or Microsoft App Access Panel. This rule is
+    intended as a low-volume awareness signal; tune the suppression window or add exceptions for routine enrollment
+    campaigns if the volume is noisy for your environment.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.auditlogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Entra ID User Passkey Registered"
+note = """## Triage and analysis
+
+### Investigating Entra ID User Passkey Registered
+
+A passkey (FIDO2) authentication method was registered for a user. Passkeys are durable, phishing-resistant credentials,
+so an unexpected registration can be an adversary establishing persistence on a compromised account.
+
+### Possible investigation steps
+
+- Confirm the user (`azure.auditlogs.properties.initiated_by.user.userPrincipalName`) intended to enroll a passkey.
+- Review the initiating client in `azure.auditlogs.properties.additional_details.value`; self-service enrollment comes
+through the My Sign-Ins portal or the Microsoft App Access Panel, whereas a command-line client indicates Graph
+API-driven registration.
+- Review the passkey display name
+(`azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`); the ROADtools default is `roadtx`.
+- Pivot to `logs-azure.signinlogs-*` for the same user and window for risky sign-ins or anomalous token usage.
+
+### Response and remediation
+
+- If unauthorized, remove the passkey via `DELETE /v1.0/users/{id}/authentication/fido2Methods/{id}`, revoke the user's
+sessions, and audit other authentication methods added in the window.
+"""
+references = [
+    "https://github.com/dirkjanm/ROADtools",
+    "https://unit42.paloaltonetworks.com/roadtools-cloud-attacks/",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-passwordless",
+]
+risk_score = 21
+rule_id = "04d994cf-9b22-46e3-920f-37a39b3a2428"
+severity = "low"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Noise: Low",
+    "Performance: Normal",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Entra ID",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.auditlogs" and
+event.action: "User registered security info" and
+azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name: "Fido2AuthenticationMethod*"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.alert_suppression]
+group_by = ["azure.auditlogs.properties.initiated_by.user.userPrincipalName"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.additional_details.value",
+    "azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value",
+    "source.ip",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 12
+
