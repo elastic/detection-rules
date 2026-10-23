@@ -1,6 +1,6 @@
 [metadata]
 creation_date = "2024/04/30"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
 updated_date = "2026/10/23"
 
@@ -13,7 +13,11 @@ configuration file to execute malicious code and gain persistence in the system.
 """
 false_positives = ["Legitimate user shell modification activity."]
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Shell Configuration Creation"
@@ -60,7 +64,7 @@ risk_score = 47
 rule_id = "28f6f34b-8e16-487a-b5fd-9d22eb903db8"
 setup = """## Setup
 
-This rule requires data coming in from Elastic Defend.
+This rule requires Linux file event data from Elastic Defend, SentinelOne, or Elastic Endgame.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
@@ -90,6 +94,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Noise: Medium",
     "Performance: Normal",
@@ -127,7 +133,7 @@ file where host.os.type == "linux" and event.action == "creation" and file.path 
     "/usr/libexec/gnome-terminal-server", "/usr/bin/buildah", "/usr/lib/venv-salt-minion/bin/python.original"
   ) or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
+  ?file.Ext.original.extension == "dpkg-new" or
   process.executable like (
     "/nix/store/*", "/var/lib/dpkg/*", "/tmp/vmis.*", "/snap/*", "/dev/fd/*", "/usr/lib/virtualbox/*",
     "/usr/libexec/platform-python*", "./snap/snapd/*/usr/lib/snapd/snap-update-ns", "/opt/alt/python*/bin/python*"
