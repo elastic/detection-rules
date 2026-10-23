@@ -1,0 +1,134 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["endpoint"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity in Linux systemd shutdown and sleep hook directories. Executables in these locations
+can run automatically during shutdown, reboot, suspend, hibernation, or resume. Adversaries may abuse these lifecycle
+hooks to establish persistence, stage additional artifacts, or execute commands during periods of reduced visibility.
+"""
+false_positives = [
+    """
+    Legitimate operating-system packages, power-management software, administrative scripts, and
+    configuration-management activity.
+    """,
+]
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux System Lifecycle Hook File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux System Lifecycle Hook File Activity
+
+Systemd executes programs from `system-shutdown` late in the shutdown sequence and invokes programs from `system-sleep`
+before and after supported suspend or hibernation operations. These hooks are durable event-triggered execution paths.
+Shutdown hooks are especially important to detect when they are installed because endpoint collection and its
+dependencies may stop before the hook executes, leaving limited or no process telemetry for the eventual trigger.
+
+### Possible investigation steps
+
+- Review the affected path, operation, responsible process, parent process, user, timestamp, and process command line.
+- Retrieve the file and inspect its type, ownership, permissions, hash, interpreter, commands, and referenced files.
+- Establish provenance through package ownership, deployment records, configuration-management history, and comparison
+  with equivalent systems.
+- Determine whether the hook applies to shutdown, reboot, suspend, hibernation, resume, or multiple lifecycle events.
+  Review how the script handles the arguments supplied by systemd.
+- Inspect the hook for additional persistence, file staging, credential access, defense evasion, or attempts to launch
+  detached processes and network connections.
+- Correlate the installation with preceding administrative access, privilege escalation, package activity, and other
+  persistence artifacts. Where telemetry remains available, review subsequent power-state transitions and hook
+  execution.
+- Treat missing shutdown-time process events as a possible collection limitation rather than evidence that the hook did
+  not execute.
+
+### False positive analysis
+
+- Power-management packages and administrators may legitimately install lifecycle hooks. Confirm package ownership,
+  trusted content, and an approved operational requirement before creating a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the hook and related telemetry before remediation.
+- Remove unauthorized hooks, restore trusted package-owned files, and verify directory ownership and permissions.
+- Review changes made by the hook during previous lifecycle transitions and remove any secondary persistence or staged
+  payloads.
+- Scope matching filenames, hashes, content, writers, and related lifecycle activity across the environment.
+"""
+references = [
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd-shutdown.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd-suspend.service.html",
+]
+risk_score = 21
+rule_id = "2199e675-b574-4acd-a30d-50dcb9b85a84"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Data Source: Elastic Defend",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/lib/systemd/system-shutdown/*",
+    "/lib/systemd/system-sleep/*",
+    "/usr/lib/systemd/system-shutdown/*",
+    "/usr/lib/systemd/system-sleep/*"
+  )
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1546"
+name = "Event Triggered Execution"
+reference = "https://attack.mitre.org/techniques/T1546/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
