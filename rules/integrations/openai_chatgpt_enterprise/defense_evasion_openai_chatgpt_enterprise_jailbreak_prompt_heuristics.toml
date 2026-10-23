@@ -1,0 +1,205 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["openai_chatgpt_enterprise"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ChatGPT Enterprise user messages that combine two or more common jailbreak techniques: overriding prior or
+system instructions, switching the assistant into an unrestricted persona or mode (for example DAN or developer mode),
+asking it to operate without safety restrictions or filters, or asking it to reveal its system prompt. Jailbreak prompts
+stack these techniques to talk the model out of its safety policy, and a user doing so in a managed workspace may be
+attempting to generate prohibited content or to probe the workspace's controls. Requiring more than one technique keeps
+documents that merely quote a single jailbreak phrase from alerting.
+"""
+false_positives = [
+    """
+    Security, red team, and AI safety staff who paste jailbreak samples, threat models, or prompt-injection research
+    into ChatGPT for analysis. Exclude these users or the workspaces they use for this work.
+    """,
+    """
+    Long documents such as design docs or detection specs that describe several jailbreak techniques together. Review
+    `Esql.message_length` and the message context before escalating.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "OpenAI ChatGPT Enterprise Jailbreak Prompt Heuristics"
+note = """## Triage and analysis
+
+### Investigating OpenAI ChatGPT Enterprise Jailbreak Prompt Heuristics
+
+A ChatGPT Enterprise user message matched two or more jailbreak technique categories. The categories are tracked
+separately in `Esql.has_instruction_override`, `Esql.has_persona_switch`, `Esql.has_restriction_removal`, and
+`Esql.has_system_prompt_extraction`, and their total is `Esql.indicator_count`.
+
+### Possible investigation steps
+
+- Read `message` and decide whether the user is attempting a jailbreak or is quoting, analyzing, or documenting one.
+  A short prompt addressed to the assistant is more suspicious than a long pasted document.
+- Review the rest of the conversation using `openai_chatgpt_enterprise.conversation_message.conversation.id`. Look
+  at whether the assistant refused, and whether the user rephrased and retried.
+- Check `user.email` and `user.id` for related alerts, such as OpenAI ChatGPT Enterprise Repeated Assistant Refusals,
+  credential sharing in conversations, or unusual connector use.
+- Determine whether the user belongs to a team that legitimately researches jailbreaks or prompt injection.
+
+### False positive analysis
+
+- AI safety and security researchers analyzing jailbreak techniques. Add exceptions for these users.
+- Documentation that lists several jailbreak phrases. These messages tend to be long and descriptive rather than
+  addressed to the assistant.
+
+### Response and remediation
+
+- If the attempt is not sanctioned, follow the organization's acceptable use process for the user.
+- Review whether any content produced in the conversation should be reported or removed, and whether workspace
+  policies or custom GPT instructions need tightening.
+"""
+references = [
+    "https://atlas.mitre.org/techniques/AML.T0054",
+    "https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise",
+]
+risk_score = 47
+rule_id = "7308b57c-91ed-4c2b-8c74-e0aca24d1b6e"
+setup = """## Setup
+
+This rule requires the OpenAI ChatGPT Enterprise integration to collect compliance logs into Elasticsearch, including
+the `conversation_message` data stream.
+https://www.elastic.co/docs/reference/integrations/openai_chatgpt_enterprise
+"""
+severity = "medium"
+tags = [
+    "Domain: GenAI",
+    "Platform: OpenAI",
+    "Data Source: OpenAI ChatGPT Enterprise",
+    "Service: OpenAI ChatGPT Enterprise",
+    "Use Case: Policy Violation",
+    "Use Case: Threat Detection",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Tactic: Defense Evasion",
+    "Mitre Atlas: AML.T0051",
+    "Mitre Atlas: AML.T0054",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-openai_chatgpt_enterprise.conversation_message-* metadata _id, _version, _index
+| where
+    data_stream.dataset == "openai_chatgpt_enterprise.conversation_message" and
+    openai_chatgpt_enterprise.conversation_message.message.author.type == "user" and
+    message is not null
+| eval
+    Esql.message_text = to_lower(message),
+    Esql.message_length = length(message)
+| eval
+    Esql.has_instruction_override = case(
+        Esql.message_text rlike """.*(ignore|disregard|forget|override) (all |any )?(of )?(your |the |my )?(previous|prior|above|earlier|original|system|developer) (instructions|prompts?|rules|guidelines|directives|programming).*""" or
+        Esql.message_text rlike """.*(ignore|disregard|forget) (all |any )?(of )?(the )?(instructions|rules|guidelines) (you (got|were given|received)|given to you).*""" or
+        Esql.message_text like "*forget everything you were told*",
+        1, 0
+    ),
+    Esql.has_persona_switch = case(
+        Esql.message_text rlike """.*(you are|act as|pretend (to be|you are)|roleplay as|from now on,? you are) (now )?(dan|stan|dude|aim|an? (unfiltered|unrestricted|uncensored|amoral) (ai|assistant|model|chatbot)).*""" or
+        Esql.message_text like "*do anything now*" or
+        Esql.message_text rlike """.*(enable|enter|activate|switch to) (developer|god|jailbreak|unrestricted|dan) mode.*""",
+        1, 0
+    ),
+    Esql.has_restriction_removal = case(
+        Esql.message_text rlike """.*(without|with no|free (of|from)|ignoring) (any |your |all )?(ethical |content |safety |moral )?(restrictions|filters|guidelines|limitations|censorship).*""" or
+        Esql.message_text rlike """.*(bypass|disable|turn off|ignore) (your |the |all )?(safety|content) (filters?|polic(y|ies)|guidelines|guardrails).*""" or
+        Esql.message_text rlike """.*(do not|does not|don't|doesn't) have to (abide by|follow|obey) (the |any |your )?(rules|guidelines|policies).*""",
+        1, 0
+    ),
+    Esql.has_system_prompt_extraction = case(
+        Esql.message_text rlike """.*(reveal|print|show|repeat|output) (me )?(your |the )?(full |hidden |original )?(system prompt|initial instructions|hidden instructions).*""",
+        1, 0
+    )
+| eval
+    Esql.indicator_count = Esql.has_instruction_override + Esql.has_persona_switch + Esql.has_restriction_removal + Esql.has_system_prompt_extraction
+| where Esql.indicator_count >= 2
+| keep
+    _id,
+    _version,
+    _index,
+    @timestamp,
+    message,
+    user.id,
+    user.email,
+    openai_chatgpt_enterprise.conversation_message.conversation.id,
+    openai_chatgpt_enterprise.conversation_message.conversation.title,
+    openai_chatgpt_enterprise.conversation_message.message.id,
+    Esql.message_length,
+    Esql.indicator_count,
+    Esql.has_instruction_override,
+    Esql.has_persona_switch,
+    Esql.has_restriction_removal,
+    Esql.has_system_prompt_extraction,
+    data_stream.*
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0051"
+name = "LLM Prompt Injection"
+reference = "https://atlas.mitre.org/techniques/AML.T0051/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0005"
+name = "Execution"
+reference = "https://atlas.mitre.org/tactics/AML.TA0005/"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0054"
+name = "LLM Jailbreak"
+reference = "https://atlas.mitre.org/techniques/AML.T0054/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.alert_suppression]
+group_by = ["user.id", "openai_chatgpt_enterprise.conversation_message.conversation.id"]
+missing_fields_strategy = "suppress"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "user.id",
+    "user.email",
+    "message",
+    "openai_chatgpt_enterprise.conversation_message.conversation.id",
+    "openai_chatgpt_enterprise.conversation_message.conversation.title",
+    "Esql.message_length",
+    "Esql.indicator_count",
+]
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
