@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2024/06/19"
-integration = ["endpoint"]
+integration = ["endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/10/20"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -13,7 +13,11 @@ while environment generators produce variables for the service manager and proce
 either mechanism to execute code or influence subsequently started processes.
 """
 from = "now-9m"
-index = ["logs-endpoint.events.file*"]
+index = [
+    "endgame-*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
 language = "eql"
 license = "Elastic License v2"
 name = "Systemd Generator File Activity"
@@ -69,7 +73,7 @@ risk_score = 47
 rule_id = "39c06367-b700-4380-848a-cab06e7afede"
 setup = """## Setup
 
-This rule requires data coming in from Elastic Defend.
+This rule requires Linux file event data from Elastic Defend, SentinelOne, or Elastic Endgame.
 
 ### Elastic Defend Integration Setup
 Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
@@ -99,6 +103,8 @@ tags = [
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Noise: Medium",
     "Performance: Normal",
@@ -144,7 +150,7 @@ file where host.os.type == "linux" and event.type != "deletion" and file.path : 
   ) or
   process.name like~ ("ssm-agent-worker", "crio", "docker-init", "systemd", "pacman", "python*", "platform-python*") or
   file.extension in ("swp", "swpx", "swx", "dpkg-remove") or
-  file.Ext.original.extension == "dpkg-new" or
+  ?file.Ext.original.extension == "dpkg-new" or
   process.executable == null
 )
 '''
