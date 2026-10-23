@@ -1,0 +1,146 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the creation, modification, or deletion of a content filter (RAI policy) or a custom blocklist on a
+Microsoft Foundry (Azure AI Services) account. Content filters decide which prompt and completion categories,
+jailbreak attempts, and protected material a model deployment blocks. An adversary with control of the account can
+weaken or remove these filters so that harmful prompts and outputs are no longer blocked or logged as filtered, which
+removes a guardrail and the detections that depend on its verdicts.
+"""
+false_positives = [
+    """
+    AI platform administrators tuning content filter thresholds or blocklists for a new use case. Confirm the change
+    with the account owner and change records.
+    """,
+    """
+    Infrastructure-as-code deployments that recreate RAI policies on every release. Add exceptions for the service
+    principals that run these pipelines.
+    """,
+]
+from = "now-9m"
+index = ["logs-azure.activitylogs-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "Microsoft Foundry Content Filter Modified or Deleted"
+note = """## Triage and analysis
+
+### Investigating Microsoft Foundry Content Filter Modified or Deleted
+
+Microsoft Foundry content filters are stored as RAI policies on the AI Services account
+(`Microsoft.CognitiveServices/accounts/raiPolicies`) and are referenced by each model deployment. Custom blocklists
+(`raiBlocklists`) add term-level blocking on top of those policies. This rule fires when a policy or blocklist is
+written or deleted.
+
+### Possible investigation steps
+
+- Identify the caller from `azure.activitylogs.identity.authorization.evidence.principal_id`, `user.name`, and
+  `azure.activitylogs.identity.authorization.evidence.role`.
+- Review `azure.resource.id` to identify the policy or blocklist name and the account it belongs to, and
+  `azure.activitylogs.operation_name` to determine whether it was a write or a delete.
+- Compare the policy with the previous version in the Foundry portal or with `az cognitiveservices account` tooling.
+  Lowered severity thresholds, disabled prompt shields, or a policy switched to annotate-only mode are the changes of
+  most concern.
+- Check whether any deployment on the account was changed to use the modified policy around the same time.
+- Review `source.ip` and `source.geo.country_name` for the caller and look for other recent changes by the same
+  principal, such as key listing, diagnostic setting deletion, or new role assignments.
+- If Microsoft Foundry logs are ingested, look for a drop in filtered or jailbreak-flagged requests after the change.
+
+### False positive analysis
+
+- Planned content filter tuning by AI platform owners. Confirm with the owner and the change ticket.
+- Deployment pipelines that rewrite RAI policies. Exclude those service principals by ID.
+
+### Response and remediation
+
+- If the change is not authorized, restore the previous content filter configuration and reassign it to affected
+  deployments.
+- Revoke the caller's sessions, reset its credentials, and review its role assignments on the account.
+- Restrict `Microsoft.CognitiveServices/accounts/raiPolicies/*` permissions to a small set of administrators.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/concepts/content-filter",
+    "https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/content-filters",
+    "https://www.elastic.co/docs/reference/integrations/azure/activitylogs",
+]
+risk_score = 47
+rule_id = "734c9a40-52e2-4f1d-814e-91bdd69f7ad2"
+setup = """## Setup
+
+This rule requires Azure Activity Logs ingested via the Azure integration (`azure.activitylogs` data stream). RAI
+policy and blocklist changes are Administrative control-plane events and are logged by default.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Data Source: Azure",
+    "Data Source: Azure Activity Logs",
+    "Data Source: Microsoft Foundry",
+    "Platform: Azure",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "azure.activitylogs" and
+azure.activitylogs.operation_name: (
+    "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIPOLICIES/WRITE" or
+    "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIPOLICIES/DELETE" or
+    "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIBLOCKLISTS/WRITE" or
+    "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/RAIBLOCKLISTS/DELETE"
+) and event.outcome: "success"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0007"
+name = "Defense Evasion"
+reference = "https://atlas.mitre.org/tactics/AML.TA0007/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "azure.activitylogs.operation_name",
+    "azure.activitylogs.identity.authorization.evidence.principal_id",
+    "azure.activitylogs.identity.authorization.evidence.role",
+    "user.name",
+    "source.ip",
+    "source.geo.country_name",
+    "azure.resource.id",
+    "azure.resource.group",
+    "azure.subscription_id",
+]
+

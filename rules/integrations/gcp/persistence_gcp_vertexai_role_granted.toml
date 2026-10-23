@@ -1,0 +1,177 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["gcp"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an IAM policy change on a Google Cloud project, folder, or organization that grants a Vertex AI role
+(`roles/aiplatform.*`) to a principal. Vertex AI roles control who can invoke models, deploy endpoints, run agents, and
+read prompt and training data. An adversary who has gained IAM administration rights can grant a Vertex AI role to an
+identity they control to keep model access after the original foothold is removed, or to run LLMjacking workloads under
+the victim's billing. Google-managed service agent roles are excluded because Google grants them automatically when the
+API is enabled.
+"""
+false_positives = [
+    """
+    Platform or ML engineering teams granting Vertex AI access to new users and service accounts. Confirm the grant
+    against change records or the access request process.
+    """,
+    """
+    Infrastructure-as-code pipelines that manage project IAM bindings. Add exceptions for the service accounts that run
+    these pipelines.
+    """,
+]
+from = "now-9m"
+index = ["logs-gcp.audit-*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "GCP Vertex AI Role Granted to Principal"
+note = """## Triage and analysis
+
+### Investigating GCP Vertex AI Role Granted to Principal
+
+A Google Cloud IAM policy change added a binding for a Vertex AI role (`roles/aiplatform.*`). Roles such as
+`roles/aiplatform.admin` and `roles/aiplatform.user` allow the member to call models, manage endpoints and agents, and
+access prompt and training data in the project.
+
+### Possible investigation steps
+
+- Identify the caller that changed the policy from `client.user.email`, and review `source.ip` and
+  `user_agent.original` for the change.
+- Review `gcp.audit.service_data.policy_delta.binding_deltas` for the role and member that were added. Members outside
+  the organization's domain, newly created service accounts, and `allUsers` or `allAuthenticatedUsers` are the most
+  concerning.
+- Check `gcp.audit.resource_name` to see whether the grant was made at the project, folder, or organization level.
+  Grants above the project level reach every project underneath.
+- Look for follow-on activity by the new member in Vertex AI audit logs, such as inference calls from new networks,
+  endpoint deployment, or agent creation.
+- Review other recent IAM changes by the same caller, especially service account key creation and grants of IAM admin
+  roles.
+
+### False positive analysis
+
+- Approved access requests for ML and data science teams. Confirm with the request owner.
+- IAM automation that reapplies bindings. Exclude those service accounts by email.
+
+### Response and remediation
+
+- If the grant is not authorized, remove the binding and review what the member accessed since the grant.
+- Investigate how the caller obtained IAM administration rights, rotate its credentials, and review its other changes.
+- Restrict `resourcemanager.projects.setIamPolicy` to a small set of administrators and consider an Organization Policy
+  that limits allowed member domains.
+"""
+references = [
+    "https://cloud.google.com/vertex-ai/docs/general/access-control",
+    "https://cloud.google.com/iam/docs/audit-logging",
+    "https://www.elastic.co/docs/reference/integrations/gcp/audit",
+]
+risk_score = 47
+rule_id = "23b73162-cfaf-457d-9ba1-333b907d2a39"
+setup = """## Setup
+
+This rule requires Google Cloud Audit Logs ingested via the GCP integration (`gcp.audit` data stream). IAM policy
+changes are Admin Activity audit logs and are always logged.
+"""
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: GenAI",
+    "Domain: Identity",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0012",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset: "gcp.audit"
+  and event.action: (
+    "SetIamPolicy" or
+    google.cloud.resourcemanager.v*.Folders.SetIamPolicy or
+    google.cloud.resourcemanager.v*.Organizations.SetIamPolicy or
+    google.cloud.resourcemanager.v*.Projects.SetIamPolicy
+  )
+  and not event.outcome: "failure"
+  and gcp.audit.service_data.policy_delta.binding_deltas:{
+    action: "ADD" and
+    role: (roles/aiplatform.* and not (*ServiceAgent or *serviceAgent))
+  }
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0012"
+name = "Privilege Escalation"
+reference = "https://atlas.mitre.org/tactics/AML.TA0012/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "client.user.email",
+    "event.action",
+    "gcp.audit.resource_name",
+    "gcp.audit.service_data.policy_delta.binding_deltas.action",
+    "gcp.audit.service_data.policy_delta.binding_deltas.role",
+    "gcp.audit.service_data.policy_delta.binding_deltas.member",
+    "source.ip",
+    "user_agent.original",
+]
+

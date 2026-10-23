@@ -1,0 +1,151 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["gcp_vertexai"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects the first time in 14 days that a Vertex AI caller (user or service account) runs model inference
+(GenerateContent, StreamGenerateContent, Predict, or RawPredict) from a source autonomous system (ASN). Stolen Google
+Cloud credentials, including exported service account keys and OAuth tokens, are used for LLMjacking from attacker
+infrastructure, which shows up as the victim identity calling models from a hosting provider, VPN, or residential proxy
+network it has never used before.
+"""
+false_positives = [
+    """
+    Users working from a new network such as travel, a new ISP, or a mobile hotspot. Confirm the location with the user.
+    """,
+    """
+    Service accounts whose workloads move between cloud providers, regions, or CI runners on different networks. Exclude
+    these service accounts or pin their workloads to known networks.
+    """,
+]
+from = "now-60m"
+index = ["logs-gcp_vertexai.auditlogs-*"]
+interval = "10m"
+language = "kuery"
+license = "Elastic License v2"
+name = "First Time GCP Vertex AI Inference by Caller from Source ASN"
+note = """## Triage and analysis
+
+### Investigating First Time GCP Vertex AI Inference by Caller from Source ASN
+
+A Vertex AI caller (`client.user.email`) made a successful inference call from a source ASN (`source.as.number`) that
+it has not used for inference in the last 14 days. For a stolen credential this is often the first visible sign of
+abuse, because the attacker calls models from their own infrastructure.
+
+### Possible investigation steps
+
+- Review `source.as.organization.name`, `source.ip`, and `source.geo.country_name`. Hosting providers, VPN services,
+  and residential proxy networks are more suspicious than a known corporate or home ISP.
+- Determine whether `client.user.email` is a human user or a service account (`*.gserviceaccount.com`). A service
+  account normally runs from a fixed set of networks, so a new ASN is a stronger signal.
+- Compare `user_agent.original` with the caller's previous inference activity. A switch from the Google SDK or console
+  to a generic HTTP client is a common LLMjacking pattern.
+- Check `gcp.vertexai.audit.resource_name` for the model being called, and look for a jump in request volume from the
+  new ASN using GCP Vertex AI High Request and Token Volume or the integration's metrics.
+- Review GCP audit logs for service account key creation, key download, or IAM changes for the caller shortly before
+  this event.
+
+### False positive analysis
+
+- Users on new networks. Confirm with the user before acting.
+- Workloads that legitimately move between networks. Exclude these service accounts by email.
+
+### Response and remediation
+
+- If the activity is not authorized, disable or delete the service account key, revoke the user's sessions and OAuth
+  tokens, and review IAM bindings that grant `aiplatform.endpoints.predict`.
+- Review Vertex AI usage and billing for the project and set quotas or budgets to limit abuse.
+"""
+references = [
+    "https://cloud.google.com/vertex-ai/docs/general/audit-logging",
+    "https://www.elastic.co/docs/reference/integrations/gcp_vertexai",
+]
+risk_score = 21
+rule_id = "73b8ad81-a14b-4deb-8700-7e64cf9045ea"
+setup = """## Setup
+
+Requires GCP Vertex AI `auditlogs` with Data Access audit logs enabled for `aiplatform.googleapis.com`, and with
+`client.user.email` and `source.as.number` populated by the integration.
+"""
+severity = "low"
+tags = [
+    "Domain: GenAI",
+    "Domain: Cloud",
+    "Data Source: GCP Vertex AI",
+    "Data Source: GCP",
+    "Data Source: Google Cloud Platform",
+    "Platform: GCP",
+    "Service: GCP Vertex AI",
+    "Use Case: Threat Detection",
+    "Tactic: Initial Access",
+    "Threat: LLMjacking",
+    "Threat: Unauthorized AI Usage",
+    "Mitre Atlas: AML.T0012",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:gcp_vertexai.auditlogs and event.action:(*PredictionService.GenerateContent* or *PredictionService.StreamGenerateContent* or *PredictionService.Predict* or *PredictionService.RawPredict*) and gcp.vertexai.audit.service_name:aiplatform.googleapis.com and client.user.email:* and source.as.number:* and gcp.vertexai.audit.status.code:(0 or not *)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+[[rule.threat_mappings]]
+framework = "MITRE ATLAS"
+version = "2026.08"
+[[rule.threat_mappings.threat]]
+framework = "MITRE ATLAS"
+[[rule.threat_mappings.threat.technique]]
+id = "AML.T0012"
+name = "Valid Accounts"
+reference = "https://atlas.mitre.org/techniques/AML.T0012/"
+
+
+[rule.threat_mappings.threat.tactic]
+id = "AML.TA0004"
+name = "Initial Access"
+reference = "https://atlas.mitre.org/tactics/AML.TA0004/"
+
+[rule.investigation_fields]
+field_names = [
+    "client.user.email",
+    "source.as.number",
+    "source.as.organization.name",
+    "source.ip",
+    "source.geo.country_name",
+    "gcp.vertexai.audit.resource_name",
+    "user_agent.original",
+    "event.action",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["client.user.email", "source.as.number"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
