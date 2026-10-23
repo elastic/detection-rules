@@ -97,6 +97,8 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
 | EVAL process_name_lower = TO_LOWER(process.name)
 | WHERE
     (
+      (MV_CONTAINS(event.action, "exec") OR event.action == "start"
+      AND
       process_name_lower IN (
         // Linux
         "ip", "ss", "hostnamectl", "uptime", "uname", "whoami", "id", "hostname",
@@ -110,7 +112,6 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
         "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
         "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
       )
-      AND (MV_CONTAINS(event.action, "exec") OR MV_CONTAINS(event.action, "start"))
     )
     OR (
       destination.ip == "169.254.169.254"
