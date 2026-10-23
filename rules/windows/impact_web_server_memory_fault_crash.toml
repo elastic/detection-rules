@@ -1,0 +1,199 @@
+[metadata]
+creation_date = "2026/10/23"
+integration = ["system"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies web server and PHP worker processes crashing with a memory fault, such as an access violation or a fail-fast
+termination, which may indicate attempted exploitation of a memory safety vulnerability or a failing payload injected
+into the process.
+"""
+false_positives = [
+    """
+    Bugs in the web server, PHP runtime, or extensions can crash workers on legitimate traffic or during recycling.
+    """,
+    "Third-party modules loaded into the worker, such as APM profilers or security agents, can crash it.",
+]
+from = "now-9m"
+index = ["logs-system.application-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "Memory Fault Crash in Web Server Process"
+note = """## Triage and analysis
+
+### Investigating Memory Fault Crash in Web Server Process
+
+#### Possible investigation steps
+
+- Which process crashed, with which exception, and in which module?
+  - Focus: application in `winlog.event_data.param1` / `winlog.event_data.AppName`, exception code in `winlog.event_data.param7` / `winlog.event_data.ExceptionCode`, and faulting module in `winlog.event_data.param4` / `winlog.event_data.ModuleName`, with its path (`winlog.event_data.param12` / `winlog.event_data.ModulePath`), version (`winlog.event_data.param5` / `winlog.event_data.ModuleVersion`), and fault offset (`winlog.event_data.param8` / `winlog.event_data.FaultingOffset`).
+  - Implication: escalate when the faulting module is `unknown`, meaning the crash address was outside any loaded module, when the module loads from an unusual path, or when the application path (`winlog.event_data.param11` / `winlog.event_data.AppPath`) is outside the server's install directory; lower suspicion when the module is a known extension or agent DLL with a documented crash issue at that version.
+  - Hint: `c0000005` is an access violation. `c0000409` is a fail-fast termination; in a C runtime module such as `ucrtbase.dll` it can be the runtime aborting, for example on memory exhaustion.
+
+- Was the process handling a web request when it crashed?
+  - Why: `php-cgi.exe` also runs CLI scripts and scheduled jobs.
+  - Focus: web-server access and error logs and PHP error logs on the host around `@timestamp`.
+  - Implication: escalate when the crash follows malformed, oversized, or unusual requests, especially repeated ones from the same source; lower suspicion when no request lines up with the crash and a scheduled job explains it.
+
+- Is this a one-off crash or part of a pattern?
+  - Focus: earlier Application Error 1000 events on `host.id` for the same application, comparing exception code, faulting module, version, and fault offset.
+  - Implication: escalate when crashes start suddenly or arrive in bursts with no matching change, even at a single module and offset; lower suspicion when the same module and offset have crashed on a steady cadence since before any suspicious requests.
+  - Hint: crashes on the same host within an hour are suppressed into one alert; check `kibana.alert.suppression.docs_count` for how many were grouped. When present, Windows Error Reporting event 1001 with the same report ID (`winlog.event_data.param13` / `winlog.event_data.IntegratorReportId`) points to the crash dump location.
+
+- Did the server do anything unusual after the crash?
+  - Why: the crash can be the goal, as in denial of service, or a failed attempt at code execution; a later attempt may succeed in another worker.
+  - Focus: if endpoint telemetry exists, process, file, and network events on `host.id` from web-server processes after `@timestamp`.
+  - Implication: escalate when a web-server process spawns shells or script hosts, writes scripts or binaries to web-accessible paths, or connects to destinations it does not normally reach; no follow-on activity points to a denial-of-service attempt, a failed attempt, or a defect.
+
+- Does a change or test explain the crash?
+  - Focus: change records and maintenance windows for the host, and recent web server, PHP, or extension updates.
+  - Implication: lower suspicion when crashes begin right after an update or extension install, or fall inside an authorized test window, with no suspicious requests or follow-on activity.
+
+- What disposition fits?
+  - Implication: escalate when the crash lines up with suspicious requests or is followed by unexpected child processes, file writes, or connections; close when it maps to a known defect, update, or authorized test with ordinary requests around it. If request logs are unavailable and nothing explains the crash, preserve the crash data and escalate.
+
+### False positive analysis
+
+- Web server, PHP runtime, and extension bugs can crash workers on ordinary traffic. Confirm the module, version, and offset match a known issue, the crashes predate any suspicious requests, and the requests around the crash are ordinary.
+- APM profilers, security agents, and other hooking software load DLLs into the worker. A module name ending in `_unloaded` means the crash hit code from a DLL that was already unloaded. Confirm the faulting module belongs to software installed on the host.
+- Build exceptions from `host.id`, the application, and the faulting module. Avoid excepting the application alone, which silences the rule for that server.
+
+### Response and remediation
+
+- If confirmed benign:
+  - Record the faulting module, version, offset, and cause.
+- If suspicious but unconfirmed:
+  - Before restarting or patching, preserve the Application Error and Windows Error Reporting records, any crash dumps in the WER report folders, and web-server and PHP logs around the crash.
+  - Restrict access to the affected site or block the source of suspicious requests while the investigation continues.
+- If confirmed malicious:
+  - Isolate the server based on its criticality, hunt for web shells, new accounts, scheduled tasks, and services, and rotate credentials stored in the web application's configuration.
+  - Check other servers running the same web server, PHP, and extension versions for the same crash pattern.
+- Post-incident hardening:
+  - Patch the web server, PHP runtime, or extension involved, and remove unused extensions.
+  - Keep web-server request logs long enough to match requests to crashes.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/troubleshoot-application-service-crashing-behavior",
+]
+risk_score = 47
+rule_id = "8295caed-2d35-412b-a991-b79cb8ce97f0"
+setup = """## Setup
+
+Windows Application event log collection must be enabled via the Elastic Agent System integration. Windows logs
+Application Error events by default.
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Windows",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Tactic: Initial Access",
+    "Data Source: Windows Application Event Logs",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: Windows",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+host.os.type:"windows" and
+host.id:* and
+event.dataset:"system.application" and
+event.provider:"Application Error" and
+event.code:"1000" and
+(
+  (
+    winlog.event_data.param7:("c0000005" or "C0000005" or "c0000409" or "C0000409") and
+    winlog.event_data.param1:(
+      "httpd.exe" or "HTTPD.EXE" or
+      "php-cgi.exe" or "PHP-CGI.EXE" or
+      "w3wp.exe" or "W3WP.EXE" or
+      "nginx.exe" or "NGINX.EXE" or
+      "frankenphp.exe" or "FRANKENPHP.EXE"
+    )
+  ) or
+  (
+    winlog.event_data.ExceptionCode:("c0000005" or "C0000005" or "c0000409" or "C0000409") and
+    winlog.event_data.AppName:(
+      "httpd.exe" or "HTTPD.EXE" or
+      "php-cgi.exe" or "PHP-CGI.EXE" or
+      "w3wp.exe" or "W3WP.EXE" or
+      "nginx.exe" or "NGINX.EXE" or
+      "frankenphp.exe" or "FRANKENPHP.EXE"
+    )
+  ) or
+  (
+    winlog.event_data.param6:("c0000005" or "C0000005" or "c0000409" or "C0000409") and
+    winlog.event_data.param0:(
+      "httpd.exe" or "HTTPD.EXE" or
+      "php-cgi.exe" or "PHP-CGI.EXE" or
+      "w3wp.exe" or "W3WP.EXE" or
+      "nginx.exe" or "NGINX.EXE" or
+      "frankenphp.exe" or "FRANKENPHP.EXE"
+    )
+  )
+)
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1499"
+name = "Endpoint Denial of Service"
+reference = "https://attack.mitre.org/techniques/T1499/"
+[[rule.threat.technique.subtechnique]]
+id = "T1499.004"
+name = "Application or System Exploitation"
+reference = "https://attack.mitre.org/techniques/T1499/004/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[rule.alert_suppression]
+group_by = ["host.id"]
+missing_fields_strategy = "suppress"
+
+[rule.alert_suppression.duration]
+unit = "h"
+value = 1
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.ingested",
+    "host.id",
+    "host.name",
+    "winlog.computer_name",
+    "winlog.record_id",
+    "winlog.event_data.param1",
+    "winlog.event_data.param4",
+    "winlog.event_data.param7",
+    "winlog.event_data.AppName",
+    "winlog.event_data.ModuleName",
+    "winlog.event_data.ExceptionCode",
+    "message",
+]
+
