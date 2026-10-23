@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["endpoint", "crowdstrike"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -86,7 +86,7 @@ process.command_line : (
   "*kernel.nmi_watchdog*", "*vm.nr_hugepages*", "*vm.drop_caches*",
   "*kernel.sysrq*"
 ) and
-?process.parent.executable != null and 
+process.parent.name != null and
 (
   (process.name == "tee" and process.args like "-*a*") or // also detects --append
   (process.name == "cat" and not process.parent.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish")) or
@@ -95,16 +95,16 @@ process.command_line : (
   (process.name in ("bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish") and process.args == "-c" and process.args : "*echo *")
 ) and
 not (
-  process.parent.executable in (
+  ?process.parent.executable in (
     "/opt/novell/groupwise/agents/bin/gwia", "/opt/novell/groupwise/agents/bin/gwmta", "/opt/novell/groupwise/agents/bin/gwpoa",
     "/opt/illumio_ven/system/etc/init.d/illumio-firewall", "/usr/bin/oracle-database-preinstall-19c-verify", "/usr/bin/make",
     "/usr/local/qualys/cloud-agent/bin/qualys-scan-util"
   ) or
-  process.parent.executable like "/tmp/CVU_19_resource*/checkmemlock.sh" or
-  process.parent.args == "/usr/share/mysql/mysql-systemd-start" or
-  process.parent.command_line like "*ansible*" or
+  ?process.parent.executable like "/tmp/CVU_19_resource*/checkmemlock.sh" or
+  ?process.parent.args == "/usr/share/mysql/mysql-systemd-start" or
+  ?process.parent.command_line like "*ansible*" or
   (process.parent.name in ("crond", "cron") and process.command_line like "*drop_caches*") or
-  (process.parent.name == "python.original" and process.parent.args == "/usr/lib/venv-salt-minion/bin/salt-minion")
+  (process.parent.name == "python.original" and ?process.parent.args == "/usr/lib/venv-salt-minion/bin/salt-minion")
 )
 '''
 [[rule.threat]]
