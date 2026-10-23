@@ -2,7 +2,7 @@
 creation_date = "2025/04/29"
 integration = ["auditd_manager", "crowdstrike", "endpoint", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/09"
 
 [rule]
 author = ["Elastic"]
@@ -106,7 +106,7 @@ type = "eql"
 query = '''
 process where host.os.type == "linux" and event.type == "start" and
 event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-?process.parent.executable != null and
+process.parent.name != null and
 process.command_line : "*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*\\x*" and
 length(process.command_line) > 50 and
 not process.name in ("snap", "printf", "sed")
