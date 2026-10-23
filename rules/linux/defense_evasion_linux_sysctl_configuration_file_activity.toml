@@ -1,0 +1,153 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
+maturity = "production"
+updated_date = "2026/10/23"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects non-deletion file activity involving Linux sysctl configuration. These files persist kernel parameter values
+across boot or service initialization. Adversaries may use them to weaken kernel protections, alter networking behavior,
+or redirect privileged kernel helpers such as core dump handlers and the module autoloader.
+"""
+false_positives = [
+    "Legitimate kernel tuning, package installation, system provisioning, and configuration-management activity.",
+]
+from = "now-9m"
+index = [
+    "auditbeat-*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.file*",
+    "logs-sentinel_one_cloud_funnel.*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Linux Sysctl Configuration File Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Linux Sysctl Configuration File Activity
+
+Sysctl configuration files persist kernel parameter values that are applied during boot or when a system management
+component reloads them. Unauthorized changes can weaken exploit mitigations, alter process visibility and tracing,
+enable unsafe networking behavior, or redirect privileged kernel helper paths. File telemetry identifies that trusted
+configuration changed, but investigators must inspect the content to determine the affected parameters and effective
+precedence.
+
+### Possible investigation steps
+
+- Review the affected file, operation, responsible process, parent process, user, timestamp, and process command line.
+- Determine whether the change belongs to approved kernel tuning, package installation, system provisioning, or
+  configuration management.
+- Retrieve the file and identify each added or changed key, value, filename prefix, and directory.
+- Prioritize changes to `kernel.modprobe`, `kernel.core_pattern`, `kernel.yama.ptrace_scope`,
+  `kernel.randomize_va_space`, unprivileged BPF controls, performance-event restrictions, kernel pointer exposure,
+  protected-link settings, IP forwarding, and redirect acceptance.
+- For `kernel.modprobe` or `kernel.core_pattern`, collect and analyze the referenced executable or script and determine
+  whether its path is writable by an unprivileged user or container.
+- Resolve sysctl precedence across `/etc`, `/run`, `/usr/local/lib`, `/usr/lib`, and `/lib`, then compare the effective
+  value with trusted policy and peer systems.
+- Correlate the change with `sysctl --system`, service restarts, module autoload requests, process crashes, privilege
+  escalation, and other kernel-configuration activity.
+
+### False positive analysis
+
+- Operating-system and application packages may install vendor defaults under `/usr/lib/sysctl.d` or `/lib/sysctl.d`.
+- Administrators and deployment systems commonly tune performance, networking, and security parameters. Validate the
+  writer and effective value before introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve the modified configuration, referenced helper files, and related process telemetry.
+- Remove unauthorized assignments, restore approved values, and reload configuration using trusted administration
+  procedures.
+- Replace malicious helper paths and investigate any module autoload or core-dump execution that occurred while the
+  setting was active.
+- Review whether weakened kernel or networking controls enabled additional compromise.
+- Scope matching keys, values, files, helper paths, writers, and initiating accounts across the environment.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man5/sysctl.conf.5.html",
+    "https://www.freedesktop.org/software/systemd/man/latest/sysctl.d.html",
+]
+risk_score = 21
+rule_id = "cf3d8aa2-261f-4520-9c94-564363f14741"
+setup = """## Setup
+
+This rule requires Linux file event data from Elastic Defend, CrowdStrike Falcon FileVantage/FIM through FDR,
+SentinelOne Cloud Funnel, or the Auditbeat file_integrity module. Elastic Defend currently reports creation, rename,
+and deletion, but not in-place Linux modifications. For CrowdStrike, collect FileIntegrityMonitorRuleMatched events for
+the paths covered by this rule. Validate SentinelOne Linux file-event emission in your deployment. When using Auditbeat,
+configure file_integrity to watch the paths covered by this rule.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic
+Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required.
+- To configure Fleet Server refer to the
+  [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- Search for "Elastic Defend" and select the integration.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select "Traditional Endpoints" or "Cloud Workloads".
+- Select the "Complete EDR (Endpoint Detection and Response)" configuration preset to collect all events and
+  preventions.
+- Save the integration and enroll an Elastic Agent in the resulting policy.
+
+For more information, refer to the
+[Elastic Defend documentation](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.type != "deletion" and
+  file.path like (
+    "/etc/sysctl.conf",
+    "/etc/sysctl.d/*.conf",
+    "/run/sysctl.d/*.conf",
+    "/usr/local/lib/sysctl.d/*.conf",
+    "/usr/lib/sysctl.d/*.conf",
+    "/lib/sysctl.d/*.conf"
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"

@@ -1,8 +1,8 @@
 [metadata]
 creation_date = "2025/04/29"
-integration = ["endpoint", "crowdstrike"]
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/23"
 
 [rule]
 author = ["Elastic"]
@@ -10,12 +10,16 @@ description = """
 This rule detects the modification and reading of kernel features through built-in commands. Attackers may collect
 information, disable or weaken Linux kernel protections. For example, an attacker may modify ASLR protection by
 disabling kernel.randomize_va_space, allow ptrace by setting kernel.yama.ptrace_scope to 0, or disable the
-NMI watchdog by setting kernel.nmi_watchdog to 0. These changes may be used to impair defenses and evade detection.
+NMI watchdog by setting kernel.nmi_watchdog to 0. An attacker may also redirect kernel.modprobe to execute an
+attacker-controlled helper when the kernel requests a module. These changes may be used to impair defenses, execute
+privileged code, and evade detection.
 """
 from = "now-9m"
 index = [
-  "logs-endpoint.events.process*",
-  "logs-crowdstrike.fdr*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process*",
+    "logs-sentinel_one_cloud_funnel.*",
 ]
 language = "eql"
 license = "Elastic License v2"
@@ -31,7 +35,8 @@ Kernel features in Linux systems are critical for maintaining security and stabi
 
 ### Possible investigation steps
 
-- Review the process command line to identify which specific kernel feature was accessed or modified, focusing on entries like kernel.randomize_va_space or kernel.yama.ptrace_scope.
+- Review the process command line to identify which specific kernel feature was accessed or modified, focusing on entries like kernel.randomize_va_space, kernel.yama.ptrace_scope, or kernel.modprobe.
+- If kernel.modprobe changed, identify the configured helper, verify its ownership and integrity, and investigate module autoload activity that may have executed it with kernel-initiated privileges.
 - Examine the parent process executable and name to determine the context in which the suspicious command was executed, checking for unusual or unauthorized parent processes.
 - Investigate the user account associated with the process execution to assess whether the activity aligns with expected behavior for that user.
 - Check for any recent changes in the /etc/sysctl.conf or /etc/sysctl.d/ directories that might indicate unauthorized modifications to kernel settings.
@@ -66,6 +71,8 @@ tags = [
     "Tactic: Defense Evasion",
     "Tactic: Discovery",
     "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: SentinelOne",
     "Resources: Investigation Guide",
     "Data Source: Crowdstrike",
     "Noise: Medium",
@@ -76,15 +83,15 @@ tags = [
 timestamp_override = "event.ingested"
 type = "eql"
 query = '''
-process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2") and
+process where host.os.type == "linux" and event.type == "start" and event.action in ("exec", "ProcessRollup2", "start", "exec_event") and
 process.command_line : (
   "*/etc/sysctl.conf*", "*/etc/sysctl.d/*", "*/proc/sys/kernel/nmi_watchdog*",
   "*/proc/sys/vm/nr_hugepages*", "*/proc/sys/kernel/yama/ptrace_scope*",
   "*/proc/sys/kernel/randomize_va_space*", "*/proc/sys/vm/drop_caches*",
-  "*/proc/sys/kernel/sysrq*", "*grsecurity*", "*exec-shield*",
+  "*/proc/sys/kernel/sysrq*", "*/proc/sys/kernel/modprobe*", "*grsecurity*", "*exec-shield*",
   "*kernel.randomize_va_space*", "*kernel.yama.ptrace_scope*",
   "*kernel.nmi_watchdog*", "*vm.nr_hugepages*", "*vm.drop_caches*",
-  "*kernel.sysrq*"
+  "*kernel.sysrq*", "*kernel.modprobe*"
 ) and
 ?process.parent.executable != null and 
 (
