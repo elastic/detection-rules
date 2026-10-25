@@ -1,0 +1,154 @@
+[metadata]
+creation_date = "2026/10/20"
+integration = ["endpoint", "crowdstrike", "sentinel_one_cloud_funnel", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/10/20"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects commands that persistently modify SELinux policy through module installation, replacement, removal, enablement,
+or disablement; customized permissive domains; or persistent boolean changes. Adversaries with sufficient privileges
+may use these operations to weaken confinement or grant compromised applications additional access.
+"""
+false_positives = [
+    "Legitimate package installation, policy deployment, troubleshooting, and SELinux administration.",
+]
+from = "now-9m"
+index = [
+    "logs-endpoint.events.process*",
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-auditd_manager.auditd-*",
+    "auditbeat-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "SELinux Policy Modification Activity"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating SELinux Policy Modification Activity
+
+SELinux policy-management utilities can install or remove policy modules, disable existing modules, make individual
+domains permissive, and persist boolean changes. These are normal administrative capabilities, but unauthorized changes
+can weaken mandatory access controls without disabling SELinux globally. This rule complements detection of
+`setenforce 0` by covering persistent and targeted policy modifications.
+
+### Possible investigation steps
+
+- Review the full command line, user, working directory, terminal, and parent and ancestor process chain.
+- Determine whether the activity belongs to an approved package transaction, policy deployment, troubleshooting session,
+  or configuration-management workflow.
+- For module operations, identify the module name, source package, selected priority, policy store, and whether the
+  module was installed, replaced, removed, disabled, or enabled.
+- Retrieve custom policy packages or source files and inspect the permissions, types, transitions, capabilities, and
+  network access they grant or remove.
+- For permissive-domain changes, identify the affected type and determine which processes ran without enforcement.
+- For boolean changes, identify each boolean, its previous value, and the additional access enabled by its new persistent
+  state.
+- Compare installed modules and local customizations with trusted package metadata, source-controlled policy, and
+  known-good hosts.
+- Correlate the modification with AVC behavior changes, service restarts, application activity, and other defense-evasion
+  events.
+
+### False positive analysis
+
+- Operating-system and application packages may install or update SELinux modules.
+- Administrators and orchestration systems may tune modules, booleans, or permissive domains while deploying or
+  troubleshooting software. Validate the exact policy effect before introducing a narrowly scoped exception.
+
+### Response and remediation
+
+- Preserve command, process, module, and policy-store evidence before making corrective changes.
+- Remove unauthorized modules and local customizations, restore approved policy, and reload it using trusted tools.
+- Return unauthorized permissive domains to enforced operation and restore persistent booleans to approved values.
+- Review activity performed by affected applications while confinement was weakened.
+- Scope the module, policy source, changed boolean or domain, account, and initiating process across the environment.
+"""
+references = [
+    "https://man7.org/linux/man-pages/man8/semodule.8.html",
+    "https://man7.org/linux/man-pages/man8/semanage-permissive.8.html",
+    "https://man7.org/linux/man-pages/man8/semanage-boolean.8.html",
+    "https://man7.org/linux/man-pages/man8/setsebool.8.html",
+]
+risk_score = 21
+rule_id = "67949187-fd25-4ac6-8f0e-dac9293cbdfe"
+setup = """## Setup
+
+This rule requires process events from Elastic Defend, Elastic Endgame, CrowdStrike Falcon, SentinelOne, Auditd Manager,
+or Auditbeat.
+
+For Elastic Defend, install the integration through Fleet, enroll the Linux host, and use the Complete EDR configuration
+preset to collect process events. For other supported integrations, configure the integration to ingest Linux process
+execution events into the indices listed by this rule.
+"""
+severity = "low"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Auditd Manager",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Crowdstrike",
+    "Data Source: SentinelOne",
+    "Resources: Investigation Guide",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where host.os.type == "linux" and event.type == "start" and
+  event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+  (
+    (
+      process.name == "semodule" and
+      process.args like (
+        "-i", "--install", "--install=*", "-u", "--upgrade", "--upgrade=*", "-b", "--base", "--base=*",
+        "-r", "--remove", "--remove=*", "-d", "--disable", "--disable=*", "-e", "--enable", "--enable=*"
+      )
+    ) or
+    (
+      process.name == "semanage" and
+      (
+        (
+          process.args == "module" and
+          process.args in ("-a", "--add", "-r", "--remove", "-d", "--disable", "-e", "--enable")
+        ) or
+        (
+          process.args == "permissive" and
+          process.args in ("-a", "--add", "-d", "--delete", "-D", "--deleteall")
+        ) or
+        (
+          process.args == "boolean" and
+          process.args in ("-m", "--modify", "-D", "--deleteall")
+        )
+      )
+    ) or
+    (process.name == "setsebool" and process.args == "-P")
+  )
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1562.001"
+name = "Disable or Modify Tools"
+reference = "https://attack.mitre.org/techniques/T1562/001/"
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
