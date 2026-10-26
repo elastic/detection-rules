@@ -7,7 +7,7 @@ updated_date = "2026/10/26"
 [rule]
 author = ["Elastic"]
 description = """
-Detects Visual Studio Code (`Code.exe` on Windows or `Code Helper` on macOS) spawning a shell or downloader whose
+Detects Visual Studio Code ("Code.exe" on Windows or "Code Helper" on macOS) spawning a shell or downloader whose
 command line contains an encoded command, a download cradle, or a reverse-shell pattern. Malicious IDE extensions
 use the editor process to run these commands after install.
 """
@@ -60,6 +60,7 @@ tags = [
     "Domain: Endpoint",
     "OS: Windows",
     "OS: macOS",
+    "OS: Linux",
     "Use Case: Threat Detection",
     "Tactic: Persistence",
     "Tactic: Execution",
@@ -68,6 +69,7 @@ tags = [
     "Rule Type: ES|QL",
     "Platform: Windows",
     "Platform: macOS",
+    "Platform: Linux"
 ]
 timestamp_override = "event.ingested"
 type = "esql"
@@ -75,7 +77,7 @@ type = "esql"
 query = '''
 FROM logs-endpoint.events.process-* METADATA _id, _version, _index
 | WHERE KQL("""event.category:process and event.type:start""")
-  AND process.parent.name IN ("Code Helper", "Code.exe")
+  AND process.parent.name IN ("Code Helper (Plugin)", "Code Helper", "Code.exe", "code")
   AND process.name IN (
     "cmd.exe", "powershell.exe", "sh", "bash", "zsh",
     "dash", "nohup", "curl.exe", "curl", "wget",

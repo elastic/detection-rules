@@ -9,7 +9,7 @@ updated_date = "2026/10/26"
 [rule]
 author = ["Elastic"]
 description = """
-Detects installation of an IDE extension from a local VSIX (`--install-extension` with a `.vsix` path) when that path is
+Detects installation of an IDE extension from a local VSIX ("--install-extension" with a ".vsix" path) when that path is
 in a staging directory, or the parent is a script host or installer. VS Code and compatible editors (Cursor, VSCodium,
 Windsurf) use this CLI to sideload extensions outside the marketplace.
 """
@@ -114,7 +114,8 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
           "*/tmp/*",
           "*/var/tmp/*",
           "*/private/tmp/*",
-          "*/dev/shm/*"
+          "*/dev/shm/*",
+          "*/users/shared/*"
         )
         OR TO_LOWER(process.parent.name) IN (
           "osascript", "node", "bun"
@@ -139,7 +140,6 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
     process.parent.name,
     process.command_line,
     process.parent.command_line
-| SORT @timestamp DESC
 '''
 
 
