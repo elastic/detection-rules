@@ -94,12 +94,11 @@ timestamp_override = "event.ingested"
 type = "esql"
 query = '''
 FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
-| EVAL process_name_lower = TO_LOWER(process.name)
 | WHERE
     (
       (MV_CONTAINS(event.action, "exec") OR event.action == "start"
       AND
-      process_name_lower IN (
+      process.name.caseless IN (
         // Linux
         "ip", "ss", "hostnamectl", "uptime", "uname", "whoami", "id", "hostname",
         "netstat", "arp", "ifconfig", "route", "w", "who",
@@ -114,10 +113,7 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
       )
       )
     )
-    OR (
-      destination.ip == "169.254.169.254"
-      OR destination.address == "169.254.169.254"
-    )
+    OR destination.ip == "169.254.169.254"
 | WHERE process.parent.executable IS NULL OR NOT (
     process.parent.executable LIKE "/Library/Application Support/JAMF/*" OR
     process.parent.executable LIKE "/usr/local/jamf/*" OR
@@ -129,7 +125,7 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
     process.parent.executable LIKE "/Applications/Docker.app/Contents/MacOS/*"
   )
 | EVAL
-    is_recon = process_name_lower IN (
+    is_recon = process.name.caseless IN (
       "ip", "ss", "hostnamectl", "uptime", "uname", "whoami", "id", "hostname",
       "netstat", "arp", "ifconfig", "route", "w", "who",
       "last", "getent", "dmidecode",
