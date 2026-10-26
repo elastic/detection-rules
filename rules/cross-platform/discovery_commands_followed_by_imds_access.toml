@@ -96,7 +96,7 @@ query = '''
 FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
 | WHERE
     (
-      (MV_CONTAINS(event.action, "exec") OR event.action == "start"
+      (MV_CONTAINS(event.action, "exec") OR event.action == "start")
       AND
       process.name.caseless IN (
         // Linux
@@ -110,7 +110,6 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
         "whoami.exe", "hostname.exe", "ipconfig.exe", "systeminfo.exe", "netstat.exe",
         "arp.exe", "route.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe",
         "tasklist.exe", "getmac.exe", "nbtstat.exe", "query.exe", "wmic.exe"
-      )
       )
     )
     OR destination.ip == "169.254.169.254"
@@ -144,7 +143,7 @@ FROM logs-endpoint.events.process-*, logs-endpoint.events.network-*
       process.parent.entity_id,
       MV_APPEND(process.entity_id, process.parent.entity_id)
     ),
-    recon_command = CASE(is_recon, process_name_lower, null),
+    recon_command = CASE(is_recon, process.name.caseless, null),
     metadata_access = CASE(is_metadata, 1, 0)
 | MV_EXPAND Esql.correlation_id
 | WHERE Esql.correlation_id IS NOT NULL
