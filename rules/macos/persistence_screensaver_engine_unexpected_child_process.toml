@@ -2,7 +2,7 @@
 creation_date = "2021/10/05"
 integration = ["endpoint"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -19,10 +19,36 @@ license = "Elastic License v2"
 name = "Unexpected Child Process of macOS Screensaver Engine"
 note = """## Triage and analysis
 
-- Analyze the descendant processes of the ScreenSaverEngine process for malicious code and suspicious behavior such
-as a download of a payload from a server.
-- Review the installed and activated screensaver on the host. Triage the screensaver (.saver) file that was triggered to
-identify whether the file is malicious or not.
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating Unexpected Child Process of macOS Screensaver Engine
+
+`ScreenSaverEngine` is the macOS process that starts and manages the active screensaver. Screensavers are packaged as `.saver` bundles; on macOS 10.15 and later, third-party modules are loaded by the `legacyScreenSaver` helper rather than directly inside `ScreenSaverEngine`. A malicious `.saver` bundle configured as the active screensaver can run arbitrary code every time the screensaver activates. This rule alerts on any process whose parent is `ScreenSaverEngine`, which is uncommon in normal operation.
+
+### Possible investigation steps
+
+- Review the child process details (`process.executable`, `process.command_line`, `process.code_signature.*`) and determine whether it is a known component of a legitimate screensaver.
+- Analyze the descendant processes of the child for suspicious behavior, such as script interpreters, downloads of payloads from remote servers, or network connections to unusual destinations.
+- Identify the active screensaver for the user by reviewing the `com.apple.screensaver.*.plist` files under `~/Library/Preferences/ByHost/` and the module path they reference. On macOS 14 and later, the screensaver selection may also be stored in `~/Library/Application Support/com.apple.wallpaper/Store/Index.plist`.
+- Review process activity of `legacyScreenSaver` on the same host around the alert time, as code from third-party screensaver modules runs under that process on recent macOS versions.
+- Locate the `.saver` bundle in use (commonly under `~/Library/Screen Savers/` or `/Library/Screen Savers/`) and check its code signature, creation time, origin, and contents.
+- Review recent file events for the creation of `.saver` bundles or modification of screensaver plist files, and identify the process that performed them.
+- Review other alerts for the same `host.id` and `user.name` to identify how the screensaver was delivered and whether other persistence mechanisms were added.
+
+### False positive analysis
+
+- Some third-party screensavers legitimately launch helper processes. Verify the screensaver is installed from a trusted source and that the child process is signed by the same vendor.
+- When the activity is confirmed benign, create an exception for the specific signed child executable rather than for all children of `ScreenSaverEngine`.
+
+### Response and remediation
+
+- Isolate the affected host from the network if the child process or screensaver is determined to be malicious.
+- Terminate the malicious child process and its descendants.
+- Reset the active screensaver to a built-in Apple screensaver, and remove the malicious `.saver` bundle after preserving a copy for analysis.
+- Revert any unauthorized changes to the screensaver plist files.
+- Investigate how the malicious screensaver was delivered and remediate the initial access vector.
+- Escalate to the incident response team and search for the same `.saver` bundle or child process on other macOS hosts.
 """
 references = [
     "https://posts.specterops.io/saving-your-access-d562bf5bf90b",
