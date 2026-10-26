@@ -1,0 +1,140 @@
+[metadata]
+creation_date = "2026/10/07"
+integration = ["endpoint"]
+maturity = "production"
+min_stack_version = "9.3.0"
+min_stack_comments = "The file.Ext.* fields for file events were introduced in 9.3.0, and are required for this rule to function."
+updated_date = "2026/10/07"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies an executable from a suspicious or writable location creating an ELF binary in a system binary, configuration,
+or library directory. This may indicate an adversary attempting to install or masquerade a malicious executable in a
+trusted system location.
+"""
+from = "now-9m"
+index = ["logs-endpoint.events.file*"]
+language = "eql"
+license = "Elastic License v2"
+name = "ELF Binary Created in System Directory by Suspicious Process"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ELF Binary Created in System Directory by Suspicious Process
+
+Attackers may execute payloads from temporary, shared-memory, web, or memory-backed locations and use them to install
+additional binaries in trusted system directories. Placing an ELF file in a system binary or library path can help a
+malicious payload blend in with legitimate software, survive cleanup of its staging directory, or be invoked later.
+
+### Possible investigation steps
+
+- Review the created file's path, name, owner, permissions, timestamps, size, hash, and signing or package provenance.
+- Examine the creating process, its parent and ancestor chain, command line, user, working directory, and executable hash.
+- Determine how the suspicious executable reached the host by reviewing earlier file, process, and network events.
+- Check whether the file was subsequently executed, loaded as a library, referenced by a service or scheduled task, or
+  observed on other hosts.
+- Preserve the ELF file and analyze its imports, strings, sections, capabilities, and network indicators in an isolated
+  environment.
+
+### False positive analysis
+
+- Software installers, package-management wrappers, recovery tools, and custom deployment systems may run from temporary
+  locations while placing legitimate files in system directories. Validate the process lineage, package or change record,
+  file hash, and expected installation path before adding an exception.
+- Container image builds or immutable-system update workflows may stage tools in unusual paths. Confirm that the activity
+  is confined to an authorized build or update workflow and that the resulting artifact is trusted.
+
+### Response and remediation
+
+- Isolate the affected host if the creating process or ELF file is unauthorized.
+- Terminate malicious processes, quarantine the created file, and remove related persistence only after preserving
+  evidence.
+- Hunt for the same process and file hashes, names, paths, and related network indicators across the environment.
+- Identify and remediate the initial access vector, then rotate credentials or secrets exposed to the compromised process.
+- Restore modified system files from trusted packages or a known-good image and monitor for recurrence.
+"""
+risk_score = 73
+rule_id = "8dfe89d9-e3e2-4036-9440-911f1e0230d2"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend.
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration, the integration allows the Elastic Agent to monitor events on your host and send data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings, which can be customized by configuring the Elastic Defend integration policy. Select "Complete EDR (Endpoint Detection and Response)" to collect all events and preventions.
+- Enter a name for the agent policy, or select an existing agent policy.
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent" and follow the instructions to install the Elastic Agent on your hosts.
+
+Elastic Defend does not collect advanced file information (such as the different file.Ext.* fields) by default.
+To capture this behavior, this rule requires a specific advanced setting in the Elastic Defend integration.
+
+#### Enable advanced file information:
+- Go to "Security -> Manage -> Policies".
+- Select an Elastic Agent policy.
+- Click "Show advanced settings".
+- Search for "linux.advanced.events.populate_file_data".
+- Set "linux.advanced.events.populate_file_data" to "true".
+- Click "Save".
+
+After saving the integration change, the Elastic Agents running this policy will be updated and the rule will function properly.
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: Elastic Defend",
+    "Rule Type: Event Correlation (EQL)",
+    "Resources: Investigation Guide",
+    "Platform: Linux",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+file where host.os.type == "linux" and event.action in ("rename", "creation") and file.Ext.header_bytes like "7f454c46*" and
+process.executable like (
+  "/tmp/*", "/var/tmp/*", "/dev/shm/*", "/run/*", "/var/run/*", "/boot/*", "/sys/*", "*/www/html/*",
+  "/lost+found/*", "/proc/*", "/var/mail/*", "/var/www/*", "/mnt/*", "/media/*", "*/wp-content/*",
+  "*/wp-includes/*", "*/wp-admin/*", "?memfd:*", "memfd:*"
+) and
+file.path like (
+  "/bin/*", "/usr/bin/*", "/usr/local/bin/*", "/sbin/*", "/usr/sbin/*", "/usr/local/sbin/*", "/etc/*",
+  "/lib/*", "/lib32/*", "/lib64/*", "/libx32/*", "/usr/lib/*", "/usr/lib32/*", "/usr/lib64/*",
+  "/usr/libx32/*", "/usr/local/lib/*", "/usr/local/lib32/*", "/usr/local/lib64/*", "/usr/local/libx32/*",
+  "/libexec/*", "/usr/libexec/*", "/usr/local/libexec/*", "/var/lib/*"
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+  [rule.threat.tactic]
+  id = "TA0005"
+  name = "Defense Evasion"
+  reference = "https://attack.mitre.org/tactics/TA0005/"
+
+  [[rule.threat.technique]]
+  id = "T1036"
+  name = "Masquerading"
+  reference = "https://attack.mitre.org/techniques/T1036/"
+
+    [[rule.threat.technique.subtechnique]]
+    id = "T1036.005"
+    name = "Match Legitimate Resource Name or Location"
+    reference = "https://attack.mitre.org/techniques/T1036/005/"
