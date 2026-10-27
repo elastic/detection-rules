@@ -1,0 +1,173 @@
+[metadata]
+creation_date = "2026/10/27"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies the first destination IP observed receiving an HTTP POST request whose body is Brotli-compressed and
+transferred with chunked encoding. This combination can transport opaque application data while avoiding a fixed
+Content-Length, but it is not inherently malicious. Legitimate APIs, software distribution services, and custom clients
+may use the same encodings.
+"""
+false_positives = [
+    """
+    Legitimate APIs, mobile or desktop applications, backup and synchronization tools, content delivery workflows, and
+    performance-sensitive custom clients may send Brotli-compressed request bodies with chunked transfer encoding.
+    Validate the source application and destination service before escalating.
+    """,
+]
+from = "now-9m"
+index = ["logs-network_traffic.http*"]
+language = "kuery"
+license = "Elastic License v2"
+name = "First-Seen Brotli-Compressed Chunked HTTP POST to Destination"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating First-Seen Brotli-Compressed Chunked HTTP POST to Destination
+
+`Content-Encoding: br` indicates that the request representation uses Brotli compression, while
+`Transfer-Encoding: chunked` carries that representation as a sequence of HTTP/1.1 chunks instead of declaring a fixed
+Content-Length. Although valid, this combination is uncommon for many environments and can make an unfamiliar HTTP
+upload harder to inspect without decompression.
+
+This rule uses a 14-day new-terms history window on `destination.ip`. It alerts when a destination is first observed
+receiving this request shape during that window. Subsequent matching requests to the same destination do not produce
+another alert until the destination becomes new again.
+
+### Possible investigation steps
+
+- Review `source.ip`, `destination.ip`, `destination.port`, `url.full`, `user_agent.original`, and
+  `network.community_id` to identify the client, service, and affected transaction.
+- Determine whether the source application is expected to upload compressed data and whether the destination belongs to
+  an approved API, storage provider, software service, or internal application.
+- Review the HTTP response status and surrounding requests. Repeated retries, rotating destinations, uncommon paths, or
+  other unusual headers can increase suspicion.
+- Correlate the source with endpoint telemetry to identify the initiating process, executable path, user, and recent
+  file access. Browsers and known application clients are generally less suspicious than scripts or unknown binaries.
+- Retrieve the request body only when authorized and handle it as potentially sensitive data. The Network Packet Capture
+  HTTP analyzer does not decode Brotli request bodies, so content inspection requires a separate controlled workflow.
+- Check the destination's ownership, reputation, domain history, TLS certificate, and whether other hosts communicate
+  with it using the same request pattern.
+
+### False positive analysis
+
+- Modern applications may use Brotli to reduce upload size, particularly for structured or repetitive payloads.
+- Streaming clients can use chunked transfer encoding when the final compressed body size is not known in advance.
+- Add narrow exceptions for validated source applications and destination services rather than excluding either header
+  globally.
+
+### Response and remediation
+
+- Block the destination or isolate the source when the initiating process or transferred content is malicious.
+- Preserve relevant network and endpoint evidence, including the raw request when collection is authorized.
+- Restrict unapproved applications from making outbound HTTP connections and route egress through monitored proxies.
+- If the activity is legitimate, document the application, expected destinations, and request pattern before creating
+  an exception.
+"""
+references = [
+    "https://www.rfc-editor.org/rfc/rfc7932.html",
+    "https://www.rfc-editor.org/rfc/rfc9110.html#name-content-coding",
+    "https://www.rfc-editor.org/rfc/rfc9112.html#name-transfer-encoding",
+    "https://www.elastic.co/docs/reference/integrations/network_traffic",
+    "https://www.elastic.co/guide/en/beats/packetbeat/current/packetbeat-http-options.html#_send_all_headers",
+]
+risk_score = 21
+rule_id = "3b3f80f0-6d80-4303-ac53-b410f8aa2c7d"
+setup = """## Setup
+
+This rule requires the Elastic Network Packet Capture integration with the HTTP protocol analyzer enabled on the ports
+used by the monitored web services. The sensor must observe HTTP after TLS termination or receive decrypted traffic;
+encrypted HTTPS sessions do not expose request headers to the analyzer.
+
+By default, the integration does not export every HTTP header. Configure the HTTP stream to capture
+`Content-Encoding` and `Transfer-Encoding` with `send_headers`:
+
+```yaml
+- type: http
+  ports: [80, 8080]
+  send_headers:
+    - Content-Encoding
+    - Transfer-Encoding
+```
+
+Add every relevant plaintext or post-decryption HTTP port to `ports`. Alternatively, set `send_all_headers: true`.
+Capturing only the two required headers is preferred because exporting every header can collect credentials, cookies,
+tokens, and other sensitive data. Confirm that test events populate
+`http.request.headers.content-encoding` and `http.request.headers.transfer-encoding` before enabling the rule.
+
+The Network Packet Capture HTTP analyzer supports body decoding for gzip and deflate, but not Brotli. This rule therefore
+uses header metadata only and does not require request-body collection.
+"""
+severity = "low"
+tags = [
+    "Domain: Network",
+    "Domain: Application",
+    "Domain: Web",
+    "Use Case: Network Security Monitoring",
+    "Use Case: Threat Detection",
+    "Tactic: Command and Control",
+    "Data Source: Network Packet Capture",
+    "Resources: Investigation Guide",
+    "Rule Type: New Terms",
+]
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset: "network_traffic.http" and
+http.request.method: "POST" and
+http.request.headers.content-encoding: "br" and
+http.request.headers.transfer-encoding: "chunked"
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1071"
+name = "Application Layer Protocol"
+reference = "https://attack.mitre.org/techniques/T1071/"
+[[rule.threat.technique.subtechnique]]
+id = "T1071.001"
+name = "Web Protocols"
+reference = "https://attack.mitre.org/techniques/T1071/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "source.ip",
+    "source.port",
+    "destination.ip",
+    "destination.port",
+    "http.version",
+    "http.request.method",
+    "http.request.headers.content-encoding",
+    "http.request.headers.transfer-encoding",
+    "http.response.status_code",
+    "url.full",
+    "user_agent.original",
+    "network.community_id",
+    "observer.name",
+]
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["destination.ip"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
