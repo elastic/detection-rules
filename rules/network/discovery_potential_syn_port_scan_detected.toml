@@ -52,7 +52,7 @@ query = '''
   (
     (data_stream.dataset:panw.panos or event.dataset:panw.panos) and
     panw.panos.type:TRAFFIC and
-    event.action:(flow_terminated or flow_dropped or flow_denied)
+    event.action:flow_started
   )
 ) and
 destination.port:* and
@@ -115,9 +115,8 @@ in its Fleet policy template and uses cumulative reports by default; verify the 
 before relying on the rule. Delta flow reporting is unsupported because a final delta can contain zero or few packets
 even when the complete connection transferred many packets.
 
-For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session terminations, drops, and
-denies, where the observed packet total can support the low-packet condition. It excludes session starts because an
-early packet count does not establish that the completed session remained low-packet.
+For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts and does not include
+terminated, dropped, or denied flows.
 
 The rule evaluates TCP and UDP separately. The `network.packets <= 2` condition identifies low-packet observations but
 is not TCP-flag evidence. Create exceptions for approved scanners and monitoring infrastructure after validation.

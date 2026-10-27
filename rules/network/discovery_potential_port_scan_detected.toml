@@ -53,7 +53,7 @@ from logs-network_traffic.flow-*, packetbeat-*, logs-panw.panos*
         )
       )
       or (
-        event.action in ("flow_started", "flow_terminated", "flow_dropped", "flow_denied")
+        event.action == "flow_started"
         and event.type == "connection"
         and (
           data_stream.dataset == "panw.panos"
@@ -115,15 +115,14 @@ Network scanning is a technique used to identify open ports and services on a ne
 setup = """## Setup
 
 This rule supports connection observations from the Elastic Network Packet Capture integration, PAN-OS TRAFFIC
-lifecycle records, and a compatibility branch for standalone Packetbeat.
+session-start records, and a compatibility branch for standalone Packetbeat.
 
 For Network Packet Capture, enable ECS compatibility. The rule counts interim and final flow reports that emit
 `event.action:network_flow` and include `connection` in `event.type`. The standalone Packetbeat branch requires
 `type:flow` with the same ECS action and type values; verify that branch against the deployed Packetbeat version and
 configuration before relying on it.
 
-For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts, terminations, drops,
-and denies so end-only permitted-session logging remains covered.
+For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts.
 
 The rule evaluates TCP and UDP separately. Repeated lifecycle reports for one source/destination/port tuple do not
 increase distinct-port cardinality within a one-minute bucket. Reports in later buckets can qualify again; one-hour
