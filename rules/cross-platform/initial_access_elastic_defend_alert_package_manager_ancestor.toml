@@ -120,14 +120,21 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
     // go (Go / pkg.go.dev ecosystem)
     process.parent.name IN ("go", "go.exe") AND (
       process.parent.command_line LIKE "*go install*" OR
+      process.parent.command_line LIKE "*go.exe install*" OR
+      process.parent.command_line LIKE "*go.exe\" install*" OR
       process.parent.command_line LIKE "*go get*" OR
-      process.parent.command_line LIKE "*go generate*"), true,
+      process.parent.command_line LIKE "*go.exe get*" OR
+      process.parent.command_line LIKE "*go.exe\" get*" OR
+      process.parent.command_line LIKE "*go generate*" OR
+      process.parent.command_line LIKE "*go.exe generate*" OR
+      process.parent.command_line LIKE "*go.exe\" generate*"), true,
 
     // gradle (Java/Kotlin/Groovy build-script ecosystem)
     (process.parent.name LIKE "java*" OR process.parent.name IN ("gradle", "gradle.exe", "gradlew")) AND
     process.parent.command_line LIKE "*gradle*" AND (
       process.parent.command_line LIKE "*build*" OR
-      process.parent.command_line LIKE "*assemble*"), true,
+      process.parent.command_line LIKE "*assemble*" OR
+      process.parent.command_line LIKE "*GradleDaemon*"), true,
 
     false
   )
