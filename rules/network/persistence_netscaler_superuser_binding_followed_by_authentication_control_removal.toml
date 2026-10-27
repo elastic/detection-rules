@@ -133,28 +133,28 @@ sequence by observer.hostname, user.name, source.ip with maxspan=15m
     citrix.name == "CMD_EXECUTED" and
     citrix_adc.log.status in~ ("Success", "Done") and
     (
-      process.command_line regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([^a-z0-9_].*)?""" or
-      citrix.detail regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([^a-z0-9_].*)?""" or
-      citrix_adc.log.message regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([^a-z0-9_].*)?"""
+      process.command_line regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([ "].*)?""" or
+      citrix.detail regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([ "].*)?""" or
+      citrix_adc.log.message regex~ """(bind|.*[^a-z0-9_]bind) system user [^ ]+ superuser([ "].*)?"""
     )]
   [any where data_stream.dataset == "citrix_adc.log" and
     citrix.name == "CMD_EXECUTED" and
     citrix_adc.log.status in~ ("Success", "Done") and
     (
+      process.command_line regex~ """(set|.*[^a-z0-9_]set) authentication epaaction .* -defaultepagroup no_auth([ "].*)?""" or
+      citrix.detail regex~ """(set|.*[^a-z0-9_]set) authentication epaaction .* -defaultepagroup no_auth([ "].*)?""" or
+      citrix_adc.log.message regex~ """(set|.*[^a-z0-9_]set) authentication epaaction .* -defaultepagroup no_auth([ "].*)?""" or
       process.command_line like~ (
-        "set authentication epaaction * -defaultepagroup no_auth*",
         "unbind authentication vserver * -policy *",
         "unbind authentication policylabel * -policyname *",
         "unbind vpn vserver * -policy *"
       ) or
       citrix.detail like~ (
-        "*set authentication epaaction * -defaultepagroup no_auth*",
         "*unbind authentication vserver * -policy *",
         "*unbind authentication policylabel * -policyname *",
         "*unbind vpn vserver * -policy *"
       ) or
       citrix_adc.log.message like~ (
-        "*set authentication epaaction * -defaultepagroup no_auth*",
         "*unbind authentication vserver * -policy *",
         "*unbind authentication policylabel * -policyname *",
         "*unbind vpn vserver * -policy *"
