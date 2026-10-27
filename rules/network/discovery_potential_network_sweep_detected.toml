@@ -2,7 +2,7 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
@@ -17,7 +17,6 @@ from = "now-9m"
 index = ["packetbeat-*", "filebeat-*", "logs-network_traffic.*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
-max_signals = 5
 name = "Potential Network Sweep Detected"
 risk_score = 21
 rule_id = "781f8746-2180-4691-890c-4c96d11ca91d"
@@ -38,7 +37,24 @@ tags = [
 timestamp_override = "event.ingested"
 type = "threshold"
 query = '''
-event.action:(network_flow or flow_started) and destination.port:(21 or 22 or 23 or 25 or 139 or 445 or 3389 or 5985 or 5986) and
+(
+  (
+    data_stream.dataset:network_traffic.flow and
+    event.action:network_flow and
+    event.type:connection
+  ) or
+  (
+    type:flow and
+    event.action:network_flow and
+    event.type:connection
+  ) or
+  (
+    (data_stream.dataset:panw.panos or event.dataset:panw.panos) and
+    panw.panos.type:TRAFFIC and
+    event.action:(flow_started or flow_terminated or flow_dropped or flow_denied)
+  )
+) and
+destination.port:(21 or 22 or 23 or 25 or 139 or 445 or 3389 or 5985 or 5986) and
 source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 note = """## Triage and analysis
@@ -82,6 +98,25 @@ Network sweeps are reconnaissance techniques where attackers scan networks to id
 - Escalate to security operations: Notify the security operations team to conduct a deeper investigation into the source of the network sweep and assess any potential threats or breaches.
 
 - Document and report: Record all findings, actions taken, and lessons learned in an incident report to inform future response strategies and improve network defenses."""
+setup = """## Setup
+
+This rule supports connection observations from the Elastic Network Packet Capture integration, PAN-OS TRAFFIC
+lifecycle records, and a compatibility branch for standalone Packetbeat.
+
+For Network Packet Capture, enable ECS compatibility. The rule counts interim and final flow reports with
+`data_stream.dataset:network_traffic.flow`, `event.action:network_flow`, and `event.type:connection`. The standalone
+Packetbeat branch requires `type:flow` with the same ECS action and type values; verify that branch against the
+deployed Packetbeat version and configuration before relying on it.
+
+For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts, terminations, drops,
+and denies so end-only permitted-session logging remains covered.
+
+The threshold intentionally counts destinations across the selected service ports and transports for each source. This
+preserves mixed-port host-sweep coverage. Repeated lifecycle reports for one source/destination pair do not increase
+distinct-destination cardinality within one execution window, but reports in later windows can produce repeated
+alerts. Create exceptions for approved scanners, inventory systems, and monitoring infrastructure after validating
+their source addresses.
+"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
