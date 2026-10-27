@@ -100,9 +100,17 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
     // cargo (Rust / crates.io ecosystem)
     process.parent.name IN ("cargo", "cargo.exe", "rustc", "rustc.exe") AND (
       process.parent.command_line LIKE "*cargo install*" OR
+      process.parent.command_line LIKE "*cargo.exe install*" OR
+      process.parent.command_line LIKE "*cargo.exe\" install*" OR
       process.parent.command_line LIKE "*cargo build*" OR
+      process.parent.command_line LIKE "*cargo.exe build*" OR
+      process.parent.command_line LIKE "*cargo.exe\" build*" OR
       process.parent.command_line LIKE "*cargo run*" OR
-      process.parent.command_line LIKE "*cargo fetch*"), true,
+      process.parent.command_line LIKE "*cargo.exe run*" OR
+      process.parent.command_line LIKE "*cargo.exe\" run*" OR
+      process.parent.command_line LIKE "*cargo fetch*" OR
+      process.parent.command_line LIKE "*cargo.exe fetch*" OR
+      process.parent.command_line LIKE "*cargo.exe\" fetch*"), true,
 
     // composer (PHP / Packagist ecosystem)
     (process.parent.name LIKE "php*" OR process.parent.name LIKE "composer*") AND (
@@ -114,8 +122,11 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* METADATA _id, _versi
     // gem / bundler (Ruby / RubyGems ecosystem)
     (process.parent.name LIKE "ruby*" OR process.parent.name IN ("gem", "bundle")) AND (
       process.parent.command_line LIKE "*gem install*" OR
+      process.parent.command_line LIKE "*gem\" install*" OR
       process.parent.command_line LIKE "*bundle install*" OR
-      process.parent.command_line LIKE "*bundle exec*"), true,
+      process.parent.command_line LIKE "*bundle\" install*" OR
+      process.parent.command_line LIKE "*bundle exec*" OR
+      process.parent.command_line LIKE "*bundle\" exec*"), true,
 
     // go (Go / pkg.go.dev ecosystem)
     process.parent.name IN ("go", "go.exe") AND (
