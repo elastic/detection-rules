@@ -1,0 +1,95 @@
+[metadata]
+creation_date = "2026/10/27"
+integration = ["network_traffic"]
+maturity = "production"
+updated_date = "2026/10/27"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a source, destination, and TCP destination-port relationship not seen in the previous 14 days for traffic
+independently attributed to a network appliance. Both private and public destinations and nonstandard ports are
+included. New contacts can precede payload retrieval, configuration transfer, proxying, or internal access, but novelty
+alone does not establish malicious activity or a completed connection.
+"""
+false_positives = [
+    "New approved infrastructure, maintenance, updates, changed appliance/NAT addresses, and sensor/history gaps.",
+]
+from = "now-9m"
+index = ["logs-network_traffic.flow-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "First Seen Destination Contacted by a Network Appliance"
+note = """## Triage and analysis
+
+### Investigating First Seen Destination Contacted by a Network Appliance
+
+- Verify appliance-origin attribution, flow direction, and NAT identity. Do not infer initiation solely from a shared
+  collector agent ID, observer IP, or a source address also used to proxy clients.
+- Determine whether the destination/service is an approved backend, authentication service, update, backup, or support
+  relationship. Inspect private-address receivers and nonstandard ports as well as public internet destinations.
+- Review flow bytes, handshake/application evidence, DNS, SNI, HTTP metadata, and surrounding audit events. A TCP port
+  does not identify a protocol, and a flow observation does not prove successful data transfer.
+- Correlate with configuration uploads, archive retrieval, unusual commands, and delayed effects after poisoned logs.
+
+### False positive analysis
+
+New services, HA or NAT changes, maintenance, vendor infrastructure changes, and insufficient history can match.
+Scope exceptions to reviewed source/destination/port relationships. This is a novelty signal; no ATT&CK technique is
+assigned without evidence of the protocol or purpose.
+
+### Response and remediation
+
+Investigate and restrict unauthorized relationships, preserve independent logs, and scope any resulting access. Use the
+finding to prioritize investigation, not as sole evidence for malware removal or configuration-theft claims."""
+references = ["https://www.elastic.co/docs/reference/integrations/network_traffic"]
+risk_score = 47
+rule_id = "733815d4-1b64-43d1-9bcd-f9222b47c641"
+setup = """## Setup
+
+This rule requires the Network Packet Capture integration observing appliance-originated traffic. Use a trusted ingest
+pipeline and a maintained asset/interface inventory to add the event tag `network-appliance-originated` only after
+verifying that source.ip represents traffic initiated by the appliance itself. The integration does not add this tag
+automatically. Do not add it to all traffic from a shared collector or all traffic translated by a NetScaler SNIP/NAT.
+Exclude transit, reverse-proxy, load-balanced backend, and client VPN traffic during attribution. Validate request/flow
+direction with the sensor placement. Preserve source and destination identities across NAT where possible.
+
+Without this enrichment the rule intentionally does not match. Configure rule exceptions for verified approved
+source/destination/service relationships; do not exempt all internal destinations or all TCP/443 traffic.
+
+Enable flow collection and retain at least 14 days of consistently attributed history before interpreting first-seen
+results. New-terms fields are source.ip, destination.ip, and destination.port. A new port on a known destination is a new
+relationship. Sensor onboarding, address changes, or a history gap can make established relationships appear new.
+Packet-capture flows may include unsuccessful connection attempts; validate the handshake or application response."""
+severity = "medium"
+tags = [
+    "Domain: Network",
+    "Use Case: Threat Detection",
+    "Use Case: Network Security Monitoring",
+    "Resources: Investigation Guide",
+    "Data Source: Network Packet Capture",
+    "Rule Type: New Terms",
+]
+threat = []
+timestamp_override = "event.ingested"
+type = "new_terms"
+
+query = '''
+data_stream.dataset:"network_traffic.flow" and tags:"network-appliance-originated" and
+source.ip:* and destination.ip:(* and not (
+  "0.0.0.0/8" or "127.0.0.0/8" or "169.254.0.0/16" or "224.0.0.0/4" or "240.0.0.0/4" or
+  "::/128" or "::1/128" or "fe80::/10" or "ff00::/8"
+)) and destination.port:* and network.transport:tcp
+'''
+
+
+
+[rule.new_terms]
+field = "new_terms_fields"
+value = ["source.ip", "destination.ip", "destination.port"]
+[[rule.new_terms.history_window_start]]
+field = "history_window_start"
+value = "now-14d"
+
+
