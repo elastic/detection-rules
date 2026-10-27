@@ -2,44 +2,57 @@
 creation_date = "2026/05/15"
 integration = ["azure"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects successful Microsoft Entra ID audit events for Register device where additional details indicate an Azure AD join
-and the recorded user agent is not one of the common native registration clients (Dsreg, DeviceRegistrationClient, or
-Dalvik-based Android enrollment). Legitimate Windows and standard mobile enrollment flows often present predictable
-user-agent strings; unexpected clients may reflect scripted registration, third-party tooling, or adversary-driven device
-registration used for persistence or token abuse. Baseline approved provisioning tools and MDM integrations before tuning.
+Detects successful, user-initiated Microsoft Entra ID audit events for Register device where additional details indicate
+an Azure AD join or Azure AD register and the recorded user agent is not one of the common native registration clients
+(Dsreg, DeviceRegistrationClient, or Dalvik-based Android enrollment). Legitimate Windows and standard mobile enrollment
+flows present predictable user-agent strings; unexpected clients such as axios, node, python-requests, or offensive
+tooling like GraphSpy and ROADtools may reflect scripted or adversary-driven device registration used to obtain a
+Primary Refresh Token for persistence or token abuse. Registrations performed by service principals or the Device
+Registration Service itself (for example Windows 365 Cloud PC pre-authorized joins) and Microsoft-owned EvoSTS
+authorization checks are excluded. Baseline approved provisioning tools and MDM integrations before tuning.
 """
 false_positives = [
     """
-    Custom device management agents, OEM enrollment clients, or updated Microsoft clients that use new user-agent strings
-    may match. Add exclusions for known `azure.auditlogs.properties.userAgent` values or enrollment programs after review.
+    Custom device management agents, OEM enrollment clients, Linux Intune enrollment, or updated Microsoft clients that
+    use new user-agent strings may match. Add exclusions for known `azure.auditlogs.properties.userAgent` values or
+    enrollment programs after review.
     """,
 ]
 from = "now-9m"
 index = ["logs-azure.auditlogs-*"]
 language = "kuery"
 license = "Elastic License v2"
-name = "Entra ID Register Device with Unusual User Agent (Azure AD Join)"
+name = "Entra ID Register Device with Unusual User Agent"
 note = """## Triage and analysis
 
-### Investigating Entra ID Register Device with Unusual User Agent (Azure AD Join)
+### Investigating Entra ID Register Device with Unusual User Agent
 
 Review `azure.auditlogs.properties.initiated_by.user.userPrincipalName`, source IP fields on the audit event,
 `azure.auditlogs.properties.target_resources.0.display_name` for the device name, and
 `azure.correlation_id` for related audit entries.
 
 Compare `azure.auditlogs.properties.userAgent` to your organization's standard Autopilot, Intune, and Windows enrollment
-clients.
+clients. The rule matches both `Azure AD join` and `Azure AD register` (BYOD) trust types, and only user-initiated
+registrations (`azure.auditlogs.properties.initiated_by.user.id` is populated).
 
 ### Possible investigation steps
 
 - Confirm whether the user intentionally joined a device and whether the user agent matches a known provisioning package.
 - Pivot to `azure.signinlogs` for the same principal and timeframe for risky sign-ins or token broker activity.
 - Search for other `Register device` events from the same IP or user agent across the tenant.
+- Treat scripted clients (`axios/*`, `node`, `python-requests/*`) and offensive-tool device names (for example `GraphSpy-Device`, `DESKTOP-*` with a non-Dsreg user agent) as high-fidelity suspicious, especially from hosting ASNs.
+- Check for a preceding Microsoft Authentication Broker sign-in to the Device Registration Service and a follow-on `primaryRefreshToken` sign-in from an unmanaged device.
+
+### False positive analysis
+
+- Linux Intune and other third-party enrollment clients can present unfamiliar user agents. Validate against device inventory and add narrow exceptions on the user agent.
+- Service-initiated registrations (Windows 365 Cloud PC pre-authorized joins, Autopilot) have no initiating user and are excluded by the rule.
+- Microsoft-owned `EvoSTS` authorization checks from Microsoft ASN 8075 are excluded; the exclusion is bound to the ASN so a spoofed user agent from other infrastructure still alerts.
 
 ### Response and remediation
 
@@ -49,6 +62,8 @@ clients.
 references = [
     "https://learn.microsoft.com/en-us/entra/identity/devices/concept-directory-join",
     "https://github.com/dirkjanm/ROADtools",
+    "https://www.huntress.com/blog/token-replay-spray",
+    "https://www.elastic.co/security-labs/tycoon-2fa-aitm-detection-engineering",
 ]
 risk_score = 47
 rule_id = "d4695889-0410-4e7b-a4aa-59be525a11a6"
@@ -72,8 +87,10 @@ type = "query"
 query = '''
 data_stream.dataset:"azure.auditlogs" and event.action:"Register device" and
 event.outcome:(success or Success) and
+azure.auditlogs.properties.initiated_by.user.id:* and
 azure.auditlogs.properties.userAgent:(* and not (Dsreg* or DeviceRegistrationClient or Dalvik*)) and
-azure.auditlogs.properties.additional_details.value:"Azure AD join"
+azure.auditlogs.properties.additional_details.value:("Azure AD join" or "Azure AD register") and
+not (azure.auditlogs.properties.userAgent:EvoSTS and source.as.number:8075)
 '''
 
 [rule.investigation_fields]
