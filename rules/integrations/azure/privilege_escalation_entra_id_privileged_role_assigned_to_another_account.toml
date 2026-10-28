@@ -1,0 +1,230 @@
+[metadata]
+creation_date = "2026/10/19"
+integration = ["azure"]
+maturity = "production"
+updated_date = "2026/10/19"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies when a privileged Microsoft Entra ID directory role is assigned from one account to a different account. The
+actor can be a user or an application (service principal), and the member can be a user or a service principal. Privileged
+roles can be used to take over the tenant, reset credentials, add credentials to applications, or control mail and
+collaboration services, so an unexpected assignment is a strong persistence and privilege escalation signal. Adversaries
+that compromise an administrator or a vendor application may grant a privileged role to an account they control.
+"""
+false_positives = [
+    """
+    Planned role assignments by administrators during onboarding, role changes, or delegation. Validate against the
+    change record, and add exceptions for the administrators or automation accounts that routinely assign roles.
+    """,
+    """
+    Identity governance and provisioning tools that assign directory roles on behalf of administrators. Review the
+    initiating application and exclude it by application ID after review.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "Entra ID Privileged Role Assigned to Another Account"
+note = """## Triage and analysis
+
+### Investigating Entra ID Privileged Role Assigned to Another Account
+
+This rule fires when a user or application assigns a privileged Entra ID directory role to a different user or service
+principal. The privileged role list is exact: roles Microsoft marks as privileged plus other built-in roles with
+administrative control over major services. Because role assignment is normal administrator work, treat the alert as a
+prompt to confirm the assignment was expected.
+
+The rule evaluates the same operations as the application self-assignment rule: direct assignments and the PIM assignment
+operations. The "outside of PIM" operation is a PIM alert that records only the role, not the member, so it is not
+evaluated; the direct assignment it accompanies is.
+
+#### Possible investigation steps
+
+- Identify who assigned the role (`Esql.actor_id`, with `azure.auditlogs.properties.initiated_by.user.userPrincipalName` or `azure.auditlogs.properties.initiated_by.app.displayName`), who received it (`Esql.member_id` and `Esql.member_type`), and the role (`Esql.role_name`).
+- Confirm the assignment against a change request, ticket, or the administrator's expected duties. Note the source address in `azure.auditlogs.properties.initiated_by.user.ipAddress` for user actors.
+- If the actor is an application, review its service principal sign-ins for unexpected source addresses or user agents, and recent credential changes to the application.
+- If the member is newly created, a guest, or a service principal you do not recognize, treat the assignment as high risk. Review when the member was created and by whom.
+- Review what the member did after receiving the role: sign-ins, directory changes, new credentials, consent grants, and mailbox or file access.
+- Look for other privileged role assignments by the same actor around the same time.
+
+### False positive analysis
+
+- Planned administrator assignments and onboarding.
+- Identity governance, provisioning, and delegation tooling that assigns roles on behalf of administrators.
+
+### Response and remediation
+
+- If the assignment is unauthorized, remove the role assignment, disable the receiving account, and revoke its sessions.
+- Review and reset credentials of the actor if it appears compromised, and review any credentials, consent grants, and role assignments added since.
+- Add exceptions for expected administrators and provisioning accounts to reduce noise.
+"""
+references = [
+    "https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference",
+    "https://trustedsec.com/blog/managing-privileged-roles-in-microsoft-entra-id-a-pragmatic-approach",
+]
+risk_score = 47
+rule_id = "e953db0d-89ea-4696-b233-612250ee2a11"
+severity = "medium"
+tags = [
+    "Domain: Cloud",
+    "Domain: Identity",
+    "Data Source: Azure",
+    "Data Source: Microsoft Entra ID",
+    "Data Source: Microsoft Entra ID Audit Logs",
+    "Use Case: Identity and Access Audit",
+    "Use Case: Threat Detection",
+    "Tactic: Privilege Escalation",
+    "Tactic: Persistence",
+    "Resources: Investigation Guide",
+    "Rule Type: ES|QL",
+    "Platform: Entra ID",
+    "Profile: Beta"
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-azure.auditlogs-* metadata _id, _version, _index
+// role assignments, matching the same operations as the application self-assignment rule
+| where data_stream.dataset == "azure.auditlogs"
+  and azure.auditlogs.operation_name in (
+    "Add member to role",
+    "Add member to role outside of PIM (permanent)",
+    "Add member to role in PIM completed (permanent)",
+    "Add member to role in PIM completed (timebound)",
+    "Add eligible member to role in PIM completed (permanent)",
+    "Add eligible member to role in PIM completed (timebound)"
+  )
+  and event.outcome in ("success", "Success")
+// the actor can be a user or an application
+| eval Esql.actor_id = coalesce(azure.auditlogs.properties.initiated_by.user.id, azure.auditlogs.properties.initiated_by.app.servicePrincipalId)
+| eval Esql.actor_type = case(azure.auditlogs.properties.initiated_by.user.id is not null, "user", "service_principal")
+// the member is the account among the first two targets; the position differs by operation, and the "outside of PIM"
+// operation is a PIM alert that records only the role, so it has no member and is dropped below
+| eval Esql.member_id = case(
+    `azure.auditlogs.properties.target_resources.0.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.0.id`,
+    `azure.auditlogs.properties.target_resources.1.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.1.id`,
+    null
+  )
+| eval Esql.member_type = case(
+    `azure.auditlogs.properties.target_resources.0.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.0.type`,
+    `azure.auditlogs.properties.target_resources.1.type` in ("User", "ServicePrincipal", "Group"), `azure.auditlogs.properties.target_resources.1.type`,
+    null
+  )
+// one account assigning the role to a different account; self-assignment by an application has its own rule
+| where Esql.actor_id is not null and Esql.member_id is not null and Esql.actor_id != Esql.member_id
+// the role name is in a modified property for direct assignments, or the display name of the role target otherwise
+| eval Esql.role_name_raw = coalesce(
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.0.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.0.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.1.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.1.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.2.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.2.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.modified_properties.3.display_name` == "Role.DisplayName", `azure.auditlogs.properties.target_resources.0.modified_properties.3.new_value`, null),
+    case(`azure.auditlogs.properties.target_resources.0.type` == "Role", `azure.auditlogs.properties.target_resources.0.display_name`, null),
+    case(`azure.auditlogs.properties.target_resources.1.type` == "Role", `azure.auditlogs.properties.target_resources.1.display_name`, null)
+  )
+| eval Esql.role_name = replace(Esql.role_name_raw, "\"", "")
+// privileged roles: every built-in role marked PRIVILEGED in the Microsoft Entra built-in roles reference, plus other
+// built-in roles with administrative control over major Entra and Microsoft 365 services or access to tenant data.
+// Matched by exact role name, not by pattern.
+| where to_lower(Esql.role_name) in (
+    // marked PRIVILEGED by Microsoft
+    "agent id administrator", "ai administrator", "ai reader", "application administrator", "application developer",
+    "attribute provisioning administrator", "attribute provisioning reader", "authentication administrator",
+    "authentication extensibility administrator", "authentication extensibility password administrator",
+    "b2c ief keyset administrator", "cloud application administrator", "cloud device administrator",
+    "conditional access administrator", "directory writers", "domain name administrator",
+    "entra soc identity responder", "external identity provider administrator", "global administrator",
+    "global reader", "helpdesk administrator", "hybrid identity administrator", "identity governance administrator",
+    "intune administrator", "lifecycle workflows administrator", "partner tier1 support", "partner tier2 support",
+    "password administrator", "privileged authentication administrator", "privileged role administrator",
+    "security administrator", "security operator", "security reader", "tenant governance administrator",
+    "user administrator",
+    // not marked privileged by Microsoft, but with administrative control over major services
+    "attribute assignment administrator", "authentication policy administrator", "cloud app security administrator",
+    "compliance administrator", "directory synchronization accounts", "dynamics 365 administrator",
+    "exchange administrator", "external id user flow administrator", "global secure access administrator",
+    "groups administrator", "knowledge administrator", "microsoft 365 backup administrator",
+    "microsoft 365 migration administrator", "on premises directory sync account", "power platform administrator",
+    "sharepoint administrator", "skype for business administrator", "teams administrator",
+    "teams telephony administrator", "windows 365 administrator", "yammer administrator",
+    // additional roles: mailbox permissions, local administrator on joined devices (current and previous display
+    // name), delegated partner access to the tenant, and approval of Microsoft support access to customer data
+    "exchange recipient administrator", "azure ad joined device local administrator",
+    "microsoft entra joined device local administrator", "customer delegated admin relationship administrator",
+    "customer lockbox access approver", "entra customer lockbox approver",
+    // legacy display name of Global Administrator
+    "company administrator"
+  )
+| drop Esql.role_name_raw
+| keep @timestamp, Esql.*, azure.*, event.*, cloud.*, related.*, tags, source.*, agent.*, client.*, _id, _version, _index, data_stream.namespace
+'''
+
+[rule.investigation_fields]
+field_names = [
+    "Esql.actor_id",
+    "Esql.actor_type",
+    "Esql.member_id",
+    "Esql.member_type",
+    "Esql.role_name",
+    "azure.auditlogs.properties.initiated_by.user.userPrincipalName",
+    "azure.auditlogs.properties.initiated_by.app.displayName",
+    "azure.tenant_id",
+]
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+
+[[rule.threat.technique]]
+id = "T1078"
+name = "Valid Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1078.004"
+name = "Cloud Accounts"
+reference = "https://attack.mitre.org/techniques/T1078/004/"
+
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1098.003"
+name = "Additional Cloud Roles"
+reference = "https://attack.mitre.org/techniques/T1098/003/"
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
