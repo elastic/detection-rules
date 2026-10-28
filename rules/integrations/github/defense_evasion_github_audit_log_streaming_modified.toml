@@ -1,0 +1,126 @@
+[metadata]
+creation_date = "2026/09/21"
+integration = ["github"]
+maturity = "production"
+updated_date = "2026/09/21"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects when a GitHub Enterprise audit log streaming destination is updated or deleted. Adversaries who gain enterprise
+admin access may change the stream sink or destroy it to stop security telemetry from reaching the SIEM, or to redirect
+audit events to attacker-controlled storage.
+"""
+false_positives = [
+    """
+    Planned stream rotation, sink migration, or pausing a misconfigured destination by an enterprise owner. Confirm the
+    actor, change ticket, and that the production SIEM sink remains enabled.
+    """,
+]
+from = "now-9m"
+language = "esql"
+license = "Elastic License v2"
+name = "GitHub Audit Log Streaming Configuration Modified or Deleted"
+note = """## Triage and analysis
+
+### Investigating GitHub Audit Log Streaming Configuration Modified or Deleted
+
+Enterprise audit log streaming is the durable copy of GitHub audit events. Updating or deleting a stream can blind detection coverage or send logs to an untrusted bucket.
+
+### Possible investigation steps
+
+- Identify `user.name`, `github.programmatic_access_type`, `github.hashed_token`, and `github.actor_ip`.
+- Confirm whether `event.action` is `audit_log_streaming.update` or `audit_log_streaming.destroy` and inspect `github.audit_log_stream_id` / `github.audit_log_stream_sink`.
+- Verify in GitHub Enterprise settings that the production SIEM destination is still enabled and pointing at the expected sink.
+- Correlate nearby enterprise-admin actions (IP allow list, SSO, owner changes) from the same actor or token.
+
+### False positive analysis
+
+- Authorized sink rotation or OIDC role replacement.
+- Deleting a throwaway/test stream while the production stream stays enabled.
+
+### Response and remediation
+
+- If unauthorized, restore the production stream immediately and rotate the actor's credentials.
+- Review other enterprise settings changed in the same window.
+- Treat a destroy of the SIEM-bound stream as a detection outage and backfill from GitHub's retained audit log if needed.
+"""
+references = [
+    "https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise",
+]
+risk_score = 73
+rule_id = "f419b071-4568-4559-a81f-109075160537"
+severity = "high"
+tags = [
+    "Domain: Cloud",
+    "Domain: SaaS",
+    "Platform: GitHub",
+    "Use Case: Threat Detection",
+    "Tactic: Defense Evasion",
+    "Data Source: GitHub Audit Logs",
+    "Rule Type: ESQL",
+    "Resources: Investigation Guide",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+from logs-github.audit-* metadata _id, _index, _version
+| where
+  event.module == "github" and data_stream.dataset == "github.audit"
+    and event.action in ("audit_log_streaming.update", "audit_log_streaming.destroy")
+| keep
+    _id,
+    _index,
+    _version,
+    @timestamp,
+    event.action,
+    user.name,
+    github.org,
+    github.repo,
+    github.actor_ip,
+    github.hashed_token,
+    github.programmatic_access_type,
+    github.user_agent,
+    github.business,
+    github.audit_log_stream_id,
+    github.audit_log_stream_sink,
+    github.audit_log_stream_enabled
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1562"
+name = "Impair Defenses"
+reference = "https://attack.mitre.org/techniques/T1562/"
+[[rule.threat.technique.subtechnique]]
+id = "T1562.008"
+name = "Disable or Modify Cloud Logs"
+reference = "https://attack.mitre.org/techniques/T1562/008/"
+
+
+
+[rule.threat.tactic]
+id = "TA0005"
+name = "Defense Evasion"
+reference = "https://attack.mitre.org/tactics/TA0005/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "event.action",
+    "user.name",
+    "github.org",
+    "github.repo",
+    "github.actor_ip",
+    "github.hashed_token",
+    "github.programmatic_access_type",
+    "github.user_agent",
+    "github.business",
+    "github.audit_log_stream_id",
+    "github.audit_log_stream_sink",
+    "github.audit_log_stream_enabled",
+]
+
