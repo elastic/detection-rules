@@ -49,7 +49,7 @@ from logs-network_traffic.flow-*, packetbeat-*, logs-panw.panos*
         and event.type == "connection"
         and (
           data_stream.dataset == "network_traffic.flow"
-          or type == "flow"
+          or agent.type == "packetbeat"
         )
       )
       or (
@@ -119,7 +119,7 @@ session-start records, and a compatibility branch for standalone Packetbeat.
 
 For Network Packet Capture, enable ECS compatibility. The rule counts interim and final flow reports that emit
 `event.action:network_flow` and include `connection` in `event.type`. The standalone Packetbeat branch requires
-`type:flow` with the same ECS action and type values; verify that branch against the deployed Packetbeat version and
+`agent.type:packetbeat` with the same ECS action and type values; verify that branch against the deployed Packetbeat version and
 configuration before relying on it.
 
 For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts.
