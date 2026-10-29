@@ -13,8 +13,10 @@ Detects a Ray worker (`ray/_private/workers/default_worker.py`) spawning a shell
 command (`python -c` / `python3 -c`), or a discovery or download utility. Ray runs job entrypoints from
 that worker through a shell, so a Python reverse shell shows up as `sh -c` or `bash -c` whose command
 line contains `python -c` and the program it starts, such as `/bin/sh -i`. On an exposed cluster this is
-exploitation of the public-facing Ray jobs API (CVE-2023-48022). The rule ignores Ray respawning
-another `default_worker.py` process.
+exploitation of the public-facing Ray jobs API (CVE-2023-48022). Ray commonly hosts LLM
+training, fine-tuning, and serving, so this can be an attack on that infrastructure: theft of model
+weights, datasets, or API and cloud tokens, tampering with a served model, or use of the GPUs for
+cryptomining.
 """
 from = "now-9m"
 language = "esql"
@@ -47,8 +49,6 @@ are children of the shell, not of the worker, so they are separate events.
   `sh -c` on Linux. Expect this rule on clusters that run jobs.
 - Tune with the entrypoint command line, the Ray working directory, the host, or the user. Do not exclude
   `python` or `default_worker.py` broadly, or the worker respawn noise returns and the entrypoint shell is missed.
-- Ray launching another copy of `default_worker.py` is already excluded.
-- A direct `python -m` child, such as `/usr/bin/python3 -m vllm.model_executor.models.registry`, is not matched. Only `python*` with args `-c` is.
 
 ### Response and remediation
 
@@ -108,7 +108,7 @@ FROM logs-endpoint.events.process-* METADATA _id, _version, _index
       "curl", "curl.exe", "wget", "wget.exe",
       "whoami", "whoami.exe", "id", "uname", "hostname", "hostname.exe"
     )
-    // Direct python -c child of the worker. python -m (for example vLLM) does not match.
+    // Direct python -c child of the worker.
     OR (
       TO_LOWER(process.name) LIKE "python*"
       AND MV_CONTAINS(process.args, "-c")
