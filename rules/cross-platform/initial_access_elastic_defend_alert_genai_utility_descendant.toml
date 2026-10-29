@@ -3,7 +3,7 @@ creation_date = "2026/02/27"
 maturity = "production"
 min_stack_comments = "ES|QL inline stats became generally available in 9.3.0 and MV_INTERSECTION is in preview since 9.3."
 min_stack_version = "9.3.0"
-updated_date = "2026/09/25"
+updated_date = "2026/10/29"
 
 [rule]
 author = ["Elastic"]
@@ -75,8 +75,10 @@ FROM logs-endpoint.alerts-*, logs-endpoint.events.process-* metadata _id, _versi
         "aider", "aider.exe", "cline", "cline.exe", "continue", "continue.exe",
         "zed", "zed.exe", "windsurf", "windsurf.exe",
         "tabnine", "tabnine.exe", "codeium", "codeium.exe", "bolt", "bolt.exe",
-        "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe"
-    ),
+        "devin", "devin.exe", "replit", "replit.exe", "ghostwriter", "ghostwriter.exe", "bito", "bito.exe",
+        "deepseek harness.exe", "antigravity.exe", "antigravity ide.exe", "agy.exe"
+    ) OR TO_LOWER(process.parent.executable) LIKE "*\\\\programs\\\\antigravity*\\\\*language_server*"
+      OR TO_LOWER(process.parent.executable) LIKE "*\\\\antigravity\\\\resources\\\\*language_server*",
      is_openclaw_spawn = process.parent.name in ("node", "node.exe") and (process.parent.command_line like "*openclaw*" or process.parent.command_line like "*moltbot*" or process.parent.command_line like "*clawdbot*")
 | WHERE process.Ext.ancestry IS NOT NULL and 
    (data_stream.dataset == "endpoint.alerts" or is_genai_spawn or is_openclaw_spawn)
