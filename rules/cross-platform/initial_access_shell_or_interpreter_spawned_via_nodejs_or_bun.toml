@@ -1,0 +1,257 @@
+[metadata]
+creation_date = "2026/10/28"
+integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
+maturity = "production"
+updated_date = "2026/10/28"
+
+[rule]
+author = ["Cyber-Threat.net Hunt Lab"]
+description = """
+Detects a Node.js or Bun process spawning a shell, scripting interpreter or common
+Windows living-off-the-land binary. This behaviour is a common post-exploitation
+step after remote code execution inside a Node.js or Bun runtime, including
+exploitation of CVE-2026-111497 (Node2Shell / Brotli decoder). The rule is
+behaviour-based rather than an exploit signature: it fires on code execution that
+starts a child shell or interpreter from node or bun, whatever the cause. Curl and
+wget children are intentionally omitted because they are covered by the existing
+"Curl or Wget Spawned via Node.js" rule.
+"""
+false_positives = [
+    """
+    Node.js applications that legitimately shell out through child_process (for
+    example image, PDF, git or media wrappers). Exclude by host and exact child
+    command line, not by parent name alone.
+    """,
+    """
+    Development hosts, CI runners, test runners (jest, vitest, mocha), Electron
+    tooling and process managers (pm2, nodemon, forever). Scope the rule to
+    production servers and containers first.
+    """,
+    """
+    Package managers and native build tools (npm, npx, yarn, pnpm, corepack,
+    node-gyp, prebuild-install). Parent command-line filters exclude the common
+    cases; custom wrappers may still generate noise.
+    """,
+]
+from = "now-9m"
+index = [
+    "endgame-*",
+    "logs-crowdstrike.fdr*",
+    "logs-endpoint.events.process-*",
+    "logs-sentinel_one_cloud_funnel.*",
+    "logs-system.security*",
+    "logs-windows.forwarded*",
+    "logs-windows.sysmon_operational-*",
+    "winlogbeat-*",
+    "auditbeat-*",
+    "logs-auditd_manager.auditd-*",
+]
+language = "eql"
+license = "Elastic License v2"
+name = "Shell or Scripting Interpreter Spawned via Node.js or Bun"
+note = """## Triage and analysis
+
+### Investigating Shell or Scripting Interpreter Spawned via Node.js or Bun
+
+Adversaries who gain code execution inside a Node.js or Bun process often start a
+shell or scripting interpreter next. For CVE-2026-111497 (Node2Shell), malformed
+Brotli data delivered through fetch() responses or Express / body-parser request
+bodies can lead to crashes or remote code execution on unpatched runtimes. A child
+shell from an internet-facing Node service that has never shelled out before is a
+high-priority lead.
+
+This rule complements "Curl or Wget Spawned via Node.js", which covers download
+tools. Together they cover both reverse-shell style execution and tool transfer.
+
+### Possible investigation steps
+
+- Review the full process tree: parent node/bun command line, working
+  directory, user, and whether the service is internet-facing.
+- Inspect the child command line for reverse shells, encoded payloads,
+  download-and-execute chains, or credential access.
+- Correlate with web / proxy logs in the preceding minutes for unusual
+  Content-Encoding: br request bodies or unexpected outbound fetches from the
+  service.
+- Check the Node.js / Bun / system Brotli package versions against the October
+  2026 security releases. Distribution-packaged Node.js may need the OS brotli
+  package rather than a Node.js bump.
+- Look for follow-on file writes under the service account, new persistence, and
+  unusual egress.
+
+### False positive analysis
+
+- Legitimate child_process usage in production apps: exclude by exact child
+  command line after confirming the business need.
+- CI and developer hosts: keep the rule disabled there or constrain by host /
+  namespace tags.
+- Package-manager activity that bypasses the filters (custom wrappers): tune the
+  exception list rather than disabling the rule.
+
+### Response and remediation
+
+- Isolate the host or container if the child command line is clearly malicious.
+- Preserve process, web, file and network telemetry before restarting workers.
+- Patch or rebuild the runtime; rotate secrets available to the service account.
+- Hunt for the same parent/child pattern across other Node.js / Bun workloads.
+"""
+references = [
+    "https://cyber-threat.net/node2shell-brotli-cve-2026-111497/",
+    "https://github.com/CyberThreatNet/hunt-lab/tree/main/hunts/2026/2026-10-26-node2shell-brotli",
+    "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases",
+    "https://nvd.nist.gov/vuln/detail/CVE-2026-111497",
+    "https://www.imperva.com/blog/node2shell-from-brotli-data-to-remote-code-execution/",
+]
+risk_score = 47
+rule_id = "174e1d6d-424a-4ec7-856b-7b5f05611446"
+setup = """## Setup
+
+This rule requires data coming in from Elastic Defend (or an equivalent process
+telemetry integration listed in the rule index patterns).
+
+### Elastic Defend Integration Setup
+Elastic Defend is integrated into the Elastic Agent using Fleet. Upon configuration,
+the integration allows the Elastic Agent to monitor events on your host and send
+data to the Elastic Security app.
+
+#### Prerequisite Requirements:
+- Fleet is required for Elastic Defend.
+- To configure Fleet Server refer to the [documentation](https://www.elastic.co/guide/en/fleet/current/fleet-server.html).
+
+#### The following steps should be executed in order to add the Elastic Defend integration on a Linux System:
+- Go to the Kibana home page and click "Add integrations".
+- In the query bar, search for "Elastic Defend" and select the integration to see more details about it.
+- Click "Add Elastic Defend".
+- Configure the integration name and optionally add a description.
+- Select the type of environment you want to protect, either "Traditional Endpoints" or "Cloud Workloads".
+- Select a configuration preset. Each preset comes with different default settings for Elastic Agent, you can further customize these later by configuring the Elastic Defend integration policy. [Helper guide](https://www.elastic.co/guide/en/security/current/configure-endpoint-integration-policy.html).
+- We suggest selecting "Complete EDR (Endpoint Detection and Response)" as a configuration setting, that provides "All events; all preventions"
+- Enter a name for the agent policy in "New agent policy name". If other agent policies already exist, you can click the "Existing hosts" tab and select an existing policy instead.
+For more details on Elastic Agent configuration settings, refer to the [helper guide](https://www.elastic.co/guide/en/fleet/8.10/agent-policy.html).
+- Click "Save and Continue".
+- To complete the integration, select "Add Elastic Agent to your hosts" and continue to the next section to install the Elastic Agent on your hosts.
+For more details on Elastic Defend refer to the [helper guide](https://www.elastic.co/guide/en/security/current/install-endpoint.html).
+"""
+severity = "medium"
+tags = [
+    "Domain: Endpoint",
+    "OS: Linux",
+    "OS: Windows",
+    "OS: macOS",
+    "Use Case: Threat Detection",
+    "Use Case: Vulnerability",
+    "Tactic: Initial Access",
+    "Tactic: Execution",
+    "Resources: Investigation Guide",
+    "Data Source: Elastic Defend",
+    "Data Source: Elastic Endgame",
+    "Data Source: Windows Security Event Logs",
+    "Data Source: Sysmon",
+    "Data Source: SentinelOne",
+    "Data Source: Crowdstrike",
+    "Data Source: Auditd Manager",
+    "Noise: Medium",
+    "Performance: Normal",
+    "Profile: Recommended",
+    "Threat: Vulnerability Exploit",
+    "Threat: Living off the Land",
+    "Rule Type: Event Correlation (EQL)",
+    "Platform: Windows",
+    "Platform: Linux",
+    "Platform: macOS",
+    "Vuln: CVE-2026-111497",
+]
+timestamp_override = "event.ingested"
+type = "eql"
+query = '''
+process where event.type == "start" and
+event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
+process.parent.name in ("node", "nodejs", "bun", "node.exe", "bun.exe") and
+process.name in (
+  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+  "cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe",
+  "perl", "python", "python3", "python.exe", "perl.exe",
+  "nc", "ncat", "netcat", "socat", "base64",
+  "certutil.exe", "bitsadmin.exe", "mshta.exe"
+) and not (
+  process.parent.command_line like~ (
+    "npm *",
+    "npx *",
+    "*npm-cli.js*",
+    "*npx-cli.js*",
+    "*pnpm.cjs*",
+    "*/bin/pnpm *",
+    "*/.bin/pnpm *",
+    "*\\\\pnpm.cjs*",
+    "*yarn.js*",
+    "*/bin/yarn *",
+    "*/.bin/yarn *",
+    "*.yarn/releases/yarn-*",
+    "*\\\\.yarn\\\\releases\\\\yarn-*",
+    "*corepack*",
+    "*node-gyp*",
+    "*prebuild-install*"
+  ) or
+  process.parent.executable like (
+    "/*/.cursor-server/*node",
+    "/home/*/cursor-agent/*/node",
+    "/*/.vscode-server/*node",
+    "/home/*/.vscode-server/*/node"
+  ) or
+  process.command_line like~ (
+    "*node-gyp*",
+    "*prebuild-install*",
+    "*npm run *"
+  )
+)
+'''
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1190"
+name = "Exploit Public-Facing Application"
+reference = "https://attack.mitre.org/techniques/T1190/"
+
+[rule.threat.tactic]
+id = "TA0001"
+name = "Initial Access"
+reference = "https://attack.mitre.org/tactics/TA0001/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1059"
+name = "Command and Scripting Interpreter"
+reference = "https://attack.mitre.org/techniques/T1059/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.001"
+name = "PowerShell"
+reference = "https://attack.mitre.org/techniques/T1059/001/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.003"
+name = "Windows Command Shell"
+reference = "https://attack.mitre.org/techniques/T1059/003/"
+
+[[rule.threat.technique.subtechnique]]
+id = "T1059.004"
+name = "Unix Shell"
+reference = "https://attack.mitre.org/techniques/T1059/004/"
+
+[rule.threat.tactic]
+id = "TA0002"
+name = "Execution"
+reference = "https://attack.mitre.org/tactics/TA0002/"
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1105"
+name = "Ingress Tool Transfer"
+reference = "https://attack.mitre.org/techniques/T1105/"
+
+[rule.threat.tactic]
+id = "TA0011"
+name = "Command and Control"
+reference = "https://attack.mitre.org/tactics/TA0011/"
