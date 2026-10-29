@@ -1,0 +1,188 @@
+[metadata]
+creation_date = "2026/10/28"
+integration = ["system", "windows"]
+maturity = "production"
+updated_date = "2026/10/28"
+
+[rule]
+author = ["Elastic"]
+description = """
+Identifies a user account whose User Principal Name (UPN) was changed to a suffixless value that differs from its
+sAMAccountName, which may indicate an attempt to reset another account's password without knowing it by abusing the
+ResetNightmare Kerberos vulnerability (CVE-2026-27912).
+"""
+false_positives = [
+    """
+    Identity provisioning or migration tools that assign a suffixless UPN different from the account's sAMAccountName.
+    """,
+]
+from = "now-9m"
+interval = "5m"
+language = "esql"
+license = "Elastic License v2"
+name = "Potential ResetNightmare UPN Manipulation"
+note = """## Triage and analysis
+
+### Investigating Potential ResetNightmare UPN Manipulation
+
+ResetNightmare (CVE-2026-27912) is a Kerberos Change Password validation flaw that lets an attacker reset any account's
+password without knowing it. The attacker sets the UPN of an account they control to the target's sAMAccountName,
+requests a TGT for that name, clears the UPN, and uses the TGT to change the target's password. This rule detects the
+first step, the UPN assignment.
+
+#### Possible investigation steps
+
+- What UPN was assigned, and to which account?
+  - Focus: `winlog.event_data.UserPrincipalName` on the modified account (`winlog.event_data.TargetUserName`,
+    `winlog.event_data.TargetSid`).
+  - Implication: an assigned value that matches the name of another account, especially a privileged one such as
+    Administrator, is the ResetNightmare pattern.
+
+- Does another account use the assigned UPN value as its sAMAccountName?
+  - Focus: look up `Esql.upn` against current domain account names and note the matching account's SID and privileges.
+  - Implication: a match makes the alert highly suspicious. No match is weaker evidence, as the account may have been
+    renamed or deleted since the alert.
+
+- Who made the change?
+  - Focus: `winlog.event_data.SubjectUserName` and `winlog.event_data.SubjectUserSid`.
+  - Implication: a low-privileged, unexpected, or recently compromised modifier increases suspicion. A modifier that is
+    the modified account itself is consistent with an attacker editing an account they control.
+
+- Was the UPN cleared shortly after, and did Kerberos or password-change activity follow?
+  - Focus: later 4738 events that clear or replace the UPN on the same `winlog.event_data.TargetSid`, 4768 events for
+    that account, and 4723 events where the modified account is the subject and the target is the account whose name
+    matches `Esql.upn`.
+  - Implication: an assignment, a Kerberos request, a UPN clear, and a password change on the matching account in
+    quick succession is consistent with ResetNightmare exploitation.
+
+- What did the modified account and the modifier do afterwards?
+  - Focus: logons, privilege use, and group membership changes for both accounts and for the matching account.
+  - Implication: authentication or privileged activity by the matching account from an unusual host after a password
+    change suggests account takeover.
+
+- Is the change an authorized workflow?
+  - Focus: identity management, migration, or compatibility tooling and change records for the modifier and the
+    modified account.
+  - Implication: if a documented workflow explains the modifier, account, assigned UPN, and time, treat it as benign.
+    Otherwise treat it as suspicious.
+
+### False positive analysis
+
+- Identity provisioning or migration tools can assign a suffixless UPN that differs from the sAMAccountName. If the
+  workflow is confirmed, add an exception scoped to the modifier SID and the modified account SID together. Do not
+  except all suffixless UPNs.
+
+### Response and remediation
+
+- If benign, record the workflow that explains the change.
+- If suspicious, preserve the 4738 event and the related 4768, 4723, and logon events before changing directory
+  state, and identify the account whose sAMAccountName matches the assigned UPN.
+- If malicious, disable or contain the modifying and controlled accounts, reset the password of the matching account and
+  any other affected account, remove the unauthorized UPN, and review activity by the affected accounts.
+- Patch domain controllers for CVE-2026-27912 and restrict UPN write permissions to the accounts that need them.
+"""
+references = [
+    "https://www.semperis.com/blog/identity-crisis-novel-vulnerabilities-leading-to-kerberos-downgrade-dos-and-full-domain-takeover/",
+    "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-27912",
+    "https://github.com/Semperis-Community/ResetNightmare",
+]
+risk_score = 47
+rule_id = "a11970da-da70-456c-b32a-14f3bb3ab7d2"
+setup = """## Setup
+
+Audit User Account Management must be enabled to generate the events used by this rule.
+Setup instructions: https://ela.st/audit-user-account-management
+"""
+severity = "medium"
+tags = [
+    "Domain: Identity",
+    "OS: Windows",
+    "Platform: Windows",
+    "Use Case: Threat Detection",
+    "Use Case: Active Directory Monitoring",
+    "Use Case: Vulnerability",
+    "Tactic: Persistence",
+    "Tactic: Privilege Escalation",
+    "Data Source: Active Directory",
+    "Data Source: Windows Security Event Logs",
+    "Threat: Vulnerability Exploit",
+    "Rule Type: ES|QL",
+    "Resources: Investigation Guide",
+    "Vuln: CVE-2026-27912",
+]
+timestamp_override = "event.ingested"
+type = "esql"
+
+query = '''
+FROM logs-system.security-*, logs-windows.forwarded-* METADATA _id, _index, _version
+| WHERE event.code == "4738"
+| EVAL
+    Esql.upn = TO_LOWER(winlog.event_data.UserPrincipalName),
+    Esql.account_name = TO_LOWER(winlog.event_data.TargetUserName)
+| WHERE Esql.upn IS NOT NULL AND
+    Esql.upn NOT IN ("", "-", "<value not set>") AND
+    Esql.upn NOT LIKE "*@*" AND
+    Esql.upn != Esql.account_name
+| KEEP
+    @timestamp,
+    event.ingested,
+    event.code,
+    host.id,
+    host.name,
+    winlog.computer_name,
+    winlog.record_id,
+    winlog.event_data.SubjectUserSid,
+    winlog.event_data.SubjectUserName,
+    winlog.event_data.SubjectDomainName,
+    winlog.event_data.SubjectLogonId,
+    winlog.event_data.TargetSid,
+    winlog.event_data.TargetUserName,
+    winlog.event_data.TargetDomainName,
+    winlog.event_data.UserPrincipalName,
+    Esql.upn,
+    Esql.account_name,
+    _id,
+    _index,
+    _version
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0004"
+name = "Privilege Escalation"
+reference = "https://attack.mitre.org/tactics/TA0004/"
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1098"
+name = "Account Manipulation"
+reference = "https://attack.mitre.org/techniques/T1098/"
+
+
+[rule.threat.tactic]
+id = "TA0003"
+name = "Persistence"
+reference = "https://attack.mitre.org/tactics/TA0003/"
+
+[rule.investigation_fields]
+field_names = [
+    "@timestamp",
+    "winlog.computer_name",
+    "winlog.event_data.SubjectUserName",
+    "winlog.event_data.SubjectUserSid",
+    "winlog.event_data.SubjectDomainName",
+    "winlog.event_data.SubjectLogonId",
+    "winlog.event_data.TargetUserName",
+    "winlog.event_data.TargetSid",
+    "winlog.event_data.TargetDomainName",
+    "winlog.event_data.UserPrincipalName",
+]
+
