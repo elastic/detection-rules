@@ -1,0 +1,100 @@
+[metadata]
+creation_date = "2026/10/29"
+integration = ["vsphere"]
+maturity = "production"
+updated_date = "2026/10/29"
+
+[rule]
+author = ["Elastic"]
+description = """
+Detects ESXi console welcome-message commands containing ransom, decryption, or bitcoin language. Attackers may change
+this message to display extortion instructions. The command alone does not establish successful defacement or file
+encryption.
+"""
+false_positives = [
+    """
+    Authorized ransomware simulations and incident-response exercises can set the same console text. A legitimate banner
+    containing a matched term can also trigger this rule.
+    """,
+]
+from = "now-10m"
+index = ["logs-vsphere.log-*"]
+interval = "5m"
+language = "kuery"
+license = "Elastic License v2"
+name = "ESXi Ransom-Related Console Message Configured"
+note = """## Triage and analysis
+
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
+### Investigating ESXi Ransom-Related Console Message Configured
+
+The query requires a welcomemsg set command and ransom-related content. Review the complete message and session to distinguish an extortion notice from approved banner text or a security exercise.
+
+#### Possible investigation steps
+
+- Read message and event.original for the console text and configuration command. Identify the account and originating session.
+- Confirm the resulting welcome message through an approved administrative path. Do not infer encryption solely from the banner.
+- Check the same host and session for VM shutdowns, snapshot deletion, datastore file changes, and logging impairment.
+- Confirm whether the activity belongs to an authorized exercise or scheduled console-banner change.
+
+### False positive analysis
+
+Security exercises can intentionally create ransom messages. Legitimate banners may also contain these words. Verify the full text, change approval, and surrounding behavior before suppressing an alert.
+
+### Response and remediation
+
+- If the change is unauthorized, preserve console text, session records, and related host logs.
+- Coordinate management-access restrictions with the virtualization owner and assess VM and datastore integrity.
+- Restore the approved banner after collecting evidence and follow the incident response process for any associated impact.
+"""
+references = [
+    "https://github.com/redcanaryco/atomic-red-team/blob/388942adbd9641f4dfdcf079d7efe9a75ec0ac43/atomics/T1491.001/T1491.001.yaml",
+]
+risk_score = 73
+rule_id = "227d0ba1-0313-510f-a265-bc0adaccdf10"
+setup = """## Setup
+
+Collect ESXi host syslog with the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
+
+"""
+severity = "high"
+tags = [
+    "Domain: Endpoint",
+    "Data Source: VMware vSphere",
+    "Use Case: Threat Detection",
+    "Tactic: Impact",
+    "Resources: Investigation Guide",
+    "Rule Type: Custom Query (KQL)",
+    "Platform: VMware ESXi",
+    "Threat: Ransomware",
+]
+timestamp_override = "event.ingested"
+type = "query"
+
+query = '''
+data_stream.dataset:"vsphere.log" and message:("welcomemsg set" and ("ransom" or "ransomware" or "decrypt" or "decryption" or "decryptor" or "bitcoin"))
+'''
+
+
+[[rule.threat]]
+framework = "MITRE ATT&CK"
+[[rule.threat.technique]]
+id = "T1491"
+name = "Defacement"
+reference = "https://attack.mitre.org/techniques/T1491/"
+[[rule.threat.technique.subtechnique]]
+id = "T1491.001"
+name = "Internal Defacement"
+reference = "https://attack.mitre.org/techniques/T1491/001/"
+
+
+
+[rule.threat.tactic]
+id = "TA0040"
+name = "Impact"
+reference = "https://attack.mitre.org/tactics/TA0040/"
+
+[rule.investigation_fields]
+field_names = ["@timestamp", "host.name", "message", "event.original", "process.name"]
