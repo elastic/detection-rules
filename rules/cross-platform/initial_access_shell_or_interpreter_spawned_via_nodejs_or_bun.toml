@@ -2,7 +2,7 @@
 creation_date = "2026/10/28"
 integration = ["endpoint", "windows", "system", "sentinel_one_cloud_funnel", "crowdstrike", "auditd_manager"]
 maturity = "production"
-updated_date = "2026/10/28"
+updated_date = "2026/10/29"
 
 [rule]
 author = ["Cyber-Threat.net Hunt Lab"]
@@ -29,8 +29,9 @@ false_positives = [
     """,
     """
     Package managers and native build tools (npm, npx, yarn, pnpm, corepack,
-    node-gyp, prebuild-install). Parent command-line filters exclude the common
-    cases; custom wrappers may still generate noise.
+    node-gyp, prebuild-install). Exclusions match the parent Node.js or Bun
+    command line only. A child shell or interpreter command line is not an
+    exclusion; custom wrappers may still generate noise.
     """,
 ]
 from = "now-9m"
@@ -84,6 +85,9 @@ tools. Together they cover both reverse-shell style execution and tool transfer.
   command line after confirming the business need.
 - CI and developer hosts: keep the rule disabled there or constrain by host /
   namespace tags.
+- Package-manager exclusions match the parent Node.js or Bun command line only.
+  Text in the child shell or interpreter command line, including a trailing
+  comment, does not suppress the alert.
 - Package-manager activity that bypasses the filters (custom wrappers): tune the
   exception list rather than disabling the rule.
 
@@ -164,14 +168,37 @@ timestamp_override = "event.ingested"
 type = "eql"
 query = '''
 process where event.type == "start" and
-event.action in ("exec", "exec_event", "start", "ProcessRollup2", "executed", "process_started") and
-process.parent.name in ("node", "nodejs", "bun", "node.exe", "bun.exe") and
-process.name in (
-  "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
-  "cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe",
-  "perl", "python", "python3", "python.exe", "perl.exe",
-  "nc", "ncat", "netcat", "socat", "base64",
-  "certutil.exe", "bitsadmin.exe", "mshta.exe"
+/*
+  Keep the known process-creation actions. Windows Security 4688 is
+  created-process. Elastic Agent Sysmon Event ID 1 is "Process creation".
+  Older Winlogbeat Sysmon uses "Process Create (rule: ProcessCreate)".
+*/
+event.action : (
+  "exec",
+  "exec_event",
+  "start",
+  "ProcessRollup2",
+  "executed",
+  "process_started",
+  "created-process",
+  "Process creation",
+  "Process Create*"
+) and
+process.parent.name : ("node", "nodejs", "node.exe", "nodejs.exe", "bun", "bun.exe") and
+(
+  process.name : (
+    "bash", "dash", "sh", "tcsh", "csh", "zsh", "ksh", "fish", "busybox",
+    "cmd.exe", "powershell.exe", "pwsh", "pwsh.exe", "bash.exe",
+    "perl", "perl.exe", "python*",
+    "py.exe", "pyw.exe",
+    "nc", "ncat", "netcat", "socat", "base64",
+    "certutil.exe", "bitsadmin.exe", "mshta.exe"
+  ) or
+  ?process.pe.original_file_name : (
+    "cmd.exe", "powershell.exe", "pwsh.exe", "pwsh.dll", "bash.exe",
+    "perl.exe", "python.exe", "pythonw.exe", "py.exe",
+    "certutil.exe", "bitsadmin.exe", "mshta.exe"
+  )
 ) and not (
   process.parent.command_line like~ (
     "npm *",
@@ -181,12 +208,12 @@ process.name in (
     "*pnpm.cjs*",
     "*/bin/pnpm *",
     "*/.bin/pnpm *",
-    "*\\\\pnpm.cjs*",
+    "*\\pnpm.cjs*",
     "*yarn.js*",
     "*/bin/yarn *",
     "*/.bin/yarn *",
     "*.yarn/releases/yarn-*",
-    "*\\\\.yarn\\\\releases\\\\yarn-*",
+    "*\\.yarn\\releases\\yarn-*",
     "*corepack*",
     "*node-gyp*",
     "*prebuild-install*"
@@ -196,11 +223,6 @@ process.name in (
     "/home/*/cursor-agent/*/node",
     "/*/.vscode-server/*node",
     "/home/*/.vscode-server/*/node"
-  ) or
-  process.command_line like~ (
-    "*node-gyp*",
-    "*prebuild-install*",
-    "*npm run *"
   )
 )
 '''
