@@ -2,19 +2,18 @@
 creation_date = "2026/09/30"
 integration = ["vsphere"]
 maturity = "production"
-updated_date = "2026/09/30"
+updated_date = "2026/10/29"
 
 [rule]
 author = ["Elastic"]
 description = """
-Detects `esxcli vm process list` on an ESXi host. The command lists running virtual machines and the world IDs of
-their `vmx` processes. Those IDs are what a later kill command uses to stop the VMs and release the locks on their
-virtual disks.
+Detects enumeration of running ESXi virtual machines through esxcli vm process list or its native API operation. The
+results include VM world IDs that can be used by subsequent commands to terminate virtual machines.
 """
 false_positives = [
     """
-    Administrators list virtual machines during maintenance and troubleshooting. Review whether the same session
-then kills those processes or searches the datastore.
+    Administrators list virtual machines during maintenance and troubleshooting. Review whether the same session then
+    kills those processes or searches the datastore.
     """,
 ]
 from = "now-9m"
@@ -24,36 +23,39 @@ license = "Elastic License v2"
 name = "ESXi Virtual Machine Process List"
 note = """## Triage and analysis
 
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
+
 ### Investigating ESXi Virtual Machine Process List
 
-esxcli vm process list enumerates running virtual machines and their world ids. A later kill command uses those world ids to stop the VMs.
+The esxcli vm process list command enumerates running VMs and their world IDs. Native envoy-access records can expose the corresponding VimEsxCLIvmprocesslist operation when a long SSH command is truncated in the shell log.
 
 #### Possible investigation steps
 
-- Read message for a plain list versus a list piped into vm process kill.
-- Check the same session for pkill, power.off, snapshot removal, or a search for vmdk files.
-- Confirm with the virtualization owner whether the list was part of a scheduled check.
+- Review the command or API-operation record and correlate it with the originating SSH or administrative session.
+- Check the same session for vm process kill, pkill, power.off, snapshot removal, or datastore searches.
+- Confirm with the virtualization owner whether the enumeration was part of authorized maintenance or inventory.
 
 ### False positive analysis
 
-A standalone list during a change window is commonly benign. A list immediately followed by a force kill of every world id is the shutdown step before encryption.
+Routine management tools and administrators enumerate VMs. This low-severity discovery signal needs surrounding context; the API-operation alternative can also match legitimate management activity.
 
 ### Response and remediation
 
-- If the same session kills virtual machines or deletes snapshots, isolate the host.
-- Otherwise record the account and source for hunting on other hosts.
+- If enumeration is followed by unauthorized VM shutdowns or snapshot deletion, preserve the session evidence and follow the virtualization incident response plan.
+- For an approved inventory workflow, record the source and purpose. Apply only narrowly scoped exceptions supported by that context.
 """
 references = [
     "https://lolesxi-project.github.io/LOLESXi/#",
     "https://blogs.vmware.com/security/2022/10/esxi-targeting-ransomware-tactics-and-techniques-part-2.html",
     "https://detect.fyi/vmware-esxi-logging-detection-opportunities-4fb56411ec21",
 ]
+risk_score = 21
+rule_id = "a7f969e5-6cfd-5b5f-8df4-3c4317a3cf7e"
 setup = """## Setup
 
 This rule requires ESXi host logs collected by the Elastic vSphere integration: https://www.elastic.co/docs/reference/integrations/vsphere
 """
-risk_score = 21
-rule_id = "a7f969e5-6cfd-5b5f-8df4-3c4317a3cf7e"
 severity = "low"
 tags = [
     "Domain: Endpoint",
@@ -69,8 +71,9 @@ timestamp_override = "event.ingested"
 type = "query"
 
 query = '''
-data_stream.dataset: "vsphere.log" and event.module: "vsphere" and message: ("esxcli" and "vm process list")
+data_stream.dataset:"vsphere.log" and event.module:"vsphere" and (message:("esxcli" and "vm process list") or (process.name:"envoy-access" and message:"VimEsxCLIvmprocesslist"))
 '''
+
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -79,16 +82,11 @@ id = "T1057"
 name = "Process Discovery"
 reference = "https://attack.mitre.org/techniques/T1057/"
 
+
 [rule.threat.tactic]
 id = "TA0007"
 name = "Discovery"
 reference = "https://attack.mitre.org/tactics/TA0007/"
 
 [rule.investigation_fields]
-field_names = [
-    "@timestamp",
-    "message",
-    "event.original",
-    "host.hostname",
-    "log.file.path",
-]
+field_names = ["@timestamp", "message", "event.original", "host.hostname", "log.file.path"]
