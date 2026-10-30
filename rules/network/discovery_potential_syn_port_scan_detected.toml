@@ -2,24 +2,23 @@
 creation_date = "2023/05/17"
 integration = ["network_traffic", "panw"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 
 [rule]
 author = ["Elastic"]
 description = """
-This rule identifies a potential SYN-Based port scan. A SYN port scan is a technique employed by attackers to scan a
-target network for open ports by sending SYN packets to multiple ports and observing the response. Attackers use this
-method to identify potential entry points or services that may be vulnerable to exploitation, allowing them to launch
-targeted attacks or gain unauthorized access to the system or network, compromising its security and potentially leading
-to data breaches or further malicious activities. This rule defines a threshold-based approach to detect connection
-attempts from a single source to a large number of unique destination ports, while limiting the number of packets per port.
+This rule identifies a potential low-packet port scan. It detects final flows or firewall connection attempts from one
+internal source to many destination ports on one destination and transport, while requiring no more than two packets in
+each matching observation. Attackers can use low-packet scans to identify exposed services while minimizing completed
+connections. Low packet count is a scan heuristic and does not by itself prove that the traffic contains bare TCP SYN
+packets.
 """
 from = "now-9m"
 index = ["logs-network_traffic.*", "packetbeat-*", "filebeat-*", "logs-panw.panos*"]
 language = "kuery"
 license = "Elastic License v2"
 max_signals = 5
-name = "Potential SYN-Based Port Scan Detected"
+name = "Potential Low-Packet Port Scan Detected"
 risk_score = 21
 rule_id = "bbaa96b9-f36c-4898-ace2-581acb00a409"
 severity = "low"
@@ -39,21 +38,45 @@ tags = [
 timestamp_override = "event.ingested"
 type = "threshold"
 query = '''
-event.action:(network_flow or flow_started) and destination.port:* and network.packets <= 2 and source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
+(
+  (
+    data_stream.dataset:network_traffic.flow and
+    event.action:network_flow and
+    network_traffic.flow.final:true
+  ) or
+  (
+    type:flow and
+    event.action:network_flow and
+    flow.final:true
+  ) or
+  (
+    (data_stream.dataset:panw.panos or event.dataset:panw.panos) and
+    panw.panos.type:TRAFFIC and
+    event.action:flow_started
+  )
+) and
+destination.port:* and
+network.transport:(tcp or udp) and
+network.packets <= 2 and
+source.ip:(10.0.0.0/8 or 172.16.0.0/12 or 192.168.0.0/16)
 '''
 note = """## Triage and analysis
 
 > **Disclaimer**:
 > This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-### Investigating Potential SYN-Based Port Scan Detected
+### Investigating Potential Low-Packet Port Scan Detected
 
-SYN-based port scanning is a reconnaissance technique where attackers send SYN packets to multiple ports to identify open services. This method helps adversaries map network vulnerabilities for potential exploitation. The detection rule identifies such scans by flagging connection attempts from internal IPs to multiple ports with minimal packet exchange, indicating a low-risk reconnaissance activity.
+Low-packet port scanning is a reconnaissance technique where an actor probes many ports while completing little or no
+application exchange. This method helps adversaries identify exposed services for potential exploitation. The rule
+flags final flows or firewall attempt records from an internal source to many ports on one destination and transport
+when each observation contains no more than two packets. The heuristic does not verify TCP SYN flags.
 
 ### Possible investigation steps
 
-- Review the source IP address involved in the alert to determine if it belongs to a known or authorized device within the network. Check for any recent changes or unusual activity associated with this IP.
+- Review the source IP address involved in the alert to determine if it belongs to a known or authorized scanner. Check for any recent changes or unusual activity associated with this IP.
 - Analyze the destination ports targeted by the scan to identify any patterns or specific services that may be of interest to the attacker. Determine if these ports are associated with critical or vulnerable services.
+- Review `network.transport` and raw flow or firewall records. For TCP, inspect TCP flags or connection state from another source before classifying the activity as a SYN scan.
 - Examine historical logs to identify any previous scanning activity from the same source IP or similar patterns of behavior. This can help establish whether the activity is part of a larger reconnaissance effort.
 - Correlate the alert with other security events or alerts to assess if there is a broader attack campaign underway. Look for related alerts that might indicate subsequent exploitation attempts.
 - Investigate the timing and frequency of the scan attempts to understand if they coincide with other suspicious activities or known attack windows. This can provide context on the attacker's intent and urgency.
@@ -63,7 +86,7 @@ SYN-based port scanning is a reconnaissance technique where attackers send SYN p
 
 - Internal network scanning tools or scripts used by IT teams for legitimate network mapping can trigger this rule. To manage this, create exceptions for known internal IP addresses or subnets used by IT for network discovery.
 - Automated monitoring systems or security appliances that perform regular port checks might be flagged. Identify these systems and exclude their IP addresses from the rule to prevent false positives.
-- Software updates or patch management systems that check multiple ports for service availability can be mistaken for a SYN-based port scan. Whitelist these systems to avoid unnecessary alerts.
+- Software updates or patch management systems that check multiple ports for service availability can be mistaken for a low-packet port scan. Add exceptions for these systems after validation.
 - Load balancers or network devices that perform health checks across multiple ports may trigger the rule. Exclude these devices from the rule to ensure accurate detection.
 - Development or testing environments where multiple port scans are part of routine operations can cause false positives. Implement exceptions for these environments to maintain focus on genuine threats.
 
@@ -71,11 +94,33 @@ SYN-based port scanning is a reconnaissance technique where attackers send SYN p
 
 - Isolate the affected internal IP address to prevent further reconnaissance or potential exploitation of identified open ports.
 - Conduct a thorough review of firewall and network access control lists to ensure that only necessary ports are open and accessible from internal networks.
-- Implement rate limiting on SYN packets to reduce the risk of successful port scanning and reconnaissance activities.
+- Implement appropriate connection-attempt rate limits or access controls to reduce unauthorized scanning.
 - Monitor the network for any unusual outbound traffic from the affected IP address, which may indicate further malicious activity or data exfiltration attempts.
 - Escalate the incident to the security operations team for further analysis and to determine if additional network segments or systems are affected.
-- Update intrusion detection and prevention systems to enhance detection capabilities for similar SYN-based port scanning activities.
+- Update intrusion detection and prevention systems to enhance detection capabilities for similar low-packet scanning activity.
 - Review and update network segmentation policies to limit the exposure of critical services and systems to internal reconnaissance activities."""
+setup = """## Setup
+
+This rule supports final flow records from the Elastic Network Packet Capture integration and PAN-OS traffic attempt
+records. It also retains a compatibility branch for standalone Packetbeat.
+
+For Network Packet Capture, enable ECS compatibility so completed flows contain
+`data_stream.dataset:network_traffic.flow`, `event.action:network_flow`, and
+`network_traffic.flow.final:true`. The standalone Packetbeat branch uses the root `flow.final` field and requires
+`type:flow`.
+
+This rule requires cumulative lifetime flow counters. For standalone Packetbeat, configure
+`packetbeat.flows.enable_delta_flow_reports: false`. Network Packet Capture package 1.34.3 does not expose that setting
+in its Fleet policy template and uses cumulative reports by default; verify the deployed package and agent version
+before relying on the rule. Delta flow reporting is unsupported because a final delta can contain zero or few packets
+even when the complete connection transferred many packets.
+
+For PAN-OS, ingest TRAFFIC records through the PAN-OS integration. The rule counts session starts and does not include
+terminated, dropped, or denied flows.
+
+The rule evaluates TCP and UDP separately. The `network.packets <= 2` condition identifies low-packet observations but
+is not TCP-flag evidence. Create exceptions for approved scanners and monitoring infrastructure after validation.
+"""
 
 [[rule.threat]]
 framework = "MITRE ATT&CK"
@@ -109,7 +154,7 @@ name = "Reconnaissance"
 reference = "https://attack.mitre.org/tactics/TA0043/"
 
 [rule.threshold]
-field = ["destination.ip", "source.ip"]
+field = ["destination.ip", "source.ip", "network.transport"]
 value = 1
 
 [[rule.threshold.cardinality]]
