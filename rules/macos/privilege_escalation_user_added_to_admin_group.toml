@@ -2,14 +2,14 @@
 creation_date = "2024/09/12"
 integration = ["jamf_protect"]
 maturity = "production"
-updated_date = "2026/09/18"
+updated_date = "2026/10/26"
 [transform]
 [[transform.investigate]]
 label = "Show events having the same responsible process"
 providers = [
   [
     { excluded = false, field = "host.hostname", queryType = "phrase", value = "{{host.hostname}}", valueType = "string" },
-    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.group_leader.entity_id}}", valueType = "string" }
+    { excluded = false, field = "process.entity_id", queryType = "phrase", value = "{{process.responsible.entity_id}}", valueType = "string" }
   ]
 ]
 
@@ -33,16 +33,37 @@ license = "Elastic License v2"
 name = "User Added to the Admin Group"
 note = """## Triage and analysis
 
-To thoroughly investigate the actions that occurred **after a user was elevated to administrator**, it's essential to conduct a search on the Timeline. This allows you to review and understand the sequence of events that followed the elevation, helping to identify any potentially malicious or unauthorized activities that might have taken place. **Analyzing these actions is crucial for maintaining security and ensuring that the elevation was not exploited for harmful purposes.**
+> **Disclaimer**:
+> This investigation guide was created using generative AI technology and has been reviewed to improve its accuracy and relevance. While every effort has been made to ensure its quality, we recommend validating the content and adapting it to suit your specific environment and operational needs.
 
-**Consider reviewing these actions:**
+### Investigating User Added to the Admin Group
 
-- Have persistency items been added?
-- Is any software installed after elevation?
-- Were any additional users created after elevation?
+Members of the macOS `admin` group can use `sudo`, install software, and change system-wide settings. Adversaries who gain a foothold may add an account they control to this group, using tools such as `dscl` or `dseditgroup`, to escalate privileges or keep privileged access. This rule uses Jamf Protect telemetry to alert when a user is added to the `admin` group.
 
-$investigate_0
-$investigate_1
+### Possible investigation steps
+
+- Identify the account that was added to the `admin` group (`user.name`) and the account that performed the change (`process.user.name`), and confirm whether the change was requested or approved.
+- Review the process that made the change (`process.executable`, for example `dscl`, `dseditgroup`, `sysadminctl`, or System Settings), its parent (`process.parent.executable`), and its responsible process (`process.responsible.executable`) to determine whether the change was interactive or scripted.
+  - $investigate_0
+  - $investigate_1
+- Determine whether the added account was recently created, and whether it is hidden or has an unusual name or UID.
+- Search the timeline for activity that followed the elevation, such as new persistence items (LaunchAgents, LaunchDaemons, login items), software installation, additional user creation, or security setting changes.
+- Review authentication activity for the added account, including remote logins over SSH or Screen Sharing.
+- Review other alerts for the same host to identify the initial access or execution activity that preceded the group change.
+
+### False positive analysis
+
+- IT administrators, device management solutions, and privilege management tools legitimately add users to the `admin` group during provisioning or temporary elevation. Verify the change against change tickets or the expected management workflow.
+- When the activity is confirmed benign, create an exception for the specific management process or service account rather than for the `admin` group.
+
+### Response and remediation
+
+- Remove the account from the `admin` group if the change was not authorized.
+- Disable or delete the account if it was created by the attacker, and reset the credentials of any compromised legitimate account.
+- Review and revert changes made with the elevated privileges, such as persistence items, installed software, and modified security settings.
+- Isolate the host if follow-on malicious activity is identified.
+- Investigate how the attacker obtained the privileges required to modify group membership and remediate the initial access vector.
+- Escalate to the incident response team and check other macOS hosts for similar group membership changes.
 """
 references = [
     "https://www.loobins.io/binaries/dscl/",
@@ -80,7 +101,6 @@ tags = [
     "Performance: Fast",
     "Rule Type: Event Correlation (EQL)",
     "Platform: macOS",
-    "Data Source: Jamf Protect Event Logs",
 ]
 timestamp_override = "event.ingested"
 type = "eql"
